@@ -7,3 +7,4 @@ rootProject.name = 'funcify-graphql'
 include(':funcify-data-service')
 include(':funcify-data-schema')
 include(':funcify-data-fetcher')
+include(':funcify-tools')
