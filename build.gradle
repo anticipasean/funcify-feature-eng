@@ -2,6 +2,7 @@ plugins {
     id 'java-library'
     id 'org.jetbrains.kotlin.jvm' version "${kotlinVersion}"
     id 'org.jetbrains.kotlin.plugin.spring' version "${kotlinVersion}" apply false
+    id "org.springframework.boot" version "${springBootPluginVersion}"
 }
 
 jar {
@@ -14,6 +15,10 @@ allprojects {
 
     repositories {
         mavenCentral()
+        maven {
+            name = "Spring Milestone"
+            url = "https://repo.spring.io/milestone"
+        }
     }
 }
 
@@ -52,10 +57,31 @@ subprojects {
                 testImplementation("io.projectreactor.addons:reactor-extra:${reactorExtraVersion}")
             }
         }
+        spring {
+            dependencies {
+                implementation("org.springframework.boot:spring-boot-starter-webflux:${springBootPluginVersion}")
+                testImplementation("org.springframework.boot:spring-boot-starter-webflux:${springBootPluginVersion}")
+                testImplementation("org.springframework.boot:spring-boot-starter-test:${springBootPluginVersion}")
+            }
+        }
         junit {
             dependencies {
                 testImplementation(platform("org.junit:junit-bom:${jUnitJupiterVersion}"))
                 testImplementation("org.junit.jupiter:junit-jupiter")
+            }
+        }
+        camel {
+            dependencies {
+                implementation("org.apache.camel:camel-reactor:${apacheCamelVersion}")
+                implementation("org.apache.camel:camel-drill:${apacheCamelVersion}")
+            }
+        }
+        graphql {
+            dependencies {
+                // not currently available on maven_central but is available on spring milestone
+                implementation("org.springframework.graphql:spring-graphql:${springGraphQLVersion}")
+                implementation("com.netflix.graphql.dgs:graphql-dgs-webflux-starter:${dgsVersion}")
+                implementation("com.netflix.graphql.dgs:graphql-dgs-extended-scalars:${dgsVersion}")
             }
         }
     }

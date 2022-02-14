@@ -3,7 +3,6 @@
  */
 package funcify.graphql.app
 
-import funcify.graphql.service.MessageUtils
 import org.junit.jupiter.api.Test
 
 import org.junit.jupiter.api.Assertions.assertEquals
