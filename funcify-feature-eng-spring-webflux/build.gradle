@@ -1,14 +1,7 @@
-apply plugin: "org.jetbrains.kotlin.plugin.spring"
-
-configurations {
-
-}
-
 dependencies {
     /**
      * Project Dependencies
      */
-    implementation(project(':funcify-feature-eng-api-contract'))
     implementation(project(':funcify-feature-eng-tools'))
     implementation(project(':funcify-feature-eng-schema'))
     implementation(project(':funcify-feature-eng-common'))
@@ -18,6 +11,4 @@ dependencies {
     implementation(project(':funcify-feature-eng-db-data-source'))
     implementation(project(':funcify-feature-eng-rest-data-source'))
     implementation(project(':funcify-feature-eng-data-fetcher'))
-    implementation(project(':funcify-feature-eng-service'))
-
 }

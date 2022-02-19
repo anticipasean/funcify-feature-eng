@@ -78,5 +78,15 @@ subprojects {
                 implementation("com.netflix.graphql.dgs:graphql-dgs-extended-scalars:${dgsVersion}")
             }
         }
+        validator {
+            dependencies {
+                implementation("javax.validation:validation-api:${javaxValidationVersion}")
+                implementation("org.hibernate.validator:hibernate-validator:${hibernateValidatorVersion}")
+                implementation("org.hibernate.validator:hibernate-validator-annotation-processor:${hibernateValidatorVersion}")
+                testImplementation("javax.validation:validation-api:${javaxValidationVersion}")
+                testImplementation("org.hibernate.validator:hibernate-validator:${hibernateValidatorVersion}")
+                testImplementation("org.hibernate.validator:hibernate-validator-annotation-processor:${hibernateValidatorVersion}")
+            }
+        }
     }
 }
