@@ -614,7 +614,14 @@ interface Async<out V> : Iterable<V> {
 
     fun blockLast(): Try<V> {
         return fold({ vList ->
-                        Try.attempt { vList.firstOrNone() }
+                        Try.attempt {
+                            if (vList.size >= 1) {
+                                vList.get(vList.size - 1)
+                                        .toOption()
+                            } else {
+                                None
+                            }
+                        }
                                 .flatMap { vOpt -> Try.fromOption(vOpt) }
                     }, { thr ->
                         Try.failure(thr)
