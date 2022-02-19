@@ -3,8 +3,15 @@ pluginManagement {
         gradlePluginPortal()
     }
 }
-rootProject.name = 'funcify-graphql'
-include(':funcify-data-service')
-include(':funcify-data-schema')
-include(':funcify-data-fetcher')
-include(':funcify-tools')
+rootProject.name = 'funcify-feature-eng'
+include('funcify-feature-eng-api-contract')
+include('funcify-feature-eng-tools')
+include('funcify-feature-eng-schema')
+include('funcify-feature-eng-common')
+include('funcify-feature-eng-graphql')
+include('funcify-feature-eng-materializer')
+include('funcify-feature-eng-data-source')
+include('funcify-feature-eng-db-data-source')
+include('funcify-feature-eng-rest-data-source')
+include('funcify-feature-eng-data-fetcher')
+include('funcify-feature-eng-service')

@@ -1,0 +1,32 @@
+apply plugin: "org.jetbrains.kotlin.plugin.spring"
+
+configurations {
+
+}
+
+dependencies {
+    /**
+     * Project Dependencies
+     */
+    implementation(project(':funcify-feature-eng-api-contract'))
+    implementation(project(':funcify-feature-eng-tools'))
+    implementation(project(':funcify-feature-eng-schema'))
+    implementation(project(':funcify-feature-eng-common'))
+    implementation(project(':funcify-feature-eng-graphql'))
+    implementation(project(':funcify-feature-eng-materializer'))
+    implementation(project(':funcify-feature-eng-data-source'))
+    implementation(project(':funcify-feature-eng-db-data-source'))
+    implementation(project(':funcify-feature-eng-rest-data-source'))
+    implementation(project(':funcify-feature-eng-data-fetcher'))
+    implementation(project(':funcify-feature-eng-service'))
+
+
+    /**
+     * 3rd Party Dependencies
+     */
+    implementation("org.springframework.boot:spring-boot-starter-webflux:${springBootPluginVersion}")
+    testImplementation("org.springframework.boot:spring-boot-starter-webflux:${springBootPluginVersion}")
+    testImplementation("org.springframework.boot:spring-boot-starter-test:${springBootPluginVersion}")
+
+
+}

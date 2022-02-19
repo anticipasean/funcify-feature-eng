@@ -1,0 +1,9 @@
+
+
+configurations {
+    calcite {
+        dependencies {
+            implementation("org.apache.calcite:calcite-core:${apacheCalciteVersion}")
+        }
+    }
+}

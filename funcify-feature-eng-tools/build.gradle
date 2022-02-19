@@ -1,0 +1,19 @@
+
+
+configurations {
+    reactor {
+        dependencies {
+            implementation("io.projectreactor:reactor-core:${reactorCoreVersion}")
+            implementation("io.projectreactor.addons:reactor-extra:${reactorExtraVersion}")
+            implementation("io.projectreactor.kotlin:reactor-kotlin-extensions:${reactorKotlinExtensionsVersion}")
+            testImplementation("io.projectreactor:reactor-core:${reactorCoreVersion}")
+            testImplementation("io.projectreactor.addons:reactor-extra:${reactorExtraVersion}")
+            testImplementation("io.projectreactor.kotlin:reactor-kotlin-extensions:${reactorKotlinExtensionsVersion}")
+            testImplementation("io.projectreactor:reactor-test:${reactorCoreVersion}")
+        }
+    }
+}
+
+dependencies {
+
+}

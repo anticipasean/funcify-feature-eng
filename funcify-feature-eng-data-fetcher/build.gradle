@@ -1,0 +1,6 @@
+
+
+dependencies {
+    implementation(project(":funcify-feature-eng-schema"))
+    implementation(project(":funcify-feature-eng-api-contract"))
+}

@@ -70,12 +70,6 @@ subprojects {
                 testImplementation("org.junit.jupiter:junit-jupiter")
             }
         }
-        camel {
-            dependencies {
-                implementation("org.apache.camel:camel-reactor:${apacheCamelVersion}")
-                implementation("org.apache.camel:camel-drill:${apacheCamelVersion}")
-            }
-        }
         graphql {
             dependencies {
                 // not currently available on maven_central but is available on spring milestone
