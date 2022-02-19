@@ -1,5 +1,7 @@
 package funcify.feature.graphql.response
 
+import graphql.ExecutionResult
+
 
 /**
  *
@@ -7,5 +9,7 @@ package funcify.feature.graphql.response
  * @created 2/13/22
  */
 interface SerializedGraphQLResponse {
+
+    val executionResult: ExecutionResult
 
 }

@@ -16,7 +16,5 @@ enum class RawDataSourceType : DataSourceType {
     TIMESERIES_DATABASE,
     TRANSFORMER;
 
-    override fun getName(): String {
-        return name;
-    }
+
 }

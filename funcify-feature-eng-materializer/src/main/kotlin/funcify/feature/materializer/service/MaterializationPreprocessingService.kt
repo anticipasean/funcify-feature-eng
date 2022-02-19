@@ -1,6 +1,6 @@
 package funcify.feature.materializer.service
 
-import funcify.feature.materializer.session.MaterializationSession
+import funcify.feature.materializer.session.FeatureMaterializationSession
 import funcify.feature.tools.container.async.Async
 
 
@@ -11,6 +11,6 @@ import funcify.feature.tools.container.async.Async
  */
 interface MaterializationPreprocessingService {
 
-    fun findMatchingSchematicVerticesForInputValues(materializationSession: MaterializationSession): Async<MaterializationSession>
+    fun findMatchingSchematicVerticesForInputValues(featureMaterializationSession: FeatureMaterializationSession): Async<FeatureMaterializationSession>
 
 }

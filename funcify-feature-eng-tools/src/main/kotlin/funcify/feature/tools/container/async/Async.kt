@@ -198,6 +198,10 @@ interface Async<out V> : Iterable<V> {
             return deferred(FluxValue<V>(fluxValue))
         }
 
+        fun <V> fromMono(monoValue: Mono<V>): Async<V> {
+            return deferred(FluxValue<V>(monoValue.flux()))
+        }
+
         fun <V> fromNullableFluxValue(fluxValue: Flux<V?>): Async<V> {
             return deferred(FluxValue<V>(fluxValue.filter { v -> v != null }
                                                  .map { v -> v!! }))

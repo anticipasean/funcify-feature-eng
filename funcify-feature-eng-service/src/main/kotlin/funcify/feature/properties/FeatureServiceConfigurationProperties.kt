@@ -1,6 +1,5 @@
 package funcify.feature.properties
 
-import com.fasterxml.jackson.annotation.JsonProperty
 import funcify.feature.tool.validation.ValidTimeZone
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -8,7 +7,6 @@ import org.springframework.beans.factory.InitializingBean
 import org.springframework.boot.context.properties.ConfigurationProperties
 import org.springframework.context.annotation.Configuration
 import org.springframework.validation.annotation.Validated
-import java.util.*
 import javax.validation.constraints.NotBlank
 import javax.validation.constraints.NotEmpty
 
@@ -20,7 +18,7 @@ import javax.validation.constraints.NotEmpty
  */
 @Validated
 @Configuration
-@ConfigurationProperties(prefix = "funcify-feature-eng-service")
+@ConfigurationProperties(prefix = "funcify.feature-eng-service")
 data class FeatureServiceConfigurationProperties(
 
         @get:ValidTimeZone

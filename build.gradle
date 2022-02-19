@@ -9,6 +9,10 @@ jar {
     enabled = false
 }
 
+bootJar {
+    enabled = false
+}
+
 allprojects {
     sourceCompatibility = sourceCompatibility
     targetCompatibility = targetCompatibility
@@ -74,6 +78,7 @@ subprojects {
             dependencies {
                 // not currently available on maven_central but is available on spring milestone
                 implementation("org.springframework.graphql:spring-graphql:${springGraphQLVersion}")
+                implementation("com.querydsl:querydsl-core:5.0.0")
                 implementation("com.netflix.graphql.dgs:graphql-dgs-webflux-starter:${dgsVersion}")
                 implementation("com.netflix.graphql.dgs:graphql-dgs-extended-scalars:${dgsVersion}")
             }

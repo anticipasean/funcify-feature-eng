@@ -12,6 +12,6 @@ import funcify.feature.tools.container.async.Async
  */
 interface GraphQLRequestExecutor {
 
-    fun execute(rawGraphQLRequest: RawGraphQLRequest): Async<SerializedGraphQLResponse>
+    fun executeRequest(rawGraphQLRequest: RawGraphQLRequest): Async<SerializedGraphQLResponse>
 
 }
