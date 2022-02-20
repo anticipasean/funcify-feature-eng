@@ -11,9 +11,8 @@ import funcify.feature.contract.RawDataElement
  */
 interface DataRetriever<C, V> : DataElementFetcher<C, V> {
 
-    override fun getDataElement(): DataElement {
-        return getRawDataElement()
-    }
+    override val dataElement: DataElement
+        get() = getRawDataElement()
 
     fun getRawDataElement(): RawDataElement
 

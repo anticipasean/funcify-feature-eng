@@ -12,8 +12,8 @@ import funcify.feature.schema.datasource.SourceIndex
  */
 interface RestApiSourceIndex : SourceIndex {
 
-    override fun getDataSourceType(): DataSourceType {
-        return RawDataSourceType.REST_API;
-    }
+    override val dataSourceType: DataSourceType
+        get() = RawDataSourceType.REST_API
+
 
 }

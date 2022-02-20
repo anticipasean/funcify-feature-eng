@@ -20,7 +20,8 @@ class DatabaseDatasourcesConfiguration {
 
     @ConditionalOnBean(value = [SQLServerConnectionProperties::class])
     @Bean
-    fun sqlServerConnectionConfiguration(@Value("\${spring.application.name:svc-ml-features}") applicationName: String,
+    fun sqlServerConnectionConfiguration(@Value("\${spring.application.name:svc-ml-features}")
+                                         applicationName: String,
                                          sqlServerConnectionProperties: SQLServerConnectionProperties): MssqlConnectionConfiguration {
         return MssqlConnectionConfiguration.builder()
                 .applicationName(applicationName)

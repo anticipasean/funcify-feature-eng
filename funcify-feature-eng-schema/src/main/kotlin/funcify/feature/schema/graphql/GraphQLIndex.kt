@@ -11,10 +11,10 @@ import graphql.schema.GraphQLType
  */
 interface GraphQLIndex {
 
-    fun getPath(): SchematicPath
+    val path: SchematicPath
 
-    fun getName(): String
+    val name: String
 
-    fun getType(): GraphQLType
+    val type: GraphQLType
 
 }

@@ -11,9 +11,9 @@ import funcify.feature.contract.DerivedDataElement
  */
 interface DataTransformer<C, V> : DataElementFetcher<C, V> {
 
-    override fun getDataElement(): DataElement {
-        return getDerivedDataElement()
-    }
+    override val dataElement: DataElement
+        get() = getDerivedDataElement()
+
 
     fun getDerivedDataElement(): DerivedDataElement
 

@@ -13,8 +13,8 @@ interface SourceContainerType<out A : SourceAttribute> : SourceIndex {
     /**
      * A set since order is not guaranteed
      */
-    fun getSourceAttributes(): ImmutableSet<A>
+    val sourceAttributes: ImmutableSet<A>
 
-    fun getSourceAttributeByName(): SourceAttribute?
+    val sourceAttributeByName: SourceAttribute?
 
 }

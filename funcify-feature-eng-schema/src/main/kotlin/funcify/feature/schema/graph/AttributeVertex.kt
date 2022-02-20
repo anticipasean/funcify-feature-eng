@@ -14,6 +14,6 @@ import funcify.feature.schema.SchematicVertex
  */
 interface AttributeVertex : SchematicVertex {
 
-    fun getCompositeAttribute(): CompositeAttribute
+    val compositeAttribute: CompositeAttribute
 
 }

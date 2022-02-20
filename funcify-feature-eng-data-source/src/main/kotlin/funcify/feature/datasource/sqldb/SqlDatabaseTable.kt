@@ -8,19 +8,19 @@ package funcify.feature.datasource.sqldb
  */
 interface SqlDatabaseTable {
 
-    fun getDatabaseCatalogName(): String
+    val databaseCatalogName: String
 
-    fun getSchemaName(): String
+    val schemaName: String
 
-    fun getTableName(): String
+    val tableName: String
 
     fun mkString(): String {
         return when {
-            getDatabaseCatalogName().isNotEmpty() && getSchemaName().isNotEmpty() && getTableName().isNotEmpty() -> {
-                "${getDatabaseCatalogName()}.${getSchemaName()}.${getTableName()}"
+            databaseCatalogName.isNotEmpty() && schemaName.isNotEmpty() && tableName.isNotEmpty() -> {
+                "${databaseCatalogName}.${schemaName}.${tableName}"
             }
-            getSchemaName().isNotEmpty() && getTableName().isNotEmpty() -> "${getSchemaName()}.${getTableName()}"
-            getTableName().isNotEmpty() -> getTableName()
+            schemaName.isNotEmpty() && tableName.isNotEmpty() -> "${schemaName}.${tableName}"
+            tableName.isNotEmpty() -> tableName
             else -> ""
         }
     }

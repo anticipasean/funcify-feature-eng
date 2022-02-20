@@ -12,10 +12,10 @@ import funcify.feature.schema.datasource.SourceIndex
  */
 interface SqlDatabaseSourceIndex : SourceIndex {
 
-    override fun getDataSourceType(): DataSourceType {
-        return RawDataSourceType.RELATIONAL_DATABASE;
-    }
+    override val dataSourceType: DataSourceType
+        get() = RawDataSourceType.RELATIONAL_DATABASE
 
-    fun getSqlDatabaseTable(): SqlDatabaseTable
+
+    val sqlDatabaseTable: SqlDatabaseTable
 
 }

@@ -12,7 +12,8 @@ import kotlinx.collections.immutable.ImmutableMap
  */
 interface CompositeContainerType : CompositeIndex {
 
-    override fun canBeSourcedFrom(sourceType: DataSourceType): Boolean = getSourceContainerTypeByDataSourceType().containsKey(sourceType);
+    override fun canBeSourcedFrom(sourceType: DataSourceType): Boolean =
+            getSourceContainerTypeByDataSourceType().containsKey(sourceType);
 
     fun getSourceContainerTypeByDataSourceType(): ImmutableMap<DataSourceType, SourceContainerType<*>>
 

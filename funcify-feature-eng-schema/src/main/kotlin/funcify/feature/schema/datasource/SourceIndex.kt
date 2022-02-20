@@ -12,10 +12,10 @@ import funcify.feature.schema.SchematicPath
  */
 interface SourceIndex {
 
-    fun getDataSourceType(): DataSourceType
+    val dataSourceType: DataSourceType
 
-    fun getName(): String
+    val name: String
 
-    fun getCanonicalPath(): SchematicPath
+    val canonicalPath: SchematicPath
 
 }

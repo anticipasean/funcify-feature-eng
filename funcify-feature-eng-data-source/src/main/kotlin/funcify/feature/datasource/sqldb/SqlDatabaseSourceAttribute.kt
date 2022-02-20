@@ -10,6 +10,6 @@ import funcify.feature.schema.datasource.SourceAttribute
  */
 interface SqlDatabaseSourceAttribute : SqlDatabaseSourceIndex, SourceAttribute {
 
-    fun getColumnName(): String
+    val columnName: String
 
 }

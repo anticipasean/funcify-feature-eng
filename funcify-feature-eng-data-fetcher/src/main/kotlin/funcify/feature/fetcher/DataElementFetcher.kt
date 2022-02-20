@@ -11,6 +11,6 @@ import funcify.feature.contract.DataElement
  */
 interface DataElementFetcher<C, V> : (C) -> V {
 
-    fun getDataElement(): DataElement
+    val dataElement: DataElement
 
 }

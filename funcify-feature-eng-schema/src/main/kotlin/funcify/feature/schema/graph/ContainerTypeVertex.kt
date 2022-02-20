@@ -26,6 +26,6 @@ import funcify.feature.schema.SchematicVertex
  */
 interface ContainerTypeVertex : SchematicVertex {
 
-    fun getCompositeObjectType(): CompositeContainerType
+    val compositeContainerType: CompositeContainerType
 
 }

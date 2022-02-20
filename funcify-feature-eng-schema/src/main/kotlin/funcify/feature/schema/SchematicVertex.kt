@@ -8,8 +8,8 @@ package funcify.feature.schema
  */
 interface SchematicVertex {
 
-    fun getPath(): SchematicPath
+    val path: SchematicPath
 
-    fun getCompositeIndex(): CompositeIndex
+    val compositeIndex: CompositeIndex
 
 }
