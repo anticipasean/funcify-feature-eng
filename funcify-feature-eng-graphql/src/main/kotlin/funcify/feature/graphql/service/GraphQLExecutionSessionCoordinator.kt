@@ -1,6 +1,6 @@
 package funcify.feature.graphql.service
 
-import funcify.feature.graphql.session.GraphQLExecutionSession
+import funcify.feature.graphql.session.GraphQLSingleRequestSession
 import funcify.feature.tools.container.async.Async
 
 
@@ -11,6 +11,6 @@ import funcify.feature.tools.container.async.Async
  */
 interface GraphQLExecutionSessionCoordinator {
 
-    fun conductSession(session: GraphQLExecutionSession): Async<GraphQLExecutionSession>
+    fun conductSingleRequestSession(session: GraphQLSingleRequestSession): Async<GraphQLSingleRequestSession>
 
 }

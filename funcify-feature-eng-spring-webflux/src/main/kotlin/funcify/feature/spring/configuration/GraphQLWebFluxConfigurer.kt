@@ -1,6 +1,6 @@
 package funcify.feature.spring.configuration
 
-import funcify.feature.spring.router.GraphQLWebFluxRouter
+import funcify.feature.spring.router.GraphQLWebFluxHandlerFunction
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -20,21 +20,19 @@ import org.springframework.web.reactive.function.server.ServerResponse
 open class GraphQLWebFluxConfigurer {
 
     companion object {
-
-        private const val APPLICATION_GRAPHQL = "application/graphql"
-
+        private const val MEDIA_TYPE_APPLICATION_GRAPHQL_VALUE = "application/graphql"
     }
 
     @Bean
     open fun graphQLWebFluxRouterFunction(@Value("\${funcify.feature-eng-service.graphql.path:/graphql}")
                                           graphQLPath: String,
-                                          graphQLWebFluxRouter: GraphQLWebFluxRouter): RouterFunction<ServerResponse> {
+                                          graphQLWebFluxHandlerFunction: GraphQLWebFluxHandlerFunction): RouterFunction<ServerResponse> {
         return RouterFunctions.route()
                 .POST(graphQLPath,
                       RequestPredicates.accept(MediaType.APPLICATION_JSON,
-                                               MediaType.valueOf(APPLICATION_GRAPHQL)
+                                               MediaType.valueOf(MEDIA_TYPE_APPLICATION_GRAPHQL_VALUE)
                                               ),
-                      graphQLWebFluxRouter::graphql
+                      graphQLWebFluxHandlerFunction::handle
                      )
                 .build()
     }
