@@ -1,8 +1,7 @@
 package funcify.feature.spring.router
 
-import arrow.core.None
+import arrow.core.Option
 import arrow.core.getOrElse
-import arrow.core.some
 import arrow.core.toOption
 import com.fasterxml.jackson.databind.JsonNode
 import funcify.feature.graphql.request.DefaultRawGraphQLRequest
@@ -64,11 +63,7 @@ class GraphQLWebFluxRouter(val graphQLRequestExecutor: GraphQLRequestExecutor,
                     .firstHeader(HttpHeaders.CONTENT_TYPE) -> {
                 request.bodyToMono(String::class.java)
                         .flatMap { gqlText ->
-                            gqlText.toOption()
-                                    .map { rawText ->
-                                        Mono.just(rawText)
-                                    }
-                                    .getOrElse { Mono.error(IllegalArgumentException("raw_graphql_input_text is null")) }
+                            gqlText.toMono("raw_graphql_text_input")
                         }
                         .map { txt ->
                             DefaultRawGraphQLRequest(uri = request.uri(),
@@ -86,9 +81,7 @@ class GraphQLWebFluxRouter(val graphQLRequestExecutor: GraphQLRequestExecutor,
                     .firstHeader(HttpHeaders.CONTENT_TYPE) -> {
                 request.bodyToMono(JsonNode::class.java)
                         .flatMap { jn ->
-                            jn.toOption()
-                                    .map { j -> Mono.just(j) }
-                                    .getOrElse { Mono.error(IllegalArgumentException("could not extract json_node from content-type of request_body")) }
+                            jn.toMono("json_node_form_of_input")
                         }
                         .map { jn ->
                             DefaultRawGraphQLRequest(uri = request.uri(),
@@ -106,9 +99,7 @@ class GraphQLWebFluxRouter(val graphQLRequestExecutor: GraphQLRequestExecutor,
             else -> {
                 request.bodyToMono(STR_KEY_MAP_PARAMETERIZED_TYPE_REF)
                         .flatMap { map ->
-                            map.toOption()
-                                    .map { m -> Mono.just(m) }
-                                    .getOrElse { Mono.error(IllegalArgumentException("could not extract string_object map from content-type of request_body")) }
+                            map.toMono("string_key_map")
                         }
                         .map { map ->
                             DefaultRawGraphQLRequest(uri = request.uri(),
@@ -137,14 +128,10 @@ class GraphQLWebFluxRouter(val graphQLRequestExecutor: GraphQLRequestExecutor,
                         es.asSequence()
                                 .map { e ->
                                     e.value.toOption()
-                                            .fold({ None },
-                                                  { v ->
-                                                      (e.key.toString() to v).some()
-                                                  })
+                                            .map { v -> e.key.toString() to v }
                                 }
                                 .flatMap { opt ->
-                                    opt.fold({ emptySequence() },
-                                             { p -> sequenceOf(p) })
+                                    opt.toSequence()
                                 }
                                 .fold(mapOf<String, Any>(),
                                       { m, p -> m.plus(p) })
@@ -168,4 +155,22 @@ class GraphQLWebFluxRouter(val graphQLRequestExecutor: GraphQLRequestExecutor,
             request.exchange().localeContext.toOption()
                     .flatMap { lc -> lc.locale.toOption() }
                     .getOrElse { Locale.getDefault() }
+
+    private fun <T> Option<T>.toSequence(): Sequence<T> {
+        return this.fold({ emptySequence<T>() },
+                         { t -> sequenceOf(t) })
+    }
+
+    private fun <T> T?.toMono(nullableParameterName: String): Mono<T> {
+        return this.toOption()
+                .map { t -> Mono.just(t) }
+                .getOrElse {
+                    val message = """
+                                  |parameter $nullableParameterName is null but 
+                                  |is required for processing this request successfully
+                                  """.trimMargin()
+                    Mono.error(IllegalArgumentException(message))
+                }
+    }
+
 }
