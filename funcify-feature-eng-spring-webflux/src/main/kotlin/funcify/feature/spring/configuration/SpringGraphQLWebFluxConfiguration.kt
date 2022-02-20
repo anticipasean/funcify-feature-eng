@@ -17,7 +17,7 @@ import org.springframework.web.reactive.function.server.ServerResponse
  * @created 2/19/22
  */
 @Configuration
-open class GraphQLWebFluxConfigurer {
+open class SpringGraphQLWebFluxConfiguration {
 
     companion object {
         private const val MEDIA_TYPE_APPLICATION_GRAPHQL_VALUE = "application/graphql"
