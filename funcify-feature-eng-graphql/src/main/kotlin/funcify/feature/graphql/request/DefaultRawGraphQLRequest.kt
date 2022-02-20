@@ -3,10 +3,9 @@ package funcify.feature.graphql.request
 import arrow.core.getOrElse
 import arrow.core.toOption
 import graphql.execution.ExecutionId
-import org.springframework.web.reactive.function.server.ServerRequest
-import org.springframework.web.util.UriComponents
+import org.springframework.http.HttpHeaders
 import java.net.URI
-import java.util.*
+import java.util.Locale
 
 
 /**
@@ -15,7 +14,7 @@ import java.util.*
  * @created 2/19/22
  */
 data class DefaultRawGraphQLRequest(override val uri: URI,
-                                    override val headers: ServerRequest.Headers,
+                                    override val headers: HttpHeaders,
                                     override val rawGraphQLQueryText: String = "",
                                     override val operationName: String = "",
                                     override val variables: Map<String, Any> = mutableMapOf(),

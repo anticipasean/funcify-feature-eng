@@ -106,7 +106,7 @@ class GraphQLWebFluxHandlerFunction(val graphQLRequestExecutor: GraphQLRequestEx
                     }
                     .map { map ->
                         DefaultRawGraphQLRequest(uri = request.uri(),
-                                                 headers = request.headers(),
+                                                 headers = extractReadOnlyHttpHeadersFromRequest(request),
                                                  operationName = map[OPERATION_NAME_KEY].toOption()
                                                          .map { o -> o as String }
                                                          .getOrElse { "" },
@@ -126,7 +126,7 @@ class GraphQLWebFluxHandlerFunction(val graphQLRequestExecutor: GraphQLRequestEx
                     }
                     .map { jn ->
                         DefaultRawGraphQLRequest(uri = request.uri(),
-                                                 headers = request.headers(),
+                                                 headers = extractReadOnlyHttpHeadersFromRequest(request),
                                                  operationName = jn.findPath(OPERATION_NAME_KEY)
                                                          .asText(""),
                                                  rawGraphQLQueryText = jn.findPath(QUERY_KEY)
@@ -144,7 +144,7 @@ class GraphQLWebFluxHandlerFunction(val graphQLRequestExecutor: GraphQLRequestEx
                     }
                     .map { txt ->
                         DefaultRawGraphQLRequest(uri = request.uri(),
-                                                 headers = request.headers(),
+                                                 headers = extractReadOnlyHttpHeadersFromRequest(request),
                                                  rawGraphQLQueryText = txt,
                                                  locale = extractLocaleFromRequest(request),
                                                  executionInputCustomizers = graphQLExecutionInputCustomizers
@@ -185,4 +185,9 @@ class GraphQLWebFluxHandlerFunction(val graphQLRequestExecutor: GraphQLRequestEx
                     .getOrElse { mapOf<String, Any>() }
 
 
+    private fun extractReadOnlyHttpHeadersFromRequest(request: ServerRequest): HttpHeaders {
+        return HttpHeaders.readOnlyHttpHeaders(request.headers()
+                                                       .asHttpHeaders()
+                                              );
+    }
 }
