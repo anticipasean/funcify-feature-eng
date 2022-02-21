@@ -2,6 +2,8 @@ package funcify.feature.schema
 
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableMap
+import org.springframework.web.util.UriComponents
+import org.springframework.web.util.UriTemplate
 import java.net.URI
 
 

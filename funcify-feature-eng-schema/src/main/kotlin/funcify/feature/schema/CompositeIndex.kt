@@ -13,6 +13,6 @@ interface CompositeIndex {
 
     fun canBeSourcedFrom(sourceType: DataSourceType): Boolean
 
-    fun getGraphQLIndex(): GraphQLIndex
+    val graphQLIndex: GraphQLIndex
 
 }
