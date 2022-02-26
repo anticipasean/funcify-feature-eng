@@ -9,5 +9,4 @@ package funcify.feature.schema.graphql
 interface GraphQLContainerType : GraphQLIndex {
 
 
-
 }

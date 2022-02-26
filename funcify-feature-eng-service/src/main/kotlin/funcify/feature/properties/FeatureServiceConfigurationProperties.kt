@@ -18,7 +18,7 @@ import javax.validation.constraints.NotEmpty
  */
 @Validated
 @Configuration
-@ConfigurationProperties(prefix = "funcify.feature-eng-service")
+@ConfigurationProperties(prefix = "funcify-feature-eng")
 data class FeatureServiceConfigurationProperties(
 
         @get:ValidTimeZone

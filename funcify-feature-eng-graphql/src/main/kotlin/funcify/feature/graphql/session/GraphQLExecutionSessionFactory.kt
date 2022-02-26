@@ -10,6 +10,6 @@ import funcify.feature.graphql.request.RawGraphQLRequest
  */
 interface GraphQLExecutionSessionFactory {
 
-    fun createSessionForSingleRequest(rawGraphQLRequest: RawGraphQLRequest) : GraphQLSingleRequestSession
+    fun createSessionForSingleRequest(rawGraphQLRequest: RawGraphQLRequest): GraphQLSingleRequestSession
 
 }

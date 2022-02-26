@@ -11,10 +11,10 @@ import arrow.core.toOption
  */
 object NumericTypeExtensions {
 
-    fun Int?.asPositiveInt(): Option<PositiveInt> {
+    fun Int?.asPositiveInt(): Option<UInt> {
         return this.toOption()
                 .filter { i -> i >= 0 }
-                .map(::PositiveInt)
+                .map { i -> i.toUInt() }
     }
 
     fun Int?.ifPositive(): Option<Int> {

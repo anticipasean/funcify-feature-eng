@@ -1,7 +1,5 @@
 package funcify.feature.datasource.rest
 
-import funcify.feature.type.PositiveInt
-
 
 /**
  *
@@ -12,7 +10,7 @@ interface RestApiService {
 
     val hostName: String
 
-    val port: PositiveInt
+    val port: UInt
 
     val serviceContextPath: String
 

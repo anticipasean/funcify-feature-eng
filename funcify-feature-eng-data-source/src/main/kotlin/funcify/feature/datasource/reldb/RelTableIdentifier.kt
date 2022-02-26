@@ -1,4 +1,4 @@
-package funcify.feature.datasource.sqldb
+package funcify.feature.datasource.reldb
 
 
 /**
@@ -6,9 +6,9 @@ package funcify.feature.datasource.sqldb
  * @author smccarron
  * @created 2/1/22
  */
-interface SqlDatabaseTable {
+interface RelTableIdentifier {
 
-    val databaseCatalogName: String
+    val catalogName: String
 
     val schemaName: String
 
@@ -16,8 +16,8 @@ interface SqlDatabaseTable {
 
     fun mkString(): String {
         return when {
-            databaseCatalogName.isNotEmpty() && schemaName.isNotEmpty() && tableName.isNotEmpty() -> {
-                "${databaseCatalogName}.${schemaName}.${tableName}"
+            catalogName.isNotEmpty() && schemaName.isNotEmpty() && tableName.isNotEmpty() -> {
+                "${catalogName}.${schemaName}.${tableName}"
             }
             schemaName.isNotEmpty() && tableName.isNotEmpty() -> "${schemaName}.${tableName}"
             tableName.isNotEmpty() -> tableName

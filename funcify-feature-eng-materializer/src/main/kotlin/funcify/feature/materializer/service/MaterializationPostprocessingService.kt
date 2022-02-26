@@ -1,6 +1,6 @@
 package funcify.feature.materializer.service
 
-import funcify.feature.materializer.session.FeatureMaterializationSession
+import funcify.feature.materializer.session.MaterializationSession
 import funcify.feature.tools.container.async.Async
 
 
@@ -11,6 +11,6 @@ import funcify.feature.tools.container.async.Async
  */
 interface MaterializationPostprocessingService {
 
-    fun convertMaterializedValuesIntoExpectedOutputFormat(materializationSession: FeatureMaterializationSession): Async<FeatureMaterializationSession>
+    fun convertMaterializedValuesIntoExpectedOutputFormat(materializationSession: MaterializationSession): Async<MaterializationSession>
 
 }
