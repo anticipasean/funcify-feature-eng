@@ -8,8 +8,5 @@ dependencies {
      * Spring Dependencies
      */
     implementation("org.springframework.boot:spring-boot-starter-data-r2dbc:${springBootPluginVersion}")
-    /**
-     * SQL Server R2Dbc
-     */
-    implementation("io.r2dbc:r2dbc-mssql:${mssqlR2dbcVersion}")
+
 }

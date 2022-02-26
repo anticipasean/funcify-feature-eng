@@ -1,13 +1,5 @@
 
 
-configurations {
-    calcite {
-        dependencies {
-            implementation("org.apache.calcite:calcite-core:${apacheCalciteVersion}")
-        }
-    }
-}
-
 dependencies {
     implementation(project(":funcify-feature-eng-common"))
     implementation(project(":funcify-feature-eng-tools"))

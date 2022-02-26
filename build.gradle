@@ -57,8 +57,11 @@ subprojects {
             dependencies {
                 implementation("io.projectreactor:reactor-core:${reactorCoreVersion}")
                 implementation("io.projectreactor.addons:reactor-extra:${reactorExtraVersion}")
+                implementation("io.projectreactor.kotlin:reactor-kotlin-extensions:${reactorKotlinExtensionsVersion}")
                 testImplementation("io.projectreactor:reactor-core:${reactorCoreVersion}")
                 testImplementation("io.projectreactor.addons:reactor-extra:${reactorExtraVersion}")
+                testImplementation("io.projectreactor.kotlin:reactor-kotlin-extensions:${reactorKotlinExtensionsVersion}")
+                testImplementation("io.projectreactor:reactor-test:${reactorCoreVersion}")
             }
         }
         spring {
@@ -81,6 +84,10 @@ subprojects {
                 implementation("com.querydsl:querydsl-core:5.0.0")
                 implementation("com.netflix.graphql.dgs:graphql-dgs-webflux-starter:${dgsVersion}")
                 implementation("com.netflix.graphql.dgs:graphql-dgs-extended-scalars:${dgsVersion}")
+                implementation("com.graphql-java:graphql-java:${graphQLJavaVersion}")
+                testImplementation("com.graphql-java:graphql-java:${graphQLJavaVersion}")
+                implementation("com.graphql-java:graphql-java-extended-scalars:${graphQLJavaExtScalarsVersion}")
+                testImplementation("com.graphql-java:graphql-java-extended-scalars:${graphQLJavaExtScalarsVersion}")
             }
         }
         validator {

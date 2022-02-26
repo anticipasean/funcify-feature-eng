@@ -9,17 +9,5 @@ dependencies {
     implementation(project(":funcify-feature-eng-tools"))
     implementation(project(":funcify-feature-eng-schema"))
     implementation(project(":funcify-feature-eng-materializer"))
-    /**
-     * Spring Webflux Dependencies
-     */
-    implementation("org.springframework.boot:spring-boot-starter-webflux:${springBootPluginVersion}")
-    testImplementation("org.springframework.boot:spring-boot-starter-webflux:${springBootPluginVersion}")
-    testImplementation("org.springframework.boot:spring-boot-starter-test:${springBootPluginVersion}")
-    /**
-     * GraphQL Dependencies
-     */
-    implementation("com.graphql-java:graphql-java:${graphQLJavaVersion}")
-    testImplementation("com.graphql-java:graphql-java:${graphQLJavaVersion}")
-    implementation("com.graphql-java:graphql-java-extended-scalars:${graphQLJavaExtScalarsVersion}")
-    testImplementation("com.graphql-java:graphql-java-extended-scalars:${graphQLJavaExtScalarsVersion}")
+
 }
