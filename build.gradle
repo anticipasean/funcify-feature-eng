@@ -41,7 +41,6 @@ subprojects {
                 implementation("org.jetbrains.kotlin:kotlin-noarg:${kotlinVersion}")
                 implementation("org.jetbrains.kotlinx:kotlinx-collections-immutable-jvm:${kotlinxImmutableCollectionsVersion}")
                 testImplementation("org.jetbrains.kotlin:kotlin-test:${kotlinVersion}")
-                testImplementation("org.jetbrains.kotlin:kotlin-test-junit:${kotlinVersion}")
                 testImplementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8:${kotlinVersion}")
                 testImplementation("org.jetbrains.kotlin:kotlin-noarg:${kotlinVersion}")
                 testImplementation("org.jetbrains.kotlinx:kotlinx-collections-immutable-jvm:${kotlinxImmutableCollectionsVersion}")
@@ -109,4 +108,9 @@ subprojects {
             }
         }
     }
+
+    test {
+        useJUnitPlatform()
+    }
 }
+

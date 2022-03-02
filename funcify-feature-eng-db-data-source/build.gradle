@@ -1,5 +1,3 @@
-
-
 dependencies {
     implementation(project(":funcify-feature-eng-tools"))
     implementation(project(":funcify-feature-eng-schema"))
@@ -8,5 +6,8 @@ dependencies {
      * Spring Dependencies
      */
     implementation("org.springframework.boot:spring-boot-starter-data-r2dbc:${springBootPluginVersion}")
+    implementation("org.springframework.boot:spring-boot-starter-data-jdbc:${springBootPluginVersion}")
+    implementation("io.r2dbc:r2dbc-h2:${h2r2dbcVersion}")
+    testImplementation("com.h2database:h2:2.1.210")
 
 }
