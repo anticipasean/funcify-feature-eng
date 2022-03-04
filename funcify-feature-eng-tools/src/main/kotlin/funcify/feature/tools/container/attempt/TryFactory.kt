@@ -6,7 +6,7 @@ package funcify.feature.tools.container.attempt
  * @author smccarron
  * @created 2/7/22
  */
-internal object TryFactory {
+object TryFactory {
 
     data class Success<S>(val successObject: S) : Try<S> {
 
