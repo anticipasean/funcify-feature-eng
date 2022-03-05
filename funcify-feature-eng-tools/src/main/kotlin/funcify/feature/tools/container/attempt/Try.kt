@@ -29,18 +29,22 @@ sealed interface Try<out S> {
 
     companion object {
 
+        @JvmStatic
         fun <S> success(successfulResult: S): Try<S> {
             return TryFactory.Success(successfulResult);
         }
 
+        @JvmStatic
         fun <S> failure(throwable: Throwable): Try<S> {
             return TryFactory.Failure<S>(throwable)
         }
 
+        @JvmStatic
         fun <S> nullableSuccess(successfulResult: S): Try<S> {
             return nullableSuccess(successfulResult) { NoSuchElementException("result is null") }
         }
 
+        @JvmStatic
         fun <S> nullableSuccess(nullableSuccessObject: S?,
                                 ifNull: () -> Throwable): Try<S> {
             return if (nullableSuccessObject == null) {
@@ -50,6 +54,7 @@ sealed interface Try<out S> {
             }
         }
 
+        @JvmStatic
         fun <S> nullableFailure(throwable: Throwable?): Try<S> {
             return if (throwable == null) {
                 failure(NoSuchElementException("error/throwable is null"))
@@ -58,10 +63,12 @@ sealed interface Try<out S> {
             }
         }
 
+        @JvmStatic
         fun emptySuccess(): Try<Unit> {
             return success(Unit)
         }
 
+        @JvmStatic
         fun <S> attempt(function: () -> S): Try<S> {
             return try {
                 success(function.invoke())
@@ -70,6 +77,7 @@ sealed interface Try<out S> {
             }
         }
 
+        @JvmStatic
         fun <S> attemptNullable(function: () -> S?): Try<Option<S>> {
             return try {
                 success<Option<S>>(Option.fromNullable(function.invoke()))
@@ -78,6 +86,7 @@ sealed interface Try<out S> {
             }
         }
 
+        @JvmStatic
         fun <S> attemptNullable(function: () -> S?,
                                 ifNull: () -> Throwable): Try<S> {
             return try {
@@ -90,6 +99,7 @@ sealed interface Try<out S> {
             }
         }
 
+        @JvmStatic
         fun <I, O> lift(function: (I) -> O): (I) -> Try<O> {
             return { input: I ->
                 try {
@@ -100,7 +110,7 @@ sealed interface Try<out S> {
             }
         }
 
-
+        @JvmStatic
         fun <I, O> liftNullable(function: (I) -> O?,
                                 ifNullResult: (I) -> Throwable): (I) -> Try<O> {
             return { input: I ->
@@ -198,10 +208,12 @@ sealed interface Try<out S> {
             }
         }
 
+        @JvmStatic
         fun <S> fromOption(option: Option<S>): Try<S> {
             return fromOption(option) { nsee: NoSuchElementException -> nsee }
         }
 
+        @JvmStatic
         fun <S> fromOption(option: Option<S>,
                            ifEmpty: (NoSuchElementException) -> Throwable): Try<S> {
             return try {
@@ -211,6 +223,7 @@ sealed interface Try<out S> {
             }
         }
 
+        @JvmStatic
         fun <S> fromOption(option: Option<S>,
                            ifEmpty: () -> S): Try<S> {
             return try {
@@ -220,6 +233,7 @@ sealed interface Try<out S> {
             }
         }
 
+        @JvmStatic
         fun <S> attemptRetryable(function: () -> S,
                                  numberOfRetries: Int): Try<S> {
             if (numberOfRetries < 0) {
@@ -241,6 +255,7 @@ sealed interface Try<out S> {
             return attempt
         }
 
+        @JvmStatic
         fun <S> attemptRetryableIf(function: () -> S,
                                    numberOfRetries: Int,
                                    failureCondition: (Throwable) -> Boolean): Try<S> {
@@ -267,6 +282,7 @@ sealed interface Try<out S> {
             return attempt
         }
 
+        @JvmStatic
         fun <S> attemptWithTimeout(function: () -> S,
                                    timeout: Long,
                                    unit: TimeUnit): Try<S> {
@@ -298,6 +314,7 @@ sealed interface Try<out S> {
             }
         }
 
+        @JvmStatic
         fun <S> attemptNullableWithTimeout(function: () -> S?,
                                            timeout: Long,
                                            unit: TimeUnit): Try<Option<S>> {

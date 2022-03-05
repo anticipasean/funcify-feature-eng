@@ -15,6 +15,7 @@ data class JooqRelTableIdentifier(override val catalogName: String = "",
 
     companion object {
 
+        @JvmStatic
         fun fromJooqRelTable(jooqRelTable: JooqRelTable): JooqRelTableIdentifier {
             return JooqRelTableIdentifier(catalogName = jooqRelTable.catalog?.name
                                                         ?: "",

@@ -19,7 +19,7 @@ data class DefaultSchematicPath(val scheme: String = "fes",
                                 override val arguments: ImmutableMap<String, String> = persistentMapOf(),
                                 override val directives: ImmutableMap<String, String> = persistentMapOf()) : SchematicPath {
 
-    private lateinit var uri: URI
+    private val uri: URI by lazy { createUriFromProperties() }
 
     private fun createUriFromProperties(): URI {
         return directives.asSequence()
@@ -27,13 +27,10 @@ data class DefaultSchematicPath(val scheme: String = "fes",
                               .fold(UriComponentsBuilder.newInstance()
                                             .scheme(scheme)
                                             .path(pathSegments.joinToString(separator = "/",
-                                                                            prefix = "/"
-                                                                           )
-                                                 ),
+                                                                            prefix = "/")),
                                     { ucb: UriComponentsBuilder, entry: Map.Entry<String, String> ->
                                         ucb.queryParam(entry.key,
-                                                       entry.value
-                                                      )
+                                                       entry.value)
                                     }),
                       { ucb: UriComponentsBuilder, entry: Map.Entry<String, String> ->
                           if (entry.value.isEmpty()) {
@@ -47,12 +44,7 @@ data class DefaultSchematicPath(val scheme: String = "fes",
     }
 
     override fun toURI(): URI {
-        return if (this::uri.isInitialized) {
-            uri
-        } else {
-            this.uri = createUriFromProperties()
-            uri
-        };
+        return uri
     }
 
 }

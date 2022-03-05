@@ -32,7 +32,7 @@ data class JooqSourceContainerType(val jooqRelTable: JooqRelTable) : RelDatabase
                               })
     }
 
-    override fun sourceAttributeByName(name: String): SourceAttribute? {
+    override fun getSourceAttributeWithName(name: String): SourceAttribute? {
         return sourceAttributesByName[name]
     }
 

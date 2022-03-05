@@ -15,6 +15,6 @@ interface SourceContainerType<out A : SourceAttribute> : SourceIndex {
      */
     val sourceAttributes: ImmutableSet<A>
 
-    fun sourceAttributeByName(name: String): SourceAttribute?
+    fun getSourceAttributeWithName(name: String): SourceAttribute?
 
 }
