@@ -18,10 +18,12 @@ import org.jooq.TableField
  */
 data class JooqSourceAttribute(val jooqTableField: TableField<Record, *>) : RelDatabaseSourceAttribute {
     override val columnName: String = jooqTableField.name
-    override val relTableIdentifier: RelTableIdentifier = jooqTableField.table.toOption()
-            .filterIsInstance<JooqRelTable>()
-            .map { t -> JooqRelTableIdentifier.fromJooqRelTable(t) }
-            .getOrElse { JooqRelTableIdentifier() }
+    override val relTableIdentifier: RelTableIdentifier by lazy {
+        jooqTableField.table.toOption()
+                .filterIsInstance<JooqRelTable>()
+                .map { t -> JooqRelTableIdentifier.fromJooqRelTable(t) }
+                .getOrElse { JooqRelTableIdentifier() }
+    }
     override val name: String = jooqTableField.name
     override val canonicalPath: SchematicPath = DefaultSchematicPath()
 }

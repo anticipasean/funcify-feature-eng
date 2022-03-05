@@ -19,24 +19,21 @@ import kotlinx.collections.immutable.persistentSetOf
  */
 data class JooqSourceContainerType(val jooqRelTable: JooqRelTable) : RelDatabaseSourceContainerType {
 
-    override val relTableIdentifier: RelTableIdentifier = JooqRelTableIdentifier.fromJooqRelTable(jooqRelTable)
+    override val relTableIdentifier: RelTableIdentifier by lazy { JooqRelTableIdentifier.fromJooqRelTable(jooqRelTable) }
     override val sourceAttributes: ImmutableSet<RelDatabaseSourceAttribute> = persistentSetOf()
     override val name: String = jooqRelTable.name
     override val canonicalPath: SchematicPath = DefaultSchematicPath()
 
-    private lateinit var sourceAttributesByName: ImmutableMap<String, RelDatabaseSourceAttribute>
+    val sourceAttributesByName: ImmutableMap<String, RelDatabaseSourceAttribute> by lazy {
+        sourceAttributes.fold(persistentMapOf(),
+                              { acc, relDatabaseSourceAttribute ->
+                                  acc.put(relDatabaseSourceAttribute.name,
+                                          relDatabaseSourceAttribute)
+                              })
+    }
 
     override fun sourceAttributeByName(name: String): SourceAttribute? {
-        if (!this::sourceAttributesByName.isInitialized) {
-            sourceAttributesByName = sourceAttributes.fold(persistentMapOf(),
-                                                           { acc, relDatabaseSourceAttribute ->
-                                                               acc.put(relDatabaseSourceAttribute.name,
-                                                                       relDatabaseSourceAttribute)
-                                                           })
-            return sourceAttributesByName[name]
-        } else {
-            return sourceAttributesByName[name]
-        }
+        return sourceAttributesByName[name]
     }
 
 }
