@@ -23,7 +23,6 @@ class JooqSourceIndicesFactory {
         logger.info("create_jooq_source_indices_from_database: [ database.input_catalogs: {} ]",
                     database.inputCatalogs.joinToString(separator = ", "))
 
-
         return persistentMapOf()
     }
 
