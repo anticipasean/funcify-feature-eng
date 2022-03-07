@@ -392,6 +392,28 @@ sealed interface Try<out S> : Iterable<S> {
                                  })
         }
 
+        @JvmStatic
+        fun <S> attemptStream(stream: Stream<Try<S>>): Try<Stream<S>> {
+            return stream.reduce(Try.success(Stream.builder<S>()),
+                                 { acc: Try<Stream.Builder<S>>, t: Try<S> ->
+                                     acc.flatMap { sBldr ->
+                                         t.map { s -> // Remove nulls for Kotlin compatibility
+                                             s.toOption()
+                                                     .fold({ sBldr },
+                                                           { succVal -> sBldr.add(succVal) })
+                                         }
+                                     }
+                                 },
+                                 { tryStrmBldr1: Try<Stream.Builder<S>>, tryStrmBldr2: Try<Stream.Builder<S>> ->
+                                     tryStrmBldr1.zip(tryStrmBldr2,
+                                                      { strmBldr1: Stream.Builder<S>, strmBldr2: Stream.Builder<S> ->
+                                                          strmBldr2.build()
+                                                                  .forEach(strmBldr1::add)
+                                                          strmBldr1
+                                                      })
+                                 })
+                    .map { strmBldr -> strmBldr.build() }
+        }
 
     }
 
