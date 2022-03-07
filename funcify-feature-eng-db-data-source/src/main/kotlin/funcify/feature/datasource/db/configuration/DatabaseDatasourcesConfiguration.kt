@@ -7,6 +7,7 @@ import funcify.feature.datasource.db.schema.JooqCodeGenXMLBasedDatabaseConfigure
 import funcify.feature.datasource.db.schema.JooqMetadataGatheringDatabaseConfigurer
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.container.attempt.TryFactory
+import funcify.feature.tools.container.attempt.flatMapFailure
 import io.r2dbc.spi.ConnectionFactory
 import org.jooq.DSLContext
 import org.jooq.impl.DefaultConfiguration
@@ -34,6 +35,10 @@ import javax.sql.DataSource
 @Configuration
 @ConfigurationProperties(prefix = "funcify-feature-eng.datasources.reldb.jooq")
 class DatabaseDatasourcesConfiguration {
+
+    companion object {
+        const val CONFIGURATION_PROPERTIES_PREFIX: String = "funcify-feature-eng.datasources.reldb.jooq"
+    }
 
     //TODO: Add configuration property for selecting which type to prefer if both are available
     @ConditionalOnMissingBean(value = [DSLContext::class])
@@ -84,9 +89,10 @@ class DatabaseDatasourcesConfiguration {
     }
 
     @ConditionalOnBean(value = [DSLContext::class])
-    @ConditionalOnProperty(value = ["code-gen-xml-resource"])
+    @ConditionalOnProperty(prefix = CONFIGURATION_PROPERTIES_PREFIX,
+                           value = ["code-gen-xml-resource"])
     @Bean
-    fun jooqCodeGenXmlBasedDatabaseConfigurer(@Value("\${code-gen-xml-resource:}")
+    fun jooqCodeGenXmlBasedDatabaseConfigurer(@Value("\${$CONFIGURATION_PROPERTIES_PREFIX.code-gen-xml-resource:}")
                                               codeGenXmlResourceName: String): JooqMetadataGatheringDatabaseConfigurer {
         return Try.success(codeGenXmlResourceName)
                 .filter({ n -> n.endsWith(".xml") },
