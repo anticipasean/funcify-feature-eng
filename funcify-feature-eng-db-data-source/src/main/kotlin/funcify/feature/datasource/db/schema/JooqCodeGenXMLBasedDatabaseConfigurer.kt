@@ -20,8 +20,9 @@ class JooqCodeGenXMLBasedDatabaseConfigurer(val codeGenXMLResource: ClassPathRes
 
     override fun invoke(db: Database): Database {
         if (logger.isDebugEnabled) {
-            logger.debug("${}")
+            logger.debug("")
         }
+        return db
     }
 
 
