@@ -10,43 +10,24 @@ import funcify.feature.tools.string.charseq.RelativeCharSequenceLocation
  */
 interface CharacterSequenceCursorTemplate<I, O> {
 
-    fun currentRelativeLocation(inputContext: I): RelativeCharSequenceLocation
+    fun currentRelativeLocation(inputContext: I): RelativeCharSequenceLocation?
 
-    fun hasPrevious(inputContext: I): Boolean
+    fun hasCurrentInputChar(inputContext: I): Boolean
 
-    fun moveToPrevious(inputContext: I): I
+    fun currentInputChar(inputContext: I): Char
 
-    fun hasNext(inputContext: I): Boolean
+    fun hasPreviousCharInput(inputContext: I): Boolean
 
-    fun moveToNext(inputContext: I): I
+    fun moveToPreviousCharInput(inputContext: I): I
 
-    fun onFirstCharacter(inputContext: I,
-                         outputContext: O): O
+    fun hasNextInputChar(inputContext: I): Boolean
 
-    fun onMiddleCharacter(inputContext: I,
-                          outputContext: O): O
+    fun moveToNextInputChar(inputContext: I): I
 
-    fun onLastCharacter(inputContext: I,
-                        outputContext: O): O
+    fun appendToTailOfOutput(character: Char,
+                             inputContext: I,
+                             outputContext: O): O
 
-    fun onUnderscore(inputContext: I,
-                     outputContext: O): O
-
-    fun onAlphabeticLetter(inputContext: I,
-                           outputContext: O): O
-
-    fun onUppercaseLetter(inputContext: I,
-                          outputContext: O): O
-
-    fun onLowercaseLetter(inputContext: I,
-                          outputContext: O): O
-
-    fun onNumeric(inputContext: I,
-                  outputContext: O): O
-
-    fun onWhitespace(inputContext: I,
-                     outputContext: O): O
-
-    fun onUnhandled(inputContext: I,
-                    outputContext: O): O
+    fun onAnyCharacter(inputContext: I,
+                       outputContext: O): O
 }
