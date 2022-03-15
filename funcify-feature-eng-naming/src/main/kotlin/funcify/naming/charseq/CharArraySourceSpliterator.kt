@@ -13,13 +13,18 @@ import java.util.function.Consumer
  * @author smccarron
  * @created 3/12/22
  */
-internal class CharArraySourceSequence(private val charArray: CharArray,
-                                       private var index: Int = 0,
-                                       private val exclusiveLimit: Int = charArray.size,
-                                       private val characteristicsBitSet: Int = DEFAULT_CHARACTERISTICS_BITSET) : ContextualCharSequence {
+internal class CharArraySourceSpliterator(private val charArray: CharArray,
+                                          private var index: Int = 0,
+                                          private val exclusiveLimit: Int = charArray.size,
+                                          private val characteristicsBitSet: Int = DEFAULT_CHARACTERISTICS_BITSET) : ContextualCharSpliterator {
     companion object {
         internal const val DEFAULT_CHARACTERISTICS_BITSET: Int = SIZED and NONNULL and IMMUTABLE and ORDERED
-        internal val DEFAULT_COMPARATOR: Comparator<in CharContext> by lazy { Comparator.comparing(CharContext::index) }
+
+        /**
+         * TODO: Handle single character in array case, potentially
+         *  updating contract where the first is also the last character
+         *  of the predefined sequence
+         */
         private fun charContextOfIndex(chars: CharArray,
                                        idx: Int) =
                 when (idx) {
@@ -63,10 +68,10 @@ internal class CharArraySourceSequence(private val charArray: CharArray,
         return if (lo >= mid) {
             null
         } else {
-            CharArraySourceSequence(charArray,
-                                    lo,
-                                    mid.also { index = it },
-                                    characteristicsBitSet)
+            CharArraySourceSpliterator(charArray,
+                                       lo,
+                                       mid.also { index = it },
+                                       characteristicsBitSet)
         }
     }
 
@@ -93,6 +98,7 @@ internal class CharArraySourceSequence(private val charArray: CharArray,
     }
 
     override fun getComparator(): Comparator<in CharContext> {
-        return DEFAULT_COMPARATOR
+        return CharContext.DEFAULT_COMPARATOR
     }
+
 }
