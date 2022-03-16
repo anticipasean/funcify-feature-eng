@@ -1,4 +1,4 @@
-package funcify.naming.charseq
+package funcify.naming.charseq.context
 
 
 /**

@@ -1,4 +1,6 @@
-package funcify.naming.charseq
+package funcify.naming.charseq.template
+
+import funcify.naming.charseq.context.RelativeCharSequencePosition
 
 
 /**
@@ -19,16 +21,6 @@ interface CharSequenceTemplate<CS, CSI> {
 
     fun mapWithIndex(charSeq: CS,
                      mapper: (Int, Char) -> Char): CS
-
-    fun mapWithRelativePosition(charSeq: CS,
-                                mapper: (RelativeCharSequencePosition, Char) -> Char): CS
-
-    fun mapWithIndexAndRelativePosition(charSeq: CS,
-                                        mapper: (Int, RelativeCharSequencePosition, Char) -> Char): CS
-
-    fun mapWithCharArrayWindow(charSeq: CS,
-                               windowSize: UInt,
-                               mapper: (Array<Char>) -> Char): CS
 
     fun groupByDelimiter(charSeq: CS,
                          delimiter: Char): CSI

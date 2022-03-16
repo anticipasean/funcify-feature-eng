@@ -1,6 +1,8 @@
-package funcify.naming.charseq
+package funcify.naming.charseq.design
 
 import arrow.core.Either
+import funcify.naming.charseq.template.CharSequenceTemplate
+import funcify.naming.charseq.operator.CharSeqIterableFlatteningCharSeqOperator
 
 
 /**

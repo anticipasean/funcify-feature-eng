@@ -1,5 +1,9 @@
-package funcify.naming.charseq
+package funcify.naming.charseq.spliterator
 
+import funcify.naming.charseq.context.IndexedChar
+import funcify.naming.charseq.group.ContextualCharGroup
+import funcify.naming.charseq.group.DelimitedCharGroup
+import funcify.naming.charseq.group.DelimiterCharGroup
 import java.util.Deque
 import java.util.LinkedList
 import java.util.Spliterator
@@ -13,11 +17,11 @@ import java.util.function.Consumer
  * @author smccarron
  * @created 3/14/22
  */
-internal class DelimiterGroupingSpliterator(override val sourceSpliterator: Spliterator<CharContext>,
+internal class DelimiterGroupingSpliterator(override val sourceSpliterator: Spliterator<IndexedChar>,
                                             private val delimiterFilter: (Char) -> Boolean,
                                             private val characteristicsBitSet: Int = DEFAULT_CHARACTERISTICS,
-                                            private var delimiterQueue: Deque<CharContext> = LinkedList(),
-                                            private var delimitedQueue: Deque<CharContext> = LinkedList()) : ContextualCharGroupSpliterator {
+                                            private var delimiterQueue: Deque<IndexedChar> = LinkedList(),
+                                            private var delimitedQueue: Deque<IndexedChar> = LinkedList()) : ContextualCharGroupSpliterator {
 
     companion object {
         // Not ordered (no clear comparison of charcontextgroups) or sized (unknown how many charcontextgroups will be extracted from source)

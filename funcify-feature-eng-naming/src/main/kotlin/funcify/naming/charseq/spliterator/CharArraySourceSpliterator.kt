@@ -1,5 +1,7 @@
-package funcify.naming.charseq
+package funcify.naming.charseq.spliterator
 
+import funcify.naming.charseq.context.IndexedChar
+import funcify.naming.charseq.context.at
 import java.util.Spliterator
 import java.util.Spliterator.IMMUTABLE
 import java.util.Spliterator.NONNULL
@@ -19,47 +21,21 @@ internal class CharArraySourceSpliterator(private val charArray: CharArray,
                                           private val characteristicsBitSet: Int = DEFAULT_CHARACTERISTICS_BITSET) : ContextualCharSpliterator {
     companion object {
         internal const val DEFAULT_CHARACTERISTICS_BITSET: Int = SIZED and NONNULL and IMMUTABLE and ORDERED
-
-        /**
-         * TODO: Handle single character in array case, potentially
-         *  updating contract where the first is also the last character
-         *  of the predefined sequence
-         */
-        private fun charContextOfIndex(chars: CharArray,
-                                       idx: Int) =
-                when (idx) {
-                    0 -> {
-                        CharContext(chars[idx],
-                                    idx,
-                                    RelativeCharSequencePosition.FIRST_CHARACTER)
-                    }
-                    (chars.size - 1) -> {
-                        CharContext(chars[idx],
-                                    idx,
-                                    RelativeCharSequencePosition.LAST_CHARACTER)
-                    }
-                    else -> {
-                        CharContext(chars[idx],
-                                    idx,
-                                    RelativeCharSequencePosition.MIDDLE_CHARACTER)
-                    }
-                }
     }
 
     private fun cannotAccessArrayWithGivenParameters(): Boolean {
         return charArray.size == 0 || exclusiveLimit <= 0 || exclusiveLimit > charArray.size || index < 0 || index >= exclusiveLimit
     }
 
-    override fun tryAdvance(action: Consumer<in CharContext>?): Boolean {
+    override fun tryAdvance(action: Consumer<in IndexedChar>?): Boolean {
         if (action == null || cannotAccessArrayWithGivenParameters()) {
             return false
         }
-        action.accept(Companion.charContextOfIndex(charArray,
-                                                   index++))
+        action.accept(charArray at index++)
         return true
     }
 
-    override fun trySplit(): Spliterator<CharContext>? {
+    override fun trySplit(): Spliterator<IndexedChar>? {
         if (cannotAccessArrayWithGivenParameters()) {
             return null
         }
@@ -75,14 +51,13 @@ internal class CharArraySourceSpliterator(private val charArray: CharArray,
         }
     }
 
-    override fun forEachRemaining(action: Consumer<in CharContext>?) {
+    override fun forEachRemaining(action: Consumer<in IndexedChar>?) {
         if (action == null || cannotAccessArrayWithGivenParameters()) {
             return
         }
         var idx: Int = index
         do {
-            action.accept(charContextOfIndex(charArray,
-                                             idx))
+            action.accept(charArray at idx)
         } while (++idx < exclusiveLimit)
     }
 
@@ -97,8 +72,8 @@ internal class CharArraySourceSpliterator(private val charArray: CharArray,
         return characteristicsBitSet
     }
 
-    override fun getComparator(): Comparator<in CharContext> {
-        return CharContext.DEFAULT_COMPARATOR
+    override fun getComparator(): Comparator<in IndexedChar> {
+        return IndexedChar.DEFAULT_COMPARATOR
     }
 
 }

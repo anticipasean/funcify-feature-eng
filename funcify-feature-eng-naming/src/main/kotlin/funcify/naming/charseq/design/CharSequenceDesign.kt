@@ -1,4 +1,9 @@
-package funcify.naming.charseq
+package funcify.naming.charseq.design
+
+import arrow.core.Either
+import funcify.naming.charseq.operator.MapCharSeqOperator
+import funcify.naming.charseq.operator.StartEndStringGroupingCharSeqOperator
+import funcify.naming.charseq.template.CharSequenceTemplate
 
 
 /**
@@ -11,36 +16,14 @@ interface CharSequenceDesign<CS, CSI> {
     val charSeq: Either<CSI, CS>
 
     fun map(mapper: (Char) -> Char): CharSequenceDesign<CS, CSI> {
-        return MapCharSeqOperator<CS, CSI>(charSeq) { _, _, c -> mapper.invoke(c) }
+        return MapCharSeqOperator<CS, CSI>(charSeq) { _, c -> mapper.invoke(c) }
     }
 
     fun mapWithIndex(mapper: (Int, Char) -> Char): CharSequenceDesign<CS, CSI> {
-        return MapCharSeqOperator<CS, CSI>(charSeq) { i, _, c ->
+        return MapCharSeqOperator<CS, CSI>(charSeq) { i, c ->
             mapper.invoke(i,
                           c)
         }
-    }
-
-    fun mapWithRelativePosition(mapper: (RelativeCharSequencePosition, Char) -> Char): CharSequenceDesign<CS, CSI> {
-        return MapCharSeqOperator<CS, CSI>(charSeq) { _, rp, c ->
-            mapper.invoke(rp,
-                          c)
-        }
-    }
-
-    fun mapWithIndexAndRelativePosition(mapper: (Int, RelativeCharSequencePosition, Char) -> Char): CharSequenceDesign<CS, CSI> {
-        return MapCharSeqOperator<CS, CSI>(charSeq) { i, rp, c ->
-            mapper.invoke(i,
-                          rp,
-                          c)
-        }
-    }
-
-    fun mapWithCharArrayWindow(windowSize: UInt,
-                               mapper: (Array<Char>) -> Char): CharSequenceDesign<CS, CSI> {
-        return CharArrayWindowCharSeqOperator<CS, CSI>(charSeq,
-                                                       windowSize,
-                                                       mapper)
     }
 
     fun groupByDelimiter(delimiter: Char): CharSequenceIterableDesign<CS, CSI> {
