@@ -26,10 +26,8 @@ data class DefaultConventionalName(override val namingConventionKey: Any,
         stringComponentNames.asSequence()
                 .flatMap { s -> // since name components cannot contain the delimiter
                     // if the delimiter is non-empty, then split based on containment
-                    if (delimiter.isNotEmpty() && s.contains(delimiter,
-                                                             true)) {
-                        s.splitToSequence(delimiter,
-                                          ignoreCase = true)
+                    if (delimiter.isNotEmpty() && s.contains(delimiter)) {
+                        s.splitToSequence(delimiter)
                     } else {
                         sequenceOf(s)
                     }

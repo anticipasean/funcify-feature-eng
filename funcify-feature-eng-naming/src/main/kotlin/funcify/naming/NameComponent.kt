@@ -2,7 +2,7 @@ package funcify.naming
 
 
 /**
- *
+ * Component of a qualified or conventional name type
  * @author smccarron
  * @created 3/16/22
  */
