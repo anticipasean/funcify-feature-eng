@@ -1,7 +1,7 @@
 package funcify.naming.impl
 
 import funcify.naming.ConventionalName
-import funcify.naming.NameComponent
+import funcify.naming.NameSegment
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.PersistentList
 import kotlinx.collections.immutable.persistentListOf
@@ -13,17 +13,17 @@ import kotlinx.collections.immutable.persistentListOf
  * @created 3/16/22
  */
 data class DefaultConventionalName(override val namingConventionKey: Any,
-                                   private val stringComponentNames: List<String>,
+                                   private val rawStringNameSegments: List<String>,
                                    override val delimiter: String) : ConventionalName {
 
     init {
-        if (stringComponentNames.isEmpty()) {
+        if (rawStringNameSegments.isEmpty()) {
             throw IllegalArgumentException("must have at least one name component")
         }
     }
 
-    override val nameComponents: ImmutableList<NameComponent> by lazy {
-        stringComponentNames.asSequence()
+    override val nameSegments: ImmutableList<NameSegment> by lazy {
+        rawStringNameSegments.asSequence()
                 .flatMap { s -> // since name components cannot contain the delimiter
                     // if the delimiter is non-empty, then split based on containment
                     if (delimiter.isNotEmpty() && s.contains(delimiter)) {
@@ -32,8 +32,8 @@ data class DefaultConventionalName(override val namingConventionKey: Any,
                         sequenceOf(s)
                     }
                 }
-                .map { s -> DefaultNameComponent(s) }
-                .fold(persistentListOf()) { acc: PersistentList<NameComponent>, nc: DefaultNameComponent ->
+                .map { s -> DefaultNameSegment(s) }
+                .fold(persistentListOf()) { acc: PersistentList<NameSegment>, nc: DefaultNameSegment ->
                     acc.add(nc)
                 }
     }

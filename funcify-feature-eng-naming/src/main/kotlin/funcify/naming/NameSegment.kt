@@ -6,7 +6,7 @@ package funcify.naming
  * @author smccarron
  * @created 3/16/22
  */
-interface NameComponent {
+interface NameSegment {
 
     /**
      * Value that does not contain any syntax characters: a delimiter e.g. ' ' or '_'

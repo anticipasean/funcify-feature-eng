@@ -18,7 +18,7 @@ interface ConventionalName {
 
     val namingConventionKey: Any
 
-    val nameComponents: ImmutableList<NameComponent>
+    val nameSegments: ImmutableList<NameSegment>
 
     val delimiter: String
         get() = EMPTY_STRING_DELIMITER
@@ -30,7 +30,7 @@ interface ConventionalName {
      * this default implementation likely should be overridden
      */
     val qualifiedForm: String
-        get() = nameComponents.stream()
+        get() = nameSegments.stream()
                 .map { cn -> cn.value }
                 .collect(Collectors.joining(delimiter))
 
@@ -40,7 +40,7 @@ interface ConventionalName {
      * this default implementation likely should be overridden
      */
     val uriForm: String
-        get() = nameComponents.stream()
+        get() = nameSegments.stream()
                 .map { cn -> cn.value }
                 .collect(Collectors.joining(delimiter))
                 .let { s -> URICompatibleStringEncoder.invoke(s) }

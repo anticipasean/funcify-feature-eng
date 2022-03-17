@@ -1,7 +1,5 @@
 package funcify.naming.charseq.template
 
-import funcify.naming.charseq.context.RelativeCharSequencePosition
-
 
 /**
  *

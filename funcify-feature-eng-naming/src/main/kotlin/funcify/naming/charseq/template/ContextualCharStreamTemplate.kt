@@ -1,7 +1,6 @@
 package funcify.naming.charseq.template
 
 import funcify.naming.charseq.context.IndexedChar
-import funcify.naming.charseq.context.RelativeCharSequencePosition
 import funcify.naming.charseq.group.ContextualCharGroup
 import funcify.naming.charseq.spliterator.DelimiterGroupingSpliterator
 import java.util.stream.Stream
