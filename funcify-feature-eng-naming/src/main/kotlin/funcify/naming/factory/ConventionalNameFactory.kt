@@ -9,11 +9,11 @@ import funcify.naming.registry.NamingConventionRegistry
  * @author smccarron
  * @created 3/16/22
  */
-interface ConventionalNameFactory<NCK, CTX> {
+interface ConventionalNameFactory<I> {
 
-    val registry: NamingConventionRegistry<NCK>
+    val registry: NamingConventionRegistry
 
-    fun createConventionalNameFor(namingConventionKey: NCK,
-                                  context: CTX): ConventionalName
+    fun createConventionalNameFor(conventionName: String,
+                                  input: I): ConventionalName?
 
 }
