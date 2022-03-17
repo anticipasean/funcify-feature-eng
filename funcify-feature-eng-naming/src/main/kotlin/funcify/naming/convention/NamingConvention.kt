@@ -10,12 +10,12 @@ import kotlinx.collections.immutable.ImmutableSet
  * @author smccarron
  * @created 3/15/22
  */
-interface NamingConvention<I> : (I) -> ConventionalName {
+interface NamingConvention<in I> {
 
     val conventionName: String
 
     val rules: ImmutableSet<NamingRule<*>>
 
-    override fun invoke(input: I): ConventionalName
+    fun <I> deriveName(input: I): ConventionalName
 
 }
