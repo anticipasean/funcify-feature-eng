@@ -1,7 +1,7 @@
 package funcify.naming.charseq.spliterator
 
 import funcify.naming.charseq.context.IndexedChar
-import funcify.naming.charseq.context.at
+import funcify.naming.charseq.context.IndexedCharExtensions.at
 import java.util.Spliterator
 import java.util.Spliterator.IMMUTABLE
 import java.util.Spliterator.NONNULL

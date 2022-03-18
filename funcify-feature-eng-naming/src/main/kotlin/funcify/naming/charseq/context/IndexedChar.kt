@@ -19,14 +19,3 @@ data class IndexedChar(val character: Char,
     }
 
 }
-
-internal infix fun Char.at(index: Int): IndexedChar {
-    return IndexedChar(this,
-                       index)
-}
-
-internal infix fun CharArray.at(index: Int): IndexedChar {
-    return IndexedChar(this[index],
-                       index)
-}
-

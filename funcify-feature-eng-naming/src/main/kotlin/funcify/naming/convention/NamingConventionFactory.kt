@@ -14,63 +14,138 @@ interface NamingConventionFactory {
     //
     //    val namingRuleFactory: NamingRuleFactory
 
-    fun fromRawString(): InputDelimiterSpec<String>
+    fun createConventionForRawStrings(): InputSpec<String>
 
-    fun <I : Any> fromInputType(inputType: KClass<I>): StringExtractionSpec<I>
+    fun <I : Any> createConventionFor(inputType: KClass<I>): InputSpec<I>
 
 
-    interface StringExtractionSpec<I> {
-        fun extractOneOrMoreStrings(function: (I) -> Iterable<String>): InputDelimiterSpec<I>
+    interface InputSpec<I> {
+
+        fun whenInputProvided(extraction: StringExtractionSpec<I>.() -> StringExtractionSpec<I>): OutputSpec<I>
+
     }
 
-    interface InputDelimiterSpec<I> {
-        fun splitWith(inputDelimiter: Char): OutputSpec<I>
+
+    interface StringExtractionSpec<out I> {
+
+        fun extractOneOrMoreSegmentsWith(function: (I) -> Iterable<String>): StringExtractionSpec<I>
+
+        fun <I> splitIntoSegmentsWith(inputDelimiter: Char): StringExtractionSpec<I>
+
+        fun <I> splitIntoSegmentsWith(delimiterExpression: Regex): StringExtractionSpec<I>
+
     }
 
     interface OutputSpec<I> {
-        fun andTransform(transformation: TransformationSpec.() -> Unit = {}): NamingConvention<I>
+
+        fun followConvention(transformation: FullTransformationSpec.() -> FullTransformationSpec): NamingConvention<I>
+
     }
 
-    interface TransformationSpec {
-        fun stripAnyLeadingOrTailingCharacters(condition: (Char) -> Boolean)
-        fun replaceAnyCharacterIf(condition: (Char) -> Boolean,
-                                  function: (Char) -> String)
+    interface CharacterTransformationSpec {
+
+        fun forLeadingCharacters(transformation: LeadingCharactersSpec.() -> LeadingCharactersSpec): CharacterTransformationSpec
+
+        fun forAnyCharacter(transformation: AllCharacterSpec.() -> AllCharacterSpec): CharacterTransformationSpec
+
+        fun forTrailingCharacters(transformation: TrailingCharactersSpec.() -> TrailingCharactersSpec): CharacterTransformationSpec
+
+    }
+
+    interface StringTransformationSpec : CharacterTransformationSpec {
+
+        fun replace(regex: Regex,
+                    replacement: String): StringTransformationSpec
+
+        fun replace(regex: Regex,
+                    transform: (MatchResult) -> CharSequence): StringTransformationSpec
+
+        fun prepend(prefix: String): StringTransformationSpec
+
+        fun append(suffix: String): StringTransformationSpec
+
+        fun transform(function: String.() -> String): StringTransformationSpec
+
+    }
+
+    interface SegmentTransformationSpec {
+
+        fun forEachSegment(transformation: StringTransformationSpec.() -> CharacterTransformationSpec): SegmentTransformationSpec
+
+    }
+
+    interface FullTransformationSpec : CharacterTransformationSpec,
+                                       SegmentTransformationSpec {
+
+        fun joinSegmentsWith(inputDelimiter: Char): FullTransformationSpec
+
+        fun joinSegmentsWithoutAnyDelimiter(): FullTransformationSpec
+    }
+
+    interface RelativePositionalTransformationSpec {
+
+    }
+
+    interface LeadingCharactersSpec : RelativePositionalTransformationSpec {
+
+        fun stripAny(condition: (Char) -> Boolean): LeadingCharactersSpec
 
         fun replaceFirstCharacterOfFirstSegmentIf(condition: (Char) -> Boolean,
-                                                  function: (Char) -> String)
+                                                  function: (Char) -> String): LeadingCharactersSpec
 
-        fun transformAny(startCharacterCondition: (Char) -> Boolean): TerminalWindowSpec
+        fun prependToFirstSegment(prefix: String): LeadingCharactersSpec
+
+        fun prependSegment(segment: String): LeadingCharactersSpec
+
     }
 
-    interface LeadingAndTailingCharactersTransformationSpec {
-        fun stripAnyLeadingOrTailingCharacters(condition: (Char) -> Boolean)
+    interface TrailingCharactersSpec : RelativePositionalTransformationSpec {
+
+        fun stripAny(condition: (Char) -> Boolean): TrailingCharactersSpec
+
+        fun replaceLastCharacterOfLastSegmentIf(condition: (Char) -> Boolean,
+                                                function: (Char) -> String): TrailingCharactersSpec
+
+        fun appendToLastSegment(suffix: String): TrailingCharactersSpec
+
+        fun appendSegment(segment: String): TrailingCharactersSpec
+
     }
 
-    interface AllCharacterTransformationSpec {
-        fun replaceAnyCharacterIf(condition: (Char) -> Boolean,
-                                  function: (Char) -> String)
+    interface AllCharacterSpec : RelativePositionalTransformationSpec {
+
+        fun replaceIf(condition: (Char) -> Boolean,
+                      mapper: (Char) -> String): AllCharacterSpec
+
+        fun transform(window: WindowRangeOpenSpec.() -> CompleteWindowSpec): AllCharacterSpec
     }
 
-    interface FirstCharacterTransformationSpec {
-        fun replaceFirstCharacterOfFirstSegmentIf(condition: (Char) -> Boolean,
-                                                  function: (Char) -> String)
+    interface CharacterWindowSpec {
+
     }
 
-    interface WindowInitializationSpec {
-        fun transformAny(startCharacterCondition: (Char) -> Boolean): TerminalWindowSpec
+    interface WindowRangeOpenSpec : CharacterWindowSpec {
+
+        fun anyCharacter(startCharacterCondition: (Char) -> Boolean): WindowRangeCloseSpec
+
     }
 
-    interface TerminalWindowSpec {
+    interface WindowRangeCloseSpec : CharacterWindowSpec {
+
         fun precededBy(endCharacterCondition: (Char) -> Boolean): WindowActionSpec
+
         fun followedBy(endCharacterCondition: (Char) -> Boolean): WindowActionSpec
+
     }
 
-    interface WindowActionSpec {
-        fun into(function: (Char) -> Char)
+    interface WindowActionSpec : CharacterWindowSpec {
+
+        fun into(function: (Char) -> Char): CompleteWindowSpec
+
     }
 
-    interface DelimiterTransformationSpec {
-        fun joinWith(inputDelimiter: Char)
+    interface CompleteWindowSpec: CharacterWindowSpec {
+
     }
 
 }
