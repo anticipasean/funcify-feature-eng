@@ -1,7 +1,7 @@
 package funcify.naming.charseq.design
 
 import arrow.core.Either
-import funcify.naming.charseq.template.CharSequenceTemplate
+import funcify.naming.charseq.template.CharSequenceTransformationTemplate
 import funcify.naming.charseq.operator.CharSeqIterableFlatteningCharSeqOperator
 
 
@@ -18,5 +18,5 @@ interface CharSequenceIterableDesign<CS, CSI> {
         return CharSeqIterableFlatteningCharSeqOperator<CS, CSI>(charSeq, mapper)
     }
 
-    fun <CST> fold(template: CST): CSI where CST : CharSequenceTemplate<CS, CSI>
+    fun <CST> fold(template: CST): CSI where CST : CharSequenceTransformationTemplate<CS, CSI>
 }

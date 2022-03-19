@@ -21,4 +21,10 @@ interface ContextualCharGroup : Iterable<IndexedChar> {
     override fun spliterator(): Spliterator<IndexedChar> {
         return groupSpliterator
     }
+
+    /**
+     * @implementation: Lazily initialize string form of group
+     * from group spliterator
+     */
+    override fun toString(): String
 }

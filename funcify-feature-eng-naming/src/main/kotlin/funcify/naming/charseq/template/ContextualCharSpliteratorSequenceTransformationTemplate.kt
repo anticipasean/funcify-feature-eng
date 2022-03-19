@@ -14,7 +14,7 @@ import java.util.Spliterator
  * @author smccarron
  * @created 3/12/22
  */
-interface ContextualCharSpliteratorSequenceTemplate : CharSequenceTemplate<ContextualCharSpliterator, ContextualCharGroupSpliterator> {
+interface ContextualCharSpliteratorSequenceTransformationTemplate : CharSequenceTransformationTemplate<ContextualCharSpliterator, ContextualCharGroupSpliterator> {
 
     override fun emptyCharSeq(): ContextualCharSpliterator {
         return EmptyCharContextSpliterator

@@ -15,13 +15,14 @@ import java.util.function.Consumer
  * @author smccarron
  * @created 3/15/22
  */
-internal data class SingleCharGroupSpliterator(override val sourceSpliterator: Spliterator<IndexedChar>,
-                                               private var expended: Boolean = false) : ContextualCharGroupSpliterator {
+internal data class SingleCharGroupSpliterator(override val sourceSpliterator: Spliterator<IndexedChar>) : ContextualCharGroupSpliterator {
 
     companion object {
         // Not ordered (no clear comparison of charcontextgroups) but is sized => only one
         private const val DEFAULT_CHARACTERISTICS: Int = IMMUTABLE and NONNULL and SIZED
     }
+
+    private var expended: Boolean = false
 
     override fun tryAdvance(action: Consumer<in ContextualCharGroup>?): Boolean {
         if (action == null || expended) {

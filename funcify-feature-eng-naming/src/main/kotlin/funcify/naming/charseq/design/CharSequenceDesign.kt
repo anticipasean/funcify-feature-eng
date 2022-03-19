@@ -3,7 +3,7 @@ package funcify.naming.charseq.design
 import arrow.core.Either
 import funcify.naming.charseq.operator.MapCharSeqOperator
 import funcify.naming.charseq.operator.StartEndStringGroupingCharSeqOperator
-import funcify.naming.charseq.template.CharSequenceTemplate
+import funcify.naming.charseq.template.CharSequenceTransformationTemplate
 
 
 /**
@@ -39,6 +39,6 @@ interface CharSequenceDesign<CS, CSI> {
                                                               endStr)
     }
 
-    fun <CST> fold(template: CST): CS where CST : CharSequenceTemplate<CS, CSI>
+    fun <CST> fold(template: CST): CS where CST : CharSequenceTransformationTemplate<CS, CSI>
 
 }

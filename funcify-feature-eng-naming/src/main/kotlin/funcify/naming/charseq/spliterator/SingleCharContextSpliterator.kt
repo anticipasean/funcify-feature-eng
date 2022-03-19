@@ -15,11 +15,13 @@ import java.util.function.Consumer
  * @created 3/12/22
  */
 internal class SingleCharContextSpliterator(private val singleCharContext: IndexedChar,
-                                            private var expended: Boolean = false,
                                             private val characteristicsBitSet: Int = DEFAULT_CHARACTERISTICS_BITSET) : ContextualCharSpliterator {
+
     companion object {
         internal const val DEFAULT_CHARACTERISTICS_BITSET: Int = SIZED and NONNULL and IMMUTABLE and ORDERED
     }
+
+    private var expended: Boolean = false
 
     override fun tryAdvance(action: Consumer<in IndexedChar>?): Boolean {
         if (action == null || expended) {

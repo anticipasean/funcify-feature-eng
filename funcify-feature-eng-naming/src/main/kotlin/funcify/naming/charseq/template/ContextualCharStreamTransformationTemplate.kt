@@ -12,7 +12,7 @@ import java.util.stream.StreamSupport
  * @author smccarron
  * @created 3/15/22
  */
-interface ContextualCharStreamTemplate : CharSequenceTemplate<Stream<IndexedChar>, Stream<ContextualCharGroup>> {
+interface ContextualCharStreamTransformationTemplate : CharSequenceTransformationTemplate<Stream<IndexedChar>, Stream<ContextualCharGroup>> {
 
     override fun emptyCharSeq(): Stream<IndexedChar> {
         TODO("Not yet implemented")

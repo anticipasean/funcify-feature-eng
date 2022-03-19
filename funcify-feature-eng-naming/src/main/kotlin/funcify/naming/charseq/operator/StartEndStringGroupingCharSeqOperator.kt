@@ -2,7 +2,7 @@ package funcify.naming.charseq.operator
 
 import arrow.core.Either
 import funcify.naming.charseq.design.CharSequenceIterableDesign
-import funcify.naming.charseq.template.CharSequenceTemplate
+import funcify.naming.charseq.template.CharSequenceTransformationTemplate
 
 
 /**
@@ -14,7 +14,7 @@ class StartEndStringGroupingCharSeqOperator<CS, CSI>(override val charSeq: Eithe
                                                      private val startStr: String,
                                                      private val endStr: String) : CharSequenceIterableDesign<CS, CSI> {
 
-    override fun <CST : CharSequenceTemplate<CS, CSI>> fold(template: CST): CSI {
+    override fun <CST : CharSequenceTransformationTemplate<CS, CSI>> fold(template: CST): CSI {
         return when (charSeq) {
             is Either.Left -> TODO()
             is Either.Right -> template.groupByStartAndEnd(charSeq.value,

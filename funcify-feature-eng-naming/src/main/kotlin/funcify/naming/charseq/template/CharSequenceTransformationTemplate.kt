@@ -6,7 +6,7 @@ package funcify.naming.charseq.template
  * @author smccarron
  * @created 3/12/22
  */
-interface CharSequenceTemplate<CS, CSI> {
+interface CharSequenceTransformationTemplate<CS, CSI> {
 
     fun emptyCharSeq(): CS
 
