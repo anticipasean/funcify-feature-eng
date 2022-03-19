@@ -1,5 +1,12 @@
 package funcify.naming.charseq.template
 
+import funcify.naming.charseq.operation.CharSequenceFilterOperation
+import funcify.naming.charseq.operation.CharSequenceMapOperation
+import funcify.naming.charseq.operation.CharacterFilterOperation
+import funcify.naming.charseq.operation.CharacterGroupFlatteningOperation
+import funcify.naming.charseq.operation.CharacterGroupingOperation
+import funcify.naming.charseq.operation.CharacterMapOperation
+
 
 /**
  *
@@ -8,25 +15,24 @@ package funcify.naming.charseq.template
  */
 interface CharSequenceTransformationTemplate<CS, CSI> {
 
-    fun emptyCharSeq(): CS
+    //    fun emptyCharSeq(): CS
+    //
+    //    fun headCharSeqFromIterableOrEmpty(charSeqIterable: CSI): CS
+    //
+    //    fun singletonCharSeqIterable(charSeq: CS): CSI
 
-    fun headCharSeqFromIterableOrEmpty(charSeqIterable: CSI): CS
+    fun filterCharacters(filter: (Char) -> Boolean): CharacterFilterOperation<CS>
 
-    fun singletonCharSeqIterable(charSeq: CS): CSI
+    fun mapCharacters(mapper: (Char) -> Char): CharacterMapOperation<CS>
 
-    fun map(charSeq: CS,
-            mapper: (Char) -> Char): CS
+    fun mapCharactersWithIndex(mapper: (Int, Char) -> Char): CharacterMapOperation<CS>
 
-    fun mapWithIndex(charSeq: CS,
-                     mapper: (Int, Char) -> Char): CS
+    fun groupCharactersByDelimiter(delimiter: Char): CharacterGroupingOperation<CS, CSI>
 
-    fun groupByDelimiter(charSeq: CS,
-                         delimiter: Char): CSI
+    fun mapCharacterSequence(mapper: (CSI) -> CSI): CharSequenceMapOperation<CSI>
 
-    fun groupByStartAndEnd(charSeq: CS,
-                           startStr: String,
-                           endStr: String): CSI
+    fun filterCharacterSequence(mapper: (CSI) -> CSI): CharSequenceFilterOperation<CSI>
 
-    fun flatMapCharSeqIterable(charSeqIterable: CSI,
-                               mapper: (CSI) -> CS): CS
+    fun flattenCharacterSequence(mapper: (CSI) -> CS): CharacterGroupFlatteningOperation<CS, CSI>
+
 }
