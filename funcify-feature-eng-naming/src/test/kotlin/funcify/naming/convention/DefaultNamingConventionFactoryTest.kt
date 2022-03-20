@@ -15,7 +15,6 @@ internal class DefaultNamingConventionFactoryTest {
         DefaultNamingConventionFactory().createConventionFor(stringIterable::class)
                 .whenInputProvided {
                     extractOneOrMoreSegmentsWith { i -> i }
-                    splitIntoSegmentsWith(' ')
                 }
                 .followConvention {
                     forLeadingCharacters {

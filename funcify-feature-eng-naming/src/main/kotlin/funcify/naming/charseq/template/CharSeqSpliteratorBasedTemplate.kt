@@ -9,7 +9,7 @@ import funcify.naming.charseq.spliterator.ContextualCharSpliterator
  * @author smccarron
  * @created 3/12/22
  */
-interface ContextualCharSpliteratorSequenceTransformationTemplate : CharSequenceTransformationTemplate<ContextualCharSpliterator, ContextualCharGroupSpliterator> {
+interface CharSeqSpliteratorBasedTemplate<CTX> : CharSequenceContextTransformationTemplate<CTX, ContextualCharSpliterator, ContextualCharGroupSpliterator> {
 
     //    override fun emptyCharSeq(): ContextualCharSpliterator {
     //        return EmptyCharContextSpliterator

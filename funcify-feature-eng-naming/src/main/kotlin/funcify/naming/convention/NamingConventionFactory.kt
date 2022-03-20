@@ -21,18 +21,23 @@ interface NamingConventionFactory {
 
     interface InputSpec<I> {
 
-        fun whenInputProvided(extraction: StringExtractionSpec<I>.() -> StringExtractionSpec<I>): OutputSpec<I>
+        /**
+         *
+         * @implementation: the unit return type of the receiver type function parameter
+         * is necessary here (at least unless there's a cleaner way to handle the
+         * issues that arise from having the type parameter in both the receiver type
+         * and receiver function return type positions (in and out))
+         */
+        fun whenInputProvided(extraction: StringExtractionSpec<I>.() -> Unit): OutputSpec<I>
 
     }
 
 
-    interface StringExtractionSpec<out I> {
+    interface StringExtractionSpec<I> {
 
-        fun extractOneOrMoreSegmentsWith(function: (I) -> Iterable<String>): StringExtractionSpec<I>
+        fun extractOneOrMoreSegmentsWith(function: (I) -> Iterable<String>)
 
-        fun <I> splitIntoSegmentsWith(inputDelimiter: Char): StringExtractionSpec<I>
-
-        fun <I> splitIntoSegmentsWith(delimiterExpression: Regex): StringExtractionSpec<I>
+        fun treatAsOneSegment(function: (I) -> String = { i -> i.toString() })
 
     }
 
@@ -144,7 +149,7 @@ interface NamingConventionFactory {
 
     }
 
-    interface CompleteWindowSpec: CharacterWindowSpec {
+    interface CompleteWindowSpec : CharacterWindowSpec {
 
     }
 

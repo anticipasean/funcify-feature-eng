@@ -1,8 +1,12 @@
 package funcify.naming.encoder
 
+import kotlinx.collections.immutable.ImmutableSet
+import kotlinx.collections.immutable.persistentSetOf
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.nio.charset.Charset
+import java.util.stream.IntStream
+import kotlin.streams.asSequence
 
 
 /**
@@ -12,16 +16,28 @@ import java.nio.charset.Charset
  */
 object URICompatibleStringEncoder : (String, Charset) -> String {
 
-    private fun isAlpha(c: Int): Boolean {
-        return c >= 'a'.code && c <= 'z'.code || c >= 'A'.code && c <= 'Z'.code
+    private val unreservedCharsAsIntsSet: ImmutableSet<Int> by lazy {
+        listOf(IntStream.rangeClosed('a'.code,
+                                     'z'.code),
+               IntStream.rangeClosed('A'.code,
+                                     'Z'.code),
+               IntStream.rangeClosed('0'.code,
+                                     '9'.code),
+               IntStream.of('-'.code,
+                            '.'.code,
+                            '_'.code,
+                            '~'.code)).parallelStream()
+                .flatMapToInt { istrm -> istrm }
+                .asSequence()
+                .fold(persistentSetOf(),
+                      { acc, i ->
+                          acc.add(i)
+                      })
     }
 
-    private fun isDigit(c: Int): Boolean {
-        return c >= '0'.code && c <= '9'.code
-    }
 
     private fun isUnreservedInURIs(c: Int): Boolean {
-        return isAlpha(c) || isDigit(c) || '-'.code == c || '.'.code == c || '_'.code == c || '~'.code == c
+        return unreservedCharsAsIntsSet.contains(c)
     }
 
     fun invoke(inputString: String): String {

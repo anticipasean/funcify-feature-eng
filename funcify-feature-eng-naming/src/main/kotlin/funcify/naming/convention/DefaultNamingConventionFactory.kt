@@ -1,5 +1,10 @@
 package funcify.naming.convention
 
+import arrow.core.andThen
+import funcify.naming.charseq.context.IndexedChar
+import funcify.naming.charseq.group.ContextualCharGroup
+import funcify.naming.charseq.operation.OperationContext
+import funcify.naming.charseq.spliterator.CharArraySourceSpliterator
 import funcify.naming.convention.NamingConventionFactory.AllCharacterSpec
 import funcify.naming.convention.NamingConventionFactory.CharacterTransformationSpec
 import funcify.naming.convention.NamingConventionFactory.CompleteWindowSpec
@@ -13,6 +18,8 @@ import funcify.naming.convention.NamingConventionFactory.TrailingCharactersSpec
 import funcify.naming.convention.NamingConventionFactory.WindowActionSpec
 import funcify.naming.convention.NamingConventionFactory.WindowRangeCloseSpec
 import funcify.naming.convention.NamingConventionFactory.WindowRangeOpenSpec
+import java.util.stream.Stream
+import java.util.stream.StreamSupport
 import kotlin.reflect.KClass
 
 
@@ -32,23 +39,35 @@ internal class DefaultNamingConventionFactory() : NamingConventionFactory {
     }
 
     class DefaultInputSpec<I>() : InputSpec<I> {
-        override fun whenInputProvided(extraction: StringExtractionSpec<I>.() -> StringExtractionSpec<I>): OutputSpec<I> {
+        override fun whenInputProvided(extraction: StringExtractionSpec<I>.() -> Unit): OutputSpec<I> {
+            val stringExtractionSpec = DefaultStringExtractionSpec<I>()
+            extraction.invoke(stringExtractionSpec)
+            val opContext =
+                    OperationContext<I, Stream<IndexedChar>, Stream<ContextualCharGroup>>(inputToStringTransformer = stringExtractionSpec.inputToStringTransformer)
             TODO("Not yet implemented")
         }
     }
 
-    class DefaultStringExtractionSpec<I>() : StringExtractionSpec<I> {
-        override fun extractOneOrMoreSegmentsWith(function: (I) -> Iterable<String>): StringExtractionSpec<I> {
-            TODO("Not yet implemented")
+    class DefaultStringExtractionSpec<I>(var inputToStringTransformer: (I) -> Stream<IndexedChar> = { TODO("Not yet implemented") }) : StringExtractionSpec<I> {
+
+        override fun extractOneOrMoreSegmentsWith(function: (I) -> Iterable<String>) {
+            inputToStringTransformer = function.andThen { iter ->
+                StreamSupport.stream(iter.spliterator(),
+                                     false)
+                        .flatMap { s ->
+                            StreamSupport.stream(CharArraySourceSpliterator(s.toCharArray()),
+                                                 false)
+                        }
+            }
         }
 
-        override fun <I> splitIntoSegmentsWith(inputDelimiter: Char): StringExtractionSpec<I> {
-            TODO("Not yet implemented")
+        override fun treatAsOneSegment(function: (I) -> String) {
+            inputToStringTransformer = function.andThen { s ->
+                StreamSupport.stream(CharArraySourceSpliterator(s.toCharArray()),
+                                     false)
+            }
         }
 
-        override fun <I> splitIntoSegmentsWith(delimiterExpression: Regex): StringExtractionSpec<I> {
-            TODO("Not yet implemented")
-        }
     }
 
     class DefaultOutputSpec<I>() : OutputSpec<I> {
