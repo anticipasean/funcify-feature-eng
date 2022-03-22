@@ -8,16 +8,8 @@ package funcify.naming.charseq.operation
  */
 object DefaultCharSequenceOperationFactory {
 
-    fun <CSI> createCharSequenceFilterOperation(function: (CSI) -> Boolean): CharSequenceFilterOperation<CSI> {
-        return DefaultCharSequenceFilterOperation(function)
-    }
-
-    fun <CS> createCharSequenceMapOperation(function: (CS) -> CS): CharSequenceMapOperation<CS> {
+    fun <CS, CSI> createCharSequenceMapOperation(function: (CSI) -> CSI): CharSequenceMapOperation<CS, CSI> {
         return DefaultCharSequenceMapOperation(function)
-    }
-
-    fun <CS> createCharacterFilterOperation(function: (CS) -> Boolean): CharacterFilterOperation<CS> {
-        return DefaultCharacterFilterOperation(function)
     }
 
     fun <CS, CSI> createCharacterGroupFlatteningOperation(function: (CSI) -> CS): CharacterGroupFlatteningOperation<CS, CSI> {
@@ -28,26 +20,13 @@ object DefaultCharSequenceOperationFactory {
         return DefaultCharacterGroupingOperation(function)
     }
 
-    fun <CS> createCharacterMapOperation(function: (CS) -> CS): CharacterMapOperation<CS> {
+    fun <CS, CSI> createCharacterMapOperation(function: (CS) -> CS): CharacterMapOperation<CS, CSI> {
         return DefaultCharacterMapOperation(function)
     }
 
-    private class DefaultCharSequenceFilterOperation<CSI>(val function: (CSI) -> Boolean) : CharSequenceFilterOperation<CSI> {
-        override fun invoke(input: CSI): Boolean {
-            return function.invoke(input)
-        }
 
-    }
-
-    private class DefaultCharSequenceMapOperation<CS>(val function: (CS) -> CS) : CharSequenceMapOperation<CS> {
-        override fun invoke(input: CS): CS {
-            return function.invoke(input)
-        }
-
-    }
-
-    private class DefaultCharacterFilterOperation<CS>(val function: (CS) -> Boolean) : CharacterFilterOperation<CS> {
-        override fun invoke(input: CS): Boolean {
+    private class DefaultCharSequenceMapOperation<CS, CSI>(val function: (CSI) -> CSI) : CharSequenceMapOperation<CS, CSI> {
+        override fun invoke(input: CSI): CSI {
             return function.invoke(input)
         }
 
@@ -67,7 +46,7 @@ object DefaultCharSequenceOperationFactory {
 
     }
 
-    private class DefaultCharacterMapOperation<CS>(val function: (CS) -> CS) : CharacterMapOperation<CS> {
+    private class DefaultCharacterMapOperation<CS, CSI>(val function: (CS) -> CS) : CharacterMapOperation<CS, CSI> {
         override fun invoke(input: CS): CS {
             return function.invoke(input)
         }

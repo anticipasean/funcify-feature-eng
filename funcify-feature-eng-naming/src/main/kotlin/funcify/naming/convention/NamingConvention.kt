@@ -14,7 +14,7 @@ interface NamingConvention<in I> {
 
     val conventionName: String
 
-    val rules: ImmutableSet<NamingRule<*>>
+    val rules: ImmutableSet<NamingRule<*, *>>
 
     fun <I> deriveName(input: I): ConventionalName
 

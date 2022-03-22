@@ -1,5 +1,7 @@
 package funcify.naming.rule
 
+import funcify.naming.charseq.operation.CharSequenceOperation
+
 
 /**
  *
@@ -8,7 +10,14 @@ package funcify.naming.rule
  */
 interface NamingRuleFactory {
 
+    companion object {
 
+        val defaultFactory: NamingRuleFactory by lazy { DefaultNamingRuleFactory }
+
+    }
+
+    fun <CS, CSI> createNamingRule(description: String,
+                                   operation: CharSequenceOperation<CS, CSI>): NamingRule<CS, CSI>
 
 
 }

@@ -3,7 +3,6 @@ package funcify.naming.convention
 import arrow.core.andThen
 import funcify.naming.charseq.context.IndexedChar
 import funcify.naming.charseq.group.ContextualCharGroup
-import funcify.naming.charseq.operation.OperationContext
 import funcify.naming.charseq.spliterator.CharArraySourceSpliterator
 import funcify.naming.convention.NamingConventionFactory.AllCharacterSpec
 import funcify.naming.convention.NamingConventionFactory.CharacterTransformationSpec
