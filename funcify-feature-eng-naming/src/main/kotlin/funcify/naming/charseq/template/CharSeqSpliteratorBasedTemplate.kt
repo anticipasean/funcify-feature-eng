@@ -1,14 +1,12 @@
 package funcify.naming.charseq.template
 
-import funcify.naming.charseq.spliterator.CharGroupSpliterator
-
 
 /**
  *
  * @author smccarron
  * @created 3/12/22
  */
-interface CharSeqSpliteratorBasedTemplate<CTX> : CharSequenceContextTransformationTemplate<CTX, ContextualCharSpliterator, CharGroupSpliterator> {
+interface CharSeqSpliteratorBasedTemplate<CTX, CS, CSI> : CharSequenceContextTransformationTemplate<CTX, CS, CSI> {
 
     //    override fun emptyCharSeq(): ContextualCharSpliterator {
     //        return EmptyCharContextSpliterator

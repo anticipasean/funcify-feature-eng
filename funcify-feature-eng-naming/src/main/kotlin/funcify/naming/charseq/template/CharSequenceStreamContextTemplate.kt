@@ -4,6 +4,7 @@ import funcify.naming.charseq.operation.CharSequenceStreamContext
 import funcify.naming.charseq.operation.DefaultCharSequenceOperationFactory
 import funcify.naming.charseq.spliterator.DelimiterGroupingSpliterator
 import funcify.naming.charseq.spliterator.MappingWithIndexSpliterator
+import funcify.naming.charseq.spliterator.SlidingListWindowMappingSpliterator
 import funcify.naming.charseq.spliterator.TailFilterSpliterator
 import kotlinx.collections.immutable.ImmutableList
 import java.util.stream.Stream
@@ -63,7 +64,13 @@ interface CharSequenceStreamContextTemplate<I> : CharSequenceOperationContextTem
     override fun mapCharactersWithWindow(context: CharSequenceStreamContext<I>,
                                          windowSize: UInt,
                                          windowMapper: (ImmutableList<Char>) -> Char): CharSequenceStreamContext<I> {
-        context.allCharacterMapOperations.add(DefaultCharSequenceOperationFactory.createCharacterMapOperation { cs ->  })
+        val allCharacterMapOperations = context.allCharacterMapOperations.add(DefaultCharSequenceOperationFactory.createCharacterMapOperation { cs ->
+            StreamSupport.stream(SlidingListWindowMappingSpliterator(inputSpliterator = cs.spliterator(),
+                                                                     windowSize = windowSize.toInt(),
+                                                                     windowMapper = windowMapper),
+                                 false)
+        })
+        return context.copy(allCharacterMapOperations = allCharacterMapOperations)
     }
 
     override fun groupCharactersByDelimiter(context: CharSequenceStreamContext<I>,

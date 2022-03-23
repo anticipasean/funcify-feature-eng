@@ -14,210 +14,182 @@ import java.util.function.Consumer
  * @created 3/22/22
  */
 internal class SlidingListWindowMappingSpliterator<T, R>(private val inputSpliterator: Spliterator<T>,
-                                                         private val incrementSize: Int = 0,
-                                                         private val windowSize: Int = 1 + (incrementSize shl 1),
                                                          private val windowMapper: (ImmutableList<T>) -> R,
+                                                         private val windowSize: Int = 1,
                                                          private val sizeEstimate: Long = inputSpliterator.estimateSize(),
                                                          private val additionalCharacteristics: Int = inputSpliterator.characteristics()) : Spliterators.AbstractSpliterator<R>(sizeEstimate,
                                                                                                                                                                                 additionalCharacteristics) {
 
+    private val targetWindowSize: Int = windowSize.coerceAtLeast(1)
 
-    private var slidingListWindow: SlidingListWindow<T> = EmptyWindow(incrementSize = incrementSize.coerceAtLeast((windowSize shr 1) - 1))
-    private var expended: Boolean = false
+    /**
+     * ## increment_size:
+     * ### Definition:
+     * - the number of elements that can be viewed as "occurring after / succeeding" a given element from a source sequence
+     * within a given window of size _n_
+     *
+     * ### Examples:
+     * #### Given sequence([ 1, 2, 3, 4, 5 ]) : the first window of size 3 => [ _ , 1, 2 ]
+     * - One "null" value, represented by "_", can be said to have 2 elements succeeding it: 1, 2
+     * - A 3 element window on the first element ( [0]: 1 ) of the sequence would be: <null>, 1, 2
+     * - The increment_size for a 3 element window on any element in the sequence would thus be 2
+     *
+     * #### Given sequence([ 1, 2, 3, 4, 5 ]) : the first window of size 2 => [ _, 1 ]
+     * - One "null" values can be said to have 1 element succeeding it: 1
+     * - A 2 element window on the first element ( [0]: 1 ) of the sequence would be: <null>, 1
+     * - The increment_size for a 2 element window on any element in the sequence would thus be 1
+     *
+     * #### Given sequence([ 1, 2, 3, 4, 5 ]) : the first window of size 4 => [ _, _, 1, 2 ]
+     * - Two "null" values can be said to have 2 element succeeding them: 1, 2
+     * - A 4 element window on the first element ( [0]: 1 ) of the sequence would be: <null>, <null>, 1, 2
+     * - The increment_size for a 4 element window on any element in the sequence would thus be 2
+     */
+    private val incrementSize: Int = if ((targetWindowSize and 1) == 0) {
+        (targetWindowSize shr 1).coerceAtLeast(0)
+    } else {
+        (targetWindowSize shr 1).coerceAtLeast(0) + 1
+    }
+    private var window: PersistentList<T> = persistentListOf()
+    private var windowState: WindowState = WindowState.NEW
 
     override fun tryAdvance(action: Consumer<in R>?): Boolean {
         if (action == null) {
             return false
         }
-        when (slidingListWindow) {
+        when (windowState) {
             /**
-             * Case 1: The window is either empty or below the halfway mark in the window -> the increment size
-             * so the input spliterator must be advanced forward until the elements to the right of the cursor
-             * reach the increment size
+             * Case 1: The window is new so the input spliterator must be advanced forward
+             * until the window reaches the increment_size
              */
-            is EmptyWindow<T> -> {
+            WindowState.NEW -> {
                 var windowList = persistentListOf<T>()
-                if (!expended) {
-                    var advanceStatus: Boolean = false
-                    while (windowList.size < slidingListWindow.incrementSize && inputSpliterator.tryAdvance { t ->
-                                windowList = windowList.add(t)
-                            }
-                                    .also { advanceStatus = it }) {
+                var advanceStatus: Boolean = false
+                while (windowList.size < incrementSize && inputSpliterator.tryAdvance { t ->
+                            windowList = windowList.add(t)
+                        }
+                                .also { advanceStatus = it }) {
 
-                    }
-                    if (!advanceStatus) {
-                        expended = true
-                    }
                 }
-                if (windowList.isNotEmpty()) {
+                if (advanceStatus) {
                     action.accept(windowMapper.invoke(windowList))
-                    slidingListWindow = ForwardOnlyPartialWindow(windowList = windowList,
-                                                                 cursorIndex = slidingListWindow.cursorIndex + 1,
-                                                                 incrementSize = slidingListWindow.incrementSize,
-                                                                 targetWindowSize = slidingListWindow.targetWindowSize)
-                    return true
-                } else {
-                    return false
-                }
-            }
-            /**
-             * Case 2: The window is reached the expected half-full point but has not yet reached full size
-             * and more elements are expected
-             */
-            is ForwardOnlyPartialWindow<T> -> {
-                var windowList = slidingListWindow.windowList
-                if (!expended) {
-                    val advanceStatus: Boolean = inputSpliterator.tryAdvance { t ->
-                        windowList = windowList.add(t)
-                    }
-                    if (!advanceStatus) {
-                        expended = true
-                    }
-                }
-                if (slidingListWindow.cursorIndex < windowList.size - 1 && slidingListWindow.cursorIndex > 0) {
-                    action.accept(windowMapper.invoke(windowList))
-                    slidingListWindow = BackwardAndForwardPartialWindow(windowList = windowList,
-                                                                        cursorIndex = slidingListWindow.cursorIndex + 1,
-                                                                        incrementSize = slidingListWindow.incrementSize,
-                                                                        targetWindowSize = slidingListWindow.targetWindowSize)
-                    return true
-                } else {
-                    return false
-                }
-            }
-            is BackwardAndForwardPartialWindow<T> -> {
-                var windowList = slidingListWindow.windowList
-                if (!expended) {
-                    val advanceStatus: Boolean = inputSpliterator.tryAdvance { t ->
-                        windowList = windowList.add(t)
-                    }
-                    if (!advanceStatus) {
-                        expended = true
-                    }
-                }
-                if (slidingListWindow.cursorIndex < windowList.size - 1 && slidingListWindow.cursorIndex > slidingListWindow.incrementSize) {
-                    action.accept(windowMapper.invoke(windowList))
-                    if (windowList.size == slidingListWindow.targetWindowSize) {
-                        slidingListWindow = FullWindow(windowList = windowList,
-                                                       cursorIndex = slidingListWindow.cursorIndex + 1,
-                                                       incrementSize = slidingListWindow.incrementSize,
-                                                       targetWindowSize = slidingListWindow.targetWindowSize)
+                    window = windowList
+                    if (windowList.size == targetWindowSize) {
+                        windowState = WindowState.FULL
                     } else {
-                        slidingListWindow = BackwardAndForwardPartialWindow(windowList = windowList,
-                                                                            cursorIndex = slidingListWindow.cursorIndex + 1,
-                                                                            incrementSize = slidingListWindow.incrementSize,
-                                                                            targetWindowSize = slidingListWindow.targetWindowSize)
+                        windowState = WindowState.EXPANDING_PARTIAL
                     }
                     return true
                 } else {
-                    return false
+                    if (windowList.isNotEmpty()) {
+                        action.accept(windowMapper.invoke(windowList))
+                        window = windowList
+                        windowState = WindowState.SHRINKING_PARTIAL
+                        return true
+                    } else {
+                        windowState = WindowState.CLOSED
+                        return false
+                    }
                 }
             }
             /**
-             * Case 3: The window is full size and each element retrieved from the input should be appended
-             * to the window and the oldest or earliest element in the sequence should be removed from
-             * the window
+             * Case 2: The window has reached the increment_size but has not yet reached
+             * _full_ target size and more elements are expected
              */
-            is FullWindow<T> -> {
-                var windowList = slidingListWindow.windowList
-                if (!expended) {
-                    val advanceStatus: Boolean = inputSpliterator.tryAdvance { t ->
-                        windowList = windowList.removeAt(0)
-                                .add(t)
-                    }
-                    if (!advanceStatus) {
-                        expended = true
-                    }
+            WindowState.EXPANDING_PARTIAL -> {
+                var windowList = window
+                val advanceStatus: Boolean = inputSpliterator.tryAdvance { t ->
+                    windowList = windowList.add(t)
                 }
-                if (!expended) {
+                if (advanceStatus) {
                     action.accept(windowMapper.invoke(windowList))
-                    slidingListWindow = FullWindow(windowList = windowList,
-                                                   cursorIndex = slidingListWindow.cursorIndex,
-                                                   incrementSize = slidingListWindow.incrementSize,
-                                                   targetWindowSize = slidingListWindow.targetWindowSize)
+                    if (windowList.size == targetWindowSize) {
+                        window = windowList
+                        windowState = WindowState.FULL
+                    } else {
+                        window = windowList
+                        windowState = WindowState.EXPANDING_PARTIAL
+                    }
                     return true
                 } else {
-                    val windowListWithoutOldest = slidingListWindow.windowList.removeAt(0)
-                    action.accept(windowMapper.invoke(windowListWithoutOldest))
-                    slidingListWindow = ShrinkingLastWindow(windowList = windowListWithoutOldest,
-                                                            cursorIndex = slidingListWindow.cursorIndex + 1,
-                                                            incrementSize = slidingListWindow.incrementSize,
-                                                            targetWindowSize = slidingListWindow.targetWindowSize)
-                    return true
+                    if (windowList.isNotEmpty()) {
+                        action.accept(windowMapper.invoke(windowList))
+                        window = windowList
+                        windowState = WindowState.SHRINKING_PARTIAL
+                        return true
+                    } else {
+                        windowState = WindowState.CLOSED
+                        return false
+                    }
                 }
             }
             /**
-             * Case 4: No more elements left in input spliterator but the cursor in the window
-             * hasn't reached final index
+             * Case 3: The window is _full_ size and each element retrieved from the input should be appended
+             * to the window and the oldest or earliest element in the window should be removed
              */
-            is ShrinkingLastWindow<T> -> {
-                if (slidingListWindow.windowList.isNotEmpty() && slidingListWindow.cursorIndex < slidingListWindow.targetWindowSize - 1) {
-                    val windowListWithoutOldest = slidingListWindow.windowList.removeAt(0)
+            WindowState.FULL -> {
+                var windowList = window
+                val advanceStatus: Boolean = inputSpliterator.tryAdvance { t ->
+                    windowList = windowList.add(t)
+                }
+                if (windowList.size > targetWindowSize) {
+                    windowList = windowList.removeAt(0)
+                }
+                if (advanceStatus) {
+                    action.accept(windowMapper.invoke(windowList))
+                    window = windowList
+                    windowState = WindowState.FULL
+                } else {
+                    if (windowList.size > incrementSize) {
+                        val windowWithOldestRemoved = windowList.removeAt(0)
+                        action.accept(windowMapper.invoke(windowWithOldestRemoved))
+                        window = windowWithOldestRemoved
+                        windowState = WindowState.SHRINKING_PARTIAL
+                    } else {
+                        window = persistentListOf()
+                        windowState = WindowState.CLOSED
+                        return false
+                    }
+                }
+                return true
+            }
+            /**
+             * Case 4: No more elements are left in input spliterator but there are remaining windows
+             * to take action on before indicating the spliterator is closed
+             */
+            WindowState.SHRINKING_PARTIAL -> {
+                val windowList = window
+                if (windowList.size > incrementSize) {
+                    val windowListWithoutOldest = windowList.removeAt(0)
                     action.accept(windowMapper.invoke(windowListWithoutOldest))
-                    slidingListWindow = ShrinkingLastWindow(windowList = windowListWithoutOldest,
-                                                            cursorIndex = slidingListWindow.cursorIndex + 1,
-                                                            incrementSize = slidingListWindow.incrementSize,
-                                                            targetWindowSize = slidingListWindow.targetWindowSize)
+                    window = windowListWithoutOldest
+                    windowState = WindowState.SHRINKING_PARTIAL
                     return true
                 } else {
+                    window = persistentListOf()
+                    windowState = WindowState.CLOSED
                     return false
                 }
             }
             /**
-             * Case 5: No more elements left in input spliterator and the cursor in the window has
-             * reached the final index
-             * => inputSpliteratorExpended && windowCursorIndex >= windowSize
+             * Case 5: There are not any remaining windows of values to take action on
              */
-            else -> {
+            WindowState.CLOSED -> {
                 return false
             }
         }
 
     }
 
-
     companion object {
 
-        private sealed interface SlidingListWindow<T> {
-            val windowList: PersistentList<T>
-            val cursorIndex: Int
-            val incrementSize: Int
-            val targetWindowSize: Int
+        private enum class WindowState {
+            NEW,
+            EXPANDING_PARTIAL,
+            FULL,
+            SHRINKING_PARTIAL,
+            CLOSED
         }
 
-        private data class EmptyWindow<T>(override val incrementSize: Int,
-                                          override val windowList: PersistentList<T> = persistentListOf(),
-                                          override val cursorIndex: Int = 0,
-                                          override val targetWindowSize: Int = 1 + (incrementSize shl 1)) : SlidingListWindow<T> {
-
-        }
-
-        private data class ForwardOnlyPartialWindow<T>(override val windowList: PersistentList<T>,
-                                                       override val cursorIndex: Int,
-                                                       override val incrementSize: Int,
-                                                       override val targetWindowSize: Int) : SlidingListWindow<T> {
-
-        }
-
-        private data class BackwardAndForwardPartialWindow<T>(override val windowList: PersistentList<T>,
-                                                              override val cursorIndex: Int,
-                                                              override val incrementSize: Int,
-                                                              override val targetWindowSize: Int) : SlidingListWindow<T> {
-
-        }
-
-        private data class FullWindow<T>(override val windowList: PersistentList<T>,
-                                         override val cursorIndex: Int,
-                                         override val incrementSize: Int,
-                                         override val targetWindowSize: Int) : SlidingListWindow<T> {
-
-        }
-
-        private data class ShrinkingLastWindow<T>(override val windowList: PersistentList<T>,
-                                                  override val cursorIndex: Int,
-                                                  override val incrementSize: Int,
-                                                  override val targetWindowSize: Int) : SlidingListWindow<T> {
-
-        }
     }
 }
+

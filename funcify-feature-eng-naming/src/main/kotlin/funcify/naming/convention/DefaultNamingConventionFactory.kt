@@ -2,7 +2,6 @@ package funcify.naming.convention
 
 import arrow.core.andThen
 import funcify.naming.charseq.context.IndexedChar
-import funcify.naming.charseq.group.CharGroup
 import funcify.naming.charseq.spliterator.CharArraySourceSpliterator
 import funcify.naming.convention.NamingConventionFactory.AllCharacterSpec
 import funcify.naming.convention.NamingConventionFactory.CharacterTransformationSpec
@@ -40,9 +39,8 @@ internal class DefaultNamingConventionFactory() : NamingConventionFactory {
     class DefaultInputSpec<I>() : InputSpec<I> {
         override fun whenInputProvided(extraction: StringExtractionSpec<I>.() -> Unit): OutputSpec<I> {
             val stringExtractionSpec = DefaultStringExtractionSpec<I>()
-            extraction.invoke(stringExtractionSpec)
-            val opContext =
-                    OperationContext<I, Stream<IndexedChar>, Stream<CharGroup>>(inputToStringTransformer = stringExtractionSpec.inputToStringTransformer)
+            extraction.invoke(stringExtractionSpec) //            val opContext =
+            //                    OperationContext<I, Stream<IndexedChar>, Stream<CharGroup>>(inputToStringTransformer = stringExtractionSpec.inputToStringTransformer)
             TODO("Not yet implemented")
         }
     }
