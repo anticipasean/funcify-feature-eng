@@ -1,5 +1,7 @@
 package funcify.naming.charseq.template
 
+import kotlinx.collections.immutable.ImmutableList
+
 
 /**
  *
@@ -22,6 +24,10 @@ interface CharSequenceOperationContextTemplate<CTX> {
 
     fun mapCharactersWithIndex(context: CTX,
                                mapper: (Int, Char) -> Char): CTX
+
+    fun mapCharactersWithWindow(context: CTX,
+                                windowSize: UInt,
+                                windowMapper: (ImmutableList<Char>) -> Char): CTX
 
     fun groupCharactersByDelimiter(context: CTX,
                                    delimiter: Char): CTX

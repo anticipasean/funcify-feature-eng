@@ -2,8 +2,8 @@ package funcify.naming.charseq.template
 
 import funcify.naming.charseq.context.IndexedChar
 import funcify.naming.charseq.context.IndexedCharExtensions.at
-import funcify.naming.charseq.group.ContextualCharGroup
-import funcify.naming.charseq.group.DefaultContextualCharGroup
+import funcify.naming.charseq.group.CharGroup
+import funcify.naming.charseq.group.BaseCharGroup
 import funcify.naming.charseq.group.DelimiterCharGroup
 import funcify.naming.charseq.operation.CharSeqFunctionContext
 import funcify.naming.charseq.spliterator.DelimiterGroupingSpliterator
@@ -17,11 +17,11 @@ import java.util.stream.StreamSupport
  * @author smccarron
  * @created 3/15/22
  */
-interface CharSeqStreamBasedTemplate : CharSequenceContextTransformationTemplate<CharSeqFunctionContext<Stream<IndexedChar>, Stream<ContextualCharGroup>>, Stream<IndexedChar>, Stream<ContextualCharGroup>> {
+interface CharSeqStreamBasedTemplate : CharSequenceContextTransformationTemplate<CharSeqFunctionContext<Stream<IndexedChar>, Stream<CharGroup>>, Stream<IndexedChar>, Stream<CharGroup>> {
 
 
-    override fun filterCharacters(context: CharSeqFunctionContext<Stream<IndexedChar>, Stream<ContextualCharGroup>>,
-                                  filter: (Char) -> Boolean): CharSeqFunctionContext<Stream<IndexedChar>, Stream<ContextualCharGroup>> {
+    override fun filterCharacters(context: CharSeqFunctionContext<Stream<IndexedChar>, Stream<CharGroup>>,
+                                  filter: (Char) -> Boolean): CharSeqFunctionContext<Stream<IndexedChar>, Stream<CharGroup>> {
         return context.mapCharSeq({ cs -> cs.filter { (c, _) -> filter.invoke(c) } },
                                   { csi ->
                                       csi.flatMap({ ccg ->
@@ -32,8 +32,8 @@ interface CharSeqStreamBasedTemplate : CharSequenceContextTransformationTemplate
                                   })
     }
 
-    override fun filterCharactersWithIndex(context: CharSeqFunctionContext<Stream<IndexedChar>, Stream<ContextualCharGroup>>,
-                                           filter: (Int, Char) -> Boolean): CharSeqFunctionContext<Stream<IndexedChar>, Stream<ContextualCharGroup>> {
+    override fun filterCharactersWithIndex(context: CharSeqFunctionContext<Stream<IndexedChar>, Stream<CharGroup>>,
+                                           filter: (Int, Char) -> Boolean): CharSeqFunctionContext<Stream<IndexedChar>, Stream<CharGroup>> {
         return context.mapCharSeq({ cs ->
                                       cs.filter { (c, idx) ->
                                           filter.invoke(idx,
@@ -52,8 +52,8 @@ interface CharSeqStreamBasedTemplate : CharSequenceContextTransformationTemplate
                                   })
     }
 
-    override fun mapCharacters(context: CharSeqFunctionContext<Stream<IndexedChar>, Stream<ContextualCharGroup>>,
-                               mapper: (Char) -> Char): CharSeqFunctionContext<Stream<IndexedChar>, Stream<ContextualCharGroup>> {
+    override fun mapCharacters(context: CharSeqFunctionContext<Stream<IndexedChar>, Stream<CharGroup>>,
+                               mapper: (Char) -> Char): CharSeqFunctionContext<Stream<IndexedChar>, Stream<CharGroup>> {
         return context.mapCharSeq({ cs -> cs.map { (c, idx) -> mapper.invoke(c) at idx } },
                                   { csi ->
                                       csi.flatMap({ ccg ->
@@ -64,8 +64,8 @@ interface CharSeqStreamBasedTemplate : CharSequenceContextTransformationTemplate
                                   })
     }
 
-    override fun mapCharactersWithIndex(context: CharSeqFunctionContext<Stream<IndexedChar>, Stream<ContextualCharGroup>>,
-                                        mapper: (Int, Char) -> Char): CharSeqFunctionContext<Stream<IndexedChar>, Stream<ContextualCharGroup>> {
+    override fun mapCharactersWithIndex(context: CharSeqFunctionContext<Stream<IndexedChar>, Stream<CharGroup>>,
+                                        mapper: (Int, Char) -> Char): CharSeqFunctionContext<Stream<IndexedChar>, Stream<CharGroup>> {
         return context.mapCharSeq({ cs ->
                                       cs.map { (c, idx) ->
                                           mapper.invoke(idx,
@@ -84,8 +84,8 @@ interface CharSeqStreamBasedTemplate : CharSequenceContextTransformationTemplate
                                   })
     }
 
-    override fun groupCharactersByDelimiter(context: CharSeqFunctionContext<Stream<IndexedChar>, Stream<ContextualCharGroup>>,
-                                            delimiter: Char): CharSeqFunctionContext<Stream<IndexedChar>, Stream<ContextualCharGroup>> {
+    override fun groupCharactersByDelimiter(context: CharSeqFunctionContext<Stream<IndexedChar>, Stream<CharGroup>>,
+                                            delimiter: Char): CharSeqFunctionContext<Stream<IndexedChar>, Stream<CharGroup>> {
         return context.mapCharSeqIterable({ cs ->
                                               StreamSupport.stream(DelimiterGroupingSpliterator(cs.spliterator(),
                                                                                                 { c -> c == delimiter }),
@@ -105,7 +105,7 @@ interface CharSeqStreamBasedTemplate : CharSequenceContextTransformationTemplate
                                               val splitr1 = DuplicatingSpliterator(csi.spliterator())
                                               val splitr2 = splitr1.duplicate()
                                               var counter = 0
-                                              val delimiterOrDelimitedCharGroupHolder = arrayOfNulls<ContextualCharGroup>(1)
+                                              val delimiterOrDelimitedCharGroupHolder = arrayOfNulls<CharGroup>(1)
                                               while (counter < 2 && splitr2.tryAdvance({ cg ->
                                                                                            delimiterOrDelimitedCharGroupHolder[0] = cg
                                                                                        }) && delimiterOrDelimitedCharGroupHolder[0] !is DelimiterCharGroup) {
@@ -128,13 +128,13 @@ interface CharSeqStreamBasedTemplate : CharSequenceContextTransformationTemplate
                                           })
     }
 
-    override fun mapCharacterSequence(context: CharSeqFunctionContext<Stream<IndexedChar>, Stream<ContextualCharGroup>>,
-                                      mapper: (Stream<ContextualCharGroup>) -> Stream<ContextualCharGroup>): CharSeqFunctionContext<Stream<IndexedChar>, Stream<ContextualCharGroup>> {
+    override fun mapCharacterSequence(context: CharSeqFunctionContext<Stream<IndexedChar>, Stream<CharGroup>>,
+                                      mapper: (Stream<CharGroup>) -> Stream<CharGroup>): CharSeqFunctionContext<Stream<IndexedChar>, Stream<CharGroup>> {
         return context.mapCharSeqIterable({ cs ->
                                               /**
                                                * Make single char group stream in this case
                                                */
-                                              mapper.invoke(Stream.of(DefaultContextualCharGroup(cs.spliterator())))
+                                              mapper.invoke(Stream.of(BaseCharGroup(cs.spliterator())))
                                           },
                                           { csi ->
                                               mapper.invoke(csi)

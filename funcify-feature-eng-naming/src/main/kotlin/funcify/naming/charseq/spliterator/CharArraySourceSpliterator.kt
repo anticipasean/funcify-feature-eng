@@ -18,7 +18,7 @@ import java.util.function.Consumer
 internal class CharArraySourceSpliterator(private val charArray: CharArray,
                                           private var index: Int = 0,
                                           private val exclusiveLimit: Int = charArray.size,
-                                          private val characteristicsBitSet: Int = DEFAULT_CHARACTERISTICS_BITSET) : ContextualCharSpliterator {
+                                          private val characteristicsBitSet: Int = DEFAULT_CHARACTERISTICS_BITSET) : Spliterator<IndexedChar> {
     companion object {
         internal const val DEFAULT_CHARACTERISTICS_BITSET: Int = SIZED and NONNULL and IMMUTABLE and ORDERED
     }

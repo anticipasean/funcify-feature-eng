@@ -2,7 +2,7 @@ package funcify.naming.convention
 
 import arrow.core.andThen
 import funcify.naming.charseq.context.IndexedChar
-import funcify.naming.charseq.group.ContextualCharGroup
+import funcify.naming.charseq.group.CharGroup
 import funcify.naming.charseq.spliterator.CharArraySourceSpliterator
 import funcify.naming.convention.NamingConventionFactory.AllCharacterSpec
 import funcify.naming.convention.NamingConventionFactory.CharacterTransformationSpec
@@ -42,7 +42,7 @@ internal class DefaultNamingConventionFactory() : NamingConventionFactory {
             val stringExtractionSpec = DefaultStringExtractionSpec<I>()
             extraction.invoke(stringExtractionSpec)
             val opContext =
-                    OperationContext<I, Stream<IndexedChar>, Stream<ContextualCharGroup>>(inputToStringTransformer = stringExtractionSpec.inputToStringTransformer)
+                    OperationContext<I, Stream<IndexedChar>, Stream<CharGroup>>(inputToStringTransformer = stringExtractionSpec.inputToStringTransformer)
             TODO("Not yet implemented")
         }
     }

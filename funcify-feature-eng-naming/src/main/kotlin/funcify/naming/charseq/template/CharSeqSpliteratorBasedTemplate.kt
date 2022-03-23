@@ -1,7 +1,6 @@
 package funcify.naming.charseq.template
 
-import funcify.naming.charseq.spliterator.ContextualCharGroupSpliterator
-import funcify.naming.charseq.spliterator.ContextualCharSpliterator
+import funcify.naming.charseq.spliterator.CharGroupSpliterator
 
 
 /**
@@ -9,7 +8,7 @@ import funcify.naming.charseq.spliterator.ContextualCharSpliterator
  * @author smccarron
  * @created 3/12/22
  */
-interface CharSeqSpliteratorBasedTemplate<CTX> : CharSequenceContextTransformationTemplate<CTX, ContextualCharSpliterator, ContextualCharGroupSpliterator> {
+interface CharSeqSpliteratorBasedTemplate<CTX> : CharSequenceContextTransformationTemplate<CTX, ContextualCharSpliterator, CharGroupSpliterator> {
 
     //    override fun emptyCharSeq(): ContextualCharSpliterator {
     //        return EmptyCharContextSpliterator

@@ -1,6 +1,5 @@
 package funcify.naming.charseq.group
 
-import funcify.naming.charseq.context.IndexedChar
 import java.util.Spliterator
 import java.util.Spliterators
 
@@ -10,15 +9,16 @@ import java.util.Spliterators
  * @author smccarron
  * @created 3/14/22
  */
-interface ContextualCharGroup : Iterable<IndexedChar> {
+interface CharGroup : CharSequence,
+                      Iterable<Char> {
 
-    val groupSpliterator: Spliterator<IndexedChar>
+    val groupSpliterator: Spliterator<Char>
 
-    override fun iterator(): Iterator<IndexedChar> {
+    override fun iterator(): Iterator<Char> {
         return Spliterators.iterator(groupSpliterator)
     }
 
-    override fun spliterator(): Spliterator<IndexedChar> {
+    override fun spliterator(): Spliterator<Char> {
         return groupSpliterator
     }
 

@@ -1,7 +1,5 @@
 package funcify.naming.charseq.spliterator
 
-import funcify.naming.charseq.context.IndexedChar
-import funcify.naming.charseq.group.ContextualCharGroup
 import funcify.naming.charseq.group.DelimitedCharGroup
 import funcify.naming.charseq.group.DelimiterCharGroup
 import java.util.Deque
@@ -17,11 +15,11 @@ import java.util.function.Consumer
  * @author smccarron
  * @created 3/14/22
  */
-internal class DelimiterGroupingSpliterator(override val sourceSpliterator: Spliterator<IndexedChar>,
+internal class DelimiterGroupingSpliterator(private val sourceSpliterator: Spliterator<Char>,
                                             private val delimiterFilter: (Char) -> Boolean,
                                             private val characteristicsBitSet: Int = DEFAULT_CHARACTERISTICS,
-                                            private var delimiterQueue: Deque<IndexedChar> = LinkedList(),
-                                            private var delimitedQueue: Deque<IndexedChar> = LinkedList()) : ContextualCharGroupSpliterator {
+                                            private var delimiterQueue: Deque<Char> = LinkedList(),
+                                            private var delimitedQueue: Deque<Char> = LinkedList()) : Spliterator<CharSequence> {
 
     companion object {
         // Not ordered (no clear comparison of charcontextgroups) or sized (unknown how many charcontextgroups will be extracted from source)
@@ -29,7 +27,7 @@ internal class DelimiterGroupingSpliterator(override val sourceSpliterator: Spli
         private const val DEFAULT_SIZE_IF_UNKNOWN: Long = Long.MAX_VALUE
     }
 
-    override fun tryAdvance(action: Consumer<in ContextualCharGroup>?): Boolean {
+    override fun tryAdvance(action: Consumer<in CharSequence>?): Boolean {
         if (action == null) {
             return false
         }
@@ -42,11 +40,11 @@ internal class DelimiterGroupingSpliterator(override val sourceSpliterator: Spli
          */
         if (delimiterQueue.isNotEmpty()) {
             while (attemptToAdvance[0] && delimitedQueue.isEmpty()) {
-                attemptToAdvance[0] = sourceSpliterator.tryAdvance { cc ->
-                    if (delimiterFilter.invoke(cc.character)) {
-                        delimiterQueue.add(cc)
+                attemptToAdvance[0] = sourceSpliterator.tryAdvance { c ->
+                    if (delimiterFilter.invoke(c)) {
+                        delimiterQueue.add(c)
                     } else {
-                        delimitedQueue.add(cc)
+                        delimitedQueue.add(c)
                     }
                 }
             }
@@ -61,11 +59,11 @@ internal class DelimiterGroupingSpliterator(override val sourceSpliterator: Spli
          */
         if (delimitedQueue.isNotEmpty()) {
             while (attemptToAdvance[0] && delimiterQueue.isEmpty()) {
-                attemptToAdvance[0] = sourceSpliterator.tryAdvance { cc ->
-                    if (delimiterFilter.invoke(cc.character)) {
-                        delimiterQueue.add(cc)
+                attemptToAdvance[0] = sourceSpliterator.tryAdvance { c ->
+                    if (delimiterFilter.invoke(c)) {
+                        delimiterQueue.add(c)
                     } else {
-                        delimitedQueue.add(cc)
+                        delimitedQueue.add(c)
                     }
                 }
             }
@@ -85,14 +83,14 @@ internal class DelimiterGroupingSpliterator(override val sourceSpliterator: Spli
         val delimiterFirstChar = booleanArrayOf(false)
         val firstCharGroupTypeConsumed = booleanArrayOf(false)
         while (attemptToAdvance[0] && !firstCharGroupTypeConsumed[0]) {
-            attemptToAdvance[0] = sourceSpliterator.tryAdvance { cc ->
+            attemptToAdvance[0] = sourceSpliterator.tryAdvance { c ->
                 if (delimiterQueue.isEmpty() && delimitedQueue.isEmpty()) {
-                    delimiterFirstChar[0] = delimiterFilter.invoke(cc.character)
+                    delimiterFirstChar[0] = delimiterFilter.invoke(c)
                 }
-                if (delimiterFilter.invoke(cc.character)) {
-                    delimiterQueue.add(cc)
+                if (delimiterFilter.invoke(c)) {
+                    delimiterQueue.add(c)
                 } else {
-                    delimitedQueue.add(cc)
+                    delimitedQueue.add(c)
                 }
             }
             firstCharGroupTypeConsumed[0] = delimiterQueue.isNotEmpty() && delimitedQueue.isNotEmpty()
@@ -110,7 +108,7 @@ internal class DelimiterGroupingSpliterator(override val sourceSpliterator: Spli
         }
     }
 
-    override fun trySplit(): Spliterator<ContextualCharGroup>? {
+    override fun trySplit(): Spliterator<CharSequence>? {
         /**
          * Cannot split given number of expected char groups is not known at initialization
          */
@@ -125,7 +123,7 @@ internal class DelimiterGroupingSpliterator(override val sourceSpliterator: Spli
         return characteristicsBitSet
     }
 
-    override fun getComparator(): Comparator<in ContextualCharGroup> {
+    override fun getComparator(): Comparator<CharSequence> {
         throw IllegalStateException()
     }
 }

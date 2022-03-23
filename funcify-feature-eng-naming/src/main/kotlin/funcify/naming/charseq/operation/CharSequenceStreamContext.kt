@@ -16,7 +16,10 @@ data class CharSequenceStreamContext<in I>(override val inputToStringTransformer
                                            override val leadingCharacterMapOperations: PersistentList<CharacterMapOperation<Stream<Char>, Stream<CharSequence>>>,
                                            override val trailingCharacterFilterOperations: PersistentList<CharacterMapOperation<Stream<Char>, Stream<CharSequence>>>,
                                            override val trailingCharacterMapOperations: PersistentList<CharacterMapOperation<Stream<Char>, Stream<CharSequence>>>,
+                                           override val segmentingOperations: PersistentList<CharacterGroupingOperation<Stream<Char>, Stream<CharSequence>>>,
+                                           override val segmentLeadingFilterOperations: PersistentList<CharSequenceMapOperation<Stream<Char>, Stream<CharSequence>>>,
                                            override val segmentFilterOperations: PersistentList<CharSequenceMapOperation<Stream<Char>, Stream<CharSequence>>>,
-                                           override val segmentOperations: PersistentList<CharSequenceMapOperation<Stream<Char>, Stream<CharSequence>>>) : CharSequenceOperationContext<I, Stream<Char>, Stream<CharSequence>> {
+                                           override val segmentTrailingFilterOperations: PersistentList<CharSequenceMapOperation<Stream<Char>, Stream<CharSequence>>>,
+                                           override val segmentMapOperations: PersistentList<CharSequenceMapOperation<Stream<Char>, Stream<CharSequence>>>) : CharSequenceOperationContext<I, Stream<Char>, Stream<CharSequence>> {
 
 }
