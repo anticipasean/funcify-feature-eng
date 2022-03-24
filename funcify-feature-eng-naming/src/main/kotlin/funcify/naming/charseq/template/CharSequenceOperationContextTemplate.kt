@@ -10,6 +10,8 @@ import kotlinx.collections.immutable.ImmutableList
  */
 interface CharSequenceOperationContextTemplate<CTX> {
 
+    fun emptyContext(): CTX
+
     fun filterLeadingCharacters(context: CTX,
                                 filter: (Char) -> Boolean): CTX
 

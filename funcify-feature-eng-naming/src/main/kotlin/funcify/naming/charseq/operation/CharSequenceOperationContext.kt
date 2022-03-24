@@ -8,9 +8,9 @@ import kotlinx.collections.immutable.ImmutableList
  * @author smccarron
  * @created 3/22/22
  */
-interface CharSequenceOperationContext<in I, CS, CSI> {
+interface CharSequenceOperationContext<I, CS, CSI> {
 
-    val inputToStringTransformer: (I) -> CS
+    val inputToCharSequenceTransformer: (I) -> CSI
     val allCharacterFilterOperations: ImmutableList<CharacterMapOperation<CS, CSI>>
     val allCharacterMapOperations: ImmutableList<CharacterMapOperation<CS, CSI>>
     val leadingCharacterFilterOperations: ImmutableList<CharacterMapOperation<CS, CSI>>

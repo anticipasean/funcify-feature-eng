@@ -1,8 +1,6 @@
 package funcify.naming.convention
 
-import arrow.core.andThen
-import funcify.naming.charseq.context.IndexedChar
-import funcify.naming.charseq.spliterator.CharArraySourceSpliterator
+import funcify.naming.charseq.template.CharSequenceOperationContextTemplate
 import funcify.naming.convention.NamingConventionFactory.AllCharacterSpec
 import funcify.naming.convention.NamingConventionFactory.CharacterTransformationSpec
 import funcify.naming.convention.NamingConventionFactory.CompleteWindowSpec
@@ -16,8 +14,6 @@ import funcify.naming.convention.NamingConventionFactory.TrailingCharactersSpec
 import funcify.naming.convention.NamingConventionFactory.WindowActionSpec
 import funcify.naming.convention.NamingConventionFactory.WindowRangeCloseSpec
 import funcify.naming.convention.NamingConventionFactory.WindowRangeOpenSpec
-import java.util.stream.Stream
-import java.util.stream.StreamSupport
 import kotlin.reflect.KClass
 
 
@@ -36,44 +32,36 @@ internal class DefaultNamingConventionFactory() : NamingConventionFactory {
         TODO("Not yet implemented")
     }
 
-    class DefaultInputSpec<I>() : InputSpec<I> {
+    class DefaultInputSpec<I, CTX>(val charSeqOpContext: CTX,
+                                   val charSeqOpTemplate: CharSequenceOperationContextTemplate<CTX>) : InputSpec<I> {
+
         override fun whenInputProvided(extraction: StringExtractionSpec<I>.() -> Unit): OutputSpec<I> {
-            val stringExtractionSpec = DefaultStringExtractionSpec<I>()
-            extraction.invoke(stringExtractionSpec) //            val opContext =
-            //                    OperationContext<I, Stream<IndexedChar>, Stream<CharGroup>>(inputToStringTransformer = stringExtractionSpec.inputToStringTransformer)
             TODO("Not yet implemented")
         }
     }
 
-    class DefaultStringExtractionSpec<I>(var inputToStringTransformer: (I) -> Stream<IndexedChar> = { TODO("Not yet implemented") }) : StringExtractionSpec<I> {
+    class DefaultStringExtractionSpec<I, CTX>(val charSeqOpContext: CTX,
+                                              val charSeqOpTemplate: CharSequenceOperationContextTemplate<CTX>) : StringExtractionSpec<I> {
 
         override fun extractOneOrMoreSegmentsWith(function: (I) -> Iterable<String>) {
-            inputToStringTransformer = function.andThen { iter ->
-                StreamSupport.stream(iter.spliterator(),
-                                     false)
-                        .flatMap { s ->
-                            StreamSupport.stream(CharArraySourceSpliterator(s.toCharArray()),
-                                                 false)
-                        }
-            }
+            TODO("Not yet implemented")
         }
 
         override fun treatAsOneSegment(function: (I) -> String) {
-            inputToStringTransformer = function.andThen { s ->
-                StreamSupport.stream(CharArraySourceSpliterator(s.toCharArray()),
-                                     false)
-            }
+            TODO("Not yet implemented")
         }
 
     }
 
-    class DefaultOutputSpec<I>() : OutputSpec<I> {
+    class DefaultOutputSpec<I, CTX>(val charSeqOpContext: CTX,
+                                    val charSeqOpTemplate: CharSequenceOperationContextTemplate<CTX>) : OutputSpec<I> {
         override fun followConvention(transformation: FullTransformationSpec.() -> FullTransformationSpec): NamingConvention<I> {
             TODO("Not yet implemented")
         }
     }
 
-    class DefaultChunkCharacterTransformationSpec() : CharacterTransformationSpec {
+    class DefaultChunkCharacterTransformationSpec<CTX>(val charSeqOpContext: CTX,
+                                                       val charSeqOpTemplate: CharSequenceOperationContextTemplate<CTX>) : CharacterTransformationSpec {
         override fun forLeadingCharacters(transformation: LeadingCharactersSpec.() -> LeadingCharactersSpec): CharacterTransformationSpec {
             TODO("Not yet implemented")
         }
@@ -87,7 +75,8 @@ internal class DefaultNamingConventionFactory() : NamingConventionFactory {
         }
     }
 
-    class DefaultFullTransformationSpec() : FullTransformationSpec {
+    class DefaultFullTransformationSpec<CTX>(val charSeqOpContext: CTX,
+                                             val charSeqOpTemplate: CharSequenceOperationContextTemplate<CTX>) : FullTransformationSpec {
         override fun forLeadingCharacters(transformation: LeadingCharactersSpec.() -> LeadingCharactersSpec): CharacterTransformationSpec {
             TODO("Not yet implemented")
         }
@@ -113,7 +102,8 @@ internal class DefaultNamingConventionFactory() : NamingConventionFactory {
         }
     }
 
-    class DefaultLeadingCharactersSpec() : LeadingCharactersSpec {
+    class DefaultLeadingCharactersSpec<CTX>(val charSeqOpContext: CTX,
+                                            val charSeqOpTemplate: CharSequenceOperationContextTemplate<CTX>) : LeadingCharactersSpec {
         override fun stripAny(condition: (Char) -> Boolean): LeadingCharactersSpec {
             TODO("Not yet implemented")
         }
@@ -132,7 +122,8 @@ internal class DefaultNamingConventionFactory() : NamingConventionFactory {
         }
     }
 
-    class DefaultTrailingCharactersSpec() : TrailingCharactersSpec {
+    class DefaultTrailingCharactersSpec<CTX>(val charSeqOpContext: CTX,
+                                             val charSeqOpTemplate: CharSequenceOperationContextTemplate<CTX>) : TrailingCharactersSpec {
         override fun stripAny(condition: (Char) -> Boolean): TrailingCharactersSpec {
             TODO("Not yet implemented")
         }
@@ -151,7 +142,8 @@ internal class DefaultNamingConventionFactory() : NamingConventionFactory {
         }
     }
 
-    class DefaultAllCharacterSpec() : AllCharacterSpec {
+    class DefaultAllCharacterSpec<CTX>(val charSeqOpContext: CTX,
+                                       val charSeqOpTemplate: CharSequenceOperationContextTemplate<CTX>) : AllCharacterSpec {
         override fun replaceIf(condition: (Char) -> Boolean,
                                mapper: (Char) -> String): AllCharacterSpec {
             TODO("Not yet implemented")
@@ -162,7 +154,8 @@ internal class DefaultNamingConventionFactory() : NamingConventionFactory {
         }
     }
 
-    class DefaultStringTransformationSpec() : StringTransformationSpec {
+    class DefaultStringTransformationSpec<CTX>(val charSeqOpContext: CTX,
+                                               val charSeqOpTemplate: CharSequenceOperationContextTemplate<CTX>) : StringTransformationSpec {
         override fun replace(regex: Regex,
                              replacement: String): StringTransformationSpec {
             TODO("Not yet implemented")
@@ -200,13 +193,15 @@ internal class DefaultNamingConventionFactory() : NamingConventionFactory {
 
     }
 
-    class DefaultWindowRangeOpenSpec() : WindowRangeOpenSpec {
+    class DefaultWindowRangeOpenSpec<CTX>(val charSeqOpContext: CTX,
+                                          val charSeqOpTemplate: CharSequenceOperationContextTemplate<CTX>) : WindowRangeOpenSpec {
         override fun anyCharacter(startCharacterCondition: (Char) -> Boolean): WindowRangeCloseSpec {
             TODO("Not yet implemented")
         }
     }
 
-    class DefaultWindowRangeCloseSpec : WindowRangeCloseSpec {
+    class DefaultWindowRangeCloseSpec<CTX>(val charSeqOpContext: CTX,
+                                           val charSeqOpTemplate: CharSequenceOperationContextTemplate<CTX>) : WindowRangeCloseSpec {
         override fun precededBy(endCharacterCondition: (Char) -> Boolean): WindowActionSpec {
             TODO("Not yet implemented")
         }
@@ -216,13 +211,15 @@ internal class DefaultNamingConventionFactory() : NamingConventionFactory {
         }
     }
 
-    class DefaultWindowActionSpec() : WindowActionSpec {
+    class DefaultWindowActionSpec<CTX>(val charSeqOpContext: CTX,
+                                       val charSeqOpTemplate: CharSequenceOperationContextTemplate<CTX>) : WindowActionSpec {
         override fun into(function: (Char) -> Char): CompleteWindowSpec {
             TODO("Not yet implemented")
         }
     }
 
-    class DefaultCompleteWindowSpec() : CompleteWindowSpec {
+    class DefaultCompleteWindowSpec<CTX>(val charSeqOpContext: CTX,
+                                         val charSeqOpTemplate: CharSequenceOperationContextTemplate<CTX>) : CompleteWindowSpec {
 
     }
 

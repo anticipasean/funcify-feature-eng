@@ -42,4 +42,5 @@ internal abstract class BaseCharGroup(private val inputSpliterator: Spliterator<
     override fun toString(): String {
         return stringForm
     }
+
 }

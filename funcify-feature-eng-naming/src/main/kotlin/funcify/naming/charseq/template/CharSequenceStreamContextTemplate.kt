@@ -1,5 +1,7 @@
 package funcify.naming.charseq.template
 
+import arrow.core.andThen
+import funcify.naming.charseq.group.LazyCharSequence
 import funcify.naming.charseq.operation.CharSequenceStreamContext
 import funcify.naming.charseq.operation.DefaultCharSequenceOperationFactory
 import funcify.naming.charseq.spliterator.DelimiterGroupingSpliterator
@@ -9,6 +11,7 @@ import funcify.naming.charseq.spliterator.SlidingListWindowMappingSpliterator
 import funcify.naming.charseq.spliterator.TailFilterSpliterator
 import funcify.naming.charseq.spliterator.TripleWindowMappingSpliterator
 import kotlinx.collections.immutable.ImmutableList
+import java.util.Objects
 import java.util.stream.Stream
 import java.util.stream.StreamSupport
 
@@ -19,6 +22,51 @@ import java.util.stream.StreamSupport
  * @created 3/22/22
  */
 interface CharSequenceStreamContextTemplate<I> : CharSequenceOperationContextTemplate<CharSequenceStreamContext<I>> {
+
+    companion object {
+        internal val DEFAULT_INPUT_TRANSFORMER: (Any?) -> Stream<CharSequence> = { input: Any? ->
+            when (input) {
+                is Collection<*> -> input.stream()
+                        .filter(Objects::nonNull)
+                is Iterable<*> -> StreamSupport.stream(input.spliterator(),
+                                                       false)
+                        .filter(Objects::nonNull)
+                else -> Stream.ofNullable(input)
+            }.map { a ->
+                a as? CharSequence
+                ?: a.toString()
+            }
+        }
+    }
+
+    fun transformIntoCharacterStream(context: CharSequenceStreamContext<I>,
+                                     transformer: (I) -> Stream<Char>): CharSequenceStreamContext<I> {
+        return context.copy(inputToCharSequenceTransformer = transformer.andThen { charStream ->
+            Stream.of(LazyCharSequence(charStream.spliterator()))
+        })
+    }
+
+    fun transformIntoString(context: CharSequenceStreamContext<I>,
+                            transformer: (I) -> String): CharSequenceStreamContext<I> {
+        return context.copy(inputToCharSequenceTransformer = transformer.andThen { str -> Stream.of(str) })
+    }
+
+    fun transformIntoStringIterable(context: CharSequenceStreamContext<I>,
+                                    transformer: (I) -> Iterable<String>): CharSequenceStreamContext<I> {
+        return context.copy(inputToCharSequenceTransformer = transformer.andThen { strs ->
+            when (strs) {
+                is Collection<String> -> strs.stream()
+                        .map { s -> s }
+                else -> StreamSupport.stream(strs.spliterator(),
+                                             false)
+                        .map { s -> s }
+            }
+        })
+    }
+
+    override fun emptyContext(): CharSequenceStreamContext<I> {
+        return CharSequenceStreamContext<I>(inputToCharSequenceTransformer = DEFAULT_INPUT_TRANSFORMER)
+    }
 
     override fun filterLeadingCharacters(context: CharSequenceStreamContext<I>,
                                          filter: (Char) -> Boolean): CharSequenceStreamContext<I> {
