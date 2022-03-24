@@ -29,6 +29,12 @@ interface CharSequenceOperationContextTemplate<CTX> {
                                 windowSize: UInt,
                                 windowMapper: (ImmutableList<Char>) -> Char): CTX
 
+    fun mapCharactersWithPairWindow(context: CTX,
+                                    windowMapper: (Pair<Char?, Char?>) -> Char): CTX
+
+    fun mapCharactersWithTripleWindow(context: CTX,
+                                      windowMapper: (Triple<Char?, Char, Char?>) -> Char): CTX
+
     fun groupCharactersByDelimiter(context: CTX,
                                    delimiter: Char): CTX
 
@@ -43,6 +49,16 @@ interface CharSequenceOperationContextTemplate<CTX> {
 
     fun mapCharacterSequence(context: CTX,
                              mapper: (CharSequence) -> CharSequence): CTX
+
+    fun mapCharacterSequenceWithWindow(context: CTX,
+                                       windowSize: UInt,
+                                       mapper: (ImmutableList<CharSequence>) -> CharSequence): CTX
+
+    fun mapCharacterSequenceWithPairWindow(context: CTX,
+                                           mapper: (Pair<CharSequence?, CharSequence?>) -> CharSequence): CTX
+
+    fun mapCharacterSequenceWithTripleWindow(context: CTX,
+                                             mapper: (Triple<CharSequence?, CharSequence, CharSequence?>) -> CharSequence): CTX
 
     fun mapCharacterSequenceWithIndex(context: CTX,
                                       mapper: (Int, CharSequence) -> CharSequence): CTX
