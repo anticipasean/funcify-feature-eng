@@ -39,20 +39,20 @@ interface CharSequenceStreamContextTemplate<I> : CharSequenceOperationContextTem
         }
     }
 
-    fun transformIntoCharacterStream(context: CharSequenceStreamContext<I>,
-                                     transformer: (I) -> Stream<Char>): CharSequenceStreamContext<I> {
+    fun <I> transformIntoCharacterStream(context: CharSequenceStreamContext<I>,
+                                         transformer: (I) -> Stream<Char>): CharSequenceStreamContext<I> {
         return context.copy(inputToCharSequenceTransformer = transformer.andThen { charStream ->
             Stream.of(LazyCharSequence(charStream.spliterator()))
         })
     }
 
-    fun transformIntoString(context: CharSequenceStreamContext<I>,
-                            transformer: (I) -> String): CharSequenceStreamContext<I> {
+    fun <I> transformIntoString(context: CharSequenceStreamContext<I>,
+                                transformer: (I) -> String): CharSequenceStreamContext<I> {
         return context.copy(inputToCharSequenceTransformer = transformer.andThen { str -> Stream.of(str) })
     }
 
-    fun transformIntoStringIterable(context: CharSequenceStreamContext<I>,
-                                    transformer: (I) -> Iterable<String>): CharSequenceStreamContext<I> {
+    fun <I> transformIntoStringIterable(context: CharSequenceStreamContext<I>,
+                                        transformer: (I) -> Iterable<String>): CharSequenceStreamContext<I> {
         return context.copy(inputToCharSequenceTransformer = transformer.andThen { strs ->
             when (strs) {
                 is Collection<String> -> strs.stream()
