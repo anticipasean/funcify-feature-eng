@@ -26,6 +26,31 @@ import kotlin.reflect.KClass
  */
 internal class DefaultNamingConventionFactory<CTX>(val charSeqOpTemplate: CharSequenceOperationContextTemplate<CTX>) : NamingConventionFactory {
 
+    companion object {
+
+        private fun <I, CTX> CharSequenceOperationContextTemplate<CTX>.streamContextApply(context: CTX,
+                                                                                          function: (CharSequenceStreamContextTemplate<I>, CharSequenceStreamContext<I>) -> CharSequenceStreamContext<I>): CTX {
+            when (this) {
+                is CharSequenceStreamContextTemplate<*> -> {
+                    when (context) {
+                        is CharSequenceStreamContext<*> -> {
+                            @Suppress("UNCHECKED_CAST") //
+                            return function.invoke(this as CharSequenceStreamContextTemplate<I>,
+                                                   context as CharSequenceStreamContext<I>) as CTX
+                        }
+                        else -> {
+                            throw IllegalArgumentException("unhandled context type: ${context?.let { javaClass.name }}")
+                        }
+                    }
+                }
+                else -> {
+                    throw IllegalArgumentException("unhandled template type: ${this::class.java.name}")
+                }
+            }
+        }
+
+    }
+
     override fun createConventionForRawStrings(): InputSpec<String> {
         return DefaultInputSpec<String, CTX>(charSeqOpTemplate.emptyContext(),
                                              charSeqOpTemplate)
@@ -52,46 +77,16 @@ internal class DefaultNamingConventionFactory<CTX>(val charSeqOpTemplate: CharSe
                                               val charSeqOpTemplate: CharSequenceOperationContextTemplate<CTX>) : StringExtractionSpec<I> {
 
         override fun extractOneOrMoreSegmentsWith(function: (I) -> Iterable<String>) {
-            when (charSeqOpTemplate) {
-                is CharSequenceStreamContextTemplate<*> -> {
-                    when (charSeqOpContext) {
-                        is CharSequenceStreamContext<*> -> {
-                            @Suppress("UNCHECKED_CAST")
-                            val context: CharSequenceStreamContext<I> = charSeqOpContext as CharSequenceStreamContext<I>
-                            @Suppress("UNCHECKED_CAST") //
-                            charSeqOpContext = charSeqOpTemplate.transformIntoStringIterable(context,
-                                                                                             function) as CTX
-                        }
-                        else -> {
-                            throw IllegalArgumentException("unhandled context type: ${charSeqOpContext?.let { javaClass.name }}")
-                        }
-                    }
-                }
-                else -> {
-                    throw IllegalArgumentException("unhandled template type: ${charSeqOpTemplate::class.java.name}")
-                }
+            charSeqOpContext = charSeqOpTemplate.streamContextApply<I, CTX>(charSeqOpContext) { t, ctx ->
+                t.transformIntoStringIterable(ctx,
+                                              function)
             }
         }
 
         override fun treatAsOneSegment(function: (I) -> String) {
-            when (charSeqOpTemplate) {
-                is CharSequenceStreamContextTemplate<*> -> {
-                    when (charSeqOpContext) {
-                        is CharSequenceStreamContext<*> -> {
-                            @Suppress("UNCHECKED_CAST")
-                            val context: CharSequenceStreamContext<I> = charSeqOpContext as CharSequenceStreamContext<I>
-                            @Suppress("UNCHECKED_CAST") //
-                            charSeqOpContext = charSeqOpTemplate.transformIntoString(context,
-                                                                                     function) as CTX
-                        }
-                        else -> {
-                            throw IllegalArgumentException("unhandled context type: ${charSeqOpContext?.let { javaClass.name }}")
-                        }
-                    }
-                }
-                else -> {
-                    throw IllegalArgumentException("unhandled template type: ${charSeqOpTemplate::class.java.name}")
-                }
+            charSeqOpContext = charSeqOpTemplate.streamContextApply<I, CTX>(charSeqOpContext) { t, ctx ->
+                t.transformIntoString(ctx,
+                                      function)
             }
         }
 
@@ -99,7 +94,10 @@ internal class DefaultNamingConventionFactory<CTX>(val charSeqOpTemplate: CharSe
 
     class DefaultOutputSpec<I, CTX>(val charSeqOpContext: CTX,
                                     val charSeqOpTemplate: CharSequenceOperationContextTemplate<CTX>) : OutputSpec<I> {
+
         override fun followConvention(transformation: FullTransformationSpec.() -> FullTransformationSpec): NamingConvention<I> {
+            val fullTransformationSpec = DefaultFullTransformationSpec<CTX>(charSeqOpContext,
+                                                                            charSeqOpTemplate)
             TODO("Not yet implemented")
         }
     }
@@ -121,6 +119,7 @@ internal class DefaultNamingConventionFactory<CTX>(val charSeqOpTemplate: CharSe
 
     class DefaultFullTransformationSpec<CTX>(val charSeqOpContext: CTX,
                                              val charSeqOpTemplate: CharSequenceOperationContextTemplate<CTX>) : FullTransformationSpec {
+
         override fun forLeadingCharacters(transformation: LeadingCharactersSpec.() -> LeadingCharactersSpec): CharacterTransformationSpec {
             TODO("Not yet implemented")
         }
