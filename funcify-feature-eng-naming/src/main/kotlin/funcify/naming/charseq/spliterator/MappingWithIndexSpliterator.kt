@@ -2,7 +2,6 @@ package funcify.naming.charseq.spliterator
 
 import java.util.Spliterator
 import java.util.Spliterators
-import java.util.concurrent.atomic.AtomicInteger
 import java.util.function.Consumer
 
 
@@ -13,19 +12,27 @@ import java.util.function.Consumer
  */
 internal class MappingWithIndexSpliterator<T, R>(private val sourceSpliterator: Spliterator<T>,
                                                  private val mapper: (Int, T) -> R,
-                                                 private val indexCounter: AtomicInteger = AtomicInteger(0),
                                                  private val sizeEstimate: Long = sourceSpliterator.estimateSize(),
                                                  private val additionalCharacteristics: Int = sourceSpliterator.characteristics()) : Spliterators.AbstractSpliterator<R>(sizeEstimate,
                                                                                                                                                                          additionalCharacteristics) {
+
+    private var indexCounter: Int = 0
+    private var expended: Boolean = false
 
     override fun tryAdvance(action: Consumer<in R>?): Boolean {
         if (action == null) {
             return false
         }
+        if (expended) {
+            return false
+        }
         val advanceStatus: Boolean = sourceSpliterator.tryAdvance { t ->
-            val currentIndex = indexCounter.getAndIncrement()
+            val currentIndex = indexCounter++
             action.accept(mapper.invoke(currentIndex,
                                         t))
+        }
+        if (!advanceStatus) {
+            expended = true
         }
         return advanceStatus
     }
