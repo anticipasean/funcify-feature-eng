@@ -9,6 +9,7 @@ import funcify.naming.charseq.spliterator.MappingWithIndexSpliterator
 import funcify.naming.charseq.spliterator.PairWindowMappingSpliterator
 import funcify.naming.charseq.spliterator.SlidingListWindowMappingSpliterator
 import funcify.naming.charseq.spliterator.TailFilterSpliterator
+import funcify.naming.charseq.spliterator.TailOperationSpliterator
 import funcify.naming.charseq.spliterator.TripleWindowMappingSpliterator
 import kotlinx.collections.immutable.ImmutableList
 import java.util.Objects
@@ -24,18 +25,33 @@ import java.util.stream.StreamSupport
 interface CharSequenceStreamContextTemplate<I> : CharSequenceOperationContextTemplate<CharSequenceStreamContext<I>> {
 
     companion object {
-        internal val DEFAULT_INPUT_TRANSFORMER: (Any?) -> Stream<CharSequence> = { input: Any? ->
-            when (input) {
-                is Collection<*> -> input.stream()
-                        .filter(Objects::nonNull)
-                is Iterable<*> -> StreamSupport.stream(input.spliterator(),
-                                                       false)
-                        .filter(Objects::nonNull)
-                else -> Stream.ofNullable(input)
-            }.map { a ->
-                a as? CharSequence
-                ?: a.toString()
+
+        private val DEFAULT_INSTANCE: CharSequenceStreamContextTemplate<Any?> by lazy {
+            object : CharSequenceStreamContextTemplate<Any?> {
+
             }
+        }
+
+        private val DEFAULT_INPUT_TRANSFORMER: (Any?) -> Stream<CharSequence> by lazy {
+            { input: Any? ->
+                when (input) {
+                    is CharSequence -> Stream.of(input)
+                    is Collection<*> -> input.stream()
+                            .filter(Objects::nonNull)
+                    is Iterable<*> -> StreamSupport.stream(input.spliterator(),
+                                                           false)
+                            .filter(Objects::nonNull)
+                    else -> Stream.ofNullable(input)
+                }.map { a ->
+                    a as? CharSequence
+                    ?: a.toString()
+                }
+            }
+        }
+
+        internal fun <I> getDefaultInstance(): CharSequenceOperationContextTemplate<CharSequenceStreamContext<I>> {
+            @Suppress("UNCHECKED_CAST") //
+            return DEFAULT_INSTANCE as CharSequenceStreamContextTemplate<I>
         }
     }
 
@@ -175,6 +191,23 @@ interface CharSequenceStreamContextTemplate<I> : CharSequenceOperationContextTem
         return context.copy(segmentLeadingFilterOperations = segmentFilterOperations)
     }
 
+    override fun mapLeadingCharacterSequence(context: CharSequenceStreamContext<I>,
+                                             mapper: (CharSequence) -> CharSequence): CharSequenceStreamContext<I> {
+        val segmentMapOperations = context.segmentMapOperations.add(DefaultCharSequenceOperationFactory.createCharSequenceMapOperation { csi ->
+            StreamSupport.stream(MappingWithIndexSpliterator(csi.spliterator(),
+                                                             { idx, cs ->
+                                                                 if (idx == 0) {
+                                                                     Stream.of(mapper.invoke(cs))
+                                                                 } else {
+                                                                     Stream.of(cs)
+                                                                 }
+                                                             }),
+                                 csi.isParallel)
+                    .flatMap { csStream -> csStream }
+        })
+        return context.copy(segmentMapOperations = segmentMapOperations)
+    }
+
     override fun filterTrailingCharacterSequence(context: CharSequenceStreamContext<I>,
                                                  filter: (CharSequence) -> Boolean): CharSequenceStreamContext<I> {
         val segmentFilterOperations =
@@ -185,6 +218,19 @@ interface CharSequenceStreamContextTemplate<I> : CharSequenceOperationContextTem
                 })
         return context.copy(segmentTrailingFilterOperations = segmentFilterOperations)
     }
+
+    override fun mapTrailingCharacterSequence(context: CharSequenceStreamContext<I>,
+                                              mapper: (CharSequence) -> CharSequence): CharSequenceStreamContext<I> {
+        val segmentMapOperations = context.segmentMapOperations.add(DefaultCharSequenceOperationFactory.createCharSequenceMapOperation { csi ->
+            StreamSupport.stream(TailOperationSpliterator(csi.spliterator(),
+                                                          { tailCs ->
+                                                              mapper.invoke(tailCs)
+                                                          }),
+                                 csi.isParallel)
+        })
+        return context.copy(segmentMapOperations = segmentMapOperations)
+    }
+
 
     override fun filterCharacterSequence(context: CharSequenceStreamContext<I>,
                                          filter: (CharSequence) -> Boolean): CharSequenceStreamContext<I> {
@@ -242,5 +288,23 @@ interface CharSequenceStreamContextTemplate<I> : CharSequenceOperationContextTem
                                  csi.isParallel)
         })
         return context.copy(segmentMapOperations = segmentOperations)
+    }
+
+    override fun prependCharacterSequence(context: CharSequenceStreamContext<I>,
+                                          charSequence: CharSequence): CharSequenceStreamContext<I> {
+        val segmentMapOperations = context.segmentMapOperations.add(DefaultCharSequenceOperationFactory.createCharSequenceMapOperation { csi ->
+            Stream.concat(Stream.of(charSequence),
+                          csi)
+        })
+        return context.copy(segmentMapOperations = segmentMapOperations)
+    }
+
+    override fun appendCharacterSequence(context: CharSequenceStreamContext<I>,
+                                         charSequence: CharSequence): CharSequenceStreamContext<I> {
+        val segmentMapOperations = context.segmentMapOperations.add(DefaultCharSequenceOperationFactory.createCharSequenceMapOperation { csi ->
+            Stream.concat(csi,
+                          Stream.of(charSequence))
+        })
+        return context.copy(segmentMapOperations = segmentMapOperations)
     }
 }

@@ -43,14 +43,21 @@ interface CharSequenceOperationContextTemplate<CTX> {
     fun filterLeadingCharacterSequence(context: CTX,
                                        filter: (CharSequence) -> Boolean): CTX
 
+    fun mapLeadingCharacterSequence(context: CTX,
+                                    mapper: (CharSequence) -> CharSequence): CTX
+
     fun filterTrailingCharacterSequence(context: CTX,
                                         filter: (CharSequence) -> Boolean): CTX
+
+    fun mapTrailingCharacterSequence(context: CTX,
+                                     mapper: (CharSequence) -> CharSequence): CTX
 
     fun filterCharacterSequence(context: CTX,
                                 filter: (CharSequence) -> Boolean): CTX
 
     fun mapCharacterSequence(context: CTX,
                              mapper: (CharSequence) -> CharSequence): CTX
+
 
     fun mapCharacterSequenceWithWindow(context: CTX,
                                        windowSize: UInt,
@@ -64,5 +71,11 @@ interface CharSequenceOperationContextTemplate<CTX> {
 
     fun mapCharacterSequenceWithIndex(context: CTX,
                                       mapper: (Int, CharSequence) -> CharSequence): CTX
+
+    fun prependCharacterSequence(context: CTX,
+                                 charSequence: CharSequence): CTX
+
+    fun appendCharacterSequence(context: CTX,
+                                charSequence: CharSequence): CTX
 
 }

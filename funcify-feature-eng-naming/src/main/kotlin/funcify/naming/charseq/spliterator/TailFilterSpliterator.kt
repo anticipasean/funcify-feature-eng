@@ -13,7 +13,7 @@ import java.util.function.Consumer
  * @created 3/22/22
  */
 internal data class TailFilterSpliterator<T>(private val inputSpliterator: Spliterator<T>,
-                                             private val tailFilter: (T) -> Boolean,
+                                             private val tailCondition: (T) -> Boolean,
                                              private val bufferSupplier: () -> Deque<T> = { LinkedList() },
                                              private val sizeEstimate: Long = inputSpliterator.estimateSize(),
                                              private val additionalCharacteristics: Int = inputSpliterator.characteristics()) : Spliterators.AbstractSpliterator<T>(sizeEstimate,
@@ -34,14 +34,14 @@ internal data class TailFilterSpliterator<T>(private val inputSpliterator: Split
             return false
         }
         while (inputSpliterator.tryAdvance { t ->
-                    buffer.add(t)
+                    buffer.offerLast(t)
                 }) {
             if (buffer.peekLast() == null) {
                 buffer.pollLast()
             }
         }
         expended = true
-        while (buffer.isNotEmpty() && !tailFilter.invoke(buffer.peekLast())) {
+        while (buffer.isNotEmpty() && !tailCondition.invoke(buffer.peekLast())) {
             buffer.pollLast()
         }
         return if (buffer.isNotEmpty()) {

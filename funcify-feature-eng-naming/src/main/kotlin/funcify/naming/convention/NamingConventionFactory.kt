@@ -43,48 +43,48 @@ interface NamingConventionFactory {
 
     interface OutputSpec<I> {
 
-        fun followConvention(transformation: FullTransformationSpec.() -> FullTransformationSpec): NamingConvention<I>
+        fun followConvention(transformation: FullTransformationSpec.() -> Unit): NamingConvention<I>
 
     }
 
     interface CharacterTransformationSpec {
 
-        fun forLeadingCharacters(transformation: LeadingCharactersSpec.() -> LeadingCharactersSpec): CharacterTransformationSpec
+        fun forLeadingCharacters(transformation: LeadingCharactersSpec.() -> Unit)
 
-        fun forAnyCharacter(transformation: AllCharacterSpec.() -> AllCharacterSpec): CharacterTransformationSpec
+        fun forAnyCharacter(transformation: AllCharacterSpec.() -> Unit)
 
-        fun forTrailingCharacters(transformation: TrailingCharactersSpec.() -> TrailingCharactersSpec): CharacterTransformationSpec
+        fun forTrailingCharacters(transformation: TrailingCharactersSpec.() -> Unit)
 
     }
 
     interface StringTransformationSpec : CharacterTransformationSpec {
 
         fun replace(regex: Regex,
-                    replacement: String): StringTransformationSpec
+                    replacement: String)
 
         fun replace(regex: Regex,
-                    transform: (MatchResult) -> CharSequence): StringTransformationSpec
+                    transform: (MatchResult) -> CharSequence)
 
-        fun prepend(prefix: String): StringTransformationSpec
+        fun prepend(prefix: String)
 
-        fun append(suffix: String): StringTransformationSpec
+        fun append(suffix: String)
 
-        fun transform(function: String.() -> String): StringTransformationSpec
+        fun transform(function: (String) -> String)
 
     }
 
     interface SegmentTransformationSpec {
 
-        fun forEachSegment(transformation: StringTransformationSpec.() -> CharacterTransformationSpec): SegmentTransformationSpec
+        fun forEachSegment(transformation: StringTransformationSpec.() -> Unit)
 
     }
 
     interface FullTransformationSpec : CharacterTransformationSpec,
                                        SegmentTransformationSpec {
 
-        fun joinSegmentsWith(inputDelimiter: Char): FullTransformationSpec
+        fun joinSegmentsWith(inputDelimiter: Char)
 
-        fun joinSegmentsWithoutAnyDelimiter(): FullTransformationSpec
+        fun joinSegmentsWithoutAnyDelimiter()
     }
 
     interface RelativePositionalTransformationSpec {
@@ -93,36 +93,36 @@ interface NamingConventionFactory {
 
     interface LeadingCharactersSpec : RelativePositionalTransformationSpec {
 
-        fun stripAny(condition: (Char) -> Boolean): LeadingCharactersSpec
+        fun stripAny(condition: (Char) -> Boolean)
 
         fun replaceFirstCharacterOfFirstSegmentIf(condition: (Char) -> Boolean,
-                                                  function: (Char) -> String): LeadingCharactersSpec
+                                                  function: (Char) -> String)
 
-        fun prependToFirstSegment(prefix: String): LeadingCharactersSpec
+        fun prependToFirstSegment(prefix: String)
 
-        fun prependSegment(segment: String): LeadingCharactersSpec
+        fun prependSegment(segment: String)
 
     }
 
     interface TrailingCharactersSpec : RelativePositionalTransformationSpec {
 
-        fun stripAny(condition: (Char) -> Boolean): TrailingCharactersSpec
+        fun stripAny(condition: (Char) -> Boolean)
 
         fun replaceLastCharacterOfLastSegmentIf(condition: (Char) -> Boolean,
-                                                function: (Char) -> String): TrailingCharactersSpec
+                                                function: (Char) -> String)
 
-        fun appendToLastSegment(suffix: String): TrailingCharactersSpec
+        fun appendToLastSegment(suffix: String)
 
-        fun appendSegment(segment: String): TrailingCharactersSpec
+        fun appendSegment(segment: String)
 
     }
 
     interface AllCharacterSpec : RelativePositionalTransformationSpec {
 
         fun replaceIf(condition: (Char) -> Boolean,
-                      mapper: (Char) -> String): AllCharacterSpec
+                      mapper: (Char) -> String)
 
-        fun transform(window: WindowRangeOpenSpec.() -> CompleteWindowSpec): AllCharacterSpec
+        fun transform(window: WindowRangeOpenSpec.() -> CompleteWindowSpec)
     }
 
     interface CharacterWindowSpec {
