@@ -1,9 +1,11 @@
 package funcify.naming.convention
 
 import funcify.naming.charseq.operation.CharSequenceStreamContext
+import funcify.naming.charseq.spliterator.TripleWindowMappingSpliterator
 import funcify.naming.charseq.template.CharSequenceOperationContextTemplate
 import funcify.naming.charseq.template.CharSequenceStreamContextTemplate
 import funcify.naming.convention.NamingConventionFactory.AllCharacterSpec
+import funcify.naming.convention.NamingConventionFactory.CompleteWindowSpec
 import funcify.naming.convention.NamingConventionFactory.FullTransformationSpec
 import funcify.naming.convention.NamingConventionFactory.InputSpec
 import funcify.naming.convention.NamingConventionFactory.LeadingCharactersSpec
@@ -11,7 +13,11 @@ import funcify.naming.convention.NamingConventionFactory.OutputSpec
 import funcify.naming.convention.NamingConventionFactory.StringExtractionSpec
 import funcify.naming.convention.NamingConventionFactory.StringTransformationSpec
 import funcify.naming.convention.NamingConventionFactory.TrailingCharactersSpec
-import kotlin.reflect.KClass
+import funcify.naming.convention.NamingConventionFactory.WindowActionSpec
+import funcify.naming.convention.NamingConventionFactory.WindowRangeCloseSpec
+import funcify.naming.convention.NamingConventionFactory.WindowRangeOpenSpec
+import java.util.Spliterators
+import java.util.stream.StreamSupport
 
 
 /**
@@ -58,14 +64,14 @@ internal class DefaultNamingConventionFactory() : NamingConventionFactory {
                                 template.emptyContext())
     }
 
-    override fun <I : Any> createConventionFor(inputType: KClass<I>): InputSpec<I> {
+    override fun <I : Any> createConventionFor(): InputSpec<I> {
         val template = CharSequenceStreamContextTemplate.getDefaultInstance<I>()
         return DefaultInputSpec(template,
                                 template.emptyContext())
     }
 
-    class DefaultInputSpec<I, CTX>(val charSeqOpTemplate: CharSequenceOperationContextTemplate<CTX>,
-                                   val charSeqOpContext: CTX) : InputSpec<I> {
+    internal class DefaultInputSpec<I : Any, CTX>(val charSeqOpTemplate: CharSequenceOperationContextTemplate<CTX>,
+                                                  val charSeqOpContext: CTX) : InputSpec<I> {
 
         override fun whenInputProvided(extraction: StringExtractionSpec<I>.() -> Unit): OutputSpec<I> {
             val stringExtractionSpec = DefaultStringExtractionSpec<I, CTX>(charSeqOpTemplate,
@@ -76,8 +82,8 @@ internal class DefaultNamingConventionFactory() : NamingConventionFactory {
         }
     }
 
-    class DefaultStringExtractionSpec<I, CTX>(val charSeqOpTemplate: CharSequenceOperationContextTemplate<CTX>,
-                                              var charSeqOpContext: CTX) : StringExtractionSpec<I> {
+    internal class DefaultStringExtractionSpec<I, CTX>(val charSeqOpTemplate: CharSequenceOperationContextTemplate<CTX>,
+                                                       var charSeqOpContext: CTX) : StringExtractionSpec<I> {
 
         override fun extractOneOrMoreSegmentsWith(function: (I) -> Iterable<String>) {
             charSeqOpContext = charSeqOpTemplate.streamContextApply<I, CTX>(charSeqOpContext) { t, ctx ->
@@ -95,25 +101,29 @@ internal class DefaultNamingConventionFactory() : NamingConventionFactory {
 
     }
 
-    class DefaultOutputSpec<I, CTX>(val charSeqOpTemplate: CharSequenceOperationContextTemplate<CTX>,
-                                    val charSeqOpContext: CTX) : OutputSpec<I> {
+    internal class DefaultOutputSpec<I : Any, CTX>(val charSeqOpTemplate: CharSequenceOperationContextTemplate<CTX>,
+                                                   val charSeqOpContext: CTX) : OutputSpec<I> {
 
         override fun followConvention(transformation: FullTransformationSpec.() -> Unit): NamingConvention<I> {
+            val fullTransformationSpec = DefaultFullTransformationSpec<I, CTX>(charSeqOpTemplate,
+                                                                               charSeqOpContext)
+            transformation.invoke(fullTransformationSpec)
+
             TODO("Not yet implemented")
         }
 
 
     }
 
-    class DefaultFullTransformationSpec<I, CTX>(val charSeqOpTemplate: CharSequenceOperationContextTemplate<CTX>,
-                                                var charSeqOpContext: CTX) : FullTransformationSpec {
+    internal class DefaultFullTransformationSpec<I, CTX>(val charSeqOpTemplate: CharSequenceOperationContextTemplate<CTX>,
+                                                         var charSeqOpContext: CTX) : FullTransformationSpec {
 
         override fun joinSegmentsWith(inputDelimiter: Char) {
             TODO("Not yet implemented")
         }
 
         override fun joinSegmentsWithoutAnyDelimiter() {
-            TODO("Not yet implemented")
+
         }
 
         override fun forLeadingCharacters(transformation: LeadingCharactersSpec.() -> Unit) {
@@ -124,7 +134,10 @@ internal class DefaultNamingConventionFactory() : NamingConventionFactory {
         }
 
         override fun forAnyCharacter(transformation: AllCharacterSpec.() -> Unit) {
-            TODO("Not yet implemented")
+            val allCharactersSpec = DefaultAllCharacterSpec<I, CTX>(charSeqOpTemplate,
+                                                                    charSeqOpContext)
+            transformation.invoke(allCharactersSpec)
+            charSeqOpContext = allCharactersSpec.charSeqOpContext
         }
 
         override fun forTrailingCharacters(transformation: TrailingCharactersSpec.() -> Unit) {
@@ -135,13 +148,16 @@ internal class DefaultNamingConventionFactory() : NamingConventionFactory {
         }
 
         override fun forEachSegment(transformation: StringTransformationSpec.() -> Unit) {
-            TODO("Not yet implemented")
+            val stringTransformationSpec = DefaultStringTransformationSpec<I, CTX>(charSeqOpTemplate,
+                                                                                   charSeqOpContext)
+            transformation.invoke(stringTransformationSpec)
+            charSeqOpContext = stringTransformationSpec.charSeqOpContext
         }
 
     }
 
-    class DefaultLeadingCharactersSpec<I, CTX>(val charSeqOpTemplate: CharSequenceOperationContextTemplate<CTX>,
-                                               var charSeqOpContext: CTX) : LeadingCharactersSpec {
+    internal class DefaultLeadingCharactersSpec<I, CTX>(val charSeqOpTemplate: CharSequenceOperationContextTemplate<CTX>,
+                                                        var charSeqOpContext: CTX) : LeadingCharactersSpec {
 
         override fun stripAny(condition: (Char) -> Boolean) {
             charSeqOpContext = charSeqOpTemplate.streamContextApply<I, CTX>(charSeqOpContext) { t, ctx ->
@@ -184,8 +200,8 @@ internal class DefaultNamingConventionFactory() : NamingConventionFactory {
 
     }
 
-    class DefaultTrailingCharactersSpec<I, CTX>(val charSeqOpTemplate: CharSequenceOperationContextTemplate<CTX>,
-                                                var charSeqOpContext: CTX) : TrailingCharactersSpec {
+    internal class DefaultTrailingCharactersSpec<I, CTX>(val charSeqOpTemplate: CharSequenceOperationContextTemplate<CTX>,
+                                                         var charSeqOpContext: CTX) : TrailingCharactersSpec {
 
         override fun stripAny(condition: (Char) -> Boolean) {
             charSeqOpContext = charSeqOpTemplate.streamContextApply<I, CTX>(charSeqOpContext) { t, ctx ->
@@ -223,6 +239,233 @@ internal class DefaultNamingConventionFactory() : NamingConventionFactory {
             charSeqOpContext = charSeqOpTemplate.streamContextApply<I, CTX>(charSeqOpContext) { t, ctx ->
                 t.appendCharacterSequence(ctx,
                                           segment)
+            }
+        }
+
+    }
+
+    internal class DefaultAllCharacterSpec<I, CTX>(val charSeqOpTemplate: CharSequenceOperationContextTemplate<CTX>,
+                                                   var charSeqOpContext: CTX) : AllCharacterSpec {
+
+        override fun removeAny(condition: (Char) -> Boolean) {
+            charSeqOpContext = charSeqOpTemplate.streamContextApply<I, CTX>(charSeqOpContext) { t, ctx ->
+                t.filterAnyCharacters(ctx,
+                                      condition.negate<Char>())
+            }
+        }
+
+        override fun transformIf(condition: (Char) -> Boolean,
+                                 transformer: (Char) -> Char) {
+            charSeqOpContext = charSeqOpTemplate.streamContextApply<I, CTX>(charSeqOpContext) { t, ctx ->
+                t.mapCharacters(ctx) { c: Char ->
+                    if (condition.invoke(c)) {
+                        transformer.invoke(c)
+                    } else {
+                        c
+                    }
+                }
+            }
+        }
+
+        override fun transform(window: WindowRangeOpenSpec.() -> CompleteWindowSpec) {
+            when (val completeWindowSpec = window.invoke(DefaultWindowRangeOpenSpec())) {
+                is DefaultCompleteWindowSpec -> {
+                    if (completeWindowSpec.precededByCondition != null) {
+                        charSeqOpContext = charSeqOpTemplate.streamContextApply<I, CTX>(charSeqOpContext) { t, ctx ->
+                            t.mapCharactersWithTripleWindow(ctx) { charTriple: Triple<Char?, Char, Char?> ->
+                                if (charTriple.first != null && completeWindowSpec.startCondition.invoke(charTriple.second) && completeWindowSpec.precededByCondition.invoke(charTriple.first!!)) {
+                                    completeWindowSpec.transformer.invoke(charTriple.second)
+                                } else {
+                                    charTriple.second
+                                }
+                            }
+                        }
+                    } else if (completeWindowSpec.followedByCondition != null) {
+                        charSeqOpContext = charSeqOpTemplate.streamContextApply<I, CTX>(charSeqOpContext) { t, ctx ->
+                            t.mapCharactersWithTripleWindow(ctx) { charTriple: Triple<Char?, Char, Char?> ->
+                                if (charTriple.third != null && completeWindowSpec.startCondition.invoke(charTriple.second) && completeWindowSpec.followedByCondition.invoke(charTriple.third!!)) {
+                                    completeWindowSpec.transformer.invoke(charTriple.second)
+                                } else {
+                                    charTriple.second
+                                }
+                            }
+                        }
+                    } else {
+                        throw IllegalArgumentException("no preceded_by or followed_by condition was supplied in ${CompleteWindowSpec::class.qualifiedName}")
+                    }
+                }
+                else -> {
+                    throw IllegalStateException("complete_window_spec type not supported: ${completeWindowSpec::class.qualifiedName}")
+                }
+            }
+        }
+
+    }
+
+    internal class DefaultWindowRangeOpenSpec : WindowRangeOpenSpec {
+
+        override fun anyCharacter(startCharacterCondition: (Char) -> Boolean): WindowRangeCloseSpec {
+            return DefaultWindowRangeCloseSpec(startCondition = startCharacterCondition)
+        }
+
+    }
+
+    internal class DefaultWindowRangeCloseSpec(val startCondition: (Char) -> Boolean) : WindowRangeCloseSpec {
+        override fun precededBy(endCharacterCondition: (Char) -> Boolean): WindowActionSpec {
+            return DefaultWindowActionSpec(startCondition = startCondition,
+                                           precededByCondition = endCharacterCondition)
+        }
+
+        override fun followedBy(endCharacterCondition: (Char) -> Boolean): WindowActionSpec {
+            return DefaultWindowActionSpec(startCondition = startCondition,
+                                           followedByCondition = endCharacterCondition)
+        }
+
+    }
+
+    internal class DefaultWindowActionSpec(val startCondition: (Char) -> Boolean,
+                                           val precededByCondition: ((Char) -> Boolean)? = null,
+                                           val followedByCondition: ((Char) -> Boolean)? = null) : WindowActionSpec {
+        override fun into(function: (Char) -> Char): CompleteWindowSpec {
+            return DefaultCompleteWindowSpec(startCondition = startCondition,
+                                             precededByCondition = precededByCondition,
+                                             followedByCondition = followedByCondition,
+                                             transformer = function)
+        }
+
+    }
+
+    internal class DefaultCompleteWindowSpec(val startCondition: (Char) -> Boolean,
+                                             val precededByCondition: ((Char) -> Boolean)? = null,
+                                             val followedByCondition: ((Char) -> Boolean)? = null,
+                                             val transformer: (Char) -> Char = { c -> c }) : CompleteWindowSpec {
+
+    }
+
+    internal class DefaultStringTransformationSpec<I, CTX>(val charSeqOpTemplate: CharSequenceOperationContextTemplate<CTX>,
+                                                           var charSeqOpContext: CTX) : StringTransformationSpec {
+
+        override fun removeAny(condition: (Char) -> Boolean) {
+            charSeqOpContext = charSeqOpTemplate.streamContextApply<I, CTX>(charSeqOpContext) { t, ctx ->
+                t.mapCharacterSequence(ctx) { cs: CharSequence ->
+                    cs.fold(StringBuilder()) { sb, c ->
+                        if (condition.invoke(c)) {
+                            sb
+                        } else {
+                            sb.append(c)
+                        }
+                    }
+                }
+            }
+        }
+
+        override fun replace(regex: Regex,
+                             replacement: String) {
+            charSeqOpContext = charSeqOpTemplate.streamContextApply<I, CTX>(charSeqOpContext) { t, ctx ->
+                t.mapCharacterSequence(ctx) { cs ->
+                    cs.replace(regex,
+                               replacement)
+                }
+            }
+        }
+
+        override fun replace(regex: Regex,
+                             transform: (MatchResult) -> CharSequence) {
+            charSeqOpContext = charSeqOpTemplate.streamContextApply<I, CTX>(charSeqOpContext) { t, ctx ->
+                t.mapCharacterSequence(ctx) { cs ->
+                    cs.replace(regex,
+                               transform)
+                }
+            }
+        }
+
+        override fun prepend(prefix: String) {
+            charSeqOpContext = charSeqOpTemplate.streamContextApply<I, CTX>(charSeqOpContext) { t, ctx ->
+                t.mapCharacterSequence(ctx) { cs ->
+                    prefix + cs
+                }
+            }
+        }
+
+        override fun append(suffix: String) {
+            charSeqOpContext = charSeqOpTemplate.streamContextApply<I, CTX>(charSeqOpContext) { t, ctx ->
+                t.mapCharacterSequence(ctx) { cs ->
+                    cs.toString() + suffix
+                }
+            }
+        }
+
+        override fun transformEach(transformer: (String) -> String) {
+            charSeqOpContext = charSeqOpTemplate.streamContextApply<I, CTX>(charSeqOpContext) { t, ctx ->
+                t.mapCharacterSequence(ctx) { cs ->
+                    transformer.invoke(cs.toString())
+                }
+            }
+        }
+
+        override fun transformIf(condition: (Char) -> Boolean,
+                                 transformer: (Char) -> Char) {
+            charSeqOpContext = charSeqOpTemplate.streamContextApply<I, CTX>(charSeqOpContext) { t, ctx ->
+                t.mapCharacterSequence(ctx) { cs ->
+                    cs.fold(StringBuilder()) { acc: StringBuilder, c: Char ->
+                        if (condition.invoke(c)) {
+                            acc.append(transformer.invoke(c))
+                        } else {
+                            acc.append(c)
+                        }
+                    }
+                }
+            }
+        }
+
+        override fun transform(window: WindowRangeOpenSpec.() -> CompleteWindowSpec) {
+            when (val completeWindowSpec = window.invoke(DefaultWindowRangeOpenSpec())) {
+                is DefaultCompleteWindowSpec -> {
+                    if (completeWindowSpec.precededByCondition != null) {
+                        charSeqOpContext = charSeqOpTemplate.streamContextApply<I, CTX>(charSeqOpContext) { t, ctx ->
+                            t.mapCharacterSequence(ctx) { cs ->
+                                StreamSupport.stream(TripleWindowMappingSpliterator<Char>(Spliterators.spliteratorUnknownSize(cs.iterator(),
+                                                                                                                              0)),
+                                                     false)
+                                        .map { charTriple: Triple<Char?, Char, Char?> ->
+                                            if (charTriple.first != null && completeWindowSpec.startCondition.invoke(charTriple.second) && completeWindowSpec.precededByCondition.invoke(charTriple.first!!)) {
+                                                completeWindowSpec.transformer.invoke(charTriple.second)
+                                            } else {
+                                                charTriple.second
+                                            }
+                                        }
+                                        .reduce(StringBuilder(),
+                                                { sb, c -> sb.append(c) },
+                                                { _, sb2 -> sb2 })
+                            }
+                        }
+                    } else if (completeWindowSpec.followedByCondition != null) {
+                        charSeqOpContext = charSeqOpTemplate.streamContextApply<I, CTX>(charSeqOpContext) { t, ctx ->
+                            t.mapCharacterSequence(ctx) { cs ->
+                                StreamSupport.stream(TripleWindowMappingSpliterator<Char>(Spliterators.spliteratorUnknownSize(cs.iterator(),
+                                                                                                                              0)),
+                                                     false)
+                                        .map { charTriple: Triple<Char?, Char, Char?> ->
+                                            if (charTriple.third != null && completeWindowSpec.startCondition.invoke(charTriple.second) && completeWindowSpec.followedByCondition.invoke(charTriple.third!!)) {
+                                                completeWindowSpec.transformer.invoke(charTriple.second)
+                                            } else {
+                                                charTriple.second
+                                            }
+
+                                        }
+                                        .reduce(StringBuilder(),
+                                                { sb, c -> sb.append(c) },
+                                                { _, sb2 -> sb2 })
+                            }
+                        }
+
+                    } else {
+                        throw IllegalArgumentException("no preceded_by or followed_by condition was supplied in ${CompleteWindowSpec::class.qualifiedName}")
+                    }
+                }
+                else -> {
+                    throw IllegalStateException("complete_window_spec type not supported: ${completeWindowSpec::class.qualifiedName}")
+                }
             }
         }
 

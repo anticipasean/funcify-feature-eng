@@ -12,7 +12,7 @@ internal class DefaultNamingConventionFactoryTest {
     // Enable when implementation done
     fun createExampleNamingConventionTest() {
         val stringIterable: Iterable<String> = Iterable<String> { sequenceOf("blah").iterator() }
-        DefaultNamingConventionFactory().createConventionFor(stringIterable::class)
+        DefaultNamingConventionFactory().createConventionFor<Iterable<String>>()
                 .whenInputProvided {
                     extractOneOrMoreSegmentsWith { i -> i }
                 }
@@ -21,20 +21,18 @@ internal class DefaultNamingConventionFactoryTest {
                         stripAny { c: Char -> c == ' ' }
                     }
                     forAnyCharacter {
-                        replaceIf({ c -> c == '_' },
-                                  { c -> " " })
-                        replaceIf({ c -> c == 'A' },
-                                  { c -> "B" })
+                        transformIf({ c -> c == '_' },
+                                    { c -> ' ' })
+                        transformIf({ c -> c == 'A' },
+                                    { c -> 'B' })
                     }
                     forTrailingCharacters {
                         stripAny { c: Char -> c == ' ' }
                     }
                     forEachSegment {
-                        forAnyCharacter {
-                            transform {
-                                anyCharacter { c -> c.isUpperCase() }.followedBy { c -> c.isLowerCase() }
-                                        .into { c -> Character.toLowerCase(c) }
-                            }
+                        transform {
+                            anyCharacter { c -> c.isUpperCase() }.followedBy { c -> c.isLowerCase() }
+                                    .into { c -> Character.toLowerCase(c) }
                         }
                     }
                     joinSegmentsWith('_')

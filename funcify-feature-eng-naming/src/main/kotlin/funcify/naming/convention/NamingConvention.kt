@@ -1,6 +1,7 @@
 package funcify.naming.convention
 
 import funcify.naming.ConventionalName
+import kotlin.reflect.KClass
 
 
 /**
@@ -8,10 +9,12 @@ import funcify.naming.ConventionalName
  * @author smccarron
  * @created 3/15/22
  */
-interface NamingConvention<in I> {
+interface NamingConvention<I : Any> {
 
     val conventionName: String
 
-    fun <I> deriveName(input: I): ConventionalName
+    val inputType: KClass<I>
+
+    fun deriveName(input: I): ConventionalName
 
 }

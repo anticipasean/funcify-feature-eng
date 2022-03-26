@@ -1,7 +1,5 @@
 package funcify.naming.convention
 
-import kotlin.reflect.KClass
-
 
 /**
  *
@@ -16,10 +14,10 @@ interface NamingConventionFactory {
 
     fun createConventionForRawStrings(): InputSpec<String>
 
-    fun <I : Any> createConventionFor(inputType: KClass<I>): InputSpec<I>
+    fun <I : Any> createConventionFor(): InputSpec<I>
 
 
-    interface InputSpec<I> {
+    interface InputSpec<I : Any> {
 
         /**
          *
@@ -41,7 +39,7 @@ interface NamingConventionFactory {
 
     }
 
-    interface OutputSpec<I> {
+    interface OutputSpec<I : Any> {
 
         fun followConvention(transformation: FullTransformationSpec.() -> Unit): NamingConvention<I>
 
@@ -57,7 +55,7 @@ interface NamingConventionFactory {
 
     }
 
-    interface StringTransformationSpec : CharacterTransformationSpec {
+    interface StringTransformationSpec : AllCharacterSpec {
 
         fun replace(regex: Regex,
                     replacement: String)
@@ -69,7 +67,7 @@ interface NamingConventionFactory {
 
         fun append(suffix: String)
 
-        fun transform(function: (String) -> String)
+        fun transformEach(transformer: (String) -> String)
 
     }
 
@@ -119,8 +117,10 @@ interface NamingConventionFactory {
 
     interface AllCharacterSpec : RelativePositionalTransformationSpec {
 
-        fun replaceIf(condition: (Char) -> Boolean,
-                      mapper: (Char) -> String)
+        fun removeAny(condition: (Char) -> Boolean)
+
+        fun transformIf(condition: (Char) -> Boolean,
+                        transformer: (Char) -> Char)
 
         fun transform(window: WindowRangeOpenSpec.() -> CompleteWindowSpec)
     }
