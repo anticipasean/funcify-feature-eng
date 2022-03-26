@@ -2,13 +2,13 @@ package funcify.naming.convention
 
 import funcify.naming.NameSegment
 import funcify.naming.charseq.group.LazyCharSequence
-import funcify.naming.charseq.operation.CharSeqFunctionContext
 import funcify.naming.charseq.operation.CharSequenceMapOperation
 import funcify.naming.charseq.operation.CharSequenceOperation
 import funcify.naming.charseq.operation.CharSequenceStreamContext
 import funcify.naming.charseq.operation.CharacterGroupFlatteningOperation
 import funcify.naming.charseq.operation.CharacterGroupingOperation
 import funcify.naming.charseq.operation.CharacterMapOperation
+import funcify.naming.function.EitherFunction
 import funcify.naming.impl.DefaultNameSegment
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
@@ -51,43 +51,43 @@ internal class CharSequenceStreamOperationContextTransformer<I : Any> : (CharSeq
         }
     }
 
-    private fun charSequenceFunctionContextOperationFold(funcContext: CharSeqFunctionContext<Stream<Char>, Stream<CharSequence>>,
-                                                         opList: ImmutableList<CharSequenceOperation<Stream<Char>, Stream<CharSequence>>>): CharSeqFunctionContext<Stream<Char>, Stream<CharSequence>> {
+    private fun charSequenceFunctionContextOperationFold(eitherFunc: EitherFunction<Stream<Char>, Stream<CharSequence>>,
+                                                         opList: ImmutableList<CharSequenceOperation<Stream<Char>, Stream<CharSequence>>>): EitherFunction<Stream<Char>, Stream<CharSequence>> {
         if (opList.isEmpty()) {
-            return funcContext
+            return eitherFunc
         }
-        return opList.fold(funcContext) { ctx, op ->
+        return opList.fold(eitherFunc) { ef, op ->
             when (op) {
                 is CharSequenceMapOperation -> {
-                    ctx.mapCharSeqIterable({ cStream -> op.invoke(Stream.of(LazyCharSequence(cStream.spliterator()))) },
-                                           { csStream -> op.invoke(csStream) })
+                    ef.mapToRightResult({ cStream -> op.invoke(Stream.of(LazyCharSequence(cStream.spliterator()))) },
+                                        { csStream -> op.invoke(csStream) })
                 }
                 is CharacterGroupFlatteningOperation -> {
-                    ctx.mapCharSeq({ cStream -> cStream },
-                                   { csStream -> op.invoke(csStream) })
+                    ef.mapToLeftResult({ cStream -> cStream },
+                                       { csStream -> op.invoke(csStream) })
                 }
                 is CharacterGroupingOperation -> {
-                    ctx.mapCharSeqIterable({ cStream -> op.invoke(cStream) },
-                                           { csStream -> csStream })
+                    ef.mapToRightResult({ cStream -> op.invoke(cStream) },
+                                        { csStream -> csStream })
                 }
                 is CharacterMapOperation -> {
-                    ctx.mapCharSeq({ cStream -> op.invoke(cStream) },
-                                   { csStream ->
-                                       op.invoke(csStream.flatMap { cs ->
-                                           StreamSupport.stream(Spliterators.spliterator(cs.iterator(),
-                                                                                         cs.length.toLong(),
-                                                                                         IMMUTABLE and SIZED and NONNULL and ORDERED),
-                                                                false)
+                    ef.mapToLeftResult({ cStream -> op.invoke(cStream) },
+                                       { csStream ->
+                                           op.invoke(csStream.flatMap { cs ->
+                                               StreamSupport.stream(Spliterators.spliterator(cs.iterator(),
+                                                                                             cs.length.toLong(),
+                                                                                             IMMUTABLE and SIZED and NONNULL and ORDERED),
+                                                                    false)
+                                           })
                                        })
-                                   })
                 }
             }
         }
     }
 
 
-    private fun createCharSequenceFunctionContext(): CharSeqFunctionContext<Stream<Char>, Stream<CharSequence>> {
-        return CharSeqFunctionContext.ofCharSeqIterableFunction { csi: Stream<CharSequence> -> csi }
+    private fun createCharSequenceFunctionContext(): EitherFunction<Stream<Char>, Stream<CharSequence>> {
+        return EitherFunction.ofRightResult { csi: Stream<CharSequence> -> csi }
     }
 
 }

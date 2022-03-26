@@ -215,11 +215,13 @@ internal class DefaultNamingConventionFactory() : NamingConventionFactory {
             charSeqOpContext = charSeqOpTemplate.streamContextApply<I, CTX>(charSeqOpContext) { t, ctx ->
                 t.mapTrailingCharacterSequence(ctx) { cs: CharSequence ->
                     if (cs.isNotEmpty() && condition.invoke(cs.last())) {
-                        (if (cs.length > 1) {
-                            cs.slice(0 until cs.length - 1)
-                        } else {
-                            ""
-                        }) as String + function.invoke(cs.last())
+                        "${
+                            if (cs.length > 1) {
+                                cs.slice(0 until cs.length - 1)
+                            } else {
+                                ""
+                            }
+                        }" + function.invoke(cs.last())
                     } else {
                         cs
                     }
