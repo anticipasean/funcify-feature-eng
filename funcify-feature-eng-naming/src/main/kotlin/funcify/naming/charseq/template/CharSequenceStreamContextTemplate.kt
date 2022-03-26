@@ -43,9 +43,10 @@ internal interface CharSequenceStreamContextTemplate<I> : CharSequenceOperationC
                                                            false)
                             .filter(Objects::nonNull)
                     else -> Stream.ofNullable(input)
-                }.map { a ->
+                }.map { a: Any? ->
                     a as? CharSequence
-                    ?: a.toString()
+                    ?: a?.toString()
+                    ?: ""
                 }
             }
         }

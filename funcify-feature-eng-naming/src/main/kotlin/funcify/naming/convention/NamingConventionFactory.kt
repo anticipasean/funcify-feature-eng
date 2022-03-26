@@ -51,7 +51,7 @@ interface NamingConventionFactory {
 
     }
 
-    interface StringTransformationSpec : AllCharacterSpec {
+    interface StringTransformationSpec : CharacterTransformationSpec {
 
         fun replace(regex: Regex,
                     replacement: String)
@@ -73,8 +73,7 @@ interface NamingConventionFactory {
 
     }
 
-    interface FullTransformationSpec : CharacterTransformationSpec,
-                                       SegmentTransformationSpec {
+    interface FullTransformationSpec : SegmentTransformationSpec {
 
         fun joinSegmentsWith(inputDelimiter: Char)
 

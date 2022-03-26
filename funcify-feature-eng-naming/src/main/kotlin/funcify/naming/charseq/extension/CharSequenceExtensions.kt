@@ -25,7 +25,7 @@ internal object CharSequenceExtensions {
         }
     }
 
-    fun CharSequence.stream(): Stream<out Char> {
+    fun CharSequence.stream(): Stream<Char> {
         return StreamSupport.stream({ this.spliterator() },
                                     CharSequenceSourceSpliterator.DEFAULT_CHARACTERISTICS_BITSET,
                                     false)

@@ -1,8 +1,6 @@
 package funcify.naming.convention
 
-import funcify.naming.charseq.extension.CharSequenceExtensions.spliterator
 import funcify.naming.charseq.operation.CharSequenceStreamContext
-import funcify.naming.charseq.spliterator.TripleWindowMappingSpliterator
 import funcify.naming.charseq.template.CharSequenceOperationContextTemplate
 import funcify.naming.charseq.template.CharSequenceStreamContextTemplate
 import funcify.naming.convention.NamingConventionFactory.AllCharacterSpec
@@ -18,7 +16,6 @@ import funcify.naming.convention.NamingConventionFactory.WindowActionSpec
 import funcify.naming.convention.NamingConventionFactory.WindowRangeCloseSpec
 import funcify.naming.convention.NamingConventionFactory.WindowRangeOpenSpec
 import funcify.naming.function.FunctionExtensions.negate
-import java.util.stream.StreamSupport
 
 
 /**
@@ -121,6 +118,18 @@ internal class DefaultNamingConventionFactory() : NamingConventionFactory {
 
         }
 
+        override fun forEachSegment(transformation: StringTransformationSpec.() -> Unit) {
+            val stringTransformationSpec = DefaultStringTransformationSpec<I, CTX>(charSeqOpTemplate,
+                                                                                   charSeqOpContext)
+            transformation.invoke(stringTransformationSpec)
+            charSeqOpContext = stringTransformationSpec.charSeqOpContext
+        }
+
+    }
+
+    internal class DefaultStringTransformationSpec<I, CTX>(val charSeqOpTemplate: CharSequenceOperationContextTemplate<CTX>,
+                                                           var charSeqOpContext: CTX) : StringTransformationSpec {
+
         override fun forLeadingCharacters(transformation: LeadingCharactersSpec.() -> Unit) {
             val leadingCharactersSpec = DefaultLeadingCharactersSpec<I, CTX>(charSeqOpTemplate,
                                                                              charSeqOpContext)
@@ -142,12 +151,50 @@ internal class DefaultNamingConventionFactory() : NamingConventionFactory {
             charSeqOpContext = trailingCharactersSpec.charSeqOpContext
         }
 
-        override fun forEachSegment(transformation: StringTransformationSpec.() -> Unit) {
-            val stringTransformationSpec = DefaultStringTransformationSpec<I, CTX>(charSeqOpTemplate,
-                                                                                   charSeqOpContext)
-            transformation.invoke(stringTransformationSpec)
-            charSeqOpContext = stringTransformationSpec.charSeqOpContext
+        override fun replace(regex: Regex,
+                             replacement: String) {
+            charSeqOpContext = charSeqOpTemplate.streamContextApply<I, CTX>(charSeqOpContext) { t, ctx ->
+                t.mapCharacterSequence(ctx) { cs ->
+                    cs.replace(regex,
+                               replacement)
+                }
+            }
         }
+
+        override fun replace(regex: Regex,
+                             transform: (MatchResult) -> CharSequence) {
+            charSeqOpContext = charSeqOpTemplate.streamContextApply<I, CTX>(charSeqOpContext) { t, ctx ->
+                t.mapCharacterSequence(ctx) { cs ->
+                    cs.replace(regex,
+                               transform)
+                }
+            }
+        }
+
+        override fun prepend(prefix: String) {
+            charSeqOpContext = charSeqOpTemplate.streamContextApply<I, CTX>(charSeqOpContext) { t, ctx ->
+                t.mapCharacterSequence(ctx) { cs ->
+                    prefix + cs
+                }
+            }
+        }
+
+        override fun append(suffix: String) {
+            charSeqOpContext = charSeqOpTemplate.streamContextApply<I, CTX>(charSeqOpContext) { t, ctx ->
+                t.mapCharacterSequence(ctx) { cs ->
+                    cs.toString() + suffix
+                }
+            }
+        }
+
+        override fun transformEach(transformer: (String) -> String) {
+            charSeqOpContext = charSeqOpTemplate.streamContextApply<I, CTX>(charSeqOpContext) { t, ctx ->
+                t.mapCharacterSequence(ctx) { cs ->
+                    transformer.invoke(cs.toString())
+                }
+            }
+        }
+
 
     }
 
@@ -254,11 +301,13 @@ internal class DefaultNamingConventionFactory() : NamingConventionFactory {
         override fun transformIf(condition: (Char) -> Boolean,
                                  transformer: (Char) -> Char) {
             charSeqOpContext = charSeqOpTemplate.streamContextApply<I, CTX>(charSeqOpContext) { t, ctx ->
-                t.mapCharacters(ctx) { c: Char ->
-                    if (condition.invoke(c)) {
-                        transformer.invoke(c)
-                    } else {
-                        c
+                t.mapCharacterSequence(ctx) { cs ->
+                    cs.fold(StringBuilder()) { acc: StringBuilder, c: Char ->
+                        if (condition.invoke(c)) {
+                            acc.append(transformer.invoke(c))
+                        } else {
+                            acc.append(c)
+                        }
                     }
                 }
             }
@@ -285,6 +334,7 @@ internal class DefaultNamingConventionFactory() : NamingConventionFactory {
                                 } else {
                                     charTriple.second
                                 }
+
                             }
                         }
                     } else {
@@ -336,133 +386,6 @@ internal class DefaultNamingConventionFactory() : NamingConventionFactory {
                                              val precededByCondition: ((Char) -> Boolean)? = null,
                                              val followedByCondition: ((Char) -> Boolean)? = null,
                                              val transformer: (Char) -> Char = { c -> c }) : CompleteWindowSpec {
-
-    }
-
-    internal class DefaultStringTransformationSpec<I, CTX>(val charSeqOpTemplate: CharSequenceOperationContextTemplate<CTX>,
-                                                           var charSeqOpContext: CTX) : StringTransformationSpec {
-
-        override fun removeAny(condition: (Char) -> Boolean) {
-            charSeqOpContext = charSeqOpTemplate.streamContextApply<I, CTX>(charSeqOpContext) { t, ctx ->
-                t.mapCharacterSequence(ctx) { cs: CharSequence ->
-                    cs.fold(StringBuilder()) { sb, c ->
-                        if (condition.invoke(c)) {
-                            sb
-                        } else {
-                            sb.append(c)
-                        }
-                    }
-                }
-            }
-        }
-
-        override fun replace(regex: Regex,
-                             replacement: String) {
-            charSeqOpContext = charSeqOpTemplate.streamContextApply<I, CTX>(charSeqOpContext) { t, ctx ->
-                t.mapCharacterSequence(ctx) { cs ->
-                    cs.replace(regex,
-                               replacement)
-                }
-            }
-        }
-
-        override fun replace(regex: Regex,
-                             transform: (MatchResult) -> CharSequence) {
-            charSeqOpContext = charSeqOpTemplate.streamContextApply<I, CTX>(charSeqOpContext) { t, ctx ->
-                t.mapCharacterSequence(ctx) { cs ->
-                    cs.replace(regex,
-                               transform)
-                }
-            }
-        }
-
-        override fun prepend(prefix: String) {
-            charSeqOpContext = charSeqOpTemplate.streamContextApply<I, CTX>(charSeqOpContext) { t, ctx ->
-                t.mapCharacterSequence(ctx) { cs ->
-                    prefix + cs
-                }
-            }
-        }
-
-        override fun append(suffix: String) {
-            charSeqOpContext = charSeqOpTemplate.streamContextApply<I, CTX>(charSeqOpContext) { t, ctx ->
-                t.mapCharacterSequence(ctx) { cs ->
-                    cs.toString() + suffix
-                }
-            }
-        }
-
-        override fun transformEach(transformer: (String) -> String) {
-            charSeqOpContext = charSeqOpTemplate.streamContextApply<I, CTX>(charSeqOpContext) { t, ctx ->
-                t.mapCharacterSequence(ctx) { cs ->
-                    transformer.invoke(cs.toString())
-                }
-            }
-        }
-
-        override fun transformIf(condition: (Char) -> Boolean,
-                                 transformer: (Char) -> Char) {
-            charSeqOpContext = charSeqOpTemplate.streamContextApply<I, CTX>(charSeqOpContext) { t, ctx ->
-                t.mapCharacterSequence(ctx) { cs ->
-                    cs.fold(StringBuilder()) { acc: StringBuilder, c: Char ->
-                        if (condition.invoke(c)) {
-                            acc.append(transformer.invoke(c))
-                        } else {
-                            acc.append(c)
-                        }
-                    }
-                }
-            }
-        }
-
-        override fun transform(window: WindowRangeOpenSpec.() -> CompleteWindowSpec) {
-            when (val completeWindowSpec = window.invoke(DefaultWindowRangeOpenSpec())) {
-                is DefaultCompleteWindowSpec -> {
-                    if (completeWindowSpec.precededByCondition != null) {
-                        charSeqOpContext = charSeqOpTemplate.streamContextApply<I, CTX>(charSeqOpContext) { t, ctx ->
-                            t.mapCharacterSequence(ctx) { cs ->
-                                StreamSupport.stream(TripleWindowMappingSpliterator<Char>(cs.spliterator()),
-                                                     false)
-                                        .map { charTriple: Triple<Char?, Char, Char?> ->
-                                            if (charTriple.first != null && completeWindowSpec.startCondition.invoke(charTriple.second) && completeWindowSpec.precededByCondition.invoke(charTriple.first!!)) {
-                                                completeWindowSpec.transformer.invoke(charTriple.second)
-                                            } else {
-                                                charTriple.second
-                                            }
-                                        }
-                                        .reduce(StringBuilder(),
-                                                { sb, c -> sb.append(c) },
-                                                { _, sb2 -> sb2 })
-                            }
-                        }
-                    } else if (completeWindowSpec.followedByCondition != null) {
-                        charSeqOpContext = charSeqOpTemplate.streamContextApply<I, CTX>(charSeqOpContext) { t, ctx ->
-                            t.mapCharacterSequence(ctx) { cs ->
-                                StreamSupport.stream(TripleWindowMappingSpliterator<Char>(cs.spliterator()),
-                                                     false)
-                                        .map { charTriple: Triple<Char?, Char, Char?> ->
-                                            if (charTriple.third != null && completeWindowSpec.startCondition.invoke(charTriple.second) && completeWindowSpec.followedByCondition.invoke(charTriple.third!!)) {
-                                                completeWindowSpec.transformer.invoke(charTriple.second)
-                                            } else {
-                                                charTriple.second
-                                            }
-
-                                        }
-                                        .reduce(StringBuilder(),
-                                                { sb, c -> sb.append(c) },
-                                                { _, sb2 -> sb2 })
-                            }
-                        }
-
-                    } else {
-                        throw IllegalArgumentException("no preceded_by or followed_by condition was supplied in ${CompleteWindowSpec::class.qualifiedName}")
-                    }
-                }
-                else -> {
-                    throw IllegalStateException("complete_window_spec type not supported: ${completeWindowSpec::class.qualifiedName}")
-                }
-            }
-        }
 
     }
 

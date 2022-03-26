@@ -17,22 +17,23 @@ internal class DefaultNamingConventionFactoryTest {
                     extractOneOrMoreSegmentsWith { i -> i }
                 }
                 .followConvention {
-                    forLeadingCharacters {
-                        stripAny { c: Char -> c == ' ' }
-                    }
-                    forAnyCharacter {
-                        transformIf({ c -> c == '_' },
-                                    { c -> ' ' })
-                        transformIf({ c -> c == 'A' },
-                                    { c -> 'B' })
-                    }
-                    forTrailingCharacters {
-                        stripAny { c: Char -> c == ' ' }
-                    }
+
                     forEachSegment {
-                        transform {
-                            anyCharacter { c -> c.isUpperCase() }.followedBy { c -> c.isLowerCase() }
-                                    .into { c -> Character.toLowerCase(c) }
+                        forLeadingCharacters {
+                            stripAny { c: Char -> c == ' ' }
+                        }
+                        forAnyCharacter {
+                            transformIf({ c -> c == '_' },
+                                        { c -> ' ' })
+                            transformIf({ c -> c == 'A' },
+                                        { c -> 'B' })
+                            transform {
+                                anyCharacter { c -> c.isUpperCase() }.followedBy { c -> c.isLowerCase() }
+                                        .into { c -> Character.toLowerCase(c) }
+                            }
+                        }
+                        forTrailingCharacters {
+                            stripAny { c: Char -> c == ' ' }
                         }
                     }
                     joinSegmentsWith('_')
