@@ -16,6 +16,11 @@ import funcify.naming.convention.NamingConventionFactory.TrailingCharactersSpec
 import funcify.naming.convention.NamingConventionFactory.WindowActionSpec
 import funcify.naming.convention.NamingConventionFactory.WindowRangeCloseSpec
 import funcify.naming.convention.NamingConventionFactory.WindowRangeOpenSpec
+import java.util.Spliterator
+import java.util.Spliterator.IMMUTABLE
+import java.util.Spliterator.NONNULL
+import java.util.Spliterator.ORDERED
+import java.util.Spliterator.SIZED
 import java.util.Spliterators
 import java.util.stream.StreamSupport
 
@@ -54,6 +59,13 @@ internal class DefaultNamingConventionFactory() : NamingConventionFactory {
             return { t ->
                 !this.invoke(t)
             }
+        }
+
+        private fun CharSequence.spliterator(): Spliterator<Char> {
+            return Spliterators.spliterator(this.iterator(),
+                                            this.length.toLong(),
+                                            IMMUTABLE and SIZED and NONNULL and ORDERED)
+
         }
 
     }
@@ -426,8 +438,7 @@ internal class DefaultNamingConventionFactory() : NamingConventionFactory {
                     if (completeWindowSpec.precededByCondition != null) {
                         charSeqOpContext = charSeqOpTemplate.streamContextApply<I, CTX>(charSeqOpContext) { t, ctx ->
                             t.mapCharacterSequence(ctx) { cs ->
-                                StreamSupport.stream(TripleWindowMappingSpliterator<Char>(Spliterators.spliteratorUnknownSize(cs.iterator(),
-                                                                                                                              0)),
+                                StreamSupport.stream(TripleWindowMappingSpliterator<Char>(cs.spliterator()),
                                                      false)
                                         .map { charTriple: Triple<Char?, Char, Char?> ->
                                             if (charTriple.first != null && completeWindowSpec.startCondition.invoke(charTriple.second) && completeWindowSpec.precededByCondition.invoke(charTriple.first!!)) {
@@ -444,8 +455,7 @@ internal class DefaultNamingConventionFactory() : NamingConventionFactory {
                     } else if (completeWindowSpec.followedByCondition != null) {
                         charSeqOpContext = charSeqOpTemplate.streamContextApply<I, CTX>(charSeqOpContext) { t, ctx ->
                             t.mapCharacterSequence(ctx) { cs ->
-                                StreamSupport.stream(TripleWindowMappingSpliterator<Char>(Spliterators.spliteratorUnknownSize(cs.iterator(),
-                                                                                                                              0)),
+                                StreamSupport.stream(TripleWindowMappingSpliterator<Char>(cs.spliterator()),
                                                      false)
                                         .map { charTriple: Triple<Char?, Char, Char?> ->
                                             if (charTriple.third != null && completeWindowSpec.startCondition.invoke(charTriple.second) && completeWindowSpec.followedByCondition.invoke(charTriple.third!!)) {
