@@ -13,10 +13,10 @@ import java.util.function.Consumer
  */
 internal class DuplicatingSpliterator<T>(private val inputSpliterator: Spliterator<T>,
                                          private val bufferSupplier: () -> Deque<T> = { LinkedList<T>() },
-                                         private val parentBuffer: Deque<T> = bufferSupplier.invoke(),
-                                         private val childBuffers: MutableList<Deque<T>> = LinkedList(),
                                          private val inputCharacteristics: Int = inputSpliterator.characteristics()) : Spliterator<T> {
 
+    private val parentBuffer: Deque<T> by lazy(bufferSupplier)
+    private val childBuffers: MutableList<Deque<T>> by lazy { LinkedList() }
     private val hasNextFunction: () -> Boolean by lazy {
         createHasNextFunctionOnInputSpliterator(inputSpliterator,
                                                 parentBuffer,
@@ -27,7 +27,7 @@ internal class DuplicatingSpliterator<T>(private val inputSpliterator: Spliterat
 
         private fun <T> createHasNextFunctionOnInputSpliterator(inputSpliterator: Spliterator<T>,
                                                                 parentBuffer: Deque<T>,
-                                                                childBuffers: MutableList<Deque<T>>): () -> Boolean {
+                                                                childBuffers: List<Deque<T>>): () -> Boolean {
             return {
                 inputSpliterator.tryAdvance { t ->
                     parentBuffer.offer(t)
