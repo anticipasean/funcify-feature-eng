@@ -1,6 +1,6 @@
 package funcify.naming.charseq.template
 
-import arrow.core.andThen
+
 import funcify.naming.charseq.group.LazyCharSequence
 import funcify.naming.charseq.operation.CharSequenceStreamContext
 import funcify.naming.charseq.operation.DefaultCharSequenceOperationFactory
@@ -11,6 +11,7 @@ import funcify.naming.charseq.spliterator.SlidingListWindowMappingSpliterator
 import funcify.naming.charseq.spliterator.TailFilterSpliterator
 import funcify.naming.charseq.spliterator.TailOperationSpliterator
 import funcify.naming.charseq.spliterator.TripleWindowMappingSpliterator
+import funcify.naming.function.FunctionExtensions.andThen
 import kotlinx.collections.immutable.ImmutableList
 import java.util.Objects
 import java.util.stream.Stream
@@ -22,7 +23,7 @@ import java.util.stream.StreamSupport
  * @author smccarron
  * @created 3/22/22
  */
-interface CharSequenceStreamContextTemplate<I> : CharSequenceOperationContextTemplate<CharSequenceStreamContext<I>> {
+internal interface CharSequenceStreamContextTemplate<I> : CharSequenceOperationContextTemplate<CharSequenceStreamContext<I>> {
 
     companion object {
 

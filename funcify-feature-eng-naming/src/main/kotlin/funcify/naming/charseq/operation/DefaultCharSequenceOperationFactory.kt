@@ -6,7 +6,7 @@ package funcify.naming.charseq.operation
  * @author smccarron
  * @created 3/19/22
  */
-object DefaultCharSequenceOperationFactory {
+internal object DefaultCharSequenceOperationFactory {
 
     fun <CS, CSI> createCharSequenceMapOperation(function: (CSI) -> CSI): CharSequenceMapOperation<CS, CSI> {
         return DefaultCharSequenceMapOperation(function)

@@ -17,6 +17,7 @@ import funcify.naming.convention.NamingConventionFactory.TrailingCharactersSpec
 import funcify.naming.convention.NamingConventionFactory.WindowActionSpec
 import funcify.naming.convention.NamingConventionFactory.WindowRangeCloseSpec
 import funcify.naming.convention.NamingConventionFactory.WindowRangeOpenSpec
+import funcify.naming.function.FunctionExtensions.negate
 import java.util.stream.StreamSupport
 
 
@@ -47,12 +48,6 @@ internal class DefaultNamingConventionFactory() : NamingConventionFactory {
                 else -> {
                     throw IllegalArgumentException("unhandled template type: ${this::class.qualifiedName}")
                 }
-            }
-        }
-
-        private fun <T : Any?> ((T) -> Boolean).negate(): (T) -> Boolean {
-            return { t ->
-                !this.invoke(t)
             }
         }
 

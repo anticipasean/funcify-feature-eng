@@ -1,6 +1,6 @@
 package funcify.naming.function
 
-import arrow.core.andThen
+import funcify.naming.function.FunctionExtensions.andThen
 
 
 /**

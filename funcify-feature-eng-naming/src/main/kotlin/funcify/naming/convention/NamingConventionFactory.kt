@@ -8,10 +8,6 @@ package funcify.naming.convention
  */
 interface NamingConventionFactory {
 
-    //    val nameConditionFactory: NameConditionFactory
-    //
-    //    val namingRuleFactory: NamingRuleFactory
-
     fun createConventionForRawStrings(): InputSpec<String>
 
     fun <I : Any> createConventionFor(): InputSpec<I>
