@@ -17,7 +17,6 @@ internal class DefaultNamingConventionFactoryTest {
                     extractOneOrMoreSegmentsWith { i -> i }
                 }
                 .followConvention {
-
                     forEachSegment {
                         forLeadingCharacters {
                             stripAny { c: Char -> c == ' ' }
@@ -38,6 +37,7 @@ internal class DefaultNamingConventionFactoryTest {
                     }
                     joinSegmentsWith('_')
                 }
+                .named("my_str_iterable_convention")
                 .deriveName(stringIterable)
     }
 

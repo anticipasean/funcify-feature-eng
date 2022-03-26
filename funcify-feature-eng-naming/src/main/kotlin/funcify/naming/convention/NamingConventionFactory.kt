@@ -37,7 +37,16 @@ interface NamingConventionFactory {
 
     interface OutputSpec<I : Any> {
 
-        fun followConvention(transformation: FullTransformationSpec.() -> Unit): NamingConvention<I>
+        fun followConvention(transformation: FullTransformationSpec.() -> Unit): ConventionSpec<I>
+
+    }
+
+    interface ConventionSpec<I : Any> {
+
+        fun named(conventionName: String): NamingConvention<I>
+
+        fun namedAndIdentifiedBy(conventionName: String,
+                                 conventionKey: Any): NamingConvention<I>
 
     }
 

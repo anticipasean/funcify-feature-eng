@@ -1,10 +1,13 @@
 package funcify.naming.convention
 
+
+import funcify.naming.ConventionalName
 import funcify.naming.charseq.operation.CharSequenceStreamContext
 import funcify.naming.charseq.template.CharSequenceOperationContextTemplate
 import funcify.naming.charseq.template.CharSequenceStreamContextTemplate
 import funcify.naming.convention.NamingConventionFactory.AllCharacterSpec
 import funcify.naming.convention.NamingConventionFactory.CompleteWindowSpec
+import funcify.naming.convention.NamingConventionFactory.ConventionSpec
 import funcify.naming.convention.NamingConventionFactory.FullTransformationSpec
 import funcify.naming.convention.NamingConventionFactory.InputSpec
 import funcify.naming.convention.NamingConventionFactory.LeadingCharactersSpec
@@ -15,7 +18,10 @@ import funcify.naming.convention.NamingConventionFactory.TrailingCharactersSpec
 import funcify.naming.convention.NamingConventionFactory.WindowActionSpec
 import funcify.naming.convention.NamingConventionFactory.WindowRangeCloseSpec
 import funcify.naming.convention.NamingConventionFactory.WindowRangeOpenSpec
+import funcify.naming.function.FunctionExtensions.andThen
 import funcify.naming.function.FunctionExtensions.negate
+import funcify.naming.impl.DefaultConventionalName
+import kotlinx.collections.immutable.ImmutableList
 
 
 /**
@@ -36,6 +42,27 @@ internal class DefaultNamingConventionFactory() : NamingConventionFactory {
                             @Suppress("UNCHECKED_CAST") //
                             return function.invoke(this as CharSequenceStreamContextTemplate<I>,
                                                    context as CharSequenceStreamContext<I>) as CTX
+                        }
+                        else -> {
+                            throw IllegalArgumentException("unhandled context type: ${context?.let { it::class.qualifiedName }}")
+                        }
+                    }
+                }
+                else -> {
+                    throw IllegalArgumentException("unhandled template type: ${this::class.qualifiedName}")
+                }
+            }
+        }
+
+        private fun <I, CTX, R> CharSequenceOperationContextTemplate<CTX>.streamContextFold(context: CTX,
+                                                                                            function: (CharSequenceStreamContextTemplate<I>, CharSequenceStreamContext<I>) -> R): R {
+            when (this) {
+                is CharSequenceStreamContextTemplate<*> -> {
+                    when (context) {
+                        is CharSequenceStreamContext<*> -> {
+                            @Suppress("UNCHECKED_CAST") //
+                            return function.invoke(this as CharSequenceStreamContextTemplate<I>,
+                                                   context as CharSequenceStreamContext<I>)
                         }
                         else -> {
                             throw IllegalArgumentException("unhandled context type: ${context?.let { it::class.qualifiedName }}")
@@ -96,26 +123,27 @@ internal class DefaultNamingConventionFactory() : NamingConventionFactory {
     internal class DefaultOutputSpec<I : Any, CTX>(val charSeqOpTemplate: CharSequenceOperationContextTemplate<CTX>,
                                                    val charSeqOpContext: CTX) : OutputSpec<I> {
 
-        override fun followConvention(transformation: FullTransformationSpec.() -> Unit): NamingConvention<I> {
+        override fun followConvention(transformation: FullTransformationSpec.() -> Unit): ConventionSpec<I> {
             val fullTransformationSpec = DefaultFullTransformationSpec<I, CTX>(charSeqOpTemplate,
                                                                                charSeqOpContext)
             transformation.invoke(fullTransformationSpec)
-
-            TODO("Not yet implemented")
+            return DefaultConventionSpec<I, CTX>(charSeqOpTemplate,
+                                                 fullTransformationSpec.charSeqOpContext,
+                                                 fullTransformationSpec.delimiter)
         }
-
 
     }
 
     internal class DefaultFullTransformationSpec<I, CTX>(val charSeqOpTemplate: CharSequenceOperationContextTemplate<CTX>,
-                                                         var charSeqOpContext: CTX) : FullTransformationSpec {
+                                                         var charSeqOpContext: CTX,
+                                                         var delimiter: String = "") : FullTransformationSpec {
 
         override fun joinSegmentsWith(inputDelimiter: Char) {
-            TODO("Not yet implemented")
+            delimiter = inputDelimiter.toString()
         }
 
         override fun joinSegmentsWithoutAnyDelimiter() {
-
+            delimiter = ""
         }
 
         override fun forEachSegment(transformation: StringTransformationSpec.() -> Unit) {
@@ -301,13 +329,11 @@ internal class DefaultNamingConventionFactory() : NamingConventionFactory {
         override fun transformIf(condition: (Char) -> Boolean,
                                  transformer: (Char) -> Char) {
             charSeqOpContext = charSeqOpTemplate.streamContextApply<I, CTX>(charSeqOpContext) { t, ctx ->
-                t.mapCharacterSequence(ctx) { cs ->
-                    cs.fold(StringBuilder()) { acc: StringBuilder, c: Char ->
-                        if (condition.invoke(c)) {
-                            acc.append(transformer.invoke(c))
-                        } else {
-                            acc.append(c)
-                        }
+                t.mapCharacters(ctx) { c: Char ->
+                    if (condition.invoke(c)) {
+                        transformer.invoke(c)
+                    } else {
+                        c
                     }
                 }
             }
@@ -387,6 +413,43 @@ internal class DefaultNamingConventionFactory() : NamingConventionFactory {
                                              val followedByCondition: ((Char) -> Boolean)? = null,
                                              val transformer: (Char) -> Char = { c -> c }) : CompleteWindowSpec {
 
+    }
+
+    internal class DefaultConventionSpec<I : Any, CTX>(val charSeqOpTemplate: CharSequenceOperationContextTemplate<CTX>,
+                                                       val charSeqOpContext: CTX,
+                                                       val delimiter: String) : ConventionSpec<I> {
+
+        override fun named(conventionName: String): NamingConvention<I> {
+            val inputTransformer: (I) -> ConventionalName =
+                    charSeqOpTemplate.streamContextFold<I, CTX, (I) -> ImmutableList<String>>(charSeqOpContext) { _, ctx ->
+                        CharSequenceStreamOperationContextTransformer.getInstance<I>()
+                                .invoke(ctx)
+                    }
+                            .andThen { strs ->
+                                DefaultConventionalName(namingConventionKey = conventionName,
+                                                        rawStringNameSegments = strs,
+                                                        delimiter = delimiter)
+                            }
+            return DefaultNamingConvention<I>(conventionName = conventionName,
+                                              derivationFunction = inputTransformer)
+        }
+
+        override fun namedAndIdentifiedBy(conventionName: String,
+                                          conventionKey: Any): NamingConvention<I> {
+            val inputTransformer: (I) -> ConventionalName =
+                    charSeqOpTemplate.streamContextFold<I, CTX, (I) -> ImmutableList<String>>(charSeqOpContext) { _, ctx ->
+                        CharSequenceStreamOperationContextTransformer.getInstance<I>()
+                                .invoke(ctx)
+                    }
+                            .andThen { strs ->
+                                DefaultConventionalName(namingConventionKey = conventionKey,
+                                                        rawStringNameSegments = strs,
+                                                        delimiter = delimiter)
+                            }
+            return DefaultNamingConvention<I>(conventionName = conventionName,
+                                              conventionKey = conventionKey,
+                                              derivationFunction = inputTransformer)
+        }
     }
 
 }
