@@ -14,7 +14,7 @@ import kotlinx.collections.immutable.persistentListOf
  */
 data class DefaultConventionalName(override val namingConventionKey: Any,
                                    private val rawStringNameSegments: List<String>,
-                                   override val delimiter: String) : ConventionalName {
+                                   override val delimiter: String = ConventionalName.EMPTY_STRING_DELIMITER) : ConventionalName {
 
     init {
         if (rawStringNameSegments.isEmpty()) {
@@ -39,7 +39,7 @@ data class DefaultConventionalName(override val namingConventionKey: Any,
     }
 
     override val qualifiedForm: String by lazy { super.qualifiedForm }
-    override val uriForm: String by lazy { super.uriForm }
+    override val encodedUriForm: String by lazy { super.encodedUriForm }
 
     override fun toString(): String {
         return qualifiedForm

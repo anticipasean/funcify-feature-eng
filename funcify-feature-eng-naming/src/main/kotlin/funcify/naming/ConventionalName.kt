@@ -39,7 +39,7 @@ interface ConventionalName {
      * @implementation_note: This form should likely be lazily initialized and interned, and as such,
      * this default implementation likely should be overridden
      */
-    val uriForm: String
+    val encodedUriForm: String
         get() = nameSegments.stream()
                 .map { cn -> cn.value }
                 .collect(Collectors.joining(delimiter))

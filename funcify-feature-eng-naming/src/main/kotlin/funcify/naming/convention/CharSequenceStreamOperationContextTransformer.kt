@@ -1,6 +1,6 @@
 package funcify.naming.convention
 
-import funcify.naming.NameSegment
+import funcify.naming.charseq.extension.CharSequenceExtensions.stream
 import funcify.naming.charseq.group.LazyCharSequence
 import funcify.naming.charseq.operation.CharSequenceMapOperation
 import funcify.naming.charseq.operation.CharSequenceOperation
@@ -9,20 +9,25 @@ import funcify.naming.charseq.operation.CharacterGroupFlatteningOperation
 import funcify.naming.charseq.operation.CharacterGroupingOperation
 import funcify.naming.charseq.operation.CharacterMapOperation
 import funcify.naming.function.EitherFunction
-import funcify.naming.impl.DefaultNameSegment
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
-import java.util.Spliterator.IMMUTABLE
-import java.util.Spliterator.NONNULL
-import java.util.Spliterator.ORDERED
-import java.util.Spliterator.SIZED
-import java.util.Spliterators
 import java.util.stream.Stream
-import java.util.stream.StreamSupport
 
-internal class CharSequenceStreamOperationContextTransformer<I : Any> : (CharSequenceStreamContext<I>) -> (I) -> ImmutableList<NameSegment> {
+internal class CharSequenceStreamOperationContextTransformer<I : Any> : (CharSequenceStreamContext<I>) -> (I) -> ImmutableList<String> {
 
-    override fun invoke(streamOpContext: CharSequenceStreamContext<I>): (I) -> ImmutableList<NameSegment> {
+    companion object {
+
+        private val DEFAULT_INSTANCE: CharSequenceStreamOperationContextTransformer<Any> by lazy {
+            CharSequenceStreamOperationContextTransformer<Any>()
+        }
+
+        fun <I : Any> getInstance(): CharSequenceStreamOperationContextTransformer<I> {
+            @Suppress("UNCHECKED_CAST") //
+            return DEFAULT_INSTANCE as CharSequenceStreamOperationContextTransformer<I>
+        }
+    }
+
+    override fun invoke(streamOpContext: CharSequenceStreamContext<I>): (I) -> ImmutableList<String> {
         return { input: I ->
             val charSequenceStream: Stream<CharSequence> = streamOpContext.inputToCharSequenceTransformer.invoke(input)
             sequenceOf(streamOpContext.allCharacterFilterOperations,
@@ -44,7 +49,7 @@ internal class CharSequenceStreamOperationContextTransformer<I : Any> : (CharSeq
                           { function: (Stream<CharSequence>) -> Stream<CharSequence> ->
                               function.invoke(charSequenceStream)
                           })
-                    .map { cs -> DefaultNameSegment(cs.toString()) }
+                    .map { cs -> cs.toString() }
                     .reduce(persistentListOf(),
                             { pl, ns -> pl.add(ns) },
                             { pl1, pl2 -> pl1.addAll(pl2) })
@@ -74,18 +79,14 @@ internal class CharSequenceStreamOperationContextTransformer<I : Any> : (CharSeq
                     ef.mapToLeftResult({ cStream -> op.invoke(cStream) },
                                        { csStream ->
                                            op.invoke(csStream.flatMap { cs ->
-                                               StreamSupport.stream(Spliterators.spliterator(cs.iterator(),
-                                                                                             cs.length.toLong(),
-                                                                                             IMMUTABLE and SIZED and NONNULL and ORDERED),
-                                                                    false)
+                                               cs.stream()
                                            })
                                        })
                 }
             }
         }
     }
-
-
+    
     private fun createCharSequenceFunctionContext(): EitherFunction<Stream<Char>, Stream<CharSequence>> {
         return EitherFunction.ofRightResult { csi: Stream<CharSequence> -> csi }
     }

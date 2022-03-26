@@ -1,5 +1,6 @@
 package funcify.naming.convention
 
+import funcify.naming.charseq.extension.CharSequenceExtensions.spliterator
 import funcify.naming.charseq.operation.CharSequenceStreamContext
 import funcify.naming.charseq.spliterator.TripleWindowMappingSpliterator
 import funcify.naming.charseq.template.CharSequenceOperationContextTemplate
@@ -16,12 +17,6 @@ import funcify.naming.convention.NamingConventionFactory.TrailingCharactersSpec
 import funcify.naming.convention.NamingConventionFactory.WindowActionSpec
 import funcify.naming.convention.NamingConventionFactory.WindowRangeCloseSpec
 import funcify.naming.convention.NamingConventionFactory.WindowRangeOpenSpec
-import java.util.Spliterator
-import java.util.Spliterator.IMMUTABLE
-import java.util.Spliterator.NONNULL
-import java.util.Spliterator.ORDERED
-import java.util.Spliterator.SIZED
-import java.util.Spliterators
 import java.util.stream.StreamSupport
 
 
@@ -59,13 +54,6 @@ internal class DefaultNamingConventionFactory() : NamingConventionFactory {
             return { t ->
                 !this.invoke(t)
             }
-        }
-
-        private fun CharSequence.spliterator(): Spliterator<Char> {
-            return Spliterators.spliterator(this.iterator(),
-                                            this.length.toLong(),
-                                            IMMUTABLE and SIZED and NONNULL and ORDERED)
-
         }
 
     }
