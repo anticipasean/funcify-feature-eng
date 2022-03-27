@@ -25,10 +25,13 @@ enum class StandardNamingConventions(private val namingConvention: NamingConvent
                                    transformByPosition {
                                        anyCharacter { c: Char -> c.isUpperCase() }.precededBy { c: Char -> c.isLowerCase() }
                                                .transformAndSplitIntoSeparateSegments { c: Char -> c.lowercase() }
+                                       anyCharacter { c: Char -> c.isDigit() }.precededBy { c: Char -> c.isLowerCase() }
+                                               .splitIntoSeparateSegments()
                                    }
                                    transformAll { c: Char -> c.lowercaseChar() }
                                }
                            }
+                           joinSegmentsWith('_')
                        }
                        .named("SnakeCase"));
 
