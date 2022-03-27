@@ -266,32 +266,44 @@ internal interface CharSequenceStreamContextTemplate<I> : CharSequenceOperationC
 
     override fun mapCharacterSequenceWithWindow(context: CharSequenceStreamContext<I>,
                                                 windowSize: UInt,
-                                                mapper: (ImmutableList<CharSequence>) -> CharSequence): CharSequenceStreamContext<I> {
+                                                mapper: (ImmutableList<CharSequence>) -> Iterable<CharSequence>): CharSequenceStreamContext<I> {
         val segmentOperations = context.segmentMapOperations.add(DefaultCharSequenceOperationFactory.createCharSequenceMapOperation { csi ->
             StreamSupport.stream(SlidingListWindowMappingSpliterator(inputSpliterator = csi.spliterator(),
                                                                      windowMapper = mapper,
                                                                      windowSize = windowSize.toInt()),
                                  csi.isParallel)
+                    .flatMap { csIterable ->
+                        StreamSupport.stream(csIterable.spliterator(),
+                                             false)
+                    }
         })
         return context.copy(segmentMapOperations = segmentOperations)
     }
 
     override fun mapCharacterSequenceWithPairWindow(context: CharSequenceStreamContext<I>,
-                                                    mapper: (Pair<CharSequence?, CharSequence?>) -> CharSequence): CharSequenceStreamContext<I> {
+                                                    mapper: (Pair<CharSequence?, CharSequence?>) -> Iterable<CharSequence>): CharSequenceStreamContext<I> {
         val segmentOperations = context.segmentMapOperations.add(DefaultCharSequenceOperationFactory.createCharSequenceMapOperation { csi ->
             StreamSupport.stream(PairWindowMappingSpliterator(inputSpliterator = csi.spliterator()),
                                  csi.isParallel)
                     .map(mapper)
+                    .flatMap { csIterable ->
+                        StreamSupport.stream(csIterable.spliterator(),
+                                             false)
+                    }
         })
         return context.copy(segmentMapOperations = segmentOperations)
     }
 
     override fun mapCharacterSequenceWithTripleWindow(context: CharSequenceStreamContext<I>,
-                                                      mapper: (Triple<CharSequence?, CharSequence, CharSequence?>) -> CharSequence): CharSequenceStreamContext<I> {
+                                                      mapper: (Triple<CharSequence?, CharSequence, CharSequence?>) -> Iterable<CharSequence>): CharSequenceStreamContext<I> {
         val segmentOperations = context.segmentMapOperations.add(DefaultCharSequenceOperationFactory.createCharSequenceMapOperation { csi ->
             StreamSupport.stream(TripleWindowMappingSpliterator(inputSpliterator = csi.spliterator()),
                                  csi.isParallel)
                     .map(mapper)
+                    .flatMap { csIterable ->
+                        StreamSupport.stream(csIterable.spliterator(),
+                                             false)
+                    }
         })
         return context.copy(segmentMapOperations = segmentOperations)
     }

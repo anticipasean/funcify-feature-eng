@@ -16,7 +16,8 @@ class StandardNamingConventionsTest {
     fun basicSnakeCaseTest() {
         val conventionalName = StandardNamingConventions.SNAKE_CASE.deriveName(StandardNamingConventionsTest::class.qualifiedName
                                                                                ?: "")
-        Assertions.assertEquals("", conventionalName.qualifiedForm)
+        Assertions.assertEquals("funcify.naming.convention.standard_naming_conventions_test",
+                                conventionalName.qualifiedForm)
     }
 
 }

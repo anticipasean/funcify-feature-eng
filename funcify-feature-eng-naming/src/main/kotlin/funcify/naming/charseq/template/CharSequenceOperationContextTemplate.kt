@@ -64,13 +64,13 @@ interface CharSequenceOperationContextTemplate<CTX> {
 
     fun mapCharacterSequenceWithWindow(context: CTX,
                                        windowSize: UInt,
-                                       mapper: (ImmutableList<CharSequence>) -> CharSequence): CTX
+                                       mapper: (ImmutableList<CharSequence>) -> Iterable<CharSequence>): CTX
 
     fun mapCharacterSequenceWithPairWindow(context: CTX,
-                                           mapper: (Pair<CharSequence?, CharSequence?>) -> CharSequence): CTX
+                                           mapper: (Pair<CharSequence?, CharSequence?>) -> Iterable<CharSequence>): CTX
 
     fun mapCharacterSequenceWithTripleWindow(context: CTX,
-                                             mapper: (Triple<CharSequence?, CharSequence, CharSequence?>) -> CharSequence): CTX
+                                             mapper: (Triple<CharSequence?, CharSequence, CharSequence?>) -> Iterable<CharSequence>): CTX
 
     fun mapCharacterSequenceWithIndex(context: CTX,
                                       mapper: (Int, CharSequence) -> CharSequence): CTX

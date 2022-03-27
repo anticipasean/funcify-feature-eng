@@ -80,6 +80,10 @@ interface NamingConventionFactory {
 
         fun forEachSegment(transformation: StringTransformationSpec.() -> Unit)
 
+        fun transformByWindow(window: CharSequenceWindowRangeOpenSpec.() -> CompleteCharSequenceWindowSpec)
+
+        fun furtherSegmentAnyWith(delimiter: Char)
+
     }
 
     interface FullTransformationSpec : SegmentTransformationSpec {
@@ -99,6 +103,9 @@ interface NamingConventionFactory {
 
         fun replaceFirstCharacterOfFirstSegmentIf(condition: (Char) -> Boolean,
                                                   function: (Char) -> String)
+
+        fun replaceFirstCharactersOfOtherSegmentsIf(condition: (Char) -> Boolean,
+                                                    function: (Char) -> String)
 
         fun prependToFirstSegment(prefix: String)
 
@@ -128,38 +135,64 @@ interface NamingConventionFactory {
 
         fun transformAll(transformer: (Char) -> Char)
 
-        fun transformByPosition(window: WindowRangeOpenSpec.() -> CompleteWindowSpec)
+        fun transformByWindow(window: CharacterWindowRangeOpenSpec.() -> CompleteCharacterWindowSpec)
     }
 
     interface CharacterWindowSpec {
 
     }
 
-    interface WindowRangeOpenSpec : CharacterWindowSpec {
+    interface CharacterWindowRangeOpenSpec : CharacterWindowSpec {
 
-        fun anyCharacter(startCharacterCondition: (Char) -> Boolean): WindowRangeCloseSpec
-
-    }
-
-    interface WindowRangeCloseSpec : CharacterWindowSpec {
-
-        fun precededBy(endCharacterCondition: (Char) -> Boolean): WindowActionSpec
-
-        fun followedBy(endCharacterCondition: (Char) -> Boolean): WindowActionSpec
+        fun anyCharacter(startCharacterCondition: (Char) -> Boolean): CharacterWindowRangeCloseSpec
 
     }
 
-    interface WindowActionSpec : CharacterWindowSpec {
+    interface CharacterWindowRangeCloseSpec : CharacterWindowSpec {
 
-        fun transformInto(function: (Char) -> CharSequence): CompleteWindowSpec
+        fun precededBy(endCharacterCondition: (Char) -> Boolean): CharacterWindowActionSpec
 
-        fun splitIntoSeparateSegments(): CompleteWindowSpec
-
-        fun transformAndSplitIntoSeparateSegments(function: (Char) -> CharSequence): CompleteWindowSpec
+        fun followedBy(endCharacterCondition: (Char) -> Boolean): CharacterWindowActionSpec
 
     }
 
-    interface CompleteWindowSpec : CharacterWindowSpec {
+    interface CharacterWindowActionSpec : CharacterWindowSpec {
+
+        fun transformInto(function: (Char) -> CharSequence): CompleteCharacterWindowSpec
+
+    }
+
+    interface CompleteCharacterWindowSpec : CharacterWindowSpec {
+
+    }
+
+    interface CharSequenceWindowSpec {
+
+    }
+
+    interface CharSequenceWindowRangeOpenSpec : CharSequenceWindowSpec {
+
+        fun anySegment(startSequenceCondition: (CharSequence) -> Boolean): CharSequenceWindowRangeCloseSpec
+
+    }
+
+    interface CharSequenceWindowRangeCloseSpec : CharSequenceWindowSpec {
+
+        fun precededBy(endSequenceCondition: (CharSequence) -> Boolean): CharSequenceWindowActionSpec
+
+        fun followedBy(endSequenceCondition: (CharSequence) -> Boolean): CharSequenceWindowActionSpec
+
+    }
+
+    interface CharSequenceWindowActionSpec : CharSequenceWindowSpec {
+
+        fun transformInto(function: (CharSequence) -> CharSequence): CompleteCharSequenceWindowSpec
+
+        fun transformAndSplitIntoSeparateSegments(function: (CharSequence) -> Iterable<CharSequence>): CompleteCharSequenceWindowSpec
+
+    }
+
+    interface CompleteCharSequenceWindowSpec : CharSequenceWindowSpec {
 
     }
 

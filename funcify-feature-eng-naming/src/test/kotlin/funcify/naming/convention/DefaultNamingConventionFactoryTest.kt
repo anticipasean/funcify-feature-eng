@@ -26,7 +26,7 @@ internal class DefaultNamingConventionFactoryTest {
                                         { c -> ' ' })
                             transformIf({ c -> c == 'A' },
                                         { c -> 'B' })
-                            transformByPosition {
+                            transformByWindow {
                                 anyCharacter { c -> c.isUpperCase() }.followedBy { c -> c.isLowerCase() }
                                         .transformInto { c -> c.lowercase() }
                             }
