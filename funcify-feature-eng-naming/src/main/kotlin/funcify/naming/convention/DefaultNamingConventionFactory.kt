@@ -1,6 +1,5 @@
 package funcify.naming.convention
 
-
 import funcify.naming.ConventionalName
 import funcify.naming.charseq.operation.CharSequenceStreamContext
 import funcify.naming.charseq.template.CharSequenceOperationContextTemplate
@@ -33,26 +32,6 @@ internal class DefaultNamingConventionFactory() : NamingConventionFactory {
 
     companion object {
 
-        private fun <I, CTX> CharSequenceOperationContextTemplate<CTX>.streamContextApply(context: CTX,
-                                                                                          function: (CharSequenceStreamContextTemplate<I>, CharSequenceStreamContext<I>) -> CharSequenceStreamContext<I>): CTX {
-            when (this) {
-                is CharSequenceStreamContextTemplate<*> -> {
-                    when (context) {
-                        is CharSequenceStreamContext<*> -> {
-                            @Suppress("UNCHECKED_CAST") //
-                            return function.invoke(this as CharSequenceStreamContextTemplate<I>,
-                                                   context as CharSequenceStreamContext<I>) as CTX
-                        }
-                        else -> {
-                            throw IllegalArgumentException("unhandled context type: ${context?.let { it::class.qualifiedName }}")
-                        }
-                    }
-                }
-                else -> {
-                    throw IllegalArgumentException("unhandled template type: ${this::class.qualifiedName}")
-                }
-            }
-        }
 
         private fun <I, CTX, R> CharSequenceOperationContextTemplate<CTX>.streamContextFold(context: CTX,
                                                                                             function: (CharSequenceStreamContextTemplate<I>, CharSequenceStreamContext<I>) -> R): R {
@@ -73,6 +52,15 @@ internal class DefaultNamingConventionFactory() : NamingConventionFactory {
                     throw IllegalArgumentException("unhandled template type: ${this::class.qualifiedName}")
                 }
             }
+        }
+
+        private fun <I, CTX> CharSequenceOperationContextTemplate<CTX>.streamContextApply(context: CTX,
+                                                                                          function: (CharSequenceStreamContextTemplate<I>, CharSequenceStreamContext<I>) -> CharSequenceStreamContext<I>): CTX {
+            return streamContextFold<I, CTX, CTX>(context,
+                                                  function.andThen { ctx ->
+                                                      @Suppress("UNCHECKED_CAST") //
+                                                      ctx as CTX
+                                                  })
         }
 
     }

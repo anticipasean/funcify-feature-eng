@@ -14,6 +14,13 @@ internal object FunctionExtensions {
         }
     }
 
+    inline fun <A, B, C, D> ((A, B) -> C).andThen(crossinline function: (C) -> D): (A, B) -> D {
+        return { a: A, b: B ->
+            function.invoke(this.invoke(a,
+                                        b))
+        }
+    }
+
     fun <T> ((T) -> Boolean).negate(): (T) -> Boolean {
         return { t ->
             !this.invoke(t)
