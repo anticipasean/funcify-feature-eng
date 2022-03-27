@@ -1,6 +1,7 @@
 package funcify.naming.charseq.template
 
 
+import funcify.naming.charseq.extension.CharSequenceExtensions.stream
 import funcify.naming.charseq.group.LazyCharSequence
 import funcify.naming.charseq.operation.CharSequenceStreamContext
 import funcify.naming.charseq.operation.DefaultCharSequenceOperationFactory
@@ -152,11 +153,12 @@ internal interface CharSequenceStreamContextTemplate<I> : CharSequenceOperationC
     }
 
     override fun mapCharactersWithTripleWindow(context: CharSequenceStreamContext<I>,
-                                               windowMapper: (Triple<Char?, Char, Char?>) -> Char): CharSequenceStreamContext<I> {
+                                               windowMapper: (Triple<Char?, Char, Char?>) -> CharSequence): CharSequenceStreamContext<I> {
         val allCharacterMapOperations = context.allCharacterMapOperations.add(DefaultCharSequenceOperationFactory.createCharacterMapOperation { cs ->
             StreamSupport.stream(TripleWindowMappingSpliterator(inputSpliterator = cs.spliterator()),
                                  cs.isParallel)
                     .map(windowMapper)
+                    .flatMap { cs -> cs.stream() }
         })
         return context.copy(allCharacterMapOperations = allCharacterMapOperations)
     }

@@ -149,7 +149,7 @@ interface NamingConventionFactory {
 
     interface WindowActionSpec : CharacterWindowSpec {
 
-        fun into(function: (Char) -> Char): CompleteWindowSpec
+        fun into(function: (Char) -> CharSequence): CompleteWindowSpec
 
     }
 

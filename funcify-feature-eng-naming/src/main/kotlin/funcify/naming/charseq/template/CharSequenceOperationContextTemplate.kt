@@ -35,7 +35,7 @@ interface CharSequenceOperationContextTemplate<CTX> {
                                     windowMapper: (Pair<Char?, Char?>) -> Char): CTX
 
     fun mapCharactersWithTripleWindow(context: CTX,
-                                      windowMapper: (Triple<Char?, Char, Char?>) -> Char): CTX
+                                      windowMapper: (Triple<Char?, Char, Char?>) -> CharSequence): CTX
 
     fun groupCharactersByDelimiter(context: CTX,
                                    delimiter: Char): CTX

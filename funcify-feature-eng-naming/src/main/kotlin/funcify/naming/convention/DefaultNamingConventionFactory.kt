@@ -32,6 +32,11 @@ internal class DefaultNamingConventionFactory() : NamingConventionFactory {
 
     companion object {
 
+        private val DEFAULT_INSTANCE: NamingConventionFactory by lazy { DefaultNamingConventionFactory() }
+
+        fun getInstance(): NamingConventionFactory {
+            return DEFAULT_INSTANCE
+        }
 
         private fun <I, CTX, R> CharSequenceOperationContextTemplate<CTX>.streamContextFold(context: CTX,
                                                                                             function: (CharSequenceStreamContextTemplate<I>, CharSequenceStreamContext<I>) -> R): R {
@@ -336,7 +341,7 @@ internal class DefaultNamingConventionFactory() : NamingConventionFactory {
                                 if (charTriple.first != null && completeWindowSpec.startCondition.invoke(charTriple.second) && completeWindowSpec.precededByCondition.invoke(charTriple.first!!)) {
                                     completeWindowSpec.transformer.invoke(charTriple.second)
                                 } else {
-                                    charTriple.second
+                                    charTriple.second.toString()
                                 }
                             }
                         }
@@ -346,7 +351,7 @@ internal class DefaultNamingConventionFactory() : NamingConventionFactory {
                                 if (charTriple.third != null && completeWindowSpec.startCondition.invoke(charTriple.second) && completeWindowSpec.followedByCondition.invoke(charTriple.third!!)) {
                                     completeWindowSpec.transformer.invoke(charTriple.second)
                                 } else {
-                                    charTriple.second
+                                    charTriple.second.toString()
                                 }
 
                             }
@@ -387,7 +392,7 @@ internal class DefaultNamingConventionFactory() : NamingConventionFactory {
     internal class DefaultWindowActionSpec(val startCondition: (Char) -> Boolean,
                                            val precededByCondition: ((Char) -> Boolean)? = null,
                                            val followedByCondition: ((Char) -> Boolean)? = null) : WindowActionSpec {
-        override fun into(function: (Char) -> Char): CompleteWindowSpec {
+        override fun into(function: (Char) -> CharSequence): CompleteWindowSpec {
             return DefaultCompleteWindowSpec(startCondition = startCondition,
                                              precededByCondition = precededByCondition,
                                              followedByCondition = followedByCondition,
@@ -399,7 +404,7 @@ internal class DefaultNamingConventionFactory() : NamingConventionFactory {
     internal class DefaultCompleteWindowSpec(val startCondition: (Char) -> Boolean,
                                              val precededByCondition: ((Char) -> Boolean)? = null,
                                              val followedByCondition: ((Char) -> Boolean)? = null,
-                                             val transformer: (Char) -> Char = { c -> c }) : CompleteWindowSpec {
+                                             val transformer: (Char) -> CharSequence = { c -> c.toString() }) : CompleteWindowSpec {
 
     }
 
