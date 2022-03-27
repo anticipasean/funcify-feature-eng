@@ -173,6 +173,18 @@ internal interface CharSequenceStreamContextTemplate<I> : CharSequenceOperationC
         return context.copy(segmentingOperations = segmentingOperations)
     }
 
+    override fun splitCharacterSequences(context: CharSequenceStreamContext<I>,
+                                         mapper: (CharSequence) -> Iterable<CharSequence>): CharSequenceStreamContext<I> {
+        val segmentOperations = context.segmentMapOperations.add(DefaultCharSequenceOperationFactory.createCharSequenceMapOperation { csi ->
+            csi.flatMap { cs ->
+                StreamSupport.stream(mapper.invoke(cs)
+                                             .spliterator(),
+                                     false)
+            }
+        })
+        return context.copy(segmentMapOperations = segmentOperations)
+    }
+
     override fun filterLeadingCharacterSequence(context: CharSequenceStreamContext<I>,
                                                 filter: (CharSequence) -> Boolean): CharSequenceStreamContext<I> {
         val segmentFilterOperations =

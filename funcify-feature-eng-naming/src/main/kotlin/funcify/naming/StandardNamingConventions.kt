@@ -15,17 +15,18 @@ enum class StandardNamingConventions(private val namingConvention: NamingConvent
                        .createConventionForRawStrings()
                        .whenInputProvided {
                            extractOneOrMoreSegmentsWith { s ->
-                               s.splitToSequence(Regex("\\s+"))
+                               s.splitToSequence(Regex("\\s+|_+"))
                                        .asIterable()
                            }
                        }
                        .followConvention {
                            forEachSegment {
                                forAnyCharacter {
-                                   transform {
+                                   transformByPosition {
                                        anyCharacter { c: Char -> c.isUpperCase() }.precededBy { c: Char -> c.isLowerCase() }
-                                               .into { c: Char -> "_" + c.lowercase() }
+                                               .transformAndSplitIntoSeparateSegments { c: Char -> c.lowercase() }
                                    }
+                                   transformAll { c: Char -> c.lowercaseChar() }
                                }
                            }
                        }

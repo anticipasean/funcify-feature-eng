@@ -55,6 +55,9 @@ interface CharSequenceOperationContextTemplate<CTX> {
     fun filterCharacterSequence(context: CTX,
                                 filter: (CharSequence) -> Boolean): CTX
 
+    fun splitCharacterSequences(context: CTX,
+                                mapper: (CharSequence) -> Iterable<CharSequence>): CTX
+
     fun mapCharacterSequence(context: CTX,
                              mapper: (CharSequence) -> CharSequence): CTX
 

@@ -72,7 +72,7 @@ interface NamingConventionFactory {
 
         fun append(suffix: String)
 
-        fun transformEach(transformer: (String) -> String)
+        fun transformAll(transformer: (String) -> String)
 
     }
 
@@ -126,7 +126,9 @@ interface NamingConventionFactory {
         fun transformIf(condition: (Char) -> Boolean,
                         transformer: (Char) -> Char)
 
-        fun transform(window: WindowRangeOpenSpec.() -> CompleteWindowSpec)
+        fun transformAll(transformer: (Char) -> Char)
+
+        fun transformByPosition(window: WindowRangeOpenSpec.() -> CompleteWindowSpec)
     }
 
     interface CharacterWindowSpec {
@@ -149,7 +151,11 @@ interface NamingConventionFactory {
 
     interface WindowActionSpec : CharacterWindowSpec {
 
-        fun into(function: (Char) -> CharSequence): CompleteWindowSpec
+        fun transformInto(function: (Char) -> CharSequence): CompleteWindowSpec
+
+        fun splitIntoSeparateSegments(): CompleteWindowSpec
+
+        fun transformAndSplitIntoSeparateSegments(function: (Char) -> CharSequence): CompleteWindowSpec
 
     }
 
