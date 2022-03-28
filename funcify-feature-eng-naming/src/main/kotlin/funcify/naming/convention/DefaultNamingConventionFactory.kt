@@ -134,7 +134,7 @@ internal class DefaultNamingConventionFactory() : NamingConventionFactory {
                                                                                charSeqOpContext)
             transformation.invoke(fullTransformationSpec)
             val inputTransformer: (I) -> ImmutableList<String> =
-                    charSeqOpTemplate.streamContextFold<I, CTX, (I) -> ImmutableList<String>>(charSeqOpContext) { _, ctx ->
+                    charSeqOpTemplate.streamContextFold<I, CTX, (I) -> ImmutableList<String>>(fullTransformationSpec.charSeqOpContext) { _, ctx ->
                         CharSequenceStreamOpFunctionFactory.getInstance<I>()
                                 .invoke(ctx)
                     }
