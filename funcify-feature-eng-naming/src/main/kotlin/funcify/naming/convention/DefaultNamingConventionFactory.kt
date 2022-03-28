@@ -348,6 +348,18 @@ internal class DefaultNamingConventionFactory() : NamingConventionFactory {
             }
         }
 
+        override fun replaceEveryFirstCharacter(function: (Char) -> Char) {
+            charSeqOpContext = charSeqOpTemplate.streamContextApply<I, CTX>(charSeqOpContext) { t, ctx ->
+                t.mapCharactersWithIndex(ctx) { idx: Int, c: Char ->
+                    if (idx == 0) {
+                        function.invoke(c)
+                    } else {
+                        c
+                    }
+                }
+            }
+        }
+
         override fun prependToFirstSegment(prefix: String) {
             charSeqOpContext = charSeqOpTemplate.streamContextApply<I, CTX>(charSeqOpContext) { t, ctx ->
                 t.mapLeadingCharacterSequence(ctx) { cs: CharSequence ->

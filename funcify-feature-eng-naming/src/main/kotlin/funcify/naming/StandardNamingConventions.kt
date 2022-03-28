@@ -63,7 +63,31 @@ enum class StandardNamingConventions(private val namingConvention: NamingConvent
                            furtherSegmentAnyWith(' ')
                            joinSegmentsWithoutAnyDelimiter()
                        }
-                       .named("CamelCase"));
+                       .named("CamelCase")),
+    PASCAL_CASE(DefaultNamingConventionFactory.getInstance()
+                        .createConventionForStringInput()
+                        .whenInputProvided {
+                            extractOneOrMoreSegmentsWith { s ->
+                                s.splitToSequence(Regex("\\s+|_+"))
+                                        .asIterable()
+                            }
+                        }
+                        .followConvention {
+                            forEachSegment {
+                                forLeadingCharacters {
+                                    replaceEveryFirstCharacter { c: Char -> c.uppercaseChar() }
+                                }
+                                forAnyCharacter {
+                                    transformByWindow {
+                                        anyCharacter { c: Char -> c.isUpperCase() }.followedBy { c: Char -> c.isLowerCase() }
+                                                .transformInto { c: Char -> " $c" }
+                                    }
+                                }
+                            }
+                            furtherSegmentAnyWith(' ')
+                            joinSegmentsWithoutAnyDelimiter()
+                        }
+                        .named("PascalCase"));
 
     override val conventionName: String
         get() = namingConvention.conventionName

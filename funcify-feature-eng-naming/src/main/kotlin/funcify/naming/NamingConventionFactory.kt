@@ -114,6 +114,8 @@ interface NamingConventionFactory {
         fun replaceFirstCharactersOfOtherSegmentsIf(condition: (Char) -> Boolean,
                                                     function: (Char) -> String)
 
+        fun replaceEveryFirstCharacter(function: (Char) -> Char)
+
         fun prependToFirstSegment(prefix: String)
 
         fun prependSegment(segment: String)
