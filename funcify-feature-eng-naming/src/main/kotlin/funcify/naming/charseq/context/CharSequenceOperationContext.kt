@@ -1,5 +1,8 @@
-package funcify.naming.charseq.operation
+package funcify.naming.charseq.context
 
+import funcify.naming.charseq.operation.CharSequenceMapOperation
+import funcify.naming.charseq.operation.CharacterGroupingOperation
+import funcify.naming.charseq.operation.CharacterMapOperation
 import kotlinx.collections.immutable.ImmutableList
 
 

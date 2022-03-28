@@ -1,27 +1,30 @@
 package funcify.naming.convention
 
 import funcify.naming.ConventionalName
-import funcify.naming.charseq.operation.CharSequenceStreamContext
+import funcify.naming.NamingConvention
+import funcify.naming.NamingConventionFactory
+import funcify.naming.NamingConventionFactory.AllCharacterSpec
+import funcify.naming.NamingConventionFactory.CharSequenceWindowActionSpec
+import funcify.naming.NamingConventionFactory.CharSequenceWindowRangeCloseSpec
+import funcify.naming.NamingConventionFactory.CharSequenceWindowRangeOpenSpec
+import funcify.naming.NamingConventionFactory.CharacterWindowActionSpec
+import funcify.naming.NamingConventionFactory.CharacterWindowRangeCloseSpec
+import funcify.naming.NamingConventionFactory.CharacterWindowRangeOpenSpec
+import funcify.naming.NamingConventionFactory.CompleteCharSequenceWindowSpec
+import funcify.naming.NamingConventionFactory.CompleteCharacterWindowSpec
+import funcify.naming.NamingConventionFactory.ConventionSpec
+import funcify.naming.NamingConventionFactory.FullTransformationSpec
+import funcify.naming.NamingConventionFactory.InputMappingSpec
+import funcify.naming.NamingConventionFactory.InputSpec
+import funcify.naming.NamingConventionFactory.LeadingCharactersSpec
+import funcify.naming.NamingConventionFactory.OutputSpec
+import funcify.naming.NamingConventionFactory.StringExtractionSpec
+import funcify.naming.NamingConventionFactory.StringTransformationSpec
+import funcify.naming.NamingConventionFactory.TrailingCharactersSpec
+import funcify.naming.charseq.context.CharSequenceStreamContext
+import funcify.naming.charseq.factory.CharSequenceStreamOpFunctionFactory
 import funcify.naming.charseq.template.CharSequenceOperationContextTemplate
 import funcify.naming.charseq.template.CharSequenceStreamContextTemplate
-import funcify.naming.convention.NamingConventionFactory.AllCharacterSpec
-import funcify.naming.convention.NamingConventionFactory.CharSequenceWindowActionSpec
-import funcify.naming.convention.NamingConventionFactory.CharSequenceWindowRangeCloseSpec
-import funcify.naming.convention.NamingConventionFactory.CharSequenceWindowRangeOpenSpec
-import funcify.naming.convention.NamingConventionFactory.CharacterWindowActionSpec
-import funcify.naming.convention.NamingConventionFactory.CharacterWindowRangeCloseSpec
-import funcify.naming.convention.NamingConventionFactory.CharacterWindowRangeOpenSpec
-import funcify.naming.convention.NamingConventionFactory.CompleteCharSequenceWindowSpec
-import funcify.naming.convention.NamingConventionFactory.CompleteCharacterWindowSpec
-import funcify.naming.convention.NamingConventionFactory.ConventionSpec
-import funcify.naming.convention.NamingConventionFactory.FullTransformationSpec
-import funcify.naming.convention.NamingConventionFactory.InputMappingSpec
-import funcify.naming.convention.NamingConventionFactory.InputSpec
-import funcify.naming.convention.NamingConventionFactory.LeadingCharactersSpec
-import funcify.naming.convention.NamingConventionFactory.OutputSpec
-import funcify.naming.convention.NamingConventionFactory.StringExtractionSpec
-import funcify.naming.convention.NamingConventionFactory.StringTransformationSpec
-import funcify.naming.convention.NamingConventionFactory.TrailingCharactersSpec
 import funcify.naming.function.FunctionExtensions.andThen
 import funcify.naming.function.FunctionExtensions.negate
 import funcify.naming.impl.DefaultConventionalName
@@ -132,7 +135,7 @@ internal class DefaultNamingConventionFactory() : NamingConventionFactory {
             transformation.invoke(fullTransformationSpec)
             val inputTransformer: (I) -> ImmutableList<String> =
                     charSeqOpTemplate.streamContextFold<I, CTX, (I) -> ImmutableList<String>>(charSeqOpContext) { _, ctx ->
-                        CharSequenceStreamOperationContextTransformer.getInstance<I>()
+                        CharSequenceStreamOpFunctionFactory.getInstance<I>()
                                 .invoke(ctx)
                     }
             return DefaultConventionSpec<I>(charSequenceTransformer = inputTransformer,

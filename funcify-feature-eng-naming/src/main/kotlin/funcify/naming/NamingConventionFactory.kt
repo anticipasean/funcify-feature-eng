@@ -1,4 +1,4 @@
-package funcify.naming.convention
+package funcify.naming
 
 
 /**

@@ -1,7 +1,6 @@
 package funcify.naming
 
 import funcify.naming.convention.DefaultNamingConventionFactory
-import funcify.naming.convention.NamingConvention
 
 
 /**

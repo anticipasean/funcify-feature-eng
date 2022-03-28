@@ -1,6 +1,4 @@
-package funcify.naming.convention
-
-import funcify.naming.ConventionalName
+package funcify.naming
 
 
 /**
@@ -13,10 +11,10 @@ interface NamingConvention<I : Any> {
     val conventionName: String
 
     val conventionKey: Any
-    get() = conventionName
+        get() = conventionName
 
     val delimiter: String
-    get() = ConventionalName.EMPTY_STRING_DELIMITER
+        get() = ConventionalName.EMPTY_STRING_DELIMITER
 
     fun deriveName(input: I): ConventionalName
 

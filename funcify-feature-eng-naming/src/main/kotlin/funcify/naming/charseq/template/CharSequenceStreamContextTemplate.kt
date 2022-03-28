@@ -1,9 +1,9 @@
 package funcify.naming.charseq.template
 
 
+import funcify.naming.charseq.context.CharSequenceStreamContext
 import funcify.naming.charseq.extension.CharSequenceExtensions.stream
 import funcify.naming.charseq.group.LazyCharSequence
-import funcify.naming.charseq.operation.CharSequenceStreamContext
 import funcify.naming.charseq.operation.DefaultCharSequenceOperationFactory
 import funcify.naming.charseq.spliterator.DelimiterGroupingSpliterator
 import funcify.naming.charseq.spliterator.MappingWithIndexSpliterator

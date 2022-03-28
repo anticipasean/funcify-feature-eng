@@ -1,6 +1,7 @@
 package funcify.naming.convention
 
 import funcify.naming.ConventionalName
+import funcify.naming.NamingConvention
 
 
 /**

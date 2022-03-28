@@ -1,25 +1,25 @@
-package funcify.naming.convention
+package funcify.naming.charseq.factory
 
 import arrow.core.andThen
+import funcify.naming.charseq.context.CharSequenceStreamContext
 import funcify.naming.charseq.extension.CharSequenceExtensions.stream
 import funcify.naming.charseq.operation.CharSequenceMapOperation
-import funcify.naming.charseq.operation.CharSequenceStreamContext
 import funcify.naming.charseq.operation.CharacterMapOperation
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import java.util.stream.Stream
 
-internal class CharSequenceStreamOperationContextTransformer<I : Any> : (CharSequenceStreamContext<I>) -> (I) -> ImmutableList<String> {
+internal class CharSequenceStreamOpFunctionFactory<I : Any> : (CharSequenceStreamContext<I>) -> (I) -> ImmutableList<String> {
 
     companion object {
 
-        private val DEFAULT_INSTANCE: CharSequenceStreamOperationContextTransformer<Any> by lazy {
-            CharSequenceStreamOperationContextTransformer<Any>()
+        private val DEFAULT_INSTANCE: CharSequenceStreamOpFunctionFactory<Any> by lazy {
+            CharSequenceStreamOpFunctionFactory<Any>()
         }
 
-        fun <I : Any> getInstance(): CharSequenceStreamOperationContextTransformer<I> {
+        fun <I : Any> getInstance(): CharSequenceStreamOpFunctionFactory<I> {
             @Suppress("UNCHECKED_CAST") //
-            return DEFAULT_INSTANCE as CharSequenceStreamOperationContextTransformer<I>
+            return DEFAULT_INSTANCE as CharSequenceStreamOpFunctionFactory<I>
         }
     }
 

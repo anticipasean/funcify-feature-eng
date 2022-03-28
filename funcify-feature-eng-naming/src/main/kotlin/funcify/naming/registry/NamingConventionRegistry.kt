@@ -1,6 +1,6 @@
 package funcify.naming.registry
 
-import funcify.naming.convention.NamingConvention
+import funcify.naming.NamingConvention
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableMap
 import kotlin.reflect.KClass
