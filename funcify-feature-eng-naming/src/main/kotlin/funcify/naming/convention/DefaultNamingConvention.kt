@@ -10,6 +10,7 @@ import funcify.naming.ConventionalName
  */
 data class DefaultNamingConvention<I : Any>(override val conventionName: String,
                                             override val conventionKey: Any = conventionName,
+                                            override val delimiter: String = ConventionalName.EMPTY_STRING_DELIMITER,
                                             private val derivationFunction: (I) -> ConventionalName) : NamingConvention<I> {
 
     override fun deriveName(input: I): ConventionalName {

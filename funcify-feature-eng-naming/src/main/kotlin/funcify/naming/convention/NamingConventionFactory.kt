@@ -8,10 +8,11 @@ package funcify.naming.convention
  */
 interface NamingConventionFactory {
 
-    fun createConventionForRawStrings(): InputSpec<String>
+    fun createConventionForStringInput(): InputSpec<String>
 
     fun <I : Any> createConventionFor(): InputSpec<I>
 
+    fun <I : Any> createConventionFrom(convention: NamingConvention<I>): InputMappingSpec<I>
 
     interface InputSpec<I : Any> {
 
@@ -38,6 +39,12 @@ interface NamingConventionFactory {
     interface OutputSpec<I : Any> {
 
         fun followConvention(transformation: FullTransformationSpec.() -> Unit): ConventionSpec<I>
+
+    }
+
+    interface InputMappingSpec<I : Any> {
+
+        fun <T : Any> mapping(function: (T) -> I): ConventionSpec<T>
 
     }
 
@@ -88,7 +95,7 @@ interface NamingConventionFactory {
 
     interface FullTransformationSpec : SegmentTransformationSpec {
 
-        fun joinSegmentsWith(inputDelimiter: Char)
+        fun joinSegmentsWith(delimiter: Char)
 
         fun joinSegmentsWithoutAnyDelimiter()
     }

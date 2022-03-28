@@ -12,7 +12,7 @@ import funcify.naming.convention.NamingConvention
 enum class StandardNamingConventions(private val namingConvention: NamingConvention<String>) : NamingConvention<String> {
 
     SNAKE_CASE(DefaultNamingConventionFactory.getInstance()
-                       .createConventionForRawStrings()
+                       .createConventionForStringInput()
                        .whenInputProvided {
                            extractOneOrMoreSegmentsWith { s ->
                                s.splitToSequence(Regex("\\s+|_+"))
@@ -39,7 +39,7 @@ enum class StandardNamingConventions(private val namingConvention: NamingConvent
                        .named("SnakeCase")),
 
     CAMEL_CASE(DefaultNamingConventionFactory.getInstance()
-                       .createConventionForRawStrings()
+                       .createConventionForStringInput()
                        .whenInputProvided {
                            extractOneOrMoreSegmentsWith { s ->
                                s.splitToSequence(Regex("\\s+|_+"))

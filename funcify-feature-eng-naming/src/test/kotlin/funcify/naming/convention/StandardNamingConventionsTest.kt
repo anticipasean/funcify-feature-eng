@@ -20,4 +20,12 @@ class StandardNamingConventionsTest {
                                 conventionalName.qualifiedForm)
     }
 
+    @Test
+    fun basicCamelCaseTest() {
+        val conventionalName = StandardNamingConventions.CAMEL_CASE.deriveName(StandardNamingConventionsTest::class.qualifiedName
+                                                                               ?: "")
+        Assertions.assertEquals(StandardNamingConventionsTest::class.qualifiedName,
+                                conventionalName.qualifiedForm)
+    }
+
 }

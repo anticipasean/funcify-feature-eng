@@ -15,6 +15,9 @@ interface NamingConvention<I : Any> {
     val conventionKey: Any
     get() = conventionName
 
+    val delimiter: String
+    get() = ConventionalName.EMPTY_STRING_DELIMITER
+
     fun deriveName(input: I): ConventionalName
 
 }

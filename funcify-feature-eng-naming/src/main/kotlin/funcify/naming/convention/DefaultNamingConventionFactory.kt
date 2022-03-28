@@ -1,5 +1,6 @@
 package funcify.naming.convention
 
+import funcify.naming.ConventionalName
 import funcify.naming.charseq.operation.CharSequenceStreamContext
 import funcify.naming.charseq.template.CharSequenceOperationContextTemplate
 import funcify.naming.charseq.template.CharSequenceStreamContextTemplate
@@ -14,6 +15,7 @@ import funcify.naming.convention.NamingConventionFactory.CompleteCharSequenceWin
 import funcify.naming.convention.NamingConventionFactory.CompleteCharacterWindowSpec
 import funcify.naming.convention.NamingConventionFactory.ConventionSpec
 import funcify.naming.convention.NamingConventionFactory.FullTransformationSpec
+import funcify.naming.convention.NamingConventionFactory.InputMappingSpec
 import funcify.naming.convention.NamingConventionFactory.InputSpec
 import funcify.naming.convention.NamingConventionFactory.LeadingCharactersSpec
 import funcify.naming.convention.NamingConventionFactory.OutputSpec
@@ -23,6 +25,7 @@ import funcify.naming.convention.NamingConventionFactory.TrailingCharactersSpec
 import funcify.naming.function.FunctionExtensions.andThen
 import funcify.naming.function.FunctionExtensions.negate
 import funcify.naming.impl.DefaultConventionalName
+import funcify.naming.impl.RawStringInputConventionalName
 import kotlinx.collections.immutable.ImmutableList
 
 
@@ -73,7 +76,7 @@ internal class DefaultNamingConventionFactory() : NamingConventionFactory {
 
     }
 
-    override fun createConventionForRawStrings(): InputSpec<String> {
+    override fun createConventionForStringInput(): InputSpec<String> {
         val template = CharSequenceStreamContextTemplate.getDefaultInstance<String>()
         return DefaultInputSpec(template,
                                 template.emptyContext())
@@ -83,6 +86,10 @@ internal class DefaultNamingConventionFactory() : NamingConventionFactory {
         val template = CharSequenceStreamContextTemplate.getDefaultInstance<I>()
         return DefaultInputSpec(template,
                                 template.emptyContext())
+    }
+
+    override fun <I : Any> createConventionFrom(convention: NamingConvention<I>): InputMappingSpec<I> {
+        return DefaultInputMappingSpec<I>(convention)
     }
 
     internal class DefaultInputSpec<I : Any, CTX>(val charSeqOpTemplate: CharSequenceOperationContextTemplate<CTX>,
@@ -123,19 +130,22 @@ internal class DefaultNamingConventionFactory() : NamingConventionFactory {
             val fullTransformationSpec = DefaultFullTransformationSpec<I, CTX>(charSeqOpTemplate,
                                                                                charSeqOpContext)
             transformation.invoke(fullTransformationSpec)
-            return DefaultConventionSpec<I, CTX>(charSeqOpTemplate,
-                                                 fullTransformationSpec.charSeqOpContext,
-                                                 fullTransformationSpec.delimiter)
+            val inputTransformer: (I) -> ImmutableList<String> =
+                    charSeqOpTemplate.streamContextFold<I, CTX, (I) -> ImmutableList<String>>(charSeqOpContext) { _, ctx ->
+                        CharSequenceStreamOperationContextTransformer.getInstance<I>()
+                                .invoke(ctx)
+                    }
+            return DefaultConventionSpec<I>(charSequenceTransformer = inputTransformer,
+                                            delimiter = fullTransformationSpec.delimiter)
         }
-
     }
 
     internal class DefaultFullTransformationSpec<I, CTX>(val charSeqOpTemplate: CharSequenceOperationContextTemplate<CTX>,
                                                          var charSeqOpContext: CTX,
                                                          var delimiter: String = "") : FullTransformationSpec {
 
-        override fun joinSegmentsWith(inputDelimiter: Char) {
-            delimiter = inputDelimiter.toString()
+        override fun joinSegmentsWith(delimiter: Char) {
+            this.delimiter = delimiter.toString()
         }
 
         override fun joinSegmentsWithoutAnyDelimiter() {
@@ -556,39 +566,70 @@ internal class DefaultNamingConventionFactory() : NamingConventionFactory {
                                                               val transformer: (CharSequence) -> Iterable<CharSequence> = { cs: CharSequence -> listOf(cs) }) : CompleteCharSequenceWindowSpec {}
 
 
-    internal class DefaultConventionSpec<I : Any, CTX>(val charSeqOpTemplate: CharSequenceOperationContextTemplate<CTX>,
-                                                       val charSeqOpContext: CTX,
-                                                       val delimiter: String) : ConventionSpec<I> {
+    internal class DefaultConventionSpec<I : Any>(val charSequenceTransformer: (I) -> ImmutableList<String>,
+                                                  val delimiter: String) : ConventionSpec<I> {
 
         override fun named(conventionName: String): NamingConvention<I> {
-            val inputTransformer = charSeqOpTemplate.streamContextFold<I, CTX, (I) -> ImmutableList<String>>(charSeqOpContext) { _, ctx ->
-                CharSequenceStreamOperationContextTransformer.getInstance<I>()
-                        .invoke(ctx)
+            val inputTransformer: (I) -> ConventionalName = charSequenceTransformer.andThen { strs: ImmutableList<String> ->
+                RawStringInputConventionalName(namingConventionKey = conventionName,
+                                               rawStringNameSegments = strs,
+                                               delimiter = delimiter)
             }
-                    .andThen { strs ->
-                        DefaultConventionalName(namingConventionKey = conventionName,
-                                                rawStringNameSegments = strs,
-                                                delimiter = delimiter)
-                    }
             return DefaultNamingConvention<I>(conventionName = conventionName,
+                                              conventionKey = conventionName,
                                               derivationFunction = inputTransformer)
         }
 
         override fun namedAndIdentifiedBy(conventionName: String,
                                           conventionKey: Any): NamingConvention<I> {
-            val inputTransformer = charSeqOpTemplate.streamContextFold<I, CTX, (I) -> ImmutableList<String>>(charSeqOpContext) { _, ctx ->
-                CharSequenceStreamOperationContextTransformer.getInstance<I>()
-                        .invoke(ctx)
+            val inputTransformer: (I) -> ConventionalName = charSequenceTransformer.andThen { strs: ImmutableList<String> ->
+                RawStringInputConventionalName(namingConventionKey = conventionKey,
+                                               rawStringNameSegments = strs,
+                                               delimiter = delimiter)
             }
-                    .andThen { strs ->
-                        DefaultConventionalName(namingConventionKey = conventionKey,
-                                                rawStringNameSegments = strs,
-                                                delimiter = delimiter)
-                    }
             return DefaultNamingConvention<I>(conventionName = conventionName,
                                               conventionKey = conventionKey,
                                               derivationFunction = inputTransformer)
         }
+    }
+
+    internal class DefaultInputMappingSpec<I : Any>(val convention: NamingConvention<I>) : InputMappingSpec<I> {
+
+        override fun <T : Any> mapping(function: (T) -> I): ConventionSpec<T> {
+            return DefaultRepurposingConventionSpec<I, T>(convention = convention,
+                                                          mapper = function)
+        }
+
+    }
+
+    internal class DefaultRepurposingConventionSpec<I : Any, T : Any>(val convention: NamingConvention<I>,
+                                                                      val mapper: (T) -> I) : ConventionSpec<T> {
+
+        override fun named(conventionName: String): NamingConvention<T> {
+            val derivationFunction = { t: T -> convention.deriveName(mapper.invoke(t)) }.andThen { cn: ConventionalName ->
+                DefaultConventionalName(namingConventionKey = conventionName,
+                                        nameSegments = cn.nameSegments,
+                                        delimiter = cn.delimiter)
+            }
+            return DefaultNamingConvention<T>(conventionName = conventionName,
+                                              conventionKey = conventionName,
+                                              delimiter = convention.delimiter,
+                                              derivationFunction = derivationFunction)
+        }
+
+        override fun namedAndIdentifiedBy(conventionName: String,
+                                          conventionKey: Any): NamingConvention<T> {
+            val derivationFunction = { t: T -> convention.deriveName(mapper.invoke(t)) }.andThen { cn: ConventionalName ->
+                DefaultConventionalName(namingConventionKey = conventionKey,
+                                        nameSegments = cn.nameSegments,
+                                        delimiter = cn.delimiter)
+            }
+            return DefaultNamingConvention<T>(conventionName = conventionName,
+                                              conventionKey = conventionKey,
+                                              delimiter = convention.delimiter,
+                                              derivationFunction = derivationFunction)
+        }
+
     }
 
 }
