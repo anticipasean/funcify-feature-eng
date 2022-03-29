@@ -1,0 +1,126 @@
+package funcify.naming.function
+
+import funcify.naming.function.FunctionExtensions.andThen
+import java.util.stream.Stream
+
+
+/**
+ *
+ * @author smccarron
+ * @created 3/28/22
+ */
+sealed interface EitherStreamFunction<L, R> {
+
+    companion object {
+
+        data class LeftStreamFunction<L, R>(val baseStreamFunction: (Stream<R>) -> Stream<R>,
+                                            val leftFunction: (R) -> Stream<L>) : EitherStreamFunction<L, R> {
+            override fun <O> fold(left: ((Stream<R>) -> Stream<R>, (R) -> Stream<L>) -> O,
+                                  right: ((Stream<R>) -> Stream<R>) -> O): O {
+                return left.invoke(baseStreamFunction,
+                                   leftFunction)
+            }
+
+        }
+
+        data class RightStreamFunction<L, R>(val baseStreamFunction: (Stream<R>) -> Stream<R>) : EitherStreamFunction<L, R> {
+            override fun <O> fold(left: ((Stream<R>) -> Stream<R>, (R) -> Stream<L>) -> O,
+                                  right: ((Stream<R>) -> Stream<R>) -> O): O {
+                return right.invoke(baseStreamFunction)
+            }
+
+        }
+
+        fun <L, R> ofRight(baseStreamFunction: (Stream<R>) -> Stream<R>): EitherStreamFunction<L, R> {
+            return RightStreamFunction<L, R>(baseStreamFunction = baseStreamFunction)
+        }
+
+        fun <L, R> ofLeft(baseStreamFunction: (Stream<R>) -> Stream<R>,
+                          leftMapper: (R) -> Stream<L>): EitherStreamFunction<L, R> {
+            return LeftStreamFunction<L, R>(baseStreamFunction = baseStreamFunction,
+                                            leftFunction = leftMapper)
+        }
+    }
+
+    fun isLeft(): Boolean {
+        return fold({ _, _ -> true },
+                    { _ -> false })
+    }
+
+    fun isRight(): Boolean {
+        return fold({ _, _ -> false },
+                    { _ -> true })
+    }
+
+    fun mapLeft(function: (Stream<L>) -> Stream<L>): EitherStreamFunction<L, R> {
+        return fold({ base: (Stream<R>) -> Stream<R>, leftMapper: (R) -> Stream<L> ->
+                        ofLeft(baseStreamFunction = base,
+                               leftMapper = leftMapper.andThen(function))
+                    },
+                    { base: (Stream<R>) -> Stream<R> -> // Nothing happens in this case
+                        ofRight(baseStreamFunction = base)
+                    })
+    }
+
+    fun mapRight(function: (Stream<R>) -> Stream<R>): EitherStreamFunction<L, R> {
+        return fold({ base: (Stream<R>) -> Stream<R>, leftMapper: (R) -> Stream<L> ->
+                        ofLeft(baseStreamFunction = base,
+                               leftMapper = leftMapper)
+                    },
+                    { base: (Stream<R>) -> Stream<R> ->
+                        ofRight(baseStreamFunction = base.andThen(function))
+                    })
+    }
+
+    fun mapToLeft(leftMapper: (R) -> Stream<L>): EitherStreamFunction<L, R> {
+        return fold({ base: (Stream<R>) -> Stream<R>, left: (R) -> Stream<L> ->
+                        ofLeft(baseStreamFunction = base,
+                               leftMapper = left)
+                    },
+                    { base: (Stream<R>) -> Stream<R> ->
+                        ofLeft(baseStreamFunction = base,
+                               leftMapper = leftMapper)
+                    })
+    }
+
+    fun mapToRight(rightMapper: (Stream<L>) -> R): EitherStreamFunction<L, R> {
+        return fold({ base: (Stream<R>) -> Stream<R>, leftMapper: (R) -> Stream<L> ->
+                        ofRight(baseStreamFunction = base.andThen { stream: Stream<R> ->
+                            stream.map { r -> rightMapper.invoke(leftMapper.invoke(r)) }
+                        })
+                    },
+                    { base: (Stream<R>) -> Stream<R> ->
+                        ofRight(baseStreamFunction = base)
+                    })
+    }
+
+    fun flatMapRight(mapper: (Stream<R>) -> EitherStreamFunction<L, R>): EitherStreamFunction<L, R> {
+        return fold({ base: (Stream<R>) -> Stream<R>, leftMapper: (R) -> Stream<L> ->
+                        ofLeft(baseStreamFunction = base.andThen { rStream: Stream<R> ->
+                            mapper.invoke(rStream)
+                                    .fold({ base1: (Stream<R>) -> Stream<R>, leftMapper1: (R) -> Stream<L> ->
+                                              base1.invoke(rStream)
+                                          },
+                                          { base1: (Stream<R>) -> Stream<R> ->
+                                              base1.invoke(rStream)
+                                          })
+                        },
+                               leftMapper = leftMapper)
+                    },
+                    { base: (Stream<R>) -> Stream<R> ->
+                        ofRight(baseStreamFunction = base.andThen { rStream: Stream<R> ->
+                            mapper.invoke(rStream)
+                                    .fold({ base1: (Stream<R>) -> Stream<R>, leftMapper1: (R) -> Stream<L> ->
+                                              base1.invoke(rStream)
+                                          },
+                                          { base1: (Stream<R>) -> Stream<R> ->
+                                              base1.invoke(rStream)
+                                          })
+                        })
+                    })
+    }
+
+    fun <O> fold(left: ((Stream<R>) -> Stream<R>, (R) -> Stream<L>) -> O,
+                 right: ((Stream<R>) -> Stream<R>) -> O): O
+
+}

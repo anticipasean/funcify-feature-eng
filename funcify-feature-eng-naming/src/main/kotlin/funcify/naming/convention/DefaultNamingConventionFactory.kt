@@ -21,15 +21,21 @@ import funcify.naming.NamingConventionFactory.OutputSpec
 import funcify.naming.NamingConventionFactory.StringExtractionSpec
 import funcify.naming.NamingConventionFactory.StringTransformationSpec
 import funcify.naming.NamingConventionFactory.TrailingCharactersSpec
-import funcify.naming.charseq.context.CharSequenceStreamContext
-import funcify.naming.charseq.factory.CharSequenceStreamOpFunctionFactory
+import funcify.naming.charseq.context.CharSequenceStreamFuncContext
+import funcify.naming.charseq.context.CharSequenceStreamOpContext
 import funcify.naming.charseq.template.CharSequenceOperationContextTemplate
-import funcify.naming.charseq.template.CharSequenceStreamContextTemplate
+import funcify.naming.charseq.template.CharSequenceStreamFunctionContextTemplate
+import funcify.naming.charseq.template.CharSequenceStreamOperationContextTemplate
+import funcify.naming.function.EitherStreamFunction.Companion.LeftStreamFunction
+import funcify.naming.function.EitherStreamFunction.Companion.RightStreamFunction
 import funcify.naming.function.FunctionExtensions.andThen
 import funcify.naming.function.FunctionExtensions.negate
 import funcify.naming.impl.DefaultConventionalName
 import funcify.naming.impl.RawStringInputConventionalName
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
+import java.util.Spliterators
+import java.util.stream.Stream
 
 
 /**
@@ -48,14 +54,26 @@ internal class DefaultNamingConventionFactory() : NamingConventionFactory {
         }
 
         private fun <I, CTX, R> CharSequenceOperationContextTemplate<CTX>.streamContextFold(context: CTX,
-                                                                                            function: (CharSequenceStreamContextTemplate<I>, CharSequenceStreamContext<I>) -> R): R {
+                                                                                            function: (CharSequenceStreamFunctionContextTemplate<I>, CharSequenceStreamFuncContext<I>) -> R): R {
             when (this) {
-                is CharSequenceStreamContextTemplate<*> -> {
+                is CharSequenceStreamFunctionContextTemplate<*> -> {
                     when (context) {
-                        is CharSequenceStreamContext<*> -> {
+                        is CharSequenceStreamFuncContext<*> -> {
                             @Suppress("UNCHECKED_CAST") //
-                            return function.invoke(this as CharSequenceStreamContextTemplate<I>,
-                                                   context as CharSequenceStreamContext<I>)
+                            return function.invoke(this as CharSequenceStreamFunctionContextTemplate<I>,
+                                                   context as CharSequenceStreamFuncContext<I>)
+                        }
+                        else -> {
+                            throw IllegalArgumentException("unhandled context type: ${context?.let { it::class.qualifiedName }}")
+                        }
+                    }
+                }
+                is CharSequenceStreamOperationContextTemplate<*> -> {
+                    when (context) {
+                        is CharSequenceStreamOpContext<*> -> { //@Suppress("UNCHECKED_CAST") //
+                            //return function.invoke(this as CharSequenceStreamOperationContextTemplate<I>,
+                            //                       context as CharSequenceStreamOpContext<I>)
+                            throw IllegalArgumentException("not supported for use in this function")
                         }
                         else -> {
                             throw IllegalArgumentException("unhandled context type: ${context?.let { it::class.qualifiedName }}")
@@ -69,7 +87,7 @@ internal class DefaultNamingConventionFactory() : NamingConventionFactory {
         }
 
         private fun <I, CTX> CharSequenceOperationContextTemplate<CTX>.streamContextApply(context: CTX,
-                                                                                          function: (CharSequenceStreamContextTemplate<I>, CharSequenceStreamContext<I>) -> CharSequenceStreamContext<I>): CTX {
+                                                                                          function: (CharSequenceStreamFunctionContextTemplate<I>, CharSequenceStreamFuncContext<I>) -> CharSequenceStreamFuncContext<I>): CTX {
             return streamContextFold<I, CTX, CTX>(context,
                                                   function.andThen { ctx ->
                                                       @Suppress("UNCHECKED_CAST") //
@@ -80,13 +98,13 @@ internal class DefaultNamingConventionFactory() : NamingConventionFactory {
     }
 
     override fun createConventionForStringInput(): InputSpec<String> {
-        val template = CharSequenceStreamContextTemplate.getDefaultInstance<String>()
+        val template = CharSequenceStreamFunctionContextTemplate.getDefaultInstance<String>()
         return DefaultInputSpec(template,
                                 template.emptyContext())
     }
 
     override fun <I : Any> createConventionFor(): InputSpec<I> {
-        val template = CharSequenceStreamContextTemplate.getDefaultInstance<I>()
+        val template = CharSequenceStreamFunctionContextTemplate.getDefaultInstance<I>()
         return DefaultInputSpec(template,
                                 template.emptyContext())
     }
@@ -135,8 +153,25 @@ internal class DefaultNamingConventionFactory() : NamingConventionFactory {
             transformation.invoke(fullTransformationSpec)
             val inputTransformer: (I) -> ImmutableList<String> =
                     charSeqOpTemplate.streamContextFold<I, CTX, (I) -> ImmutableList<String>>(fullTransformationSpec.charSeqOpContext) { _, ctx ->
-                        CharSequenceStreamOpFunctionFactory.getInstance<I>()
-                                .invoke(ctx)
+                        ctx.inputToCharSequenceTransformer.andThen { csStream: Stream<CharSequence> ->
+                            when (ctx.streamFunction) {
+                                is LeftStreamFunction -> {
+                                    ctx.streamFunction.mapToRight { cStream: Stream<Char> ->
+                                        cStream.reduce(StringBuilder(),
+                                                       StringBuilder::append,
+                                                       StringBuilder::append)
+                                    }
+                                            .fold({ _, _ -> csStream },
+                                                  { function -> function.invoke(csStream) })
+                                }
+                                is RightStreamFunction -> {
+                                    ctx.streamFunction.fold({ _, _ -> csStream },
+                                                            { function -> function.invoke(csStream) })
+                                }
+                            }.reduce(persistentListOf(),
+                                     { pl, s -> pl.add(s.toString()) },
+                                     { pl1, pl2 -> pl1.addAll(pl2) })
+                        }
                     }
             return DefaultConventionSpec<I>(charSequenceTransformer = inputTransformer,
                                             delimiter = fullTransformationSpec.delimiter)
@@ -162,7 +197,7 @@ internal class DefaultNamingConventionFactory() : NamingConventionFactory {
             charSeqOpContext = stringTransformationSpec.charSeqOpContext
         }
 
-        override fun transformByWindow(window: CharSequenceWindowRangeOpenSpec.() -> CompleteCharSequenceWindowSpec) {
+        override fun transformSegmentsByWindow(window: CharSequenceWindowRangeOpenSpec.() -> CompleteCharSequenceWindowSpec) {
             when (val completeWindowSpec: CompleteCharSequenceWindowSpec = window.invoke(DefaultCharSequenceWindowRangeOpenSpec())) {
                 is DefaultCompleteCharSequenceWindowTransformationSpec -> {
                     if (completeWindowSpec.precededByEndSequenceCondition != null) {
@@ -223,7 +258,12 @@ internal class DefaultNamingConventionFactory() : NamingConventionFactory {
         override fun furtherSegmentAnyWith(delimiter: Char) {
             charSeqOpContext = charSeqOpTemplate.streamContextApply<I, CTX>(charSeqOpContext) { t, ctx ->
                 t.splitCharacterSequences(ctx) { cs: CharSequence ->
-                    cs.split(delimiter)
+                    Iterable {
+                        Spliterators.iterator(cs.split(delimiter)
+                                                      .stream()
+                                                      .filter { s: String -> s.isNotEmpty() }
+                                                      .spliterator())
+                    }
                 }
             }
         }
@@ -305,16 +345,21 @@ internal class DefaultNamingConventionFactory() : NamingConventionFactory {
 
         override fun stripAny(condition: (Char) -> Boolean) {
             charSeqOpContext = charSeqOpTemplate.streamContextApply<I, CTX>(charSeqOpContext) { t, ctx ->
-                t.filterLeadingCharacters(ctx,
-                                          condition.negate())
+                t.mapCharactersWithIndex(ctx) { i: Int, c: Char ->
+                    if (i == 0 && condition.invoke(c)) {
+                        ""
+                    } else {
+                        "$c"
+                    }
+                }
             }
         }
 
         override fun replaceFirstCharacterOfFirstSegmentIf(condition: (Char) -> Boolean,
                                                            function: (Char) -> String) {
             charSeqOpContext = charSeqOpTemplate.streamContextApply<I, CTX>(charSeqOpContext) { t, ctx ->
-                t.mapLeadingCharacterSequence(ctx) { cs: CharSequence ->
-                    if (cs.isNotEmpty() && condition.invoke(cs.first())) {
+                t.mapCharacterSequenceWithIndex(ctx) { idx: Int, cs: CharSequence ->
+                    if (idx == 0 && cs.isNotEmpty() && condition.invoke(cs.first())) {
                         function.invoke(cs.first()) + if (cs.length > 1) {
                             cs.slice(1 until cs.length)
                         } else {
@@ -331,15 +376,11 @@ internal class DefaultNamingConventionFactory() : NamingConventionFactory {
                                                              function: (Char) -> String) {
             charSeqOpContext = charSeqOpTemplate.streamContextApply<I, CTX>(charSeqOpContext) { t, ctx ->
                 t.mapCharacterSequenceWithIndex(ctx) { idx: Int, cs: CharSequence ->
-                    if (idx != 0) {
-                        if (cs.isNotEmpty() && condition.invoke(cs.first())) {
-                            function.invoke(cs.first()) + if (cs.length > 1) {
-                                cs.slice(1 until cs.length)
-                            } else {
-                                ""
-                            }
+                    if (idx != 0 && cs.isNotEmpty() && condition.invoke(cs.first())) {
+                        function.invoke(cs.first()) + if (cs.length > 1) {
+                            cs.slice(1 until cs.length)
                         } else {
-                            cs
+                            ""
                         }
                     } else {
                         cs
@@ -353,8 +394,9 @@ internal class DefaultNamingConventionFactory() : NamingConventionFactory {
                 t.mapCharactersWithIndex(ctx) { idx: Int, c: Char ->
                     if (idx == 0) {
                         function.invoke(c)
+                                .toString()
                     } else {
-                        c
+                        c.toString()
                     }
                 }
             }
@@ -362,8 +404,12 @@ internal class DefaultNamingConventionFactory() : NamingConventionFactory {
 
         override fun prependToFirstSegment(prefix: String) {
             charSeqOpContext = charSeqOpTemplate.streamContextApply<I, CTX>(charSeqOpContext) { t, ctx ->
-                t.mapLeadingCharacterSequence(ctx) { cs: CharSequence ->
-                    prefix + cs
+                t.mapCharacterSequenceWithIndex(ctx) { idx: Int, cs: CharSequence ->
+                    if (idx == 0) {
+                        prefix + cs
+                    } else {
+                        cs
+                    }
                 }
             }
         }
@@ -382,25 +428,10 @@ internal class DefaultNamingConventionFactory() : NamingConventionFactory {
 
         override fun stripAny(condition: (Char) -> Boolean) {
             charSeqOpContext = charSeqOpTemplate.streamContextApply<I, CTX>(charSeqOpContext) { t, ctx ->
-                t.filterTrailingCharacters(ctx,
-                                           condition.negate())
-            }
-        }
-
-        override fun replaceLastCharacterOfLastSegmentIf(condition: (Char) -> Boolean,
-                                                         function: (Char) -> String) {
-            charSeqOpContext = charSeqOpTemplate.streamContextApply<I, CTX>(charSeqOpContext) { t, ctx ->
-                t.mapTrailingCharacterSequence(ctx) { cs: CharSequence ->
-                    if (cs.isNotEmpty() && condition.invoke(cs.last())) {
-                        "${
-                            if (cs.length > 1) {
-                                cs.slice(0 until cs.length - 1)
-                            } else {
-                                ""
-                            }
-                        }" + function.invoke(cs.last())
-                    } else {
-                        cs
+                t.mapCharacterSequenceWithTripleWindow(ctx) { csTriple: Triple<CharSequence?, CharSequence, CharSequence?> ->
+                    when {
+                        csTriple.third != null -> listOf(csTriple.second)
+                        else -> listOf(csTriple.second.trimEnd(condition))
                     }
                 }
             }
@@ -408,8 +439,11 @@ internal class DefaultNamingConventionFactory() : NamingConventionFactory {
 
         override fun appendToLastSegment(suffix: String) {
             charSeqOpContext = charSeqOpTemplate.streamContextApply<I, CTX>(charSeqOpContext) { t, ctx ->
-                t.mapTrailingCharacterSequence(ctx) { cs ->
-                    cs.toString() + suffix
+                t.mapCharacterSequenceWithTripleWindow(ctx) { csTriple: Triple<CharSequence?, CharSequence, CharSequence?> ->
+                    when {
+                        csTriple.third != null -> listOf(csTriple.second)
+                        else -> listOf("${csTriple.second}${suffix}")
+                    }
                 }
             }
         }
@@ -428,8 +462,8 @@ internal class DefaultNamingConventionFactory() : NamingConventionFactory {
 
         override fun removeAny(condition: (Char) -> Boolean) {
             charSeqOpContext = charSeqOpTemplate.streamContextApply<I, CTX>(charSeqOpContext) { t, ctx ->
-                t.filterAnyCharacters(ctx,
-                                      condition.negate<Char>())
+                t.filterCharacters(ctx,
+                                   condition.negate<Char>())
             }
         }
 
@@ -439,8 +473,9 @@ internal class DefaultNamingConventionFactory() : NamingConventionFactory {
                 t.mapCharacters(ctx) { c: Char ->
                     if (condition.invoke(c)) {
                         transformer.invoke(c)
+                                .toString()
                     } else {
-                        c
+                        c.toString()
                     }
                 }
             }
@@ -449,7 +484,7 @@ internal class DefaultNamingConventionFactory() : NamingConventionFactory {
         override fun transformAll(transformer: (Char) -> Char) {
             charSeqOpContext = charSeqOpTemplate.streamContextApply<I, CTX>(charSeqOpContext) { t, ctx ->
                 t.mapCharacters(ctx,
-                                transformer)
+                                transformer.andThen { c: Char -> c.toString() })
             }
         }
 

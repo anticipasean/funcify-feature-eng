@@ -4,7 +4,9 @@ import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.PersistentList
 import kotlinx.collections.immutable.persistentListOf
 import java.util.Spliterator
-import java.util.Spliterators
+import java.util.Spliterator.NONNULL
+import java.util.Spliterator.ORDERED
+import java.util.Spliterator.SIZED
 import java.util.function.Consumer
 
 
@@ -16,9 +18,21 @@ import java.util.function.Consumer
 internal class SlidingListWindowMappingSpliterator<T, R>(private val inputSpliterator: Spliterator<T>,
                                                          private val windowMapper: (ImmutableList<T>) -> R,
                                                          private val windowSize: Int = 1,
-                                                         private val sizeEstimate: Long = inputSpliterator.estimateSize(),
-                                                         private val additionalCharacteristics: Int = inputSpliterator.characteristics()) : Spliterators.AbstractSpliterator<R>(sizeEstimate,
-                                                                                                                                                                                additionalCharacteristics) {
+                                                         private val characteristics: Int = DEFAULT_CHARACTERISTICS or inputSpliterator.characteristics()) : Spliterator<R> {
+
+    companion object {
+
+        private const val DEFAULT_CHARACTERISTICS: Int = NONNULL and ORDERED
+
+        private enum class WindowState {
+            NEW,
+            EXPANDING_PARTIAL,
+            FULL,
+            SHRINKING_PARTIAL,
+            CLOSED
+        }
+
+    }
 
     private val targetWindowSize: Int = windowSize.coerceAtLeast(1)
 
@@ -49,8 +63,18 @@ internal class SlidingListWindowMappingSpliterator<T, R>(private val inputSplite
     } else {
         (targetWindowSize shr 1).coerceAtLeast(0) + 1
     }
+    private val projectedSize: Long = if ((characteristics and SIZED) == SIZED) {
+        if ((targetWindowSize and 1) == 0) {
+            inputSpliterator.estimateSize() + 1
+        } else {
+            inputSpliterator.estimateSize()
+        }
+    } else {
+        Long.MAX_VALUE
+    }
     private var window: PersistentList<T> = persistentListOf()
     private var windowState: WindowState = WindowState.NEW
+    private var index: Long = 0L
 
     override fun tryAdvance(action: Consumer<in R>?): Boolean {
         if (action == null) {
@@ -72,6 +96,7 @@ internal class SlidingListWindowMappingSpliterator<T, R>(private val inputSplite
                 }
                 if (advanceStatus) {
                     action.accept(windowMapper.invoke(windowList))
+                    index++
                     window = windowList
                     if (windowList.size == targetWindowSize) {
                         windowState = WindowState.FULL
@@ -82,6 +107,7 @@ internal class SlidingListWindowMappingSpliterator<T, R>(private val inputSplite
                 } else {
                     if (windowList.isNotEmpty()) {
                         action.accept(windowMapper.invoke(windowList))
+                        index++
                         window = windowList
                         windowState = WindowState.SHRINKING_PARTIAL
                         return true
@@ -102,6 +128,7 @@ internal class SlidingListWindowMappingSpliterator<T, R>(private val inputSplite
                 }
                 if (advanceStatus) {
                     action.accept(windowMapper.invoke(windowList))
+                    index++
                     if (windowList.size == targetWindowSize) {
                         window = windowList
                         windowState = WindowState.FULL
@@ -113,6 +140,7 @@ internal class SlidingListWindowMappingSpliterator<T, R>(private val inputSplite
                 } else {
                     if (windowList.isNotEmpty()) {
                         action.accept(windowMapper.invoke(windowList))
+                        index++
                         window = windowList
                         windowState = WindowState.SHRINKING_PARTIAL
                         return true
@@ -136,12 +164,14 @@ internal class SlidingListWindowMappingSpliterator<T, R>(private val inputSplite
                 }
                 if (advanceStatus) {
                     action.accept(windowMapper.invoke(windowList))
+                    index++
                     window = windowList
                     windowState = WindowState.FULL
                 } else {
                     if (windowList.size > incrementSize) {
                         val windowWithOldestRemoved = windowList.removeAt(0)
                         action.accept(windowMapper.invoke(windowWithOldestRemoved))
+                        index++
                         window = windowWithOldestRemoved
                         windowState = WindowState.SHRINKING_PARTIAL
                     } else {
@@ -161,6 +191,7 @@ internal class SlidingListWindowMappingSpliterator<T, R>(private val inputSplite
                 if (windowList.size > incrementSize) {
                     val windowListWithoutOldest = windowList.removeAt(0)
                     action.accept(windowMapper.invoke(windowListWithoutOldest))
+                    index++
                     window = windowListWithoutOldest
                     windowState = WindowState.SHRINKING_PARTIAL
                     return true
@@ -180,16 +211,24 @@ internal class SlidingListWindowMappingSpliterator<T, R>(private val inputSplite
 
     }
 
-    companion object {
+    /**
+     * Cannot keep expanding and shrinking partial windows contracts
+     * for a given iteration if split
+     */
+    override fun trySplit(): Spliterator<R>? {
+        return null
+    }
 
-        private enum class WindowState {
-            NEW,
-            EXPANDING_PARTIAL,
-            FULL,
-            SHRINKING_PARTIAL,
-            CLOSED
+    override fun estimateSize(): Long {
+        return if (projectedSize == Long.MAX_VALUE) {
+            Long.MAX_VALUE
+        } else {
+            projectedSize - index
         }
+    }
 
+    override fun characteristics(): Int {
+        return characteristics
     }
 }
 

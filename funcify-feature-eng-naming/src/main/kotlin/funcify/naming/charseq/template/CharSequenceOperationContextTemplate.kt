@@ -12,20 +12,14 @@ interface CharSequenceOperationContextTemplate<CTX> {
 
     fun emptyContext(): CTX
 
-    fun filterLeadingCharacters(context: CTX,
-                                filter: (Char) -> Boolean): CTX
-
-    fun filterTrailingCharacters(context: CTX,
-                                 filter: (Char) -> Boolean): CTX
-
-    fun filterAnyCharacters(context: CTX,
-                            filter: (Char) -> Boolean): CTX
+    fun filterCharacters(context: CTX,
+                         filter: (Char) -> Boolean): CTX
 
     fun mapCharacters(context: CTX,
-                      mapper: (Char) -> Char): CTX
+                      mapper: (Char) -> CharSequence): CTX
 
     fun mapCharactersWithIndex(context: CTX,
-                               mapper: (Int, Char) -> Char): CTX
+                               mapper: (Int, Char) -> CharSequence): CTX
 
     fun mapCharactersWithWindow(context: CTX,
                                 windowSize: UInt,
@@ -40,18 +34,6 @@ interface CharSequenceOperationContextTemplate<CTX> {
     fun groupCharactersByDelimiter(context: CTX,
                                    delimiter: Char): CTX
 
-    fun filterLeadingCharacterSequence(context: CTX,
-                                       filter: (CharSequence) -> Boolean): CTX
-
-    fun mapLeadingCharacterSequence(context: CTX,
-                                    mapper: (CharSequence) -> CharSequence): CTX
-
-    fun filterTrailingCharacterSequence(context: CTX,
-                                        filter: (CharSequence) -> Boolean): CTX
-
-    fun mapTrailingCharacterSequence(context: CTX,
-                                     mapper: (CharSequence) -> CharSequence): CTX
-
     fun filterCharacterSequence(context: CTX,
                                 filter: (CharSequence) -> Boolean): CTX
 
@@ -60,7 +42,6 @@ interface CharSequenceOperationContextTemplate<CTX> {
 
     fun mapCharacterSequence(context: CTX,
                              mapper: (CharSequence) -> CharSequence): CTX
-
 
     fun mapCharacterSequenceWithWindow(context: CTX,
                                        windowSize: UInt,

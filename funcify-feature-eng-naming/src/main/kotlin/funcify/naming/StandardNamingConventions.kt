@@ -20,6 +20,9 @@ enum class StandardNamingConventions(private val namingConvention: NamingConvent
                        }
                        .followConvention {
                            forEachSegment {
+                               forLeadingCharacters {
+                                   stripAny { c: Char -> c.isWhitespace() }
+                               }
                                forAnyCharacter {
                                    transformByWindow {
                                        anyCharacter { c: Char -> c.isUpperCase() }.precededBy { c: Char -> c.isLowerCase() }
@@ -47,20 +50,23 @@ enum class StandardNamingConventions(private val namingConvention: NamingConvent
                        }
                        .followConvention {
                            forEachSegment {
+                               forAnyCharacter {
+                                   transformByWindow {
+                                       anyCharacter { c: Char -> c.isUpperCase() }.followedBy { c: Char -> c.isLowerCase() }
+                                               .transformInto { c: Char -> "_$c" }
+                                   }
+                               }
+                           }
+                           furtherSegmentAnyWith('_')
+                           forEachSegment {
                                forLeadingCharacters {
+                                   stripAny { c: Char -> c.isWhitespace() }
                                    replaceFirstCharacterOfFirstSegmentIf({ c: Char -> c.isUpperCase() },
                                                                          { c: Char -> c.lowercase() })
                                    replaceFirstCharactersOfOtherSegmentsIf({ c: Char -> c.isLowerCase() },
                                                                            { c: Char -> c.uppercase() })
                                }
-                               forAnyCharacter {
-                                   transformByWindow {
-                                       anyCharacter { c: Char -> c.isUpperCase() }.followedBy { c: Char -> c.isLowerCase() }
-                                               .transformInto { c: Char -> " $c" }
-                                   }
-                               }
                            }
-                           furtherSegmentAnyWith(' ')
                            joinSegmentsWithoutAnyDelimiter()
                        }
                        .named("CamelCase")),
@@ -75,6 +81,7 @@ enum class StandardNamingConventions(private val namingConvention: NamingConvent
                         .followConvention {
                             forEachSegment {
                                 forLeadingCharacters {
+                                    stripAny { c: Char -> c.isWhitespace() }
                                     replaceEveryFirstCharacter { c: Char -> c.uppercaseChar() }
                                 }
                                 forAnyCharacter {

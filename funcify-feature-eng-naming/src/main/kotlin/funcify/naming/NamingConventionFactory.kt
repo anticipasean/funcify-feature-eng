@@ -87,7 +87,7 @@ interface NamingConventionFactory {
 
         fun forEachSegment(transformation: StringTransformationSpec.() -> Unit)
 
-        fun transformByWindow(window: CharSequenceWindowRangeOpenSpec.() -> CompleteCharSequenceWindowSpec)
+        fun transformSegmentsByWindow(window: CharSequenceWindowRangeOpenSpec.() -> CompleteCharSequenceWindowSpec)
 
         fun furtherSegmentAnyWith(delimiter: Char)
 
@@ -125,9 +125,6 @@ interface NamingConventionFactory {
     interface TrailingCharactersSpec : RelativePositionalTransformationSpec {
 
         fun stripAny(condition: (Char) -> Boolean)
-
-        fun replaceLastCharacterOfLastSegmentIf(condition: (Char) -> Boolean,
-                                                function: (Char) -> String)
 
         fun appendToLastSegment(suffix: String)
 

@@ -2,7 +2,9 @@ package funcify.naming.charseq.spliterator
 
 import kotlinx.collections.immutable.ImmutableList
 import java.util.Spliterator
-import java.util.Spliterators
+import java.util.Spliterator.NONNULL
+import java.util.Spliterator.ORDERED
+import java.util.Spliterator.SIZED
 import java.util.function.Consumer
 
 
@@ -11,17 +13,37 @@ import java.util.function.Consumer
  * @author smccarron
  * @created 3/24/22
  */
-internal class PairWindowMappingSpliterator<T>(private val inputSpliterator: Spliterator<T>,
-                                               private val sizeEstimate: Long = inputSpliterator.estimateSize(),
-                                               private val additionalCharacteristics: Int = inputSpliterator.characteristics()) : Spliterators.AbstractSpliterator<Pair<T?, T?>>(sizeEstimate,
-                                                                                                                                                                                 additionalCharacteristics) {
+internal class PairWindowMappingSpliterator<T>(private val inputSpliterator: Spliterator<T>) : Spliterator<Pair<T?, T?>> {
+
+    companion object {
+
+        private enum class SourcePosition {
+            START,
+            MIDDLE,
+            END
+        }
+
+        private const val DEFAULT_CHARACTERISTICS: Int = ORDERED and NONNULL
+
+    }
+
     private val sourceWindowSplitr: SlidingListWindowMappingSpliterator<T, ImmutableList<T>> by lazy {
         SlidingListWindowMappingSpliterator(inputSpliterator = inputSpliterator,
                                             windowMapper = { wl -> wl },
                                             windowSize = 2)
     }
 
+    private val projectedSize: Long by lazy {
+        sourceWindowSplitr.estimateSize()
+    }
+
+    private val characteristics: Int by lazy {
+        DEFAULT_CHARACTERISTICS or sourceWindowSplitr.characteristics()
+    }
+
     private var sourcePosition: SourcePosition = SourcePosition.START
+
+    private var index: Long = 0
 
     override fun tryAdvance(action: Consumer<in Pair<T?, T?>>?): Boolean {
         if (action == null) {
@@ -41,6 +63,7 @@ internal class PairWindowMappingSpliterator<T>(private val inputSpliterator: Spl
                 }
                 if (advanceStatus && pairResult != null) {
                     action.accept(pairResult!!)
+                    index++
                     sourcePosition = SourcePosition.MIDDLE
                     return true
                 } else {
@@ -61,6 +84,7 @@ internal class PairWindowMappingSpliterator<T>(private val inputSpliterator: Spl
                 }
                 if (advanceStatus && pairResult != null) {
                     action.accept(pairResult!!)
+                    index++
                     if (pairResult!!.second == null) {
                         sourcePosition = SourcePosition.END
                     } else {
@@ -78,14 +102,24 @@ internal class PairWindowMappingSpliterator<T>(private val inputSpliterator: Spl
         }
     }
 
-    companion object {
+    /**
+     * Cannot keep expanding and shrinking partial windows contracts
+     * for a given iteration if split
+     */
+    override fun trySplit(): Spliterator<Pair<T?, T?>>? {
+        return null
+    }
 
-        private enum class SourcePosition {
-            START,
-            MIDDLE,
-            END
+    override fun estimateSize(): Long {
+        return if ((characteristics and SIZED) == SIZED) {
+            projectedSize - index
+        } else {
+            Long.MAX_VALUE
         }
+    }
 
+    override fun characteristics(): Int {
+        return characteristics
     }
 
 }
