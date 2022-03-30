@@ -156,7 +156,7 @@ internal class DefaultNamingConventionFactory() : NamingConventionFactory {
                         ctx.inputToCharSequenceTransformer.andThen { csStream: Stream<CharSequence> ->
                             when (ctx.streamFunction) {
                                 is LeftStreamFunction -> {
-                                    ctx.streamFunction.mapToRight { cStream: Stream<Char> ->
+                                    ctx.streamFunction.mapLeftToRight { cStream: Stream<Char> ->
                                         cStream.reduce(StringBuilder(),
                                                        StringBuilder::append,
                                                        StringBuilder::append)

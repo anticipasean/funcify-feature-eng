@@ -97,7 +97,7 @@ interface CharSequenceStreamFunctionContextTemplate<I> : CharSequenceOperationCo
                     }
                 }
                 is RightStreamFunction -> {
-                    esf.mapToLeft { cs: CharSequence -> cs.stream() }
+                    esf.mapRightToLeft { cs: CharSequence -> cs.stream() }
                             .mapLeft { cStream -> cStream.filter(filter) }
                 }
             }
@@ -115,7 +115,7 @@ interface CharSequenceStreamFunctionContextTemplate<I> : CharSequenceOperationCo
                     }
                 }
                 is RightStreamFunction -> {
-                    esf.mapToLeft { cs: CharSequence ->
+                    esf.mapRightToLeft { cs: CharSequence ->
                         cs.stream()
                                 .map(mapper)
                                 .flatMap { resultCs: CharSequence -> resultCs.stream() }
@@ -138,7 +138,7 @@ interface CharSequenceStreamFunctionContextTemplate<I> : CharSequenceOperationCo
                     }
                 }
                 is RightStreamFunction -> {
-                    esf.mapToLeft { cs: CharSequence ->
+                    esf.mapRightToLeft { cs: CharSequence ->
                         StreamSupport.stream(MappingWithIndexSpliterator(sourceSpliterator = cs.spliterator(),
                                                                          mapper = mapper),
                                              true)
@@ -163,7 +163,7 @@ interface CharSequenceStreamFunctionContextTemplate<I> : CharSequenceOperationCo
                     }
                 }
                 is RightStreamFunction -> {
-                    esf.mapToLeft { cs: CharSequence ->
+                    esf.mapRightToLeft { cs: CharSequence ->
                         StreamSupport.stream(SlidingListWindowMappingSpliterator(inputSpliterator = cs.spliterator(),
                                                                                  windowSize = windowSize.toInt(),
                                                                                  windowMapper = windowMapper),
@@ -186,7 +186,7 @@ interface CharSequenceStreamFunctionContextTemplate<I> : CharSequenceOperationCo
                     }
                 }
                 is RightStreamFunction -> {
-                    esf.mapToLeft { cs: CharSequence ->
+                    esf.mapRightToLeft { cs: CharSequence ->
                         StreamSupport.stream(PairWindowMappingSpliterator(inputSpliterator = cs.spliterator()),
                                              false)
                                 .map(windowMapper)
@@ -209,7 +209,7 @@ interface CharSequenceStreamFunctionContextTemplate<I> : CharSequenceOperationCo
                     }
                 }
                 is RightStreamFunction -> {
-                    esf.mapToLeft { cs: CharSequence ->
+                    esf.mapRightToLeft { cs: CharSequence ->
                         StreamSupport.stream(TripleWindowMappingSpliterator(inputSpliterator = cs.spliterator()),
                                              false)
                                 .map(windowMapper)
@@ -227,7 +227,7 @@ interface CharSequenceStreamFunctionContextTemplate<I> : CharSequenceOperationCo
         return context.update { esf: EitherStreamFunction<Char, CharSequence> ->
             when (esf) {
                 is LeftStreamFunction -> {
-                    esf.mapToRight { cStream: Stream<Char> ->
+                    esf.mapLeftToRight { cStream: Stream<Char> ->
                         cStream.reduce(StringBuilder(),
                                        StringBuilder::append,
                                        StringBuilder::append)
@@ -256,7 +256,7 @@ interface CharSequenceStreamFunctionContextTemplate<I> : CharSequenceOperationCo
         return context.update { esf: EitherStreamFunction<Char, CharSequence> ->
             when (esf) {
                 is LeftStreamFunction -> {
-                    esf.mapToRight { cStream: Stream<Char> ->
+                    esf.mapLeftToRight { cStream: Stream<Char> ->
                         cStream.reduce(StringBuilder(),
                                        StringBuilder::append,
                                        StringBuilder::append)
@@ -279,7 +279,7 @@ interface CharSequenceStreamFunctionContextTemplate<I> : CharSequenceOperationCo
         return context.update { esf: EitherStreamFunction<Char, CharSequence> ->
             when (esf) {
                 is LeftStreamFunction -> {
-                    esf.mapToRight { cStream: Stream<Char> ->
+                    esf.mapLeftToRight { cStream: Stream<Char> ->
                         cStream.reduce(StringBuilder(),
                                        StringBuilder::append,
                                        StringBuilder::append)
@@ -310,7 +310,7 @@ interface CharSequenceStreamFunctionContextTemplate<I> : CharSequenceOperationCo
         return context.update { esf: EitherStreamFunction<Char, CharSequence> ->
             when (esf) {
                 is LeftStreamFunction -> {
-                    esf.mapToRight { cStream: Stream<Char> ->
+                    esf.mapLeftToRight { cStream: Stream<Char> ->
                         cStream.reduce(StringBuilder(),
                                        StringBuilder::append,
                                        StringBuilder::append)
@@ -334,7 +334,7 @@ interface CharSequenceStreamFunctionContextTemplate<I> : CharSequenceOperationCo
         return context.update { esf: EitherStreamFunction<Char, CharSequence> ->
             when (esf) {
                 is LeftStreamFunction -> {
-                    esf.mapToRight { cStream: Stream<Char> ->
+                    esf.mapLeftToRight { cStream: Stream<Char> ->
                         cStream.reduce(StringBuilder(),
                                        StringBuilder::append,
                                        StringBuilder::append)
@@ -371,7 +371,7 @@ interface CharSequenceStreamFunctionContextTemplate<I> : CharSequenceOperationCo
         return context.update { esf: EitherStreamFunction<Char, CharSequence> ->
             when (esf) {
                 is LeftStreamFunction -> {
-                    esf.mapToRight { cStream: Stream<Char> ->
+                    esf.mapLeftToRight { cStream: Stream<Char> ->
                         cStream.reduce(StringBuilder(),
                                        StringBuilder::append,
                                        StringBuilder::append)
@@ -406,7 +406,7 @@ interface CharSequenceStreamFunctionContextTemplate<I> : CharSequenceOperationCo
         return context.update { esf: EitherStreamFunction<Char, CharSequence> ->
             when (esf) {
                 is LeftStreamFunction -> {
-                    esf.mapToRight { cStream: Stream<Char> ->
+                    esf.mapLeftToRight { cStream: Stream<Char> ->
                         cStream.reduce(StringBuilder(),
                                        StringBuilder::append,
                                        StringBuilder::append)
@@ -441,7 +441,7 @@ interface CharSequenceStreamFunctionContextTemplate<I> : CharSequenceOperationCo
         return context.update { esf: EitherStreamFunction<Char, CharSequence> ->
             when (esf) {
                 is LeftStreamFunction -> {
-                    esf.mapToRight { cStream: Stream<Char> ->
+                    esf.mapLeftToRight { cStream: Stream<Char> ->
                         cStream.reduce(StringBuilder(),
                                        StringBuilder::append,
                                        StringBuilder::append)
@@ -468,7 +468,7 @@ interface CharSequenceStreamFunctionContextTemplate<I> : CharSequenceOperationCo
         return context.update { esf: EitherStreamFunction<Char, CharSequence> ->
             when (esf) {
                 is LeftStreamFunction -> {
-                    esf.mapToRight { cStream: Stream<Char> ->
+                    esf.mapLeftToRight { cStream: Stream<Char> ->
                         cStream.reduce(StringBuilder(),
                                        StringBuilder::append,
                                        StringBuilder::append)
@@ -493,7 +493,7 @@ interface CharSequenceStreamFunctionContextTemplate<I> : CharSequenceOperationCo
         return context.update { esf: EitherStreamFunction<Char, CharSequence> ->
             when (esf) {
                 is LeftStreamFunction -> {
-                    esf.mapToRight { cStream: Stream<Char> ->
+                    esf.mapLeftToRight { cStream: Stream<Char> ->
                         cStream.reduce(StringBuilder(),
                                        StringBuilder::append,
                                        StringBuilder::append)

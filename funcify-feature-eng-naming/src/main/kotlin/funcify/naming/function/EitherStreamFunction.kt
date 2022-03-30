@@ -24,6 +24,7 @@ sealed interface EitherStreamFunction<L, R> {
         }
 
         data class RightStreamFunction<L, R>(val baseStreamFunction: (Stream<R>) -> Stream<R>) : EitherStreamFunction<L, R> {
+
             override fun <O> fold(left: ((Stream<R>) -> Stream<R>, (R) -> Stream<L>) -> O,
                                   right: ((Stream<R>) -> Stream<R>) -> O): O {
                 return right.invoke(baseStreamFunction)
@@ -72,7 +73,7 @@ sealed interface EitherStreamFunction<L, R> {
                     })
     }
 
-    fun mapToLeft(leftMapper: (R) -> Stream<L>): EitherStreamFunction<L, R> {
+    fun mapRightToLeft(leftMapper: (R) -> Stream<L>): EitherStreamFunction<L, R> {
         return fold({ base: (Stream<R>) -> Stream<R>, left: (R) -> Stream<L> ->
                         ofLeft(baseStreamFunction = base,
                                leftMapper = left)
@@ -83,7 +84,7 @@ sealed interface EitherStreamFunction<L, R> {
                     })
     }
 
-    fun mapToRight(rightMapper: (Stream<L>) -> R): EitherStreamFunction<L, R> {
+    fun mapLeftToRight(rightMapper: (Stream<L>) -> R): EitherStreamFunction<L, R> {
         return fold({ base: (Stream<R>) -> Stream<R>, leftMapper: (R) -> Stream<L> ->
                         ofRight(baseStreamFunction = base.andThen { stream: Stream<R> ->
                             stream.map { r -> rightMapper.invoke(leftMapper.invoke(r)) }
@@ -94,29 +95,23 @@ sealed interface EitherStreamFunction<L, R> {
                     })
     }
 
-    fun flatMapRight(mapper: (Stream<R>) -> EitherStreamFunction<L, R>): EitherStreamFunction<L, R> {
+    fun flatMapLeft(mapper: ((Stream<R>) -> Stream<R>, (R) -> Stream<L>) -> EitherStreamFunction<L, R>): EitherStreamFunction<L, R> {
         return fold({ base: (Stream<R>) -> Stream<R>, leftMapper: (R) -> Stream<L> ->
-                        ofLeft(baseStreamFunction = base.andThen { rStream: Stream<R> ->
-                            mapper.invoke(rStream)
-                                    .fold({ base1: (Stream<R>) -> Stream<R>, leftMapper1: (R) -> Stream<L> ->
-                                              base1.invoke(rStream)
-                                          },
-                                          { base1: (Stream<R>) -> Stream<R> ->
-                                              base1.invoke(rStream)
-                                          })
-                        },
-                               leftMapper = leftMapper)
+                        mapper.invoke(base,
+                                      leftMapper)
                     },
                     { base: (Stream<R>) -> Stream<R> ->
-                        ofRight(baseStreamFunction = base.andThen { rStream: Stream<R> ->
-                            mapper.invoke(rStream)
-                                    .fold({ base1: (Stream<R>) -> Stream<R>, leftMapper1: (R) -> Stream<L> ->
-                                              base1.invoke(rStream)
-                                          },
-                                          { base1: (Stream<R>) -> Stream<R> ->
-                                              base1.invoke(rStream)
-                                          })
-                        })
+                        ofRight(base)
+                    })
+    }
+
+    fun flatMapRight(mapper: ((Stream<R>) -> Stream<R>) -> EitherStreamFunction<L, R>): EitherStreamFunction<L, R> {
+        return fold({ base: (Stream<R>) -> Stream<R>, leftMapper: (R) -> Stream<L> ->
+                        ofLeft(base,
+                               leftMapper)
+                    },
+                    { base: (Stream<R>) -> Stream<R> ->
+                        mapper.invoke(base)
                     })
     }
 

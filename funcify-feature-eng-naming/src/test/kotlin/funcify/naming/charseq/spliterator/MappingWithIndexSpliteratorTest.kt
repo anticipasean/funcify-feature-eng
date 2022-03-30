@@ -33,11 +33,12 @@ internal class MappingWithIndexSpliteratorTest {
     @Test
     fun splitMappingWithIndexTest() {
         val resultList: MutableList<String> = mutableListOf()
-        val sourceSpliterator = ('a'.code..'i'.code).map { i -> i.toChar() }
+        val intRange: IntRange = 'a'.code..'i'.code
+        val sourceSpliterator = intRange.map { i: Int -> i.toChar() }
                 .toList()
                 .spliterator()
         Assertions.assertTrue((sourceSpliterator.characteristics() and Spliterator.SIZED) == Spliterator.SIZED)
-        Assertions.assertEquals(('a'.code..'i'.code).count()
+        Assertions.assertEquals(intRange.count()
                                         .toLong(),
                                 sourceSpliterator.estimateSize())
         val spliterator = MappingWithIndexSpliterator(sourceSpliterator = sourceSpliterator,
