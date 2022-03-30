@@ -13,11 +13,14 @@ import funcify.naming.NamingConventionFactory.CharacterWindowRangeOpenSpec
 import funcify.naming.NamingConventionFactory.CompleteCharSequenceWindowSpec
 import funcify.naming.NamingConventionFactory.CompleteCharacterWindowSpec
 import funcify.naming.NamingConventionFactory.ConventionSpec
-import funcify.naming.NamingConventionFactory.FullTransformationSpec
+import funcify.naming.NamingConventionFactory.DelimiterSpec
+import funcify.naming.NamingConventionFactory.FirstSegmentTransformationSpec
 import funcify.naming.NamingConventionFactory.InputMappingSpec
 import funcify.naming.NamingConventionFactory.InputSpec
+import funcify.naming.NamingConventionFactory.LastSegmentTransformationSpec
 import funcify.naming.NamingConventionFactory.LeadingCharactersSpec
 import funcify.naming.NamingConventionFactory.OutputSpec
+import funcify.naming.NamingConventionFactory.SegmentTransformationSpec
 import funcify.naming.NamingConventionFactory.StringExtractionSpec
 import funcify.naming.NamingConventionFactory.StringTransformationSpec
 import funcify.naming.NamingConventionFactory.TrailingCharactersSpec
@@ -147,9 +150,9 @@ internal class DefaultNamingConventionFactory() : NamingConventionFactory {
     internal class DefaultOutputSpec<I : Any, CTX>(val charSeqOpTemplate: CharSequenceOperationContextTemplate<CTX>,
                                                    val charSeqOpContext: CTX) : OutputSpec<I> {
 
-        override fun followConvention(transformation: FullTransformationSpec.() -> Unit): ConventionSpec<I> {
-            val fullTransformationSpec = DefaultFullTransformationSpec<I, CTX>(charSeqOpTemplate,
-                                                                               charSeqOpContext)
+        override fun followConvention(transformation: SegmentTransformationSpec.() -> Unit): DelimiterSpec<I> {
+            val fullTransformationSpec = DefaultSegmentTransformationSpec<I, CTX>(charSeqOpTemplate,
+                                                                                  charSeqOpContext)
             transformation.invoke(fullTransformationSpec)
             val inputTransformer: (I) -> ImmutableList<String> =
                     charSeqOpTemplate.streamContextFold<I, CTX, (I) -> ImmutableList<String>>(fullTransformationSpec.charSeqOpContext) { _, ctx ->
@@ -173,24 +176,28 @@ internal class DefaultNamingConventionFactory() : NamingConventionFactory {
                                      { pl1, pl2 -> pl1.addAll(pl2) })
                         }
                     }
-            return DefaultConventionSpec<I>(charSequenceTransformer = inputTransformer,
-                                            delimiter = fullTransformationSpec.delimiter)
+            return DefaultDelimiterSpec<I>(charSequenceTransformer = inputTransformer)
         }
     }
 
-    internal class DefaultFullTransformationSpec<I, CTX>(val charSeqOpTemplate: CharSequenceOperationContextTemplate<CTX>,
-                                                         var charSeqOpContext: CTX,
-                                                         var delimiter: String = "") : FullTransformationSpec {
+    internal class DefaultSegmentTransformationSpec<I, CTX>(val charSeqOpTemplate: CharSequenceOperationContextTemplate<CTX>,
+                                                            var charSeqOpContext: CTX) : SegmentTransformationSpec {
 
-        override fun joinSegmentsWith(delimiter: Char) {
-            this.delimiter = delimiter.toString()
+        override fun forFirstSegment(transformation: FirstSegmentTransformationSpec.() -> Unit) {
+            val firstSegmentTransformationSpec = DefaultFirstSegmentTransformationSpec<I, CTX>(charSeqOpTemplate = charSeqOpTemplate,
+                                                                                               charSeqOpContext = charSeqOpContext)
+            transformation.invoke(firstSegmentTransformationSpec)
+            charSeqOpContext = firstSegmentTransformationSpec.charSeqOpContext
         }
 
-        override fun joinSegmentsWithoutAnyDelimiter() {
-            delimiter = ""
+        override fun forLastSegment(transformation: LastSegmentTransformationSpec.() -> Unit) {
+            val lastSegmentTransformationSpec = DefaultLastSegmentTransformationSpec<I, CTX>(charSeqOpTemplate = charSeqOpTemplate,
+                                                                                             charSeqOpContext = charSeqOpContext)
+            transformation.invoke(lastSegmentTransformationSpec)
+            charSeqOpContext = lastSegmentTransformationSpec.charSeqOpContext
         }
 
-        override fun forEachSegment(transformation: StringTransformationSpec.() -> Unit) {
+        override fun forEverySegment(transformation: StringTransformationSpec.() -> Unit) {
             val stringTransformationSpec = DefaultStringTransformationSpec<I, CTX>(charSeqOpTemplate,
                                                                                    charSeqOpContext)
             transformation.invoke(stringTransformationSpec)
@@ -255,7 +262,7 @@ internal class DefaultNamingConventionFactory() : NamingConventionFactory {
             }
         }
 
-        override fun furtherSegmentAnyWith(delimiter: Char) {
+        override fun splitAnySegmentsWith(delimiter: Char) {
             charSeqOpContext = charSeqOpTemplate.streamContextApply<I, CTX>(charSeqOpContext) { t, ctx ->
                 t.splitCharacterSequences(ctx) { cs: CharSequence ->
                     Iterable {
@@ -294,11 +301,11 @@ internal class DefaultNamingConventionFactory() : NamingConventionFactory {
         }
 
         override fun replace(regex: Regex,
-                             replacement: String) {
+                             replacement: CharSequence) {
             charSeqOpContext = charSeqOpTemplate.streamContextApply<I, CTX>(charSeqOpContext) { t, ctx ->
                 t.mapCharacterSequence(ctx) { cs ->
                     cs.replace(regex,
-                               replacement)
+                               replacement.toString())
                 }
             }
         }
@@ -313,23 +320,23 @@ internal class DefaultNamingConventionFactory() : NamingConventionFactory {
             }
         }
 
-        override fun prepend(prefix: String) {
+        override fun prepend(prefix: CharSequence) {
             charSeqOpContext = charSeqOpTemplate.streamContextApply<I, CTX>(charSeqOpContext) { t, ctx ->
                 t.mapCharacterSequence(ctx) { cs ->
-                    prefix + cs
+                    "${prefix}${cs}"
                 }
             }
         }
 
-        override fun append(suffix: String) {
+        override fun append(suffix: CharSequence) {
             charSeqOpContext = charSeqOpTemplate.streamContextApply<I, CTX>(charSeqOpContext) { t, ctx ->
                 t.mapCharacterSequence(ctx) { cs ->
-                    cs.toString() + suffix
+                    "${cs}${suffix}"
                 }
             }
         }
 
-        override fun transformAll(transformer: (String) -> String) {
+        override fun transformAllCharacterSequences(transformer: (CharSequence) -> CharSequence) {
             charSeqOpContext = charSeqOpTemplate.streamContextApply<I, CTX>(charSeqOpContext) { t, ctx ->
                 t.mapCharacterSequence(ctx) { cs ->
                     transformer.invoke(cs.toString())
@@ -340,31 +347,21 @@ internal class DefaultNamingConventionFactory() : NamingConventionFactory {
 
     }
 
-    internal class DefaultLeadingCharactersSpec<I, CTX>(val charSeqOpTemplate: CharSequenceOperationContextTemplate<CTX>,
-                                                        var charSeqOpContext: CTX) : LeadingCharactersSpec {
+    internal class DefaultFirstSegmentTransformationSpec<I, CTX>(val charSeqOpTemplate: CharSequenceOperationContextTemplate<CTX>,
+                                                                 var charSeqOpContext: CTX) : FirstSegmentTransformationSpec {
 
-        override fun stripAny(condition: (Char) -> Boolean) {
-            charSeqOpContext = charSeqOpTemplate.streamContextApply<I, CTX>(charSeqOpContext) { t, ctx ->
-                t.mapCharactersWithIndex(ctx) { i: Int, c: Char ->
-                    if (i == 0 && condition.invoke(c)) {
-                        ""
-                    } else {
-                        "$c"
-                    }
-                }
-            }
-        }
-
-        override fun replaceFirstCharacterOfFirstSegmentIf(condition: (Char) -> Boolean,
-                                                           function: (Char) -> String) {
+        override fun replaceLeadingCharacterOfFirstSegmentIf(condition: (Char) -> Boolean,
+                                                             function: (Char) -> CharSequence) {
             charSeqOpContext = charSeqOpTemplate.streamContextApply<I, CTX>(charSeqOpContext) { t, ctx ->
                 t.mapCharacterSequenceWithIndex(ctx) { idx: Int, cs: CharSequence ->
                     if (idx == 0 && cs.isNotEmpty() && condition.invoke(cs.first())) {
-                        function.invoke(cs.first()) + if (cs.length > 1) {
-                            cs.slice(1 until cs.length)
-                        } else {
-                            ""
-                        }
+                        "${function.invoke(cs.first())}${
+                            if (cs.length > 1) {
+                                cs.slice(1 until cs.length)
+                            } else {
+                                ""
+                            }
+                        }"
                     } else {
                         cs
                     }
@@ -372,16 +369,78 @@ internal class DefaultNamingConventionFactory() : NamingConventionFactory {
             }
         }
 
-        override fun replaceFirstCharactersOfOtherSegmentsIf(condition: (Char) -> Boolean,
-                                                             function: (Char) -> String) {
+        override fun prependToFirstSegment(prefix: CharSequence) {
+            charSeqOpContext = charSeqOpTemplate.streamContextApply<I, CTX>(charSeqOpContext) { t, ctx ->
+                t.mapCharacterSequenceWithIndex(ctx) { idx: Int, cs: CharSequence ->
+                    if (idx == 0) {
+                        "${prefix}${cs}"
+                    } else {
+                        cs
+                    }
+                }
+            }
+        }
+    }
+
+    internal class DefaultLastSegmentTransformationSpec<I, CTX>(val charSeqOpTemplate: CharSequenceOperationContextTemplate<CTX>,
+                                                                var charSeqOpContext: CTX) : LastSegmentTransformationSpec {
+
+        override fun appendToLastSegment(suffix: CharSequence) {
+            charSeqOpContext = charSeqOpTemplate.streamContextApply<I, CTX>(charSeqOpContext) { t, ctx ->
+                t.mapCharacterSequenceWithTripleWindow(ctx) { csTriple: Triple<CharSequence?, CharSequence, CharSequence?> ->
+                    when {
+                        csTriple.third != null -> listOf(csTriple.second)
+                        else -> listOf("${csTriple.second}${suffix}")
+                    }
+                }
+            }
+        }
+
+        override fun replaceTrailingCharacterOfLastSegmentIf(condition: (Char) -> Boolean,
+                                                             function: (Char) -> CharSequence) {
+            charSeqOpContext = charSeqOpTemplate.streamContextApply<I, CTX>(charSeqOpContext) { t, ctx ->
+                t.mapCharacterSequenceWithTripleWindow(ctx) { csTriple: Triple<CharSequence?, CharSequence, CharSequence?> ->
+                    when {
+                        csTriple.third != null -> {
+                            listOf(csTriple.second)
+                        }
+                        else -> {
+                            if (csTriple.second.isNotEmpty() && condition.invoke(csTriple.second.last())) {
+                                listOf("${csTriple.second.dropLast(1)}${function.invoke(csTriple.second.last())}")
+                            } else {
+                                listOf(csTriple.second)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+    }
+
+    internal class DefaultLeadingCharactersSpec<I, CTX>(val charSeqOpTemplate: CharSequenceOperationContextTemplate<CTX>,
+                                                        var charSeqOpContext: CTX) : LeadingCharactersSpec {
+
+        override fun stripAnyLeadingCharacters(condition: (Char) -> Boolean) {
+            charSeqOpContext = charSeqOpTemplate.streamContextApply<I, CTX>(charSeqOpContext) { t, ctx ->
+                t.mapCharacterSequence(ctx) { cs: CharSequence ->
+                    cs.dropWhile(condition)
+                }
+            }
+        }
+
+        override fun replaceLeadingCharactersOfOtherSegmentsIf(condition: (Char) -> Boolean,
+                                                               function: (Char) -> CharSequence) {
             charSeqOpContext = charSeqOpTemplate.streamContextApply<I, CTX>(charSeqOpContext) { t, ctx ->
                 t.mapCharacterSequenceWithIndex(ctx) { idx: Int, cs: CharSequence ->
                     if (idx != 0 && cs.isNotEmpty() && condition.invoke(cs.first())) {
-                        function.invoke(cs.first()) + if (cs.length > 1) {
-                            cs.slice(1 until cs.length)
-                        } else {
-                            ""
-                        }
+                        "${function.invoke(cs.first())}${
+                            if (cs.length > 1) {
+                                cs.slice(1 until cs.length)
+                            } else {
+                                ""
+                            }
+                        }"
                     } else {
                         cs
                     }
@@ -389,7 +448,7 @@ internal class DefaultNamingConventionFactory() : NamingConventionFactory {
             }
         }
 
-        override fun replaceEveryFirstCharacter(function: (Char) -> Char) {
+        override fun replaceEachLeadingCharacter(function: (Char) -> Char) {
             charSeqOpContext = charSeqOpTemplate.streamContextApply<I, CTX>(charSeqOpContext) { t, ctx ->
                 t.mapCharactersWithIndex(ctx) { idx: Int, c: Char ->
                     if (idx == 0) {
@@ -402,31 +461,12 @@ internal class DefaultNamingConventionFactory() : NamingConventionFactory {
             }
         }
 
-        override fun prependToFirstSegment(prefix: String) {
-            charSeqOpContext = charSeqOpTemplate.streamContextApply<I, CTX>(charSeqOpContext) { t, ctx ->
-                t.mapCharacterSequenceWithIndex(ctx) { idx: Int, cs: CharSequence ->
-                    if (idx == 0) {
-                        prefix + cs
-                    } else {
-                        cs
-                    }
-                }
-            }
-        }
-
-        override fun prependSegment(segment: String) {
-            charSeqOpContext = charSeqOpTemplate.streamContextApply<I, CTX>(charSeqOpContext) { t, ctx ->
-                t.prependCharacterSequence(ctx,
-                                           segment)
-            }
-        }
-
     }
 
     internal class DefaultTrailingCharactersSpec<I, CTX>(val charSeqOpTemplate: CharSequenceOperationContextTemplate<CTX>,
                                                          var charSeqOpContext: CTX) : TrailingCharactersSpec {
 
-        override fun stripAny(condition: (Char) -> Boolean) {
+        override fun stripAnyTrailingCharacters(condition: (Char) -> Boolean) {
             charSeqOpContext = charSeqOpTemplate.streamContextApply<I, CTX>(charSeqOpContext) { t, ctx ->
                 t.mapCharacterSequenceWithTripleWindow(ctx) { csTriple: Triple<CharSequence?, CharSequence, CharSequence?> ->
                     when {
@@ -434,24 +474,6 @@ internal class DefaultNamingConventionFactory() : NamingConventionFactory {
                         else -> listOf(csTriple.second.trimEnd(condition))
                     }
                 }
-            }
-        }
-
-        override fun appendToLastSegment(suffix: String) {
-            charSeqOpContext = charSeqOpTemplate.streamContextApply<I, CTX>(charSeqOpContext) { t, ctx ->
-                t.mapCharacterSequenceWithTripleWindow(ctx) { csTriple: Triple<CharSequence?, CharSequence, CharSequence?> ->
-                    when {
-                        csTriple.third != null -> listOf(csTriple.second)
-                        else -> listOf("${csTriple.second}${suffix}")
-                    }
-                }
-            }
-        }
-
-        override fun appendSegment(segment: String) {
-            charSeqOpContext = charSeqOpTemplate.streamContextApply<I, CTX>(charSeqOpContext) { t, ctx ->
-                t.appendCharacterSequence(ctx,
-                                          segment)
             }
         }
 
@@ -467,8 +489,8 @@ internal class DefaultNamingConventionFactory() : NamingConventionFactory {
             }
         }
 
-        override fun transformIf(condition: (Char) -> Boolean,
-                                 transformer: (Char) -> Char) {
+        override fun transformAnyCharacterIf(condition: (Char) -> Boolean,
+                                             transformer: (Char) -> Char) {
             charSeqOpContext = charSeqOpTemplate.streamContextApply<I, CTX>(charSeqOpContext) { t, ctx ->
                 t.mapCharacters(ctx) { c: Char ->
                     if (condition.invoke(c)) {
@@ -481,14 +503,14 @@ internal class DefaultNamingConventionFactory() : NamingConventionFactory {
             }
         }
 
-        override fun transformAll(transformer: (Char) -> Char) {
+        override fun transformAllCharacters(transformer: (Char) -> Char) {
             charSeqOpContext = charSeqOpTemplate.streamContextApply<I, CTX>(charSeqOpContext) { t, ctx ->
                 t.mapCharacters(ctx,
                                 transformer.andThen { c: Char -> c.toString() })
             }
         }
 
-        override fun transformByWindow(window: CharacterWindowRangeOpenSpec.() -> CompleteCharacterWindowSpec) {
+        override fun transformCharactersByWindow(window: CharacterWindowRangeOpenSpec.() -> CompleteCharacterWindowSpec) {
             when (val completeWindowSpec = window.invoke(DefaultCharacterWindowRangeOpenSpec())) {
                 is DefaultCompleteCharacterWindowTransformationSpec -> {
                     if (completeWindowSpec.precededByCondition != null) {
@@ -615,6 +637,20 @@ internal class DefaultNamingConventionFactory() : NamingConventionFactory {
                                                               val followedByEndSequenceCondition: ((CharSequence) -> Boolean)? = null,
                                                               val transformer: (CharSequence) -> Iterable<CharSequence> = { cs: CharSequence -> listOf(cs) }) : CompleteCharSequenceWindowSpec {}
 
+
+    internal class DefaultDelimiterSpec<I : Any>(val charSequenceTransformer: (I) -> ImmutableList<String>) : DelimiterSpec<I> {
+
+        override fun joinSegmentsWith(delimiter: Char): ConventionSpec<I> {
+            return DefaultConventionSpec<I>(charSequenceTransformer = charSequenceTransformer,
+                                            delimiter = delimiter.toString())
+        }
+
+        override fun joinSegmentsWithoutDelimiter(): ConventionSpec<I> {
+            return DefaultConventionSpec<I>(charSequenceTransformer = charSequenceTransformer,
+                                            delimiter = "")
+        }
+
+    }
 
     internal class DefaultConventionSpec<I : Any>(val charSequenceTransformer: (I) -> ImmutableList<String>,
                                                   val delimiter: String) : ConventionSpec<I> {

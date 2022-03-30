@@ -19,25 +19,25 @@ enum class StandardNamingConventions(private val namingConvention: NamingConvent
                            }
                        }
                        .followConvention {
-                           forEachSegment {
+                           forEverySegment {
                                forLeadingCharacters {
-                                   stripAny { c: Char -> c.isWhitespace() }
+                                   stripAnyLeadingWhitespace()
                                }
                                forAnyCharacter {
-                                   transformByWindow {
-                                       anyCharacter { c: Char -> c.isUpperCase() }.precededBy { c: Char -> c.isLowerCase() }
+                                   transformCharactersByWindow {
+                                       anyUppercaseCharacter().precededByALowercaseLetter()
                                                .transformInto { c: Char -> "_$c" }
                                    }
-                                   transformByWindow {
-                                       anyCharacter { c: Char -> c.isDigit() }.precededBy { c: Char -> c.isLowerCase() }
+                                   transformCharactersByWindow {
+                                       anyDigit().precededByALowercaseLetter()
                                                .transformInto { c: Char -> "_$c" }
                                    }
-                                   transformAll { c: Char -> c.lowercaseChar() }
+                                   makeAllLowercase()
                                }
                            }
-                           furtherSegmentAnyWith('_')
-                           joinSegmentsWith('_')
+                           splitAnySegmentsWith('_')
                        }
+                       .joinSegmentsWith('_')
                        .named("SnakeCase")),
 
     CAMEL_CASE(DefaultNamingConventionFactory.getInstance()
@@ -49,26 +49,28 @@ enum class StandardNamingConventions(private val namingConvention: NamingConvent
                            }
                        }
                        .followConvention {
-                           forEachSegment {
+                           forFirstSegment {
+                               makeLeadingCharacterOfFirstSegmentLowercase()
+                           }
+                           forEverySegment {
                                forAnyCharacter {
-                                   transformByWindow {
-                                       anyCharacter { c: Char -> c.isUpperCase() }.followedBy { c: Char -> c.isLowerCase() }
+                                   transformCharactersByWindow {
+                                       anyUppercaseCharacter().followedByALowercaseLetter()
                                                .transformInto { c: Char -> "_$c" }
                                    }
                                }
                            }
-                           furtherSegmentAnyWith('_')
-                           forEachSegment {
+                           splitAnySegmentsWith('_')
+                           forEverySegment {
                                forLeadingCharacters {
-                                   stripAny { c: Char -> c.isWhitespace() }
-                                   replaceFirstCharacterOfFirstSegmentIf({ c: Char -> c.isUpperCase() },
-                                                                         { c: Char -> c.lowercase() })
-                                   replaceFirstCharactersOfOtherSegmentsIf({ c: Char -> c.isLowerCase() },
-                                                                           { c: Char -> c.uppercase() })
+                                   stripAnyLeadingWhitespace()
+                                   replaceLeadingCharactersOfOtherSegmentsIf({ c: Char -> c.isLowerCase() },
+                                                                             { c: Char -> c.uppercase() })
                                }
                            }
-                           joinSegmentsWithoutAnyDelimiter()
+
                        }
+                       .joinSegmentsWithoutDelimiter()
                        .named("CamelCase")),
     PASCAL_CASE(DefaultNamingConventionFactory.getInstance()
                         .createConventionForStringInput()
@@ -79,21 +81,21 @@ enum class StandardNamingConventions(private val namingConvention: NamingConvent
                             }
                         }
                         .followConvention {
-                            forEachSegment {
+                            forEverySegment {
                                 forLeadingCharacters {
-                                    stripAny { c: Char -> c.isWhitespace() }
-                                    replaceEveryFirstCharacter { c: Char -> c.uppercaseChar() }
+                                    stripAnyLeadingWhitespace()
+                                    makeEachLeadingCharacterUppercase()
                                 }
                                 forAnyCharacter {
-                                    transformByWindow {
-                                        anyCharacter { c: Char -> c.isUpperCase() }.followedBy { c: Char -> c.isLowerCase() }
+                                    transformCharactersByWindow {
+                                        anyUppercaseCharacter().followedByALowercaseLetter()
                                                 .transformInto { c: Char -> " $c" }
                                     }
                                 }
                             }
-                            furtherSegmentAnyWith(' ')
-                            joinSegmentsWithoutAnyDelimiter()
+                            splitAnySegmentsWith(' ')
                         }
+                        .joinSegmentsWithoutDelimiter()
                         .named("PascalCase"));
 
     override val conventionName: String

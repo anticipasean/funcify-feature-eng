@@ -1,5 +1,7 @@
 package funcify.naming.convention
 
+import kotlin.reflect.KClass
+
 
 /**
  *
@@ -17,26 +19,26 @@ internal class DefaultNamingConventionFactoryTest {
                     extractOneOrMoreSegmentsWith { i -> i }
                 }
                 .followConvention {
-                    forEachSegment {
+                    forEverySegment {
                         forLeadingCharacters {
-                            stripAny { c: Char -> c == ' ' }
+                            stripAnyLeadingCharacters { c: Char -> c == ' ' }
                         }
                         forAnyCharacter {
-                            transformIf({ c -> c == '_' },
-                                        { c -> ' ' })
-                            transformIf({ c -> c == 'A' },
-                                        { c -> 'B' })
-                            transformByWindow {
+                            transformAnyCharacterIf({ c -> c == '_' },
+                                                    { _ -> ' ' })
+                            transformAnyCharacterIf({ c -> c == 'A' },
+                                                    { _ -> 'B' })
+                            transformCharactersByWindow {
                                 anyCharacter { c -> c.isUpperCase() }.followedBy { c -> c.isLowerCase() }
                                         .transformInto { c -> c.lowercase() }
                             }
                         }
                         forTrailingCharacters {
-                            stripAny { c: Char -> c == ' ' }
+                            stripAnyTrailingCharacters { c: Char -> c == ' ' }
                         }
                     }
-                    joinSegmentsWith('_')
                 }
+                .joinSegmentsWith('_')
                 .named("my_str_iterable_convention")
                 .deriveName(stringIterable)
     }

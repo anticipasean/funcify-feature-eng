@@ -22,22 +22,25 @@ val kClassNamingConvention: NamingConvention<KClass<*>> = DefaultNamingConventio
           }
         }
         .followConvention {
-          forEachSegment {
+          forEverySegment {
+            forLeadingCharacters {
+              stripAnyLeadingWhitespace()
+            }
             forAnyCharacter {
-              transformByWindow {
-                anyCharacter { c: Char -> c.isUpperCase() }.precededBy { c: Char -> c.isLowerCase() }
+              transformCharactersByWindow {
+                anyUppercaseCharacter().precededByALowercaseLetter()
                         .transformInto { c: Char -> "_$c" }
               }
-              transformByWindow {
-                anyCharacter { c: Char -> c.isDigit() }.precededBy { c: Char -> c.isLowerCase() }
+              transformCharactersByWindow {
+                anyDigit().precededByALowercaseLetter()
                         .transformInto { c: Char -> "_$c" }
               }
-              transformAll { c: Char -> c.lowercaseChar() }
+              makeAllLowercase()
             }
           }
-          furtherSegmentAnyWith('_')
-          joinSegmentsWith('_')
+          splitAnySegmentsWith('_')
         }
+        .joinSegmentsWith('_')
         .named("KClassSnakeCase")
 
 println(kClassNamingConvention.deriveName(StandardNamingConventions::class))

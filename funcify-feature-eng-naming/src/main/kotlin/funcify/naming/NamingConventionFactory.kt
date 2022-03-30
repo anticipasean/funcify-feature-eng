@@ -38,13 +38,21 @@ interface NamingConventionFactory {
 
     interface OutputSpec<I : Any> {
 
-        fun followConvention(transformation: FullTransformationSpec.() -> Unit): ConventionSpec<I>
+        fun followConvention(transformation: SegmentTransformationSpec.() -> Unit): DelimiterSpec<I>
 
     }
 
     interface InputMappingSpec<I : Any> {
 
         fun <T : Any> mapping(function: (T) -> I): ConventionSpec<T>
+
+    }
+
+    interface DelimiterSpec<I : Any> {
+
+        fun joinSegmentsWith(delimiter: Char): ConventionSpec<I>
+
+        fun joinSegmentsWithoutDelimiter(): ConventionSpec<I>
 
     }
 
@@ -70,34 +78,59 @@ interface NamingConventionFactory {
     interface StringTransformationSpec : CharacterTransformationSpec {
 
         fun replace(regex: Regex,
-                    replacement: String)
+                    replacement: CharSequence)
 
         fun replace(regex: Regex,
                     transform: (MatchResult) -> CharSequence)
 
-        fun prepend(prefix: String)
+        fun prepend(prefix: CharSequence)
 
-        fun append(suffix: String)
+        fun append(suffix: CharSequence)
 
-        fun transformAll(transformer: (String) -> String)
+        fun transformAllCharacterSequences(transformer: (CharSequence) -> CharSequence)
 
     }
 
     interface SegmentTransformationSpec {
 
-        fun forEachSegment(transformation: StringTransformationSpec.() -> Unit)
+        fun forFirstSegment(transformation: FirstSegmentTransformationSpec.() -> Unit)
+
+        fun forLastSegment(transformation: LastSegmentTransformationSpec.() -> Unit)
+
+        fun forEverySegment(transformation: StringTransformationSpec.() -> Unit)
 
         fun transformSegmentsByWindow(window: CharSequenceWindowRangeOpenSpec.() -> CompleteCharSequenceWindowSpec)
 
-        fun furtherSegmentAnyWith(delimiter: Char)
+        fun splitAnySegmentsWith(delimiter: Char)
 
     }
 
-    interface FullTransformationSpec : SegmentTransformationSpec {
+    interface FirstSegmentTransformationSpec : RelativePositionalTransformationSpec {
 
-        fun joinSegmentsWith(delimiter: Char)
+        fun replaceLeadingCharacterOfFirstSegmentIf(condition: (Char) -> Boolean,
+                                                    function: (Char) -> CharSequence)
 
-        fun joinSegmentsWithoutAnyDelimiter()
+        fun makeLeadingCharacterOfFirstSegmentUppercase() {
+            return replaceLeadingCharacterOfFirstSegmentIf({ c: Char -> c.isLowerCase() },
+                                                           { c: Char -> c.uppercase() })
+        }
+
+        fun makeLeadingCharacterOfFirstSegmentLowercase() {
+            return replaceLeadingCharacterOfFirstSegmentIf({ c: Char -> c.isUpperCase() },
+                                                           { c: Char -> c.lowercase() })
+        }
+
+        fun prependToFirstSegment(prefix: CharSequence)
+
+    }
+
+    interface LastSegmentTransformationSpec : RelativePositionalTransformationSpec {
+
+        fun replaceTrailingCharacterOfLastSegmentIf(condition: (Char) -> Boolean,
+                                                    function: (Char) -> CharSequence)
+
+        fun appendToLastSegment(suffix: CharSequence)
+
     }
 
     interface RelativePositionalTransformationSpec {
@@ -106,29 +139,37 @@ interface NamingConventionFactory {
 
     interface LeadingCharactersSpec : RelativePositionalTransformationSpec {
 
-        fun stripAny(condition: (Char) -> Boolean)
+        fun stripAnyLeadingCharacters(condition: (Char) -> Boolean)
 
-        fun replaceFirstCharacterOfFirstSegmentIf(condition: (Char) -> Boolean,
-                                                  function: (Char) -> String)
+        fun stripAnyLeadingWhitespace() {
+            return stripAnyLeadingCharacters { c: Char -> c.isWhitespace() }
+        }
 
-        fun replaceFirstCharactersOfOtherSegmentsIf(condition: (Char) -> Boolean,
-                                                    function: (Char) -> String)
+        fun replaceLeadingCharactersOfOtherSegmentsIf(condition: (Char) -> Boolean,
+                                                      function: (Char) -> CharSequence)
 
-        fun replaceEveryFirstCharacter(function: (Char) -> Char)
+        fun replaceEachLeadingCharacter(function: (Char) -> Char)
 
-        fun prependToFirstSegment(prefix: String)
+        fun capitalizeEachLeadingCharacter() {
+            return replaceEachLeadingCharacter { c: Char -> c.uppercaseChar() }
+        }
 
-        fun prependSegment(segment: String)
+        fun makeEachLeadingCharacterUppercase() {
+            return replaceEachLeadingCharacter { c: Char -> c.uppercaseChar() }
+        }
 
+        fun makeEachLeadingCharacterLowercase() {
+            return replaceEachLeadingCharacter { c: Char -> c.lowercaseChar() }
+        }
     }
 
     interface TrailingCharactersSpec : RelativePositionalTransformationSpec {
 
-        fun stripAny(condition: (Char) -> Boolean)
+        fun stripAnyTrailingCharacters(condition: (Char) -> Boolean)
 
-        fun appendToLastSegment(suffix: String)
-
-        fun appendSegment(segment: String)
+        fun stripAnyTrailingWhitespace() {
+            return stripAnyTrailingCharacters { c: Char -> c.isWhitespace() }
+        }
 
     }
 
@@ -136,12 +177,24 @@ interface NamingConventionFactory {
 
         fun removeAny(condition: (Char) -> Boolean)
 
-        fun transformIf(condition: (Char) -> Boolean,
-                        transformer: (Char) -> Char)
+        fun removeAnyWhitespace() {
+            return removeAny { c: Char -> c.isWhitespace() }
+        }
 
-        fun transformAll(transformer: (Char) -> Char)
+        fun transformAnyCharacterIf(condition: (Char) -> Boolean,
+                                    transformer: (Char) -> Char)
 
-        fun transformByWindow(window: CharacterWindowRangeOpenSpec.() -> CompleteCharacterWindowSpec)
+        fun transformAllCharacters(transformer: (Char) -> Char)
+
+        fun makeAllUppercase() {
+            return transformAllCharacters { c: Char -> c.uppercaseChar() }
+        }
+
+        fun makeAllLowercase() {
+            return transformAllCharacters { c: Char -> c.lowercaseChar() }
+        }
+
+        fun transformCharactersByWindow(window: CharacterWindowRangeOpenSpec.() -> CompleteCharacterWindowSpec)
     }
 
     interface CharacterWindowSpec {
@@ -152,13 +205,61 @@ interface NamingConventionFactory {
 
         fun anyCharacter(startCharacterCondition: (Char) -> Boolean): CharacterWindowRangeCloseSpec
 
+        fun anyUppercaseCharacter(): CharacterWindowRangeCloseSpec {
+            return anyCharacter { c: Char -> c.isUpperCase() }
+        }
+
+        fun anyLowercaseCharacter(): CharacterWindowRangeCloseSpec {
+            return anyCharacter { c: Char -> c.isLowerCase() }
+        }
+
+        fun anyDigit(): CharacterWindowRangeCloseSpec {
+            return anyCharacter { c: Char -> c.isDigit() }
+        }
+
+        fun anyLetter(): CharacterWindowRangeCloseSpec {
+            return anyCharacter { c: Char -> c.isLetter() }
+        }
+
     }
 
     interface CharacterWindowRangeCloseSpec : CharacterWindowSpec {
 
         fun precededBy(endCharacterCondition: (Char) -> Boolean): CharacterWindowActionSpec
 
+        fun precededByAnUppercaseLetter(): CharacterWindowActionSpec {
+            return precededBy { c: Char -> c.isUpperCase() }
+        }
+
+        fun precededByALowercaseLetter(): CharacterWindowActionSpec {
+            return precededBy { c: Char -> c.isLowerCase() }
+        }
+
+        fun precededByADigit(): CharacterWindowActionSpec {
+            return precededBy { c: Char -> c.isDigit() }
+        }
+
+        fun precededByALetter(): CharacterWindowActionSpec {
+            return precededBy { c: Char -> c.isLetter() }
+        }
+
         fun followedBy(endCharacterCondition: (Char) -> Boolean): CharacterWindowActionSpec
+
+        fun followedByAnUppercaseLetter(): CharacterWindowActionSpec {
+            return followedBy { c: Char -> c.isUpperCase() }
+        }
+
+        fun followedByALowercaseLetter(): CharacterWindowActionSpec {
+            return followedBy { c: Char -> c.isLowerCase() }
+        }
+
+        fun followedByADigit(): CharacterWindowActionSpec {
+            return followedBy { c: Char -> c.isDigit() }
+        }
+
+        fun followedByALetter(): CharacterWindowActionSpec {
+            return followedBy { c: Char -> c.isLetter() }
+        }
 
     }
 
@@ -180,6 +281,9 @@ interface NamingConventionFactory {
 
         fun anySegment(startSequenceCondition: (CharSequence) -> Boolean): CharSequenceWindowRangeCloseSpec
 
+        fun anyEmptySegment(): CharSequenceWindowRangeCloseSpec {
+            return anySegment { cs: CharSequence -> cs.isEmpty() }
+        }
     }
 
     interface CharSequenceWindowRangeCloseSpec : CharSequenceWindowSpec {
