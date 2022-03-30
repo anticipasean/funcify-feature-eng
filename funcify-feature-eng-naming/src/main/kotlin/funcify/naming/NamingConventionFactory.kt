@@ -1,5 +1,7 @@
 package funcify.naming
 
+import funcify.naming.convention.DefaultNamingConventionFactory
+
 
 /**
  *
@@ -7,6 +9,19 @@ package funcify.naming
  * @created 3/17/22
  */
 interface NamingConventionFactory {
+
+    companion object {
+
+        /**
+         *
+         * @implementation_note: Consider moving this to a factories singleton type e.g. NamingConventionFactories if
+         * more than one base factory implementation is to be provided in this module
+         */
+        fun getDefaultFactory(): NamingConventionFactory {
+            return DefaultNamingConventionFactory.getInstance()
+        }
+
+    }
 
     fun createConventionForStringInput(): InputSpec<String>
 
