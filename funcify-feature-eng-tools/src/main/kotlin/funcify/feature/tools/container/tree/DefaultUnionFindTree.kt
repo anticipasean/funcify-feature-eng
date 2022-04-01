@@ -189,10 +189,10 @@ internal data class DefaultUnionFindTree<P>(override val parents: PersistentMap<
                                                  treeSizes = uft.treeSizes.toPersistentMap()))
                 }
         /**
-         * If neither path for some reason is defined with a root, then return the current instance
+         * If neither path for some reason is defined with a root, then return the latest version of the union-find
          */
         if (!rootAndUnionFind1.first.isDefined() || !rootAndUnionFind2.first.isDefined()) {
-            return this
+            return rootAndUnionFind2.second
         }
         val root1: P = rootAndUnionFind1.first.orNull()!!
         val root2: P = rootAndUnionFind2.first.orNull()!!
@@ -203,7 +203,7 @@ internal data class DefaultUnionFindTree<P>(override val parents: PersistentMap<
              * => return the _updated_ {@link UnionFindTreeCreator} from the second find operation
              */
             root1 == root2 -> {
-                rootAndUnionFind2.second.some()
+                rootAndUnionFind2.second
             }
             /**
              * rank of root_path 1 is less than that of root_path 2
@@ -219,7 +219,7 @@ internal data class DefaultUnionFindTree<P>(override val parents: PersistentMap<
                                      treeSizes = currentUnionFind.treeSizes.put(root1,
                                                                                 currentUnionFind.treeSizes.getOrDefault(root1,
                                                                                                                         1) + currentUnionFind.treeSizes.getOrDefault(root2,
-                                                                                                                                                                     1))).some()
+                                                                                                                                                                     1)))
             }
             /**
              * rank of root_path 1 is greater than that of root_path 2
@@ -235,7 +235,7 @@ internal data class DefaultUnionFindTree<P>(override val parents: PersistentMap<
                                      treeSizes = currentUnionFind.treeSizes.put(root2,
                                                                                 currentUnionFind.treeSizes.getOrDefault(root2,
                                                                                                                         1) + currentUnionFind.treeSizes.getOrDefault(root1,
-                                                                                                                                                                     1))).some()
+                                                                                                                                                                     1)))
             }
             /**
              * rank of root_path 1 is equal to that of root_path 2 but tree size of root_path 2 is greater than that of root_path 1
@@ -253,7 +253,7 @@ internal data class DefaultUnionFindTree<P>(override val parents: PersistentMap<
                                      treeSizes = currentUnionFind.treeSizes.put(root2,
                                                                                 currentUnionFind.treeSizes.getOrDefault(root1,
                                                                                                                         1) + currentUnionFind.treeSizes.getOrDefault(root2,
-                                                                                                                                                                     1))).some()
+                                                                                                                                                                     1)))
             }
             /**
              * rank of root_path 1 is equal to that of root_path 2 but the tree size of root_path 1 is greater than that of root_path 2
@@ -271,7 +271,7 @@ internal data class DefaultUnionFindTree<P>(override val parents: PersistentMap<
                                      treeSizes = currentUnionFind.treeSizes.put(root1,
                                                                                 currentUnionFind.treeSizes.getOrDefault(root1,
                                                                                                                         1) + currentUnionFind.treeSizes.getOrDefault(root2,
-                                                                                                                                                                     1))).some()
+                                                                                                                                                                     1)))
             }
             else -> {
                 /**
@@ -287,9 +287,9 @@ internal data class DefaultUnionFindTree<P>(override val parents: PersistentMap<
                                      treeSizes = currentUnionFind.treeSizes.put(root1,
                                                                                 currentUnionFind.treeSizes.getOrDefault(root1,
                                                                                                                         1) + currentUnionFind.treeSizes.getOrDefault(root2,
-                                                                                                                                                                     1))).some()
+                                                                                                                                                                     1)))
             }
-        }.getOrElse { this }
+        }
 
     }
 

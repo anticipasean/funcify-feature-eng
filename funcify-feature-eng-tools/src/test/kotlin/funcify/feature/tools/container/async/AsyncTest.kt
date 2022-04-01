@@ -92,7 +92,7 @@ class AsyncTest {
                 }
         val evensList: List<Int> = evens.toList()
         val oddsList: List<Int> = odds.toList()
-        Assertions.assertEquals(2,
+        Assertions.assertEquals(3,
                                 evensList.size)
         Assertions.assertEquals(2,
                                 oddsList.size)
