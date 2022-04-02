@@ -1,10 +1,19 @@
 package funcify.feature.tools.container.graph
 
 import arrow.core.Option
+import arrow.core.Tuple5
+import arrow.core.getOrElse
+import arrow.core.some
 import arrow.core.toOption
 import funcify.feature.tools.container.tree.UnionFindTree
+import kotlinx.collections.immutable.ImmutableMap
+import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.PersistentMap
+import kotlinx.collections.immutable.PersistentSet
 import kotlinx.collections.immutable.persistentMapOf
+import kotlinx.collections.immutable.persistentSetOf
+import java.util.stream.Stream
+import java.util.stream.StreamSupport
 
 
 /**
@@ -14,8 +23,27 @@ import kotlinx.collections.immutable.persistentMapOf
  */
 internal object PersistentGraphFactory {
 
+    private fun <T1, T2> Pair<T1, T2>.swap(): Pair<T2, T1> {
+        return Pair(this.second,
+                    this.first)
+    }
+
     data class PathBasedGraph<P, V, E>(val vertices: PersistentMap<P, V>,
                                        val edges: PersistentMap<Pair<P, P>, E>) : PersistentGraph<P, V, E> {
+
+        private val pathConnections: ImmutableMap<P, ImmutableSet<Pair<P, P>>> by lazy {
+            edges.keys.asSequence()
+                    .map { pair: Pair<P, P> ->
+                        Pair(pair.first,
+                             pair)
+                    }
+                    .fold(persistentMapOf()) { acc: PersistentMap<P, PersistentSet<Pair<P, P>>>, pair: Pair<P, Pair<P, P>> ->
+                        acc.put(pair.first,
+                                acc.getOrDefault(pair.first,
+                                                 persistentSetOf<Pair<P, P>>())
+                                        .add(pair.second))
+                    }
+        }
 
         override fun verticesByPath(): PersistentMap<P, V> {
             return vertices
@@ -26,8 +54,7 @@ internal object PersistentGraphFactory {
         }
 
         override fun getVertex(path: P): Option<V> {
-            return vertices.get(path)
-                    .toOption()
+            return vertices[path].toOption()
         }
 
         override fun putVertex(path: P,
@@ -205,6 +232,26 @@ internal object PersistentGraphFactory {
 
         }
 
+        override fun hasCycles(): Boolean {
+            return edges.asSequence()
+                    .map { entry: Map.Entry<Pair<P, P>, E> -> entry.key.swap() }
+                    .any { pair: Pair<P, P> -> edges.containsKey(pair) }
+        }
+
+        override fun getCycles(): Sequence<Pair<Triple<P, P, E>, Triple<P, P, E>>> {
+            return edges.asSequence()
+                    .filter { entry: Map.Entry<Pair<P, P>, E> -> edges.containsKey(entry.key.swap()) }
+                    .map { entry: Map.Entry<Pair<P, P>, E> ->
+                        Pair(Triple(entry.key.first,
+                                    entry.key.second,
+                                    entry.value),
+                             Triple(entry.key.second,
+                                    entry.key.first,
+                                    edges[Pair(entry.key.second,
+                                               entry.key.first)]!!))
+                    }
+        }
+
         override fun createMinimumSpanningTreeGraphUsingEdgeCostFunction(costComparator: Comparator<E>): PersistentGraph<P, V, E> {
             return edgesByPathPair().asSequence()
                     .sortedWith { e1, e2 ->
@@ -235,6 +282,20 @@ internal object PersistentGraphFactory {
                                        edges = pair.second)
                     }
 
+        }
+
+        override fun depthFirstSearchOnPath(path: P): Stream<Tuple5<V, P, E, P, V>> {
+            return path.some()
+                    .filter { p: P -> vertices.containsKey(p) }
+                    .map { p: P -> Stream.of(p) }
+                    .getOrElse { Stream.empty() }
+                    .flatMap { p: P ->
+                        StreamSupport.stream(DepthFirstSearchSpliterator<P, V, E>(inputPath = p,
+                                                                                  vertices = vertices,
+                                                                                  edges = edges,
+                                                                                  pathConnections = pathConnections),
+                                             false)
+                    }
         }
     }
 

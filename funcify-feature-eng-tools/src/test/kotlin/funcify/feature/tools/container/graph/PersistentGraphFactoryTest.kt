@@ -1,7 +1,10 @@
 package funcify.feature.tools.container.graph
 
+import arrow.core.Tuple5
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
+import java.util.stream.Stream
+import kotlin.streams.asSequence
 
 
 /**
@@ -52,6 +55,64 @@ internal class PersistentGraphFactoryTest {
                                 mstGraph.edges()
                                         .sum(),
                                 "not expected edge sum")
+    }
+
+    @Test
+    fun depthFirstSearchTest() {
+        val vertices: IntRange = 1..12
+        val edges: Sequence<Triple<Int, Int, Int>> = sequenceOf(Triple(1,
+                                                                       2,
+                                                                       1),
+                                                                Triple(2,
+                                                                       3,
+                                                                       1),
+                                                                Triple(2,
+                                                                       6,
+                                                                       1),
+                                                                Triple(3,
+                                                                       4,
+                                                                       1),
+                                                                Triple(3,
+                                                                       5,
+                                                                       1),
+                                                                Triple(1,
+                                                                       7,
+                                                                       1),
+                                                                Triple(1,
+                                                                       8,
+                                                                       1),
+                                                                Triple(8,
+                                                                       9,
+                                                                       1),
+                                                                Triple(8,
+                                                                       12,
+                                                                       1),
+                                                                Triple(9,
+                                                                       10,
+                                                                       1),
+                                                                Triple(9,
+                                                                       11,
+                                                                       1))
+        val graph: PersistentGraph<Int, Int, Int> = edges.fold(vertices.fold(PersistentGraph.empty<Int, Int, Int>()) { g, i ->
+            g.putVertex(i,
+                        i)
+        }) { g, e ->
+            g.putEdge(e.first,
+                      e.second,
+                      e.third)
+        }
+        val depthFirstSearch: Stream<Tuple5<Int, Int, Int, Int, Int>> = graph.depthFirstSearchOnPath(1)
+        val verticesEncountered = depthFirstSearch.asSequence()
+                .map { t -> t.fifth }
+                .toMutableList()
+                .apply { // insert first vertex since it counts
+                    // but never appears in fifth position
+                    add(0,
+                        1)
+                }
+                .toList()
+        Assertions.assertEquals((1..12).toList(),
+                                verticesEncountered, "vertices are not being processed in expected depth-first search order")
     }
 
 }

@@ -4,6 +4,7 @@ import arrow.core.Option
 import arrow.core.Tuple5
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.persistentMapOf
+import java.util.stream.Stream
 
 
 /**
@@ -155,6 +156,12 @@ interface PersistentGraph<P, V, E> : Iterable<Tuple5<P, V, E, P, V>> {
 
     fun <R> flatMapEdges(function: (E) -> PersistentGraph<P, V, R>): PersistentGraph<P, V, R>
 
+    fun hasCycles(): Boolean
+
+    fun getCycles(): Sequence<Pair<Triple<P, P, E>, Triple<P, P, E>>>
+
     fun createMinimumSpanningTreeGraphUsingEdgeCostFunction(costComparator: Comparator<E>): PersistentGraph<P, V, E>
+
+    fun depthFirstSearchOnPath(path: P): Stream<Tuple5<V, P, E, P, V>>
 
 }
