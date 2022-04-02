@@ -16,16 +16,29 @@ interface PersistentGraph<P, V, E> : Iterable<Tuple5<P, V, E, P, V>> {
     companion object {
 
         fun <P, V, E> empty(): PersistentGraph<P, V, E> {
-            return PersistentGraphFactory.PathBasedGraph(persistentMapOf(), persistentMapOf())
+            return PersistentGraphFactory.PathBasedGraph(persistentMapOf(),
+                                                         persistentMapOf())
         }
 
-        fun <P, V, E> of(path: P, vertex: V): PersistentGraph<P, V, E> {
-            return PersistentGraphFactory.PathBasedGraph(persistentMapOf(Pair(path, vertex)), persistentMapOf());
+        fun <P, V, E> of(path: P,
+                         vertex: V): PersistentGraph<P, V, E> {
+            return PersistentGraphFactory.PathBasedGraph(persistentMapOf(Pair(path,
+                                                                              vertex)),
+                                                         persistentMapOf());
         }
 
-        fun <P, V, E> of(path1: P, vertex1: V, edge: E, path2: P, vertex2: V): PersistentGraph<P, V, E> {
-            return PersistentGraphFactory.PathBasedGraph(persistentMapOf(Pair(path1, vertex1), Pair(path2, vertex2)),
-                                                         persistentMapOf(Pair(Pair(path1, path2), edge)));
+        fun <P, V, E> of(path1: P,
+                         vertex1: V,
+                         edge: E,
+                         path2: P,
+                         vertex2: V): PersistentGraph<P, V, E> {
+            return PersistentGraphFactory.PathBasedGraph(persistentMapOf(Pair(path1,
+                                                                              vertex1),
+                                                                         Pair(path2,
+                                                                              vertex2)),
+                                                         persistentMapOf(Pair(Pair(path1,
+                                                                                   path2),
+                                                                              edge)));
         }
 
     }
@@ -52,8 +65,14 @@ interface PersistentGraph<P, V, E> : Iterable<Tuple5<P, V, E, P, V>> {
      */
     override fun iterator(): Iterator<Tuple5<P, V, E, P, V>> {
         return connectedPaths().map { (p1: P, p2: P) ->
-            getVertex(p1).zip(getEdgeFromPathToPath(p1, p2), getVertex(p2)) { v1: V, e: E, v2: V ->
-                Tuple5(p1, v1, e, p2, v2)
+            getVertex(p1).zip(getEdgeFromPathToPath(p1,
+                                                    p2),
+                              getVertex(p2)) { v1: V, e: E, v2: V ->
+                Tuple5(p1,
+                       v1,
+                       e,
+                       p2,
+                       v2)
             }
         }
                 .flatMap { option: Option<Tuple5<P, V, E, P, V>> ->
@@ -64,36 +83,63 @@ interface PersistentGraph<P, V, E> : Iterable<Tuple5<P, V, E, P, V>> {
 
     fun getVertex(path: P): Option<V>
 
-    fun putVertex(path: P, vertex: V): PersistentGraph<P, V, E>
+    fun putVertex(path: P,
+                  vertex: V): PersistentGraph<P, V, E>
 
-    fun putVertex(vertex: V, pathExtractor: (V) -> P): PersistentGraph<P, V, E> {
-        return putVertex(pathExtractor.invoke(vertex), vertex)
+    fun putVertex(vertex: V,
+                  pathExtractor: (V) -> P): PersistentGraph<P, V, E> {
+        return putVertex(pathExtractor.invoke(vertex),
+                         vertex)
     }
 
-    fun putEdge(path1: P, path2: P, edge: E): PersistentGraph<P, V, E>
+    fun putEdge(path1: P,
+                path2: P,
+                edge: E): PersistentGraph<P, V, E>
 
-    fun putEdge(edge: E, pathsExtractor: (E) -> Pair<P, P>): PersistentGraph<P, V, E> {
+    fun putEdge(connectedPaths: Pair<P, P>,
+                edge: E): PersistentGraph<P, V, E>
+
+    fun putEdge(edge: E,
+                pathsExtractor: (E) -> Pair<P, P>): PersistentGraph<P, V, E> {
         return pathsExtractor.invoke(edge)
-                .let { pair -> putEdge(pair.first, pair.second, edge) }
+                .let { pair ->
+                    putEdge(pair.first,
+                            pair.second,
+                            edge)
+                }
     }
 
-    fun getEdgeFromPathToPath(path1: P, path2: P): Option<E>
+    fun getEdgeFromPathToPath(path1: P,
+                              path2: P): Option<E>
 
     fun getEdgesFrom(path: P): Sequence<E> {
         return connectedPaths().filter { pair: Pair<P, P> -> pair.first == path }
-                .map { pair: Pair<P, P> -> getEdgeFromPathToPath(path1 = pair.first, path2 = pair.second) }
+                .map { pair: Pair<P, P> ->
+                    getEdgeFromPathToPath(path1 = pair.first,
+                                          path2 = pair.second)
+                }
                 .flatMap { edgeOption: Option<E> -> edgeOption.fold({ emptySequence() }) { e: E -> sequenceOf(e) } }
     }
 
     fun getEdgesTo(path: P): Sequence<E> {
         return connectedPaths().filter { pair: Pair<P, P> -> pair.second == path }
-                .map { pair: Pair<P, P> -> getEdgeFromPathToPath(path1 = pair.first, path2 = pair.second) }
+                .map { pair: Pair<P, P> ->
+                    getEdgeFromPathToPath(path1 = pair.first,
+                                          path2 = pair.second)
+                }
                 .flatMap { edgeOption: Option<E> -> edgeOption.fold({ emptySequence() }) { e: E -> sequenceOf(e) } }
     }
 
-    fun getFullConnectionFromPathToPath(path1: P, path2: P): Option<Tuple5<V, P, E, P, V>> {
-        return getVertex(path1).zip(getEdgeFromPathToPath(path1, path2), getVertex(path2)) { v1: V, e: E, v2: V ->
-            Tuple5(v1, path1, e, path2, v2)
+    fun getFullConnectionFromPathToPath(path1: P,
+                                        path2: P): Option<Tuple5<V, P, E, P, V>> {
+        return getVertex(path1).zip(getEdgeFromPathToPath(path1,
+                                                          path2),
+                                    getVertex(path2)) { v1: V, e: E, v2: V ->
+            Tuple5(v1,
+                   path1,
+                   e,
+                   path2,
+                   v2)
         }
     }
 
@@ -108,4 +154,7 @@ interface PersistentGraph<P, V, E> : Iterable<Tuple5<P, V, E, P, V>> {
     fun <R> flatMapVertices(function: (V) -> PersistentGraph<P, R, E>): PersistentGraph<P, R, E>
 
     fun <R> flatMapEdges(function: (E) -> PersistentGraph<P, V, R>): PersistentGraph<P, V, R>
+
+    fun createMinimumSpanningTreeGraphUsingEdgeCostFunction(costComparator: Comparator<E>): PersistentGraph<P, V, E>
+
 }
