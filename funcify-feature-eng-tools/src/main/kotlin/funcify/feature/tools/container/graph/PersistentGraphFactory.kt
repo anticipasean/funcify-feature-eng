@@ -12,6 +12,7 @@ import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.PersistentSet
 import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.persistentSetOf
+import java.util.stream.Collectors
 import java.util.stream.Stream
 import java.util.stream.StreamSupport
 
@@ -31,18 +32,33 @@ internal object PersistentGraphFactory {
     data class PathBasedGraph<P, V, E>(val vertices: PersistentMap<P, V>,
                                        val edges: PersistentMap<Pair<P, P>, E>) : PersistentGraph<P, V, E> {
 
-        private val pathConnections: ImmutableMap<P, ImmutableSet<Pair<P, P>>> by lazy {
-            edges.keys.asSequence()
-                    .map { pair: Pair<P, P> ->
-                        Pair(pair.first,
-                             pair)
+        /**
+         * Lazily initialized path_connections map: e.g.
+         * { ( parent_path_0 to child_path_0 ), ... ( parent_path_n-1 to child_path_n-1 ) }
+         * detailing what "child" paths each path has if directionality is being
+         * used in the algorithm in question
+         */
+        private val pathConnections: ImmutableMap<P, ImmutableSet<P>> by lazy {
+            edges.keys.stream()
+                    .parallel()
+                    .collect(Collectors.groupingBy { pair: Pair<P, P> ->
+                        pair.first
+                    }).entries.stream()
+                    .parallel()
+                    .map { entry: MutableMap.MutableEntry<P, MutableList<Pair<P, P>>> ->
+                        Pair(entry.key,
+                             entry.value.stream()
+                                     .map { pair: Pair<P, P> -> pair.second }
+                                     .reduce(persistentSetOf<P>(),
+                                             { ps, p -> ps.add(p) },
+                                             { ps1, ps2 -> ps1.addAll(ps2) }))
                     }
-                    .fold(persistentMapOf()) { acc: PersistentMap<P, PersistentSet<Pair<P, P>>>, pair: Pair<P, Pair<P, P>> ->
-                        acc.put(pair.first,
-                                acc.getOrDefault(pair.first,
-                                                 persistentSetOf<Pair<P, P>>())
-                                        .add(pair.second))
-                    }
+                    .reduce(persistentMapOf<P, PersistentSet<P>>(),
+                            { pm, p ->
+                                pm.put(p.first,
+                                       p.second)
+                            },
+                            { pm1, pm2 -> pm1.putAll(pm2) })
         }
 
         override fun verticesByPath(): PersistentMap<P, V> {

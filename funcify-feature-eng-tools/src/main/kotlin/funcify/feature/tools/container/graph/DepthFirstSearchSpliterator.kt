@@ -29,7 +29,7 @@ import java.util.stream.Stream
 internal class DepthFirstSearchSpliterator<P, V, E>(private val inputPath: P,
                                                     private val vertices: ImmutableMap<P, V>,
                                                     private val edges: ImmutableMap<Pair<P, P>, E>,
-                                                    private val pathConnections: ImmutableMap<P, ImmutableSet<Pair<P, P>>>) : Spliterator<Tuple5<V, P, E, P, V>> {
+                                                    private val pathConnections: ImmutableMap<P, ImmutableSet<P>>) : Spliterator<Tuple5<V, P, E, P, V>> {
 
     companion object {
 
@@ -51,9 +51,8 @@ internal class DepthFirstSearchSpliterator<P, V, E>(private val inputPath: P,
                     pathConnections.getOrDefault(p,
                                                  persistentSetOf())
                 }
-                .map { pairs: ImmutableSet<Pair<P, P>> -> pairs.stream() }
+                .map { pairs: ImmutableSet<P> -> pairs.stream() }
                 .getOrElse { Stream.empty() }
-                .map { pair: Pair<P, P> -> pair.second }
                 .filter { cp -> !visitedPathsSet.contains(cp) && cp != pathParam }
                 .toList()
                 .asReversed()
