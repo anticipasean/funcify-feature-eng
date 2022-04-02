@@ -178,7 +178,8 @@ internal data class DefaultUnionFindTree<P>(override val parents: PersistentMap<
         val rootAndUnionFind1: Pair<Option<P>, UnionFindTree<P>> = find(path1)
 
         /**
-         * Since the find op performs path compression, use the resulting union-find to find the second path
+         * Since the find op performs path compression, use the resulting union-find to find the
+         * root path of the second path
          */
         val rootAndUnionFind2: Pair<Option<P>, DefaultUnionFindTree<P>> = rootAndUnionFind1.second.find(path2)
                 .fold { pOpt, uft ->
@@ -194,83 +195,92 @@ internal data class DefaultUnionFindTree<P>(override val parents: PersistentMap<
         if (!rootAndUnionFind1.first.isDefined() || !rootAndUnionFind2.first.isDefined()) {
             return rootAndUnionFind2.second
         }
-        val root1: P = rootAndUnionFind1.first.orNull()!!
-        val root2: P = rootAndUnionFind2.first.orNull()!!
+        val rootpath1: P = rootAndUnionFind1.first.orNull()!!
+        val rootpath2: P = rootAndUnionFind2.first.orNull()!!
         val currentUnionFind: DefaultUnionFindTree<P> = rootAndUnionFind2.second
         return when {
             /**
-             * path1 and path2 share the same root, so they belong to the same set
-             * => return the _updated_ {@link UnionFindTreeCreator} from the second find operation
+             * rootpath 1 or 2 is/are not properly defined in ranks and/or tree size maps
+             * any further union operations would not follow the expected algorithm sequence
+             * => return the _updated_ UnionFindTree from the second find operation
              */
-            root1 == root2 -> {
-                rootAndUnionFind2.second
+            sequenceOf(rootpath1,
+                       rootpath2).any { path: P -> !currentUnionFind.ranks.containsKey(path) || !currentUnionFind.treeSizes.containsKey(path) } -> {
+                currentUnionFind
+            }
+            /**
+             * path1 and path2 share the same root, so they belong to the same set
+             * => return the _updated_ UnionFindTree from the second find operation
+             */
+            rootpath1 == rootpath2 -> {
+                currentUnionFind
             }
             /**
              * rank of root_path 1 is less than that of root_path 2
              */
-            currentUnionFind.ranks.containsKey(root1) && currentUnionFind.ranks.containsKey(root2) && currentUnionFind.ranks[root1]!! < currentUnionFind.ranks[root2]!! -> {
+            currentUnionFind.ranks[rootpath1]!! < currentUnionFind.ranks[rootpath2]!! -> {
                 /**
                  * Make root 1 parent of root 2 and augment tree size of root 1 by size of tree of root 2
                  * => Favor the smaller rank for determining parents
                  */
-                DefaultUnionFindTree(parents = currentUnionFind.parents.put(root2,
-                                                                            root1),
+                DefaultUnionFindTree(parents = currentUnionFind.parents.put(rootpath2,
+                                                                            rootpath1),
                                      ranks = currentUnionFind.ranks,
-                                     treeSizes = currentUnionFind.treeSizes.put(root1,
-                                                                                currentUnionFind.treeSizes.getOrDefault(root1,
-                                                                                                                        1) + currentUnionFind.treeSizes.getOrDefault(root2,
+                                     treeSizes = currentUnionFind.treeSizes.put(rootpath1,
+                                                                                currentUnionFind.treeSizes.getOrDefault(rootpath1,
+                                                                                                                        1) + currentUnionFind.treeSizes.getOrDefault(rootpath2,
                                                                                                                                                                      1)))
             }
             /**
              * rank of root_path 1 is greater than that of root_path 2
              */
-            currentUnionFind.ranks.containsKey(root1) && currentUnionFind.ranks.containsKey(root2) && currentUnionFind.ranks[root1]!! > currentUnionFind.ranks[root2]!! -> {
+            currentUnionFind.ranks[rootpath1]!! > currentUnionFind.ranks[rootpath2]!! -> {
                 /**
                  * Make root_path 2 parent of root_path 2 and augment tree size of root 2 by size of tree of root 1
                  * => Favor the smaller rank for determining parents
                  */
-                DefaultUnionFindTree(parents = currentUnionFind.parents.put(root1,
-                                                                            root2),
+                DefaultUnionFindTree(parents = currentUnionFind.parents.put(rootpath1,
+                                                                            rootpath2),
                                      ranks = currentUnionFind.ranks,
-                                     treeSizes = currentUnionFind.treeSizes.put(root2,
-                                                                                currentUnionFind.treeSizes.getOrDefault(root2,
-                                                                                                                        1) + currentUnionFind.treeSizes.getOrDefault(root1,
+                                     treeSizes = currentUnionFind.treeSizes.put(rootpath2,
+                                                                                currentUnionFind.treeSizes.getOrDefault(rootpath2,
+                                                                                                                        1) + currentUnionFind.treeSizes.getOrDefault(rootpath1,
                                                                                                                                                                      1)))
             }
             /**
              * rank of root_path 1 is equal to that of root_path 2 but tree size of root_path 2 is greater than that of root_path 1
              */
-            currentUnionFind.treeSizes.containsKey(root1) && currentUnionFind.treeSizes.containsKey(root2) && currentUnionFind.treeSizes[root1]!! < currentUnionFind.treeSizes[root2]!! -> {
+            currentUnionFind.treeSizes[rootpath1]!! < currentUnionFind.treeSizes[rootpath2]!! -> {
                 /**
                  * Given the tie in ranks, make root_path 2 parent of root 1, augment rank of root 1 by that of root_path 2 + 1, augment tree size of root 2 by tree size of root_paths 1 and 2
                  * => Favor the larger tree size when determining parents
                  */
-                DefaultUnionFindTree(parents = currentUnionFind.parents.put(root1,
-                                                                            root2),
-                                     ranks = currentUnionFind.ranks.put(root1,
-                                                                        currentUnionFind.ranks.getOrDefault(root2,
+                DefaultUnionFindTree(parents = currentUnionFind.parents.put(rootpath1,
+                                                                            rootpath2),
+                                     ranks = currentUnionFind.ranks.put(rootpath1,
+                                                                        currentUnionFind.ranks.getOrDefault(rootpath2,
                                                                                                             0) + 1),
-                                     treeSizes = currentUnionFind.treeSizes.put(root2,
-                                                                                currentUnionFind.treeSizes.getOrDefault(root1,
-                                                                                                                        1) + currentUnionFind.treeSizes.getOrDefault(root2,
+                                     treeSizes = currentUnionFind.treeSizes.put(rootpath2,
+                                                                                currentUnionFind.treeSizes.getOrDefault(rootpath1,
+                                                                                                                        1) + currentUnionFind.treeSizes.getOrDefault(rootpath2,
                                                                                                                                                                      1)))
             }
             /**
              * rank of root_path 1 is equal to that of root_path 2 but the tree size of root_path 1 is greater than that of root_path 2
              */
-            currentUnionFind.treeSizes.containsKey(root1) && currentUnionFind.treeSizes.containsKey(root2) && currentUnionFind.treeSizes[root1]!! > currentUnionFind.treeSizes[root2]!! -> {
+            currentUnionFind.treeSizes[rootpath1]!! > currentUnionFind.treeSizes[rootpath2]!! -> {
                 /**
                  * Given the tie in ranks, make root 1 parent of root 2, augment rank of root 2 by rank of root 1 + 1, augment tree size of root 1 by tree size of root 1 and that of root 2
                  * => Favor the larger tree size when determining parents
                  */
-                DefaultUnionFindTree(parents = currentUnionFind.parents.put(root2,
-                                                                            root1),
-                                     ranks = currentUnionFind.ranks.put(root2,
-                                                                        currentUnionFind.ranks.getOrDefault(root1,
+                DefaultUnionFindTree(parents = currentUnionFind.parents.put(rootpath2,
+                                                                            rootpath1),
+                                     ranks = currentUnionFind.ranks.put(rootpath2,
+                                                                        currentUnionFind.ranks.getOrDefault(rootpath1,
                                                                                                             0) + 1),
-                                     treeSizes = currentUnionFind.treeSizes.put(root1,
-                                                                                currentUnionFind.treeSizes.getOrDefault(root1,
-                                                                                                                        1) + currentUnionFind.treeSizes.getOrDefault(root2,
+                                     treeSizes = currentUnionFind.treeSizes.put(rootpath1,
+                                                                                currentUnionFind.treeSizes.getOrDefault(rootpath1,
+                                                                                                                        1) + currentUnionFind.treeSizes.getOrDefault(rootpath2,
                                                                                                                                                                      1)))
             }
             else -> {
@@ -279,14 +289,14 @@ internal data class DefaultUnionFindTree<P>(override val parents: PersistentMap<
                  * => Arbitrarily make root_path 2 a child to root_path 1, augment rank of root_path 2 with that of root_path 1 + 1,
                  * and augment tree size of root_path 1 by both its current and root_path 2 's tree size
                  */
-                DefaultUnionFindTree(parents = currentUnionFind.parents.put(root2,
-                                                                            root1),
-                                     ranks = currentUnionFind.ranks.put(root2,
-                                                                        currentUnionFind.ranks.getOrDefault(root1,
+                DefaultUnionFindTree(parents = currentUnionFind.parents.put(rootpath2,
+                                                                            rootpath1),
+                                     ranks = currentUnionFind.ranks.put(rootpath2,
+                                                                        currentUnionFind.ranks.getOrDefault(rootpath1,
                                                                                                             0) + 1),
-                                     treeSizes = currentUnionFind.treeSizes.put(root1,
-                                                                                currentUnionFind.treeSizes.getOrDefault(root1,
-                                                                                                                        1) + currentUnionFind.treeSizes.getOrDefault(root2,
+                                     treeSizes = currentUnionFind.treeSizes.put(rootpath1,
+                                                                                currentUnionFind.treeSizes.getOrDefault(rootpath1,
+                                                                                                                        1) + currentUnionFind.treeSizes.getOrDefault(rootpath2,
                                                                                                                                                                      1)))
             }
         }
@@ -324,10 +334,10 @@ internal data class DefaultUnionFindTree<P>(override val parents: PersistentMap<
     override fun toString(): String {
         return getTreeMemberRankedSetsByRepresentativeRootPath().asSequence()
                 .map { entry: Map.Entry<P, ImmutableSet<Pair<P, Int>>> ->
-                    "    { path: ${entry.key}, rank: ${ranks[entry.key]}, children: ${
+                    "    { path: ${entry.key}, rank: ${ranks[entry.key]}, tree_size: ${treeSizes[entry.key]}, children: ${
                         entry.value.asSequence()
                                 .map { pair: Pair<P, Int> ->
-                                    "( path: ${pair.first}, rank: ${pair.second} )"
+                                    "( path: ${pair.first}, rank: ${pair.second}, tree_size: ${treeSizes[pair.first]} )"
                                 }
                                 .joinToString(separator = ", ",
                                               prefix = "{ ",
