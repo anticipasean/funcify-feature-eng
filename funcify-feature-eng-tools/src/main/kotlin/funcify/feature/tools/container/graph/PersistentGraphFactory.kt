@@ -32,6 +32,11 @@ internal object PersistentGraphFactory {
         return this.entries.stream()
     }
 
+    private fun <T> Option<T>.stream(): Stream<T> {
+        return this.fold({ Stream.empty() },
+                         { t: T -> Stream.of(t) })
+    }
+
     data class PathBasedGraph<P, V, E>(val vertices: PersistentMap<P, V> = persistentMapOf(),
                                        val edges: PersistentMap<Pair<P, P>, E> = persistentMapOf()) : PersistentGraph<P, V, E> {
 
@@ -121,8 +126,7 @@ internal object PersistentGraphFactory {
                     .getOrElse { Stream.empty() }
                     .map { pair: Pair<P, P> -> edges[pair].toOption() }
                     .flatMap { eOpt: Option<E> ->
-                        eOpt.fold({ Stream.empty() },
-                                  { e -> Stream.of(e) })
+                        eOpt.stream()
                     }
         }
 
@@ -141,8 +145,7 @@ internal object PersistentGraphFactory {
                     .getOrElse { Stream.empty() }
                     .map { pair: Pair<P, P> -> edges[pair].toOption() }
                     .flatMap { eOpt: Option<E> ->
-                        eOpt.fold({ Stream.empty() },
-                                  { e -> Stream.of(e) })
+                        eOpt.stream()
                     }
         }
 
@@ -155,8 +158,7 @@ internal object PersistentGraphFactory {
                         getVertex(p).map({ v ->
                                              p to v
                                          })
-                                .fold({ Stream.empty() },
-                                      { pair: Pair<P, V> -> Stream.of(pair) })
+                                .stream()
                     }
         }
 
@@ -180,8 +182,7 @@ internal object PersistentGraphFactory {
                                 .map { v: V ->
                                     p to v
                                 }
-                                .fold({ Stream.empty() },
-                                      { pair: Pair<P, V> -> Stream.of(pair) })
+                                .stream()
                     }
         }
 
@@ -205,7 +206,7 @@ internal object PersistentGraphFactory {
         override fun filterVertices(function: (V) -> Boolean): PersistentGraph<P, V, E> {
             val updatedVertices = vertices.asSequence()
                     .filter { entry: Map.Entry<P, V> -> function.invoke(entry.value) }
-                    .fold(persistentMapOf<P, V>()) { acc: PersistentMap<P, V>, entry: Map.Entry<P, V> ->
+                    .fold(persistentMapOf<P, V>()) { acc, entry ->
                         acc.put(entry.key,
                                 entry.value)
                     }
@@ -216,7 +217,7 @@ internal object PersistentGraphFactory {
                             updatedVertices.containsKey(p)
                         }
                     }
-                    .fold(persistentMapOf<Pair<P, P>, E>()) { acc: PersistentMap<Pair<P, P>, E>, entry: Map.Entry<Pair<P, P>, E> ->
+                    .fold(persistentMapOf<Pair<P, P>, E>()) { acc, entry ->
                         acc.put(entry.key,
                                 entry.value)
                     }
@@ -229,7 +230,7 @@ internal object PersistentGraphFactory {
                     .filter { entry: Map.Entry<Pair<P, P>, E> ->
                         function.invoke(entry.value)
                     }
-                    .fold(persistentMapOf<Pair<P, P>, E>()) { acc: PersistentMap<Pair<P, P>, E>, entry: Map.Entry<Pair<P, P>, E> ->
+                    .fold(persistentMapOf<Pair<P, P>, E>()) { acc, entry ->
                         acc.put(entry.key,
                                 entry.value)
                     }
@@ -240,7 +241,7 @@ internal object PersistentGraphFactory {
         override fun <R> mapVertices(function: (V) -> R): PersistentGraph<P, R, E> {
             val updatedVertices = vertices.asSequence()
                     .map { entry: Map.Entry<P, V> -> entry.key to function.invoke(entry.value) }
-                    .fold(persistentMapOf<P, R>()) { acc: PersistentMap<P, R>, entry: Pair<P, R> ->
+                    .fold(persistentMapOf<P, R>()) { acc, entry ->
                         acc.put(entry.first,
                                 entry.second)
                     }
@@ -251,7 +252,7 @@ internal object PersistentGraphFactory {
                             updatedVertices.containsKey(p)
                         }
                     }
-                    .fold(persistentMapOf<Pair<P, P>, E>()) { acc: PersistentMap<Pair<P, P>, E>, entry: Map.Entry<Pair<P, P>, E> ->
+                    .fold(persistentMapOf<Pair<P, P>, E>()) { acc, entry ->
                         acc.put(entry.key,
                                 entry.value)
                     }
@@ -264,7 +265,7 @@ internal object PersistentGraphFactory {
                     .map { entry: Map.Entry<Pair<P, P>, E> ->
                         entry.key to function.invoke(entry.value)
                     }
-                    .fold(persistentMapOf<Pair<P, P>, R>()) { acc: PersistentMap<Pair<P, P>, R>, entry: Pair<Pair<P, P>, R> ->
+                    .fold(persistentMapOf<Pair<P, P>, R>()) { acc, entry ->
                         acc.put(entry.first,
                                 entry.second)
                     }
@@ -296,7 +297,7 @@ internal object PersistentGraphFactory {
                                            sequenceOf(entry.key.first,
                                                       entry.key.second).all { p -> pair.first.containsKey(p) }
                                        }
-                                               .fold(persistentMapOf<Pair<P, P>, E>()) { acc: PersistentMap<Pair<P, P>, E>, entry: Map.Entry<Pair<P, P>, E> ->
+                                               .fold(persistentMapOf<Pair<P, P>, E>()) { acc, entry ->
                                                    acc.put(entry.key,
                                                            entry.value)
                                                })
@@ -328,7 +329,7 @@ internal object PersistentGraphFactory {
                                            sequenceOf(entry.key.first,
                                                       entry.key.second).all { p -> pair.first.containsKey(p) }
                                        }
-                                               .fold(persistentMapOf<Pair<P, P>, R>()) { acc: PersistentMap<Pair<P, P>, R>, entry: Map.Entry<Pair<P, P>, R> ->
+                                               .fold(persistentMapOf<Pair<P, P>, R>()) { acc, entry ->
                                                    acc.put(entry.key,
                                                            entry.value)
                                                })
