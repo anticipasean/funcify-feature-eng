@@ -114,6 +114,54 @@ internal object PersistentGraphFactory {
                     .toOption()
         }
 
+        /**
+         * Overrides default implementation making use of lazily
+         * initiated path_connections map, which should be faster with
+         * larger graphs since not all path connections have to be
+         * streamed through
+         */
+        override fun getEdgesFrom(path: P): Stream<E> {
+            return if (pathConnections.containsKey(path)) {
+                pathConnections[path].toOption()
+                        .map { ps: ImmutableSet<P> ->
+                            ps.stream()
+                                    .map { p: P -> path to p }
+                        }
+                        .getOrElse { Stream.empty() }
+                        .map { pair: Pair<P, P> -> edges[pair].toOption() }
+                        .flatMap { eOpt: Option<E> ->
+                            eOpt.fold({ Stream.empty() },
+                                      { e -> Stream.of(e) })
+                        }
+            } else {
+                Stream.empty<E>()
+            }
+        }
+
+        /**
+         * Overrides default implementation making use of lazily
+         * initiated path_connections map, which should be faster with
+         * larger graphs since not all path connections have to be
+         * streamed through
+         */
+        override fun getEdgesTo(path: P): Stream<E> {
+            return if (pathConnections.containsKey(path)) {
+                pathConnections[path].toOption()
+                        .map { ps: ImmutableSet<P> ->
+                            ps.stream()
+                                    .map { p: P -> p to path }
+                        }
+                        .getOrElse { Stream.empty() }
+                        .map { pair: Pair<P, P> -> edges[pair].toOption() }
+                        .flatMap { eOpt: Option<E> ->
+                            eOpt.fold({ Stream.empty() },
+                                      { e -> Stream.of(e) })
+                        }
+            } else {
+                Stream.empty<E>()
+            }
+        }
+
         override fun filterVertices(function: (V) -> Boolean): PersistentGraph<P, V, E> {
             val updatedVertices = vertices.asSequence()
                     .filter { entry: Map.Entry<P, V> -> function.invoke(entry.value) }

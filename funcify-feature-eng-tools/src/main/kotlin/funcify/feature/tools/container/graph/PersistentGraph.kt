@@ -4,6 +4,8 @@ import arrow.core.Option
 import arrow.core.Tuple5
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.persistentMapOf
+import java.util.Spliterator
+import java.util.Spliterators
 import java.util.stream.Stream
 
 
@@ -12,7 +14,7 @@ import java.util.stream.Stream
  * @author smccarron
  * @created 2/7/22
  */
-interface PersistentGraph<P, V, E> : Iterable<Tuple5<P, V, E, P, V>> {
+interface PersistentGraph<P, V, E> : Iterable<Tuple5<V, P, E, P, V>> {
 
     companion object {
 
@@ -28,8 +30,8 @@ interface PersistentGraph<P, V, E> : Iterable<Tuple5<P, V, E, P, V>> {
                                                          persistentMapOf());
         }
 
-        fun <P, V, E> of(path1: P,
-                         vertex1: V,
+        fun <P, V, E> of(vertex1: V,
+                         path1: P,
                          edge: E,
                          path2: P,
                          vertex2: V): PersistentGraph<P, V, E> {
@@ -48,38 +50,45 @@ interface PersistentGraph<P, V, E> : Iterable<Tuple5<P, V, E, P, V>> {
 
     fun edgesByPathPair(): PersistentMap<Pair<P, P>, E>
 
-    fun vertices(): Sequence<V> {
-        return verticesByPath().values.asSequence()
+    fun vertices(): Stream<V> {
+        return verticesByPath().values.stream()
     }
 
-    fun edges(): Sequence<E> {
-        return edgesByPathPair().values.asSequence()
+    fun edges(): Stream<E> {
+        return edgesByPathPair().values.stream()
     }
 
-    fun connectedPaths(): Sequence<Pair<P, P>> {
-        return edgesByPathPair().keys.asSequence()
+    fun connectedPaths(): Stream<Pair<P, P>> {
+        return edgesByPathPair().keys.stream()
     }
 
     /**
-     * Each tuple containing one full connection: vertex 1's path -> vertex 1 -> the edge -> vertex 2's path -> vertex 2
-     * iterator will not include disconnected vertices, those without an edge to another vertex
+     * Each tuple containing one full connection within the graph:
+     * - vertex 1 -> vertex 1's path -> the edge -> vertex 2's path -> vertex 2
+     *
+     * This iterator will not include _disconnected_ vertices, those without an edge
+     * connecting it to another vertex
      */
-    override fun iterator(): Iterator<Tuple5<P, V, E, P, V>> {
-        return connectedPaths().map { (p1: P, p2: P) ->
-            getVertex(p1).zip(getEdgeFromPathToPath(p1,
-                                                    p2),
-                              getVertex(p2)) { v1: V, e: E, v2: V ->
-                Tuple5(p1,
-                       v1,
-                       e,
-                       p2,
-                       v2)
-            }
-        }
-                .flatMap { option: Option<Tuple5<P, V, E, P, V>> ->
-                    option.fold({ emptySequence() }) { t: Tuple5<P, V, E, P, V> -> sequenceOf(t) }
-                }
-                .iterator()
+    override fun iterator(): Iterator<Tuple5<V, P, E, P, V>> {
+        return Spliterators.iterator(spliterator())
+    }
+
+    override fun spliterator(): Spliterator<Tuple5<V, P, E, P, V>> {
+        return connectedPaths().map({ (p1: P, p2: P) ->
+                                        getVertex(p1).zip(getEdgeFromPathToPath(p1,
+                                                                                p2),
+                                                          getVertex(p2)) { v1: V, e: E, v2: V ->
+                                            Tuple5(v1,
+                                                   p1,
+                                                   e,
+                                                   p2,
+                                                   v2)
+                                        }
+                                    })
+                .filter { tupleOpt: Option<Tuple5<V, P, E, P, V>> -> tupleOpt.isDefined() }
+                .map { tupleOpt: Option<Tuple5<V, P, E, P, V>> -> tupleOpt.orNull()!! }
+                .spliterator()
+
     }
 
     fun getVertex(path: P): Option<V>
@@ -113,22 +122,22 @@ interface PersistentGraph<P, V, E> : Iterable<Tuple5<P, V, E, P, V>> {
     fun getEdgeFromPathToPath(path1: P,
                               path2: P): Option<E>
 
-    fun getEdgesFrom(path: P): Sequence<E> {
+    fun getEdgesFrom(path: P): Stream<E> {
         return connectedPaths().filter { pair: Pair<P, P> -> pair.first == path }
                 .map { pair: Pair<P, P> ->
                     getEdgeFromPathToPath(path1 = pair.first,
                                           path2 = pair.second)
                 }
-                .flatMap { edgeOption: Option<E> -> edgeOption.fold({ emptySequence() }) { e: E -> sequenceOf(e) } }
+                .flatMap { edgeOption: Option<E> -> edgeOption.fold({ Stream.empty() }) { e: E -> Stream.of(e) } }
     }
 
-    fun getEdgesTo(path: P): Sequence<E> {
+    fun getEdgesTo(path: P): Stream<E> {
         return connectedPaths().filter { pair: Pair<P, P> -> pair.second == path }
                 .map { pair: Pair<P, P> ->
                     getEdgeFromPathToPath(path1 = pair.first,
                                           path2 = pair.second)
                 }
-                .flatMap { edgeOption: Option<E> -> edgeOption.fold({ emptySequence() }) { e: E -> sequenceOf(e) } }
+                .flatMap { edgeOption: Option<E> -> edgeOption.fold({ Stream.empty() }) { e: E -> Stream.of(e) } }
     }
 
     fun getFullConnectionFromPathToPath(path1: P,
