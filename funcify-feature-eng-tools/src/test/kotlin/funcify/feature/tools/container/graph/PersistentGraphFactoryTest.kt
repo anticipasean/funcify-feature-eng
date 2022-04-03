@@ -48,11 +48,13 @@ internal class PersistentGraphFactoryTest {
         }
         Assertions.assertEquals(22,
                                 graph.edges()
+                                        .mapToInt { i -> i }
                                         .sum(),
                                 "not expected edge sum prior to minimizing")
         val mstGraph: PersistentGraph<Int, Int, Int> = graph.createMinimumSpanningTreeGraphUsingEdgeCostFunction(Comparator.naturalOrder())
         Assertions.assertEquals(14,
                                 mstGraph.edges()
+                                        .mapToInt { i -> i }
                                         .sum(),
                                 "not expected edge sum")
     }
@@ -112,7 +114,8 @@ internal class PersistentGraphFactoryTest {
                 }
                 .toList()
         Assertions.assertEquals((1..12).toList(),
-                                verticesEncountered, "vertices are not being processed in expected depth-first search order")
+                                verticesEncountered,
+                                "vertices are not being processed in expected depth-first search order")
     }
 
 }

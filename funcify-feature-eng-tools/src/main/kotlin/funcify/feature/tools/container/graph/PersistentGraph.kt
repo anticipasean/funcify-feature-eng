@@ -19,15 +19,13 @@ interface PersistentGraph<P, V, E> : Iterable<Tuple5<V, P, E, P, V>> {
     companion object {
 
         fun <P, V, E> empty(): PersistentGraph<P, V, E> {
-            return PersistentGraphFactory.PathBasedGraph(persistentMapOf(),
-                                                         persistentMapOf())
+            return PersistentGraphFactory.PathBasedGraph()
         }
 
         fun <P, V, E> of(path: P,
                          vertex: V): PersistentGraph<P, V, E> {
-            return PersistentGraphFactory.PathBasedGraph(persistentMapOf(Pair(path,
-                                                                              vertex)),
-                                                         persistentMapOf());
+            return PersistentGraphFactory.PathBasedGraph(vertices = persistentMapOf(Pair(path,
+                                                                                         vertex)));
         }
 
         fun <P, V, E> of(vertex1: V,
@@ -35,13 +33,13 @@ interface PersistentGraph<P, V, E> : Iterable<Tuple5<V, P, E, P, V>> {
                          edge: E,
                          path2: P,
                          vertex2: V): PersistentGraph<P, V, E> {
-            return PersistentGraphFactory.PathBasedGraph(persistentMapOf(Pair(path1,
-                                                                              vertex1),
-                                                                         Pair(path2,
-                                                                              vertex2)),
-                                                         persistentMapOf(Pair(Pair(path1,
-                                                                                   path2),
-                                                                              edge)));
+            return PersistentGraphFactory.PathBasedGraph(vertices = persistentMapOf(Pair(path1,
+                                                                                         vertex1),
+                                                                                    Pair(path2,
+                                                                                         vertex2)),
+                                                         edges = persistentMapOf(Pair(Pair(path1,
+                                                                                           path2),
+                                                                                      edge)));
         }
 
     }
@@ -85,8 +83,10 @@ interface PersistentGraph<P, V, E> : Iterable<Tuple5<V, P, E, P, V>> {
                                                    v2)
                                         }
                                     })
-                .filter { tupleOpt: Option<Tuple5<V, P, E, P, V>> -> tupleOpt.isDefined() }
-                .map { tupleOpt: Option<Tuple5<V, P, E, P, V>> -> tupleOpt.orNull()!! }
+                .flatMap { tupleOpt: Option<Tuple5<V, P, E, P, V>> ->
+                    tupleOpt.fold({ Stream.empty() },
+                                  { t -> Stream.of(t) })
+                }
                 .spliterator()
 
     }
@@ -167,10 +167,25 @@ interface PersistentGraph<P, V, E> : Iterable<Tuple5<V, P, E, P, V>> {
 
     fun hasCycles(): Boolean
 
-    fun getCycles(): Sequence<Pair<Triple<P, P, E>, Triple<P, P, E>>>
+    fun getCycles(): Stream<Pair<Triple<P, P, E>, Triple<P, P, E>>>
 
     fun createMinimumSpanningTreeGraphUsingEdgeCostFunction(costComparator: Comparator<E>): PersistentGraph<P, V, E>
 
     fun depthFirstSearchOnPath(path: P): Stream<Tuple5<V, P, E, P, V>>
+
+    fun successors(vertexPath: P): Stream<Pair<P, V>>
+
+    fun successors(vertex: V,
+                   pathExtractor: (V) -> P): Stream<Pair<P, V>>
+
+    fun predecessors(vertexPath: P): Stream<Pair<P, V>>
+
+    fun predecessors(vertex: V,
+                     pathExtractor: (V) -> P): Stream<Pair<P, V>>
+
+    fun adjacentVertices(vertexPath: P): Stream<Pair<P, V>>
+
+    fun adjacentVertices(vertex: V,
+                         pathExtractor: (V) -> P): Stream<Pair<P, V>>
 
 }

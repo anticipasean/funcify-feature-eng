@@ -12,7 +12,6 @@ import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.PersistentSet
 import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.persistentSetOf
-import java.util.stream.Collectors
 import java.util.stream.Stream
 import java.util.stream.StreamSupport
 
@@ -29,8 +28,12 @@ internal object PersistentGraphFactory {
                     this.first)
     }
 
-    data class PathBasedGraph<P, V, E>(val vertices: PersistentMap<P, V>,
-                                       val edges: PersistentMap<Pair<P, P>, E>) : PersistentGraph<P, V, E> {
+    private fun <K, V> ImmutableMap<K, V>.stream(): Stream<Map.Entry<K, V>> {
+        return this.entries.stream()
+    }
+
+    data class PathBasedGraph<P, V, E>(val vertices: PersistentMap<P, V> = persistentMapOf(),
+                                       val edges: PersistentMap<Pair<P, P>, E> = persistentMapOf()) : PersistentGraph<P, V, E> {
 
         /**
          * Lazily initialized path_connections map: e.g.
@@ -40,23 +43,12 @@ internal object PersistentGraphFactory {
          */
         private val pathConnections: ImmutableMap<P, ImmutableSet<P>> by lazy {
             edges.keys.stream()
-                    .parallel()
-                    .collect(Collectors.groupingBy { pair: Pair<P, P> ->
-                        pair.first
-                    }).entries.stream()
-                    .parallel()
-                    .map { entry: MutableMap.MutableEntry<P, MutableList<Pair<P, P>>> ->
-                        Pair(entry.key,
-                             entry.value.stream()
-                                     .map { pair: Pair<P, P> -> pair.second }
-                                     .reduce(persistentSetOf<P>(),
-                                             { ps, p -> ps.add(p) },
-                                             { ps1, ps2 -> ps1.addAll(ps2) }))
-                    }
                     .reduce(persistentMapOf<P, PersistentSet<P>>(),
                             { pm, p ->
                                 pm.put(p.first,
-                                       p.second)
+                                       pm.getOrDefault(p.first,
+                                                       persistentSetOf())
+                                               .add(p.second))
                             },
                             { pm1, pm2 -> pm1.putAll(pm2) })
         }
@@ -121,21 +113,17 @@ internal object PersistentGraphFactory {
          * streamed through
          */
         override fun getEdgesFrom(path: P): Stream<E> {
-            return if (pathConnections.containsKey(path)) {
-                pathConnections[path].toOption()
-                        .map { ps: ImmutableSet<P> ->
-                            ps.stream()
-                                    .map { p: P -> path to p }
-                        }
-                        .getOrElse { Stream.empty() }
-                        .map { pair: Pair<P, P> -> edges[pair].toOption() }
-                        .flatMap { eOpt: Option<E> ->
-                            eOpt.fold({ Stream.empty() },
-                                      { e -> Stream.of(e) })
-                        }
-            } else {
-                Stream.empty<E>()
-            }
+            return pathConnections[path].toOption()
+                    .map { ps: ImmutableSet<P> ->
+                        ps.stream()
+                                .map { p: P -> path to p }
+                    }
+                    .getOrElse { Stream.empty() }
+                    .map { pair: Pair<P, P> -> edges[pair].toOption() }
+                    .flatMap { eOpt: Option<E> ->
+                        eOpt.fold({ Stream.empty() },
+                                  { e -> Stream.of(e) })
+                    }
         }
 
         /**
@@ -145,22 +133,74 @@ internal object PersistentGraphFactory {
          * streamed through
          */
         override fun getEdgesTo(path: P): Stream<E> {
-            return if (pathConnections.containsKey(path)) {
-                pathConnections[path].toOption()
-                        .map { ps: ImmutableSet<P> ->
-                            ps.stream()
-                                    .map { p: P -> p to path }
-                        }
-                        .getOrElse { Stream.empty() }
-                        .map { pair: Pair<P, P> -> edges[pair].toOption() }
-                        .flatMap { eOpt: Option<E> ->
-                            eOpt.fold({ Stream.empty() },
-                                      { e -> Stream.of(e) })
-                        }
-            } else {
-                Stream.empty<E>()
-            }
+            return pathConnections[path].toOption()
+                    .map { ps: ImmutableSet<P> ->
+                        ps.stream()
+                                .map { p: P -> p to path }
+                    }
+                    .getOrElse { Stream.empty() }
+                    .map { pair: Pair<P, P> -> edges[pair].toOption() }
+                    .flatMap { eOpt: Option<E> ->
+                        eOpt.fold({ Stream.empty() },
+                                  { e -> Stream.of(e) })
+                    }
         }
+
+        override fun successors(vertexPath: P): Stream<Pair<P, V>> {
+            return pathConnections[vertexPath].toOption()
+                    .getOrElse { persistentSetOf() }
+                    .stream()
+                    .filter { p: P -> p != vertexPath }
+                    .flatMap { p: P ->
+                        getVertex(p).map({ v ->
+                                             p to v
+                                         })
+                                .fold({ Stream.empty() },
+                                      { pair: Pair<P, V> -> Stream.of(pair) })
+                    }
+        }
+
+        override fun successors(vertex: V,
+                                pathExtractor: Function1<V, P>): Stream<Pair<P, V>> {
+            return successors(pathExtractor.invoke(vertex))
+        }
+
+        override fun predecessors(vertexPath: P): Stream<Pair<P, V>> {
+            return pathConnections.stream()
+                    .filter { (_, value) ->
+                        value.stream()
+                                .anyMatch { p: P ->
+                                    p == vertexPath
+                                }
+                    }
+                    .map { (key, _) -> key }
+                    .filter { p: P -> p != vertexPath }
+                    .flatMap { p: P ->
+                        vertices[p].toOption()
+                                .map { v: V ->
+                                    p to v
+                                }
+                                .fold({ Stream.empty() },
+                                      { pair: Pair<P, V> -> Stream.of(pair) })
+                    }
+        }
+
+        override fun predecessors(vertex: V,
+                                  pathExtractor: Function1<V, P>): Stream<Pair<P, V>> {
+            return predecessors(pathExtractor.invoke(vertex))
+        }
+
+        override fun adjacentVertices(vertexPath: P): Stream<Pair<P, V>> {
+            return Stream.concat(predecessors(vertexPath),
+                                 successors(vertexPath))
+
+        }
+
+        override fun adjacentVertices(vertex: V,
+                                      pathExtractor: (V) -> P): Stream<Pair<P, V>> {
+            return adjacentVertices(pathExtractor.invoke(vertex))
+        }
+
 
         override fun filterVertices(function: (V) -> Boolean): PersistentGraph<P, V, E> {
             val updatedVertices = vertices.asSequence()
@@ -297,13 +337,13 @@ internal object PersistentGraphFactory {
         }
 
         override fun hasCycles(): Boolean {
-            return edges.asSequence()
+            return edges.stream()
                     .map { entry: Map.Entry<Pair<P, P>, E> -> entry.key.swap() }
-                    .any { pair: Pair<P, P> -> edges.containsKey(pair) }
+                    .anyMatch { pair: Pair<P, P> -> edges.containsKey(pair) }
         }
 
-        override fun getCycles(): Sequence<Pair<Triple<P, P, E>, Triple<P, P, E>>> {
-            return edges.asSequence()
+        override fun getCycles(): Stream<Pair<Triple<P, P, E>, Triple<P, P, E>>> {
+            return edges.stream()
                     .filter { entry: Map.Entry<Pair<P, P>, E> -> edges.containsKey(entry.key.swap()) }
                     .map { entry: Map.Entry<Pair<P, P>, E> ->
                         Pair(Triple(entry.key.first,
@@ -322,7 +362,7 @@ internal object PersistentGraphFactory {
                         costComparator.compare(e1.value,
                                                e2.value)
                     }
-                    .fold(UnionFindTree.empty<P>() to persistentMapOf()) { acc: Pair<UnionFindTree<P>, PersistentMap<Pair<P, P>, E>>, entry: Map.Entry<Pair<P, P>, E> ->
+                    .fold(UnionFindTree.empty<P>() to persistentMapOf<Pair<P, P>, E>()) { acc, entry ->
                         val root1AndUnionFindTree: Pair<Option<P>, UnionFindTree<P>> = acc.first.add(entry.key.first)
                                 .add(entry.key.second)
                                 .find(entry.key.first)
