@@ -12,7 +12,7 @@ import kotlin.streams.asSequence
  * @author smccarron
  * @created 4/1/22
  */
-internal class PathBasedGraphTest {
+internal class TwoToOnePathsToEdgePathBasedGraphTest {
 
     @Test
     fun simpleMinimumSpanningTreeTest() {
@@ -137,15 +137,15 @@ internal class PathBasedGraphTest {
         val g3 = g2.flatMapVertices { p: Int, v: Int ->
             mutableMapOf<Int, Char>(p to ('A'.code + v).toChar())
         }
-        Assertions.assertEquals(g3.verticesByPath[6],
-                                'G')
-        Assertions.assertEquals(g3.getEdgesFromPathToPath(5,
-                                                          6).size,
-                                1)
-        Assertions.assertEquals(g3.getEdgesFromPathToPath(5,
+        Assertions.assertEquals('G',
+                                g3.verticesByPath[6])
+        Assertions.assertEquals(1,
+                                g3.getEdgesFromPathToPath(5,
+                                                          6).size)
+        Assertions.assertEquals(5,
+                                g3.getEdgesFromPathToPath(5,
                                                           6)
-                                        .first(),
-                                5)
+                                        .first())
     }
 
     @Test
@@ -167,15 +167,15 @@ internal class PathBasedGraphTest {
         val g3 = g2.mapVertices { v: Int ->
             ('A'.code + v).toChar()
         }
-        Assertions.assertEquals(g3.verticesByPath[6],
-                                'G')
-        Assertions.assertEquals(g3.getEdgesFromPathToPath(5,
-                                                          6).size,
-                                1)
-        Assertions.assertEquals(g3.getEdgesFromPathToPath(5,
+        Assertions.assertEquals('G',
+                                g3.verticesByPath[6])
+        Assertions.assertEquals(1,
+                                g3.getEdgesFromPathToPath(5,
+                                                          6).size)
+        Assertions.assertEquals(5,
+                                g3.getEdgesFromPathToPath(5,
                                                           6)
-                                        .first(),
-                                5)
+                                        .first())
     }
 
     @Test
@@ -232,10 +232,10 @@ internal class PathBasedGraphTest {
         Assertions.assertEquals(1,
                                 g3.getEdgesFromPathToPath(5,
                                                           6).size)
-        Assertions.assertEquals(g3.getEdgesFromPathToPath(5,
+        Assertions.assertEquals('F',
+                                g3.getEdgesFromPathToPath(5,
                                                           6)
-                                        .first(),
-                                'F')
+                                        .first())
     }
 
     @Test
@@ -262,10 +262,10 @@ internal class PathBasedGraphTest {
         Assertions.assertEquals(1,
                                 g3.getEdgesFromPathToPath(5,
                                                           6).size)
-        Assertions.assertEquals(g3.getEdgesFromPathToPath(5,
+        Assertions.assertEquals('F',
+                                g3.getEdgesFromPathToPath(5,
                                                           6)
-                                        .first(),
-                                'F')
+                                        .first())
     }
 
     @Test
@@ -289,12 +289,113 @@ internal class PathBasedGraphTest {
         }
         Assertions.assertEquals(5,
                                 g3.edgeCount())
-        Assertions.assertEquals(g3.verticesByPath[6],
-                                6)
-        Assertions.assertEquals(g3.getEdgesFromPathToPath(5,
-                                                          6),
-                                emptySet<Int>())
+        Assertions.assertEquals(6,
+                                g3.verticesByPath[6])
+        Assertions.assertEquals(emptySet<Int>(),
+                                g3.getEdgesFromPathToPath(5,
+                                                          6))
     }
 
+    @Test
+    fun successorsTest() {
+        val vertices: IntRange = 1..12
+        val edges: Sequence<Triple<Int, Int, Int>> = sequenceOf(Triple(1,
+                                                                       2,
+                                                                       1),
+                                                                Triple(2,
+                                                                       3,
+                                                                       1),
+                                                                Triple(2,
+                                                                       6,
+                                                                       1),
+                                                                Triple(3,
+                                                                       4,
+                                                                       1),
+                                                                Triple(3,
+                                                                       5,
+                                                                       1),
+                                                                Triple(1,
+                                                                       7,
+                                                                       1),
+                                                                Triple(1,
+                                                                       8,
+                                                                       1),
+                                                                Triple(8,
+                                                                       9,
+                                                                       1),
+                                                                Triple(8,
+                                                                       12,
+                                                                       1),
+                                                                Triple(9,
+                                                                       10,
+                                                                       1),
+                                                                Triple(9,
+                                                                       11,
+                                                                       1))
+        val graph: PathBasedGraph<Int, Int, Int> = edges.fold(vertices.fold(PathBasedGraph.emptyTwoToOnePathsToEdgeGraph()) { g, i ->
+            g.putVertex(i,
+                        i)
+        }) { g, e ->
+            g.putEdge(e.first,
+                      e.second,
+                      e.third)
+        }
+        Assertions.assertEquals(setOf(2 to 2,
+                                      7 to 7,
+                                      8 to 8),
+                                graph.successors(1)
+                                        .asSequence()
+                                        .toSet())
+    }
+
+    @Test
+    fun predecessorsTest() {
+        val vertices: IntRange = 1..12
+        val edges: Sequence<Triple<Int, Int, Int>> = sequenceOf(Triple(1,
+                                                                       2,
+                                                                       1),
+                                                                Triple(2,
+                                                                       3,
+                                                                       1),
+                                                                Triple(2,
+                                                                       6,
+                                                                       1),
+                                                                Triple(3,
+                                                                       4,
+                                                                       1),
+                                                                Triple(3,
+                                                                       5,
+                                                                       1),
+                                                                Triple(1,
+                                                                       7,
+                                                                       1),
+                                                                Triple(1,
+                                                                       8,
+                                                                       1),
+                                                                Triple(8,
+                                                                       9,
+                                                                       1),
+                                                                Triple(8,
+                                                                       12,
+                                                                       1),
+                                                                Triple(9,
+                                                                       10,
+                                                                       1),
+                                                                Triple(9,
+                                                                       11,
+                                                                       1))
+        val graph: PathBasedGraph<Int, Int, Int> = edges.fold(vertices.fold(PathBasedGraph.emptyTwoToOnePathsToEdgeGraph()) { g, i ->
+            g.putVertex(i,
+                        i)
+        }) { g, e ->
+            g.putEdge(e.first,
+                      e.second,
+                      e.third)
+        }
+        Assertions.assertEquals(setOf(1 to 1),
+                                graph.predecessors(8)
+                                        .asSequence()
+                                        .toSet())
+    }
 
 }
