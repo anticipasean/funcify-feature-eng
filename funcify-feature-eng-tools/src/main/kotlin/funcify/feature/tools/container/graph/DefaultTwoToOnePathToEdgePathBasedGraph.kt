@@ -11,6 +11,7 @@ import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.PersistentList
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.PersistentSet
+import kotlinx.collections.immutable.persistentHashSetOf
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.persistentSetOf
@@ -87,14 +88,14 @@ internal data class DefaultTwoToOnePathToEdgePathBasedGraph<P, V, E>(override va
                                    if (filter.invoke(pair.first)) {
                                        pm.put(pair.first,
                                               pm.getOrDefault(pair.first,
-                                                              persistentSetOf())
+                                                              persistentHashSetOf())
                                                       .add(pair.second))
                                    } else {
                                        pm
                                    }
                                },
                                { pm1, pm2 ->
-                                   pm1.combine(pm2)
+                                   pm2.combine(pm1)
                                })
         }
 
@@ -112,7 +113,7 @@ internal data class DefaultTwoToOnePathToEdgePathBasedGraph<P, V, E>(override va
                                    }
                                },
                                { pm1, pm2 ->
-                                   pm1.combine(pm2)
+                                   pm2.combine(pm1)
                                })
         }
 

@@ -137,9 +137,164 @@ internal class PathBasedGraphTest {
         val g3 = g2.flatMapVertices { p: Int, v: Int ->
             mutableMapOf<Int, Char>(p to ('A'.code + v).toChar())
         }
-        Assertions.assertEquals(g3.verticesByPath[6], 'G')
-        Assertions.assertEquals(g3.getEdgesFromPathToPath(5, 6).size, 1)
-        Assertions.assertEquals(g3.getEdgesFromPathToPath(5, 6).first(), 5)
+        Assertions.assertEquals(g3.verticesByPath[6],
+                                'G')
+        Assertions.assertEquals(g3.getEdgesFromPathToPath(5,
+                                                          6).size,
+                                1)
+        Assertions.assertEquals(g3.getEdgesFromPathToPath(5,
+                                                          6)
+                                        .first(),
+                                5)
     }
+
+    @Test
+    fun mapVerticesTwoToOnePathsToEdgeGraphTest() {
+        val g1 = (0..6).asSequence()
+                .fold(PathBasedGraph.emptyTwoToOnePathsToEdgeGraph<Int, Int, Int>()) { acc: PathBasedGraph<Int, Int, Int>, i: Int ->
+                    acc.putVertex(i,
+                                  i)
+                }
+        val g2 = (0..5).fold(g1) { acc: PathBasedGraph<Int, Int, Int>, i: Int ->
+            acc.putEdge(i,
+                        i + 1,
+                        i)
+        }
+        Assertions.assertEquals(7,
+                                g2.vertexCount())
+        Assertions.assertEquals(6,
+                                g2.edgeCount())
+        val g3 = g2.mapVertices { v: Int ->
+            ('A'.code + v).toChar()
+        }
+        Assertions.assertEquals(g3.verticesByPath[6],
+                                'G')
+        Assertions.assertEquals(g3.getEdgesFromPathToPath(5,
+                                                          6).size,
+                                1)
+        Assertions.assertEquals(g3.getEdgesFromPathToPath(5,
+                                                          6)
+                                        .first(),
+                                5)
+    }
+
+    @Test
+    fun filterVerticesTwoToOnePathsToEdgeGraphTest() {
+        val g1 = (0..6).asSequence()
+                .fold(PathBasedGraph.emptyTwoToOnePathsToEdgeGraph<Int, Int, Int>()) { acc: PathBasedGraph<Int, Int, Int>, i: Int ->
+                    acc.putVertex(i,
+                                  i)
+                }
+        val g2 = (0..5).fold(g1) { acc: PathBasedGraph<Int, Int, Int>, i: Int ->
+            acc.putEdge(i,
+                        i + 1,
+                        i)
+        }
+        Assertions.assertEquals(7,
+                                g2.vertexCount())
+        Assertions.assertEquals(6,
+                                g2.edgeCount())
+        val g3 = g2.filterVertices { v: Int ->
+            v != 6
+        }
+        Assertions.assertEquals(6,
+                                g3.vertexCount())
+        Assertions.assertEquals(5,
+                                g3.verticesByPath.asIterable()
+                                        .last().value)
+        Assertions.assertEquals(emptySet<Int>(),
+                                g3.getEdgesFromPathToPath(5,
+                                                          6)
+                                        .toSet())
+    }
+
+    @Test
+    fun flatMapEdgesTwoToOnePathsToEdgeGraphTest() {
+        val g1 = (0..6).asSequence()
+                .fold(PathBasedGraph.emptyTwoToOnePathsToEdgeGraph<Int, Int, Int>()) { acc: PathBasedGraph<Int, Int, Int>, i: Int ->
+                    acc.putVertex(i,
+                                  i)
+                }
+        val g2 = (0..5).fold(g1) { acc: PathBasedGraph<Int, Int, Int>, i: Int ->
+            acc.putEdge(i,
+                        i + 1,
+                        i)
+        }
+        Assertions.assertEquals(7,
+                                g2.vertexCount())
+        Assertions.assertEquals(6,
+                                g2.edgeCount())
+        val g3 = g2.flatMapEdges { pair: Pair<Int, Int>, e: Int ->
+            mutableMapOf<Pair<Int, Int>, Char>(pair to ('A'.code + e).toChar())
+        }
+        Assertions.assertEquals(6,
+                                g3.verticesByPath[6])
+        Assertions.assertEquals(1,
+                                g3.getEdgesFromPathToPath(5,
+                                                          6).size)
+        Assertions.assertEquals(g3.getEdgesFromPathToPath(5,
+                                                          6)
+                                        .first(),
+                                'F')
+    }
+
+    @Test
+    fun mapEdgesTwoToOnePathsToEdgeGraphTest() {
+        val g1 = (0..6).asSequence()
+                .fold(PathBasedGraph.emptyTwoToOnePathsToEdgeGraph<Int, Int, Int>()) { acc: PathBasedGraph<Int, Int, Int>, i: Int ->
+                    acc.putVertex(i,
+                                  i)
+                }
+        val g2 = (0..5).fold(g1) { acc: PathBasedGraph<Int, Int, Int>, i: Int ->
+            acc.putEdge(i,
+                        i + 1,
+                        i)
+        }
+        Assertions.assertEquals(7,
+                                g2.vertexCount())
+        Assertions.assertEquals(6,
+                                g2.edgeCount())
+        val g3 = g2.mapEdges { e: Int ->
+            ('A'.code + e).toChar()
+        }
+        Assertions.assertEquals(6,
+                                g3.verticesByPath[6])
+        Assertions.assertEquals(1,
+                                g3.getEdgesFromPathToPath(5,
+                                                          6).size)
+        Assertions.assertEquals(g3.getEdgesFromPathToPath(5,
+                                                          6)
+                                        .first(),
+                                'F')
+    }
+
+    @Test
+    fun filterEdgesTwoToOnePathsToEdgeGraphTest() {
+        val g1 = (0..6).asSequence()
+                .fold(PathBasedGraph.emptyTwoToOnePathsToEdgeGraph<Int, Int, Int>()) { acc: PathBasedGraph<Int, Int, Int>, i: Int ->
+                    acc.putVertex(i,
+                                  i)
+                }
+        val g2 = (0..5).fold(g1) { acc: PathBasedGraph<Int, Int, Int>, i: Int ->
+            acc.putEdge(i,
+                        i + 1,
+                        i)
+        }
+        Assertions.assertEquals(7,
+                                g2.vertexCount())
+        Assertions.assertEquals(6,
+                                g2.edgeCount())
+        val g3 = g2.filterEdges { e: Int ->
+            e != 5
+        }
+        Assertions.assertEquals(5,
+                                g3.edgeCount())
+        Assertions.assertEquals(g3.verticesByPath[6],
+                                6)
+        Assertions.assertEquals(g3.getEdgesFromPathToPath(5,
+                                                          6),
+                                emptySet<Int>())
+    }
+
 
 }

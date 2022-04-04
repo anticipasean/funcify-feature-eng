@@ -95,7 +95,7 @@ internal data class DefaultTwoToManyEdgePathBasedGraph<P, V, E>(override val ver
                                    }
                                },
                                { pm1, pm2 ->
-                                   pm1.combine(pm2)
+                                   pm2.combine(pm1)
                                })
         }
 
@@ -113,7 +113,7 @@ internal data class DefaultTwoToManyEdgePathBasedGraph<P, V, E>(override val ver
                                    }
                                },
                                { pm1, pm2 ->
-                                   pm1.combine(pm2)
+                                   pm2.combine(pm1)
                                })
         }
 
@@ -153,6 +153,7 @@ internal data class DefaultTwoToManyEdgePathBasedGraph<P, V, E>(override val ver
      */
     private val pathConnections: ImmutableMap<P, ImmutableSet<P>> by lazy {
         edgesSetByPathPair.keys.stream()
+                .parallel()
                 .reducePairsToPersistentSetValueMap()
     }
 

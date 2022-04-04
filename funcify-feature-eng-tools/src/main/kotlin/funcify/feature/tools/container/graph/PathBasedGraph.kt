@@ -109,21 +109,10 @@ sealed interface PathBasedGraph<P, V, E> : PersistentGraph<V, E>,
 
     override fun spliterator(): Spliterator<Tuple5<V, P, E, P, V>> {
         return connectedPaths().map({ (p1: P, p2: P) ->
-                                        getVertex(p1).zip(getEdgesFromPathToPath(p1,
-                                                                                 p2).some(),
-                                                          getVertex(p2)) { v1: V, es: ImmutableSet<E>, v2: V ->
-                                            es.fold(persistentSetOf<Tuple5<V, P, E, P, V>>(),
-                                                    { set, edge ->
-                                                        set.add(Tuple5(v1,
-                                                                       p1,
-                                                                       edge,
-                                                                       p2,
-                                                                       v2))
-                                                    })
-                                        }
-                                                .getOrElse { persistentSetOf() }
+                                        getFullConnectionsFromPathToPath(p1,
+                                                                         p2)
                                     })
-                .flatMap { set: PersistentSet<Tuple5<V, P, E, P, V>> -> set.stream() }
+                .flatMap { set: ImmutableSet<Tuple5<V, P, E, P, V>> -> set.stream() }
                 .spliterator()
 
     }
@@ -183,8 +172,8 @@ sealed interface PathBasedGraph<P, V, E> : PersistentGraph<V, E>,
                 .flatMap { edges: ImmutableSet<E> -> edges.stream() }
     }
 
-    fun getFullConnectionFromPathToPath(path1: P,
-                                        path2: P): ImmutableSet<Tuple5<V, P, E, P, V>> {
+    fun getFullConnectionsFromPathToPath(path1: P,
+                                         path2: P): ImmutableSet<Tuple5<V, P, E, P, V>> {
         return getVertex(path1).zip(getEdgesFromPathToPath(path1,
                                                            path2).some(),
                                     getVertex(path2)) { v1: V, es: ImmutableSet<E>, v2: V ->
