@@ -4,7 +4,6 @@ import arrow.core.Option
 import arrow.core.Tuple5
 import arrow.core.getOrElse
 import arrow.core.some
-import arrow.typeclasses.Monoid
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.PersistentSet
@@ -79,6 +78,12 @@ sealed interface PathBasedGraph<P, V, E> : PersistentGraph<V, E>,
     }
 
     val verticesByPath: PersistentMap<P, V>
+
+    fun vertexCount(): Int {
+        return verticesByPath.size
+    }
+
+    fun edgeCount(): Int
 
     fun verticesAsStream(): Stream<V> {
         return verticesByPath.values.stream()
@@ -202,9 +207,9 @@ sealed interface PathBasedGraph<P, V, E> : PersistentGraph<V, E>,
 
     fun <R> mapEdges(function: (E) -> R): PathBasedGraph<P, V, R>
 
-    fun <R> flatMapVertices(function: (V) -> PathBasedGraph<P, R, E>): PathBasedGraph<P, R, E>
+    fun <R, M : Map<out P, @UnsafeVariance R>> flatMapVertices(function: (P, V) -> M): PathBasedGraph<P, R, E>
 
-    fun <R> flatMapEdges(function: (E) -> PathBasedGraph<P, V, R>): PathBasedGraph<P, V, R>
+    fun <R, M : Map<out Pair<P, P>, @UnsafeVariance R>> flatMapEdges(function: (Pair<P, P>, E) -> M): PathBasedGraph<P, V, R>
 
     fun hasCycles(): Boolean
 

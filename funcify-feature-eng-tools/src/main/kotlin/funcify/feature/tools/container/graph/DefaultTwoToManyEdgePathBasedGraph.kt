@@ -156,6 +156,16 @@ internal data class DefaultTwoToManyEdgePathBasedGraph<P, V, E>(override val ver
                 .reducePairsToPersistentSetValueMap()
     }
 
+    private val lazyEdgeCount: Int by lazy {
+        edgesSetByPathPair.values.parallelStream()
+                .mapToInt { set -> set.size }
+                .sum()
+    }
+
+    override fun edgeCount(): Int {
+        return lazyEdgeCount
+    }
+
     override fun edgesAsStream(): Stream<E> {
         return edgesSetByPathPair.stream()
                 .flatMap { e -> e.value.stream() }
@@ -417,24 +427,42 @@ internal data class DefaultTwoToManyEdgePathBasedGraph<P, V, E>(override val ver
                                                   edgesSetByPathPair = updatedEdges)
     }
 
-    override fun <R> flatMapVertices(function: (V) -> PathBasedGraph<P, R, E>): PathBasedGraph<P, R, E> {
-        return verticesByPath.stream()
+    override fun <R, M : Map<out P, @UnsafeVariance R>> flatMapVertices(function: (P, V) -> M): PathBasedGraph<P, R, E> {
+        val updatedVertices = verticesByPath.stream()
                 .parallel()
-                .map { entry: Map.Entry<P, V> -> function.invoke(entry.value) }
-                .reduceByMonoid()
-
+                .map { (key, value): Map.Entry<P, V> ->
+                    function.invoke(key,
+                                    value)
+                }
+                .flatMap { vertexMap: M -> vertexMap.entries.parallelStream() }
+                .map { entry -> entry.key to entry.value }
+                .reduce(persistentMapOf<P, R>(),
+                        { pm, vPair ->
+                            pm.put(vPair.first,
+                                   vPair.second)
+                        },
+                        { pm1, pm2 -> pm1.putAll(pm2) })
+        return DefaultTwoToManyEdgePathBasedGraph<P, R, E>(verticesByPath = updatedVertices).putAllEdgeSets(edgesSetByPathPair)
     }
 
 
-    override fun <R> flatMapEdges(function: (E) -> PathBasedGraph<P, V, R>): PathBasedGraph<P, V, R> {
-        return edgesSetByPathPair.entries.parallelStream()
-                .flatMap { entry: Map.Entry<Pair<P, P>, PersistentSet<E>> ->
+    override fun <R, M : Map<out Pair<P, P>, @UnsafeVariance R>> flatMapEdges(function: (Pair<P, P>, E) -> M): PathBasedGraph<P, V, R> {
+        val updatedEdges = edgesSetByPathPair.entries.parallelStream()
+                .flatMap { entry ->
                     entry.value.parallelStream()
-                            .map { e -> function.invoke(e) }
+                            .map { e -> entry.key to e }
                 }
-                .reduceByMonoid()
-
-
+                .map { (key, value) ->
+                    function.invoke(key,
+                                    value)
+                }
+                .flatMap { edgesMap: M -> edgesMap.entries.parallelStream() }
+                .map { (key, value) -> key to value }
+                .reducePairsToPersistentSetValueMap(filter = { pair: Pair<P, P> ->
+                    sequenceOf(pair.first,
+                               pair.second).all { p: P -> verticesByPath.containsKey(p) }
+                })
+        return DefaultTwoToManyEdgePathBasedGraph<P, V, R>(verticesByPath = verticesByPath).putAllEdgeSets(updatedEdges)
     }
 
     override fun hasCycles(): Boolean {

@@ -12,7 +12,7 @@ import kotlin.streams.asSequence
  * @author smccarron
  * @created 4/1/22
  */
-internal class PersistentGraphFactoryTest {
+internal class PathBasedGraphTest {
 
     @Test
     fun simpleMinimumSpanningTreeTest() {
@@ -116,6 +116,30 @@ internal class PersistentGraphFactoryTest {
         Assertions.assertEquals((1..12).toList(),
                                 verticesEncountered,
                                 "vertices are not being processed in expected depth-first search order")
+    }
+
+    @Test
+    fun flatMapVerticesTwoToOnePathsToEdgeGraphTest() {
+        val g1 = (0..6).asSequence()
+                .fold(PathBasedGraph.emptyTwoToOnePathsToEdgeGraph<Int, Int, Int>()) { acc: PathBasedGraph<Int, Int, Int>, i: Int ->
+                    acc.putVertex(i,
+                                  i)
+                }
+        val g2 = (0..5).fold(g1) { acc: PathBasedGraph<Int, Int, Int>, i: Int ->
+            acc.putEdge(i,
+                        i + 1,
+                        i)
+        }
+        Assertions.assertEquals(7,
+                                g2.vertexCount())
+        Assertions.assertEquals(6,
+                                g2.edgeCount())
+        val g3 = g2.flatMapVertices { p: Int, v: Int ->
+            mutableMapOf<Int, Char>(p to ('A'.code + v).toChar())
+        }
+        Assertions.assertEquals(g3.verticesByPath[6], 'G')
+        Assertions.assertEquals(g3.getEdgesFromPathToPath(5, 6).size, 1)
+        Assertions.assertEquals(g3.getEdgesFromPathToPath(5, 6).first(), 5)
     }
 
 }
