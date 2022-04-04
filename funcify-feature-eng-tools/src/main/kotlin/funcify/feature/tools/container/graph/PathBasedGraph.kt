@@ -25,11 +25,11 @@ sealed interface PathBasedGraph<P, V, E> : PersistentGraph<V, E>,
 
     companion object {
 
-        fun <P, V, E> emptyTwoPathsToOneEdgeGraph(): PathBasedGraph<P, V, E> {
+        fun <P, V, E> emptyTwoToOnePathsToEdgeGraph(): PathBasedGraph<P, V, E> {
             return DefaultTwoToOnePathToEdgePathBasedGraph()
         }
 
-        fun <P, V, E> emptyTwoPathsToManyEdgesGraph(): PathBasedGraph<P, V, E> {
+        fun <P, V, E> emptyTwoToManyPathsToEdgesGraph(): PathBasedGraph<P, V, E> {
             return DefaultTwoToManyEdgePathBasedGraph()
         }
 
@@ -47,10 +47,10 @@ sealed interface PathBasedGraph<P, V, E> : PersistentGraph<V, E>,
             return DefaultTwoToOnePathToEdgePathBasedGraph(verticesByPath = persistentMapOf(Pair(path1,
                                                                                                  vertex1),
                                                                                             Pair(path2,
-                                                                                           vertex2)),
+                                                                                                 vertex2)),
                                                            edgesByPathPair = persistentMapOf(Pair(Pair(path1,
-                                                                                                 path2),
-                                                                                            edge)));
+                                                                                                       path2),
+                                                                                                  edge)));
         }
 
         fun <P, V, E> of(vertex1: V,
@@ -144,9 +144,9 @@ sealed interface PathBasedGraph<P, V, E> : PersistentGraph<V, E>,
                 }
     }
 
-    fun <M : Map<Pair<P, P>, @UnsafeVariance E>> putAllEdges(edges: M): PathBasedGraph<P, V, E>
+    fun <M : Map<out Pair<P, P>, @UnsafeVariance E>> putAllEdges(edges: M): PathBasedGraph<P, V, E>
 
-    fun <S : Set<@UnsafeVariance E>, M : Map<Pair<P, P>, S>> putAllEdgeSets(edges: M): PathBasedGraph<P, V, E>
+    fun <S : Set<@UnsafeVariance E>, M : Map<out Pair<P, P>, S>> putAllEdgeSets(edges: M): PathBasedGraph<P, V, E>
 
     fun getEdgesFromPathToPath(path1: P,
                                path2: P): ImmutableSet<E>

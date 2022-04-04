@@ -144,42 +144,44 @@ internal data class DefaultTwoToOnePathToEdgePathBasedGraph<P, V, E>(override va
         }
     }
 
-    override fun <M : Map<Pair<P, P>, E>> putAllEdges(edges: M): PathBasedGraph<P, V, E> {
+    override fun <M : Map<out Pair<P, P>, @UnsafeVariance E>> putAllEdges(edges: M): PathBasedGraph<P, V, E> {
+        val updatedEdges = edges.entries.parallelStream()
+                .reduce(edgesByPathPair,
+                        { eMap, entry ->
+                            if (verticesByPath.containsKey(entry.key.first) && verticesByPath.containsKey(entry.key.second)) {
+                                eMap.put(entry.key,
+                                         entry.value)
+                            } else {
+                                eMap
+                            }
+                        },
+                        { eMap1, eMap2 ->
+                            eMap1.putAll(eMap2)
+                        })
         return DefaultTwoToOnePathToEdgePathBasedGraph(verticesByPath = verticesByPath,
-                                                       edgesByPathPair = edges.entries.parallelStream()
-                                                               .reduce(edgesByPathPair,
-                                                                       { eMap, entry ->
-                                                                           if (verticesByPath.containsKey(entry.key.first) && verticesByPath.containsKey(entry.key.second)) {
-                                                                               eMap.put(entry.key,
-                                                                                        entry.value)
-                                                                           } else {
-                                                                               eMap
-                                                                           }
-                                                                       },
-                                                                       { eMap1, eMap2 ->
-                                                                           eMap1.putAll(eMap2)
-                                                                       }))
+                                                       edgesByPathPair = updatedEdges)
     }
 
-    override fun <S : Set<@UnsafeVariance E>, M : Map<Pair<P, P>, S>> putAllEdgeSets(edges: M): PathBasedGraph<P, V, E> {
+    override fun <S : Set<@UnsafeVariance E>, M : Map<out Pair<P, P>, S>> putAllEdgeSets(edges: M): PathBasedGraph<P, V, E> {
+        val updatedEdges = edges.entries.parallelStream()
+                .flatMap { e ->
+                    e.value.parallelStream()
+                            .map { edge -> e.key to edge }
+                }
+                .reduce(edgesByPathPair,
+                        { eMap, entry ->
+                            if (verticesByPath.containsKey(entry.first.first) && verticesByPath.containsKey(entry.first.second)) {
+                                eMap.put(entry.first,
+                                         entry.second)
+                            } else {
+                                eMap
+                            }
+                        },
+                        { eMap1, eMap2 ->
+                            eMap1.putAll(eMap2)
+                        })
         return DefaultTwoToOnePathToEdgePathBasedGraph(verticesByPath = verticesByPath,
-                                                       edgesByPathPair = edges.entries.parallelStream()
-                                                               .flatMap { e ->
-                                                                   e.value.parallelStream()
-                                                                           .map { edge -> e.key to edge }
-                                                               }
-                                                               .reduce(edgesByPathPair,
-                                                                       { eMap, entry ->
-                                                                           if (verticesByPath.containsKey(entry.first.first) && verticesByPath.containsKey(entry.first.second)) {
-                                                                               eMap.put(entry.first,
-                                                                                        entry.second)
-                                                                           } else {
-                                                                               eMap
-                                                                           }
-                                                                       },
-                                                                       { eMap1, eMap2 ->
-                                                                           eMap1.putAll(eMap2)
-                                                                       }))
+                                                       edgesByPathPair = updatedEdges)
     }
 
     override fun getEdgesFromPathToPath(path1: P,

@@ -115,7 +115,7 @@ internal data class DefaultTwoToManyEdgePathBasedGraph<P, V, E>(override val ver
                                                   edgesSetByPathPair = edgesSetByPathPair)
     }
 
-    override fun <M : Map<out P, V>> putAllVertices(vertices: M): PathBasedGraph<P, V, E> {
+    override fun <M : Map<out P, @UnsafeVariance V>> putAllVertices(vertices: M): PathBasedGraph<P, V, E> {
         return DefaultTwoToManyEdgePathBasedGraph(verticesByPath = verticesByPath.putAll(vertices),
                                                   edgesSetByPathPair = edgesSetByPathPair)
     }
@@ -152,7 +152,7 @@ internal data class DefaultTwoToManyEdgePathBasedGraph<P, V, E>(override val ver
         }
     }
 
-    override fun <M : Map<Pair<P, P>, E>> putAllEdges(edges: M): PathBasedGraph<P, V, E> {
+    override fun <M : Map<out Pair<P, P>, @UnsafeVariance E>> putAllEdges(edges: M): PathBasedGraph<P, V, E> {
         return DefaultTwoToManyEdgePathBasedGraph(verticesByPath = verticesByPath,
                                                   edgesSetByPathPair = edges.entries.parallelStream()
                                                           .reduce(edgesSetByPathPair,
@@ -177,7 +177,7 @@ internal data class DefaultTwoToManyEdgePathBasedGraph<P, V, E>(override val ver
                                                                   }))
     }
 
-    override fun <S : Set<@UnsafeVariance E>, M : Map<Pair<P, P>, S>> putAllEdgeSets(edges: M): PathBasedGraph<P, V, E> {
+    override fun <S : Set<@UnsafeVariance E>, M : Map<out Pair<P, P>, S>> putAllEdgeSets(edges: M): PathBasedGraph<P, V, E> {
         return DefaultTwoToManyEdgePathBasedGraph(verticesByPath = verticesByPath,
                                                   edgesSetByPathPair = edges.entries.parallelStream()
                                                           .flatMap { entry ->

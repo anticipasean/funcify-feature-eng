@@ -4,8 +4,6 @@ import arrow.core.Tuple5
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
 import java.util.stream.Stream
-import kotlin.reflect.KCallable
-import kotlin.reflect.jvm.jvmErasure
 import kotlin.streams.asSequence
 
 
@@ -40,7 +38,7 @@ internal class PersistentGraphFactoryTest {
                                                                 Triple(4,
                                                                        5,
                                                                        6))
-        val graph: PathBasedGraph<Int, Int, Int> = edges.fold(vertices.fold(PathBasedGraph.emptyTwoPathsToOneEdgeGraph()) { g, v ->
+        val graph: PathBasedGraph<Int, Int, Int> = edges.fold(vertices.fold(PathBasedGraph.emptyTwoToOnePathsToEdgeGraph()) { g, v ->
             g.putVertex(v,
                         v)
         }) { g, e ->
@@ -97,7 +95,7 @@ internal class PersistentGraphFactoryTest {
                                                                 Triple(9,
                                                                        11,
                                                                        1))
-        val graph: PathBasedGraph<Int, Int, Int> = edges.fold(vertices.fold(PathBasedGraph.emptyTwoPathsToOneEdgeGraph()) { g, i ->
+        val graph: PathBasedGraph<Int, Int, Int> = edges.fold(vertices.fold(PathBasedGraph.emptyTwoToOnePathsToEdgeGraph()) { g, i ->
             g.putVertex(i,
                         i)
         }) { g, e ->
