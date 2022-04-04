@@ -45,6 +45,7 @@ internal data class DefaultTwoToManyEdgePathBasedGraph<P, V, E>(override val ver
 
     override val vertices: PersistentList<V> by lazy {
         verticesByPath.stream()
+                .parallel()
                 .map { e -> e.value }
                 .reduce(persistentListOf<V>(),
                         { pl, v -> pl.add(v) },
@@ -53,6 +54,7 @@ internal data class DefaultTwoToManyEdgePathBasedGraph<P, V, E>(override val ver
 
     override val edgesByConnectedVertices: PersistentMap<Pair<V, V>, PersistentSet<E>> by lazy {
         edgesSetByPathPair.stream()
+                .parallel()
                 .map { e: Map.Entry<Pair<P, P>, PersistentSet<E>> ->
                     verticesByPath[e.key.first].toOption()
                             .zip(verticesByPath[e.key.second].toOption()) { v1: V, v2: V ->
@@ -153,57 +155,59 @@ internal data class DefaultTwoToManyEdgePathBasedGraph<P, V, E>(override val ver
     }
 
     override fun <M : Map<out Pair<P, P>, @UnsafeVariance E>> putAllEdges(edges: M): PathBasedGraph<P, V, E> {
+        val updatedEdges = edges.entries.parallelStream()
+                .reduce(edgesSetByPathPair,
+                        { esm, entry ->
+                            if (verticesByPath.containsKey(entry.key.first) && verticesByPath.containsKey(entry.key.second)) {
+                                esm.put(entry.key,
+                                        esm.getOrDefault(entry.key,
+                                                         persistentSetOf())
+                                                .add(entry.value))
+                            } else {
+                                esm
+                            }
+                        },
+                        { esm1, esm2 ->
+                            esm2.forEach({ (key, value) ->
+                                             esm1.put(key,
+                                                      esm1.getOrDefault(key,
+                                                                        persistentSetOf())
+                                                              .addAll(value))
+                                         })
+                            esm1
+                        })
         return DefaultTwoToManyEdgePathBasedGraph(verticesByPath = verticesByPath,
-                                                  edgesSetByPathPair = edges.entries.parallelStream()
-                                                          .reduce(edgesSetByPathPair,
-                                                                  { esm, entry ->
-                                                                      if (verticesByPath.containsKey(entry.key.first) && verticesByPath.containsKey(entry.key.second)) {
-                                                                          esm.put(entry.key,
-                                                                                  esm.getOrDefault(entry.key,
-                                                                                                   persistentSetOf())
-                                                                                          .add(entry.value))
-                                                                      } else {
-                                                                          esm
-                                                                      }
-                                                                  },
-                                                                  { esm1, esm2 ->
-                                                                      esm2.forEach({ (key, value) ->
-                                                                                       esm1.put(key,
-                                                                                                esm1.getOrDefault(key,
-                                                                                                                  persistentSetOf())
-                                                                                                        .addAll(value))
-                                                                                   })
-                                                                      esm1
-                                                                  }))
+                                                  edgesSetByPathPair = updatedEdges)
     }
 
     override fun <S : Set<@UnsafeVariance E>, M : Map<out Pair<P, P>, S>> putAllEdgeSets(edges: M): PathBasedGraph<P, V, E> {
+        val updatedEdgeSets = edges.entries.parallelStream()
+                .flatMap { entry ->
+                    entry.value.parallelStream()
+                            .map { edge -> entry.key to edge }
+                }
+                .reduce(edgesSetByPathPair,
+                        { esm, entry ->
+                            if (verticesByPath.containsKey(entry.first.first) && verticesByPath.containsKey(entry.first.second)) {
+                                esm.put(entry.first,
+                                        esm.getOrDefault(entry.first,
+                                                         persistentSetOf())
+                                                .add(entry.second))
+                            } else {
+                                esm
+                            }
+                        },
+                        { esm1, esm2 ->
+                            esm2.forEach({ (key, value) ->
+                                             esm1.put(key,
+                                                      esm1.getOrDefault(key,
+                                                                        persistentSetOf())
+                                                              .addAll(value))
+                                         })
+                            esm1
+                        })
         return DefaultTwoToManyEdgePathBasedGraph(verticesByPath = verticesByPath,
-                                                  edgesSetByPathPair = edges.entries.parallelStream()
-                                                          .flatMap { entry ->
-                                                              entry.value.parallelStream()
-                                                                      .map { edge -> entry.key to edge }
-                                                          }
-                                                          .reduce(edgesSetByPathPair,
-                                                                  { esm, entry ->
-                                                                      if (verticesByPath.containsKey(entry.first.first) && verticesByPath.containsKey(entry.first.second)) {
-                                                                          esm.put(entry.first,
-                                                                                  esm.getOrDefault(entry.first,
-                                                                                                   persistentSetOf())
-                                                                                          .add(entry.second))
-                                                                      } else {
-                                                                          esm
-                                                                      }
-                                                                  },
-                                                                  { esm1, esm2 ->
-                                                                      esm2.forEach({ (key, value) ->
-                                                                                       esm1.put(key,
-                                                                                                esm1.getOrDefault(key,
-                                                                                                                  persistentSetOf())
-                                                                                                        .addAll(value))
-                                                                                   })
-                                                                      esm1
-                                                                  }))
+                                                  edgesSetByPathPair = updatedEdgeSets)
     }
 
     override fun getEdgesFromPathToPath(path1: P,
@@ -313,48 +317,74 @@ internal data class DefaultTwoToManyEdgePathBasedGraph<P, V, E>(override val ver
 
 
     override fun filterVertices(function: (V) -> Boolean): PathBasedGraph<P, V, E> {
-        val updatedVertices = verticesByPath.asSequence()
+        val updatedVertices = verticesByPath.stream()
+                .parallel()
                 .filter { entry: Map.Entry<P, V> -> function.invoke(entry.value) }
-                .fold(persistentMapOf<P, V>()) { acc, entry ->
-                    acc.put(entry.key,
-                            entry.value)
-                }
-        val updatedEdges = edgesSetByPathPair.asSequence()
+                .reduce(persistentMapOf<P, V>(),
+                        { acc, entry ->
+                            acc.put(entry.key,
+                                    entry.value)
+                        },
+                        { pm1, pm2 -> pm1.putAll(pm2) })
+        val updatedEdges = edgesSetByPathPair.stream()
+                .parallel()
                 .filter { entry: Map.Entry<Pair<P, P>, PersistentSet<E>> ->
                     sequenceOf(entry.key.first,
                                entry.key.second).all { p ->
                         updatedVertices.containsKey(p)
                     }
                 }
-                .fold(persistentMapOf<Pair<P, P>, PersistentSet<E>>()) { acc, entry ->
-                    acc.put(entry.key,
-                            entry.value)
-                }
+                .reduce(persistentMapOf<Pair<P, P>, PersistentSet<E>>(),
+                        { acc, entry ->
+                            acc.put(entry.key,
+                                    entry.value)
+                        },
+                        { pm1, pm2 ->
+                            pm2.forEach({ (key, value) ->
+                                            pm1.put(key,
+                                                    pm1.getOrDefault(key,
+                                                                     persistentSetOf())
+                                                            .addAll(value))
+                                        })
+                            pm1
+                        })
         return DefaultTwoToManyEdgePathBasedGraph(updatedVertices,
                                                   updatedEdges)
     }
 
     override fun filterEdges(function: (E) -> Boolean): PathBasedGraph<P, V, E> {
-        val updatedEdges = edgesSetByPathPair.asSequence()
+        val updatedEdges = edgesSetByPathPair.stream()
+                .parallel()
                 .flatMap { entry: Map.Entry<Pair<P, P>, PersistentSet<E>> ->
-                    entry.value.asSequence()
+                    entry.value.stream()
                             .map { e -> entry.key to e }
                 }
                 .filter { entry: Pair<Pair<P, P>, E> ->
                     function.invoke(entry.second)
                 }
-                .fold(persistentMapOf<Pair<P, P>, PersistentSet<E>>()) { acc, entry ->
-                    acc.put(entry.first,
-                            acc.getOrDefault(entry.first,
-                                             persistentSetOf())
-                                    .add(entry.second))
-                }
+                .reduce(persistentMapOf<Pair<P, P>, PersistentSet<E>>(),
+                        { acc, entry ->
+                            acc.put(entry.first,
+                                    acc.getOrDefault(entry.first,
+                                                     persistentSetOf())
+                                            .add(entry.second))
+                        },
+                        { pm1, pm2 ->
+                            pm2.forEach({ (key, value) ->
+                                            pm1.put(key,
+                                                    pm1.getOrDefault(key,
+                                                                     persistentSetOf())
+                                                            .addAll(value))
+                                        })
+                            pm1
+                        })
         return DefaultTwoToManyEdgePathBasedGraph(verticesByPath = verticesByPath,
                                                   edgesSetByPathPair = updatedEdges)
     }
 
     override fun <R> mapVertices(function: (V) -> R): PathBasedGraph<P, R, E> {
         val updatedVertices = verticesByPath.stream()
+                .parallel()
                 .map { entry: Map.Entry<P, V> -> entry.key to function.invoke(entry.value) }
                 .reduce(persistentMapOf<P, R>(),
                         { vm, vpair ->
@@ -368,6 +398,7 @@ internal data class DefaultTwoToManyEdgePathBasedGraph<P, V, E>(override val ver
 
     override fun <R> mapEdges(function: (E) -> R): PathBasedGraph<P, V, R> {
         val updatedEdges = edgesSetByPathPair.stream()
+                .parallel()
                 .map { entry: Map.Entry<Pair<P, P>, PersistentSet<E>> ->
                     entry.key to entry.value.parallelStream()
                             .map { e -> function.invoke(e) }
@@ -396,18 +427,31 @@ internal data class DefaultTwoToManyEdgePathBasedGraph<P, V, E>(override val ver
     }
 
     override fun <R> flatMapVertices(function: (V) -> PathBasedGraph<P, R, E>): PathBasedGraph<P, R, E> {
-        return verticesByPath.asSequence()
+        return verticesByPath.stream()
+                .parallel()
                 .map { entry: Map.Entry<P, V> -> function.invoke(entry.value) }
-                .fold(DefaultTwoToManyEdgePathBasedGraph<P, R, E>() as PathBasedGraph<P, R, E>) { currentGraph: PathBasedGraph<P, R, E>, pg: PathBasedGraph<P, R, E> ->
-                    pg.fold({ v: PersistentMap<P, R>, eSingle: PersistentMap<Pair<P, P>, E> ->
-                                currentGraph.putAllVertices(v)
-                                        .putAllEdges(eSingle)
-                            },
-                            { v: PersistentMap<P, R>, eMany: PersistentMap<Pair<P, P>, PersistentSet<E>> ->
-                                currentGraph.putAllVertices(v)
-                                        .putAllEdgeSets(eMany)
-                            })
-                }
+                .reduce(DefaultTwoToManyEdgePathBasedGraph<P, R, E>() as PathBasedGraph<P, R, E>,
+                        { currentGraph: PathBasedGraph<P, R, E>, pg: PathBasedGraph<P, R, E> ->
+                            pg.fold({ v: PersistentMap<P, R>, eSingle: PersistentMap<Pair<P, P>, E> ->
+                                        currentGraph.putAllVertices(v)
+                                                .putAllEdges(eSingle)
+                                    },
+                                    { v: PersistentMap<P, R>, eMany: PersistentMap<Pair<P, P>, PersistentSet<E>> ->
+                                        currentGraph.putAllVertices(v)
+                                                .putAllEdgeSets(eMany)
+                                    })
+
+                        },
+                        { pg1, pg2 ->
+                            pg2.fold({ v: PersistentMap<P, R>, eSingle: PersistentMap<Pair<P, P>, E> ->
+                                         pg1.putAllVertices(v)
+                                                 .putAllEdges(eSingle)
+                                     },
+                                     { v: PersistentMap<P, R>, eMany: PersistentMap<Pair<P, P>, PersistentSet<E>> ->
+                                         pg1.putAllVertices(v)
+                                                 .putAllEdgeSets(eMany)
+                                     })
+                        })
 
     }
 

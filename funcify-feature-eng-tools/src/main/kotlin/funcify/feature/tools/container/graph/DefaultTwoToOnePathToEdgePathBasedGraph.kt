@@ -284,105 +284,154 @@ internal data class DefaultTwoToOnePathToEdgePathBasedGraph<P, V, E>(override va
 
 
     override fun filterVertices(function: (V) -> Boolean): PathBasedGraph<P, V, E> {
-        val updatedVertices = verticesByPath.asSequence()
+        val updatedVertices = verticesByPath.stream()
+                .parallel()
                 .filter { entry: Map.Entry<P, V> -> function.invoke(entry.value) }
-                .fold(persistentMapOf<P, V>()) { acc, entry ->
-                    acc.put(entry.key,
-                            entry.value)
-                }
-        val updatedEdges = edgesByPathPair.asSequence()
+                .reduce(persistentMapOf<P, V>(),
+                        { acc, entry ->
+                            acc.put(entry.key,
+                                    entry.value)
+                        },
+                        { pm1, pm2 -> pm1.putAll(pm2) })
+        val updatedEdges = edgesByPathPair.stream()
+                .parallel()
                 .filter { entry: Map.Entry<Pair<P, P>, E> ->
                     sequenceOf(entry.key.first,
                                entry.key.second).all { p ->
                         updatedVertices.containsKey(p)
                     }
                 }
-                .fold(persistentMapOf<Pair<P, P>, E>()) { acc, entry ->
-                    acc.put(entry.key,
-                            entry.value)
-                }
+                .reduce(persistentMapOf<Pair<P, P>, E>(),
+                        { acc, entry ->
+                            acc.put(entry.key,
+                                    entry.value)
+                        },
+                        { pm1, pm2 -> pm1.putAll(pm2) })
         return DefaultTwoToOnePathToEdgePathBasedGraph(updatedVertices,
                                                        updatedEdges)
     }
 
     override fun filterEdges(function: (E) -> Boolean): PathBasedGraph<P, V, E> {
-        val updatedEdges = edgesByPathPair.asSequence()
+        val updatedEdges = edgesByPathPair.stream()
+                .parallel()
                 .filter { entry: Map.Entry<Pair<P, P>, E> ->
                     function.invoke(entry.value)
                 }
-                .fold(persistentMapOf<Pair<P, P>, E>()) { acc, entry ->
-                    acc.put(entry.key,
-                            entry.value)
-                }
+                .reduce(persistentMapOf<Pair<P, P>, E>(),
+                        { acc, entry ->
+                            acc.put(entry.key,
+                                    entry.value)
+                        },
+                        { pm1, pm2 -> pm1.putAll(pm2) })
         return DefaultTwoToOnePathToEdgePathBasedGraph(verticesByPath = verticesByPath,
                                                        edgesByPathPair = updatedEdges)
     }
 
     override fun <R> mapVertices(function: (V) -> R): PathBasedGraph<P, R, E> {
-        val updatedVertices = verticesByPath.asSequence()
+        val updatedVertices = verticesByPath.stream()
+                .parallel()
                 .map { entry: Map.Entry<P, V> -> entry.key to function.invoke(entry.value) }
-                .fold(persistentMapOf<P, R>()) { acc, entry ->
-                    acc.put(entry.first,
-                            entry.second)
-                }
-        val updatedEdges = edgesByPathPair.asSequence()
+                .reduce(persistentMapOf<P, R>(),
+                        { acc, entry ->
+                            acc.put(entry.first,
+                                    entry.second)
+                        },
+                        { pm1, pm2 -> pm1.putAll(pm2) })
+        val updatedEdges = edgesByPathPair.stream()
+                .parallel()
                 .filter { entry: Map.Entry<Pair<P, P>, E> ->
                     sequenceOf(entry.key.first,
                                entry.key.second).all { p ->
                         updatedVertices.containsKey(p)
                     }
                 }
-                .fold(persistentMapOf<Pair<P, P>, E>()) { acc, entry ->
-                    acc.put(entry.key,
-                            entry.value)
-                }
+                .reduce(persistentMapOf<Pair<P, P>, E>(),
+                        { acc, entry ->
+                            acc.put(entry.key,
+                                    entry.value)
+                        },
+                        { pm1, pm2 ->
+                            pm1.putAll(pm2)
+                        })
         return DefaultTwoToOnePathToEdgePathBasedGraph(verticesByPath = updatedVertices,
                                                        edgesByPathPair = updatedEdges)
     }
 
     override fun <R> mapEdges(function: (E) -> R): PathBasedGraph<P, V, R> {
-        val updatedEdges = edgesByPathPair.asSequence()
+        val updatedEdges = edgesByPathPair.stream()
+                .parallel()
                 .map { entry: Map.Entry<Pair<P, P>, E> ->
                     entry.key to function.invoke(entry.value)
                 }
-                .fold(persistentMapOf<Pair<P, P>, R>()) { acc, entry ->
-                    acc.put(entry.first,
-                            entry.second)
-                }
+                .reduce(persistentMapOf<Pair<P, P>, R>(),
+                        { acc, entry ->
+                            acc.put(entry.first,
+                                    entry.second)
+                        },
+                        { pm1, pm2 ->
+                            pm1.putAll(pm2)
+                        })
         return DefaultTwoToOnePathToEdgePathBasedGraph(verticesByPath = verticesByPath,
                                                        edgesByPathPair = updatedEdges)
     }
 
     override fun <R> flatMapVertices(function: (V) -> PathBasedGraph<P, R, E>): PathBasedGraph<P, R, E> {
-        return verticesByPath.asSequence()
+        return verticesByPath.stream()
+                .parallel()
                 .map { entry: Map.Entry<P, V> -> function.invoke(entry.value) }
-                .fold(DefaultTwoToOnePathToEdgePathBasedGraph<P, R, E>() as PathBasedGraph<P, R, E>) { currentGraph: PathBasedGraph<P, R, E>, pg: PathBasedGraph<P, R, E> ->
-                    when (currentGraph) {
-                        is TwoToOnePathToEdgeGraph -> {
-                            pg.fold({ v: PersistentMap<P, R>, eSingle: PersistentMap<Pair<P, P>, E> ->
-                                        currentGraph.putAllVertices(v)
-                                                .putAllEdges(eSingle)
-                                    },
-                                    { v: PersistentMap<P, R>, eMany: PersistentMap<Pair<P, P>, PersistentSet<E>> -> // Any output of persistent graph that has
-                                        // two to many mapping means the current graph type must be flipped to two-to-many edge map type
-                                        // in order to avoid any loss of information
-                                        DefaultTwoToManyEdgePathBasedGraph<P, R, E>(verticesByPath = currentGraph.verticesByPath).putAllEdges(currentGraph.edgesByPathPair)
-                                                .putAllVertices(v)
-                                                .putAllEdgeSets(eMany)
-                                    })
-                        }
-                        is TwoToManyPathToEdgeGraph -> {
-                            pg.fold({ v: PersistentMap<P, R>, eSingle: PersistentMap<Pair<P, P>, E> ->
-                                        currentGraph.putAllVertices(v)
-                                                .putAllEdges(eSingle)
-                                    },
-                                    { v: PersistentMap<P, R>, eMany: PersistentMap<Pair<P, P>, PersistentSet<E>> ->
-                                        currentGraph.putAllVertices(v)
-                                                .putAllEdgeSets(eMany)
-                                    })
-                        }
-                    }
-                }
+                .reduce(DefaultTwoToOnePathToEdgePathBasedGraph<P, R, E>() as PathBasedGraph<P, R, E>,
+                        { currentGraph: PathBasedGraph<P, R, E>, pg: PathBasedGraph<P, R, E> ->
+                            when (currentGraph) {
+                                is TwoToOnePathToEdgeGraph -> {
+                                    pg.fold({ v: PersistentMap<P, R>, eSingle: PersistentMap<Pair<P, P>, E> ->
+                                                currentGraph.putAllVertices(v)
+                                                        .putAllEdges(eSingle)
+                                            },
+                                            { v: PersistentMap<P, R>, eMany: PersistentMap<Pair<P, P>, PersistentSet<E>> -> // Any output of persistent graph that has
+                                                // two to many mapping means the current graph type must be flipped to two-to-many edge map type
+                                                // in order to avoid any loss of information
+                                                DefaultTwoToManyEdgePathBasedGraph<P, R, E>(verticesByPath = currentGraph.verticesByPath).putAllEdges(currentGraph.edgesByPathPair)
+                                                        .putAllVertices(v)
+                                                        .putAllEdgeSets(eMany)
+                                            })
+                                }
+                                is TwoToManyPathToEdgeGraph -> {
+                                    pg.fold({ v: PersistentMap<P, R>, eSingle: PersistentMap<Pair<P, P>, E> ->
+                                                currentGraph.putAllVertices(v)
+                                                        .putAllEdges(eSingle)
+                                            },
+                                            { v: PersistentMap<P, R>, eMany: PersistentMap<Pair<P, P>, PersistentSet<E>> ->
+                                                currentGraph.putAllVertices(v)
+                                                        .putAllEdgeSets(eMany)
+                                            })
+                                }
+                            }
+                        },
+                        { pg1, pg2 ->
+                            when (pg1) {
+                                is TwoToOnePathToEdgeGraph -> {
+                                    pg2.fold({ v: PersistentMap<P, R>, eSingle: PersistentMap<Pair<P, P>, E> ->
+                                                 pg1.putAllVertices(v)
+                                                         .putAllEdges(eSingle)
+                                             },
+                                             { v: PersistentMap<P, R>, eMany: PersistentMap<Pair<P, P>, PersistentSet<E>> ->
+                                                 DefaultTwoToManyEdgePathBasedGraph<P, R, E>(verticesByPath = pg1.verticesByPath).putAllEdges(pg1.edgesByPathPair)
+                                                         .putAllVertices(v)
+                                                         .putAllEdgeSets(eMany)
+                                             })
+                                }
+                                is TwoToManyPathToEdgeGraph -> {
+                                    pg2.fold({ v: PersistentMap<P, R>, eSingle: PersistentMap<Pair<P, P>, E> ->
+                                                 pg1.putAllVertices(v)
+                                                         .putAllEdges(eSingle)
+                                             },
+                                             { v: PersistentMap<P, R>, eMany: PersistentMap<Pair<P, P>, PersistentSet<E>> ->
+                                                 pg1.putAllVertices(v)
+                                                         .putAllEdgeSets(eMany)
+                                             })
+                                }
+                            }
+                        })
 
     }
 
@@ -447,12 +496,14 @@ internal data class DefaultTwoToOnePathToEdgePathBasedGraph<P, V, E>(override va
 
     override fun hasCycles(): Boolean {
         return edgesByPathPair.stream()
+                .parallel()
                 .map { entry: Map.Entry<Pair<P, P>, E> -> entry.key.swap() }
                 .anyMatch { pair: Pair<P, P> -> edgesByPathPair.containsKey(pair) }
     }
 
     override fun getCycles(): Stream<Pair<Triple<P, P, E>, Triple<P, P, E>>> {
         return edgesByPathPair.stream()
+                .parallel()
                 .filter { entry: Map.Entry<Pair<P, P>, E> -> edgesByPathPair.containsKey(entry.key.swap()) }
                 .map { entry: Map.Entry<Pair<P, P>, E> ->
                     Pair(Triple(entry.key.first,
