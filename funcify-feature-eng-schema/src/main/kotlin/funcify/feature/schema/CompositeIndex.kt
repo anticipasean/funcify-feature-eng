@@ -1,7 +1,7 @@
 package funcify.feature.schema
 
 import funcify.feature.schema.datasource.DataSourceType
-import funcify.feature.schema.graphql.GraphQLIndex
+import funcify.naming.ConventionalName
 
 
 /**
@@ -11,8 +11,8 @@ import funcify.feature.schema.graphql.GraphQLIndex
  */
 interface CompositeIndex {
 
-    fun canBeSourcedFrom(sourceType: DataSourceType): Boolean
+    val conventionalName: ConventionalName
 
-    val graphQLIndex: GraphQLIndex
+    fun canBeSourcedFrom(sourceType: DataSourceType): Boolean
 
 }

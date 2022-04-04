@@ -1,15 +1,15 @@
 package funcify.feature.schema
 
-import funcify.feature.tools.container.graph.PersistentGraph
+import kotlinx.collections.immutable.PersistentMap
 
 
 /**
  *
  * @author smccarron
- * @created 3/31/22
+ * @created 2/20/22
  */
 interface MetamodelGraph {
 
-    val graph: PersistentGraph<SchematicPath, SchematicVertex,  SchematicEdge>
+    val schematicVerticesByPath: PersistentMap<SchematicPath, SchematicVertex>
 
 }
