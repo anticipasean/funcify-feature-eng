@@ -50,10 +50,61 @@ internal data class DefaultTwoToOnePathToEdgePathBasedGraph<P, V, E>(override va
                     .orElseGet { monoid.empty() }
         }
 
+        private fun <K, V> Stream<Pair<K, V>>.reducePairsToPersistentSetValueMap(startValue: PersistentMap<K, PersistentSet<V>> = persistentMapOf(),
+                                                                                 filter: (K) -> Boolean = { true }): PersistentMap<K, PersistentSet<V>> {
+            return this.reduce(startValue,
+                               { pm, pair ->
+                                   if (filter.invoke(pair.first)) {
+                                       pm.put(pair.first,
+                                              pm.getOrDefault(pair.first,
+                                                              persistentSetOf())
+                                                      .add(pair.second))
+                                   } else {
+                                       pm
+                                   }
+                               },
+                               { pm1, pm2 ->
+                                   val finalMapHolder: Array<PersistentMap<K, PersistentSet<V>>> = arrayOf(pm1)
+                                   pm2.forEach({ (key, value) ->
+                                                   finalMapHolder[0] = finalMapHolder[0].put(key,
+                                                                                             finalMapHolder[0].getOrDefault(key,
+                                                                                                                            persistentSetOf())
+                                                                                                     .addAll(value))
+                                               })
+                                   finalMapHolder[0]
+                               })
+        }
+
+        private fun <K, V> Stream<Map.Entry<K, V>>.reduceEntriesToPersistentSetValueMap(startValue: PersistentMap<K, PersistentSet<V>> = persistentMapOf(),
+                                                                                        filter: (K) -> Boolean = { true }): PersistentMap<K, PersistentSet<V>> {
+            return this.reduce(startValue,
+                               { pm, entry ->
+                                   if (filter.invoke(entry.key)) {
+                                       pm.put(entry.key,
+                                              pm.getOrDefault(entry.key,
+                                                              persistentSetOf())
+                                                      .add(entry.value))
+                                   } else {
+                                       pm
+                                   }
+                               },
+                               { pm1, pm2 ->
+                                   val finalMapHolder: Array<PersistentMap<K, PersistentSet<V>>> = arrayOf(pm1)
+                                   pm2.forEach({ (key, value) ->
+                                                   finalMapHolder[0] = finalMapHolder[0].put(key,
+                                                                                             finalMapHolder[0].getOrDefault(key,
+                                                                                                                            persistentSetOf())
+                                                                                                     .addAll(value))
+                                               })
+                                   finalMapHolder[0]
+                               })
+        }
+
     }
 
     override val vertices: PersistentList<V> by lazy {
         verticesByPath.stream()
+                .parallel()
                 .map { e -> e.value }
                 .reduce(persistentListOf<V>(),
                         { pl, v -> pl.add(v) },
@@ -62,24 +113,15 @@ internal data class DefaultTwoToOnePathToEdgePathBasedGraph<P, V, E>(override va
 
     override val edgesByConnectedVertices: PersistentMap<Pair<V, V>, PersistentSet<E>> by lazy {
         edgesByPathPair.stream()
+                .parallel()
                 .map { e: Map.Entry<Pair<P, P>, E> ->
                     verticesByPath[e.key.first].toOption()
                             .zip(verticesByPath[e.key.second].toOption()) { v1: V, v2: V ->
-                                Triple(v1,
-                                       v2,
-                                       e.value)
+                                (v1 to v2) to e.value
                             }
                 }
-                .flatMap { tOpt: Option<Triple<V, V, E>> -> tOpt.stream() }
-                .reduce(persistentMapOf<Pair<V, V>, PersistentSet<E>>(),
-                        { pl, triple ->
-                            val vertexPair: Pair<V, V> = triple.first to triple.second
-                            pl.put(vertexPair,
-                                   pl.getOrDefault(vertexPair,
-                                                   persistentSetOf())
-                                           .add(triple.third))
-                        },
-                        { pl1, pl2 -> pl1.putAll(pl2) })
+                .flatMap { opt -> opt.stream() }
+                .reducePairsToPersistentSetValueMap()
 
     }
 
@@ -91,14 +133,8 @@ internal data class DefaultTwoToOnePathToEdgePathBasedGraph<P, V, E>(override va
      */
     private val pathConnections: ImmutableMap<P, ImmutableSet<P>> by lazy {
         edgesByPathPair.keys.stream()
-                .reduce(persistentMapOf<P, PersistentSet<P>>(),
-                        { pm, p ->
-                            pm.put(p.first,
-                                   pm.getOrDefault(p.first,
-                                                   persistentSetOf())
-                                           .add(p.second))
-                        },
-                        { pm1, pm2 -> pm1.putAll(pm2) })
+                .parallel()
+                .reducePairsToPersistentSetValueMap()
     }
 
 

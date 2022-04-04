@@ -50,6 +50,56 @@ internal data class DefaultTwoToManyEdgePathBasedGraph<P, V, E>(override val ver
                     .orElseGet { DefaultTwoToManyEdgePathBasedGraph<P, V, E>() }
         }
 
+        private fun <K, V> Stream<Pair<K, V>>.reducePairsToPersistentSetValueMap(startValue: PersistentMap<K, PersistentSet<V>> = persistentMapOf(),
+                                                                                 filter: (K) -> Boolean = { true }): PersistentMap<K, PersistentSet<V>> {
+            return this.reduce(startValue,
+                               { pm, pair ->
+                                   if (filter.invoke(pair.first)) {
+                                       pm.put(pair.first,
+                                              pm.getOrDefault(pair.first,
+                                                              persistentSetOf())
+                                                      .add(pair.second))
+                                   } else {
+                                       pm
+                                   }
+                               },
+                               { pm1, pm2 ->
+                                   val finalMapHolder: Array<PersistentMap<K, PersistentSet<V>>> = arrayOf(pm1)
+                                   pm2.forEach({ (key, value) ->
+                                                   finalMapHolder[0] = finalMapHolder[0].put(key,
+                                                                                             finalMapHolder[0].getOrDefault(key,
+                                                                                                                            persistentSetOf())
+                                                                                                     .addAll(value))
+                                               })
+                                   finalMapHolder[0]
+                               })
+        }
+
+        private fun <K, V> Stream<Map.Entry<K, V>>.reduceEntriesToPersistentSetValueMap(startValue: PersistentMap<K, PersistentSet<V>> = persistentMapOf(),
+                                                                                        filter: (K) -> Boolean = { true }): PersistentMap<K, PersistentSet<V>> {
+            return this.reduce(startValue,
+                               { pm, entry ->
+                                   if (filter.invoke(entry.key)) {
+                                       pm.put(entry.key,
+                                              pm.getOrDefault(entry.key,
+                                                              persistentSetOf())
+                                                      .add(entry.value))
+                                   } else {
+                                       pm
+                                   }
+                               },
+                               { pm1, pm2 ->
+                                   val finalMapHolder: Array<PersistentMap<K, PersistentSet<V>>> = arrayOf(pm1)
+                                   pm2.forEach({ (key, value) ->
+                                                   finalMapHolder[0] = finalMapHolder[0].put(key,
+                                                                                             finalMapHolder[0].getOrDefault(key,
+                                                                                                                            persistentSetOf())
+                                                                                                     .addAll(value))
+                                               })
+                                   finalMapHolder[0]
+                               })
+        }
+
     }
 
     override val vertices: PersistentList<V> by lazy {
@@ -67,25 +117,15 @@ internal data class DefaultTwoToManyEdgePathBasedGraph<P, V, E>(override val ver
                 .map { e: Map.Entry<Pair<P, P>, PersistentSet<E>> ->
                     verticesByPath[e.key.first].toOption()
                             .zip(verticesByPath[e.key.second].toOption()) { v1: V, v2: V ->
-                                e.value.fold(persistentSetOf<Triple<V, V, E>>()) { set, edge ->
-                                    set.add(Triple(v1,
-                                                   v2,
-                                                   edge))
-                                }
+                                (v1 to v2) to e.value
                             }
-                            .getOrElse { persistentSetOf() }
                 }
-                .flatMap { tSet: PersistentSet<Triple<V, V, E>> -> tSet.stream() }
-                .reduce(persistentMapOf(),
-                        { pl, triple ->
-                            val vertexPair: Pair<V, V> = triple.first to triple.second
-                            pl.put(vertexPair,
-                                   pl.getOrDefault(vertexPair,
-                                                   persistentSetOf())
-                                           .add(triple.third))
-                        },
-                        { pl1, pl2 -> pl1.putAll(pl2) })
-
+                .flatMap { opt -> opt.stream() }
+                .flatMap { pair: Pair<Pair<V, V>, PersistentSet<E>> ->
+                    pair.second.stream()
+                            .map { e -> pair.first to e }
+                }
+                .reducePairsToPersistentSetValueMap()
     }
 
     /**
@@ -96,14 +136,7 @@ internal data class DefaultTwoToManyEdgePathBasedGraph<P, V, E>(override val ver
      */
     private val pathConnections: ImmutableMap<P, ImmutableSet<P>> by lazy {
         edgesSetByPathPair.keys.stream()
-                .reduce(persistentMapOf<P, PersistentSet<P>>(),
-                        { pm, p ->
-                            pm.put(p.first,
-                                   pm.getOrDefault(p.first,
-                                                   persistentSetOf())
-                                           .add(p.second))
-                        },
-                        { pm1, pm2 -> pm1.putAll(pm2) })
+                .reducePairsToPersistentSetValueMap()
     }
 
     override fun edgesAsStream(): Stream<E> {
@@ -165,26 +198,8 @@ internal data class DefaultTwoToManyEdgePathBasedGraph<P, V, E>(override val ver
 
     override fun <M : Map<out Pair<P, P>, @UnsafeVariance E>> putAllEdges(edges: M): PathBasedGraph<P, V, E> {
         val updatedEdges = edges.entries.parallelStream()
-                .reduce(edgesSetByPathPair,
-                        { esm, entry ->
-                            if (verticesByPath.containsKey(entry.key.first) && verticesByPath.containsKey(entry.key.second)) {
-                                esm.put(entry.key,
-                                        esm.getOrDefault(entry.key,
-                                                         persistentSetOf())
-                                                .add(entry.value))
-                            } else {
-                                esm
-                            }
-                        },
-                        { esm1, esm2 ->
-                            esm2.forEach({ (key, value) ->
-                                             esm1.put(key,
-                                                      esm1.getOrDefault(key,
-                                                                        persistentSetOf())
-                                                              .addAll(value))
-                                         })
-                            esm1
-                        })
+                .reduceEntriesToPersistentSetValueMap(startValue = edgesSetByPathPair,
+                                                      filter = { pair: Pair<P, P> -> verticesByPath.containsKey(pair.first) && verticesByPath.containsKey(pair.second) })
         return DefaultTwoToManyEdgePathBasedGraph(verticesByPath = verticesByPath,
                                                   edgesSetByPathPair = updatedEdges)
     }
@@ -195,26 +210,8 @@ internal data class DefaultTwoToManyEdgePathBasedGraph<P, V, E>(override val ver
                     entry.value.parallelStream()
                             .map { edge -> entry.key to edge }
                 }
-                .reduce(edgesSetByPathPair,
-                        { esm, entry ->
-                            if (verticesByPath.containsKey(entry.first.first) && verticesByPath.containsKey(entry.first.second)) {
-                                esm.put(entry.first,
-                                        esm.getOrDefault(entry.first,
-                                                         persistentSetOf())
-                                                .add(entry.second))
-                            } else {
-                                esm
-                            }
-                        },
-                        { esm1, esm2 ->
-                            esm2.forEach({ (key, value) ->
-                                             esm1.put(key,
-                                                      esm1.getOrDefault(key,
-                                                                        persistentSetOf())
-                                                              .addAll(value))
-                                         })
-                            esm1
-                        })
+                .reducePairsToPersistentSetValueMap(startValue = edgesSetByPathPair,
+                                                    filter = { pair: Pair<P, P> -> verticesByPath.containsKey(pair.first) && verticesByPath.containsKey(pair.second) })
         return DefaultTwoToManyEdgePathBasedGraph(verticesByPath = verticesByPath,
                                                   edgesSetByPathPair = updatedEdgeSets)
     }
@@ -349,13 +346,14 @@ internal data class DefaultTwoToManyEdgePathBasedGraph<P, V, E>(override val ver
                                     entry.value)
                         },
                         { pm1, pm2 ->
+                            val finalResultHolder: Array<PersistentMap<Pair<P, P>, PersistentSet<E>>> = arrayOf(pm1)
                             pm2.forEach({ (key, value) ->
-                                            pm1.put(key,
-                                                    pm1.getOrDefault(key,
-                                                                     persistentSetOf())
-                                                            .addAll(value))
+                                            finalResultHolder[0].put(key,
+                                                                     finalResultHolder[0].getOrDefault(key,
+                                                                                                       persistentSetOf())
+                                                                             .addAll(value))
                                         })
-                            pm1
+                            finalResultHolder[0]
                         })
         return DefaultTwoToManyEdgePathBasedGraph(updatedVertices,
                                                   updatedEdges)
@@ -371,22 +369,7 @@ internal data class DefaultTwoToManyEdgePathBasedGraph<P, V, E>(override val ver
                 .filter { entry: Pair<Pair<P, P>, E> ->
                     function.invoke(entry.second)
                 }
-                .reduce(persistentMapOf<Pair<P, P>, PersistentSet<E>>(),
-                        { acc, entry ->
-                            acc.put(entry.first,
-                                    acc.getOrDefault(entry.first,
-                                                     persistentSetOf())
-                                            .add(entry.second))
-                        },
-                        { pm1, pm2 ->
-                            pm2.forEach({ (key, value) ->
-                                            pm1.put(key,
-                                                    pm1.getOrDefault(key,
-                                                                     persistentSetOf())
-                                                            .addAll(value))
-                                        })
-                            pm1
-                        })
+                .reducePairsToPersistentSetValueMap()
         return DefaultTwoToManyEdgePathBasedGraph(verticesByPath = verticesByPath,
                                                   edgesSetByPathPair = updatedEdges)
     }
@@ -408,29 +391,11 @@ internal data class DefaultTwoToManyEdgePathBasedGraph<P, V, E>(override val ver
     override fun <R> mapEdges(function: (E) -> R): PathBasedGraph<P, V, R> {
         val updatedEdges = edgesSetByPathPair.stream()
                 .parallel()
-                .map { entry: Map.Entry<Pair<P, P>, PersistentSet<E>> ->
-                    entry.key to entry.value.parallelStream()
-                            .map { e -> function.invoke(e) }
-                            .reduce(persistentSetOf<R>(),
-                                    { set, e -> set.add(e) },
-                                    { s1, s2 -> s1.addAll(s2) })
+                .flatMap { entry: Map.Entry<Pair<P, P>, PersistentSet<E>> ->
+                    entry.value.parallelStream()
+                            .map { e -> entry.key to function.invoke(e) }
                 }
-                .reduce(persistentMapOf<Pair<P, P>, PersistentSet<R>>(),
-                        { pm, ePair ->
-                            pm.put(ePair.first,
-                                   pm.getOrDefault(ePair.first,
-                                                   persistentSetOf())
-                                           .addAll(ePair.second))
-                        },
-                        { pm1, pm2 ->
-                            pm2.forEach({ (key, value) ->
-                                            pm1.put(key,
-                                                    pm1.getOrDefault(key,
-                                                                     persistentSetOf())
-                                                            .addAll(value))
-                                        })
-                            pm1
-                        })
+                .reducePairsToPersistentSetValueMap()
         return DefaultTwoToManyEdgePathBasedGraph(verticesByPath = verticesByPath,
                                                   edgesSetByPathPair = updatedEdges)
     }
@@ -518,22 +483,7 @@ internal data class DefaultTwoToManyEdgePathBasedGraph<P, V, E>(override val ver
                 .let { pair: Pair<UnionFindTree<P>, PersistentMap<Pair<P, P>, E>> ->
                     DefaultTwoToManyEdgePathBasedGraph(verticesByPath = verticesByPath,
                                                        edgesSetByPathPair = pair.second.stream()
-                                                               .reduce(persistentMapOf<Pair<P, P>, PersistentSet<E>>(),
-                                                                       { pm, entry ->
-                                                                           pm.put(entry.key,
-                                                                                  pm.getOrDefault(entry.key,
-                                                                                                  persistentSetOf())
-                                                                                          .add(entry.value))
-                                                                       },
-                                                                       { pm1, pm2 ->
-                                                                           pm2.forEach({ (key, value) ->
-                                                                                           pm1.put(key,
-                                                                                                   pm1.getOrDefault(key,
-                                                                                                                    persistentSetOf())
-                                                                                                           .addAll(value))
-                                                                                       })
-                                                                           pm1
-                                                                       }))
+                                                               .reduceEntriesToPersistentSetValueMap())
                 }
 
     }
