@@ -50,6 +50,37 @@ internal data class DefaultTwoToManyEdgePathBasedGraph<P, V, E>(override val ver
                     .orElseGet { DefaultTwoToManyEdgePathBasedGraph<P, V, E>() }
         }
 
+        private fun <K, V> PersistentMap<K, PersistentSet<V>>.combine(otherMap: PersistentMap<K, PersistentSet<V>>): PersistentMap<K, PersistentSet<V>> {
+            return when {
+                this.isEmpty() -> {
+                    otherMap
+                }
+                otherMap.isEmpty() -> {
+                    this
+                }
+                this.size > otherMap.size -> {
+                    val finalResultHolder: Array<PersistentMap<K, PersistentSet<V>>> = arrayOf(this)
+                    otherMap.forEach({ (key, value) ->
+                                         finalResultHolder[0] = finalResultHolder[0].put(key,
+                                                                                         finalResultHolder[0].getOrDefault(key,
+                                                                                                                           persistentSetOf())
+                                                                                                 .addAll(value))
+                                     })
+                    finalResultHolder[0]
+                }
+                else -> {
+                    val finalResultHolder: Array<PersistentMap<K, PersistentSet<V>>> = arrayOf(otherMap)
+                    this.forEach({ (key, value) ->
+                                     finalResultHolder[0] = finalResultHolder[0].put(key,
+                                                                                     finalResultHolder[0].getOrDefault(key,
+                                                                                                                       persistentSetOf())
+                                                                                             .addAll(value))
+                                 })
+                    finalResultHolder[0]
+                }
+            }
+        }
+
         private fun <K, V> Stream<Pair<K, V>>.reducePairsToPersistentSetValueMap(startValue: PersistentMap<K, PersistentSet<V>> = persistentMapOf(),
                                                                                  filter: (K) -> Boolean = { true }): PersistentMap<K, PersistentSet<V>> {
             return this.reduce(startValue,
@@ -64,14 +95,7 @@ internal data class DefaultTwoToManyEdgePathBasedGraph<P, V, E>(override val ver
                                    }
                                },
                                { pm1, pm2 ->
-                                   val finalMapHolder: Array<PersistentMap<K, PersistentSet<V>>> = arrayOf(pm1)
-                                   pm2.forEach({ (key, value) ->
-                                                   finalMapHolder[0] = finalMapHolder[0].put(key,
-                                                                                             finalMapHolder[0].getOrDefault(key,
-                                                                                                                            persistentSetOf())
-                                                                                                     .addAll(value))
-                                               })
-                                   finalMapHolder[0]
+                                   pm1.combine(pm2)
                                })
         }
 
@@ -89,14 +113,7 @@ internal data class DefaultTwoToManyEdgePathBasedGraph<P, V, E>(override val ver
                                    }
                                },
                                { pm1, pm2 ->
-                                   val finalMapHolder: Array<PersistentMap<K, PersistentSet<V>>> = arrayOf(pm1)
-                                   pm2.forEach({ (key, value) ->
-                                                   finalMapHolder[0] = finalMapHolder[0].put(key,
-                                                                                             finalMapHolder[0].getOrDefault(key,
-                                                                                                                            persistentSetOf())
-                                                                                                     .addAll(value))
-                                               })
-                                   finalMapHolder[0]
+                                   pm1.combine(pm2)
                                })
         }
 
