@@ -41,6 +41,15 @@ internal data class DefaultTwoToManyEdgePathBasedGraph<P, V, E>(override val ver
                              { t: T -> persistentSetOf(t) })
         }
 
+        private fun <P, V, E> Stream<PathBasedGraph<P, V, E>>.reduceByMonoid(): PathBasedGraph<P, V, E> {
+            val monoid = PathBasedGraph.monoid<P, V, E>()
+            return this.reduce({ pg1, pg2 ->
+                                   monoid.invoke(pg1,
+                                                 pg2)
+                               })
+                    .orElseGet { DefaultTwoToManyEdgePathBasedGraph<P, V, E>() }
+        }
+
     }
 
     override val vertices: PersistentList<V> by lazy {
@@ -430,28 +439,7 @@ internal data class DefaultTwoToManyEdgePathBasedGraph<P, V, E>(override val ver
         return verticesByPath.stream()
                 .parallel()
                 .map { entry: Map.Entry<P, V> -> function.invoke(entry.value) }
-                .reduce(DefaultTwoToManyEdgePathBasedGraph<P, R, E>() as PathBasedGraph<P, R, E>,
-                        { currentGraph: PathBasedGraph<P, R, E>, pg: PathBasedGraph<P, R, E> ->
-                            pg.fold({ v: PersistentMap<P, R>, eSingle: PersistentMap<Pair<P, P>, E> ->
-                                        currentGraph.putAllVertices(v)
-                                                .putAllEdges(eSingle)
-                                    },
-                                    { v: PersistentMap<P, R>, eMany: PersistentMap<Pair<P, P>, PersistentSet<E>> ->
-                                        currentGraph.putAllVertices(v)
-                                                .putAllEdgeSets(eMany)
-                                    })
-
-                        },
-                        { pg1, pg2 ->
-                            pg2.fold({ v: PersistentMap<P, R>, eSingle: PersistentMap<Pair<P, P>, E> ->
-                                         pg1.putAllVertices(v)
-                                                 .putAllEdges(eSingle)
-                                     },
-                                     { v: PersistentMap<P, R>, eMany: PersistentMap<Pair<P, P>, PersistentSet<E>> ->
-                                         pg1.putAllVertices(v)
-                                                 .putAllEdgeSets(eMany)
-                                     })
-                        })
+                .reduceByMonoid()
 
     }
 
@@ -462,27 +450,7 @@ internal data class DefaultTwoToManyEdgePathBasedGraph<P, V, E>(override val ver
                     entry.value.parallelStream()
                             .map { e -> function.invoke(e) }
                 }
-                .reduce(DefaultTwoToManyEdgePathBasedGraph<P, V, R>(verticesByPath = verticesByPath) as PathBasedGraph<P, V, R>,
-                        { cg, pg ->
-                            pg.fold({ v: PersistentMap<P, V>, eSingle: PersistentMap<Pair<P, P>, R> ->
-                                        cg.putAllVertices(v)
-                                                .putAllEdges(eSingle)
-                                    },
-                                    { v: PersistentMap<P, V>, eMany: PersistentMap<Pair<P, P>, PersistentSet<R>> ->
-                                        cg.putAllVertices(v)
-                                                .putAllEdgeSets(eMany)
-                                    })
-                        },
-                        { pg1, pg2 ->
-                            pg2.fold({ v: PersistentMap<P, V>, eSingle: PersistentMap<Pair<P, P>, R> ->
-                                         pg1.putAllVertices(v)
-                                                 .putAllEdges(eSingle)
-                                     },
-                                     { v: PersistentMap<P, V>, eMany: PersistentMap<Pair<P, P>, PersistentSet<R>> ->
-                                         pg1.putAllVertices(v)
-                                                 .putAllEdgeSets(eMany)
-                                     })
-                        })
+                .reduceByMonoid()
 
 
     }

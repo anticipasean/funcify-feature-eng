@@ -41,6 +41,15 @@ internal data class DefaultTwoToOnePathToEdgePathBasedGraph<P, V, E>(override va
                              { t: T -> persistentSetOf(t) })
         }
 
+        private fun <P, V, E> Stream<PathBasedGraph<P, V, E>>.reduceByMonoid(): PathBasedGraph<P, V, E> {
+            val monoid = PathBasedGraph.monoid<P, V, E>()
+            return this.reduce({ pg1, pg2 ->
+                                   monoid.invoke(pg1,
+                                                 pg2)
+                               })
+                    .orElseGet { monoid.empty() }
+        }
+
     }
 
     override val vertices: PersistentList<V> by lazy {
@@ -379,118 +388,14 @@ internal data class DefaultTwoToOnePathToEdgePathBasedGraph<P, V, E>(override va
         return verticesByPath.stream()
                 .parallel()
                 .map { entry: Map.Entry<P, V> -> function.invoke(entry.value) }
-                .reduce(DefaultTwoToOnePathToEdgePathBasedGraph<P, R, E>() as PathBasedGraph<P, R, E>,
-                        { currentGraph: PathBasedGraph<P, R, E>, pg: PathBasedGraph<P, R, E> ->
-                            when (currentGraph) {
-                                is TwoToOnePathToEdgeGraph -> {
-                                    pg.fold({ v: PersistentMap<P, R>, eSingle: PersistentMap<Pair<P, P>, E> ->
-                                                currentGraph.putAllVertices(v)
-                                                        .putAllEdges(eSingle)
-                                            },
-                                            { v: PersistentMap<P, R>, eMany: PersistentMap<Pair<P, P>, PersistentSet<E>> -> // Any output of persistent graph that has
-                                                // two to many mapping means the current graph type must be flipped to two-to-many edge map type
-                                                // in order to avoid any loss of information
-                                                DefaultTwoToManyEdgePathBasedGraph<P, R, E>(verticesByPath = currentGraph.verticesByPath).putAllEdges(currentGraph.edgesByPathPair)
-                                                        .putAllVertices(v)
-                                                        .putAllEdgeSets(eMany)
-                                            })
-                                }
-                                is TwoToManyPathToEdgeGraph -> {
-                                    pg.fold({ v: PersistentMap<P, R>, eSingle: PersistentMap<Pair<P, P>, E> ->
-                                                currentGraph.putAllVertices(v)
-                                                        .putAllEdges(eSingle)
-                                            },
-                                            { v: PersistentMap<P, R>, eMany: PersistentMap<Pair<P, P>, PersistentSet<E>> ->
-                                                currentGraph.putAllVertices(v)
-                                                        .putAllEdgeSets(eMany)
-                                            })
-                                }
-                            }
-                        },
-                        { pg1, pg2 ->
-                            when (pg1) {
-                                is TwoToOnePathToEdgeGraph -> {
-                                    pg2.fold({ v: PersistentMap<P, R>, eSingle: PersistentMap<Pair<P, P>, E> ->
-                                                 pg1.putAllVertices(v)
-                                                         .putAllEdges(eSingle)
-                                             },
-                                             { v: PersistentMap<P, R>, eMany: PersistentMap<Pair<P, P>, PersistentSet<E>> ->
-                                                 DefaultTwoToManyEdgePathBasedGraph<P, R, E>(verticesByPath = pg1.verticesByPath).putAllEdges(pg1.edgesByPathPair)
-                                                         .putAllVertices(v)
-                                                         .putAllEdgeSets(eMany)
-                                             })
-                                }
-                                is TwoToManyPathToEdgeGraph -> {
-                                    pg2.fold({ v: PersistentMap<P, R>, eSingle: PersistentMap<Pair<P, P>, E> ->
-                                                 pg1.putAllVertices(v)
-                                                         .putAllEdges(eSingle)
-                                             },
-                                             { v: PersistentMap<P, R>, eMany: PersistentMap<Pair<P, P>, PersistentSet<E>> ->
-                                                 pg1.putAllVertices(v)
-                                                         .putAllEdgeSets(eMany)
-                                             })
-                                }
-                            }
-                        })
+                .reduceByMonoid()
 
     }
 
     override fun <R> flatMapEdges(function: (E) -> PathBasedGraph<P, V, R>): PathBasedGraph<P, V, R> {
         return edgesByPathPair.entries.parallelStream()
                 .map { entry: Map.Entry<Pair<P, P>, E> -> function.invoke(entry.value) }
-                .reduce(DefaultTwoToOnePathToEdgePathBasedGraph<P, V, R>(verticesByPath = verticesByPath) as PathBasedGraph<P, V, R>,
-                        { cg, pg ->
-                            when (cg) {
-                                is TwoToOnePathToEdgeGraph -> {
-                                    pg.fold({ v: PersistentMap<P, V>, eSingle: PersistentMap<Pair<P, P>, R> ->
-                                                cg.putAllVertices(v)
-                                                        .putAllEdges(eSingle)
-                                            },
-                                            { v: PersistentMap<P, V>, eMany: PersistentMap<Pair<P, P>, PersistentSet<R>> -> // Any output of persistent graph that has
-                                                // two to many mapping means the current graph type must be flipped to two-to-many edge map type
-                                                // in order to avoid any loss of information
-                                                DefaultTwoToManyEdgePathBasedGraph<P, V, R>(verticesByPath = cg.verticesByPath).putAllEdges(cg.edgesByPathPair)
-                                                        .putAllVertices(v)
-                                                        .putAllEdgeSets(eMany)
-                                            })
-                                }
-                                is TwoToManyPathToEdgeGraph -> {
-                                    pg.fold({ v: PersistentMap<P, V>, eSingle: PersistentMap<Pair<P, P>, R> ->
-                                                cg.putAllVertices(v)
-                                                        .putAllEdges(eSingle)
-                                            },
-                                            { v: PersistentMap<P, V>, eMany: PersistentMap<Pair<P, P>, PersistentSet<R>> ->
-                                                cg.putAllVertices(v)
-                                                        .putAllEdgeSets(eMany)
-                                            })
-                                }
-                            }
-                        },
-                        { pg1, pg2 ->
-                            when (pg1) {
-                                is TwoToOnePathToEdgeGraph -> {
-                                    pg2.fold({ v: PersistentMap<P, V>, eSingle: PersistentMap<Pair<P, P>, R> ->
-                                                 pg1.putAllVertices(v)
-                                                         .putAllEdges(eSingle)
-                                             },
-                                             { v: PersistentMap<P, V>, eMany: PersistentMap<Pair<P, P>, PersistentSet<R>> ->
-                                                 DefaultTwoToManyEdgePathBasedGraph<P, V, R>(verticesByPath = pg1.verticesByPath).putAllEdges(pg1.edgesByPathPair)
-                                                         .putAllVertices(v)
-                                                         .putAllEdgeSets(eMany)
-                                             })
-                                }
-                                is TwoToManyPathToEdgeGraph -> {
-                                    pg2.fold({ v: PersistentMap<P, V>, eSingle: PersistentMap<Pair<P, P>, R> ->
-                                                 pg1.putAllVertices(v)
-                                                         .putAllEdges(eSingle)
-                                             },
-                                             { v: PersistentMap<P, V>, eMany: PersistentMap<Pair<P, P>, PersistentSet<R>> ->
-                                                 pg1.putAllVertices(v)
-                                                         .putAllEdgeSets(eMany)
-                                             })
-                                }
-                            }
-                        })
+                .reduceByMonoid()
 
     }
 

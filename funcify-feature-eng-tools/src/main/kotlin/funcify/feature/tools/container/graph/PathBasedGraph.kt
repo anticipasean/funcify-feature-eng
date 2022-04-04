@@ -4,6 +4,7 @@ import arrow.core.Option
 import arrow.core.Tuple5
 import arrow.core.getOrElse
 import arrow.core.some
+import arrow.typeclasses.Monoid
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.PersistentSet
@@ -25,10 +26,12 @@ sealed interface PathBasedGraph<P, V, E> : PersistentGraph<V, E>,
 
     companion object {
 
+        @JvmStatic
         fun <P, V, E> emptyTwoToOnePathsToEdgeGraph(): PathBasedGraph<P, V, E> {
             return DefaultTwoToOnePathToEdgePathBasedGraph()
         }
 
+        @JvmStatic
         fun <P, V, E> emptyTwoToManyPathsToEdgesGraph(): PathBasedGraph<P, V, E> {
             return DefaultTwoToManyEdgePathBasedGraph()
         }
@@ -39,6 +42,7 @@ sealed interface PathBasedGraph<P, V, E> : PersistentGraph<V, E>,
                                                                                                  vertex)));
         }
 
+        @JvmStatic
         fun <P, V, E> of(vertex1: V,
                          path1: P,
                          edge: E,
@@ -53,6 +57,7 @@ sealed interface PathBasedGraph<P, V, E> : PersistentGraph<V, E>,
                                                                                                   edge)));
         }
 
+        @JvmStatic
         fun <P, V, E> of(vertex1: V,
                          path1: P,
                          edges: ImmutableSet<E>,
@@ -65,6 +70,10 @@ sealed interface PathBasedGraph<P, V, E> : PersistentGraph<V, E>,
                                                       edgesSetByPathPair = persistentMapOf(Pair(Pair(path1,
                                                                                                      path2),
                                                                                                 edges.toPersistentSet())));
+        }
+
+        fun <P, V, E> monoid(): PathBasedGraphMonoid<P, V, E> {
+            return PathBasedGraphMonoid.getInstance()
         }
 
     }
