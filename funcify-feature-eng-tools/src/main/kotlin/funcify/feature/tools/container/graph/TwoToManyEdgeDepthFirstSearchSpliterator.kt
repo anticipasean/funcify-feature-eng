@@ -1,7 +1,6 @@
 package funcify.feature.tools.container.graph
 
 import arrow.core.None
-import arrow.core.Option
 import arrow.core.Tuple5
 import arrow.core.getOrElse
 import arrow.core.some
@@ -26,10 +25,10 @@ import java.util.stream.Stream
  * @author smccarron
  * @created 4/2/22
  */
-internal class DepthFirstSearchSpliterator<P, V, E>(private val inputPath: P,
-                                                    private val vertices: ImmutableMap<P, V>,
-                                                    private val edges: ImmutableMap<Pair<P, P>, E>,
-                                                    private val pathConnections: ImmutableMap<P, ImmutableSet<P>>) : Spliterator<Tuple5<V, P, E, P, V>> {
+internal class TwoToManyEdgeDepthFirstSearchSpliterator<P, V, E>(private val inputPath: P,
+                                                                 private val verticesByPath: ImmutableMap<P, V>,
+                                                                 private val edgesSetByPathPair: ImmutableMap<Pair<P, P>, ImmutableSet<E>>,
+                                                                 private val pathConnections: ImmutableMap<P, ImmutableSet<P>>) : Spliterator<Tuple5<V, P, E, P, V>> {
 
     companion object {
 
@@ -42,6 +41,8 @@ internal class DepthFirstSearchSpliterator<P, V, E>(private val inputPath: P,
     private val visitedPathsSet: MutableSet<P> = mutableSetOf()
 
     private val childToParentPathRelationships: MutableMap<P, P> = mutableMapOf()
+
+    private val resultBuffer: Deque<Tuple5<V, P, E, P, V>> = LinkedList()
 
     private var expended: Boolean = false
 
@@ -61,6 +62,10 @@ internal class DepthFirstSearchSpliterator<P, V, E>(private val inputPath: P,
     override fun tryAdvance(action: Consumer<in Tuple5<V, P, E, P, V>>?): Boolean {
         if (action == null || expended) {
             return false
+        }
+        if (resultBuffer.isNotEmpty()) {
+            action.accept(resultBuffer.pollFirst())
+            return true
         }
         /**
          * Get first path within paths_to_visit buffer
@@ -119,9 +124,12 @@ internal class DepthFirstSearchSpliterator<P, V, E>(private val inputPath: P,
          * marked _expended_
          */
         val childPath: P = pathsToVisitBuffer.peekFirst()
-        val fullPathConnectionForChildPath: Option<Tuple5<V, P, E, P, V>> = getFullPathConnectionForChildPath(childPath)
-        return if (fullPathConnectionForChildPath.isDefined()) {
-            action.accept(fullPathConnectionForChildPath.orNull()!!)
+        val fullPathConnectionsForChildPath: List<Tuple5<V, P, E, P, V>> = getFullPathConnectionForChildPath(childPath)
+        return if (fullPathConnectionsForChildPath.isNotEmpty()) {
+            fullPathConnectionsForChildPath.forEach { tuple: Tuple5<V, P, E, P, V> ->
+                resultBuffer.offerLast(tuple)
+            }
+            action.accept(resultBuffer.pollFirst())
             true
         } else {
             expended = true
@@ -130,19 +138,28 @@ internal class DepthFirstSearchSpliterator<P, V, E>(private val inputPath: P,
 
     }
 
-    private fun getFullPathConnectionForChildPath(childPath: P): Option<Tuple5<V, P, E, P, V>> {
+    private fun getFullPathConnectionForChildPath(childPath: P): List<Tuple5<V, P, E, P, V>> {
         return childToParentPathRelationships[childPath].toOption()
                 .flatMap { parentPath: P ->
-                    val parentVertex: V? = vertices[parentPath]
-                    val childVertex: V? = vertices[childPath]
+                    val parentVertex: V? = verticesByPath[parentPath]
+                    val childVertex: V? = verticesByPath[childPath]
                     if (parentVertex != null && childVertex != null) {
-                        val edge: E? = edges[parentPath to childPath]
-                        if (edge != null) {
-                            Tuple5(parentVertex,
-                                   parentPath,
-                                   edge,
-                                   childPath,
-                                   childVertex).some()
+                        val edges: ImmutableSet<E> = edgesSetByPathPair[parentPath to childPath].toOption()
+                                .getOrElse { persistentSetOf() }
+                        if (edges.isNotEmpty()) {
+                            edges.stream()
+                                    .reduce(mutableListOf<Tuple5<V, P, E, P, V>>(),
+                                            { l, e ->
+                                                l.apply {
+                                                    add(Tuple5(parentVertex,
+                                                               parentPath,
+                                                               e,
+                                                               childPath,
+                                                               childVertex))
+                                                }
+                                            },
+                                            { l1, l2 -> l1.apply { addAll(l2) } })
+                                    .some()
                         } else {
                             None
                         }
@@ -150,6 +167,7 @@ internal class DepthFirstSearchSpliterator<P, V, E>(private val inputPath: P,
                         None
                     }
                 }
+                .getOrElse { mutableListOf() }
     }
 
     /**

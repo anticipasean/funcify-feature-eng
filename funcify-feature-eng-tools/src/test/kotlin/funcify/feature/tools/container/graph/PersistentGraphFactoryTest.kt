@@ -4,6 +4,8 @@ import arrow.core.Tuple5
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
 import java.util.stream.Stream
+import kotlin.reflect.KCallable
+import kotlin.reflect.jvm.jvmErasure
 import kotlin.streams.asSequence
 
 
@@ -38,7 +40,7 @@ internal class PersistentGraphFactoryTest {
                                                                 Triple(4,
                                                                        5,
                                                                        6))
-        val graph: PersistentGraph<Int, Int, Int> = edges.fold(vertices.fold(PersistentGraph.empty()) { g, v ->
+        val graph: PathBasedGraph<Int, Int, Int> = edges.fold(vertices.fold(PathBasedGraph.emptyTwoPathsToOneEdgeGraph()) { g, v ->
             g.putVertex(v,
                         v)
         }) { g, e ->
@@ -47,13 +49,13 @@ internal class PersistentGraphFactoryTest {
                       e.third)
         }
         Assertions.assertEquals(22,
-                                graph.edges()
+                                graph.edgesAsStream()
                                         .mapToInt { i -> i }
                                         .sum(),
                                 "not expected edge sum prior to minimizing")
-        val mstGraph: PersistentGraph<Int, Int, Int> = graph.createMinimumSpanningTreeGraphUsingEdgeCostFunction(Comparator.naturalOrder())
+        val mstGraph: PathBasedGraph<Int, Int, Int> = graph.createMinimumSpanningTreeGraphUsingEdgeCostFunction(Comparator.naturalOrder())
         Assertions.assertEquals(14,
-                                mstGraph.edges()
+                                mstGraph.edgesAsStream()
                                         .mapToInt { i -> i }
                                         .sum(),
                                 "not expected edge sum")
@@ -95,7 +97,7 @@ internal class PersistentGraphFactoryTest {
                                                                 Triple(9,
                                                                        11,
                                                                        1))
-        val graph: PersistentGraph<Int, Int, Int> = edges.fold(vertices.fold(PersistentGraph.empty<Int, Int, Int>()) { g, i ->
+        val graph: PathBasedGraph<Int, Int, Int> = edges.fold(vertices.fold(PathBasedGraph.emptyTwoPathsToOneEdgeGraph()) { g, i ->
             g.putVertex(i,
                         i)
         }) { g, e ->
