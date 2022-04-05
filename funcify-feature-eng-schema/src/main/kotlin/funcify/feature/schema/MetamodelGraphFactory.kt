@@ -1,6 +1,6 @@
 package funcify.feature.schema
 
-import funcify.naming.NamingConvention
+import funcify.feature.naming.NamingConvention
 
 
 /**
