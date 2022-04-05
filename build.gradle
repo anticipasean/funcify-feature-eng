@@ -46,6 +46,26 @@ subprojects {
                 testImplementation("org.jetbrains.kotlinx:kotlinx-collections-immutable-jvm:${kotlinxImmutableCollectionsVersion}")
             }
         }
+        jackson {
+            dependencies {
+                implementation("com.fasterxml.jackson.core:jackson-annotations:${jacksonVersion}")
+                implementation("com.fasterxml.jackson.core:jackson-core:${jacksonVersion}")
+                implementation("com.fasterxml.jackson.core:jackson-databind:${jacksonVersion}")
+                implementation("com.fasterxml.jackson.datatype:jackson-datatype-jdk8:${jacksonVersion}")
+                implementation("com.fasterxml.jackson.datatype:jackson-datatype-jsr310:${jacksonVersion}")
+                implementation("com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:${jacksonVersion}")
+                implementation("com.fasterxml.jackson.module:jackson-module-kotlin:${jacksonVersion}")
+                implementation("com.fasterxml.jackson.module:jackson-module-parameter-names:${jacksonVersion}")
+                testImplementation("com.fasterxml.jackson.core:jackson-annotations:${jacksonVersion}")
+                testImplementation("com.fasterxml.jackson.core:jackson-core:${jacksonVersion}")
+                testImplementation("com.fasterxml.jackson.core:jackson-databind:${jacksonVersion}")
+                testImplementation("com.fasterxml.jackson.datatype:jackson-datatype-jdk8:${jacksonVersion}")
+                testImplementation("com.fasterxml.jackson.datatype:jackson-datatype-jsr310:${jacksonVersion}")
+                testImplementation("com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:${jacksonVersion}")
+                testImplementation("com.fasterxml.jackson.module:jackson-module-kotlin:${jacksonVersion}")
+                testImplementation("com.fasterxml.jackson.module:jackson-module-parameter-names:${jacksonVersion}")
+            }
+        }
         arrow {
             dependencies {
                 implementation("io.arrow-kt:arrow-core:${arrowVersion}")

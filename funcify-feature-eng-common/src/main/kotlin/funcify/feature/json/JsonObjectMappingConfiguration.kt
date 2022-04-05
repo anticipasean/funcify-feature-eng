@@ -71,9 +71,11 @@ class JsonObjectMappingConfiguration {
          * @return consumer that takes a jackson object mapper builder and customizes it for this application
          */
         @JvmStatic
-        private fun builderCustomizationConsumer(): (Jackson2ObjectMapperBuilder) -> Unit = { builder ->
-            builder.featuresToDisable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS).featuresToEnable(MapperFeature.ACCEPT_CASE_INSENSITIVE_ENUMS)
-        }
+        private fun builderCustomizationConsumer(): (Jackson2ObjectMapperBuilder) -> Unit =
+                { builder ->
+                    builder.featuresToDisable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
+                            .featuresToEnable(MapperFeature.ACCEPT_CASE_INSENSITIVE_ENUMS)
+                }
 
 
         /**
@@ -85,8 +87,12 @@ class JsonObjectMappingConfiguration {
          */
         @JvmStatic
         private fun postBuildObjectMapperEnhancer(objectMapper: ObjectMapper): ObjectMapper {
-            objectMapper.configOverride(List::class.java).setSetterInfo(JsonSetter.Value.forValueNulls(Nulls.AS_EMPTY, Nulls.AS_EMPTY))
-            objectMapper.configOverride(Map::class.java).setSetterInfo(JsonSetter.Value.forValueNulls(Nulls.AS_EMPTY, Nulls.AS_EMPTY))
+            objectMapper.configOverride(List::class.java)
+                    .setSetterInfo(JsonSetter.Value.forValueNulls(Nulls.AS_EMPTY,
+                                                                  Nulls.AS_EMPTY))
+            objectMapper.configOverride(Map::class.java)
+                    .setSetterInfo(JsonSetter.Value.forValueNulls(Nulls.AS_EMPTY,
+                                                                  Nulls.AS_EMPTY))
             return objectMapper
         }
 
