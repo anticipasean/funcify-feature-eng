@@ -1,6 +1,5 @@
 package funcify.feature.spring.router
 
-import arrow.core.Option
 import arrow.core.getOrElse
 import arrow.core.toOption
 import com.fasterxml.jackson.databind.JsonNode
@@ -29,7 +28,6 @@ import org.springframework.web.reactive.function.server.ServerResponse
 import org.springframework.web.reactive.function.server.body
 import reactor.core.publisher.Mono
 import java.util.Locale
-import java.util.stream.Stream
 
 
 /**
@@ -53,11 +51,6 @@ class GraphQLWebFluxHandlerFunction(val graphQLRequestExecutor: GraphQLRequestEx
                 request.exchange().localeContext.toOption()
                         .flatMap { lc -> lc.locale.toOption() }
                         .getOrElse { Locale.getDefault() }
-
-        private fun <T> Option<T>.stream(): Stream<T> {
-            return this.fold({ Stream.empty() },
-                             { t -> Stream.ofNullable(t) })
-        }
 
         private fun <T> T?.toMono(nullableParameterName: String): Mono<T> {
             return this.toOption()
@@ -162,13 +155,13 @@ class GraphQLWebFluxHandlerFunction(val graphQLRequestExecutor: GraphQLRequestEx
 
                     }
 
-    private fun extractGraphQLVariablesFromStringKeyValueMap(map: Map<String, Any?>): Map<String, Any> =
+    private fun extractGraphQLVariablesFromStringKeyValueMap(map: Map<String, Any?>): Map<String, Any?> =
             map[GRAPHQL_REQUEST_VARIABLES_KEY].toOption()
                     .filter { m -> m is Map<*, *> }
                     .map { m -> m as Map<*, *> }
                     .map { m -> m.entries }
-                    .map { es ->
-                        es.parallelStream()
+                    .map { entrySet: Set<Map.Entry<Any?, Any?>> ->
+                        entrySet.parallelStream()
                                 .map { e ->
                                     e.value.toOption()
                                             .map { v -> e.key.toString() to v }
@@ -176,9 +169,9 @@ class GraphQLWebFluxHandlerFunction(val graphQLRequestExecutor: GraphQLRequestEx
                                 .flattenOptionsInStream()
                                 .reducePairsToPersistentMap()
                     }
-                    .getOrElse { persistentMapOf<String, Any>() }
+                    .getOrElse { persistentMapOf<String, Any?>() }
 
-    private fun extractGraphQLVariablesFromJson(jsonNode: JsonNode): Map<String, Any> =
+    private fun extractGraphQLVariablesFromJson(jsonNode: JsonNode): Map<String, Any?> =
             jsonNode.findPath(GRAPHQL_REQUEST_VARIABLES_KEY)
                     .toOption()
                     .filter(JsonNode::isObject)
@@ -186,7 +179,7 @@ class GraphQLWebFluxHandlerFunction(val graphQLRequestExecutor: GraphQLRequestEx
                         jn.fields()
                                 .reduceEntriesToPersistentMap()
                     }
-                    .getOrElse { persistentMapOf<String, Any>() }
+                    .getOrElse { persistentMapOf<String, Any?>() }
 
 
     private fun extractReadOnlyHttpHeadersFromRequest(request: ServerRequest): HttpHeaders {

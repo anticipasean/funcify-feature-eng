@@ -11,6 +11,11 @@ import java.util.stream.Stream
  */
 object OptionExtensions {
 
+    fun <T> Option<T>.stream(): Stream<T> {
+        return this.fold({ Stream.empty() },
+                         { t -> Stream.ofNullable(t) })
+    }
+
     fun <T> Stream<Option<T>>.flattenOptionsInStream(): Stream<T> {
         return this.flatMap { opt: Option<T> ->
             opt.fold({ Stream.empty() },

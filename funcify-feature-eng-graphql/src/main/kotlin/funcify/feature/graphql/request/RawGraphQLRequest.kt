@@ -21,7 +21,7 @@ interface RawGraphQLRequest {
 
     val operationName: String
 
-    val variables: Map<String, Any>
+    val variables: Map<String, Any?>
 
     val locale: Locale
 

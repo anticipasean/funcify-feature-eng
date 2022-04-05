@@ -17,7 +17,7 @@ data class DefaultRawGraphQLRequest(override val uri: URI,
                                     override val headers: HttpHeaders,
                                     override val rawGraphQLQueryText: String = "",
                                     override val operationName: String = "",
-                                    override val variables: Map<String, Any> = mutableMapOf(),
+                                    override val variables: Map<String, Any?> = mutableMapOf(),
                                     override val locale: Locale = Locale.getDefault(),
                                     override val requestId: String = "",
                                     override val executionInputCustomizers: List<GraphQLExecutionInputCustomizer> = mutableListOf()) : RawGraphQLRequest {
