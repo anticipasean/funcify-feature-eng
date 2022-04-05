@@ -7,8 +7,15 @@ import com.fasterxml.jackson.databind.JsonNode
 import funcify.feature.graphql.request.DefaultRawGraphQLRequest
 import funcify.feature.graphql.request.GraphQLExecutionInputCustomizer
 import funcify.feature.graphql.request.RawGraphQLRequest
+import funcify.feature.graphql.response.SerializedGraphQLResponse
 import funcify.feature.graphql.service.GraphQLRequestExecutor
 import funcify.feature.tools.container.async.Async
+import funcify.feature.tools.extensions.OptionExtensions.flattenOptionsInStream
+import funcify.feature.tools.extensions.PersistentMapExtensions.reduceEntriesToPersistentMap
+import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentMap
+import kotlinx.collections.immutable.ImmutableMap
+import kotlinx.collections.immutable.PersistentMap
+import kotlinx.collections.immutable.persistentMapOf
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.core.ParameterizedTypeReference
@@ -22,6 +29,7 @@ import org.springframework.web.reactive.function.server.ServerResponse
 import org.springframework.web.reactive.function.server.body
 import reactor.core.publisher.Mono
 import java.util.Locale
+import java.util.stream.Stream
 
 
 /**
@@ -46,9 +54,9 @@ class GraphQLWebFluxHandlerFunction(val graphQLRequestExecutor: GraphQLRequestEx
                         .flatMap { lc -> lc.locale.toOption() }
                         .getOrElse { Locale.getDefault() }
 
-        private fun <T> Option<T>.toSequence(): Sequence<T> {
-            return this.fold({ emptySequence<T>() },
-                             { t -> sequenceOf(t) })
+        private fun <T> Option<T>.stream(): Stream<T> {
+            return this.fold({ Stream.empty() },
+                             { t -> Stream.ofNullable(t) })
         }
 
         private fun <T> T?.toMono(nullableParameterName: String): Mono<T> {
@@ -59,6 +67,8 @@ class GraphQLWebFluxHandlerFunction(val graphQLRequestExecutor: GraphQLRequestEx
                                   |parameter $nullableParameterName is null but 
                                   |is required for processing this request successfully
                                   """.trimMargin()
+                                .replace("\n",
+                                         "")
                         Mono.error(IllegalArgumentException(message))
                     }
         }
@@ -67,19 +77,22 @@ class GraphQLWebFluxHandlerFunction(val graphQLRequestExecutor: GraphQLRequestEx
     override fun handle(request: ServerRequest): Mono<ServerResponse> {
         val rawGraphQLRequestMono: Mono<RawGraphQLRequest> = convertServerRequestIntoRawGraphQLRequest(request)
         return Async.fromMono(rawGraphQLRequestMono)
-                .flatMap { rawReq -> graphQLRequestExecutor.executeSingleRequest(rawReq) }
-                .map { serRes -> serRes.executionResult.toSpecification() }
+                .flatMap { rawReq: RawGraphQLRequest -> graphQLRequestExecutor.executeSingleRequest(rawReq) }
+                .map { serRes: SerializedGraphQLResponse -> serRes.executionResult.toSpecification() }
                 .toFlux()
-                .flatMap { spec ->
+                .reduceWith({ -> persistentMapOf<String, Any?>() },
+                            { pm: PersistentMap<String, Any?>, resultMap: MutableMap<String, Any?> ->
+                                pm.putAll(resultMap)
+                            })
+                .flatMap { pm: ImmutableMap<String, Any?> ->
                     ServerResponse.ok()
-                            .bodyValue(spec)
+                            .bodyValue(pm)
                 }
                 .single()
                 .onErrorResume({ err ->
                                    ServerResponse.status(HttpStatus.INTERNAL_SERVER_ERROR)
                                            .body(Mono.just(err.message.toOption()
-                                                                   .getOrElse { "error_message empty" })
-                                                )
+                                                                   .getOrElse { "error_message empty" }))
                                })
     }
 
@@ -115,8 +128,7 @@ class GraphQLWebFluxHandlerFunction(val graphQLRequestExecutor: GraphQLRequestEx
                                                          .getOrElse { "" },
                                                  variables = extractGraphQLVariablesFromStringKeyValueMap(map),
                                                  locale = extractLocaleFromRequest(request),
-                                                 executionInputCustomizers = graphQLExecutionInputCustomizers
-                                                )
+                                                 executionInputCustomizers = graphQLExecutionInputCustomizers)
                     }
 
     private fun transformJsonIntoRawGraphQLRequest(request: ServerRequest): Mono<RawGraphQLRequest> =
@@ -133,8 +145,7 @@ class GraphQLWebFluxHandlerFunction(val graphQLRequestExecutor: GraphQLRequestEx
                                                          .asText(""),
                                                  variables = extractGraphQLVariablesFromJson(jn),
                                                  locale = extractLocaleFromRequest(request),
-                                                 executionInputCustomizers = graphQLExecutionInputCustomizers
-                                                )
+                                                 executionInputCustomizers = graphQLExecutionInputCustomizers)
                     }
 
     private fun transformRawGraphQLOperationTextIntoRawGraphQLRequest(request: ServerRequest): Mono<RawGraphQLRequest> =
@@ -147,8 +158,7 @@ class GraphQLWebFluxHandlerFunction(val graphQLRequestExecutor: GraphQLRequestEx
                                                  headers = extractReadOnlyHttpHeadersFromRequest(request),
                                                  rawGraphQLQueryText = txt,
                                                  locale = extractLocaleFromRequest(request),
-                                                 executionInputCustomizers = graphQLExecutionInputCustomizers
-                                                )
+                                                 executionInputCustomizers = graphQLExecutionInputCustomizers)
 
                     }
 
@@ -158,18 +168,15 @@ class GraphQLWebFluxHandlerFunction(val graphQLRequestExecutor: GraphQLRequestEx
                     .map { m -> m as Map<*, *> }
                     .map { m -> m.entries }
                     .map { es ->
-                        es.asSequence()
+                        es.parallelStream()
                                 .map { e ->
                                     e.value.toOption()
                                             .map { v -> e.key.toString() to v }
                                 }
-                                .flatMap { opt ->
-                                    opt.toSequence()
-                                }
-                                .fold(mapOf<String, Any>(),
-                                      { m, p -> m.plus(p) })
+                                .flattenOptionsInStream()
+                                .reducePairsToPersistentMap()
                     }
-                    .getOrElse { mapOf<String, Any>() }
+                    .getOrElse { persistentMapOf<String, Any>() }
 
     private fun extractGraphQLVariablesFromJson(jsonNode: JsonNode): Map<String, Any> =
             jsonNode.findPath(GRAPHQL_REQUEST_VARIABLES_KEY)
@@ -177,17 +184,13 @@ class GraphQLWebFluxHandlerFunction(val graphQLRequestExecutor: GraphQLRequestEx
                     .filter(JsonNode::isObject)
                     .map { jn ->
                         jn.fields()
-                                .asSequence()
-                                .map { e -> e.key to e.value }
-                                .fold(mapOf<String, Any>(),
-                                      { m, p -> m.plus(p) })
+                                .reduceEntriesToPersistentMap()
                     }
-                    .getOrElse { mapOf<String, Any>() }
+                    .getOrElse { persistentMapOf<String, Any>() }
 
 
     private fun extractReadOnlyHttpHeadersFromRequest(request: ServerRequest): HttpHeaders {
         return HttpHeaders.readOnlyHttpHeaders(request.headers()
-                                                       .asHttpHeaders()
-                                              );
+                                                       .asHttpHeaders());
     }
 }

@@ -6,12 +6,12 @@ import arrow.core.getOrElse
 import arrow.core.some
 import arrow.core.toOption
 import funcify.feature.tools.container.tree.UnionFindTree
+import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentSetValueMap
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.PersistentList
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.PersistentSet
-import kotlinx.collections.immutable.persistentHashSetOf
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.persistentSetOf
@@ -48,73 +48,6 @@ internal data class DefaultTwoToOnePathToEdgePathBasedGraph<P, V, E>(override va
             return this.reduce(startValue,
                                monoid,
                                monoid)
-        }
-
-        private fun <K, V> PersistentMap<K, PersistentSet<V>>.combine(otherMap: PersistentMap<K, PersistentSet<V>>): PersistentMap<K, PersistentSet<V>> {
-            return when {
-                this.isEmpty() -> {
-                    otherMap
-                }
-                otherMap.isEmpty() -> {
-                    this
-                }
-                this.size > otherMap.size -> {
-                    val finalResultHolder: Array<PersistentMap<K, PersistentSet<V>>> = arrayOf(this)
-                    otherMap.forEach({ (key, value) ->
-                                         finalResultHolder[0] = finalResultHolder[0].put(key,
-                                                                                         finalResultHolder[0].getOrDefault(key,
-                                                                                                                           persistentSetOf())
-                                                                                                 .addAll(value))
-                                     })
-                    finalResultHolder[0]
-                }
-                else -> {
-                    val finalResultHolder: Array<PersistentMap<K, PersistentSet<V>>> = arrayOf(otherMap)
-                    this.forEach({ (key, value) ->
-                                     finalResultHolder[0] = finalResultHolder[0].put(key,
-                                                                                     finalResultHolder[0].getOrDefault(key,
-                                                                                                                       persistentSetOf())
-                                                                                             .addAll(value))
-                                 })
-                    finalResultHolder[0]
-                }
-            }
-        }
-
-        private fun <K, V> Stream<Pair<K, V>>.reducePairsToPersistentSetValueMap(startValue: PersistentMap<K, PersistentSet<V>> = persistentMapOf(),
-                                                                                 filter: (K) -> Boolean = { true }): PersistentMap<K, PersistentSet<V>> {
-            return this.reduce(startValue,
-                               { pm, pair ->
-                                   if (filter.invoke(pair.first)) {
-                                       pm.put(pair.first,
-                                              pm.getOrDefault(pair.first,
-                                                              persistentHashSetOf())
-                                                      .add(pair.second))
-                                   } else {
-                                       pm
-                                   }
-                               },
-                               { pm1, pm2 ->
-                                   pm2.combine(pm1)
-                               })
-        }
-
-        private fun <K, V> Stream<Map.Entry<K, V>>.reduceEntriesToPersistentSetValueMap(startValue: PersistentMap<K, PersistentSet<V>> = persistentMapOf(),
-                                                                                        filter: (K) -> Boolean = { true }): PersistentMap<K, PersistentSet<V>> {
-            return this.reduce(startValue,
-                               { pm, entry ->
-                                   if (filter.invoke(entry.key)) {
-                                       pm.put(entry.key,
-                                              pm.getOrDefault(entry.key,
-                                                              persistentSetOf())
-                                                      .add(entry.value))
-                                   } else {
-                                       pm
-                                   }
-                               },
-                               { pm1, pm2 ->
-                                   pm2.combine(pm1)
-                               })
         }
 
     }
