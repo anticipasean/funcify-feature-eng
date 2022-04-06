@@ -6,13 +6,18 @@ import arrow.core.getOrElse
 import arrow.core.some
 import arrow.core.toOption
 import funcify.feature.tools.container.tree.UnionFindTree
+import funcify.feature.tools.extensions.OptionExtensions.flatMapOptions
+import funcify.feature.tools.extensions.OptionExtensions.stream
+import funcify.feature.tools.extensions.OptionExtensions.toPersistentSet
+import funcify.feature.tools.extensions.PersistentListExtensions.reduceToPersistentList
+import funcify.feature.tools.extensions.PersistentMapExtensions.reduceEntriesToPersistentMap
+import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentMap
 import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentSetValueMap
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.PersistentList
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.PersistentSet
-import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.persistentSetOf
 import java.util.stream.Stream
@@ -31,34 +36,13 @@ internal data class DefaultTwoToOnePathToEdgePathBasedGraph<P, V, E>(override va
         private fun <K, V> ImmutableMap<K, V>.stream(): Stream<Map.Entry<K, V>> {
             return this.entries.stream()
         }
-
-        private fun <T> Option<T>.stream(): Stream<T> {
-            return this.fold({ Stream.empty() },
-                             { t: T -> Stream.of(t) })
-        }
-
-        private fun <T> Option<T>.toPersistentSet(): PersistentSet<T> {
-            return this.fold({ persistentSetOf() },
-                             { t: T -> persistentSetOf(t) })
-        }
-
-        private fun <P, V, E> Stream<PathBasedGraph<P, V, E>>.reduceByMonoid(startValue: PathBasedGraph<P, V, E> = PathBasedGraph.monoid<P, V, E>()
-                .empty()): PathBasedGraph<P, V, E> {
-            val monoid = PathBasedGraph.monoid<P, V, E>()
-            return this.reduce(startValue,
-                               monoid,
-                               monoid)
-        }
-
     }
 
     override val vertices: PersistentList<V> by lazy {
         verticesByPath.stream()
                 .parallel()
                 .map { e -> e.value }
-                .reduce(persistentListOf<V>(),
-                        { pl, v -> pl.add(v) },
-                        { pl1, pl2 -> pl1.addAll(pl2) })
+                .reduceToPersistentList()
     }
 
     override val edgesByConnectedVertices: PersistentMap<Pair<V, V>, PersistentSet<E>> by lazy {
@@ -70,7 +54,7 @@ internal data class DefaultTwoToOnePathToEdgePathBasedGraph<P, V, E>(override va
                                 (v1 to v2) to e.value
                             }
                 }
-                .flatMap { opt -> opt.stream() }
+                .flatMapOptions()
                 .reducePairsToPersistentSetValueMap()
 
     }
@@ -144,18 +128,8 @@ internal data class DefaultTwoToOnePathToEdgePathBasedGraph<P, V, E>(override va
 
     override fun <M : Map<out Pair<P, P>, @UnsafeVariance E>> putAllEdges(edges: M): PathBasedGraph<P, V, E> {
         val updatedEdges = edges.entries.parallelStream()
-                .reduce(edgesByPathPair,
-                        { eMap, entry ->
-                            if (verticesByPath.containsKey(entry.key.first) && verticesByPath.containsKey(entry.key.second)) {
-                                eMap.put(entry.key,
-                                         entry.value)
-                            } else {
-                                eMap
-                            }
-                        },
-                        { eMap1, eMap2 ->
-                            eMap1.putAll(eMap2)
-                        })
+                .filter { entry -> verticesByPath.containsKey(entry.key.first) && verticesByPath.containsKey(entry.key.second) }
+                .reduceEntriesToPersistentMap()
         return DefaultTwoToOnePathToEdgePathBasedGraph(verticesByPath = verticesByPath,
                                                        edgesByPathPair = updatedEdges)
     }
@@ -166,18 +140,8 @@ internal data class DefaultTwoToOnePathToEdgePathBasedGraph<P, V, E>(override va
                     e.value.parallelStream()
                             .map { edge -> e.key to edge }
                 }
-                .reduce(edgesByPathPair,
-                        { eMap, entry ->
-                            if (verticesByPath.containsKey(entry.first.first) && verticesByPath.containsKey(entry.first.second)) {
-                                eMap.put(entry.first,
-                                         entry.second)
-                            } else {
-                                eMap
-                            }
-                        },
-                        { eMap1, eMap2 ->
-                            eMap1.putAll(eMap2)
-                        })
+                .filter { pair -> verticesByPath.containsKey(pair.first.first) && verticesByPath.containsKey(pair.first.second) }
+                .reducePairsToPersistentMap()
         return DefaultTwoToOnePathToEdgePathBasedGraph(verticesByPath = verticesByPath,
                                                        edgesByPathPair = updatedEdges)
     }
@@ -203,9 +167,7 @@ internal data class DefaultTwoToOnePathToEdgePathBasedGraph<P, V, E>(override va
                 }
                 .getOrElse { Stream.empty() }
                 .map { pair: Pair<P, P> -> edgesByPathPair[pair].toOption() }
-                .flatMap { eOpt: Option<E> ->
-                    eOpt.stream()
-                }
+                .flatMapOptions()
     }
 
     /**
@@ -222,9 +184,7 @@ internal data class DefaultTwoToOnePathToEdgePathBasedGraph<P, V, E>(override va
                 }
                 .getOrElse { Stream.empty() }
                 .map { pair: Pair<P, P> -> edgesByPathPair[pair].toOption() }
-                .flatMap { eOpt: Option<E> ->
-                    eOpt.stream()
-                }
+                .flatMapOptions()
     }
 
     override fun successors(vertexPath: P): Stream<Pair<P, V>> {
@@ -285,12 +245,7 @@ internal data class DefaultTwoToOnePathToEdgePathBasedGraph<P, V, E>(override va
         val updatedVertices = verticesByPath.stream()
                 .parallel()
                 .filter { entry: Map.Entry<P, V> -> function.invoke(entry.value) }
-                .reduce(persistentMapOf<P, V>(),
-                        { acc, entry ->
-                            acc.put(entry.key,
-                                    entry.value)
-                        },
-                        { pm1, pm2 -> pm1.putAll(pm2) })
+                .reduceEntriesToPersistentMap()
         val updatedEdges = edgesByPathPair.stream()
                 .parallel()
                 .filter { entry: Map.Entry<Pair<P, P>, E> ->
@@ -299,12 +254,7 @@ internal data class DefaultTwoToOnePathToEdgePathBasedGraph<P, V, E>(override va
                         updatedVertices.containsKey(p)
                     }
                 }
-                .reduce(persistentMapOf<Pair<P, P>, E>(),
-                        { acc, entry ->
-                            acc.put(entry.key,
-                                    entry.value)
-                        },
-                        { pm1, pm2 -> pm1.putAll(pm2) })
+                .reduceEntriesToPersistentMap()
         return DefaultTwoToOnePathToEdgePathBasedGraph(updatedVertices,
                                                        updatedEdges)
     }
@@ -315,12 +265,7 @@ internal data class DefaultTwoToOnePathToEdgePathBasedGraph<P, V, E>(override va
                 .filter { entry: Map.Entry<Pair<P, P>, E> ->
                     function.invoke(entry.value)
                 }
-                .reduce(persistentMapOf<Pair<P, P>, E>(),
-                        { acc, entry ->
-                            acc.put(entry.key,
-                                    entry.value)
-                        },
-                        { pm1, pm2 -> pm1.putAll(pm2) })
+                .reduceEntriesToPersistentMap()
         return DefaultTwoToOnePathToEdgePathBasedGraph(verticesByPath = verticesByPath,
                                                        edgesByPathPair = updatedEdges)
     }
@@ -329,12 +274,7 @@ internal data class DefaultTwoToOnePathToEdgePathBasedGraph<P, V, E>(override va
         val updatedVertices = verticesByPath.stream()
                 .parallel()
                 .map { entry: Map.Entry<P, V> -> entry.key to function.invoke(entry.value) }
-                .reduce(persistentMapOf<P, R>(),
-                        { acc, entry ->
-                            acc.put(entry.first,
-                                    entry.second)
-                        },
-                        { pm1, pm2 -> pm1.putAll(pm2) })
+                .reducePairsToPersistentMap()
         val updatedEdges = edgesByPathPair.stream()
                 .parallel()
                 .filter { entry: Map.Entry<Pair<P, P>, E> ->
@@ -343,14 +283,7 @@ internal data class DefaultTwoToOnePathToEdgePathBasedGraph<P, V, E>(override va
                         updatedVertices.containsKey(p)
                     }
                 }
-                .reduce(persistentMapOf<Pair<P, P>, E>(),
-                        { acc, entry ->
-                            acc.put(entry.key,
-                                    entry.value)
-                        },
-                        { pm1, pm2 ->
-                            pm1.putAll(pm2)
-                        })
+                .reduceEntriesToPersistentMap()
         return DefaultTwoToOnePathToEdgePathBasedGraph(verticesByPath = updatedVertices,
                                                        edgesByPathPair = updatedEdges)
     }
@@ -361,14 +294,7 @@ internal data class DefaultTwoToOnePathToEdgePathBasedGraph<P, V, E>(override va
                 .map { entry: Map.Entry<Pair<P, P>, E> ->
                     entry.key to function.invoke(entry.value)
                 }
-                .reduce(persistentMapOf<Pair<P, P>, R>(),
-                        { acc, entry ->
-                            acc.put(entry.first,
-                                    entry.second)
-                        },
-                        { pm1, pm2 ->
-                            pm1.putAll(pm2)
-                        })
+                .reducePairsToPersistentMap()
         return DefaultTwoToOnePathToEdgePathBasedGraph(verticesByPath = verticesByPath,
                                                        edgesByPathPair = updatedEdges)
     }
@@ -381,13 +307,7 @@ internal data class DefaultTwoToOnePathToEdgePathBasedGraph<P, V, E>(override va
                                     value)
                 }
                 .flatMap { vertexMap: M -> vertexMap.entries.parallelStream() }
-                .map { entry -> entry.key to entry.value }
-                .reduce(persistentMapOf<P, R>(),
-                        { pm, vPair ->
-                            pm.put(vPair.first,
-                                   vPair.second)
-                        },
-                        { pm1, pm2 -> pm1.putAll(pm2) })
+                .reduceEntriesToPersistentMap()
         return DefaultTwoToOnePathToEdgePathBasedGraph<P, R, E>(verticesByPath = updatedVertices).putAllEdges(edgesByPathPair)
     }
 
@@ -398,13 +318,7 @@ internal data class DefaultTwoToOnePathToEdgePathBasedGraph<P, V, E>(override va
                                     value)
                 }
                 .flatMap { edgesMap: M -> edgesMap.entries.parallelStream() }
-                .map { (key, value) -> key to value }
-                .reduce(persistentMapOf<Pair<P, P>, R>(),
-                        { pm, ePair ->
-                            pm.put(ePair.first,
-                                   ePair.second)
-                        },
-                        { pm1, pm2 -> pm1.putAll(pm2) })
+                .reduceEntriesToPersistentMap()
         return DefaultTwoToOnePathToEdgePathBasedGraph<P, V, R>(verticesByPath = verticesByPath).putAllEdges(updatedEdges)
     }
 
@@ -465,8 +379,7 @@ internal data class DefaultTwoToOnePathToEdgePathBasedGraph<P, V, E>(override va
     override fun depthFirstSearchOnPath(path: P): Stream<Tuple5<V, P, E, P, V>> {
         return path.some()
                 .filter { p: P -> verticesByPath.containsKey(p) }
-                .map { p: P -> Stream.of(p) }
-                .getOrElse { Stream.empty() }
+                .stream()
                 .flatMap { p: P ->
                     StreamSupport.stream(TwoToOneEdgeDepthFirstSearchSpliterator<P, V, E>(inputPath = p,
                                                                                           verticesByPath = verticesByPath,

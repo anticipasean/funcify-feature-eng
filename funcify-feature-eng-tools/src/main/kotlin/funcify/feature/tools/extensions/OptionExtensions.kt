@@ -1,6 +1,8 @@
 package funcify.feature.tools.extensions
 
 import arrow.core.Option
+import kotlinx.collections.immutable.PersistentSet
+import kotlinx.collections.immutable.persistentSetOf
 import java.util.stream.Stream
 
 
@@ -16,12 +18,16 @@ object OptionExtensions {
                          { t -> Stream.ofNullable(t) })
     }
 
-    fun <T> Stream<Option<T>>.flattenOptionsInStream(): Stream<T> {
+    fun <T, O : Option<T>> Stream<O>.flatMapOptions(): Stream<T> {
         return this.flatMap { opt: Option<T> ->
             opt.fold({ Stream.empty() },
                      { t: T -> Stream.ofNullable(t) })
         }
     }
 
+    fun <T> Option<T>.toPersistentSet(): PersistentSet<T> {
+        return this.fold({ persistentSetOf() },
+                         { t: T -> persistentSetOf(t) })
+    }
 
 }

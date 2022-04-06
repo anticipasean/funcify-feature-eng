@@ -9,7 +9,7 @@ import funcify.feature.graphql.request.RawGraphQLRequest
 import funcify.feature.graphql.response.SerializedGraphQLResponse
 import funcify.feature.graphql.service.GraphQLRequestExecutor
 import funcify.feature.tools.container.async.Async
-import funcify.feature.tools.extensions.OptionExtensions.flattenOptionsInStream
+import funcify.feature.tools.extensions.OptionExtensions.flatMapOptions
 import funcify.feature.tools.extensions.PersistentMapExtensions.reduceEntriesToPersistentMap
 import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentMap
 import kotlinx.collections.immutable.ImmutableMap
@@ -166,7 +166,7 @@ class GraphQLWebFluxHandlerFunction(val graphQLRequestExecutor: GraphQLRequestEx
                                     e.value.toOption()
                                             .map { v -> e.key.toString() to v }
                                 }
-                                .flattenOptionsInStream()
+                                .flatMapOptions()
                                 .reducePairsToPersistentMap()
                     }
                     .getOrElse { persistentMapOf<String, Any?>() }

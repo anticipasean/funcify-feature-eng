@@ -30,7 +30,13 @@ object PersistentMapExtensions {
                                pm.put(entry.key,
                                       entry.value)
                            },
-                           { pm1, pm2 -> pm2.putAll(pm1) })
+                           { pm1, pm2 ->
+                               /**
+                                * pm1 putAll pm2 preserves insertion order
+                                * if backing implementation is of ordered type
+                                */
+                               pm1.putAll(pm2)
+                           })
     }
 
     fun <K, V> Stream<Pair<K, V>>.reducePairsToPersistentMap(): PersistentMap<K, V> {
@@ -39,39 +45,33 @@ object PersistentMapExtensions {
                                pm.put(pair.first,
                                       pair.second)
                            },
-                           { pm1, pm2 -> pm2.putAll(pm1) })
-    }
-
-    fun <K, V> Stream<Pair<K, V>>.reducePairsToPersistentSetValueMap(startValue: PersistentMap<K, PersistentSet<V>> = persistentMapOf(),
-                                                                     filter: (K) -> Boolean = { true }): PersistentMap<K, PersistentSet<V>> {
-        return this.reduce(startValue,
-                           { pm, pair ->
-                               if (filter.invoke(pair.first)) {
-                                   pm.put(pair.first,
-                                          pm.getOrDefault(pair.first,
-                                                          persistentHashSetOf())
-                                                  .add(pair.second))
-                               } else {
-                                   pm
-                               }
-                           },
                            { pm1, pm2 ->
-                               pm2.combineWithPersistentSetValueMap(pm1)
+                               /**
+                                * pm1 putAll pm2 preserves insertion order
+                                * if backing implementation is of ordered type
+                                */
+                               pm1.putAll(pm2)
                            })
     }
 
-    fun <K, V> Stream<Map.Entry<K, V>>.reduceEntriesToPersistentSetValueMap(startValue: PersistentMap<K, PersistentSet<V>> = persistentMapOf(),
-                                                                            filter: (K) -> Boolean = { true }): PersistentMap<K, PersistentSet<V>> {
+    fun <K, V> Stream<Pair<K, V>>.reducePairsToPersistentSetValueMap(startValue: PersistentMap<K, PersistentSet<V>> = persistentMapOf()): PersistentMap<K, PersistentSet<V>> {
+        return this.reduce(startValue,
+                           { pm, pair ->
+                               pm.put(pair.first,
+                                      pm.getOrDefault(pair.first,
+                                                      persistentHashSetOf())
+                                              .add(pair.second))
+                           },
+                           { pm1, pm2 -> pm2.combineWithPersistentSetValueMap(pm1) })
+    }
+
+    fun <K, V> Stream<Map.Entry<K, V>>.reduceEntriesToPersistentSetValueMap(startValue: PersistentMap<K, PersistentSet<V>> = persistentMapOf()): PersistentMap<K, PersistentSet<V>> {
         return this.reduce(startValue,
                            { pm, entry ->
-                               if (filter.invoke(entry.key)) {
-                                   pm.put(entry.key,
-                                          pm.getOrDefault(entry.key,
-                                                          persistentSetOf())
-                                                  .add(entry.value))
-                               } else {
-                                   pm
-                               }
+                               pm.put(entry.key,
+                                      pm.getOrDefault(entry.key,
+                                                      persistentSetOf())
+                                              .add(entry.value))
                            },
                            { pm1, pm2 ->
                                pm2.combineWithPersistentSetValueMap(pm1)
@@ -79,35 +79,23 @@ object PersistentMapExtensions {
     }
 
     fun <K, V> PersistentMap<K, PersistentSet<V>>.combineWithPersistentSetValueMap(otherMap: PersistentMap<K, PersistentSet<V>>): PersistentMap<K, PersistentSet<V>> {
-        return when {
-            this.isEmpty() -> {
-                otherMap
-            }
-            otherMap.isEmpty() -> {
-                this
-            }
-            this.size > otherMap.size -> {
-                val finalResultHolder: Array<PersistentMap<K, PersistentSet<V>>> = arrayOf(this)
-                otherMap.forEach({ (key, value) ->
-                                     finalResultHolder[0] = finalResultHolder[0].put(key,
-                                                                                     finalResultHolder[0].getOrDefault(key,
-                                                                                                                       persistentSetOf())
-                                                                                             .addAll(value))
-                                 })
-                finalResultHolder[0]
-            }
-            else -> {
-                val finalResultHolder: Array<PersistentMap<K, PersistentSet<V>>> = arrayOf(otherMap)
-                this.forEach({ (key, value) ->
-                                 finalResultHolder[0] = finalResultHolder[0].put(key,
-                                                                                 finalResultHolder[0].getOrDefault(key,
-                                                                                                                   persistentSetOf())
-                                                                                         .addAll(value))
-                             })
-                finalResultHolder[0]
-            }
-        }
+        /**
+         * invoking #put on this for each entry from other preserves insertion order
+         */
+        val finalResultHolder: Array<PersistentMap<K, PersistentSet<V>>> = arrayOf(otherMap)
+        /**
+         * performing this.putAll(other) would potentially overwrite entries in this for a given key K
+         * { ["Bob"]: { 1, 2, 3 } }.putAll({ ["Bob"]: { 3, 4, 5 } }) => { ["Bob"]: { 3, 4, 5 } }
+         * so combining the set values this\[K] + other\[K] in the following manner avoids a loss of information
+         * { ["Bob"]: { 1, 2, 3 } }.forEach((k, v) -> (other["Bob"] || {}).addAll(v) ) => { ["Bob"]: { 1, 2, 3, 4, 5 } }
+         */
+        this.forEach({ (key, value) ->
+                         finalResultHolder[0] = finalResultHolder[0].put(key,
+                                                                         finalResultHolder[0].getOrDefault(key,
+                                                                                                           persistentSetOf())
+                                                                                 .addAll(value))
+                     })
+        return finalResultHolder[0]
     }
-
 
 }
