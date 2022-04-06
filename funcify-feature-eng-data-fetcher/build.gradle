@@ -1,6 +1,8 @@
 
 
 dependencies {
-    implementation(project(":funcify-feature-eng-schema"))
     implementation(project(":funcify-feature-eng-api-contract"))
+    implementation(project(":funcify-feature-eng-common"))
+    implementation(project(":funcify-feature-eng-tools"))
+    implementation(project(":funcify-feature-eng-schema"))
 }

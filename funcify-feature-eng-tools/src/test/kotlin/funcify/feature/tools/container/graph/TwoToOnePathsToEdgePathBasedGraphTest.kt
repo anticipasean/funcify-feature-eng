@@ -120,7 +120,7 @@ internal class TwoToOnePathsToEdgePathBasedGraphTest {
 
     @Test
     fun flatMapVerticesTwoToOnePathsToEdgeGraphTest() {
-        val g1 = (0..6).asSequence()
+        val g1 = (0..6)
                 .fold(PathBasedGraph.emptyTwoToOnePathsToEdgeGraph<Int, Int, Int>()) { acc: PathBasedGraph<Int, Int, Int>, i: Int ->
                     acc.putVertex(i,
                                   i)
@@ -150,7 +150,7 @@ internal class TwoToOnePathsToEdgePathBasedGraphTest {
 
     @Test
     fun mapVerticesTwoToOnePathsToEdgeGraphTest() {
-        val g1 = (0..6).asSequence()
+        val g1 = (0..6)
                 .fold(PathBasedGraph.emptyTwoToOnePathsToEdgeGraph<Int, Int, Int>()) { acc: PathBasedGraph<Int, Int, Int>, i: Int ->
                     acc.putVertex(i,
                                   i)
@@ -180,7 +180,7 @@ internal class TwoToOnePathsToEdgePathBasedGraphTest {
 
     @Test
     fun filterVerticesTwoToOnePathsToEdgeGraphTest() {
-        val g1 = (0..6).asSequence()
+        val g1 = (0..6)
                 .fold(PathBasedGraph.emptyTwoToOnePathsToEdgeGraph<Int, Int, Int>()) { acc: PathBasedGraph<Int, Int, Int>, i: Int ->
                     acc.putVertex(i,
                                   i)
@@ -210,7 +210,7 @@ internal class TwoToOnePathsToEdgePathBasedGraphTest {
 
     @Test
     fun flatMapEdgesTwoToOnePathsToEdgeGraphTest() {
-        val g1 = (0..6).asSequence()
+        val g1 = (0..6)
                 .fold(PathBasedGraph.emptyTwoToOnePathsToEdgeGraph<Int, Int, Int>()) { acc: PathBasedGraph<Int, Int, Int>, i: Int ->
                     acc.putVertex(i,
                                   i)

@@ -1,18 +1,29 @@
-package funcify.feature.data
+package funcify.feature.graphql.metadata
 
+import arrow.core.filterIsInstance
+import arrow.core.toOption
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.node.JsonNodeFactory
+import com.fasterxml.jackson.module.kotlin.treeToValue
 import funcify.feature.tools.container.async.Async
 import funcify.feature.tools.container.attempt.Try
+import funcify.feature.tools.extensions.OptionExtensions.flatMapOptions
+import funcify.feature.tools.extensions.PersistentListExtensions.reduceToPersistentList
 import graphql.ExecutionResult
 import graphql.GraphQL
+import graphql.GraphQLError
 import graphql.introspection.IntrospectionQuery
+import graphql.introspection.IntrospectionResultToSchema
+import graphql.language.Definition
+import graphql.language.Document
+import graphql.language.SDLDefinition
 import graphql.schema.GraphQLSchema
 import graphql.schema.idl.RuntimeWiring
 import graphql.schema.idl.SchemaGenerator
 import graphql.schema.idl.SchemaParser
 import graphql.schema.idl.TypeDefinitionRegistry
+import kotlinx.collections.immutable.PersistentList
 
 
 /**
@@ -71,11 +82,13 @@ class MockGraphQLFetcherMetadataProvider(val objectMapper: ObjectMapper) : Graph
                     """.trimMargin()
     }
 
-    override fun provideMetadata(): Async<JsonNode> {
-        return Async.fromAttempt(attemptToPerformIntrospectionQueryOnParsedSchema())
+    override fun provideMetadata(): Async<GraphQLSchema> {
+        return Async.fromAttempt(mimicIntrospectionQueryAgainstGraphQLAPIServerOnParsedSchema().flatMap { jn ->
+            convertJsonNodeIntoGraphQLSchemaInstance(jn)
+        })
     }
 
-    private fun attemptToPerformIntrospectionQueryOnParsedSchema(): Try<JsonNode> {
+    private fun mimicIntrospectionQueryAgainstGraphQLAPIServerOnParsedSchema(): Try<JsonNode> {
         return Try.attemptNullable { SchemaParser().parse(exampleDGSSchema) }
                 .flatMap(Try.Companion::fromOption)
                 .map { typeDefReg: TypeDefinitionRegistry ->
@@ -96,6 +109,38 @@ class MockGraphQLFetcherMetadataProvider(val objectMapper: ObjectMapper) : Graph
                     } else {
                         JsonNodeFactory.instance.nullNode()
                     }
+                }
+    }
+
+    private fun convertJsonNodeIntoGraphQLSchemaInstance(schemaJsonNode: JsonNode): Try<GraphQLSchema> {
+        return Try.success(schemaJsonNode)
+                .filterNot({ jn -> jn.isNull },
+                           { _: JsonNode -> IllegalStateException("schema_json_node is a null node") })
+                .map { jn: JsonNode ->
+                    objectMapper.treeToValue<Map<String, Any?>>(jn)
+                }
+                .map { strMap: Map<String, Any?> ->
+                    IntrospectionResultToSchema().createSchemaDefinition(strMap)
+                }
+                .map { document: Document ->
+                    document.definitions.stream()
+                            .map { def: Definition<*> ->
+                                def.toOption()
+                                        .filterIsInstance<SDLDefinition<*>>()
+                            }
+                            .flatMapOptions()
+                            .reduceToPersistentList()
+                }
+                .map { sdlDefinitions: PersistentList<SDLDefinition<*>> ->
+                    TypeDefinitionRegistry().apply {
+                        addAll(sdlDefinitions).ifPresent { gqlerror: GraphQLError ->
+                            throw RuntimeException(gqlerror.toString())
+                        }
+                    }
+                }
+                .map { typeDefReg: TypeDefinitionRegistry ->
+                    SchemaGenerator().makeExecutableSchema(typeDefReg,
+                                                           RuntimeWiring.MOCKED_WIRING)
                 }
     }
 

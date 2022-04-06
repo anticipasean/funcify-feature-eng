@@ -1,4 +1,4 @@
-package funcify.feature.data
+package funcify.feature.fetcher.metadata
 
 import funcify.feature.tools.container.async.Async
 

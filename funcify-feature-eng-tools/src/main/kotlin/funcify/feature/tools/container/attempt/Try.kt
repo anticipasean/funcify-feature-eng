@@ -499,6 +499,12 @@ sealed interface Try<out S> : Iterable<S> {
                     })
     }
 
+    fun filterNot(condition: (S) -> Boolean,
+                  ifConditionUnmet: (S) -> Throwable): Try<S> {
+        return filter({ s: S -> !condition.invoke(s) },
+                      ifConditionUnmet)
+    }
+
     fun filter(condition: (S) -> Boolean): Try<Option<S>> {
         return fold({ s: S ->
                         try {
@@ -514,6 +520,10 @@ sealed interface Try<out S> : Iterable<S> {
                     { throwable: Throwable ->
                         failure(throwable)
                     })
+    }
+
+    fun filterNot(condition: (S) -> Boolean): Try<Option<S>> {
+        return filter { s: S -> !condition.invoke(s) }
     }
 
     fun <R> map(mapper: (S) -> R): Try<R> {
