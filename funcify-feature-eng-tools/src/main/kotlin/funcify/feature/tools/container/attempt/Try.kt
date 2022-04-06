@@ -17,8 +17,7 @@ import java.util.concurrent.CompletionException
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
 import java.util.stream.Stream
-import kotlin.reflect.KClass
-import kotlin.reflect.cast
+import kotlin.reflect.typeOf
 import kotlin.streams.asStream
 
 
@@ -415,6 +414,52 @@ sealed interface Try<out S> : Iterable<S> {
                     .map { strmBldr -> strmBldr.build() }
         }
 
+        /**
+         * Use of inline function to avoid @UnsafeVariance needed on "method" version of function
+         * since reference to S occurs in an input position, a parameter in the Try output type
+         * of the mapper function
+         */
+        inline fun <reified S> Try<S>.flatMapFailure(crossinline mapper: (Throwable) -> Try<S>): Try<S> {
+            return fold({ input: S ->
+                            Try.success(input)
+                        },
+                        { throwable: Throwable ->
+                            try {
+                                mapper.invoke(throwable)
+                            } catch (t: Throwable) {
+                                Try.failure<S>(t)
+                            }
+                        })
+        }
+
+        inline fun <reified S> Try<S>.recoverFromFailure(crossinline mapper: (Throwable) -> Try<S>): Try<S> =
+                this.flatMapFailure(mapper)
+
+        inline fun <S, reified T : Any> Try<S>.filterInstanceOfType(): Try<T> {
+            return fold({ input: S ->
+                            if (!typeOf<T>().isMarkedNullable && input == null) {
+                                val messageSupplier: () -> String = { ->
+                                    "input is null and target type is non-nullable: ${typeOf<T>()::class.qualifiedName}"
+                                }
+                                failure<T>(IllegalArgumentException(messageSupplier.invoke()))
+                            } else if (typeOf<T>()::class.isInstance(input)) {
+                                try {
+                                    success<T>(input as T)
+                                } catch (t: Throwable) {
+                                    failure<T>(t)
+                                }
+                            } else {
+                                val messageSupplier: () -> String = { ->
+                                    "input is not instance of type ${typeOf<T>()::class.qualifiedName}"
+                                }
+                                failure<T>(IllegalArgumentException(messageSupplier.invoke()))
+                            }
+                        },
+                        { throwable: Throwable ->
+                            failure<T>(throwable)
+                        })
+        }
+
     }
 
     fun isSuccess(): Boolean {
@@ -451,24 +496,6 @@ sealed interface Try<out S> : Iterable<S> {
                     },
                     { throwable: Throwable ->
                         failure(throwable)
-                    })
-    }
-
-    fun <T : Any> ofKtType(targetType: KClass<T>,
-                           ifNotTargetType: () -> Throwable): Try<T> {
-        return fold({ input: S ->
-                        if (targetType.isInstance(input)) {
-                            try {
-                                success<T>(targetType.cast(input))
-                            } catch (t: Throwable) {
-                                failure<T>(t)
-                            }
-                        } else {
-                            failure<T>(IllegalArgumentException("input is not instance of type ${targetType.simpleName}"))
-                        }
-                    },
-                    { throwable: Throwable ->
-                        failure<T>(throwable)
                     })
     }
 
@@ -867,24 +894,3 @@ sealed interface Try<out S> : Iterable<S> {
                  failureHandler: (Throwable) -> R): R
 
 }
-
-/**
- * Use of inline function to avoid @UnsafeVariance needed on "method" version of function
- * since reference to S occurs in an input position, a parameter in the Try output type
- * of the mapper function
- */
-inline fun <reified S> Try<S>.flatMapFailure(crossinline mapper: (Throwable) -> Try<S>): Try<S> {
-    return fold({ input: S ->
-                    Try.success(input)
-                },
-                { throwable: Throwable ->
-                    try {
-                        mapper.invoke(throwable)
-                    } catch (t: Throwable) {
-                        Try.failure<S>(t)
-                    }
-                })
-}
-
-inline fun <reified S> Try<S>.recoverFromFailure(crossinline mapper: (Throwable) -> Try<S>): Try<S> =
-        this.flatMapFailure(mapper)
