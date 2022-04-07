@@ -12,11 +12,11 @@ import java.util.concurrent.CompletionStage
  */
 object AsyncFactory {
 
-    sealed class DeferredIterable<out V> {
+    sealed interface DeferredIterable<out V> {
 
-        data class CompletionStageValue<V>(val valuesStage: CompletionStage<PersistentList<V>>) : DeferredIterable<V>()
+        data class CompletionStageValue<V>(val valuesStage: CompletionStage<PersistentList<V>>) : DeferredIterable<V>
 
-        data class FluxValue<V>(val valuesFlux: Flux<V>) : DeferredIterable<V>()
+        data class FluxValue<V>(val valuesFlux: Flux<V>) : DeferredIterable<V>
     }
 
     data class AsyncCompletedSuccess<V>(val materializedValues: PersistentList<V>) : Async<V> {
