@@ -172,7 +172,7 @@ internal class SlidingListWindowMappingSpliteratorTest {
             |(17, 18), 
             |(18, null) }
             """.trimMargin()
-                                        .replace("\n",
+                                        .replace(System.lineSeparator(),
                                                  ""),
                                 resultList.joinToString(", ",
                                                         "{ ",

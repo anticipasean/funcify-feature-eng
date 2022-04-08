@@ -48,6 +48,8 @@ data class DefaultNamingConventionRegistry(override val namingConventionByKey: I
                         |does not match that on the convention: 
                         |[ expected: \"${convention.conventionName}\", actual: \"${key.conventionName}\" ]
                         """.trimMargin()
+                    .replace(System.lineSeparator(),
+                             "")
             throw IllegalArgumentException(message)
         } else {
             DefaultNamingConventionRegistry(namingConventionByKey.toPersistentHashMap()

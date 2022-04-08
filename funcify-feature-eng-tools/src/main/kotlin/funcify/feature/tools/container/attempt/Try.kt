@@ -9,6 +9,7 @@ import arrow.core.right
 import arrow.core.some
 import arrow.core.toOption
 import arrow.typeclasses.Monoid
+import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
 import kotlinx.collections.immutable.PersistentList
 import kotlinx.collections.immutable.persistentListOf
 import java.util.*
@@ -175,7 +176,7 @@ sealed interface Try<out S> : Iterable<S> {
                     |inputs [ i1.type: ${i1?.let { it::class.qualifiedName }}, 
                     |i2.type: ${i2?.let { it::class.qualifiedName }} ] 
                     |resulted in null value for function",
-                """.trimMargin()
+                """.flattenIntoOneLine()
                 IllegalArgumentException(message)
             }
         }
@@ -241,7 +242,7 @@ sealed interface Try<out S> : Iterable<S> {
                 val message = """
                     |number_of_retries must be greater 
                     |than or equal to 0: [ actual: $numberOfRetries ]
-                    |""".trimMargin()
+                    |""".flattenIntoOneLine()
                 return failure<S>(IllegalArgumentException(message))
             }
             var attempt: Try<S> = attempt(function)
@@ -264,7 +265,7 @@ sealed interface Try<out S> : Iterable<S> {
                 val message = """
                     |number_of_retries must be greater 
                     |than or equal to 0: [ actual: $numberOfRetries ]
-                    |""".trimMargin()
+                    |""".flattenIntoOneLine()
                 return failure<S>(IllegalArgumentException(message))
             }
             var attempt: Try<S> = attempt(function)

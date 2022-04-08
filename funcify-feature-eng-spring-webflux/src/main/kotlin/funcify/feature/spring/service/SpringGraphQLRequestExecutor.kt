@@ -5,6 +5,7 @@ import funcify.feature.graphql.response.SerializedGraphQLResponse
 import funcify.feature.graphql.service.GraphQLRequestExecutor
 import funcify.feature.graphql.session.GraphQLExecutionSessionFactory
 import funcify.feature.tools.container.async.Async
+import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
@@ -31,7 +32,7 @@ open class SpringGraphQLRequestExecutor(val graphQLExecutionSessionFactory: Grap
                                                                val message = """
                                                                    |session was not updated such that 
                                                                    |a serialized_graphql_response was added to it
-                                                                   """.trimMargin()
+                                                                   """.flattenIntoOneLine()
                                                                Async.errored(IllegalStateException(message))
                                                            },
                                                            { sr -> Async.succeededSingle(sr) })

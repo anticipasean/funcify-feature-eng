@@ -6,8 +6,9 @@ import arrow.core.right
 import funcify.feature.datasource.db.schema.JooqCodeGenXMLBasedDatabaseConfigurer
 import funcify.feature.datasource.db.schema.JooqMetadataGatheringDatabaseConfigurer
 import funcify.feature.tools.container.attempt.Try
+import funcify.feature.tools.container.attempt.Try.Companion.flatMapFailure
 import funcify.feature.tools.container.attempt.TryFactory
-import funcify.feature.tools.container.attempt.flatMapFailure
+import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
 import io.r2dbc.spi.ConnectionFactory
 import org.jooq.DSLContext
 import org.jooq.impl.DefaultConfiguration
@@ -58,7 +59,7 @@ class DatabaseDatasourcesConfiguration {
                                           |multiple_bean_exceptions: 
                                           |[ message_1: "${thr.message}", 
                                           |message_2: "${otherThr.message}" ]
-                                      """.trimMargin()
+                                      """.flattenIntoOneLine()
                                       Try.failure(BeanCreationException(message))
                                   }
                       })
@@ -103,7 +104,7 @@ class DatabaseDatasourcesConfiguration {
                                 |[ code-gen-xml-resource: "${n}" ] 
                                 |cannot create jooqCodeGenXmlBasedDatabaseConfigurer 
                                 |instance
-                            """.trimMargin()
+                            """.flattenIntoOneLine()
                             BeanCreationException(message)
                         })
                 .map { n -> ClassPathResource(n) }
@@ -114,7 +115,7 @@ class DatabaseDatasourcesConfiguration {
                                 |[ code-gen-xml-resource path: "${cpr.path}" ] 
                                 |cannot create jooqCodeGenXmlBasedDatabaseConfigurer 
                                 |instance
-                            """.trimMargin()
+                            """.flattenIntoOneLine()
                             BeanCreationException(message)
                         })
                 .map { cpr -> JooqCodeGenXMLBasedDatabaseConfigurer(cpr) }
@@ -141,7 +142,7 @@ class DatabaseDatasourcesConfiguration {
                               |[ type: ${Database::class.qualifiedName} ] 
                               |for gathering metadata and code generation 
                               |due to error [ type: ${thr::class.qualifiedName} ]
-                          """.trimMargin()
+                          """.flattenIntoOneLine()
                           throw BeanCreationException(message,
                                                       thr)
                       })

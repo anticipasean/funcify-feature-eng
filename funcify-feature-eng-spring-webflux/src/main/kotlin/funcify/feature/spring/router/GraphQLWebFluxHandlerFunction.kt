@@ -12,6 +12,7 @@ import funcify.feature.tools.container.async.Async
 import funcify.feature.tools.extensions.OptionExtensions.flatMapOptions
 import funcify.feature.tools.extensions.PersistentMapExtensions.reduceEntriesToPersistentMap
 import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentMap
+import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.persistentMapOf
@@ -59,9 +60,7 @@ class GraphQLWebFluxHandlerFunction(val graphQLRequestExecutor: GraphQLRequestEx
                         val message = """
                                   |parameter $nullableParameterName is null but 
                                   |is required for processing this request successfully
-                                  """.trimMargin()
-                                .replace("\n",
-                                         "")
+                                  """.flattenIntoOneLine()
                         Mono.error(IllegalArgumentException(message))
                     }
         }
