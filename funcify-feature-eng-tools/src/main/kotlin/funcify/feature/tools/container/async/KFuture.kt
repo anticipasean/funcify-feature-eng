@@ -1,6 +1,7 @@
 package funcify.feature.tools.container.attempt
 
 import arrow.core.Option
+import arrow.core.none
 import arrow.core.toOption
 import funcify.feature.tools.container.async.KFutureFactory.WrappedCompletionStageAndExecutor
 import funcify.feature.tools.extensions.PersistentListExtensions.reduceToPersistentList
@@ -56,6 +57,13 @@ interface KFuture<out T> {
 
         @JvmStatic
         @JvmOverloads
+        fun <T> emptyCompleted(executor: Executor? = null): KFuture<Option<T>> {
+            return WrappedCompletionStageAndExecutor<Option<T>>(completionStage = CompletableFuture.completedFuture(none<T>()),
+                                                                executorOpt = executor.toOption())
+        }
+
+        @JvmStatic
+        @JvmOverloads
         fun <T> failed(throwable: Throwable,
                        executor: Executor? = null): KFuture<T> {
             return WrappedCompletionStageAndExecutor<T>(completionStage = CompletableFuture.failedFuture(throwable),
@@ -81,6 +89,27 @@ interface KFuture<out T> {
         }
 
         @JvmStatic
+        fun <T> combineArrayOf(executor: Executor,
+                               vararg futures: KFuture<T>): KFuture<ImmutableList<T>> {
+            val awaitAllAndReduceToList: () -> PersistentList<T> = { ->
+                val futuresList: PersistentList<CompletableFuture<out T>> = futures.asSequence()
+                        .fold(persistentListOf()) { pl, kf ->
+                            kf.fold { cs, _ ->
+                                pl.add(cs.toCompletableFuture())
+                            }
+                        }
+                val aggregateFuture = CompletableFuture.allOf(*futuresList.toTypedArray<CompletableFuture<out T>>())
+                aggregateFuture.join()
+                futuresList.stream()
+                        .map { cf: CompletableFuture<out T> -> cf.join() }
+                        .reduceToPersistentList()
+            }
+            return of(CompletableFuture.supplyAsync(awaitAllAndReduceToList,
+                                                    executor),
+                      executor)
+        }
+
+        @JvmStatic
         fun <T, KF : KFuture<T>, I : Iterable<KF>> combineIterableOf(futures: I): KFuture<ImmutableList<T>> {
             val awaitAllAndReduceToList: () -> PersistentList<T> = { ->
                 val futuresList: PersistentList<CompletableFuture<out T>> = futures.asSequence()
@@ -96,6 +125,38 @@ interface KFuture<out T> {
                         .reduceToPersistentList()
             }
             return of(CompletableFuture.supplyAsync(awaitAllAndReduceToList))
+        }
+
+        @JvmStatic
+        fun <T, KF : KFuture<T>, I : Iterable<KF>> combineIterableOf(executor: Executor,
+                                                                     futures: I): KFuture<ImmutableList<T>> {
+            val awaitAllAndReduceToList: () -> PersistentList<T> = { ->
+                val futuresList: PersistentList<CompletableFuture<out T>> = futures.asSequence()
+                        .fold(persistentListOf()) { pl, kf ->
+                            kf.fold { cs, _ ->
+                                pl.add(cs.toCompletableFuture())
+                            }
+                        }
+                val aggregateFuture = CompletableFuture.allOf(*futuresList.toTypedArray<CompletableFuture<out T>>())
+                aggregateFuture.join()
+                futuresList.stream()
+                        .map { cf: CompletableFuture<out T> -> cf.join() }
+                        .reduceToPersistentList()
+            }
+            return of(CompletableFuture.supplyAsync(awaitAllAndReduceToList,
+                                                    executor),
+                      executor)
+        }
+
+        /**
+         *
+         * kotlin translates exceptionally/exceptionallyAsync/... methods into (Throwable) -> Nothing!
+         * so handle(Async) must be used instead
+         * reified T type parameter specified and inlined function since type T is in the input position as the output of the
+         * mapper function
+         */
+        inline fun <reified T> KFuture<T>.mapFailure(crossinline mapper: (Throwable) -> T): KFuture<T> {
+            return this.flatMapFailure { thr: Throwable -> completed(mapper.invoke(thr)) }
         }
 
         /**
@@ -395,6 +456,25 @@ interface KFuture<out T> {
                        executor)
                 }
             }
+        }
+    }
+
+    fun onComplete(action: (T?, Throwable?) -> Unit): KFuture<T> {
+        return fold { completionStage: CompletionStage<out T>, executorOption: Option<Executor> ->
+            executorOption.fold({
+                                    of(completionStage.whenComplete { t: T?, thr: Throwable? ->
+                                        action.invoke(t,
+                                                      thr)
+                                    })
+                                },
+                                { exec: Executor ->
+                                    of(completionStage.whenCompleteAsync({ t: T?, thr: Throwable? ->
+                                                                             action.invoke(t,
+                                                                                           thr)
+                                                                         },
+                                                                         exec),
+                                       exec)
+                                })
         }
     }
 
