@@ -742,6 +742,15 @@ sealed interface Try<out S> : Iterable<S> {
                     combiner)
     }
 
+    fun orNull(): S? {
+        return fold({ s: S ->
+                        s
+                    },
+                    { _: Throwable ->
+                        null
+                    })
+    }
+
     fun orElse(defaultValue: @UnsafeVariance S): S {
         return fold({ input: S ->
                         input

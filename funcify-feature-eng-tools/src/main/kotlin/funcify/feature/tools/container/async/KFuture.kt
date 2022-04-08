@@ -11,6 +11,7 @@ import kotlinx.collections.immutable.persistentListOf
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CompletionStage
 import java.util.concurrent.Executor
+import java.util.concurrent.TimeUnit
 
 
 /**
@@ -476,6 +477,46 @@ interface KFuture<out T> {
                                        exec)
                                 })
         }
+    }
+
+    fun getWithin(amount: Long,
+                  timeunit: TimeUnit): Try<T> {
+        return Try.attempt({
+                               fold { cs: CompletionStage<out T>, execOpt: Option<Executor> ->
+                                   cs.toCompletableFuture()
+                                           .get(amount,
+                                                timeunit)
+                               }
+                           })
+    }
+
+    fun get(): Try<T> {
+        return Try.attempt({
+                               fold { cs: CompletionStage<out T>, execOpt: Option<Executor> ->
+                                   cs.toCompletableFuture()
+                                           .join()
+                               }
+                           })
+    }
+
+    fun getOrElse(defaultValue: @UnsafeVariance T): T {
+        return get().orElse(defaultValue)
+    }
+
+    fun getOrElseGet(defaultValueSupplier: () -> @UnsafeVariance T): T {
+        return get().orElseGet(defaultValueSupplier)
+    }
+
+    fun getOrNull(): T? {
+        return get().orNull()
+    }
+
+    fun getOrElseThrow(): T {
+        return get().orElseThrow()
+    }
+
+    fun <X : Throwable> getOrElseThrow(mapper: (Throwable) -> X): T {
+        return get().orElseThrow(mapper)
     }
 
     fun <R> fold(stageAndExecutor: (CompletionStage<out T>, Option<Executor>) -> R): R
