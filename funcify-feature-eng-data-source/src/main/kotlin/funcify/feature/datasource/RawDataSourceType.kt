@@ -11,6 +11,7 @@ import funcify.feature.schema.datasource.DataSourceType
 enum class RawDataSourceType : DataSourceType {
 
     REST_API,
+    GRAPHQL,
     RELATIONAL_DATABASE,
     NOSQL_DATABASE,
     TIMESERIES_DATABASE,
