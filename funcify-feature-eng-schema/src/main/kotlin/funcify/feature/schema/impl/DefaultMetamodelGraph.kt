@@ -1,7 +1,7 @@
 package funcify.feature.schema.impl
 
 import funcify.feature.schema.MetamodelGraph
-import funcify.feature.schema.SchematicPath
+import funcify.feature.schema.path.SchematicPath
 import funcify.feature.schema.SchematicVertex
 import kotlinx.collections.immutable.PersistentMap
 

@@ -9,10 +9,10 @@ import funcify.feature.datasource.graphql.schema.GraphQLSourceAttribute
 import funcify.feature.datasource.graphql.schema.GraphQLSourceContainerType
 import funcify.feature.datasource.graphql.schema.GraphQLSourceIndex
 import funcify.feature.datasource.graphql.schema.GraphQLSourceMetamodel
-import funcify.feature.schema.SchematicPath
 import funcify.feature.schema.datasource.SourceMetamodel
 import funcify.feature.schema.datasource.reader.MetadataReader
-import funcify.feature.schema.path.DefaultSchematicPath
+import funcify.feature.schema.path.SchematicPath
+import funcify.feature.schema.path.SchematicPathFactory
 import funcify.feature.tools.control.ParentChildPairRecursiveSpliterator
 import funcify.feature.tools.extensions.PersistentMapExtensions.combineWithPersistentSetValueMap
 import graphql.schema.GraphQLFieldDefinition
@@ -127,8 +127,10 @@ class GraphQLMetadataReader() : MetadataReader<GraphQLSchema, GraphQLSourceIndex
                         .deriveName(parentFieldDefinition)
                 val childConvFieldName = GraphQLSourceNamingConventions.getFieldNamingConventionForGraphQLFieldDefinitions()
                         .deriveName(childFieldDefinition)
-                val parentPath: SchematicPath = DefaultSchematicPath(pathSegments = persistentListOf(parentConvPathName.qualifiedForm))
-                val childPath: SchematicPath = DefaultSchematicPath(pathSegments = persistentListOf(parentConvPathName.qualifiedForm,
+                val parentPath: SchematicPath =
+                        SchematicPathFactory.createPathWithSegments(pathSegments = persistentListOf(parentConvPathName.qualifiedForm))
+                val childPath: SchematicPath =
+                        SchematicPathFactory.createPathWithSegments(pathSegments = persistentListOf(parentConvPathName.qualifiedForm,
                                                                                                     childConvPathName.qualifiedForm))
                 val parentAsContainerType: GraphQLSourceContainerType = GraphQLSourceContainerType(sourcePath = parentPath,
                                                                                                    name = parentConvFieldName,
@@ -168,7 +170,7 @@ class GraphQLMetadataReader() : MetadataReader<GraphQLSchema, GraphQLSourceIndex
                 val childConvFieldName = GraphQLSourceNamingConventions.getFieldNamingConventionForGraphQLFieldDefinitions()
                         .deriveName(childFieldDefinition)
                 val parentPath = currentContext.graphQLFieldDefinitionToPath[parentFieldDefinition]!!
-                val childPath = DefaultSchematicPath(pathSegments = parentPath.pathSegments.toPersistentList()
+                val childPath = SchematicPathFactory.createPathWithSegments(pathSegments = parentPath.pathSegments.toPersistentList()
                         .add(childConvPathName.qualifiedForm))
                 val parentAsContainerType = currentContext.indicesByPath[parentPath].toOption()
                         .flatMap { set ->

@@ -1,6 +1,6 @@
 package funcify.feature.datasource.graphql.schema
 
-import funcify.feature.schema.SchematicPath
+import funcify.feature.schema.path.SchematicPath
 import funcify.feature.schema.datasource.DataSourceType
 import funcify.feature.schema.datasource.RawDataSourceType
 import funcify.feature.schema.datasource.SourceMetamodel

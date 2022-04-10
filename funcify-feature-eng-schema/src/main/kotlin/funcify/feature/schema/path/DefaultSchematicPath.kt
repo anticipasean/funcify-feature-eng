@@ -1,6 +1,5 @@
 package funcify.feature.schema.path
 
-import funcify.feature.schema.SchematicPath
 import kotlinx.collections.immutable.PersistentList
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.persistentListOf
@@ -14,10 +13,10 @@ import java.net.URI
  * @author smccarron
  * @created 2/20/22
  */
-data class DefaultSchematicPath(val scheme: String = "fes",
-                                override val pathSegments: PersistentList<String> = persistentListOf(),
-                                override val arguments: PersistentMap<String, String> = persistentMapOf(),
-                                override val directives: PersistentMap<String, String> = persistentMapOf()) : SchematicPath {
+internal data class DefaultSchematicPath(val scheme: String = "fes",
+                                         override val pathSegments: PersistentList<String> = persistentListOf(),
+                                         override val arguments: PersistentMap<String, String> = persistentMapOf(),
+                                         override val directives: PersistentMap<String, String> = persistentMapOf()) : SchematicPath {
 
     private val uri: URI by lazy { createUriFromProperties() }
 
@@ -45,6 +44,22 @@ data class DefaultSchematicPath(val scheme: String = "fes",
 
     override fun toURI(): URI {
         return uri
+    }
+
+    override fun appendPathSegment(pathSegment: String): SchematicPath {
+        return if (pathSegment.isNotEmpty()) {
+            this.copy(pathSegments = pathSegments.add(pathSegment))
+        } else {
+            this
+        }
+    }
+
+    override fun dropPathSegment(): SchematicPath {
+        return this.copy(pathSegments = if (pathSegments.isNotEmpty()) {
+            pathSegments.removeAt(pathSegments.size - 1)
+        } else {
+            pathSegments
+        })
     }
 
 }

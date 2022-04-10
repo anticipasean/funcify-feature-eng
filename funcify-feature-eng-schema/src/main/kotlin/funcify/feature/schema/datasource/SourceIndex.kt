@@ -1,7 +1,7 @@
 package funcify.feature.schema.datasource
 
 import funcify.feature.naming.ConventionalName
-import funcify.feature.schema.SchematicPath
+import funcify.feature.schema.path.SchematicPath
 
 
 /**

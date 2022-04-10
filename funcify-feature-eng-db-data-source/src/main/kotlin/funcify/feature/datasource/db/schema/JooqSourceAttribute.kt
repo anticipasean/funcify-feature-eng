@@ -6,8 +6,8 @@ import arrow.core.toOption
 import funcify.feature.naming.ConventionalName
 import funcify.feature.naming.impl.DefaultConventionalName
 import funcify.feature.naming.impl.DefaultNameSegment
-import funcify.feature.schema.SchematicPath
-import funcify.feature.schema.path.DefaultSchematicPath
+import funcify.feature.schema.path.SchematicPath
+import funcify.feature.schema.path.SchematicPathFactory
 import kotlinx.collections.immutable.persistentListOf
 import org.jooq.Record
 import org.jooq.TableField
@@ -30,5 +30,11 @@ data class JooqSourceAttribute(val jooqTableField: TableField<Record, *>) : RelD
         DefaultConventionalName("JOOQ_COLUMN_NAME",
                                 persistentListOf(DefaultNameSegment(jooqTableField.name)))
     }
-    override val sourcePath: SchematicPath = DefaultSchematicPath()
+    override val sourcePath: SchematicPath = SchematicPathFactory.createPathWithSegments(jooqTableField.table?.catalog?.name
+                                                                                         ?: "",
+                                                                                         jooqTableField.table?.schema?.name
+                                                                                         ?: "",
+                                                                                         jooqTableField.table?.name
+                                                                                         ?: "",
+                                                                                         jooqTableField.name)
 }

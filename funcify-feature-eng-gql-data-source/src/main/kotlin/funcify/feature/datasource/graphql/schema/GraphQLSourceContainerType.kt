@@ -1,7 +1,7 @@
 package funcify.feature.datasource.graphql.schema
 
 import funcify.feature.naming.ConventionalName
-import funcify.feature.schema.SchematicPath
+import funcify.feature.schema.path.SchematicPath
 import funcify.feature.schema.datasource.SourceContainerType
 import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentMap
 import graphql.schema.GraphQLType

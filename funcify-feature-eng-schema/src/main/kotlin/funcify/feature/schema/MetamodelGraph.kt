@@ -1,5 +1,6 @@
 package funcify.feature.schema
 
+import funcify.feature.schema.path.SchematicPath
 import kotlinx.collections.immutable.PersistentMap
 
 

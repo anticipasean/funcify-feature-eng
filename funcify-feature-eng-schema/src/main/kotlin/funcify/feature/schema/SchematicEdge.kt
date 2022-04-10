@@ -1,5 +1,7 @@
 package funcify.feature.schema
 
+import funcify.feature.schema.path.SchematicPath
+
 
 /**
  *

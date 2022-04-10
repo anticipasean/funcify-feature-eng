@@ -3,8 +3,8 @@ package funcify.feature.datasource.db.schema
 import funcify.feature.naming.ConventionalName
 import funcify.feature.naming.impl.DefaultConventionalName
 import funcify.feature.naming.impl.DefaultNameSegment
-import funcify.feature.schema.SchematicPath
-import funcify.feature.schema.path.DefaultSchematicPath
+import funcify.feature.schema.path.SchematicPath
+import funcify.feature.schema.path.SchematicPathFactory
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.persistentListOf
@@ -25,7 +25,11 @@ data class JooqSourceContainerType(val jooqRelTable: JooqRelTable) : RelDatabase
         DefaultConventionalName("JOOQ_TABLE_NAME",
                                 persistentListOf(DefaultNameSegment(jooqRelTable.name)))
     }
-    override val sourcePath: SchematicPath = DefaultSchematicPath()
+    override val sourcePath: SchematicPath = SchematicPathFactory.createPathWithSegments(jooqRelTable.catalog?.name
+                                                                                         ?: "",
+                                                                                         jooqRelTable.schema?.name
+                                                                                         ?: "",
+                                                                                         jooqRelTable.name)
 
     val sourceAttributesByName: PersistentMap<String, RelDatabaseSourceAttribute> by lazy {
         sourceAttributes.fold(persistentMapOf(),

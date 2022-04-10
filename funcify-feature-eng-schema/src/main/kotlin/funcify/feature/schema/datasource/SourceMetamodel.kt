@@ -1,6 +1,6 @@
 package funcify.feature.schema.datasource
 
-import funcify.feature.schema.SchematicPath
+import funcify.feature.schema.path.SchematicPath
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.ImmutableSet
 
