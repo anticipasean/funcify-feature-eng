@@ -1,5 +1,3 @@
-
-
 dependencies {
     implementation(project(":funcify-feature-eng-api-contract"))
     implementation(project(":funcify-feature-eng-common"))

@@ -3,8 +3,6 @@ package funcify.feature.datasource.db.schema
 import arrow.core.filterIsInstance
 import arrow.core.getOrElse
 import arrow.core.toOption
-import funcify.feature.datasource.reldb.RelDatabaseSourceAttribute
-import funcify.feature.datasource.reldb.RelTableIdentifier
 import funcify.feature.schema.SchematicPath
 import funcify.feature.schema.path.DefaultSchematicPath
 import org.jooq.Record

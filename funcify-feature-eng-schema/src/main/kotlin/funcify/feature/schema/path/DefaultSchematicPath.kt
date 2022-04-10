@@ -1,8 +1,8 @@
 package funcify.feature.schema.path
 
 import funcify.feature.schema.SchematicPath
-import kotlinx.collections.immutable.ImmutableList
-import kotlinx.collections.immutable.ImmutableMap
+import kotlinx.collections.immutable.PersistentList
+import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentMapOf
 import org.springframework.web.util.UriComponentsBuilder
@@ -15,9 +15,9 @@ import java.net.URI
  * @created 2/20/22
  */
 data class DefaultSchematicPath(val scheme: String = "fes",
-                                override val pathSegments: ImmutableList<String> = persistentListOf(),
-                                override val arguments: ImmutableMap<String, String> = persistentMapOf(),
-                                override val directives: ImmutableMap<String, String> = persistentMapOf()) : SchematicPath {
+                                override val pathSegments: PersistentList<String> = persistentListOf(),
+                                override val arguments: PersistentMap<String, String> = persistentMapOf(),
+                                override val directives: PersistentMap<String, String> = persistentMapOf()) : SchematicPath {
 
     private val uri: URI by lazy { createUriFromProperties() }
 

@@ -3,11 +3,11 @@ package funcify.feature.spring.router
 import arrow.core.getOrElse
 import arrow.core.toOption
 import com.fasterxml.jackson.databind.JsonNode
-import funcify.feature.graphql.request.DefaultRawGraphQLRequest
-import funcify.feature.graphql.request.GraphQLExecutionInputCustomizer
-import funcify.feature.graphql.request.RawGraphQLRequest
-import funcify.feature.graphql.response.SerializedGraphQLResponse
-import funcify.feature.graphql.service.GraphQLRequestExecutor
+import funcify.feature.materializer.request.DefaultRawGraphQLRequest
+import funcify.feature.materializer.request.GraphQLExecutionInputCustomizer
+import funcify.feature.materializer.request.RawGraphQLRequest
+import funcify.feature.materializer.response.SerializedGraphQLResponse
+import funcify.feature.materializer.service.GraphQLRequestExecutor
 import funcify.feature.tools.container.async.Async
 import funcify.feature.tools.extensions.OptionExtensions.flatMapOptions
 import funcify.feature.tools.extensions.PersistentMapExtensions.reduceEntriesToPersistentMap

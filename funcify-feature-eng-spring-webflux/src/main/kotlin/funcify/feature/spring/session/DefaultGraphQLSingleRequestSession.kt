@@ -2,8 +2,8 @@ package funcify.feature.spring.session
 
 import arrow.core.None
 import arrow.core.Option
-import funcify.feature.graphql.request.RawGraphQLRequest
-import funcify.feature.graphql.response.SerializedGraphQLResponse
+import funcify.feature.materializer.request.RawGraphQLRequest
+import funcify.feature.materializer.response.SerializedGraphQLResponse
 import java.util.UUID
 
 

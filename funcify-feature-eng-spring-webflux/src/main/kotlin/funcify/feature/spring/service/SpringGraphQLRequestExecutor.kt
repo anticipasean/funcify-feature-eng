@@ -1,9 +1,9 @@
 package funcify.feature.spring.service
 
-import funcify.feature.graphql.request.RawGraphQLRequest
-import funcify.feature.graphql.response.SerializedGraphQLResponse
-import funcify.feature.graphql.service.GraphQLRequestExecutor
-import funcify.feature.graphql.session.GraphQLExecutionSessionFactory
+import funcify.feature.materializer.request.RawGraphQLRequest
+import funcify.feature.materializer.response.SerializedGraphQLResponse
+import funcify.feature.materializer.service.GraphQLRequestExecutor
+import funcify.feature.materializer.session.GraphQLExecutionSessionFactory
 import funcify.feature.tools.container.async.Async
 import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
 import org.slf4j.Logger

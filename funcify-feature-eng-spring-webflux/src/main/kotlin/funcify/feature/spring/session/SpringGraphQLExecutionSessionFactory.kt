@@ -1,8 +1,8 @@
 package funcify.feature.spring.session
 
-import funcify.feature.graphql.request.RawGraphQLRequest
-import funcify.feature.graphql.session.GraphQLExecutionSessionFactory
-import funcify.feature.graphql.session.GraphQLSingleRequestSession
+import funcify.feature.materializer.request.RawGraphQLRequest
+import funcify.feature.materializer.session.GraphQLExecutionSessionFactory
+import funcify.feature.materializer.session.GraphQLSingleRequestSession
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component

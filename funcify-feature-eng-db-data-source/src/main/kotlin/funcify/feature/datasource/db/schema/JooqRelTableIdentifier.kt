@@ -1,7 +1,5 @@
 package funcify.feature.datasource.db.schema
 
-import funcify.feature.datasource.reldb.RelTableIdentifier
-
 
 /**
  *

@@ -1,5 +1,6 @@
 package funcify.feature.schema.datasource
 
+import funcify.feature.naming.ConventionalName
 import funcify.feature.schema.SchematicPath
 
 
@@ -14,7 +15,7 @@ interface SourceIndex {
 
     val dataSourceType: DataSourceType
 
-    val name: String
+    val name: ConventionalName
 
     val canonicalPath: SchematicPath
 

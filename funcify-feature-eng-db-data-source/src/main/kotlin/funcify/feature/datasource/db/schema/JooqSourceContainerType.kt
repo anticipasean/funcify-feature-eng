@@ -1,13 +1,13 @@
 package funcify.feature.datasource.db.schema
 
-import funcify.feature.datasource.reldb.RelDatabaseSourceAttribute
-import funcify.feature.datasource.reldb.RelDatabaseSourceContainerType
-import funcify.feature.datasource.reldb.RelTableIdentifier
+import funcify.feature.naming.ConventionalName
+import funcify.feature.naming.impl.DefaultConventionalName
+import funcify.feature.naming.impl.DefaultNameSegment
 import funcify.feature.schema.SchematicPath
-import funcify.feature.schema.datasource.SourceAttribute
 import funcify.feature.schema.path.DefaultSchematicPath
-import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.ImmutableSet
+import kotlinx.collections.immutable.PersistentMap
+import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.persistentSetOf
 
@@ -21,18 +21,19 @@ data class JooqSourceContainerType(val jooqRelTable: JooqRelTable) : RelDatabase
 
     override val relTableIdentifier: RelTableIdentifier by lazy { JooqRelTableIdentifier.fromJooqRelTable(jooqRelTable) }
     override val sourceAttributes: ImmutableSet<RelDatabaseSourceAttribute> = persistentSetOf()
-    override val name: String = jooqRelTable.name
+    override val name: ConventionalName = DefaultConventionalName("JOOQ_TABLE_NAME",
+                                                                  persistentListOf(DefaultNameSegment(jooqRelTable.name)))
     override val canonicalPath: SchematicPath = DefaultSchematicPath()
 
-    val sourceAttributesByName: ImmutableMap<String, RelDatabaseSourceAttribute> by lazy {
+    val sourceAttributesByName: PersistentMap<String, RelDatabaseSourceAttribute> by lazy {
         sourceAttributes.fold(persistentMapOf(),
                               { acc, relDatabaseSourceAttribute ->
-                                  acc.put(relDatabaseSourceAttribute.name,
+                                  acc.put(relDatabaseSourceAttribute.name.qualifiedForm,
                                           relDatabaseSourceAttribute)
                               })
     }
 
-    override fun getSourceAttributeWithName(name: String): SourceAttribute? {
+    override fun getSourceAttributeWithName(name: String): RelDatabaseSourceAttribute? {
         return sourceAttributesByName[name]
     }
 

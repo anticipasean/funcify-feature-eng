@@ -1,7 +1,7 @@
 package funcify.feature.spring.service
 
-import funcify.feature.graphql.service.GraphQLExecutionSessionCoordinator
-import funcify.feature.graphql.session.GraphQLSingleRequestSession
+import funcify.feature.materializer.service.GraphQLExecutionSessionCoordinator
+import funcify.feature.materializer.session.GraphQLSingleRequestSession
 import funcify.feature.tools.container.async.Async
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory

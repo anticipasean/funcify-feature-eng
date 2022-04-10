@@ -8,6 +8,7 @@ import arrow.core.left
 import arrow.core.right
 import arrow.core.some
 import arrow.core.toOption
+import funcify.feature.tools.control.TraversalFunctions.recurseWithOption
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.PersistentMap
@@ -27,24 +28,6 @@ internal data class DefaultUnionFindTree<P>(override val parents: PersistentMap<
                                             override val treeSizes: PersistentMap<P, Int> = persistentMapOf<P, Int>()) : UnionFindTree<P> {
 
     companion object {
-
-        private fun <T, R> tailRecursionUsingOption(startValue: T,
-                                                    function: (T) -> Option<Either<T, R>>): Option<R> {
-            val nextOptionHolder: Array<Option<Either<T, R>>> = arrayOf(startValue.left()
-                                                                                .some())
-            var continueLoop = true
-            do {
-                continueLoop = nextOptionHolder[0].fold({ false },
-                                                        { either: Either<T, R> ->
-                                                            either.fold({ t: T ->
-                                                                            nextOptionHolder[0] = function.invoke(t)
-                                                                            true
-                                                                        },
-                                                                        { _ -> false })
-                                                        })
-            } while (continueLoop)
-            return nextOptionHolder[0].mapNotNull { either: Either<T, R> -> either.orNull() }
-        }
 
         private fun <T1, T2, R> Pair<T1, T2>.fold(function: (T1, T2) -> R): R {
             return function.invoke(this.first,
@@ -88,7 +71,7 @@ internal data class DefaultUnionFindTree<P>(override val parents: PersistentMap<
                      * for which the only current parent listing is itself)
                      * for this input_current_path
                      */
-                    tailRecursionUsingOption(currentPath) { cp: P ->
+                    recurseWithOption(currentPath) { cp: P ->
                         val parentOpt: Option<P> = parents[cp].toOption()
                         if (parentOpt.filter { pp -> pp == cp }
                                         .isDefined()) {
@@ -97,9 +80,20 @@ internal data class DefaultUnionFindTree<P>(override val parents: PersistentMap<
                              * the parent path listings meaning it is a root_path
                              * => Map root to current path
                              */
+                            /**
+                             * Case 1: The iteration_current_path is equal to its parent in
+                             * the parent path listings meaning it is a root_path
+                             * => Map root to current path
+                             */
                             cp.right()
                                     .some<Either<P, P>>()
                         } else {
+                            /**
+                             * Case 2: The iteration_current_path is not equal to its
+                             * parent path meaning it is not a root_path
+                             * => Make the parent path the next iteration_current_path
+                             * and find the root for this path
+                             */
                             /**
                              * Case 2: The iteration_current_path is not equal to its
                              * parent path meaning it is not a root_path
@@ -123,8 +117,13 @@ internal data class DefaultUnionFindTree<P>(override val parents: PersistentMap<
                      * Parent listings tail recursive update for Path Compression
                      * => Set start value to ( input_current_path, current_parent_listings )
                      */
-                    tailRecursionUsingOption(Pair(rootAndCurrentPath.second,
-                                                  parents)) { currentPathAndParents: Pair<P, PersistentMap<P, P>> ->
+                    recurseWithOption(Pair(rootAndCurrentPath.second,
+                                           parents)) { currentPathAndParents: Pair<P, PersistentMap<P, P>> ->
+                        /**
+                         * Case 1: Update current_parent_listings if iteration_current_path is not equal to root_path
+                         * => Set iteration_current_path to its parent_path and make this parent_path the parent of the
+                         * root_path
+                         */
                         /**
                          * Case 1: Update current_parent_listings if iteration_current_path is not equal to root_path
                          * => Set iteration_current_path to its parent_path and make this parent_path the parent of the
@@ -137,6 +136,11 @@ internal data class DefaultUnionFindTree<P>(override val parents: PersistentMap<
                                                                                     rootAndCurrentPath.first)).left<Pair<P, PersistentMap<P, P>>>()
                                     }
                         } else {
+                            /**
+                             * Case 2: Do not update current_parent_listings if iteration_current_path is equal to root_path
+                             * => Return the current_parent_listings (which may be different than the starting version of
+                             * current_parent_listings)
+                             */
                             /**
                              * Case 2: Do not update current_parent_listings if iteration_current_path is equal to root_path
                              * => Return the current_parent_listings (which may be different than the starting version of

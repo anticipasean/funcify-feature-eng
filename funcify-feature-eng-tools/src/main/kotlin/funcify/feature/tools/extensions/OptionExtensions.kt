@@ -1,6 +1,9 @@
 package funcify.feature.tools.extensions
 
+import arrow.core.Either
 import arrow.core.Option
+import arrow.core.left
+import arrow.core.some
 import kotlinx.collections.immutable.PersistentSet
 import kotlinx.collections.immutable.persistentSetOf
 import java.util.stream.Stream
