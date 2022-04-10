@@ -437,9 +437,9 @@ interface KFuture<out T> {
                        other1: KFuture<U>,
                        other2: KFuture<V>,
                        zipper: (T, U, V) -> W): KFuture<W> {
-        return fold { thisStage: CompletionStage<out T>, executorOpt1: Option<Executor> ->
-            other1.fold { otherStage1: CompletionStage<out U>, executorOpt2: Option<Executor> ->
-                other2.fold { otherStage2: CompletionStage<out V>, executorOpt3: Option<Executor> ->
+        return fold { thisStage: CompletionStage<out T>, _: Option<Executor> ->
+            other1.fold { otherStage1: CompletionStage<out U>, _: Option<Executor> ->
+                other2.fold { otherStage2: CompletionStage<out V>, _: Option<Executor> ->
                     val awaitAllAndZipFunction: () -> W = { ->
                         val thisFuture = thisStage.toCompletableFuture()
                         val otherFuture1 = otherStage1.toCompletableFuture()
@@ -482,7 +482,7 @@ interface KFuture<out T> {
     fun getWithin(amount: Long,
                   timeunit: TimeUnit): Try<T> {
         return Try.attempt({
-                               fold { cs: CompletionStage<out T>, execOpt: Option<Executor> ->
+                               fold { cs: CompletionStage<out T>, _: Option<Executor> ->
                                    cs.toCompletableFuture()
                                            .get(amount,
                                                 timeunit)
@@ -492,7 +492,7 @@ interface KFuture<out T> {
 
     fun get(): Try<T> {
         return Try.attempt({
-                               fold { cs: CompletionStage<out T>, execOpt: Option<Executor> ->
+                               fold { cs: CompletionStage<out T>, _: Option<Executor> ->
                                    cs.toCompletableFuture()
                                            .join()
                                }

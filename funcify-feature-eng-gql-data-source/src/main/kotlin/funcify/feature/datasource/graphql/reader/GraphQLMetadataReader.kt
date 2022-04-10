@@ -37,7 +37,7 @@ import java.util.stream.StreamSupport
  * @author smccarron
  * @created 4/8/22
  */
-class GraphQLMetadataReader : MetadataReader<GraphQLSchema, GraphQLSourceIndex> {
+class GraphQLMetadataReader() : MetadataReader<GraphQLSchema, GraphQLSourceIndex> {
 
     companion object {
         private val logger: Logger = LoggerFactory.getLogger(GraphQLMetadataReader::class.java)
@@ -51,7 +51,7 @@ class GraphQLMetadataReader : MetadataReader<GraphQLSchema, GraphQLSourceIndex> 
 
     }
 
-    override fun readSourceContainerTypesFromMetadata(input: GraphQLSchema): SourceMetamodel<GraphQLSourceIndex> {
+    override fun readSourceMetamodelFromMetadata(input: GraphQLSchema): SourceMetamodel<GraphQLSourceIndex> {
         logger.info("read_source_container_types_from_metadata: [ input.query_type.name: ${input.queryType.name} ]")
         if (input.queryType.fieldDefinitions.isEmpty()) {
             val message = "graphql_schema input for metadata on graphql source does not have any query type field definitions"
@@ -68,7 +68,9 @@ class GraphQLMetadataReader : MetadataReader<GraphQLSchema, GraphQLSourceIndex> 
                             combineTopLevelGqlSourceContexts(gsc1,
                                                              gsc2)
                         })
-                .let { context: GqlSourceContext -> extractSourceContainerTypeIterableFromFinalContext(context) }
+                .let { context: GqlSourceContext ->
+                    extractSourceContainerTypeIterableFromFinalContext(context)
+                }
 
     }
 
@@ -103,7 +105,7 @@ class GraphQLMetadataReader : MetadataReader<GraphQLSchema, GraphQLSourceIndex> 
                                                                parentFieldDefinition = parentChildFieldDefPair.first,
                                                                childFieldDefinition = parentChildFieldDefPair.second)
                         },
-                        { gql1, gql2 -> // since not parallel, take right leaf node
+                        { _, gql2 -> // since not parallel, take right leaf node
                             gql2
                         })
     }
@@ -113,6 +115,9 @@ class GraphQLMetadataReader : MetadataReader<GraphQLSchema, GraphQLSourceIndex> 
                                                    parentFieldDefinition: GraphQLFieldDefinition,
                                                    childFieldDefinition: GraphQLFieldDefinition): GqlSourceContext {
         return when {
+            /**
+             * Both parent and child field definitions have yet to be assigned schematic paths
+             */
             !currentContext.graphQLFieldDefinitionToPath.containsKey(parentFieldDefinition) && !currentContext.graphQLFieldDefinitionToPath.containsKey(childFieldDefinition) -> {
                 val parentConvPathName = GraphQLSourceNamingConventions.getPathNamingConventionForGraphQLFieldDefinitions()
                         .deriveName(parentFieldDefinition)
@@ -125,25 +130,25 @@ class GraphQLMetadataReader : MetadataReader<GraphQLSchema, GraphQLSourceIndex> 
                 val parentPath: SchematicPath = DefaultSchematicPath(pathSegments = persistentListOf(parentConvPathName.qualifiedForm))
                 val childPath: SchematicPath = DefaultSchematicPath(pathSegments = persistentListOf(parentConvPathName.qualifiedForm,
                                                                                                     childConvPathName.qualifiedForm))
-                val parentAsContainerType: GraphQLSourceContainerType = GraphQLSourceContainerType(canonicalPath = parentPath,
+                val parentAsContainerType: GraphQLSourceContainerType = GraphQLSourceContainerType(sourcePath = parentPath,
                                                                                                    name = parentConvFieldName,
                                                                                                    type = parentFieldDefinition.type)
-                val parentAsAttributeType: GraphQLSourceAttribute = GraphQLSourceAttribute(canonicalPath = parentPath,
+                val parentAsAttributeType: GraphQLSourceAttribute = GraphQLSourceAttribute(sourcePath = parentPath,
                                                                                            name = parentConvFieldName,
                                                                                            type = parentFieldDefinition.type)
-                val childAsAttributeType: GraphQLSourceAttribute = GraphQLSourceAttribute(canonicalPath = childPath,
+                val childAsAttributeType: GraphQLSourceAttribute = GraphQLSourceAttribute(sourcePath = childPath,
                                                                                           name = childConvFieldName,
                                                                                           type = childFieldDefinition.type)
+                val updatedPathMap = currentContext.graphQLFieldDefinitionToPath.put(parentFieldDefinition,
+                                                                                     parentPath)
+                        .put(childFieldDefinition,
+                             childPath)
                 val updatedAttributeSet = currentContext.sourceContainerTypeToAttributeTypes.getOrDefault(parentAsContainerType,
                                                                                                           persistentSetOf())
                         .add(childAsAttributeType)
                 val updatedContainerTypeMap = currentContext.sourceContainerTypeToAttributeTypes.put(parentAsContainerType,
                                                                                                      updatedAttributeSet)
                 val updatedRootAttributes = currentContext.rootAttributes.add(parentAsAttributeType)
-                val updatedPathMap = currentContext.graphQLFieldDefinitionToPath.put(parentFieldDefinition,
-                                                                                     parentPath)
-                        .put(childFieldDefinition,
-                             childPath)
                 val updatedIndicesByPath = currentContext.indicesByPath.put(parentPath,
                                                                             persistentSetOf(parentAsContainerType,
                                                                                             parentAsAttributeType))
@@ -154,6 +159,9 @@ class GraphQLMetadataReader : MetadataReader<GraphQLSchema, GraphQLSourceIndex> 
                                     graphQLFieldDefinitionToPath = updatedPathMap,
                                     indicesByPath = updatedIndicesByPath)
             }
+            /**
+             * Case 2: Only the child field definition has yet to be assigned a schematic path
+             */
             !currentContext.graphQLFieldDefinitionToPath.containsKey(childFieldDefinition) -> {
                 val childConvPathName = GraphQLSourceNamingConventions.getPathNamingConventionForGraphQLFieldDefinitions()
                         .deriveName(childFieldDefinition)
@@ -169,22 +177,23 @@ class GraphQLMetadataReader : MetadataReader<GraphQLSchema, GraphQLSourceIndex> 
                                     .or(set.filterIsInstance<GraphQLSourceAttribute>()
                                                 .firstOrNone()
                                                 .map { gqlAttr ->
-                                                    GraphQLSourceContainerType(canonicalPath = gqlAttr.canonicalPath,
+                                                    GraphQLSourceContainerType(sourcePath = gqlAttr.sourcePath,
                                                                                name = gqlAttr.name,
                                                                                type = gqlAttr.type)
                                                 })
                         }
                         .getOrElse {
-                            GraphQLSourceContainerType(canonicalPath = parentPath,
+                            GraphQLSourceContainerType(sourcePath = parentPath,
                                                        name = GraphQLSourceNamingConventions.getFieldNamingConventionForGraphQLFieldDefinitions()
                                                                .deriveName(parentFieldDefinition),
                                                        type = parentFieldDefinition.type)
                         }
-                val childAsAttributeType = GraphQLSourceAttribute(canonicalPath = childPath,
+                val childAsAttributeType = GraphQLSourceAttribute(sourcePath = childPath,
                                                                   name = childConvFieldName,
                                                                   type = childFieldDefinition.type)
                 val updatedAttributeSet = currentContext.sourceContainerTypeToAttributeTypes.getOrDefault(parentAsContainerType,
-                                                                                                          persistentSetOf(childAsAttributeType))
+                                                                                                          persistentSetOf())
+                        .add(childAsAttributeType)
                 val updatedContainerTypeMap = currentContext.sourceContainerTypeToAttributeTypes.put(parentAsContainerType,
                                                                                                      updatedAttributeSet)
                 val updatedPathMap = currentContext.graphQLFieldDefinitionToPath.put(childFieldDefinition,
@@ -203,7 +212,67 @@ class GraphQLMetadataReader : MetadataReader<GraphQLSchema, GraphQLSourceIndex> 
                                     indicesByPath = updatedIndicesByPath)
             }
             else -> {
-                currentContext
+                /**
+                 * Case  3: Both the parent and child field definitions already have schematic path mappings
+                 */
+                val parentPath = currentContext.graphQLFieldDefinitionToPath[parentFieldDefinition]!!
+                val childPath = currentContext.graphQLFieldDefinitionToPath[childFieldDefinition]!!
+                val parentIndices = currentContext.indicesByPath.getOrDefault(parentPath,
+                                                                              persistentSetOf())
+                val childIndices = currentContext.indicesByPath.getOrDefault(childPath,
+                                                                             persistentSetOf())
+                val parentAsContainerType = parentIndices.toOption()
+                        .flatMap { set ->
+                            set.filterIsInstance<GraphQLSourceContainerType>()
+                                    .firstOrNone()
+                                    .or(set.filterIsInstance<GraphQLSourceAttribute>()
+                                                .firstOrNone()
+                                                .map { gqlAttr ->
+                                                    GraphQLSourceContainerType(sourcePath = gqlAttr.sourcePath,
+                                                                               name = gqlAttr.name,
+                                                                               type = gqlAttr.type)
+                                                })
+                        }
+                        .getOrElse {
+                            GraphQLSourceContainerType(sourcePath = parentPath,
+                                                       name = GraphQLSourceNamingConventions.getFieldNamingConventionForGraphQLFieldDefinitions()
+                                                               .deriveName(parentFieldDefinition),
+                                                       type = parentFieldDefinition.type)
+                        }
+                val childAsAttributeType = childIndices.toOption()
+                        .flatMap { set ->
+                            set.filterIsInstance<GraphQLSourceAttribute>()
+                                    .firstOrNone()
+                                    .or(set.filterIsInstance<GraphQLSourceContainerType>()
+                                                .firstOrNone()
+                                                .map { gqlSrcCont ->
+                                                    GraphQLSourceAttribute(sourcePath = gqlSrcCont.sourcePath,
+                                                                           name = gqlSrcCont.name,
+                                                                           type = gqlSrcCont.type)
+                                                })
+                        }
+                        .getOrElse {
+                            GraphQLSourceAttribute(sourcePath = childPath,
+                                                   name = GraphQLSourceNamingConventions.getFieldNamingConventionForGraphQLFieldDefinitions()
+                                                           .deriveName(childFieldDefinition),
+                                                   type = childFieldDefinition.type)
+                        }
+                val updatedAttributeSet = currentContext.sourceContainerTypeToAttributeTypes.getOrDefault(parentAsContainerType,
+                                                                                                          persistentSetOf())
+                        .add(childAsAttributeType)
+                val updatedContainerTypeMap = currentContext.sourceContainerTypeToAttributeTypes.put(parentAsContainerType,
+                                                                                                     updatedAttributeSet)
+                val updatedIndicesByPath = currentContext.indicesByPath.put(parentPath,
+                                                                            currentContext.indicesByPath.getOrDefault(parentPath,
+                                                                                                                      persistentSetOf())
+                                                                                    .add(parentAsContainerType))
+                        .put(childPath,
+                             currentContext.indicesByPath.getOrDefault(childPath,
+                                                                       persistentSetOf())
+                                     .add(childAsAttributeType))
+
+                currentContext.copy(sourceContainerTypeToAttributeTypes = updatedContainerTypeMap,
+                                    indicesByPath = updatedIndicesByPath)
             }
         }
     }
@@ -226,8 +295,8 @@ class GraphQLMetadataReader : MetadataReader<GraphQLSchema, GraphQLSourceIndex> 
         val sourceIndicesWithAttributesInContainerTypes = context.sourceContainerTypeToAttributeTypes.entries.parallelStream()
                 .reduce(persistentMapOf<SchematicPath, PersistentSet<GraphQLSourceIndex>>(),
                         { pm, entry: Map.Entry<GraphQLSourceContainerType, PersistentSet<GraphQLSourceAttribute>> ->
-                            pm.put(entry.key.canonicalPath,
-                                   pm.getOrDefault(entry.key.canonicalPath,
+                            pm.put(entry.key.sourcePath,
+                                   pm.getOrDefault(entry.key.sourcePath,
                                                    persistentSetOf())
                                            .add(entry.key.copy(sourceAttributes = entry.value)))
                         },
@@ -237,8 +306,8 @@ class GraphQLMetadataReader : MetadataReader<GraphQLSchema, GraphQLSourceIndex> 
         val sourceIndicesWithRootAttributes = context.rootAttributes.parallelStream()
                 .reduce(sourceIndicesWithAttributesInContainerTypes,
                         { pm, graphQLSourceAttribute: GraphQLSourceAttribute ->
-                            pm.put(graphQLSourceAttribute.canonicalPath,
-                                   pm.getOrDefault(graphQLSourceAttribute.canonicalPath,
+                            pm.put(graphQLSourceAttribute.sourcePath,
+                                   pm.getOrDefault(graphQLSourceAttribute.sourcePath,
                                                    persistentSetOf())
                                            .add(graphQLSourceAttribute))
                         },

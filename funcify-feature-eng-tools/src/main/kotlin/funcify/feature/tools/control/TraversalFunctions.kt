@@ -21,7 +21,7 @@ object TraversalFunctions {
                                  function: (T) -> Option<Either<T, R>>): Option<R> {
         val nextOptionHolder: Array<Option<Either<T, R>>> = arrayOf(startValue.left()
                                                                             .some())
-        var continueLoop = true
+        var continueLoop: Boolean
         do {
             continueLoop = nextOptionHolder[0].fold({ false },
                                                     { either: Either<T, R> ->

@@ -3,8 +3,12 @@ package funcify.feature.datasource.db.schema
 import arrow.core.filterIsInstance
 import arrow.core.getOrElse
 import arrow.core.toOption
+import funcify.feature.naming.ConventionalName
+import funcify.feature.naming.impl.DefaultConventionalName
+import funcify.feature.naming.impl.DefaultNameSegment
 import funcify.feature.schema.SchematicPath
 import funcify.feature.schema.path.DefaultSchematicPath
+import kotlinx.collections.immutable.persistentListOf
 import org.jooq.Record
 import org.jooq.TableField
 
@@ -22,6 +26,9 @@ data class JooqSourceAttribute(val jooqTableField: TableField<Record, *>) : RelD
                 .map { t -> JooqRelTableIdentifier.fromJooqRelTable(t) }
                 .getOrElse { JooqRelTableIdentifier() }
     }
-    override val name: String = jooqTableField.name
-    override val canonicalPath: SchematicPath = DefaultSchematicPath()
+    override val name: ConventionalName by lazy {
+        DefaultConventionalName("JOOQ_COLUMN_NAME",
+                                persistentListOf(DefaultNameSegment(jooqTableField.name)))
+    }
+    override val sourcePath: SchematicPath = DefaultSchematicPath()
 }

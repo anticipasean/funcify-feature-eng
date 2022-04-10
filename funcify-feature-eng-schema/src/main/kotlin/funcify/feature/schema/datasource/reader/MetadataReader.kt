@@ -11,6 +11,6 @@ import funcify.feature.schema.datasource.SourceMetamodel
  */
 interface MetadataReader<in T, SI : SourceIndex> {
 
-    fun readSourceContainerTypesFromMetadata(input: T): SourceMetamodel<SI>
+    fun readSourceMetamodelFromMetadata(input: T): SourceMetamodel<SI>
 
 }

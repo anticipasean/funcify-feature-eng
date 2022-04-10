@@ -34,6 +34,10 @@ import kotlinx.collections.immutable.PersistentList
 class MockGraphQLFetcherMetadataProvider(val objectMapper: ObjectMapper) : GraphQLFetcherMetadataProvider {
 
     companion object {
+        /**
+         * Example schema obtained from
+         * [DGS examples repo](https://github.com/Netflix/dgs-examples-kotlin/blob/56e7371ffad312a9d59f1318d04ab5426515e842/src/main/resources/schema/schema.graphqls)
+         */
         private val exampleDGSSchema: String = """
                     |type Query {
                     |    shows(titleFilter: String): [Show]

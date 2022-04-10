@@ -1,6 +1,6 @@
 package funcify.feature.materializer.service
 
-import funcify.feature.graphql.session.GraphQLSingleRequestSession
+import funcify.feature.materializer.session.GraphQLSingleRequestSession
 import funcify.feature.tools.container.async.Async
 
 

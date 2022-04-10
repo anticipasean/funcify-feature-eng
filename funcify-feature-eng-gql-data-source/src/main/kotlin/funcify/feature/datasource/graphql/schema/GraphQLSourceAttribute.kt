@@ -11,9 +11,10 @@ import graphql.schema.GraphQLType
  * @author smccarron
  * @created 2/7/22
  */
-data class GraphQLSourceAttribute(override val  canonicalPath: SchematicPath,
+data class GraphQLSourceAttribute(override val sourcePath: SchematicPath,
                                   override val name: ConventionalName,
-                                  override val type: GraphQLType) : GraphQLSourceIndex, SourceAttribute {
+                                  override val type: GraphQLType) : GraphQLSourceIndex,
+                                                                    SourceAttribute {
 
 
 }

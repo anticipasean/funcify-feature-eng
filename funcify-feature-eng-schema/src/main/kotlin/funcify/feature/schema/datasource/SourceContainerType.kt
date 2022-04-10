@@ -4,7 +4,7 @@ import kotlinx.collections.immutable.ImmutableSet
 
 
 /**
- *
+ * A path, name, and type that represents a container received from a source type
  * @author smccarron
  * @created 1/30/22
  */

@@ -1,8 +1,7 @@
-package funcify.feature.graphql.metadata
+package funcify.feature.datasource.graphql.metadata
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import funcify.feature.json.JsonObjectMappingConfiguration
-import funcify.feature.materializer.metadata.MockGraphQLFetcherMetadataProvider
 import graphql.schema.GraphQLSchema
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test

@@ -5,7 +5,7 @@ import funcify.feature.schema.SchematicPath
 
 
 /**
- * A reference with [SchematicPath] from a type of data source
+ * A reference with a path of type [SchematicPath] from a type of data source
  * that is the same or close enough across all declared data sources
  * of this reference
  * @author smccarron
@@ -17,6 +17,6 @@ interface SourceIndex {
 
     val name: ConventionalName
 
-    val canonicalPath: SchematicPath
+    val sourcePath: SchematicPath
 
 }

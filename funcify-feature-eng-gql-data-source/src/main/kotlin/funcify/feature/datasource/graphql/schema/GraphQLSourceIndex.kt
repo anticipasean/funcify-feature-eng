@@ -1,9 +1,9 @@
 package funcify.feature.datasource.graphql.schema
 
-import funcify.feature.schema.datasource.RawDataSourceType
 import funcify.feature.naming.ConventionalName
 import funcify.feature.schema.SchematicPath
 import funcify.feature.schema.datasource.DataSourceType
+import funcify.feature.schema.datasource.RawDataSourceType
 import funcify.feature.schema.datasource.SourceIndex
 import graphql.schema.GraphQLType
 
@@ -17,7 +17,7 @@ interface GraphQLSourceIndex : SourceIndex {
 
     override val dataSourceType: DataSourceType
         get() = RawDataSourceType.GRAPHQL_API
-    override val canonicalPath: SchematicPath
+    override val sourcePath: SchematicPath
 
     override val name: ConventionalName
 

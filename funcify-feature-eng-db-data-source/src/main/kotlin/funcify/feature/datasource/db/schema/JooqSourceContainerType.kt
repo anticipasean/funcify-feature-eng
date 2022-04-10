@@ -21,9 +21,11 @@ data class JooqSourceContainerType(val jooqRelTable: JooqRelTable) : RelDatabase
 
     override val relTableIdentifier: RelTableIdentifier by lazy { JooqRelTableIdentifier.fromJooqRelTable(jooqRelTable) }
     override val sourceAttributes: ImmutableSet<RelDatabaseSourceAttribute> = persistentSetOf()
-    override val name: ConventionalName = DefaultConventionalName("JOOQ_TABLE_NAME",
-                                                                  persistentListOf(DefaultNameSegment(jooqRelTable.name)))
-    override val canonicalPath: SchematicPath = DefaultSchematicPath()
+    override val name: ConventionalName by lazy {
+        DefaultConventionalName("JOOQ_TABLE_NAME",
+                                persistentListOf(DefaultNameSegment(jooqRelTable.name)))
+    }
+    override val sourcePath: SchematicPath = DefaultSchematicPath()
 
     val sourceAttributesByName: PersistentMap<String, RelDatabaseSourceAttribute> by lazy {
         sourceAttributes.fold(persistentMapOf(),

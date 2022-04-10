@@ -1,6 +1,6 @@
 package funcify.feature.materializer.session
 
-import java.util.*
+import java.util.UUID
 
 
 /**
