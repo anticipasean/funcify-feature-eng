@@ -9,7 +9,9 @@ import funcify.feature.datasource.graphql.GraphQLApiService
 import funcify.feature.tools.container.async.Async
 import funcify.feature.tools.container.attempt.Try
 import io.netty.handler.codec.http.HttpScheme
-import org.springframework.stereotype.Component
+import org.springframework.beans.factory.ObjectProvider
+import org.springframework.boot.autoconfigure.web.reactive.function.client.WebClientCodecCustomizer
+import org.springframework.boot.web.reactive.function.client.WebClientCustomizer
 import org.springframework.web.reactive.function.client.WebClient
 import org.springframework.web.util.DefaultUriBuilderFactory
 import org.springframework.web.util.UriBuilderFactory
@@ -22,8 +24,9 @@ import reactor.core.publisher.Mono
  * @author smccarron
  * @created 4/10/22
  */
-@Component
-internal class DefaultGraphQLApiServiceFactory(private val objectMapper: ObjectMapper) : GraphQLApiServiceFactory {
+internal class DefaultGraphQLApiServiceFactory(private val objectMapper: ObjectMapper,
+                                               private val webClientCustomizerProvider: ObjectProvider<WebClientCustomizer>,
+                                               private val codecCustomizerProvider: ObjectProvider<WebClientCodecCustomizer>) : GraphQLApiServiceFactory {
 
     companion object {
         private const val UNSET_SERVICE_NAME: String = ""
@@ -32,11 +35,33 @@ internal class DefaultGraphQLApiServiceFactory(private val objectMapper: ObjectM
         private const val DEFAULT_GRAPHQL_SERVER_CONTEXT_PATH: String = "/graphql"
     }
 
+    private val webClientCustomizers: List<WebClientCustomizer> by lazy {
+        webClientCustomizerProvider.orderedStream()
+                .toList()
+    }
+    private val codecCustomizers: List<WebClientCodecCustomizer> by lazy {
+        codecCustomizerProvider.orderedStream()
+                .toList()
+    }
+
+    private val webClientBuilderUpdater: (WebClient.Builder) -> WebClient.Builder = { wcb: WebClient.Builder ->
+        webClientCustomizers.fold(codecCustomizers.fold(wcb) { bldr: WebClient.Builder, wccc: WebClientCodecCustomizer ->
+            wccc.customize(bldr)
+            bldr
+        }) { bldr: WebClient.Builder, wcc: WebClientCustomizer ->
+            wcc.customize(bldr)
+            bldr
+        }
+    }
+
+
     override fun builder(): GraphQLApiService.Builder {
-        return DefaultGraphQLApiServiceBuilder(objectMapper = objectMapper)
+        return DefaultGraphQLApiServiceBuilder(objectMapper = objectMapper,
+                                               webClientUpdater = webClientBuilderUpdater)
     }
 
     internal class DefaultGraphQLApiServiceBuilder(private val objectMapper: ObjectMapper,
+                                                   private val webClientUpdater: (WebClient.Builder) -> WebClient.Builder,
                                                    private var sslTlsSupported: Boolean = true,
                                                    private var serviceName: String = UNSET_SERVICE_NAME,
                                                    private var hostName: String = UNSET_HOST_NAME,
@@ -78,7 +103,8 @@ internal class DefaultGraphQLApiServiceFactory(private val objectMapper: ObjectM
                                                     hostName = hostName,
                                                     port = port,
                                                     serviceContextPath = serviceContextPath,
-                                                    objectMapper = objectMapper)
+                                                    objectMapper = objectMapper,
+                                                    webClientUpdater = webClientUpdater)
                 }
             }
         }
@@ -95,7 +121,8 @@ internal class DefaultGraphQLApiServiceFactory(private val objectMapper: ObjectM
                                                  override val port: UInt,
                                                  @JsonProperty("service_context_path")
                                                  override val serviceContextPath: String,
-                                                 private val objectMapper: ObjectMapper) : GraphQLApiService {
+                                                 private val objectMapper: ObjectMapper,
+                                                 private val webClientUpdater: (WebClient.Builder) -> WebClient.Builder) : GraphQLApiService {
 
         private val webClient: WebClient by lazy {
             val scheme: HttpScheme = if (sslTlsSupported) {
@@ -115,8 +142,8 @@ internal class DefaultGraphQLApiServiceFactory(private val objectMapper: ObjectM
                     .port(validatedPort)
                     .path(serviceContextPath)
             val uriBuilderFactory: UriBuilderFactory = DefaultUriBuilderFactory(uriComponentsBuilder)
-            WebClient.builder()
-                    .uriBuilderFactory(uriBuilderFactory)
+            webClientUpdater.invoke(WebClient.builder()
+                                            .uriBuilderFactory(uriBuilderFactory))
                     .build()
         }
 
