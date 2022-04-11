@@ -160,7 +160,7 @@ internal class DefaultGraphQLApiServiceFactory(private val objectMapper: ObjectM
                     .let { gqlResponseMono: Mono<GraphQLResponse> ->
                         Async.fromMono(gqlResponseMono)
                                 .flatMap { gqlResponse: GraphQLResponse ->
-                                    Async.fromAttempt(Try.attempt { objectMapper.valueToTree<JsonNode>(gqlResponse.data) })
+                                    Async.fromAttempt(Try.attempt { objectMapper.valueToTree<JsonNode>(gqlResponse.json) })
                                 }
                     }
         }
