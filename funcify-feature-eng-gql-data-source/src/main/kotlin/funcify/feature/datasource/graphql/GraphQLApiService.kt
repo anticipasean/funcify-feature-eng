@@ -1,6 +1,7 @@
 package funcify.feature.datasource.graphql
 
-import funcify.feature.datasource.graphql.factory.GraphQLApiServiceFactory
+import com.fasterxml.jackson.databind.JsonNode
+import funcify.feature.tools.container.async.Async
 import graphql.introspection.IntrospectionQuery
 
 
@@ -11,12 +12,7 @@ import graphql.introspection.IntrospectionQuery
  */
 interface GraphQLApiService {
 
-    companion object {
-
-        fun builder(): Builder {
-            return GraphQLApiServiceFactory.DefaultGraphQLApiServiceBuilder()
-        }
-    }
+    val sslTlsSupported: Boolean
 
     val serviceName: String
 
@@ -29,7 +25,13 @@ interface GraphQLApiService {
     val metadataQuery: String
         get() = IntrospectionQuery.INTROSPECTION_QUERY
 
+    fun executeSingleQuery(query: String,
+                           variables: Map<String, Any> = mapOf(),
+                           operationName: String? = null): Async<JsonNode>
+
     interface Builder {
+
+        fun sslTlsSupported(sslTlsSupported: Boolean): Builder
 
         fun serviceName(serviceName: String): Builder
 
