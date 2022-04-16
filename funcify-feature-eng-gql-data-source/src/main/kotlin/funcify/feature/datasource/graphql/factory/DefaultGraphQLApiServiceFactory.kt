@@ -7,7 +7,10 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.node.JsonNodeFactory
 import com.fasterxml.jackson.databind.node.ObjectNode
 import funcify.feature.datasource.graphql.GraphQLApiService
+import funcify.feature.datasource.graphql.error.GQLDataSourceErrorResponse
+import funcify.feature.datasource.graphql.error.GQLDataSourceException
 import funcify.feature.tools.container.async.Async
+import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
 import io.netty.handler.codec.http.HttpScheme
 import org.springframework.beans.factory.ObjectProvider
 import org.springframework.boot.autoconfigure.web.reactive.function.client.WebClientCodecCustomizer
@@ -189,6 +192,15 @@ internal class DefaultGraphQLApiServiceFactory(
                             }
                         }
                 }
+                    .onErrorResume(IllegalArgumentException::class.java) {
+                        e: IllegalArgumentException ->
+                        Mono.error(
+                            GQLDataSourceException(
+                                GQLDataSourceErrorResponse.JSON_CONVERSION_ISSUE,
+                                e
+                            )
+                        )
+                    }
             return Async.fromMono(
                 webClient
                     .post()
@@ -198,10 +210,19 @@ internal class DefaultGraphQLApiServiceFactory(
                     .body(queryBodySupplierMono, JsonNode::class.java)
                     .exchangeToMono<JsonNode> { cr: ClientResponse ->
                         if (cr.statusCode().isError) {
-                            /** make error here and publish that */
-                            TODO("create error mono here and publish that")
+                            Mono.error<JsonNode>(
+                                GQLDataSourceException(
+                                    GQLDataSourceErrorResponse.CLIENT_ERROR,
+                                    """
+                                        |client_response.status_code: 
+                                        |[ code: ${cr.statusCode().value()}, 
+                                        |reason: ${cr.statusCode().reasonPhrase} ]
+                                    """.flattenIntoOneLine()
+                                )
+                            )
+                        } else {
+                            cr.bodyToMono(JsonNode::class.java)
                         }
-                        cr.bodyToMono(JsonNode::class.java)
                     }
             )
         }

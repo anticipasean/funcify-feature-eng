@@ -6,7 +6,7 @@ import arrow.core.toOption
 import java.io.PrintStream
 import java.io.PrintWriter
 
-class FeatureEngCommonException(
+open class FeatureEngCommonException(
     val errorResponse: ErrorResponse,
     val inputMessage: String,
     override val cause: Throwable?
