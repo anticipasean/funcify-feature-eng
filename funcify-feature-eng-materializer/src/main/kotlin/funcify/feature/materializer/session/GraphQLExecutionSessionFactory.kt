@@ -2,7 +2,6 @@ package funcify.feature.materializer.session
 
 import funcify.feature.materializer.request.RawGraphQLRequest
 
-
 /**
  *
  * @author smccarron
@@ -10,6 +9,7 @@ import funcify.feature.materializer.request.RawGraphQLRequest
  */
 interface GraphQLExecutionSessionFactory {
 
-    fun createSessionForSingleRequest(rawGraphQLRequest: RawGraphQLRequest): GraphQLSingleRequestSession
-
+    fun createSessionForSingleRequest(
+        rawGraphQLRequest: RawGraphQLRequest
+    ): GraphQLSingleRequestSession
 }

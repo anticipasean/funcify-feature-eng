@@ -3,7 +3,6 @@ package funcify.feature.materializer.service
 import funcify.feature.materializer.session.GraphQLSingleRequestSession
 import funcify.feature.tools.container.async.Async
 
-
 /**
  *
  * @author smccarron
@@ -11,6 +10,7 @@ import funcify.feature.tools.container.async.Async
  */
 interface GraphQLExecutionSessionCoordinator {
 
-    fun conductSingleRequestSession(session: GraphQLSingleRequestSession): Async<GraphQLSingleRequestSession>
-
+    fun conductSingleRequestSession(
+        session: GraphQLSingleRequestSession
+    ): Async<GraphQLSingleRequestSession>
 }

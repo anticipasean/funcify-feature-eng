@@ -1,6 +1,5 @@
 package funcify.feature.materializer.session
 
-
 /**
  *
  * @author smccarron
@@ -9,5 +8,4 @@ package funcify.feature.materializer.session
 interface MaterializationSessionFactory {
 
     fun createMaterializationSession(): MaterializationSession
-
 }

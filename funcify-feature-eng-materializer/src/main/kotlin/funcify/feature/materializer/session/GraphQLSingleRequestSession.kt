@@ -4,7 +4,6 @@ import arrow.core.Option
 import funcify.feature.materializer.request.RawGraphQLRequest
 import funcify.feature.materializer.response.SerializedGraphQLResponse
 
-
 /**
  *
  * @author smccarron
@@ -15,5 +14,4 @@ interface GraphQLSingleRequestSession : MaterializationSession {
     val rawGraphQLRequest: RawGraphQLRequest
 
     val serializedGraphQLResponse: Option<SerializedGraphQLResponse>
-
 }

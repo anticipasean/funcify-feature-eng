@@ -7,8 +7,8 @@ import java.io.PrintStream
 import java.io.PrintWriter
 
 open class FeatureEngCommonException(
-    val errorResponse: ErrorResponse,
-    val inputMessage: String,
+    open val errorResponse: ErrorResponse,
+    open val inputMessage: String,
     override val cause: Throwable?
 ) :
     RuntimeException(

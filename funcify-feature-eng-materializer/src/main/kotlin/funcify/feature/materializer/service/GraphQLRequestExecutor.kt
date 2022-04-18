@@ -4,7 +4,6 @@ import funcify.feature.materializer.request.RawGraphQLRequest
 import funcify.feature.materializer.response.SerializedGraphQLResponse
 import funcify.feature.tools.container.async.Async
 
-
 /**
  *
  * @author smccarron
@@ -13,5 +12,4 @@ import funcify.feature.tools.container.async.Async
 interface GraphQLRequestExecutor {
 
     fun executeSingleRequest(rawGraphQLRequest: RawGraphQLRequest): Async<SerializedGraphQLResponse>
-
 }

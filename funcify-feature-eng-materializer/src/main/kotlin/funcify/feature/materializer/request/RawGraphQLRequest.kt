@@ -1,10 +1,9 @@
 package funcify.feature.materializer.request
 
 import graphql.execution.ExecutionId
-import org.springframework.http.HttpHeaders
 import java.net.URI
-import java.util.Locale
-
+import java.util.*
+import org.springframework.http.HttpHeaders
 
 /**
  *
@@ -30,5 +29,4 @@ interface RawGraphQLRequest {
     val executionInputCustomizers: List<GraphQLExecutionInputCustomizer>
 
     val executionId: ExecutionId
-
 }

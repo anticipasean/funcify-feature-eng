@@ -3,7 +3,6 @@ package funcify.feature.materializer.service
 import funcify.feature.materializer.session.MaterializationSession
 import funcify.feature.tools.container.async.Async
 
-
 /**
  *
  * @author smccarron
@@ -11,6 +10,7 @@ import funcify.feature.tools.container.async.Async
  */
 interface MaterializationPostprocessingService {
 
-    fun convertMaterializedValuesIntoExpectedOutputFormat(materializationSession: MaterializationSession): Async<MaterializationSession>
-
+    fun convertMaterializedValuesIntoExpectedOutputFormat(
+        materializationSession: MaterializationSession
+    ): Async<MaterializationSession>
 }

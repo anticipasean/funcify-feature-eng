@@ -1,7 +1,6 @@
 package funcify.feature.materializer.session
 
-import java.util.UUID
-
+import java.util.*
 
 /**
  *
@@ -11,5 +10,4 @@ import java.util.UUID
 interface MaterializationSession {
 
     val sessionIdentifier: UUID
-
 }
