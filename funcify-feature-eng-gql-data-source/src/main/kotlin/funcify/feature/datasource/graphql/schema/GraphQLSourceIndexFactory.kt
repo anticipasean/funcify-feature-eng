@@ -5,7 +5,6 @@ import funcify.feature.schema.path.SchematicPath
 import graphql.schema.GraphQLFieldDefinition
 import kotlinx.collections.immutable.ImmutableSet
 
-
 /**
  *
  * @author smccarron
@@ -26,34 +25,35 @@ interface GraphQLSourceIndexFactory {
         fun createSourceAttribute(): ParentDefinitionBase {
             return DefaultGraphQLSourceIndexFactory.DefaultParentDefinitionBase()
         }
-
     }
 
     interface RootBase {
 
-        fun fromRootDefinition(fieldDefinition: GraphQLFieldDefinition): ImmutableSet<GraphQLSourceIndex>
-
+        fun fromRootDefinition(
+            fieldDefinition: GraphQLFieldDefinition
+        ): ImmutableSet<GraphQLSourceIndex>
     }
-
 
     interface AttributeBase {
 
-        fun forAttributePathAndDefinition(attributePath: SchematicPath,
-                                          attributeDefinition: GraphQLFieldDefinition): Option<GraphQLSourceContainerType>
+        fun forAttributePathAndDefinition(
+            attributePath: SchematicPath,
+            attributeDefinition: GraphQLFieldDefinition
+        ): Option<GraphQLSourceContainerType>
     }
 
     interface ParentDefinitionBase {
 
-        fun withParentPathAndDefinition(parentPath: SchematicPath,
-                                        parentDefinition: GraphQLFieldDefinition): ChildAttributeBuilder
-
+        fun withParentPathAndDefinition(
+            parentPath: SchematicPath,
+            parentDefinition: GraphQLFieldDefinition
+        ): ChildAttributeBuilder
     }
 
     interface ChildAttributeBuilder {
 
-        fun forChildAttributeDefinition(childDefinition: GraphQLFieldDefinition): GraphQLSourceAttribute
-
+        fun forChildAttributeDefinition(
+            childDefinition: GraphQLFieldDefinition
+        ): GraphQLSourceAttribute
     }
-
-
 }

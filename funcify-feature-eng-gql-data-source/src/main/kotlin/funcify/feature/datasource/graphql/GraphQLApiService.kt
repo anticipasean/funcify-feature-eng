@@ -4,7 +4,6 @@ import com.fasterxml.jackson.databind.JsonNode
 import funcify.feature.tools.container.async.Async
 import graphql.introspection.IntrospectionQuery
 
-
 /**
  *
  * @author smccarron
@@ -25,9 +24,11 @@ interface GraphQLApiService {
     val metadataQuery: String
         get() = IntrospectionQuery.INTROSPECTION_QUERY
 
-    fun executeSingleQuery(query: String,
-                           variables: Map<String, Any> = mapOf(),
-                           operationName: String? = null): Async<JsonNode>
+    fun executeSingleQuery(
+        query: String,
+        variables: Map<String, Any> = mapOf(),
+        operationName: String? = null
+    ): Async<JsonNode>
 
     interface Builder {
 
@@ -42,7 +43,5 @@ interface GraphQLApiService {
         fun serviceContextPath(serviceContextPath: String): Builder
 
         fun build(): GraphQLApiService
-
     }
-
 }

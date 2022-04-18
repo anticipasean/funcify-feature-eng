@@ -3,7 +3,6 @@ package funcify.feature.datasource.graphql
 import funcify.feature.datasource.graphql.schema.GraphQLSourceMetamodel
 import graphql.schema.GraphQLSchema
 
-
 /**
  *
  * @author smccarron
@@ -18,5 +17,4 @@ interface GraphQLApiDataSource {
     val graphQLSourceSchema: GraphQLSchema
 
     val graphQLSourceMetamodel: GraphQLSourceMetamodel
-
 }

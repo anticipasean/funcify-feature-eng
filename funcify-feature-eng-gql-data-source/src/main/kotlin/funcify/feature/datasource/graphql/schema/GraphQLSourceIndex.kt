@@ -1,12 +1,11 @@
 package funcify.feature.datasource.graphql.schema
 
 import funcify.feature.naming.ConventionalName
-import funcify.feature.schema.path.SchematicPath
 import funcify.feature.schema.datasource.DataSourceType
 import funcify.feature.schema.datasource.RawDataSourceType
 import funcify.feature.schema.datasource.SourceIndex
+import funcify.feature.schema.path.SchematicPath
 import graphql.schema.GraphQLType
-
 
 /**
  *
@@ -22,5 +21,4 @@ interface GraphQLSourceIndex : SourceIndex {
     override val name: ConventionalName
 
     val type: GraphQLType
-
 }

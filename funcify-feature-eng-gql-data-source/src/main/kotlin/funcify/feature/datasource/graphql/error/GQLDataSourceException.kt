@@ -10,16 +10,16 @@ class GQLDataSourceException(
 ) : FeatureEngCommonException(errorResponse, inputMessage, cause) {
 
     constructor(
-        errorResponse: GQLDataSourceErrorResponse,
+        errorResponse: ErrorResponse,
         cause: Throwable
     ) : this(
         errorResponse = errorResponse,
-        inputMessage = FeatureEngCommonException.MISSING_ERROR_MESSAGE,
+        inputMessage = MISSING_ERROR_MESSAGE,
         cause = cause
     )
 
     constructor(
-        errorResponse: GQLDataSourceErrorResponse,
+        errorResponse: ErrorResponse,
         inputMessage: String
     ) : this(errorResponse = errorResponse, inputMessage = inputMessage, cause = null)
 }

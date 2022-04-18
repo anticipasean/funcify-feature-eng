@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.node.JsonNodeFactory
 import com.fasterxml.jackson.module.kotlin.treeToValue
+import funcify.feature.datasource.graphql.GraphQLApiService
 import funcify.feature.tools.container.async.Async
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.OptionExtensions.flatMapOptions
@@ -25,20 +26,21 @@ import graphql.schema.idl.SchemaParser
 import graphql.schema.idl.TypeDefinitionRegistry
 import kotlinx.collections.immutable.PersistentList
 
-
 /**
  *
  * @author smccarron
  * @created 4/4/22
  */
-class MockGraphQLFetcherMetadataProvider(val objectMapper: ObjectMapper) : GraphQLFetcherMetadataProvider {
+class MockGraphQLFetcherMetadataProvider(val objectMapper: ObjectMapper) :
+    GraphQLFetcherMetadataProvider {
 
     companion object {
         /**
          * Example schema obtained from
          * [DGS examples repo](https://github.com/Netflix/dgs-examples-kotlin/blob/56e7371ffad312a9d59f1318d04ab5426515e842/src/main/resources/schema/schema.graphqls)
          */
-        private val exampleDGSSchema: String = """
+        private val exampleDGSSchema: String =
+            """
                     |type Query {
                     |    shows(titleFilter: String): [Show]
                     |}
@@ -84,68 +86,93 @@ class MockGraphQLFetcherMetadataProvider(val objectMapper: ObjectMapper) : Graph
                     |scalar Upload
                     |directive @skipcodegen on FIELD_DEFINITION
                     """.trimMargin()
+
+        val fakeService: GraphQLApiService =
+            object : GraphQLApiService {
+                override val sslTlsSupported: Boolean
+                    get() = true
+                override val serviceName: String
+                    get() = "fakeService"
+                override val hostName: String
+                    get() = "localhost"
+                override val port: UInt
+                    get() = 443u
+                override val serviceContextPath: String
+                    get() = "/graphql"
+
+                override fun executeSingleQuery(
+                    query: String,
+                    variables: Map<String, Any>,
+                    operationName: String?
+                ): Async<JsonNode> {
+                    return Async.empty()
+                }
+            }
     }
 
-    override fun provideMetadata(): Async<GraphQLSchema> {
-        return Async.fromAttempt(mimicIntrospectionQueryAgainstGraphQLAPIServerOnParsedSchema().flatMap { jn ->
-            convertJsonNodeIntoGraphQLSchemaInstance(jn)
-        })
+    override fun provideMetadata(service: GraphQLApiService): Async<GraphQLSchema> {
+        return Async.fromAttempt(
+            mimicIntrospectionQueryAgainstGraphQLAPIServerOnParsedSchema().flatMap { jn ->
+                convertJsonNodeIntoGraphQLSchemaInstance(jn)
+            }
+        )
     }
 
     private fun mimicIntrospectionQueryAgainstGraphQLAPIServerOnParsedSchema(): Try<JsonNode> {
         return Try.attemptNullable { SchemaParser().parse(exampleDGSSchema) }
-                .flatMap(Try.Companion::fromOption)
-                .map { typeDefReg: TypeDefinitionRegistry ->
-                    SchemaGenerator().makeExecutableSchema(typeDefReg,
-                                                           RuntimeWiring.MOCKED_WIRING)
+            .flatMap(Try.Companion::fromOption)
+            .map { typeDefReg: TypeDefinitionRegistry ->
+                SchemaGenerator().makeExecutableSchema(typeDefReg, RuntimeWiring.MOCKED_WIRING)
+            }
+            .map { gs: GraphQLSchema -> GraphQL.newGraphQL(gs).build() }
+            .map { gql: GraphQL -> gql.execute(IntrospectionQuery.INTROSPECTION_QUERY) }
+            .filter(
+                { execResult: ExecutionResult -> execResult.isDataPresent },
+                { _: ExecutionResult -> IllegalStateException("no data is present!") }
+            )
+            .map { execResult: ExecutionResult ->
+                objectMapper.valueToTree(execResult.toSpecification()) as JsonNode
+            }
+            .map { jn: JsonNode ->
+                if (jn.has("data")) {
+                    jn.get("data")
+                } else {
+                    JsonNodeFactory.instance.nullNode()
                 }
-                .map { gs: GraphQLSchema ->
-                    GraphQL.newGraphQL(gs)
-                            .build()
-                }
-                .map { gql: GraphQL -> gql.execute(IntrospectionQuery.INTROSPECTION_QUERY) }
-                .filter({ execResult: ExecutionResult -> execResult.isDataPresent },
-                        { _: ExecutionResult -> IllegalStateException("no data is present!") })
-                .map { execResult: ExecutionResult -> objectMapper.valueToTree(execResult.toSpecification()) as JsonNode }
-                .map { jn: JsonNode ->
-                    if (jn.has("data")) {
-                        jn.get("data")
-                    } else {
-                        JsonNodeFactory.instance.nullNode()
-                    }
-                }
+            }
     }
 
-    private fun convertJsonNodeIntoGraphQLSchemaInstance(schemaJsonNode: JsonNode): Try<GraphQLSchema> {
+    private fun convertJsonNodeIntoGraphQLSchemaInstance(
+        schemaJsonNode: JsonNode
+    ): Try<GraphQLSchema> {
         return Try.success(schemaJsonNode)
-                .filterNot({ jn -> jn.isNull },
-                           { _: JsonNode -> IllegalStateException("schema_json_node is a null node") })
-                .map { jn: JsonNode ->
-                    objectMapper.treeToValue<Map<String, Any?>>(jn)
-                }
-                .map { strMap: Map<String, Any?> ->
-                    IntrospectionResultToSchema().createSchemaDefinition(strMap)
-                }
-                .map { document: Document ->
-                    document.definitions.stream()
-                            .map { def: Definition<*> ->
-                                def.toOption()
-                                        .filterIsInstance<SDLDefinition<*>>()
-                            }
-                            .flatMapOptions()
-                            .reduceToPersistentList()
-                }
-                .map { sdlDefinitions: PersistentList<SDLDefinition<*>> ->
-                    TypeDefinitionRegistry().apply {
-                        addAll(sdlDefinitions).ifPresent { gqlerror: GraphQLError ->
-                            throw RuntimeException(gqlerror.toString())
-                        }
+            .filterNot(
+                { jn -> jn.isNull },
+                { _: JsonNode -> IllegalStateException("schema_json_node is a null node") }
+            )
+            .map { jn: JsonNode -> objectMapper.treeToValue<Map<String, Any?>>(jn) }
+            .map { strMap: Map<String, Any?> ->
+                IntrospectionResultToSchema().createSchemaDefinition(strMap)
+            }
+            .map { document: Document ->
+                document
+                    .definitions
+                    .stream()
+                    .map { def: Definition<*> ->
+                        def.toOption().filterIsInstance<SDLDefinition<*>>()
+                    }
+                    .flatMapOptions()
+                    .reduceToPersistentList()
+            }
+            .map { sdlDefinitions: PersistentList<SDLDefinition<*>> ->
+                TypeDefinitionRegistry().apply {
+                    addAll(sdlDefinitions).ifPresent { gqlerror: GraphQLError ->
+                        throw RuntimeException(gqlerror.toString())
                     }
                 }
-                .map { typeDefReg: TypeDefinitionRegistry ->
-                    SchemaGenerator().makeExecutableSchema(typeDefReg,
-                                                           RuntimeWiring.MOCKED_WIRING)
-                }
+            }
+            .map { typeDefReg: TypeDefinitionRegistry ->
+                SchemaGenerator().makeExecutableSchema(typeDefReg, RuntimeWiring.MOCKED_WIRING)
+            }
     }
-
 }

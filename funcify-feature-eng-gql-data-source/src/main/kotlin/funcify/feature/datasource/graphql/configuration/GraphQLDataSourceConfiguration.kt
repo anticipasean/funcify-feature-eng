@@ -1,15 +1,20 @@
 package funcify.feature.datasource.graphql.configuration
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import funcify.feature.datasource.graphql.factory.DefaultGraphQLApiDataSourceFactory
 import funcify.feature.datasource.graphql.factory.DefaultGraphQLApiServiceFactory
+import funcify.feature.datasource.graphql.factory.GraphQLApiDataSourceFactory
 import funcify.feature.datasource.graphql.factory.GraphQLApiServiceFactory
+import funcify.feature.datasource.graphql.metadata.DefaultGraphQLFetcherMetadataProvider
+import funcify.feature.datasource.graphql.metadata.GraphQLFetcherMetadataProvider
+import funcify.feature.datasource.graphql.reader.DefaultGraphQLApiSourceMetadataReader
+import funcify.feature.datasource.graphql.reader.GraphQLApiSourceMetadataReader
 import org.springframework.beans.factory.ObjectProvider
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.autoconfigure.web.reactive.function.client.WebClientCodecCustomizer
 import org.springframework.boot.web.reactive.function.client.WebClientCustomizer
 import org.springframework.context.annotation.Configuration
-
 
 /**
  *
@@ -21,12 +26,34 @@ class GraphQLDataSourceConfiguration {
 
     @ConditionalOnMissingBean(value = [GraphQLApiServiceFactory::class])
     @ConditionalOnBean(value = [ObjectMapper::class])
-    fun graphQLApiServiceFactory(objectMapper: ObjectMapper,
-                                 webClientCustomizerProvider: ObjectProvider<WebClientCustomizer>,
-                                 codecCustomizerProvider: ObjectProvider<WebClientCodecCustomizer>): GraphQLApiServiceFactory {
-        return DefaultGraphQLApiServiceFactory(objectMapper = objectMapper,
-                                               webClientCustomizerProvider = webClientCustomizerProvider,
-                                               codecCustomizerProvider = codecCustomizerProvider)
+    fun graphQLApiServiceFactory(
+        objectMapper: ObjectMapper,
+        webClientCustomizerProvider: ObjectProvider<WebClientCustomizer>,
+        codecCustomizerProvider: ObjectProvider<WebClientCodecCustomizer>
+    ): GraphQLApiServiceFactory {
+        return DefaultGraphQLApiServiceFactory(
+            objectMapper = objectMapper,
+            webClientCustomizerProvider = webClientCustomizerProvider,
+            codecCustomizerProvider = codecCustomizerProvider
+        )
     }
 
+    @ConditionalOnMissingBean(value = [GraphQLApiDataSourceFactory::class])
+    @ConditionalOnBean(value = [ObjectMapper::class])
+    fun graphQLApiDataSourceFactory(
+        objectMapper: ObjectMapper,
+        graphQLFetcherMetadataProvider: ObjectProvider<GraphQLFetcherMetadataProvider>,
+        graphQLMetadataReaderProvider: ObjectProvider<GraphQLApiSourceMetadataReader>
+    ): GraphQLApiDataSourceFactory {
+        return DefaultGraphQLApiDataSourceFactory(
+            graphQLFetcherMetadataProvider =
+                graphQLFetcherMetadataProvider.getIfAvailable {
+                    DefaultGraphQLFetcherMetadataProvider(objectMapper = objectMapper)
+                },
+            graphQLMetadataReader =
+                graphQLMetadataReaderProvider.getIfAvailable {
+                    DefaultGraphQLApiSourceMetadataReader()
+                }
+        )
+    }
 }

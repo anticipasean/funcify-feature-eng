@@ -27,5 +27,25 @@ enum class GQLDataSourceErrorResponse : ErrorResponse {
             get() = HttpStatus.FAILED_DEPENDENCY.some()
         override val errorMessageIfHttp: Option<String>
             get() = "unsuccessful response from graphql client".some()
+    },
+    MALFORMED_CONTENT_RECEIVED {
+        override val responseStatusIfHttp: Option<HttpStatus>
+            get() = HttpStatus.NOT_ACCEPTABLE.some()
+        override val errorMessageIfHttp: Option<String>
+            get() = "response from graphQL source not in expected format".some()
+    },
+    UNEXPECTED_ERROR {
+        override val responseStatusIfHttp: Option<HttpStatus>
+            get() = HttpStatus.INTERNAL_SERVER_ERROR.some()
+        override val errorMessageIfHttp: Option<String>
+            get() = "unexpected error".some()
+    };
+
+    companion object {
+        internal data class GQLSpecificErrorResponse(val gqlError: GraphQLError) : ErrorResponse {
+            override val responseIfGraphQL: Option<GraphQLError>
+                get() = gqlError.some()
+        }
+
     }
 }

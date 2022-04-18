@@ -2,7 +2,6 @@ package funcify.feature.datasource.graphql.factory
 
 import funcify.feature.datasource.graphql.GraphQLApiService
 
-
 /**
  *
  * @author smccarron
@@ -11,5 +10,4 @@ import funcify.feature.datasource.graphql.GraphQLApiService
 interface GraphQLApiServiceFactory {
 
     fun builder(): GraphQLApiService.Builder
-
 }

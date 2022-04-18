@@ -12,6 +12,8 @@ import funcify.feature.datasource.graphql.error.GQLDataSourceException
 import funcify.feature.tools.container.async.Async
 import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
 import io.netty.handler.codec.http.HttpScheme
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.ObjectProvider
 import org.springframework.boot.autoconfigure.web.reactive.function.client.WebClientCodecCustomizer
 import org.springframework.boot.web.reactive.function.client.WebClientCustomizer
@@ -106,10 +108,12 @@ internal class DefaultGraphQLApiServiceFactory(
 
         override fun build(): GraphQLApiService {
             when {
-                serviceName == UNSET_SERVICE_NAME ->
+                serviceName == UNSET_SERVICE_NAME -> {
                     throw IllegalStateException("service_name has not been set")
-                hostName == UNSET_HOST_NAME ->
+                }
+                hostName == UNSET_HOST_NAME -> {
                     throw IllegalStateException("host_name has not be set")
+                }
                 else -> {
                     return DefaultGraphQLApiService(
                         sslTlsSupported = sslTlsSupported,
@@ -134,6 +138,11 @@ internal class DefaultGraphQLApiServiceFactory(
         private val objectMapper: ObjectMapper,
         private val webClientUpdater: (WebClient.Builder) -> WebClient.Builder
     ) : GraphQLApiService {
+
+        companion object {
+            private val logger: Logger =
+                LoggerFactory.getLogger(DefaultGraphQLApiService::class.java)
+        }
 
         private val webClient: WebClient by lazy {
             val scheme: HttpScheme =
@@ -166,6 +175,13 @@ internal class DefaultGraphQLApiServiceFactory(
             variables: Map<String, Any>,
             operationName: String?
         ): Async<JsonNode> {
+            logger.debug(
+                """execute_single_query: 
+                    |[ query.length: ${query.length}, 
+                    |variables.size: ${variables.size}, 
+                    |operation_name: $operationName ]
+                    |""".flattenIntoOneLine()
+            )
             val queryBodySupplierMono: Mono<ObjectNode> =
                 Mono.fromSupplier {
                     mapOf<String, Any?>(
@@ -204,22 +220,25 @@ internal class DefaultGraphQLApiServiceFactory(
             return Async.fromMono(
                 webClient
                     .post()
+                    .contentType(MediaType.APPLICATION_JSON)
                     .accept(MediaType.APPLICATION_JSON)
                     .acceptCharset(Charsets.UTF_8)
-                    .contentType(MediaType.APPLICATION_JSON)
                     .body(queryBodySupplierMono, JsonNode::class.java)
                     .exchangeToMono<JsonNode> { cr: ClientResponse ->
                         if (cr.statusCode().isError) {
-                            Mono.error<JsonNode>(
-                                GQLDataSourceException(
-                                    GQLDataSourceErrorResponse.CLIENT_ERROR,
-                                    """
-                                        |client_response.status_code: 
+                            cr.bodyToMono(String::class.java).flatMap { responseBody: String ->
+                                Mono.error<JsonNode>(
+                                    GQLDataSourceException(
+                                        GQLDataSourceErrorResponse.CLIENT_ERROR,
+                                        """
+                                        |client_response.status: 
                                         |[ code: ${cr.statusCode().value()}, 
-                                        |reason: ${cr.statusCode().reasonPhrase} ]
+                                        |reason: ${cr.statusCode().reasonPhrase} ] 
+                                        |[ body: "$responseBody" ]
                                     """.flattenIntoOneLine()
+                                    )
                                 )
-                            )
+                            }
                         } else {
                             cr.bodyToMono(JsonNode::class.java)
                         }

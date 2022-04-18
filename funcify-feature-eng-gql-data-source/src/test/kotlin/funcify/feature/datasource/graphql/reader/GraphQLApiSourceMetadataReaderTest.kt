@@ -6,6 +6,7 @@ import arrow.core.getOrElse
 import arrow.core.lastOrNone
 import com.fasterxml.jackson.databind.ObjectMapper
 import funcify.feature.datasource.graphql.metadata.MockGraphQLFetcherMetadataProvider
+import funcify.feature.datasource.graphql.metadata.MockGraphQLFetcherMetadataProvider.Companion.fakeService
 import funcify.feature.datasource.graphql.schema.GraphQLSourceContainerType
 import funcify.feature.json.JsonObjectMappingConfiguration
 import graphql.schema.GraphQLSchema
@@ -18,19 +19,20 @@ import org.junit.jupiter.api.Test
  * @author smccarron
  * @created 4/10/22
  */
-internal class GraphQLMetadataReaderTest {
+internal class GraphQLApiSourceMetadataReaderTest {
 
     private val objectMapper: ObjectMapper = JsonObjectMappingConfiguration.objectMapper()
 
     @Test
     fun readSourceMetamodelFromMetadataTest() {
-        val graphQLSchema: GraphQLSchema = MockGraphQLFetcherMetadataProvider(objectMapper).provideMetadata()
+
+        val graphQLSchema: GraphQLSchema = MockGraphQLFetcherMetadataProvider(objectMapper).provideMetadata(fakeService)
                 .blockFirst()
                 .fold({ gqls: GraphQLSchema -> gqls },
                       { t: Throwable ->
                           Assertions.fail(t)
                       })
-        val sourceMetamodel = GraphQLMetadataReader().readSourceMetamodelFromMetadata(graphQLSchema)
+        val sourceMetamodel = DefaultGraphQLApiSourceMetadataReader().readSourceMetamodelFromMetadata(graphQLSchema)
         /**
          * println(sourceMetamodel.sourceIndicesByPath.asSequence()
          *                 .joinToString(separator = ",\n",
