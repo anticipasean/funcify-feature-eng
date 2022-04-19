@@ -3,6 +3,8 @@ package funcify.feature.schema
 import funcify.feature.schema.datasource.SourceAttribute
 import funcify.feature.schema.datasource.SourceContainerType
 import funcify.feature.schema.datasource.SourceIndex
+import funcify.feature.schema.error.SchemaErrorResponse
+import funcify.feature.schema.error.SchemaException
 import funcify.feature.schema.path.SchematicPath
 
 interface SchematicVertexFactory {
@@ -16,7 +18,8 @@ interface SchematicVertexFactory {
                 is SourceContainerType<*> -> forSourceContainerType(sourceIndex)
                 is SourceAttribute -> forSourceAttribute(sourceIndex)
                 else ->
-                    throw UnsupportedOperationException(
+                    throw SchemaException(
+                        SchemaErrorResponse.UNEXPECTED_ERROR,
                         "unsupported source index type: ${sourceIndex::class.qualifiedName}"
                     )
             }
@@ -40,7 +43,8 @@ interface SchematicVertexFactory {
                 is SourceContainerType<*> -> forSourceContainerType(sourceIndex)
                 is SourceAttribute -> forSourceAttribute(sourceIndex)
                 else ->
-                    throw UnsupportedOperationException(
+                    throw SchemaException(
+                        SchemaErrorResponse.UNEXPECTED_ERROR,
                         "unsupported source index type: ${sourceIndex::class.qualifiedName}"
                     )
             }

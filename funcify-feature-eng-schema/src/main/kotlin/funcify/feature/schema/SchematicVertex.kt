@@ -12,6 +12,4 @@ interface SchematicVertex {
 
     val path: SchematicPath
 
-    val compositeIndex: CompositeIndex
-
 }

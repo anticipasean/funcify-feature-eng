@@ -1,6 +1,7 @@
 package funcify.feature.schema.graph
 
 import funcify.feature.schema.CompositeAttribute
+import funcify.feature.schema.CompositeIndex
 import funcify.feature.schema.SchematicVertex
 
 
