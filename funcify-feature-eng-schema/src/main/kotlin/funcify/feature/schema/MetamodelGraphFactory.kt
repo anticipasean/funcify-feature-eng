@@ -1,7 +1,8 @@
 package funcify.feature.schema
 
-import funcify.feature.naming.NamingConvention
-
+import funcify.feature.schema.datasource.DataSource
+import funcify.feature.schema.datasource.SourceIndex
+import funcify.feature.tools.container.attempt.Try
 
 /**
  *
@@ -10,17 +11,11 @@ import funcify.feature.naming.NamingConvention
  */
 interface MetamodelGraphFactory {
 
-    interface IndexTypeInputSpec {
+    fun createMetamodelGraph(): DataSourceSpec
 
-        fun <I : Any> expectingInputOfType(): NamingConventionSpec<I>
+    interface DataSourceSpec {
+
+        fun <SI : SourceIndex> includingDataSource(dataSource: DataSource<SI>): DataSourceSpec
+        fun build(): Try<MetamodelGraph>
     }
-
-    interface NamingConventionSpec<I : Any> {
-
-        fun nameContainerTypesWith(namingConvention: NamingConvention<I>)
-
-    }
-
-
 }
-

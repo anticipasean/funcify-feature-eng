@@ -4,7 +4,6 @@ import funcify.feature.schema.datasource.DataSourceType
 import funcify.feature.schema.datasource.SourceAttribute
 import kotlinx.collections.immutable.ImmutableMap
 
-
 /**
  *
  * @author smccarron
@@ -13,8 +12,7 @@ import kotlinx.collections.immutable.ImmutableMap
 interface CompositeAttribute : CompositeIndex {
 
     override fun canBeSourcedFrom(sourceType: DataSourceType): Boolean =
-            getSourceAttributeByDataSourceType().containsKey(sourceType)
+        getSourceAttributeByDataSourceType().containsKey(sourceType)
 
     fun getSourceAttributeByDataSourceType(): ImmutableMap<DataSourceType, SourceAttribute>
-
 }

@@ -1,4 +1,4 @@
-package funcify.feature.schema.impl
+package funcify.feature.schema.factory
 
 import funcify.feature.schema.MetamodelGraph
 import funcify.feature.schema.path.SchematicPath

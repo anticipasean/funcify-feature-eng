@@ -1,8 +1,7 @@
 package funcify.feature.schema
 
-import funcify.feature.schema.datasource.DataSourceType
 import funcify.feature.naming.ConventionalName
-
+import funcify.feature.schema.datasource.DataSourceType
 
 /**
  *
@@ -12,7 +11,5 @@ import funcify.feature.naming.ConventionalName
 interface CompositeIndex {
 
     val conventionalName: ConventionalName
-
     fun canBeSourcedFrom(sourceType: DataSourceType): Boolean
-
 }

@@ -1,11 +1,12 @@
 package funcify.feature.tools.extensions
 
+import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.PersistentSet
 import kotlinx.collections.immutable.persistentHashSetOf
 import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.persistentSetOf
-import java.util.Spliterators
+import java.util.*
 import java.util.stream.Stream
 import java.util.stream.StreamSupport
 
@@ -16,6 +17,14 @@ import java.util.stream.StreamSupport
  * @created 4/5/22
  */
 object PersistentMapExtensions {
+
+    fun <K, V> ImmutableMap<K, V>?.streamEntries() : Stream<Map.Entry<K, V>> {
+        return this?.entries?.stream() ?: Stream.empty()
+    }
+
+    fun <K, V> ImmutableMap<K, V>?.streamPairs() : Stream<Pair<K, V>> {
+        return this?.entries?.stream()?.map { entry: Map.Entry<K, V> -> entry.key to entry.value } ?: Stream.empty()
+    }
 
     fun <K, V> Iterator<Map.Entry<K, V>>.reduceEntriesToPersistentMap(): PersistentMap<K, V> {
         return StreamSupport.stream(Spliterators.spliteratorUnknownSize(this,

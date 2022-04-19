@@ -1,6 +1,3 @@
-
-
-
 dependencies {
     implementation(project(':funcify-feature-eng-tools'))
     implementation(project(':funcify-feature-eng-naming'))
