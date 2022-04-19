@@ -1,9 +1,10 @@
-package funcify.feature.tools.container.attempt
+package funcify.feature.tools.container.async
 
 import arrow.core.Option
 import arrow.core.none
 import arrow.core.toOption
 import funcify.feature.tools.container.async.KFutureFactory.WrappedCompletionStageAndExecutor
+import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.PersistentListExtensions.reduceToPersistentList
 import funcify.feature.tools.extensions.PredicateExtensions.negate
 import java.util.concurrent.CompletableFuture
@@ -13,6 +14,8 @@ import java.util.concurrent.TimeUnit
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.PersistentList
 import kotlinx.collections.immutable.persistentListOf
+import reactor.core.publisher.Mono
+import reactor.core.scheduler.Schedulers
 
 /**
  *
@@ -540,6 +543,15 @@ interface KFuture<out T> {
 
     fun <X : Throwable> getOrElseThrow(mapper: (Throwable) -> X): T {
         return get().orElseThrow(mapper)
+    }
+
+    fun toMono(): Mono<out T> {
+        return fold { stage: CompletionStage<out T>, execOpt: Option<Executor> ->
+            execOpt.fold(
+                { Mono.fromCompletionStage(stage) },
+                { exec -> Mono.fromCompletionStage(stage).publishOn(Schedulers.fromExecutor(exec)) }
+            )
+        }
     }
 
     fun <R> fold(stageAndExecutor: (CompletionStage<out T>, Option<Executor>) -> R): R

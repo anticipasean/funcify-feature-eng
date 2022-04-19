@@ -2,7 +2,6 @@ package funcify.feature.tools.container.async
 
 import arrow.core.None
 import arrow.core.Option
-import funcify.feature.tools.container.attempt.KFuture
 import java.util.concurrent.CompletionStage
 import java.util.concurrent.Executor
 
