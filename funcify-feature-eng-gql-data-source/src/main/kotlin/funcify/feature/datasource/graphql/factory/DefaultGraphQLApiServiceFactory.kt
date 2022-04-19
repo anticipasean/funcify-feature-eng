@@ -12,6 +12,7 @@ import funcify.feature.datasource.graphql.error.GQLDataSourceException
 import funcify.feature.tools.container.async.Async
 import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
 import io.netty.handler.codec.http.HttpScheme
+import java.util.stream.Collectors
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.ObjectProvider
@@ -44,10 +45,10 @@ internal class DefaultGraphQLApiServiceFactory(
     }
 
     private val webClientCustomizers: List<WebClientCustomizer> by lazy {
-        webClientCustomizerProvider.orderedStream().toList()
+        webClientCustomizerProvider.orderedStream().collect(Collectors.toList())
     }
     private val codecCustomizers: List<WebClientCodecCustomizer> by lazy {
-        codecCustomizerProvider.orderedStream().toList()
+        codecCustomizerProvider.orderedStream().collect(Collectors.toList())
     }
 
     private val webClientBuilderUpdater: (WebClient.Builder) -> WebClient.Builder =

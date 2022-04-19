@@ -2,11 +2,10 @@ package funcify.feature.datasource.graphql.factory
 
 import funcify.feature.datasource.graphql.GraphQLApiDataSource
 import funcify.feature.datasource.graphql.GraphQLApiService
-import funcify.feature.datasource.graphql.error.GQLDataSourceErrorResponse
-import funcify.feature.datasource.graphql.error.GQLDataSourceException
 import funcify.feature.datasource.graphql.metadata.GraphQLFetcherMetadataProvider
 import funcify.feature.datasource.graphql.reader.GraphQLApiSourceMetadataReader
-import funcify.feature.datasource.graphql.schema.GraphQLSourceMetamodel
+import funcify.feature.datasource.graphql.schema.GraphQLSourceIndex
+import funcify.feature.schema.datasource.SourceMetamodel
 import graphql.schema.GraphQLSchema
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -24,7 +23,7 @@ internal class DefaultGraphQLApiDataSourceFactory(
             override val name: String,
             override val graphQLApiService: GraphQLApiService,
             override val graphQLSourceSchema: GraphQLSchema,
-            override val graphQLSourceMetamodel: GraphQLSourceMetamodel
+            override val sourceMetamodel: SourceMetamodel<GraphQLSourceIndex>
         ) : GraphQLApiDataSource {}
     }
 
@@ -40,13 +39,8 @@ internal class DefaultGraphQLApiDataSourceFactory(
                     name = name,
                     graphQLApiService = graphQLApiService,
                     graphQLSourceSchema = gqlSchema,
-                    graphQLSourceMetamodel =
-                        graphQLMetadataReader.readSourceMetamodelFromMetadata(gqlSchema) as?
-                            GraphQLSourceMetamodel
-                            ?: throw GQLDataSourceException(
-                                GQLDataSourceErrorResponse.UNEXPECTED_ERROR,
-                                "not of type graphql_source_metamodel"
-                            )
+                    sourceMetamodel =
+                        graphQLMetadataReader.readSourceMetamodelFromMetadata(gqlSchema)
                 )
             }
             .blockFirstOrElseThrow()
