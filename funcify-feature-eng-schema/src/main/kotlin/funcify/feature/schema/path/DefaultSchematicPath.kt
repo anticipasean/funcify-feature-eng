@@ -77,4 +77,7 @@ internal data class DefaultSchematicPath(
                 }
         )
     }
+    override fun toString(): String {
+        return uri.toString()
+    }
 }
