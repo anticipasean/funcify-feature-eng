@@ -4,6 +4,7 @@ import funcify.feature.schema.MetamodelGraph
 import funcify.feature.schema.SchematicVertex
 import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.datasource.SourceIndex
+import funcify.feature.schema.datasource.SourcePathTransformer
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentMap
@@ -14,7 +15,10 @@ import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentMapOf
 
-internal class DefaultMetamodelGraphFactory : MetamodelGraphFactory {
+internal class DefaultMetamodelGraphFactory(
+    val schematicVertexFactory: SchematicVertexFactory,
+    val sourcePathTransformer: SourcePathTransformer
+) : MetamodelGraphFactory {
 
     companion object {
 

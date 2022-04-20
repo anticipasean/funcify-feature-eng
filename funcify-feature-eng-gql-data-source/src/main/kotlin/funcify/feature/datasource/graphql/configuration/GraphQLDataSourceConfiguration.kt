@@ -14,6 +14,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.autoconfigure.web.reactive.function.client.WebClientCodecCustomizer
 import org.springframework.boot.web.reactive.function.client.WebClientCustomizer
+import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 
 /**
@@ -26,6 +27,7 @@ class GraphQLDataSourceConfiguration {
 
     @ConditionalOnMissingBean(value = [GraphQLApiServiceFactory::class])
     @ConditionalOnBean(value = [ObjectMapper::class])
+    @Bean
     fun graphQLApiServiceFactory(
         objectMapper: ObjectMapper,
         webClientCustomizerProvider: ObjectProvider<WebClientCustomizer>,
@@ -40,6 +42,7 @@ class GraphQLDataSourceConfiguration {
 
     @ConditionalOnMissingBean(value = [GraphQLApiDataSourceFactory::class])
     @ConditionalOnBean(value = [ObjectMapper::class])
+    @Bean
     fun graphQLApiDataSourceFactory(
         objectMapper: ObjectMapper,
         graphQLFetcherMetadataProvider: ObjectProvider<GraphQLFetcherMetadataProvider>,

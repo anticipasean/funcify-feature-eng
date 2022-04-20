@@ -16,7 +16,7 @@ import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
 import org.slf4j.Logger
 
-internal class DefaultSchematicVertexFactory : SchematicVertexFactory {
+internal class DefaultSchematicVertexFactory() : SchematicVertexFactory {
 
     companion object {
 
@@ -28,7 +28,7 @@ internal class DefaultSchematicVertexFactory : SchematicVertexFactory {
             ): SchematicVertexFactory.DataSourceSpec<SI> {
                 return DefaultDataSourceSpec<SI>(
                     schematicPath = schematicPath,
-                    sourceIndex =
+                    mappedSourceIndexAttempt =
                         assessWhetherAttributeInstanceOfExpectedSourceIndexType<SI>(sourceAttribute)
                 )
             }
@@ -38,7 +38,7 @@ internal class DefaultSchematicVertexFactory : SchematicVertexFactory {
             ): SchematicVertexFactory.DataSourceSpec<SI> {
                 return DefaultDataSourceSpec<SI>(
                     schematicPath = schematicPath,
-                    sourceIndex =
+                    mappedSourceIndexAttempt =
                         assessWhetherContainerTypeInstanceOfExpectedSourceIndexType<SI>(
                             sourceContainerType
                         )
@@ -102,7 +102,7 @@ internal class DefaultSchematicVertexFactory : SchematicVertexFactory {
             ): SchematicVertexFactory.DataSourceSpec<SI> {
                 return DefaultDataSourceSpec<SI>(
                     schematicPath = schematicPath,
-                    sourceIndex =
+                    mappedSourceIndexAttempt =
                         assessWhetherAttributeInstanceOfExpectedSourceIndexType<SI>(
                             sourceAttribute
                         ),
@@ -115,7 +115,7 @@ internal class DefaultSchematicVertexFactory : SchematicVertexFactory {
             ): SchematicVertexFactory.DataSourceSpec<SI> {
                 return DefaultDataSourceSpec<SI>(
                     schematicPath = schematicPath,
-                    sourceIndex =
+                    mappedSourceIndexAttempt =
                         assessWhetherContainerTypeInstanceOfExpectedSourceIndexType<SI>(
                             sourceContainerType
                         ),
@@ -126,21 +126,25 @@ internal class DefaultSchematicVertexFactory : SchematicVertexFactory {
 
         private data class DefaultDataSourceSpec<SI : SourceIndex>(
             val schematicPath: SchematicPath,
-            val sourceIndex: Try<SI>,
+            val mappedSourceIndexAttempt: Try<SI>,
             val existingSchematicVertex: Option<SchematicVertex> = none()
         ) : SchematicVertexFactory.DataSourceSpec<SI> {
             override fun onDataSource(dataSource: DataSource<SI>): SchematicVertex {
-                if (sourceIndex.isFailure()) {
-                    sourceIndex.ifFailed { throwable: Throwable ->
+                logger.info("on_data_source: [ data_source.source_type: ${dataSource.sourceType} ]")
+                if (mappedSourceIndexAttempt.isFailure()) {
+                    mappedSourceIndexAttempt.ifFailed { throwable: Throwable ->
                         logger.error(
                             """on_data_source: [ error: [ type: ${throwable::class.qualifiedName}, 
                                |message: "${throwable.message}
                                |] ]""".flattenIntoOneLine()
                         )
                     }
-                    throw sourceIndex.getFailure().orNull()!!
+                    throw mappedSourceIndexAttempt.getFailure().orNull()!!
                 }
-
+                when (val sourceIndex: SI = mappedSourceIndexAttempt.orElseThrow()) {
+                    is SourceAttribute -> {}
+                    is SourceContainerType<*> -> {}
+                }
                 TODO("Not yet implemented")
             }
         }
