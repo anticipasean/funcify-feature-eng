@@ -1,5 +1,6 @@
-package funcify.feature.schema
+package funcify.feature.schema.factory
 
+import funcify.feature.schema.MetamodelGraph
 import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.datasource.SourceIndex
 import funcify.feature.tools.container.attempt.Try

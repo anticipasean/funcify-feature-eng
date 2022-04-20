@@ -1,5 +1,6 @@
-package funcify.feature.schema
+package funcify.feature.schema.factory
 
+import funcify.feature.schema.SchematicVertex
 import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.datasource.SourceAttribute
 import funcify.feature.schema.datasource.SourceContainerType

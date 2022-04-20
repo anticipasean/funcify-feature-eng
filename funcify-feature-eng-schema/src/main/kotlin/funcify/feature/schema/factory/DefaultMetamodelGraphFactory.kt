@@ -1,7 +1,6 @@
 package funcify.feature.schema.factory
 
 import funcify.feature.schema.MetamodelGraph
-import funcify.feature.schema.MetamodelGraphFactory
 import funcify.feature.schema.SchematicVertex
 import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.datasource.SourceIndex

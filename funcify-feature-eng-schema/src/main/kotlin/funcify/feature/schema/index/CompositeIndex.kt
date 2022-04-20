@@ -1,4 +1,4 @@
-package funcify.feature.schema
+package funcify.feature.schema.index
 
 import funcify.feature.naming.ConventionalName
 import funcify.feature.schema.datasource.DataSourceType

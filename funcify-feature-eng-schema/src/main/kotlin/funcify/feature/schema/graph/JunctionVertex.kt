@@ -11,6 +11,4 @@ package funcify.feature.schema.graph
  * @author smccarron
  * @created 1/30/22
  */
-interface JunctionVertex : ContainerTypeVertex, AttributeVertex {
-
-}
+interface JunctionVertex : ContainerTypeVertex, AttributeVertex

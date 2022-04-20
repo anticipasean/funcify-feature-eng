@@ -1,7 +1,7 @@
 package funcify.feature.schema.graph
 
-import funcify.feature.schema.CompositeContainerType
 import funcify.feature.schema.SchematicVertex
+import funcify.feature.schema.index.CompositeContainerType
 
 /**
  * Represents an object type within a graph, the attribute vertices of which representing different
@@ -24,5 +24,4 @@ import funcify.feature.schema.SchematicVertex
 interface ContainerTypeVertex : SchematicVertex {
 
     val compositeContainerType: CompositeContainerType
-
 }
