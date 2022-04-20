@@ -1,6 +1,8 @@
 package funcify.feature.schema.factory
 
+import arrow.core.None
 import arrow.core.Option
+import arrow.core.Some
 import arrow.core.none
 import arrow.core.some
 import funcify.feature.schema.SchematicVertex
@@ -10,10 +12,16 @@ import funcify.feature.schema.datasource.SourceContainerType
 import funcify.feature.schema.datasource.SourceIndex
 import funcify.feature.schema.error.SchemaErrorResponse
 import funcify.feature.schema.error.SchemaException
+import funcify.feature.schema.graph.DefaultJunctionVertex
+import funcify.feature.schema.graph.DefaultLeafVertex
+import funcify.feature.schema.graph.JunctionVertex
+import funcify.feature.schema.graph.LeafVertex
+import funcify.feature.schema.index.DefaultCompositeAttribute
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
+import kotlinx.collections.immutable.toPersistentMap
 import org.slf4j.Logger
 
 internal class DefaultSchematicVertexFactory() : SchematicVertexFactory {
@@ -106,7 +114,7 @@ internal class DefaultSchematicVertexFactory() : SchematicVertexFactory {
                         assessWhetherAttributeInstanceOfExpectedSourceIndexType<SI>(
                             sourceAttribute
                         ),
-                    existingSchematicVertex = existingSchematicVertex.some()
+                    existingSchematicVertexOpt = existingSchematicVertex.some()
                 )
             }
 
@@ -119,7 +127,7 @@ internal class DefaultSchematicVertexFactory() : SchematicVertexFactory {
                         assessWhetherContainerTypeInstanceOfExpectedSourceIndexType<SI>(
                             sourceContainerType
                         ),
-                    existingSchematicVertex = existingSchematicVertex.some()
+                    existingSchematicVertexOpt = existingSchematicVertex.some()
                 )
             }
         }
@@ -127,7 +135,7 @@ internal class DefaultSchematicVertexFactory() : SchematicVertexFactory {
         private data class DefaultDataSourceSpec<SI : SourceIndex>(
             val schematicPath: SchematicPath,
             val mappedSourceIndexAttempt: Try<SI>,
-            val existingSchematicVertex: Option<SchematicVertex> = none()
+            val existingSchematicVertexOpt: Option<SchematicVertex> = none()
         ) : SchematicVertexFactory.DataSourceSpec<SI> {
             override fun onDataSource(dataSource: DataSource<SI>): SchematicVertex {
                 logger.info("on_data_source: [ data_source.source_type: ${dataSource.sourceType} ]")
@@ -141,11 +149,76 @@ internal class DefaultSchematicVertexFactory() : SchematicVertexFactory {
                     }
                     throw mappedSourceIndexAttempt.getFailure().orNull()!!
                 }
-                when (val sourceIndex: SI = mappedSourceIndexAttempt.orElseThrow()) {
-                    is SourceAttribute -> {}
-                    is SourceContainerType<*> -> {}
+                return when (val sourceIndex: SI = mappedSourceIndexAttempt.orElseThrow()) {
+                    is SourceAttribute -> {
+                        when (existingSchematicVertexOpt) {
+                            is Some -> {
+                                when (val existingVertex = existingSchematicVertexOpt.value) {
+                                    is LeafVertex ->
+                                        DefaultLeafVertex(
+                                            path = schematicPath,
+                                            compositeAttribute =
+                                                DefaultCompositeAttribute(
+                                                    conventionalName =
+                                                        existingVertex
+                                                            .compositeAttribute
+                                                            .conventionalName,
+                                                    existingVertex
+                                                        .compositeAttribute
+                                                        .getSourceAttributeByDataSource()
+                                                        .toPersistentMap()
+                                                        .put(dataSource, sourceIndex)
+                                                )
+                                        )
+                                    is JunctionVertex ->
+                                        DefaultJunctionVertex(
+                                            path = schematicPath,
+                                            compositeAttribute =
+                                                DefaultCompositeAttribute(
+                                                    conventionalName =
+                                                        existingVertex
+                                                            .compositeAttribute
+                                                            .conventionalName,
+                                                    sourceAttributesByDataSource =
+                                                        existingVertex
+                                                            .compositeAttribute
+                                                            .getSourceAttributeByDataSource()
+                                                            .toPersistentMap()
+                                                            .put(dataSource, sourceIndex)
+                                                ),
+                                            compositeContainerType =
+                                                existingVertex.compositeContainerType
+                                        )
+                                    else -> {
+                                        throw SchemaException(
+                                            SchemaErrorResponse.UNEXPECTED_ERROR,
+                                            "unhandled graph index type on existing vertex: ${existingVertex::class.qualifiedName}"
+                                        )
+                                    }
+                                }
+                            }
+                            is None -> {
+                                TODO("Not yet implemented")
+                            }
+                        }
+                    }
+                    is SourceContainerType<*> -> {
+                        when (existingSchematicVertexOpt) {
+                            is Some -> {
+                                TODO("Not yet implemented")
+                            }
+                            is None -> {
+                                TODO("Not yet implemented")
+                            }
+                        }
+                    }
+                    else -> {
+                        throw SchemaException(
+                            SchemaErrorResponse.UNEXPECTED_ERROR,
+                            "unhandled source index type: ${sourceIndex::class.qualifiedName}"
+                        )
+                    }
                 }
-                TODO("Not yet implemented")
             }
         }
     }
