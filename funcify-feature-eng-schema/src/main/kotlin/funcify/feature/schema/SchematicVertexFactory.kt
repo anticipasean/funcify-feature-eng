@@ -13,7 +13,7 @@ interface SchematicVertexFactory {
 
     interface SourceIndexSpec {
 
-        fun forSourceIndex(sourceIndex: SourceIndex): CompositeIndex {
+        fun forSourceIndex(sourceIndex: SourceIndex): SchematicVertex {
             return when (sourceIndex) {
                 is SourceContainerType<*> -> forSourceContainerType(sourceIndex)
                 is SourceAttribute -> forSourceAttribute(sourceIndex)
@@ -25,11 +25,11 @@ interface SchematicVertexFactory {
             }
         }
 
-        fun forSourceAttribute(sourceAttribute: SourceAttribute): CompositeAttribute
+        fun forSourceAttribute(sourceAttribute: SourceAttribute): SchematicVertex
 
         fun <A : SourceAttribute> forSourceContainerType(
             sourceContainerType: SourceContainerType<A>
-        ): CompositeContainerType
+        ): SchematicVertex
 
         fun fromExistingVertex(
             existingSchematicVertex: SchematicVertex
@@ -38,7 +38,7 @@ interface SchematicVertexFactory {
 
     interface ExistingSchematicVertexSpec {
 
-        fun forSourceIndex(sourceIndex: SourceIndex): CompositeIndex {
+        fun forSourceIndex(sourceIndex: SourceIndex): SchematicVertex {
             return when (sourceIndex) {
                 is SourceContainerType<*> -> forSourceContainerType(sourceIndex)
                 is SourceAttribute -> forSourceAttribute(sourceIndex)
@@ -50,10 +50,10 @@ interface SchematicVertexFactory {
             }
         }
 
-        fun forSourceAttribute(sourceAttribute: SourceAttribute): CompositeAttribute
+        fun forSourceAttribute(sourceAttribute: SourceAttribute): SchematicVertex
 
         fun <A : SourceAttribute> forSourceContainerType(
             sourceContainerType: SourceContainerType<A>
-        ): CompositeContainerType
+        ): SchematicVertex
     }
 }
