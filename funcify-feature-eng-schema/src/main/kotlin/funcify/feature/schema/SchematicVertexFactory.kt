@@ -1,5 +1,6 @@
 package funcify.feature.schema
 
+import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.datasource.SourceAttribute
 import funcify.feature.schema.datasource.SourceContainerType
 import funcify.feature.schema.datasource.SourceIndex
@@ -13,7 +14,7 @@ interface SchematicVertexFactory {
 
     interface SourceIndexSpec {
 
-        fun forSourceIndex(sourceIndex: SourceIndex): SchematicVertex {
+        fun <SI : SourceIndex> forSourceIndex(sourceIndex: SI): DataSourceSpec<SI> {
             return when (sourceIndex) {
                 is SourceContainerType<*> -> forSourceContainerType(sourceIndex)
                 is SourceAttribute -> forSourceAttribute(sourceIndex)
@@ -25,11 +26,13 @@ interface SchematicVertexFactory {
             }
         }
 
-        fun forSourceAttribute(sourceAttribute: SourceAttribute): SchematicVertex
+        fun <SI : SourceIndex> forSourceAttribute(
+            sourceAttribute: SourceAttribute
+        ): DataSourceSpec<SI>
 
-        fun <A : SourceAttribute> forSourceContainerType(
+        fun <SI : SourceIndex, A : SourceAttribute> forSourceContainerType(
             sourceContainerType: SourceContainerType<A>
-        ): SchematicVertex
+        ): DataSourceSpec<SI>
 
         fun fromExistingVertex(
             existingSchematicVertex: SchematicVertex
@@ -38,7 +41,7 @@ interface SchematicVertexFactory {
 
     interface ExistingSchematicVertexSpec {
 
-        fun forSourceIndex(sourceIndex: SourceIndex): SchematicVertex {
+        fun <SI : SourceIndex> forSourceIndex(sourceIndex: SI): DataSourceSpec<SI> {
             return when (sourceIndex) {
                 is SourceContainerType<*> -> forSourceContainerType(sourceIndex)
                 is SourceAttribute -> forSourceAttribute(sourceIndex)
@@ -50,10 +53,16 @@ interface SchematicVertexFactory {
             }
         }
 
-        fun forSourceAttribute(sourceAttribute: SourceAttribute): SchematicVertex
+        fun <SI : SourceIndex> forSourceAttribute(
+            sourceAttribute: SourceAttribute
+        ): DataSourceSpec<SI>
 
-        fun <A : SourceAttribute> forSourceContainerType(
+        fun <SI : SourceIndex, A : SourceAttribute> forSourceContainerType(
             sourceContainerType: SourceContainerType<A>
-        ): SchematicVertex
+        ): DataSourceSpec<SI>
+    }
+
+    interface DataSourceSpec<SI : SourceIndex> {
+        fun onDataSource(dataSource: DataSource<SI>): SchematicVertex
     }
 }
