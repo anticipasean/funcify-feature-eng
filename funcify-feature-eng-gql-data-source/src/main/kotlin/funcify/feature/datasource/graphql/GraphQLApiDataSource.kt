@@ -17,7 +17,7 @@ interface GraphQLApiDataSource : DataSource<GraphQLSourceIndex> {
     override val sourceType: DataSourceType
         get() = RawDataSourceType.GRAPHQL_API
 
-    val name: String
+    override val name: String
 
     val graphQLApiService: GraphQLApiService
 

@@ -105,7 +105,7 @@ internal class DefaultMetamodelGraphFactory(
                                         .some()
                                 },
                                 { vOpt1, vOpt2 ->
-                                    // not parallel so only right leaf should be Some
+                                    // not parallel so either leaf node is the same
                                     vOpt2.or(vOpt1)
                                 }
                             )
@@ -125,7 +125,7 @@ internal class DefaultMetamodelGraphFactory(
                                         .onDataSource(dataSource)
                                 },
                                 { _, v2 ->
-                                    // not parallel so only right leaf should be Some
+                                    // not parallel so either leaf node is the same
                                     v2
                                 }
                             )

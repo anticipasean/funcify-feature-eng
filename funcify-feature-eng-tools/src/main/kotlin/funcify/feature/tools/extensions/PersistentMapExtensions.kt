@@ -43,6 +43,7 @@ object PersistentMapExtensions {
                                /**
                                 * pm1 putAll pm2 preserves insertion order
                                 * if backing implementation is of ordered type
+                                * and stream is parallel
                                 */
                                pm1.putAll(pm2)
                            })
@@ -58,6 +59,7 @@ object PersistentMapExtensions {
                                /**
                                 * pm1 putAll pm2 preserves insertion order
                                 * if backing implementation is of ordered type
+                                * and stream is parallel
                                 */
                                pm1.putAll(pm2)
                            })
