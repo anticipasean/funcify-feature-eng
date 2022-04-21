@@ -52,7 +52,7 @@ internal class DefaultSchematicVertexFactory() : SchematicVertexFactory {
                 sourceContainerType: SourceContainerType<A>
             ): SchematicVertexFactory.DataSourceSpec<SI> {
                 logger.debug(
-                    "for_source_container_type: [ source_attribute.conventional_name: ${sourceContainerType.name} ]"
+                    "for_source_container_type: [ source_container_type.conventional_name: ${sourceContainerType.name} ]"
                 )
                 return DefaultDataSourceSpec<SI>(
                     schematicPath = schematicPath,
@@ -147,7 +147,7 @@ internal class DefaultSchematicVertexFactory() : SchematicVertexFactory {
                 sourceContainerType: SourceContainerType<A>
             ): SchematicVertexFactory.DataSourceSpec<SI> {
                 logger.debug(
-                    "for_source_container_type: [ source_attribute.conventional_name: ${sourceContainerType.name} ]"
+                    "for_source_container_type: [ source_container_type.conventional_name: ${sourceContainerType.name} ]"
                 )
                 return DefaultDataSourceSpec<SI>(
                     schematicPath = schematicPath,

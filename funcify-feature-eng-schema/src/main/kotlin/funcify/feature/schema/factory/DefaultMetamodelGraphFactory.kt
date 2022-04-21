@@ -1,22 +1,20 @@
 package funcify.feature.schema.factory
 
-import arrow.core.Option
 import arrow.core.getOrNone
-import arrow.core.none
-import arrow.core.or
-import arrow.core.some
+import arrow.core.left
+import arrow.core.right
 import funcify.feature.schema.MetamodelGraph
 import funcify.feature.schema.SchematicVertex
 import funcify.feature.schema.datasource.DataSource
+import funcify.feature.schema.datasource.SourceContainerType
 import funcify.feature.schema.datasource.SourceIndex
 import funcify.feature.schema.datasource.SourcePathTransformer
 import funcify.feature.schema.error.SchemaErrorResponse
 import funcify.feature.schema.error.SchemaException
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.tools.container.attempt.Try
+import funcify.feature.tools.control.TraversalFunctions
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
-import funcify.feature.tools.extensions.OptionExtensions.stream
-import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentMap
 import funcify.feature.tools.extensions.PersistentMapExtensions.streamEntries
 import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
 import java.util.stream.Stream
@@ -66,8 +64,7 @@ internal class DefaultMetamodelGraphFactory(
                         .map { dsMap -> dsMap.getOrNone(dataSource.name).isDefined() }
                         .orElse(false) -> {
                         val message =
-                            """
-                            |data_source already added by same name: 
+                            """data_source already added by same name: 
                             |[ name: ${dataSource.name} ]
                             |""".flattenIntoOneLine()
                         DefaultDataSourceSpec(
@@ -110,106 +107,102 @@ internal class DefaultMetamodelGraphFactory(
                                         .sourceMetamodel
                                         .sourceIndicesByPath
                                         .streamEntries()
-                                        .parallel()
-                                        .map { entry ->
-                                            Try.attempt {
-                                                createNewOrUpdateExistingSchematicVertex(
-                                                        dataSource = dataSource,
-                                                        existingSchematicVerticesByPath =
-                                                            schematicVerticesByPath,
-                                                        entry = entry
-                                                    )
-                                                    .stream()
-                                            }
-                                                .peekIfFailure { thr: Throwable ->
-                                                    logger.error(
-                                                        """add_data_source: [ status: failed ] 
+                                        .flatMap(::expandAndIncludeChildSourceIndicesRecursively)
+                                        .reduce(
+                                            Try.success(schematicVerticesByPath),
+                                            { svpAttempt, sourceIndex ->
+                                                svpAttempt
+                                                    .map { svp ->
+                                                        createNewOrUpdateExistingSchematicVertex(
+                                                                dataSource = dataSource,
+                                                                existingSchematicVerticesByPath =
+                                                                    svp,
+                                                                sourceIndex = sourceIndex
+                                                            )
+                                                            .let { pair ->
+                                                                svp.put(pair.first, pair.second)
+                                                            }
+                                                    }
+                                                    .peekIfFailure { thr: Throwable ->
+                                                        logger.error(
+                                                            """add_data_source: [ status: failed ] 
                                                            |[ error: { type: ${thr::class.qualifiedName}, 
                                                            |message: "${thr.message}" } ]""".flattenIntoOneLine()
-                                                    )
-                                                }
-                                        }
-                                        .reduce { st1, st2 ->
-                                            st1.zip(st2) { s1, s2 -> Stream.concat(s1, s2) }
-                                        }
-                                        .orElseGet { Try.success(Stream.empty()) }
-                                        .map { stream ->
-                                            schematicVerticesByPath.putAll(
-                                                stream.reducePairsToPersistentMap()
-                                            )
-                                        }
+                                                        )
+                                                    }
+                                            },
+                                            { _, t2 ->
+                                                // sequential so leaf nodes are the same
+                                                t2
+                                            }
+                                        )
                                 }
                         )
                     }
                 }
             }
 
+            private fun <SI : SourceIndex> expandAndIncludeChildSourceIndicesRecursively(
+                entry: Map.Entry<SchematicPath, ImmutableSet<SI>>
+            ): Stream<SI> {
+                return entry
+                    .value
+                    .stream()
+                    .flatMap { si: SI ->
+                        TraversalFunctions.recurseWithStream(si) { inputSI: SI ->
+                            if (inputSI is SourceContainerType<*>) {
+                                Stream.concat(
+                                    inputSI
+                                        .sourceAttributes
+                                        .stream()
+                                        .map { sa ->
+                                            /**
+                                             * All source attrs must be subtypes of SI in this
+                                             * context
+                                             */
+                                            @Suppress("UNCHECKED_CAST") //
+                                            sa as SI
+                                        }
+                                        .map { saSI: SI -> saSI.left() },
+                                    Stream.of(inputSI.right())
+                                )
+                            } else {
+                                Stream.of(inputSI.right())
+                            }
+                        }
+                    }
+                    .sorted(Comparator.comparing { si: SI -> si.sourcePath.pathSegments.size })
+            }
+
             private fun <SI : SourceIndex> createNewOrUpdateExistingSchematicVertex(
                 dataSource: DataSource<SI>,
                 existingSchematicVerticesByPath: PersistentMap<SchematicPath, SchematicVertex>,
-                entry: Map.Entry<SchematicPath, ImmutableSet<SI>>
-            ): Option<Pair<SchematicPath, SchematicVertex>> {
+                sourceIndex: SI
+            ): Pair<SchematicPath, SchematicVertex> {
                 val transformedSourcePath: SchematicPath =
                     sourcePathTransformer.transformSourcePathToSchematicPathForDataSource(
-                        sourcePath = entry.key,
+                        sourcePath = sourceIndex.sourcePath,
                         dataSource = dataSource
                     )
                 return when (val existingVertex: SchematicVertex? =
                         existingSchematicVerticesByPath[transformedSourcePath]
                 ) {
                     null -> {
-                        entry
-                            .value
-                            .stream()
-                            .reduce(
-                                none<SchematicVertex>(),
-                                { vOpt: Option<SchematicVertex>, si: SI ->
-                                    vOpt.fold(
-                                            {
-                                                schematicVertexFactory
-                                                    .createVertexForPath(transformedSourcePath)
-                                                    .forSourceIndex<SI>(si)
-                                                    .onDataSource(dataSource)
-                                            },
-                                            { ev ->
-                                                schematicVertexFactory
-                                                    .createVertexForPath(transformedSourcePath)
-                                                    .fromExistingVertex(ev)
-                                                    .forSourceIndex<SI>(si)
-                                                    .onDataSource(dataSource)
-                                            }
-                                        )
-                                        .orElseThrow()
-                                        .some()
-                                },
-                                { vOpt1, vOpt2 ->
-                                    // not parallel so either leaf node is the same
-                                    vOpt2.or(vOpt1)
-                                }
-                            )
-                            .map { v -> transformedSourcePath to v }
+                        transformedSourcePath to
+                            schematicVertexFactory
+                                .createVertexForPath(transformedSourcePath)
+                                .forSourceIndex<SI>(sourceIndex)
+                                .onDataSource(dataSource)
+                                .orElseThrow()
                     }
                     else -> {
-                        entry
-                            .value
-                            .stream()
-                            .reduce(
-                                existingVertex,
-                                { ev: SchematicVertex, si: SI ->
-                                    schematicVertexFactory
-                                        .createVertexForPath(transformedSourcePath)
-                                        .fromExistingVertex(ev)
-                                        .forSourceIndex<SI>(si)
-                                        .onDataSource(dataSource)
-                                        .orElseThrow()
-                                },
-                                { _, v2 ->
-                                    // not parallel so either leaf node is the same
-                                    v2
-                                }
-                            )
-                            .some()
-                            .map { v -> transformedSourcePath to v }
+                        transformedSourcePath to
+                            schematicVertexFactory
+                                .createVertexForPath(transformedSourcePath)
+                                .fromExistingVertex(existingVertex)
+                                .forSourceIndex<SI>(sourceIndex)
+                                .onDataSource(dataSource)
+                                .orElseThrow()
                     }
                 }
             }

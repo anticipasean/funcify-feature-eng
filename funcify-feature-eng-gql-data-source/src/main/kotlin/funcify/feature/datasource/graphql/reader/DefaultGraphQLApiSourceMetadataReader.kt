@@ -3,6 +3,8 @@ package funcify.feature.datasource.graphql.reader
 import arrow.core.getOrElse
 import arrow.core.or
 import arrow.core.toOption
+import funcify.feature.datasource.graphql.error.GQLDataSourceErrorResponse
+import funcify.feature.datasource.graphql.error.GQLDataSourceException
 import funcify.feature.datasource.graphql.schema.GraphQLSourceAttribute
 import funcify.feature.datasource.graphql.schema.GraphQLSourceContainerType
 import funcify.feature.datasource.graphql.schema.GraphQLSourceIndex
@@ -68,7 +70,7 @@ internal class DefaultGraphQLApiSourceMetadataReader() : GraphQLApiSourceMetadat
                 |[ error: ${message} ]
                 |""".flattenIntoOneLine()
             )
-            throw IllegalArgumentException(message)
+            throw GQLDataSourceException(GQLDataSourceErrorResponse.INVALID_INPUT, message)
         }
         return input
             .queryType

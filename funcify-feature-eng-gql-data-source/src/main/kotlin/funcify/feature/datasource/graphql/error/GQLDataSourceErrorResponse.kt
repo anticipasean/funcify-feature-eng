@@ -34,6 +34,12 @@ enum class GQLDataSourceErrorResponse : ErrorResponse {
         override val errorMessageIfHttp: Option<String>
             get() = "response from graphQL source not in expected format".some()
     },
+    INVALID_INPUT {
+        override val responseStatusIfHttp: Option<HttpStatus>
+            get() = HttpStatus.NOT_ACCEPTABLE.some()
+        override val errorMessageIfHttp: Option<String>
+            get() = "invalid input".some()
+    },
     UNEXPECTED_ERROR {
         override val responseStatusIfHttp: Option<HttpStatus>
             get() = HttpStatus.INTERNAL_SERVER_ERROR.some()

@@ -8,6 +8,8 @@ import arrow.core.none
 import arrow.core.or
 import arrow.core.some
 import arrow.core.toOption
+import funcify.feature.datasource.graphql.error.GQLDataSourceErrorResponse
+import funcify.feature.datasource.graphql.error.GQLDataSourceException
 import funcify.feature.datasource.graphql.naming.GraphQLSourceNamingConventions
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.schema.path.SchematicPathFactory
@@ -207,7 +209,7 @@ internal class DefaultGraphQLSourceIndexFactory {
                             .getOrElse { "<NA>" }
                 } ]
                     """.flattenIntoOneLine()
-                throw IllegalArgumentException(message)
+                throw GQLDataSourceException(GQLDataSourceErrorResponse.INVALID_INPUT, message)
             }
             val childConvPathName =
                 GraphQLSourceNamingConventions.getPathNamingConventionForGraphQLFieldDefinitions()

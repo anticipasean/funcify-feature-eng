@@ -4,15 +4,19 @@ import arrow.core.filterIsInstance
 import arrow.core.firstOrNone
 import arrow.core.getOrElse
 import arrow.core.lastOrNone
+import arrow.core.toOption
 import com.fasterxml.jackson.databind.ObjectMapper
 import funcify.feature.datasource.graphql.metadata.MockGraphQLFetcherMetadataProvider
 import funcify.feature.datasource.graphql.metadata.MockGraphQLFetcherMetadataProvider.Companion.fakeService
 import funcify.feature.datasource.graphql.schema.GraphQLSourceContainerType
+import funcify.feature.datasource.graphql.schema.GraphQLSourceIndex
 import funcify.feature.json.JsonObjectMappingConfiguration
+import funcify.feature.tools.control.ParentChildPairRecursiveSpliterator
 import graphql.schema.GraphQLSchema
+import java.util.stream.Stream
+import java.util.stream.StreamSupport
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
-
 
 /**
  *
@@ -26,15 +30,16 @@ internal class GraphQLApiSourceMetadataReaderTest {
     @Test
     fun readSourceMetamodelFromMetadataTest() {
 
-        val graphQLSchema: GraphQLSchema = MockGraphQLFetcherMetadataProvider(objectMapper).provideMetadata(fakeService)
+        val graphQLSchema: GraphQLSchema =
+            MockGraphQLFetcherMetadataProvider(objectMapper)
+                .provideMetadata(fakeService)
                 .blockFirst()
-                .fold({ gqls: GraphQLSchema -> gqls },
-                      { t: Throwable ->
-                          Assertions.fail(t)
-                      })
-        val sourceMetamodel = DefaultGraphQLApiSourceMetadataReader().readSourceMetamodelFromMetadata(graphQLSchema)
+                .fold({ gqls: GraphQLSchema -> gqls }, { t: Throwable -> Assertions.fail(t) })
+        val sourceMetamodel =
+            DefaultGraphQLApiSourceMetadataReader().readSourceMetamodelFromMetadata(graphQLSchema)
         /**
          * println(sourceMetamodel.sourceIndicesByPath.asSequence()
+         * ```
          *                 .joinToString(separator = ",\n",
          *                               prefix = "{ ",
          *                               postfix = " }",
@@ -45,63 +50,67 @@ internal class GraphQLApiSourceMetadataReaderTest {
          *                                                                " }")
          *                                   }"
          *                               }))
+         * ```
          */
+        Assertions.assertEquals(3, sourceMetamodel.sourceIndicesByPath.size)
 
-        /**
-         * type Show {
-         *    id: Int!
-         *    title(format: TitleFormat): String!
-         *    releaseYear: Int
-         *    reviews: [Review]
-         *    artwork: [Image]
-         * }
-         * [ Path("../shows"), Path("../shows/reviews"), Path("../shows/artwork") ] => 3
-         */
-        Assertions.assertEquals(3,
-                                sourceMetamodel.sourceIndicesByPath.size)
-        /**
-         * type Query {
-         *    shows(titleFilter: String): [Show]
-         * }
-         * sourceIndicesByPath[Path(".../shows")] => Set({ shows (as a container), shows (as an attribute on Query/root) }) => 2
-         * 1 entry for "shows"
-         */
-        Assertions.assertEquals("shows",
-                                sourceMetamodel.sourceIndicesByPath.entries.asIterable()
-                                        .filter { entry ->
-                                            entry.key.pathSegments.lastOrNone()
-                                                    .filter { s -> s == "shows" }
-                                                    .isDefined()
+        Assertions.assertEquals(
+            "shows",
+            sourceMetamodel
+                .sourceIndicesByPath
+                .entries
+                .asIterable()
+                .filter { entry ->
+                    entry.key.pathSegments.lastOrNone().filter { s -> s == "shows" }.isDefined()
+                }
+                .firstOrNone()
+                .flatMap { entry -> entry.value.firstOrNone() }
+                .map { gqlSrcInd -> gqlSrcInd.name.qualifiedForm }
+                .getOrElse { "" }
+        )
+
+        Assertions.assertEquals(
+            5,
+            sourceMetamodel
+                .sourceIndicesByPath
+                .entries
+                .asIterable()
+                .filter { entry ->
+                    entry.key.pathSegments.lastOrNone().filter { s -> s == "shows" }.isDefined()
+                }
+                .firstOrNone()
+                .flatMap { entry -> entry.value.firstOrNone() }
+                .filterIsInstance<GraphQLSourceContainerType>()
+                .map { gqlSrcCont -> gqlSrcCont.sourceAttributes.size }
+                .getOrElse { -1 }
+        )
+
+        sourceMetamodel
+            .sourceIndicesByPath
+            .entries
+            .stream()
+            .flatMap { e ->
+                e.value.stream().flatMap { si ->
+                    StreamSupport.stream(
+                        ParentChildPairRecursiveSpliterator<GraphQLSourceIndex>(
+                            rootValue = si,
+                            traversalFunction = { gsi: GraphQLSourceIndex ->
+                                gsi.toOption()
+                                    .filterIsInstance<GraphQLSourceContainerType>()
+                                    .map { gct ->
+                                        gct.sourceAttributes.stream().map { gsa ->
+                                            gsa as GraphQLSourceIndex
                                         }
-                                        .firstOrNone()
-                                        .flatMap { entry -> entry.value.firstOrNone() }
-                                        .map { gqlSrcInd -> gqlSrcInd.name.qualifiedForm }
-                                        .getOrElse { "" })
-        /**
-         * type Show {
-         *   id: Int!
-         *   title(format: TitleFormat): String!
-         *   releaseYear: Int
-         *   reviews: \[Review]
-         *   artwork: \[Image]
-         * }
-         * [id,
-         *  title,
-         *  releaseYear,
-         *  reviews,
-         *  artwork]  =>  5
-         */
-        Assertions.assertEquals(5,
-                                sourceMetamodel.sourceIndicesByPath.entries.asIterable()
-                                        .filter { entry ->
-                                            entry.key.pathSegments.lastOrNone()
-                                                    .filter { s -> s == "shows" }
-                                                    .isDefined()
-                                        }
-                                        .firstOrNone()
-                                        .flatMap { entry -> entry.value.firstOrNone() }
-                                        .filterIsInstance<GraphQLSourceContainerType>()
-                                        .map { gqlSrcCont -> gqlSrcCont.sourceAttributes.size }
-                                        .getOrElse { -1 })
+                                    }
+                                    .getOrElse { Stream.empty() }
+                            }
+                        ),
+                        false
+                    )
+                }
+            }
+            .forEach { (p, c) ->
+                println("parent: $p, child: $c")
+            }
     }
 }

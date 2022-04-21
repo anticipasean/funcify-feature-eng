@@ -1,5 +1,8 @@
 package funcify.feature.schema.path
 
+import arrow.core.Option
+import arrow.core.none
+import arrow.core.some
 import java.net.URI
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableMap
@@ -67,7 +70,6 @@ interface SchematicPath {
             }
         }
     }
-
     fun isChildTo(other: SchematicPath): Boolean {
         return when {
             this.pathSegments.size <= other.pathSegments.size -> {
@@ -122,4 +124,13 @@ interface SchematicPath {
     fun appendPathSegment(pathSegment: String): SchematicPath
 
     fun dropPathSegment(): SchematicPath
+
+    fun getParentPath(): Option<SchematicPath> {
+        return when {
+            isRoot() -> {
+                none<SchematicPath>()
+            }
+            else -> dropPathSegment().some()
+        }
+    }
 }
