@@ -165,7 +165,7 @@ internal class DefaultSchematicVertexFactory() : SchematicVertexFactory {
             val mappedSourceIndexAttempt: Try<SI>,
             val existingSchematicVertexOpt: Option<SchematicVertex> = none()
         ) : SchematicVertexFactory.DataSourceSpec<SI> {
-            override fun onDataSource(dataSource: DataSource<SI>): SchematicVertex {
+            override fun onDataSource(dataSource: DataSource<SI>): Try<SchematicVertex> {
                 logger.debug(
                     "on_data_source: [ data_source.source_type: ${dataSource.sourceType} ]"
                 )
@@ -177,167 +177,175 @@ internal class DefaultSchematicVertexFactory() : SchematicVertexFactory {
                                |] ]""".flattenIntoOneLine()
                         )
                     }
-                    throw mappedSourceIndexAttempt.getFailure().orNull()!!
+                    return Try.failure<SchematicVertex>(
+                        mappedSourceIndexAttempt.getFailure().orNull()!!
+                    )
                 }
-                return when (val sourceIndex: SI = mappedSourceIndexAttempt.orElseThrow()) {
-                    is SourceAttribute -> {
-                        when (existingSchematicVertexOpt) {
-                            is Some -> {
-                                when (val existingVertex = existingSchematicVertexOpt.value) {
-                                    is LeafVertex ->
-                                        DefaultLeafVertex(
-                                            path = schematicPath,
-                                            compositeAttribute =
-                                                DefaultCompositeAttribute(
-                                                    conventionalName =
-                                                        existingVertex
-                                                            .compositeAttribute
-                                                            .conventionalName,
-                                                    existingVertex
-                                                        .compositeAttribute
-                                                        .getSourceAttributeByDataSource()
-                                                        .toPersistentMap()
-                                                        .put(dataSource, sourceIndex)
-                                                )
-                                        )
-                                    is JunctionVertex ->
-                                        DefaultJunctionVertex(
-                                            path = schematicPath,
-                                            compositeAttribute =
-                                                DefaultCompositeAttribute(
-                                                    conventionalName =
-                                                        existingVertex
-                                                            .compositeAttribute
-                                                            .conventionalName,
-                                                    sourceAttributesByDataSource =
+                return Try.attempt {
+                    when (val sourceIndex: SI = mappedSourceIndexAttempt.orElseThrow()) {
+                        is SourceAttribute -> {
+                            when (existingSchematicVertexOpt) {
+                                is Some -> {
+                                    when (val existingVertex = existingSchematicVertexOpt.value) {
+                                        is LeafVertex ->
+                                            DefaultLeafVertex(
+                                                path = schematicPath,
+                                                compositeAttribute =
+                                                    DefaultCompositeAttribute(
+                                                        conventionalName =
+                                                            existingVertex
+                                                                .compositeAttribute
+                                                                .conventionalName,
                                                         existingVertex
                                                             .compositeAttribute
                                                             .getSourceAttributeByDataSource()
                                                             .toPersistentMap()
                                                             .put(dataSource, sourceIndex)
-                                                ),
-                                            compositeContainerType =
-                                                existingVertex.compositeContainerType
-                                        )
-                                    else -> {
-                                        throw SchemaException(
-                                            SchemaErrorResponse.UNEXPECTED_ERROR,
-                                            "unhandled graph index type on existing vertex: ${existingVertex::class.qualifiedName}"
-                                        )
+                                                    )
+                                            )
+                                        is JunctionVertex ->
+                                            DefaultJunctionVertex(
+                                                path = schematicPath,
+                                                compositeAttribute =
+                                                    DefaultCompositeAttribute(
+                                                        conventionalName =
+                                                            existingVertex
+                                                                .compositeAttribute
+                                                                .conventionalName,
+                                                        sourceAttributesByDataSource =
+                                                            existingVertex
+                                                                .compositeAttribute
+                                                                .getSourceAttributeByDataSource()
+                                                                .toPersistentMap()
+                                                                .put(dataSource, sourceIndex)
+                                                    ),
+                                                compositeContainerType =
+                                                    existingVertex.compositeContainerType
+                                            )
+                                        else -> {
+                                            throw SchemaException(
+                                                SchemaErrorResponse.UNEXPECTED_ERROR,
+                                                "unhandled graph index type on existing vertex: ${existingVertex::class.qualifiedName}"
+                                            )
+                                        }
                                     }
                                 }
-                            }
-                            is None -> {
-                                DefaultLeafVertex(
-                                    path = schematicPath,
-                                    compositeAttribute =
-                                        DefaultCompositeAttribute(
-                                            /**
-                                             * Location where entity resolution and application of
-                                             * naming conventions can be done in the future
-                                             */
-                                            conventionalName = sourceIndex.name,
-                                            sourceAttributesByDataSource =
-                                                persistentMapOf(dataSource to sourceIndex)
-                                        )
-                                )
-                            }
-                        }
-                    }
-                    is SourceContainerType<*> -> {
-                        when (existingSchematicVertexOpt) {
-                            is Some -> {
-                                when (val existingVertex = existingSchematicVertexOpt.value) {
-                                    is RootVertex ->
-                                        DefaultRootVertex(
-                                            path = schematicPath,
-                                            compositeContainerType =
-                                                DefaultCompositeContainerType(
-                                                    conventionalName =
-                                                        existingVertex
-                                                            .compositeContainerType
-                                                            .conventionalName,
-                                                    sourceContainerTypesByDataSource =
-                                                        existingVertex
-                                                            .compositeContainerType
-                                                            .getSourceContainerTypeByDataSource()
-                                                            .toPersistentMap()
-                                                            .put(dataSource, sourceIndex)
-                                                )
-                                        )
-                                    is LeafVertex ->
-                                        DefaultJunctionVertex(
-                                            path = schematicPath,
-                                            compositeContainerType =
-                                                DefaultCompositeContainerType(
-                                                    conventionalName =
-                                                        existingVertex
-                                                            .compositeAttribute
-                                                            .conventionalName,
-                                                    sourceContainerTypesByDataSource =
-                                                        persistentMapOf(dataSource to sourceIndex)
-                                                ),
-                                            compositeAttribute = existingVertex.compositeAttribute
-                                        )
-                                    is JunctionVertex ->
-                                        DefaultJunctionVertex(
-                                            path = schematicPath,
-                                            compositeContainerType =
-                                                DefaultCompositeContainerType(
-                                                    conventionalName =
-                                                        existingVertex
-                                                            .compositeContainerType
-                                                            .conventionalName,
-                                                    sourceContainerTypesByDataSource =
-                                                        existingVertex
-                                                            .compositeContainerType
-                                                            .getSourceContainerTypeByDataSource()
-                                                            .toPersistentMap()
-                                                            .put(dataSource, sourceIndex)
-                                                ),
-                                            compositeAttribute = existingVertex.compositeAttribute
-                                        )
-                                    else -> {
-                                        throw SchemaException(
-                                            SchemaErrorResponse.UNEXPECTED_ERROR,
-                                            "unhandled graph index type on existing vertex: ${existingVertex::class.qualifiedName}"
-                                        )
-                                    }
+                                is None -> {
+                                    DefaultLeafVertex(
+                                        path = schematicPath,
+                                        compositeAttribute =
+                                            DefaultCompositeAttribute(
+                                                /**
+                                                 * Location where entity resolution and application
+                                                 * of naming conventions can be done in the future
+                                                 */
+                                                conventionalName = sourceIndex.name,
+                                                sourceAttributesByDataSource =
+                                                    persistentMapOf(dataSource to sourceIndex)
+                                            )
+                                    )
                                 }
                             }
-                            is None -> {
-                                DefaultJunctionVertex(
-                                    path = schematicPath,
-                                    compositeContainerType =
-                                        DefaultCompositeContainerType(
-                                            /**
-                                             * Another location where entity resolution and
-                                             * application of naming conventions can be done in the
-                                             * future
-                                             */
-                                            conventionalName = sourceIndex.name,
-                                            sourceContainerTypesByDataSource =
-                                                persistentMapOf(dataSource to sourceIndex)
-                                        ),
-                                    compositeAttribute =
-                                        DefaultCompositeAttribute(
-                                            /**
-                                             * Another location where entity resolution and
-                                             * application of naming conventions can be done in the
-                                             * future
-                                             */
-                                            conventionalName = sourceIndex.name,
-                                            sourceAttributesByDataSource = persistentMapOf()
-                                        )
-                                )
+                        }
+                        is SourceContainerType<*> -> {
+                            when (existingSchematicVertexOpt) {
+                                is Some -> {
+                                    when (val existingVertex = existingSchematicVertexOpt.value) {
+                                        is RootVertex ->
+                                            DefaultRootVertex(
+                                                path = schematicPath,
+                                                compositeContainerType =
+                                                    DefaultCompositeContainerType(
+                                                        conventionalName =
+                                                            existingVertex
+                                                                .compositeContainerType
+                                                                .conventionalName,
+                                                        sourceContainerTypesByDataSource =
+                                                            existingVertex
+                                                                .compositeContainerType
+                                                                .getSourceContainerTypeByDataSource()
+                                                                .toPersistentMap()
+                                                                .put(dataSource, sourceIndex)
+                                                    )
+                                            )
+                                        is LeafVertex ->
+                                            DefaultJunctionVertex(
+                                                path = schematicPath,
+                                                compositeContainerType =
+                                                    DefaultCompositeContainerType(
+                                                        conventionalName =
+                                                            existingVertex
+                                                                .compositeAttribute
+                                                                .conventionalName,
+                                                        sourceContainerTypesByDataSource =
+                                                            persistentMapOf(
+                                                                dataSource to sourceIndex
+                                                            )
+                                                    ),
+                                                compositeAttribute =
+                                                    existingVertex.compositeAttribute
+                                            )
+                                        is JunctionVertex ->
+                                            DefaultJunctionVertex(
+                                                path = schematicPath,
+                                                compositeContainerType =
+                                                    DefaultCompositeContainerType(
+                                                        conventionalName =
+                                                            existingVertex
+                                                                .compositeContainerType
+                                                                .conventionalName,
+                                                        sourceContainerTypesByDataSource =
+                                                            existingVertex
+                                                                .compositeContainerType
+                                                                .getSourceContainerTypeByDataSource()
+                                                                .toPersistentMap()
+                                                                .put(dataSource, sourceIndex)
+                                                    ),
+                                                compositeAttribute =
+                                                    existingVertex.compositeAttribute
+                                            )
+                                        else -> {
+                                            throw SchemaException(
+                                                SchemaErrorResponse.UNEXPECTED_ERROR,
+                                                "unhandled graph index type on existing vertex: ${existingVertex::class.qualifiedName}"
+                                            )
+                                        }
+                                    }
+                                }
+                                is None -> {
+                                    DefaultJunctionVertex(
+                                        path = schematicPath,
+                                        compositeContainerType =
+                                            DefaultCompositeContainerType(
+                                                /**
+                                                 * Another location where entity resolution and
+                                                 * application of naming conventions can be done in
+                                                 * the future
+                                                 */
+                                                conventionalName = sourceIndex.name,
+                                                sourceContainerTypesByDataSource =
+                                                    persistentMapOf(dataSource to sourceIndex)
+                                            ),
+                                        compositeAttribute =
+                                            DefaultCompositeAttribute(
+                                                /**
+                                                 * Another location where entity resolution and
+                                                 * application of naming conventions can be done in
+                                                 * the future
+                                                 */
+                                                conventionalName = sourceIndex.name,
+                                                sourceAttributesByDataSource = persistentMapOf()
+                                            )
+                                    )
+                                }
                             }
                         }
-                    }
-                    else -> {
-                        throw SchemaException(
-                            SchemaErrorResponse.UNEXPECTED_ERROR,
-                            "unhandled source index type: ${sourceIndex::class.qualifiedName}"
-                        )
+                        else -> {
+                            throw SchemaException(
+                                SchemaErrorResponse.UNEXPECTED_ERROR,
+                                "unhandled source index type: ${sourceIndex::class.qualifiedName}"
+                            )
+                        }
                     }
                 }
             }

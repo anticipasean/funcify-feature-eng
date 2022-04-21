@@ -14,13 +14,16 @@ import funcify.feature.schema.error.SchemaErrorResponse
 import funcify.feature.schema.error.SchemaException
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.tools.container.attempt.Try
+import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.OptionExtensions.stream
 import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentMap
 import funcify.feature.tools.extensions.PersistentMapExtensions.streamEntries
 import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
+import java.util.stream.Stream
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.persistentMapOf
+import org.slf4j.Logger
 
 internal class DefaultMetamodelGraphFactory(
     val schematicVertexFactory: SchematicVertexFactory,
@@ -28,6 +31,8 @@ internal class DefaultMetamodelGraphFactory(
 ) : MetamodelGraphFactory {
 
     companion object {
+
+        private val logger: Logger = loggerFor<DefaultMetamodelGraphFactory>()
 
         internal data class DefaultDataSourceSpec(
             val schematicVertexFactory: SchematicVertexFactory,
@@ -41,6 +46,9 @@ internal class DefaultMetamodelGraphFactory(
             override fun <SI : SourceIndex> addDataSource(
                 dataSource: DataSource<SI>
             ): MetamodelGraph.Builder {
+                logger.debug(
+                    "add_data_source: [ name: ${dataSource.name}, type: ${dataSource.sourceType} ]"
+                )
                 return when {
                     /**
                      * Case 1: Failure to add datasource or create a or update an existing schematic
@@ -66,14 +74,22 @@ internal class DefaultMetamodelGraphFactory(
                             schematicVertexFactory = schematicVertexFactory,
                             sourcePathTransformer = sourcePathTransformer,
                             dataSourcesByNameAttempt =
-                                dataSourcesByNameAttempt.flatMap { _ ->
-                                    Try.failure(
-                                        SchemaException(
-                                            SchemaErrorResponse.UNIQUE_CONSTRAINT_VIOLATION,
-                                            message
+                                dataSourcesByNameAttempt
+                                    .flatMap<PersistentMap<String, DataSource<*>>> { _ ->
+                                        Try.failure(
+                                            SchemaException(
+                                                SchemaErrorResponse.UNIQUE_CONSTRAINT_VIOLATION,
+                                                message
+                                            )
                                         )
-                                    )
-                                },
+                                    }
+                                    .peekIfFailure { thr: Throwable ->
+                                        logger.error(
+                                            """add_data_source: [ status: failed ] 
+                                               |[ error: { type: ${thr::class.qualifiedName}, 
+                                               |message: "$message" } ]""".flattenIntoOneLine()
+                                        )
+                                    },
                             schematicVerticesByPathAttempt = schematicVerticesByPathAttempt
                         )
                     }
@@ -90,25 +106,38 @@ internal class DefaultMetamodelGraphFactory(
                                 },
                             schematicVerticesByPathAttempt =
                                 schematicVerticesByPathAttempt.flatMap { schematicVerticesByPath ->
-                                    Try.attempt {
-                                        schematicVerticesByPath.putAll(
-                                            dataSource
-                                                .sourceMetamodel
-                                                .sourceIndicesByPath
-                                                .streamEntries()
-                                                .parallel()
-                                                .map { entry ->
-                                                    createNewOrUpdateExistingSchematicVertex(
+                                    dataSource
+                                        .sourceMetamodel
+                                        .sourceIndicesByPath
+                                        .streamEntries()
+                                        .parallel()
+                                        .map { entry ->
+                                            Try.attempt {
+                                                createNewOrUpdateExistingSchematicVertex(
                                                         dataSource = dataSource,
                                                         existingSchematicVerticesByPath =
                                                             schematicVerticesByPath,
                                                         entry = entry
                                                     )
+                                                    .stream()
+                                            }
+                                                .peekIfFailure { thr: Throwable ->
+                                                    logger.error(
+                                                        """add_data_source: [ status: failed ] 
+                                                           |[ error: { type: ${thr::class.qualifiedName}, 
+                                                           |message: "${thr.message}" } ]""".flattenIntoOneLine()
+                                                    )
                                                 }
-                                                .flatMap { opt -> opt.stream() }
-                                                .reducePairsToPersistentMap()
-                                        )
-                                    }
+                                        }
+                                        .reduce { st1, st2 ->
+                                            st1.zip(st2) { s1, s2 -> Stream.concat(s1, s2) }
+                                        }
+                                        .orElseGet { Try.success(Stream.empty()) }
+                                        .map { stream ->
+                                            schematicVerticesByPath.putAll(
+                                                stream.reducePairsToPersistentMap()
+                                            )
+                                        }
                                 }
                         )
                     }
@@ -150,6 +179,7 @@ internal class DefaultMetamodelGraphFactory(
                                                     .onDataSource(dataSource)
                                             }
                                         )
+                                        .orElseThrow()
                                         .some()
                                 },
                                 { vOpt1, vOpt2 ->
@@ -171,6 +201,7 @@ internal class DefaultMetamodelGraphFactory(
                                         .fromExistingVertex(ev)
                                         .forSourceIndex<SI>(si)
                                         .onDataSource(dataSource)
+                                        .orElseThrow()
                                 },
                                 { _, v2 ->
                                     // not parallel so either leaf node is the same

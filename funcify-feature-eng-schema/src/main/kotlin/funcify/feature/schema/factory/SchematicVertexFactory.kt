@@ -8,6 +8,7 @@ import funcify.feature.schema.datasource.SourceIndex
 import funcify.feature.schema.error.SchemaErrorResponse
 import funcify.feature.schema.error.SchemaException
 import funcify.feature.schema.path.SchematicPath
+import funcify.feature.tools.container.attempt.Try
 
 interface SchematicVertexFactory {
 
@@ -64,6 +65,6 @@ interface SchematicVertexFactory {
     }
 
     interface DataSourceSpec<SI : SourceIndex> {
-        fun onDataSource(dataSource: DataSource<SI>): SchematicVertex
+        fun onDataSource(dataSource: DataSource<SI>): Try<SchematicVertex>
     }
 }
