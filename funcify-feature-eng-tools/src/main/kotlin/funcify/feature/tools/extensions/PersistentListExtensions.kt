@@ -1,9 +1,8 @@
 package funcify.feature.tools.extensions
 
+import java.util.stream.Stream
 import kotlinx.collections.immutable.PersistentList
 import kotlinx.collections.immutable.persistentListOf
-import java.util.stream.Stream
-
 
 /**
  *
@@ -13,16 +12,15 @@ import java.util.stream.Stream
 object PersistentListExtensions {
 
     fun <T> Stream<T>.reduceToPersistentList(): PersistentList<T> {
-        return this.reduce(persistentListOf<T>(),
-                           { pl: PersistentList<T>, t: T ->
-                               pl.add(t)
-                           },
-                           { pl1: PersistentList<T>, pl2: PersistentList<T> ->
-                               /**
-                                * pl1 addAll pl2 preserves insertion order in combiner function
-                                */
-                               pl1.addAll(pl2)
-                           })
+        return this.reduce(
+            persistentListOf<T>(),
+            { pl: PersistentList<T>, t: T -> pl.add(t) },
+            { _: PersistentList<T>, pl2: PersistentList<T> ->
+                // Leaf nodes are the same in sequential stream reduction
+                // Parallel streaming will not occur on [Spliterator.ORDERED]
+                // and any type providing such a spliterator e.g. Lists
+                pl2
+            }
+        )
     }
-
 }
