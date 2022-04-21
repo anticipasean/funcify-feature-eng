@@ -1,9 +1,6 @@
 package funcify.feature.schema.factory
 
 import funcify.feature.schema.MetamodelGraph
-import funcify.feature.schema.datasource.DataSource
-import funcify.feature.schema.datasource.SourceIndex
-import funcify.feature.tools.container.attempt.Try
 
 /**
  *
@@ -12,11 +9,6 @@ import funcify.feature.tools.container.attempt.Try
  */
 interface MetamodelGraphFactory {
 
-    fun createMetamodelGraph(): DataSourceSpec
+    fun builder(): MetamodelGraph.Builder
 
-    interface DataSourceSpec {
-
-        fun <SI : SourceIndex> includingDataSource(dataSource: DataSource<SI>): DataSourceSpec
-        fun build(): Try<MetamodelGraph>
-    }
 }

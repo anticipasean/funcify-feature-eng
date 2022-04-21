@@ -1,8 +1,10 @@
 package funcify.feature.schema
 
+import funcify.feature.schema.datasource.DataSource
+import funcify.feature.schema.datasource.SourceIndex
 import funcify.feature.schema.path.SchematicPath
-import kotlinx.collections.immutable.PersistentMap
-
+import funcify.feature.tools.container.attempt.Try
+import kotlinx.collections.immutable.ImmutableMap
 
 /**
  *
@@ -11,6 +13,14 @@ import kotlinx.collections.immutable.PersistentMap
  */
 interface MetamodelGraph {
 
-    val schematicVerticesByPath: PersistentMap<SchematicPath, SchematicVertex>
+    val dataSourcesByName: ImmutableMap<String, DataSource<*>>
 
+    val schematicVerticesByPath: ImmutableMap<SchematicPath, SchematicVertex>
+
+    interface Builder {
+
+        fun <SI : SourceIndex> addDataSource(dataSource: DataSource<SI>): Builder
+
+        fun build(): Try<MetamodelGraph>
+    }
 }
