@@ -4,9 +4,10 @@ import arrow.core.filterIsInstance
 import arrow.core.toOption
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.databind.node.JsonNodeFactory
 import com.fasterxml.jackson.module.kotlin.treeToValue
 import funcify.feature.datasource.graphql.GraphQLApiService
+import funcify.feature.datasource.graphql.error.GQLDataSourceErrorResponse
+import funcify.feature.datasource.graphql.error.GQLDataSourceException
 import funcify.feature.tools.container.async.Async
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.OptionExtensions.flatMapOptions
@@ -128,7 +129,12 @@ class MockGraphQLFetcherMetadataProvider(val objectMapper: ObjectMapper) :
             .map { gql: GraphQL -> gql.execute(IntrospectionQuery.INTROSPECTION_QUERY) }
             .filter(
                 { execResult: ExecutionResult -> execResult.isDataPresent },
-                { _: ExecutionResult -> IllegalStateException("no data is present!") }
+                { _: ExecutionResult ->
+                    GQLDataSourceException(
+                        GQLDataSourceErrorResponse.CLIENT_ERROR,
+                        "no data is present!"
+                    )
+                }
             )
             .map { execResult: ExecutionResult ->
                 objectMapper.valueToTree(execResult.toSpecification()) as JsonNode
@@ -137,7 +143,7 @@ class MockGraphQLFetcherMetadataProvider(val objectMapper: ObjectMapper) :
                 if (jn.has("data")) {
                     jn.get("data")
                 } else {
-                    JsonNodeFactory.instance.nullNode()
+                    objectMapper.nullNode()
                 }
             }
     }
@@ -148,7 +154,12 @@ class MockGraphQLFetcherMetadataProvider(val objectMapper: ObjectMapper) :
         return Try.success(schemaJsonNode)
             .filterNot(
                 { jn -> jn.isNull },
-                { _: JsonNode -> IllegalStateException("schema_json_node is a null node") }
+                { _: JsonNode ->
+                    GQLDataSourceException(
+                        GQLDataSourceErrorResponse.CLIENT_ERROR,
+                        "schema_json_node is a null node"
+                    )
+                }
             )
             .map { jn: JsonNode -> objectMapper.treeToValue<Map<String, Any?>>(jn) }
             .map { strMap: Map<String, Any?> ->
@@ -167,7 +178,9 @@ class MockGraphQLFetcherMetadataProvider(val objectMapper: ObjectMapper) :
             .map { sdlDefinitions: PersistentList<SDLDefinition<*>> ->
                 TypeDefinitionRegistry().apply {
                     addAll(sdlDefinitions).ifPresent { gqlerror: GraphQLError ->
-                        throw RuntimeException(gqlerror.toString())
+                        throw GQLDataSourceException(
+                            GQLDataSourceErrorResponse.Companion.GQLSpecificErrorResponse(gqlerror)
+                        )
                     }
                 }
             }

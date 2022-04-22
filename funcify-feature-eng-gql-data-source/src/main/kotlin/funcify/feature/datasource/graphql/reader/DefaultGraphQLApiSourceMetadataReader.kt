@@ -13,7 +13,9 @@ import funcify.feature.datasource.graphql.schema.GraphQLSourceMetamodel
 import funcify.feature.schema.datasource.SourceMetamodel
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.tools.control.ParentChildPairRecursiveSpliterator
+import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.PersistentMapExtensions.combineWithPersistentSetValueMap
+import funcify.feature.tools.extensions.PersistentMapExtensions.streamEntries
 import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
 import graphql.schema.GraphQLFieldDefinition
 import graphql.schema.GraphQLList
@@ -27,7 +29,6 @@ import kotlinx.collections.immutable.PersistentSet
 import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.persistentSetOf
 import org.slf4j.Logger
-import org.slf4j.LoggerFactory
 
 /**
  *
@@ -37,8 +38,7 @@ import org.slf4j.LoggerFactory
 internal class DefaultGraphQLApiSourceMetadataReader() : GraphQLApiSourceMetadataReader {
 
     companion object {
-        private val logger: Logger =
-            LoggerFactory.getLogger(DefaultGraphQLApiSourceMetadataReader::class.java)
+        private val logger: Logger = loggerFor<DefaultGraphQLApiSourceMetadataReader>()
 
         private data class GqlSourceContext(
             val graphQLFieldDefinitionToPath: PersistentMap<GraphQLFieldDefinition, SchematicPath> =
@@ -55,9 +55,10 @@ internal class DefaultGraphQLApiSourceMetadataReader() : GraphQLApiSourceMetadat
     override fun readSourceMetamodelFromMetadata(
         input: GraphQLSchema
     ): SourceMetamodel<GraphQLSourceIndex> {
-        logger.info(
+        logger.debug(
             """read_source_container_types_from_metadata: 
-                |[ input.query_type.name: ${input.queryType.name} ]
+                |[ input.query_type.name: ${input.queryType.name}, 
+                | query_type.field_definitions.size: ${input.queryType.fieldDefinitions.size} ]
                 |""".flattenIntoOneLine()
         )
         if (input.queryType.fieldDefinitions.isEmpty()) {
@@ -132,7 +133,7 @@ internal class DefaultGraphQLApiSourceMetadataReader() : GraphQLApiSourceMetadat
                         childFieldDefinition = parentChildFieldDefPair.second
                     )
                 },
-                { _, gql2 -> // since not parallel, take right leaf node
+                { _, gql2 -> // since sequential, either leaf node is the same
                     gql2
                 }
             )
@@ -157,7 +158,8 @@ internal class DefaultGraphQLApiSourceMetadataReader() : GraphQLApiSourceMetadat
                         .firstOrNull()
                         .toOption()
                         .getOrElse {
-                            throw IllegalArgumentException(
+                            throw GQLDataSourceException(
+                                GQLDataSourceErrorResponse.INVALID_INPUT,
                                 "parent_field_definition not for container_type"
                             )
                         }
@@ -168,7 +170,8 @@ internal class DefaultGraphQLApiSourceMetadataReader() : GraphQLApiSourceMetadat
                         .firstOrNull()
                         .toOption()
                         .getOrElse {
-                            throw IllegalStateException(
+                            throw GQLDataSourceException(
+                                GQLDataSourceErrorResponse.UNEXPECTED_ERROR,
                                 "parent_field_definition should have attribute representation"
                             )
                         }
@@ -226,7 +229,12 @@ internal class DefaultGraphQLApiSourceMetadataReader() : GraphQLApiSourceMetadat
                             GraphQLSourceIndexFactory.createSourceContainerType()
                                 .forAttributePathAndDefinition(parentPath, parentFieldDefinition)
                         )
-                        .getOrElse { throw IllegalStateException("parent_type not container type") }
+                        .getOrElse {
+                            throw GQLDataSourceException(
+                                GQLDataSourceErrorResponse.INVALID_INPUT,
+                                "parent_type not container type"
+                            )
+                        }
                 val childAsAttributeType =
                     GraphQLSourceIndexFactory.createSourceAttribute()
                         .withParentPathAndDefinition(parentPath, parentFieldDefinition)
@@ -290,7 +298,12 @@ internal class DefaultGraphQLApiSourceMetadataReader() : GraphQLApiSourceMetadat
                             GraphQLSourceIndexFactory.createSourceContainerType()
                                 .forAttributePathAndDefinition(parentPath, parentFieldDefinition)
                         )
-                        .getOrElse { throw IllegalStateException("parent_type not container type") }
+                        .getOrElse {
+                            throw GQLDataSourceException(
+                                GQLDataSourceErrorResponse.INVALID_INPUT,
+                                "parent_type not container type"
+                            )
+                        }
                 val childAsAttributeType =
                     currentContext.indicesByPath[childPath]
                         .toOption()
@@ -372,8 +385,7 @@ internal class DefaultGraphQLApiSourceMetadataReader() : GraphQLApiSourceMetadat
         val sourceIndicesWithAttributesInContainerTypes =
             context
                 .sourceContainerTypeToAttributeTypes
-                .entries
-                .parallelStream()
+                .streamEntries()
                 .reduce(
                     persistentMapOf<SchematicPath, PersistentSet<GraphQLSourceIndex>>(),
                     {
@@ -388,12 +400,12 @@ internal class DefaultGraphQLApiSourceMetadataReader() : GraphQLApiSourceMetadat
                                 .add(entry.key.copy(sourceAttributes = entry.value))
                         )
                     },
-                    { pm1, pm2 -> pm2.combineWithPersistentSetValueMap(pm1) }
+                    { _, pm2 -> pm2 }
                 )
         val sourceIndicesWithRootAttributes =
             context
                 .rootAttributes
-                .parallelStream()
+                .stream()
                 .reduce(
                     sourceIndicesWithAttributesInContainerTypes,
                     { pm, graphQLSourceAttribute: GraphQLSourceAttribute ->
@@ -403,7 +415,7 @@ internal class DefaultGraphQLApiSourceMetadataReader() : GraphQLApiSourceMetadat
                                 .add(graphQLSourceAttribute)
                         )
                     },
-                    { pm1, pm2 -> pm2.combineWithPersistentSetValueMap(pm1) }
+                    { _, pm2 -> pm2 }
                 )
         return GraphQLSourceMetamodel(sourceIndicesByPath = sourceIndicesWithRootAttributes)
     }

@@ -18,4 +18,8 @@ class GQLDataSourceException(
         errorResponse: ErrorResponse,
         inputMessage: String
     ) : this(errorResponse = errorResponse, inputMessage = inputMessage, cause = null)
+
+    constructor(
+        errorResponse: ErrorResponse
+    ) : this(errorResponse = errorResponse, inputMessage = MISSING_ERROR_MESSAGE, cause = null)
 }

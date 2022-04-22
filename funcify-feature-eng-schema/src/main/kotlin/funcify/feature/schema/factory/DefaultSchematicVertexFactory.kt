@@ -39,7 +39,9 @@ internal class DefaultSchematicVertexFactory() : SchematicVertexFactory {
                 sourceAttribute: SourceAttribute
             ): SchematicVertexFactory.DataSourceSpec<SI> {
                 logger.debug(
-                    "for_source_attribute: [ source_attribute.conventional_name: ${sourceAttribute.name} ]"
+                    """for_source_attribute: [ source_attribute.
+                        |conventional_name: ${sourceAttribute.name} 
+                        |]""".flattenIntoOneLine()
                 )
                 return DefaultDataSourceSpec<SI>(
                     schematicPath = schematicPath,
@@ -52,7 +54,9 @@ internal class DefaultSchematicVertexFactory() : SchematicVertexFactory {
                 sourceContainerType: SourceContainerType<A>
             ): SchematicVertexFactory.DataSourceSpec<SI> {
                 logger.debug(
-                    "for_source_container_type: [ source_container_type.conventional_name: ${sourceContainerType.name} ]"
+                    """for_source_container_type: [ source_container_type.
+                        |conventional_name: ${sourceContainerType.name} ]
+                        |""".flattenIntoOneLine()
                 )
                 return DefaultDataSourceSpec<SI>(
                     schematicPath = schematicPath,
@@ -131,7 +135,9 @@ internal class DefaultSchematicVertexFactory() : SchematicVertexFactory {
                 sourceAttribute: SourceAttribute
             ): SchematicVertexFactory.DataSourceSpec<SI> {
                 logger.debug(
-                    "for_source_attribute: [ source_attribute.conventional_name: ${sourceAttribute.name} ]"
+                    """for_source_attribute: [ source_attribute.
+                        |conventional_name: ${sourceAttribute.name} ]
+                        |""".flattenIntoOneLine()
                 )
                 return DefaultDataSourceSpec<SI>(
                     schematicPath = schematicPath,
@@ -147,7 +153,9 @@ internal class DefaultSchematicVertexFactory() : SchematicVertexFactory {
                 sourceContainerType: SourceContainerType<A>
             ): SchematicVertexFactory.DataSourceSpec<SI> {
                 logger.debug(
-                    "for_source_container_type: [ source_container_type.conventional_name: ${sourceContainerType.name} ]"
+                    """for_source_container_type: 
+                        |[ source_container_type.conventional_name: 
+                        |${sourceContainerType.name} ]""".flattenIntoOneLine()
                 )
                 return DefaultDataSourceSpec<SI>(
                     schematicPath = schematicPath,
@@ -167,12 +175,13 @@ internal class DefaultSchematicVertexFactory() : SchematicVertexFactory {
         ) : SchematicVertexFactory.DataSourceSpec<SI> {
             override fun onDataSource(dataSource: DataSource<SI>): Try<SchematicVertex> {
                 logger.debug(
-                    "on_data_source: [ data_source.source_type: ${dataSource.sourceType} ]"
+                    """on_data_source: [ source_type: ${dataSource.sourceType}, 
+                       |name: ${dataSource.name} ]""".flattenIntoOneLine()
                 )
                 if (mappedSourceIndexAttempt.isFailure()) {
                     mappedSourceIndexAttempt.ifFailed { throwable: Throwable ->
                         logger.error(
-                            """on_data_source: [ error: [ type: ${throwable::class.qualifiedName}, 
+                            """|on_data_source: [ error: [ type: ${throwable::class.qualifiedName}, 
                                |message: "${throwable.message}
                                |] ]""".flattenIntoOneLine()
                         )
