@@ -208,14 +208,23 @@ internal class DefaultMetamodelGraphFactory(
             }
 
             override fun build(): Try<MetamodelGraph> {
-                return dataSourcesByNameAttempt.zip(schematicVerticesByPathAttempt) {
-                    dataSourcesByName: PersistentMap<String, DataSource<*>>,
-                    schematicVerticesByPath: PersistentMap<SchematicPath, SchematicVertex> ->
-                    DefaultMetamodelGraph(
-                        dataSourcesByName = dataSourcesByName,
-                        schematicVerticesByPath = schematicVerticesByPath
-                    )
-                }
+                return dataSourcesByNameAttempt
+                    .zip(schematicVerticesByPathAttempt) {
+                        dataSourcesByName: PersistentMap<String, DataSource<*>>,
+                        schematicVerticesByPath: PersistentMap<SchematicPath, SchematicVertex> ->
+                        DefaultMetamodelGraph(
+                            dataSourcesByName = dataSourcesByName,
+                            schematicVerticesByPath = schematicVerticesByPath
+                        )
+                    }
+                    .peekIfFailure { thr: Throwable ->
+                        logger.error(
+                            """build: [ status: failed ] 
+                        |[ error: { type: ${thr::class.qualifiedName}, 
+                        |message: ${thr.message} } ]
+                    """.flattenIntoOneLine()
+                        )
+                    }
             }
         }
     }
