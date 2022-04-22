@@ -5,6 +5,8 @@ import arrow.core.or
 import arrow.core.toOption
 import funcify.feature.datasource.graphql.error.GQLDataSourceErrorResponse
 import funcify.feature.datasource.graphql.error.GQLDataSourceException
+import funcify.feature.datasource.graphql.schema.DefaultGraphQLSourceAttribute
+import funcify.feature.datasource.graphql.schema.DefaultGraphQLSourceContainerType
 import funcify.feature.datasource.graphql.schema.GraphQLSourceAttribute
 import funcify.feature.datasource.graphql.schema.GraphQLSourceContainerType
 import funcify.feature.datasource.graphql.schema.GraphQLSourceIndex
@@ -291,7 +293,7 @@ internal class DefaultGraphQLApiSourceMetadataReader() : GraphQLApiSourceMetadat
                         .toOption()
                         .getOrElse { persistentSetOf() }
                         .asSequence()
-                        .filterIsInstance<GraphQLSourceContainerType>()
+                        .filterIsInstance<DefaultGraphQLSourceContainerType>()
                         .firstOrNull()
                         .toOption()
                         .or(
@@ -309,7 +311,7 @@ internal class DefaultGraphQLApiSourceMetadataReader() : GraphQLApiSourceMetadat
                         .toOption()
                         .getOrElse { persistentSetOf() }
                         .asSequence()
-                        .filterIsInstance<GraphQLSourceAttribute>()
+                        .filterIsInstance<DefaultGraphQLSourceAttribute>()
                         .firstOrNull()
                         .toOption()
                         .getOrElse {
@@ -397,7 +399,14 @@ internal class DefaultGraphQLApiSourceMetadataReader() : GraphQLApiSourceMetadat
                         pm.put(
                             entry.key.sourcePath,
                             pm.getOrDefault(entry.key.sourcePath, persistentSetOf())
-                                .add(entry.key.copy(sourceAttributes = entry.value))
+                                .add(
+                                    DefaultGraphQLSourceContainerType(
+                                        sourcePath = entry.key.sourcePath,
+                                        name = entry.key.name,
+                                        schemaFieldDefinition = entry.key.schemaFieldDefinition,
+                                        sourceAttributes = entry.value
+                                    )
+                                )
                         )
                     },
                     { _, pm2 -> pm2 }

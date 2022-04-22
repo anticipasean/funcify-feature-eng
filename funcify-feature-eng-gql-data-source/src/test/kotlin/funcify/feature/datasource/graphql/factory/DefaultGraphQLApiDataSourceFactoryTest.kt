@@ -6,8 +6,8 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import funcify.feature.datasource.graphql.GraphQLApiDataSource
 import funcify.feature.datasource.graphql.metadata.MockGraphQLFetcherMetadataProvider
 import funcify.feature.datasource.graphql.reader.DefaultGraphQLApiSourceMetadataReader
-import funcify.feature.datasource.graphql.schema.GraphQLSourceAttribute
-import funcify.feature.datasource.graphql.schema.GraphQLSourceContainerType
+import funcify.feature.datasource.graphql.schema.DefaultGraphQLSourceAttribute
+import funcify.feature.datasource.graphql.schema.DefaultGraphQLSourceContainerType
 import funcify.feature.json.JsonObjectMappingConfiguration
 import funcify.feature.naming.StandardNamingConventions
 import funcify.feature.schema.MetamodelGraph
@@ -123,10 +123,10 @@ internal class DefaultGraphQLApiDataSourceFactoryTest {
                 .filterIsInstance<JunctionVertex>()
                 .filter { jv ->
                     jv.compositeAttribute.getSourceAttributeByDataSource()[graphQLApiDataSource] is
-                        GraphQLSourceAttribute &&
+                        DefaultGraphQLSourceAttribute &&
                         jv.compositeContainerType.getSourceContainerTypeByDataSource()[
                             graphQLApiDataSource] is
-                            GraphQLSourceContainerType
+                            DefaultGraphQLSourceContainerType
                 }
                 .isDefined(),
             """expected artwork to be junction vertex, 

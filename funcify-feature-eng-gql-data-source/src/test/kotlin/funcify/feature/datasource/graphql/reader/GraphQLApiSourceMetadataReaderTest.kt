@@ -8,7 +8,7 @@ import arrow.core.toOption
 import com.fasterxml.jackson.databind.ObjectMapper
 import funcify.feature.datasource.graphql.metadata.MockGraphQLFetcherMetadataProvider
 import funcify.feature.datasource.graphql.metadata.MockGraphQLFetcherMetadataProvider.Companion.fakeService
-import funcify.feature.datasource.graphql.schema.GraphQLSourceContainerType
+import funcify.feature.datasource.graphql.schema.DefaultGraphQLSourceContainerType
 import funcify.feature.datasource.graphql.schema.GraphQLSourceIndex
 import funcify.feature.json.JsonObjectMappingConfiguration
 import funcify.feature.tools.control.ParentChildPairRecursiveSpliterator
@@ -80,7 +80,7 @@ internal class GraphQLApiSourceMetadataReaderTest {
                 }
                 .firstOrNone()
                 .flatMap { entry -> entry.value.firstOrNone() }
-                .filterIsInstance<GraphQLSourceContainerType>()
+                .filterIsInstance<DefaultGraphQLSourceContainerType>()
                 .map { gqlSrcCont -> gqlSrcCont.sourceAttributes.size }
                 .getOrElse { -1 }
         )
@@ -96,7 +96,7 @@ internal class GraphQLApiSourceMetadataReaderTest {
                             rootValue = si,
                             traversalFunction = { gsi: GraphQLSourceIndex ->
                                 gsi.toOption()
-                                    .filterIsInstance<GraphQLSourceContainerType>()
+                                    .filterIsInstance<DefaultGraphQLSourceContainerType>()
                                     .map { gct ->
                                         gct.sourceAttributes.stream().map { gsa ->
                                             gsa as GraphQLSourceIndex

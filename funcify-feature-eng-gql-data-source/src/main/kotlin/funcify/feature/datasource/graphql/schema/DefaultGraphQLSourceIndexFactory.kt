@@ -15,9 +15,9 @@ import funcify.feature.schema.path.SchematicPath
 import funcify.feature.schema.path.SchematicPathFactory
 import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
 import graphql.schema.GraphQLFieldDefinition
+import graphql.schema.GraphQLFieldsContainer
 import graphql.schema.GraphQLList
 import graphql.schema.GraphQLNamedOutputType
-import graphql.schema.GraphQLObjectType
 import graphql.schema.GraphQLOutputType
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentListOf
@@ -47,52 +47,52 @@ internal class DefaultGraphQLSourceIndexFactory {
                     pathSegments = persistentListOf(convPathName.qualifiedForm)
                 )
             when (val fieldType: GraphQLOutputType = fieldDefinition.type) {
-                is GraphQLObjectType -> {
+                is GraphQLFieldsContainer -> {
                     val graphQLSourceContainerType =
-                        GraphQLSourceContainerType(
+                        DefaultGraphQLSourceContainerType(
                             sourcePath = sourcePath,
                             name = convFieldName,
-                            type = fieldType
+                            schemaFieldDefinition = fieldDefinition
                         )
                     val graphQLSourceAttribute =
-                        GraphQLSourceAttribute(
+                        DefaultGraphQLSourceAttribute(
                             sourcePath = sourcePath,
                             name = convFieldName,
-                            type = fieldType
+                            schemaFieldDefinition = fieldDefinition
                         )
                     return persistentSetOf(graphQLSourceContainerType, graphQLSourceAttribute)
                 }
                 is GraphQLList -> {
-                    if (fieldType.wrappedType is GraphQLObjectType) {
+                    if (fieldType.wrappedType is GraphQLFieldsContainer) {
                         val graphQLSourceContainerType =
-                            GraphQLSourceContainerType(
+                            DefaultGraphQLSourceContainerType(
                                 sourcePath = sourcePath,
                                 name = convFieldName,
-                                type = fieldType
+                                schemaFieldDefinition = fieldDefinition
                             )
                         val graphQLSourceAttribute =
-                            GraphQLSourceAttribute(
+                            DefaultGraphQLSourceAttribute(
                                 sourcePath = sourcePath,
                                 name = convFieldName,
-                                type = fieldType
+                                schemaFieldDefinition = fieldDefinition
                             )
                         return persistentSetOf(graphQLSourceContainerType, graphQLSourceAttribute)
                     } else {
                         val graphQLSourceAttribute =
-                            GraphQLSourceAttribute(
+                            DefaultGraphQLSourceAttribute(
                                 sourcePath = sourcePath,
                                 name = convFieldName,
-                                type = fieldType
+                                schemaFieldDefinition = fieldDefinition
                             )
                         return persistentSetOf(graphQLSourceAttribute)
                     }
                 }
                 else -> {
                     val graphQLSourceAttribute =
-                        GraphQLSourceAttribute(
+                        DefaultGraphQLSourceAttribute(
                             sourcePath = sourcePath,
                             name = convFieldName,
-                            type = fieldType
+                            schemaFieldDefinition = fieldDefinition
                         )
                     return persistentSetOf(graphQLSourceAttribute)
                 }
@@ -107,34 +107,34 @@ internal class DefaultGraphQLSourceIndexFactory {
             attributeDefinition: GraphQLFieldDefinition
         ): Option<GraphQLSourceContainerType> {
             when (val fieldType = attributeDefinition.type) {
-                is GraphQLObjectType -> {
-                    return GraphQLSourceContainerType(
+                is GraphQLFieldsContainer -> {
+                    return DefaultGraphQLSourceContainerType(
                             sourcePath = attributePath,
                             name =
                                 GraphQLSourceNamingConventions
                                     .getFieldNamingConventionForGraphQLFieldDefinitions()
                                     .deriveName(attributeDefinition),
-                            type = fieldType
+                            schemaFieldDefinition = attributeDefinition
                         )
                         .some()
                 }
                 is GraphQLList -> {
-                    return if (fieldType.wrappedType is GraphQLObjectType) {
-                        GraphQLSourceContainerType(
+                    return if (fieldType.wrappedType is GraphQLFieldsContainer) {
+                        DefaultGraphQLSourceContainerType(
                                 sourcePath = attributePath,
                                 name =
                                     GraphQLSourceNamingConventions
                                         .getFieldNamingConventionForGraphQLFieldDefinitions()
                                         .deriveName(attributeDefinition),
-                                type = fieldType
+                                schemaFieldDefinition = attributeDefinition
                             )
                             .some()
                     } else {
-                        none<GraphQLSourceContainerType>()
+                        none<DefaultGraphQLSourceContainerType>()
                     }
                 }
                 else -> {
-                    return none<GraphQLSourceContainerType>()
+                    return none<DefaultGraphQLSourceContainerType>()
                 }
             }
         }
@@ -187,14 +187,14 @@ internal class DefaultGraphQLSourceIndexFactory {
             if (parentDefinition
                     .type
                     .toOption()
-                    .filterIsInstance<GraphQLObjectType>()
+                    .filterIsInstance<GraphQLFieldsContainer>()
                     .or(
                         parentDefinition
                             .type
                             .toOption()
                             .filterIsInstance<GraphQLList>()
                             .map { gqll: GraphQLList -> gqll.wrappedType }
-                            .filterIsInstance<GraphQLObjectType>()
+                            .filterIsInstance<GraphQLFieldsContainer>()
                     )
                     .filter { gqlObjType -> !gqlObjType.fieldDefinitions.contains(childDefinition) }
                     .isDefined()
@@ -225,10 +225,10 @@ internal class DefaultGraphQLSourceIndexFactory {
                             .toPersistentList()
                             .add(childConvPathName.qualifiedForm)
                 )
-            return GraphQLSourceAttribute(
+            return DefaultGraphQLSourceAttribute(
                 sourcePath = childPath,
                 name = childConvFieldName,
-                type = childDefinition.type
+                schemaFieldDefinition = childDefinition
             )
         }
     }
