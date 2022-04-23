@@ -15,11 +15,11 @@ object PersistentListExtensions {
         return this.reduce(
             persistentListOf<T>(),
             { pl: PersistentList<T>, t: T -> pl.add(t) },
-            { _: PersistentList<T>, pl2: PersistentList<T> ->
-                // Leaf nodes are the same in sequential stream reduction
-                // Parallel streaming will not occur on [Spliterator.ORDERED]
-                // and any type providing such a spliterator e.g. Lists
-                pl2
+            { pl1: PersistentList<T>, pl2: PersistentList<T> ->
+                /*
+                 * Works in both sequential and parallel cases
+                 */
+                pl1.addAll(pl2)
             }
         )
     }

@@ -73,7 +73,9 @@ object PersistentMapExtensions {
                                                       persistentHashSetOf())
                                               .add(pair.second))
                            },
-                           { pm1, pm2 -> pm2.combineWithPersistentSetValueMap(pm1) })
+                           { pm1, pm2 ->
+                               pm2.combineWithPersistentSetValueMap(pm1)
+                           })
     }
 
     fun <K, V> Stream<Map.Entry<K, V>>.reduceEntriesToPersistentSetValueMap(startValue: PersistentMap<K, PersistentSet<V>> = persistentMapOf()): PersistentMap<K, PersistentSet<V>> {
