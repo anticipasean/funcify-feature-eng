@@ -4,17 +4,12 @@ import arrow.core.filterIsInstance
 import arrow.core.firstOrNone
 import arrow.core.getOrElse
 import arrow.core.lastOrNone
-import arrow.core.toOption
 import com.fasterxml.jackson.databind.ObjectMapper
 import funcify.feature.datasource.graphql.metadata.MockGraphQLFetcherMetadataProvider
 import funcify.feature.datasource.graphql.metadata.MockGraphQLFetcherMetadataProvider.Companion.fakeService
 import funcify.feature.datasource.graphql.schema.DefaultGraphQLSourceContainerType
-import funcify.feature.datasource.graphql.schema.GraphQLSourceIndex
 import funcify.feature.json.JsonObjectMappingConfiguration
-import funcify.feature.tools.control.ParentChildPairRecursiveSpliterator
 import graphql.schema.GraphQLSchema
-import java.util.stream.Stream
-import java.util.stream.StreamSupport
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
 
@@ -85,32 +80,33 @@ internal class GraphQLApiSourceMetadataReaderTest {
                 .getOrElse { -1 }
         )
 
-        sourceMetamodel
-            .sourceIndicesByPath
-            .entries
-            .stream()
-            .flatMap { e ->
-                e.value.stream().flatMap { si ->
-                    StreamSupport.stream(
-                        ParentChildPairRecursiveSpliterator<GraphQLSourceIndex>(
-                            rootValue = si,
-                            traversalFunction = { gsi: GraphQLSourceIndex ->
-                                gsi.toOption()
-                                    .filterIsInstance<DefaultGraphQLSourceContainerType>()
-                                    .map { gct ->
-                                        gct.sourceAttributes.stream().map { gsa ->
-                                            gsa as GraphQLSourceIndex
-                                        }
-                                    }
-                                    .getOrElse { Stream.empty() }
-                            }
-                        ),
-                        false
-                    )
-                }
-            }
-            .forEach { (p, c) ->
-                println("parent: $p, child: $c")
-            }
+        /*  sourceMetamodel
+         *    .sourceIndicesByPath
+         *    .entries
+         *    .stream()
+         *    .flatMap { e ->
+         *        e.value.stream().flatMap { si ->
+         *            StreamSupport.stream(
+         *                ParentChildPairRecursiveSpliterator<GraphQLSourceIndex>(
+         *                    rootValue = si,
+         *                    traversalFunction = { gsi: GraphQLSourceIndex ->
+         *                        gsi.toOption()
+         *                            .filterIsInstance<DefaultGraphQLSourceContainerType>()
+         *                            .map { gct ->
+         *                                gct.sourceAttributes.stream().map { gsa ->
+         *                                    gsa as GraphQLSourceIndex
+         *                                }
+         *                            }
+         *                            .getOrElse { Stream.empty() }
+         *                    }
+         *                ),
+         *                false
+         *            )
+         *        }
+         *    }
+         *    .forEach { (p, c) ->
+         *        println("parent: $p, child: $c")
+         *    }
+         */
     }
 }
