@@ -4,6 +4,7 @@ import arrow.core.getOrNone
 import arrow.core.left
 import arrow.core.right
 import funcify.feature.schema.MetamodelGraph
+import funcify.feature.schema.SchematicEdge
 import funcify.feature.schema.SchematicVertex
 import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.datasource.SourceContainerType
@@ -13,6 +14,7 @@ import funcify.feature.schema.error.SchemaErrorResponse
 import funcify.feature.schema.error.SchemaException
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.tools.container.attempt.Try
+import funcify.feature.tools.container.graph.PathBasedGraph
 import funcify.feature.tools.control.TraversalFunctions
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.PersistentMapExtensions.streamEntries
@@ -210,11 +212,13 @@ internal class DefaultMetamodelGraphFactory(
             override fun build(): Try<MetamodelGraph> {
                 return dataSourcesByNameAttempt
                     .zip(schematicVerticesByPathAttempt) {
-                        dataSourcesByName: PersistentMap<String, DataSource<*>>,
+                        _: PersistentMap<String, DataSource<*>>,
                         schematicVerticesByPath: PersistentMap<SchematicPath, SchematicVertex> ->
                         DefaultMetamodelGraph(
-                            dataSourcesByName = dataSourcesByName,
-                            schematicVerticesByPath = schematicVerticesByPath
+                            pathBasedGraph =
+                                PathBasedGraph.emptyTwoToOnePathsToEdgeGraph<
+                                        SchematicPath, SchematicVertex, SchematicEdge>()
+                                    .putAllVertices(schematicVerticesByPath)
                         )
                     }
                     .peekIfFailure { thr: Throwable ->

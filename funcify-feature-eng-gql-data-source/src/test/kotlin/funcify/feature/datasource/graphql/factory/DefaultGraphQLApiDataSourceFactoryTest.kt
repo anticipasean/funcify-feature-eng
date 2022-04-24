@@ -1,6 +1,8 @@
 package funcify.feature.datasource.graphql.factory
 
+import arrow.core.Option
 import arrow.core.filterIsInstance
+import arrow.core.or
 import arrow.core.toOption
 import com.fasterxml.jackson.databind.ObjectMapper
 import funcify.feature.datasource.graphql.GraphQLApiDataSource
@@ -11,7 +13,9 @@ import funcify.feature.datasource.graphql.schema.DefaultGraphQLSourceContainerTy
 import funcify.feature.json.JsonObjectMappingConfiguration
 import funcify.feature.naming.StandardNamingConventions
 import funcify.feature.schema.MetamodelGraph
+import funcify.feature.schema.SchematicVertex
 import funcify.feature.schema.configuration.SchemaConfiguration
+import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.datasource.RawDataSourceType
 import funcify.feature.schema.graph.JunctionVertex
 import funcify.feature.schema.graph.LeafVertex
@@ -84,41 +88,60 @@ internal class DefaultGraphQLApiDataSourceFactoryTest {
         }
         val metamodelGraph = metamodelGraphBuildAttempt.orNull()!!
         Assertions.assertTrue(
-            metamodelGraph.dataSourcesByName.isNotEmpty(),
-            "graph should have the gql data source provided"
+            metamodelGraph.verticesByPath.isNotEmpty(),
+            "graph should have at least one vertex"
         )
-        val gqlDatasource = metamodelGraph.dataSourcesByName.asIterable().first()
+        val firstVertexOpt: Option<SchematicVertex> =
+            metamodelGraph.verticesByPath.asIterable().first().value.toOption()
+        val gqlDatasource: DataSource<*>? =
+            firstVertexOpt
+                .filterIsInstance<JunctionVertex>()
+                .map { v ->
+                    v.compositeContainerType
+                        .getSourceContainerTypeByDataSource()
+                        .asIterable()
+                        .first()
+                        .key
+                }
+                .or(
+                    firstVertexOpt.filterIsInstance<LeafVertex>().map { v ->
+                        v.compositeAttribute
+                            .getSourceAttributeByDataSource()
+                            .asIterable()
+                            .first()
+                            .key
+                    }
+                )
+                .orNull()
         Assertions.assertEquals(
             graphQLApiDataSource.name,
-            gqlDatasource.key,
+            gqlDatasource?.name,
             "the name for the gql datasource does not match"
         )
         val artworkUrlPath =
             SchematicPathFactory.createPathWithSegments(
-                StandardNamingConventions.SNAKE_CASE.deriveName(
-                        metamodelGraph.dataSourcesByName.asIterable().first().key
-                    )
+                StandardNamingConventions.SNAKE_CASE.deriveName(graphQLApiDataSource.name)
                     .qualifiedForm,
                 "shows",
                 "artwork",
                 "url"
             )
         Assertions.assertNotNull(
-            metamodelGraph.schematicVerticesByPath[artworkUrlPath],
+            metamodelGraph.verticesByPath[artworkUrlPath],
             """expected vertex for path fes:/{data_source_name in snake_case}/shows/artwork/url
                 |; if failed, creation of schematic vertices likely failed to recurse into
                 |source attributes of source container types
             """.trimMargin()
         )
         Assertions.assertTrue(
-            metamodelGraph.schematicVerticesByPath[artworkUrlPath] is LeafVertex,
+            metamodelGraph.verticesByPath[artworkUrlPath] is LeafVertex,
             """expected artwork url to be leaf vertex within metamodel graph
                 |; if failed, composite attributes are likely not being 
                 |mapped properly to their graph positions 
             """.trimMargin()
         )
         Assertions.assertTrue(
-            metamodelGraph.schematicVerticesByPath[artworkUrlPath.getParentPath().orNull()!!]
+            metamodelGraph.verticesByPath[artworkUrlPath.getParentPath().orNull()!!]
                 .toOption()
                 .filterIsInstance<JunctionVertex>()
                 .filter { jv ->

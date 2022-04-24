@@ -4,19 +4,14 @@ import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.datasource.SourceIndex
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.tools.container.attempt.Try
-import kotlinx.collections.immutable.ImmutableMap
+import funcify.feature.tools.container.graph.PathBasedGraph
 
 /**
  *
  * @author smccarron
  * @created 2/20/22
  */
-interface MetamodelGraph {
-
-    val dataSourcesByName: ImmutableMap<String, DataSource<*>>
-
-    val schematicVerticesByPath: ImmutableMap<SchematicPath, SchematicVertex>
-
+interface MetamodelGraph : PathBasedGraph<SchematicPath, SchematicVertex, SchematicEdge> {
     interface Builder {
 
         fun <SI : SourceIndex> addDataSource(dataSource: DataSource<SI>): Builder
