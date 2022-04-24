@@ -10,17 +10,18 @@ import arrow.core.some
 import arrow.core.toOption
 import arrow.typeclasses.Monoid
 import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
-import kotlinx.collections.immutable.PersistentList
-import kotlinx.collections.immutable.persistentListOf
 import java.util.*
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CompletionException
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
 import java.util.stream.Stream
+import kotlin.reflect.KClass
+import kotlin.reflect.jvm.jvmErasure
 import kotlin.reflect.typeOf
 import kotlin.streams.asStream
-
+import kotlinx.collections.immutable.PersistentList
+import kotlinx.collections.immutable.persistentListOf
 
 /**
  *
@@ -32,37 +33,35 @@ sealed interface Try<out S> : Iterable<S> {
     companion object {
 
         @JvmStatic
-        fun <S> success(successfulResult: S): Try<S> {
-            return TryFactory.Success(successfulResult);
-        }
-
-        @JvmStatic
-        fun <S> failure(throwable: Throwable): Try<S> {
-            return TryFactory.Failure<S>(throwable)
-        }
-
-        @JvmStatic
-        fun <S> nullableSuccess(successfulResult: S): Try<S> {
-            return nullableSuccess(successfulResult) { NoSuchElementException("result is null") }
-        }
-
-        @JvmStatic
-        fun <S> nullableSuccess(nullableSuccessObject: S?,
-                                ifNull: () -> Throwable): Try<S> {
+        fun <S> nullableSuccess(nullableSuccessObject: S?, ifNull: () -> Throwable): Try<S> {
             return if (nullableSuccessObject == null) {
-                failure(ifNull.invoke())
+                nullableFailure<S>(ifNull.invoke())
             } else {
-                success(nullableSuccessObject)
+                TryFactory.Success(nullableSuccessObject)
             }
         }
 
         @JvmStatic
         fun <S> nullableFailure(throwable: Throwable?): Try<S> {
             return if (throwable == null) {
-                failure(NoSuchElementException("error/throwable is null"))
+                TryFactory.Failure<S>(NoSuchElementException("error/throwable is null"))
             } else {
-                failure(throwable)
+                TryFactory.Failure<S>(throwable)
             }
+        }
+        @JvmStatic
+        fun <S> success(successfulResult: S): Try<S> {
+            return nullableSuccess(successfulResult)
+        }
+
+        @JvmStatic
+        fun <S> failure(throwable: Throwable): Try<S> {
+            return nullableFailure(throwable)
+        }
+
+        @JvmStatic
+        fun <S> nullableSuccess(successfulResult: S): Try<S> {
+            return nullableSuccess(successfulResult) { NoSuchElementException("result is null") }
         }
 
         @JvmStatic
@@ -89,13 +88,11 @@ sealed interface Try<out S> : Iterable<S> {
         }
 
         @JvmStatic
-        fun <S> attemptNullable(function: () -> S?,
-                                ifNull: () -> Throwable): Try<S> {
+        fun <S> attemptNullable(function: () -> S?, ifNull: () -> Throwable): Try<S> {
             return try {
-                function.invoke()
-                        .toOption()
-                        .map { s -> success(s) }
-                        .getOrElse { failure(ifNull.invoke()) }
+                function.invoke().toOption().map { s -> success(s) }.getOrElse {
+                    failure(ifNull.invoke())
+                }
             } catch (t: Throwable) {
                 failure<S>(t)
             }
@@ -113,17 +110,14 @@ sealed interface Try<out S> : Iterable<S> {
         }
 
         @JvmStatic
-        fun <I, O> liftNullable(function: (I) -> O?,
-                                ifNullResult: (I) -> Throwable): (I) -> Try<O> {
+        fun <I, O> liftNullable(
+            function: (I) -> O?,
+            ifNullResult: (I) -> Throwable
+        ): (I) -> Try<O> {
             return { input: I ->
                 try {
                     val result: Option<O> = Option.fromNullable(function.invoke(input))
-                    result.fold({
-                                    failure(ifNullResult.invoke(input))
-                                },
-                                { o ->
-                                    success(o)
-                                })
+                    result.fold({ failure(ifNullResult.invoke(input)) }, { o -> success(o) })
                 } catch (t: Throwable) {
                     failure<O>(t)
                 }
@@ -132,7 +126,8 @@ sealed interface Try<out S> : Iterable<S> {
 
         fun <I, O> liftNullable(function: (I) -> O?): (I) -> Try<O> {
             return liftNullable(function) { input: I ->
-                val message = """
+                val message =
+                    """
                     |input [ type: ${input?.let { it::class.qualifiedName }} ] 
                     |resulted in null value for function
                     """
@@ -143,27 +138,24 @@ sealed interface Try<out S> : Iterable<S> {
         fun <I1, I2, O> lift(function: (I1, I2) -> O): (I1, I2) -> Try<O> {
             return { i1: I1, i2: I2 ->
                 try {
-                    success<O>(function.invoke(i1,
-                                               i2))
+                    success<O>(function.invoke(i1, i2))
                 } catch (t: Throwable) {
                     failure<O>(t)
                 }
             }
         }
 
-        fun <I1, I2, O> liftNullable(function: (I1, I2) -> O?,
-                                     ifNullResult: (I1, I2) -> Throwable): (I1, I2) -> Try<O> {
+        fun <I1, I2, O> liftNullable(
+            function: (I1, I2) -> O?,
+            ifNullResult: (I1, I2) -> Throwable
+        ): (I1, I2) -> Try<O> {
             return { i1: I1, i2: I2 ->
                 try {
-                    val result: Option<O> = Option.fromNullable(function.invoke(i1,
-                                                                                i2))
-                    result.fold({
-                                    failure<O>(ifNullResult.invoke(i1,
-                                                                   i2))
-                                },
-                                { output: O ->
-                                    success(output)
-                                })
+                    val result: Option<O> = Option.fromNullable(function.invoke(i1, i2))
+                    result.fold(
+                        { failure<O>(ifNullResult.invoke(i1, i2)) },
+                        { output: O -> success(output) }
+                    )
                 } catch (t: Throwable) {
                     failure<O>(t)
                 }
@@ -172,7 +164,8 @@ sealed interface Try<out S> : Iterable<S> {
 
         fun <I1, I2, O> liftNullable(function: (I1, I2) -> O?): (I1, I2) -> Try<O> {
             return liftNullable(function) { i1: I1, i2: I2 ->
-                val message = """
+                val message =
+                    """
                     |inputs [ i1.type: ${i1?.let { it::class.qualifiedName }}, 
                     |i2.type: ${i2?.let { it::class.qualifiedName }} ] 
                     |resulted in null value for function",
@@ -189,8 +182,10 @@ sealed interface Try<out S> : Iterable<S> {
             }
         }
 
-        fun <S> fromOptional(optional: Optional<out S>,
-                             onOptionalEmpty: (NoSuchElementException) -> Throwable): Try<S> {
+        fun <S> fromOptional(
+            optional: Optional<out S>,
+            onOptionalEmpty: (NoSuchElementException) -> Throwable
+        ): Try<S> {
             return try {
                 success<S>(optional.get())
             } catch (t: NoSuchElementException) {
@@ -200,11 +195,9 @@ sealed interface Try<out S> : Iterable<S> {
             }
         }
 
-        fun <S> fromOptional(optional: Optional<out S>,
-                             ifEmpty: () -> S): Try<S> {
+        fun <S> fromOptional(optional: Optional<out S>, ifEmpty: () -> S): Try<S> {
             return try {
-                optional.map { success(it) }
-                        .orElseGet { success(ifEmpty.invoke()) }
+                optional.map { s: S -> success(s) }.orElseGet { success(ifEmpty.invoke()) }
             } catch (t: Throwable) {
                 failure<S>(t)
             }
@@ -216,18 +209,21 @@ sealed interface Try<out S> : Iterable<S> {
         }
 
         @JvmStatic
-        fun <S> fromOption(option: Option<S>,
-                           ifEmpty: (NoSuchElementException) -> Throwable): Try<S> {
+        fun <S> fromOption(
+            option: Option<S>,
+            ifEmpty: (NoSuchElementException) -> Throwable
+        ): Try<S> {
             return try {
-                option.fold({ failure(ifEmpty.invoke(NoSuchElementException("input option is empty"))) }) { input: S -> success(input) }
+                option.fold({
+                    failure(ifEmpty.invoke(NoSuchElementException("input option is empty")))
+                }) { input: S -> success(input) }
             } catch (t: Throwable) {
                 failure<S>(t)
             }
         }
 
         @JvmStatic
-        fun <S> fromOption(option: Option<S>,
-                           ifEmpty: () -> S): Try<S> {
+        fun <S> fromOption(option: Option<S>, ifEmpty: () -> S): Try<S> {
             return try {
                 option.fold({ success(ifEmpty.invoke()) }) { input: S -> success(input) }
             } catch (t: Throwable) {
@@ -236,10 +232,10 @@ sealed interface Try<out S> : Iterable<S> {
         }
 
         @JvmStatic
-        fun <S> attemptRetryable(function: () -> S,
-                                 numberOfRetries: Int): Try<S> {
+        fun <S> attemptRetryable(function: () -> S, numberOfRetries: Int): Try<S> {
             if (numberOfRetries < 0) {
-                val message = """
+                val message =
+                    """
                     |number_of_retries must be greater 
                     |than or equal to 0: [ actual: $numberOfRetries ]
                     |""".flattenIntoOneLine()
@@ -258,11 +254,14 @@ sealed interface Try<out S> : Iterable<S> {
         }
 
         @JvmStatic
-        fun <S> attemptRetryableIf(function: () -> S,
-                                   numberOfRetries: Int,
-                                   failureCondition: (Throwable) -> Boolean): Try<S> {
+        fun <S> attemptRetryableIf(
+            function: () -> S,
+            numberOfRetries: Int,
+            failureCondition: (Throwable) -> Boolean
+        ): Try<S> {
             if (numberOfRetries < 0) {
-                val message = """
+                val message =
+                    """
                     |number_of_retries must be greater 
                     |than or equal to 0: [ actual: $numberOfRetries ]
                     |""".flattenIntoOneLine()
@@ -274,9 +273,7 @@ sealed interface Try<out S> : Iterable<S> {
                 attempt = attempt(function)
                 if (attempt.isSuccess()) {
                     return attempt
-                } else if (attempt.getFailure()
-                                .filter(failureCondition)
-                                .isEmpty()) {
+                } else if (attempt.getFailure().filter(failureCondition).isEmpty()) {
                     return attempt
                 }
                 i++
@@ -285,20 +282,14 @@ sealed interface Try<out S> : Iterable<S> {
         }
 
         @JvmStatic
-        fun <S> attemptWithTimeout(function: () -> S,
-                                   timeout: Long,
-                                   unit: TimeUnit): Try<S> {
-            val validatedTimeout = Math.max(0,
-                                            timeout)
+        fun <S> attemptWithTimeout(function: () -> S, timeout: Long, unit: TimeUnit): Try<S> {
+            val validatedTimeout = Math.max(0, timeout)
             return try {
-                CompletableFuture.supplyAsync {
-                    attempt(function)
-                }
-                        .get(validatedTimeout,
-                             unit)
+                CompletableFuture.supplyAsync { attempt(function) }.get(validatedTimeout, unit)
             } catch (t: Throwable) {
                 if (t is TimeoutException) {
-                    val message = """
+                    val message =
+                        """
                         attempt_with_timeout: [ operation reached limit of 
                         $validatedTimeout 
                         ${unit.name.lowercase(Locale.getDefault())} ]
@@ -317,22 +308,23 @@ sealed interface Try<out S> : Iterable<S> {
         }
 
         @JvmStatic
-        fun <S> attemptNullableWithTimeout(function: () -> S?,
-                                           timeout: Long,
-                                           unit: TimeUnit): Try<Option<S>> {
-            val validatedTimeout = Math.max(0,
-                                            timeout)
+        fun <S> attemptNullableWithTimeout(
+            function: () -> S?,
+            timeout: Long,
+            unit: TimeUnit
+        ): Try<Option<S>> {
+            val validatedTimeout = Math.max(0, timeout)
             return try {
-                CompletableFuture.supplyAsync {
-                    attemptNullable(function)
-                }
-                        .get(validatedTimeout,
-                             unit)
+                CompletableFuture.supplyAsync { attemptNullable(function) }
+                    .get(validatedTimeout, unit)
             } catch (t: Throwable) {
                 if (t is TimeoutException) {
-                    val message = String.format("attempt_with_timeout: [ operation reached limit of %d %s ]",
-                                                validatedTimeout,
-                                                unit.name.lowercase(Locale.getDefault()))
+                    val message =
+                        String.format(
+                            "attempt_with_timeout: [ operation reached limit of %d %s ]",
+                            validatedTimeout,
+                            unit.name.lowercase(Locale.getDefault())
+                        )
                     return failure<Option<S>>(TimeoutException(message))
                 }
                 if (t is CompletionException) {
@@ -347,120 +339,115 @@ sealed interface Try<out S> : Iterable<S> {
         }
 
         @JvmStatic
-        fun <S> monoid(initial: Try<S>,
-                       combiner: (S, S) -> S): Monoid<Try<S>> {
-            return TryFactory.HomogeneousSuccessTypeTryMonoid<S>(initial,
-                                                                 combiner)
+        fun <S> monoid(initial: Try<S>, combiner: (S, S) -> S): Monoid<Try<S>> {
+            return TryFactory.HomogeneousSuccessTypeTryMonoid<S>(initial, combiner)
         }
 
         @JvmStatic
-        fun <S, R> monoid(initial: Try<S>,
-                          mapper: (S) -> R,
-                          combiner: (R, R) -> R): Monoid<Try<R>> {
-            return TryFactory.HeterogeneousSuccessTypeTryMonoid<S, R>(initial,
-                                                                      mapper,
-                                                                      combiner)
+        fun <S, R> monoid(
+            initial: Try<S>,
+            mapper: (S) -> R,
+            combiner: (R, R) -> R
+        ): Monoid<Try<R>> {
+            return TryFactory.HeterogeneousSuccessTypeTryMonoid<S, R>(initial, mapper, combiner)
         }
 
         @JvmStatic
         fun <S> attemptSequenceMonoid(): Monoid<Try<Sequence<S>>> {
-            return monoid(Try.success(emptySequence<S>()),
-                          { seq1, seq2 ->
-                              seq1 + seq2
-                          })
+            return monoid(success(emptySequence<S>())) { seq1, seq2 -> seq1 + seq2 }
         }
 
         @JvmStatic
-        fun <SQ, T, S> attemptSequence(sequence: SQ): Try<Sequence<S>> where SQ : Sequence<T>, T : Try<S> {
-            return sequence.fold(Try.success(emptySequence<S>()),
-                                 { acc: Try<Sequence<S>>, t: T ->
-                                     acc.zip(t,
-                                             { seq: Sequence<S>, s: S ->
-                                                 seq.plus(s)
-                                             })
-                                 })
+        fun <SQ, T, S> attemptSequence(sequence: SQ): Try<Sequence<S>> where
+        SQ : Sequence<T>,
+        T : Try<S> {
+            return sequence.fold(success(emptySequence<S>())) { acc: Try<Sequence<S>>, t: T ->
+                acc.zip(t) { seq: Sequence<S>, s: S -> seq.plus(s) }
+            }
         }
 
         @JvmStatic
-        fun <I, T, S> attemptIterable(iterable: I): Try<Iterable<S>> where I : Iterable<T>, T : Try<S> {
-            return iterable.fold(Try.success(persistentListOf<S>()),
-                                 { acc: Try<PersistentList<S>>, t: T ->
-                                     acc.zip(t,
-                                             { pl: PersistentList<S>, s: S ->
-                                                 pl.add(s)
-                                             })
-                                 })
+        fun <I, T, S> attemptIterable(iterable: I): Try<Iterable<S>> where
+        I : Iterable<T>,
+        T : Try<S> {
+            return iterable.fold(success(persistentListOf<S>())) { acc: Try<PersistentList<S>>, t: T
+                ->
+                acc.zip(t) { pl: PersistentList<S>, s: S -> pl.add(s) }
+            }
         }
 
         @JvmStatic
         fun <S> attemptStream(stream: Stream<Try<S>>): Try<Stream<S>> {
-            return stream.reduce(Try.success(Stream.builder<S>()),
-                                 { acc: Try<Stream.Builder<S>>, t: Try<S> ->
-                                     acc.flatMap { sBldr ->
-                                         t.map { s -> // Remove nulls for Kotlin compatibility
-                                             s.toOption()
-                                                     .fold({ sBldr },
-                                                           { succVal -> sBldr.add(succVal) })
-                                         }
-                                     }
-                                 },
-                                 { tryStrmBldr1: Try<Stream.Builder<S>>, tryStrmBldr2: Try<Stream.Builder<S>> ->
-                                     tryStrmBldr1.zip(tryStrmBldr2,
-                                                      { strmBldr1: Stream.Builder<S>, strmBldr2: Stream.Builder<S> ->
-                                                          strmBldr2.build()
-                                                                  .forEach(strmBldr1::add)
-                                                          strmBldr1
-                                                      })
-                                 })
-                    .map { strmBldr -> strmBldr.build() }
+            return stream.reduce(
+                    success(Stream.builder<S>()),
+                    { acc: Try<Stream.Builder<S>>, t: Try<S> ->
+                        acc.flatMap { sBldr ->
+                            t.map { s -> // Remove nulls for Kotlin compatibility
+                                s.toOption().fold({ sBldr }, { succVal -> sBldr.add(succVal) })
+                            }
+                        }
+                    },
+                    { tryStrmBldr1: Try<Stream.Builder<S>>, tryStrmBldr2: Try<Stream.Builder<S>> ->
+                        tryStrmBldr1.zip(tryStrmBldr2) {
+                            strmBldr1: Stream.Builder<S>,
+                            strmBldr2: Stream.Builder<S> ->
+                            strmBldr2.build().forEach(strmBldr1::add)
+                            strmBldr1
+                        }
+                    }
+                )
+                .map { strmBldr -> strmBldr.build() }
         }
 
         /**
          * Use of inline function to avoid @UnsafeVariance needed on "method" version of function
-         * since reference to S occurs in an input position, a parameter in the Try output type
-         * of the mapper function
+         * since reference to S occurs in an input position, a parameter in the Try output type of
+         * the mapper function
          */
-        inline fun <reified S> Try<S>.flatMapFailure(crossinline mapper: (Throwable) -> Try<S>): Try<S> {
-            return fold({ input: S ->
-                            Try.success(input)
-                        },
-                        { throwable: Throwable ->
+        inline fun <reified S> Try<S>.flatMapFailure(
+            crossinline mapper: (Throwable) -> Try<S>
+        ): Try<S> {
+            return fold(
+                { input: S -> success(input) },
+                { throwable: Throwable ->
+                    try {
+                        Option.fromNullable(mapper.invoke(throwable)).getOrElse {
+                            failure<S>(NoSuchElementException("result attempt is null"))
+                        }
+                    } catch (t: Throwable) {
+                        failure<S>(t)
+                    }
+                }
+            )
+        }
+
+        inline fun <reified S> Try<S>.recoverFromFailure(
+            crossinline mapper: (Throwable) -> Try<S>
+        ): Try<S> = this.flatMapFailure(mapper)
+
+        inline fun <reified T : Any> Try<*>.filterInstanceOf(): Try<T> {
+            return fold(
+                { input: Any? ->
+                    val tJvmErasedType: KClass<*> = typeOf<T>().jvmErasure
+                    when {
+                        tJvmErasedType.isInstance(input) -> {
                             try {
-                                mapper.invoke(throwable)
+                                success<T>(input as T)
                             } catch (t: Throwable) {
-                                Try.failure<S>(t)
+                                failure<T>(t)
                             }
-                        })
-        }
-
-        inline fun <reified S> Try<S>.recoverFromFailure(crossinline mapper: (Throwable) -> Try<S>): Try<S> =
-                this.flatMapFailure(mapper)
-
-        inline fun <S, reified T : Any> Try<S>.filterInstanceOfType(): Try<T> {
-            return fold({ input: S ->
-                            if (!typeOf<T>().isMarkedNullable && input == null) {
-                                val messageSupplier: () -> String = { ->
-                                    "input is null and target type is non-nullable: ${typeOf<T>()::class.qualifiedName}"
-                                }
-                                failure<T>(IllegalArgumentException(messageSupplier.invoke()))
-                            } else if (typeOf<T>()::class.isInstance(input)) {
-                                try {
-                                    success<T>(input as T)
-                                } catch (t: Throwable) {
-                                    failure<T>(t)
-                                }
-                            } else {
-                                val messageSupplier: () -> String = { ->
-                                    "input is not instance of type ${typeOf<T>()::class.qualifiedName}"
-                                }
-                                failure<T>(IllegalArgumentException(messageSupplier.invoke()))
+                        }
+                        else -> {
+                            val messageSupplier: () -> String = { ->
+                                "input is not instance of [ type: ${tJvmErasedType.qualifiedName} ]"
                             }
-                        },
-                        { throwable: Throwable ->
-                            failure<T>(throwable)
-                        })
+                            failure<T>(IllegalArgumentException(messageSupplier.invoke()))
+                        }
+                    }
+                },
+                { throwable: Throwable -> failure<T>(throwable) }
+            )
         }
-
     }
 
     fun isSuccess(): Boolean {
@@ -476,51 +463,45 @@ sealed interface Try<out S> : Iterable<S> {
     }
 
     fun getFailure(): Option<Throwable> {
-        return fold({ None },
-                    { throwable: Throwable ->
-                        throwable.some()
-                    })
+        return fold({ None }, { throwable: Throwable -> throwable.some() })
     }
 
-    fun filter(condition: (S) -> Boolean,
-               ifConditionUnmet: (S) -> Throwable): Try<S> {
-        return fold({ s: S ->
-                        try {
-                            if (condition.invoke(s)) {
-                                success<S>(s)
-                            } else {
-                                failure<S>(ifConditionUnmet.invoke(s))
-                            }
-                        } catch (t: Throwable) {
-                            failure<S>(t)
-                        }
-                    },
-                    { throwable: Throwable ->
-                        failure(throwable)
-                    })
+    fun filter(condition: (S) -> Boolean, ifConditionUnmet: (S) -> Throwable): Try<S> {
+        return fold(
+            { s: S ->
+                try {
+                    if (condition.invoke(s)) {
+                        success<S>(s)
+                    } else {
+                        failure<S>(ifConditionUnmet.invoke(s))
+                    }
+                } catch (t: Throwable) {
+                    failure<S>(t)
+                }
+            },
+            { throwable: Throwable -> failure(throwable) }
+        )
     }
 
-    fun filterNot(condition: (S) -> Boolean,
-                  ifConditionUnmet: (S) -> Throwable): Try<S> {
-        return filter({ s: S -> !condition.invoke(s) },
-                      ifConditionUnmet)
+    fun filterNot(condition: (S) -> Boolean, ifConditionUnmet: (S) -> Throwable): Try<S> {
+        return filter({ s: S -> !condition.invoke(s) }, ifConditionUnmet)
     }
 
     fun filter(condition: (S) -> Boolean): Try<Option<S>> {
-        return fold({ s: S ->
-                        try {
-                            if (condition.invoke(s)) {
-                                success(s.some())
-                            } else {
-                                success(None)
-                            }
-                        } catch (t: Throwable) {
-                            failure(t)
-                        }
-                    },
-                    { throwable: Throwable ->
-                        failure(throwable)
-                    })
+        return fold(
+            { s: S ->
+                try {
+                    if (condition.invoke(s)) {
+                        success(s.some())
+                    } else {
+                        success(None)
+                    }
+                } catch (t: Throwable) {
+                    failure(t)
+                }
+            },
+            { throwable: Throwable -> failure(throwable) }
+        )
     }
 
     fun filterNot(condition: (S) -> Boolean): Try<Option<S>> {
@@ -528,296 +509,265 @@ sealed interface Try<out S> : Iterable<S> {
     }
 
     fun <R> map(mapper: (S) -> R): Try<R> {
-        return fold({ s: S ->
-                        try {
-                            success<R>(mapper.invoke(s))
-                        } catch (t: Throwable) {
-                            failure<R>(t)
-                        }
-                    },
-                    { throwable: Throwable ->
-                        failure(throwable)
-                    })
+        return fold(
+            { s: S ->
+                try {
+                    success<R>(mapper.invoke(s))
+                } catch (t: Throwable) {
+                    failure<R>(t)
+                }
+            },
+            { throwable: Throwable -> failure(throwable) }
+        )
     }
 
-    fun <R> mapNullable(mapper: (S) -> R?,
-                        ifNull: () -> R): Try<R> {
-        return fold({ input: S ->
-                        try {
-                            val result: Option<R> = Option.fromNullable(mapper.invoke(input))
-                            result.fold({
-                                            success<R>(ifNull.invoke())
-                                        }) { r -> success<R>(r) }
-                        } catch (t: Throwable) {
-                            failure<R>(t)
-                        }
-                    },
-                    { throwable: Throwable ->
-                        failure(throwable)
-                    })
+    fun <R> mapNullable(mapper: (S) -> R?, ifNull: () -> R): Try<R> {
+        return fold(
+            { input: S ->
+                try {
+                    Option.fromNullable(mapper.invoke(input)).fold({
+                            success<R>(ifNull.invoke())
+                        }) { r -> success<R>(r) }
+                } catch (t: Throwable) {
+                    failure<R>(t)
+                }
+            },
+            { throwable: Throwable -> failure(throwable) }
+        )
     }
 
     fun <R> mapNullable(mapper: (S) -> R?): Try<Option<R>> {
-        return fold({ input: S ->
-                        try {
-                            val result: Option<R> = Option.fromNullable(mapper.invoke(input))
-                            result.fold({
-                                            success(None)
-                                        },
-                                        { r ->
-                                            success(r.some())
-                                        })
-                        } catch (t: Throwable) {
-                            failure(t)
-                        }
-                    },
-                    { throwable: Throwable ->
-                        failure(throwable)
-                    })
+        return fold(
+            { input: S ->
+                try {
+                    Option.fromNullable(mapper.invoke(input))
+                        .fold({ success(None) }, { r -> success(r.some()) })
+                } catch (t: Throwable) {
+                    failure(t)
+                }
+            },
+            { throwable: Throwable -> failure(throwable) }
+        )
     }
 
     fun <F : Throwable> mapFailure(mapper: (Throwable) -> F): Try<S> {
-        return fold({ input: S ->
-                        success(input)
-                    },
-                    { throwable: Throwable ->
-                        try {
-                            failure<S>(mapper.invoke(throwable))
-                        } catch (t: Throwable) {
-                            failure<S>(t)
-                        }
-                    })
+        return fold(
+            { input: S -> success(input) },
+            { throwable: Throwable ->
+                try {
+                    failure<S>(mapper.invoke(throwable))
+                } catch (t: Throwable) {
+                    failure<S>(t)
+                }
+            }
+        )
     }
 
     fun consume(consumer: (S) -> Unit): Try<Unit> {
-        return fold({ input: S ->
-                        try {
-                            consumer.invoke(input)
-                            emptySuccess()
-                        } catch (t: Throwable) {
-                            failure(t)
-                        }
-                    },
-                    { throwable: Throwable ->
-                        failure(throwable)
-                    })
+        return fold(
+            { input: S ->
+                try {
+                    consumer.invoke(input)
+                    emptySuccess()
+                } catch (t: Throwable) {
+                    failure(t)
+                }
+            },
+            { throwable: Throwable -> failure(throwable) }
+        )
     }
 
     fun consumeFailure(consumer: (Throwable) -> Unit): Try<Unit> {
-        return fold({ _: S ->
-                        emptySuccess()
-                    },
-                    { throwable: Throwable ->
-                        try {
-                            consumer.invoke(throwable)
-                            emptySuccess()
-                        } catch (t: Throwable) {
-                            failure(t)
-                        }
-                    })
+        return fold(
+            { _: S -> emptySuccess() },
+            { throwable: Throwable ->
+                try {
+                    consumer.invoke(throwable)
+                    emptySuccess()
+                } catch (t: Throwable) {
+                    failure(t)
+                }
+            }
+        )
     }
 
     fun <R> flatMap(mapper: (S) -> Try<R>): Try<R> {
-        return fold({ input: S ->
+        return fold(
+            { input: S ->
+                try {
+                    Option.fromNullable(mapper.invoke(input)).getOrElse {
+                        failure<R>(NoSuchElementException("result attempt is null"))
+                    }
+                } catch (t: Throwable) {
+                    failure<R>(t)
+                }
+            },
+            { throwable: Throwable -> failure(throwable) }
+        )
+    }
+
+    fun <A, R> zip(otherAttempt: Try<A>, combiner: (S, A) -> R): Try<R> {
+        return fold(
+            { s: S ->
+                otherAttempt.fold(
+                    { a: A ->
                         try {
-                            mapper.invoke(input)
+                            success(combiner.invoke(s, a))
                         } catch (t: Throwable) {
-                            failure<R>(t)
+                            failure(t)
                         }
                     },
-                    { throwable: Throwable ->
-                        failure(throwable)
-                    })
+                    { throwable: Throwable -> failure(throwable) }
+                )
+            },
+            { throwable: Throwable -> failure(throwable) }
+        )
     }
 
-
-    fun <A, R> zip(otherAttempt: Try<A>,
-                   combiner: (S, A) -> R): Try<R> {
-        return fold({ s: S ->
-                        otherAttempt.fold({ a: A ->
-                                              try {
-                                                  success(combiner.invoke(s,
-                                                                          a))
-                                              } catch (t: Throwable) {
-                                                  failure(t)
-                                              }
-                                          },
-                                          { throwable: Throwable ->
-                                              failure(throwable)
-                                          })
+    fun <A, B, R> zip2(
+        otherAttempt1: Try<A>,
+        otherAttempt2: Try<B>,
+        combiner: (S, A, B) -> R
+    ): Try<R> {
+        return fold(
+            { s: S ->
+                otherAttempt1.fold(
+                    { a: A ->
+                        otherAttempt2.fold(
+                            { b: B ->
+                                try {
+                                    success(combiner.invoke(s, a, b))
+                                } catch (t: Throwable) {
+                                    failure(t)
+                                }
+                            },
+                            { throwable: Throwable -> failure(throwable) }
+                        )
                     },
-                    { throwable: Throwable ->
-                        failure(throwable)
-                    })
+                    { throwable: Throwable -> failure(throwable) }
+                )
+            },
+            { throwable: Throwable -> failure(throwable) }
+        )
     }
 
-    fun <A, B, R> zip2(otherAttempt1: Try<A>,
-                       otherAttempt2: Try<B>,
-                       combiner: (S, A, B) -> R): Try<R> {
-        return fold({ s: S ->
-                        otherAttempt1.fold({ a: A ->
-                                               otherAttempt2.fold({ b: B ->
-                                                                      try {
-                                                                          success(combiner.invoke(s,
-                                                                                                  a,
-                                                                                                  b))
-                                                                      } catch (t: Throwable) {
-                                                                          failure(t)
-                                                                      }
-                                                                  },
-                                                                  { throwable: Throwable ->
-                                                                      failure(throwable)
-                                                                  })
-                                           },
-                                           { throwable: Throwable ->
-                                               failure(throwable)
-                                           })
+    fun <A, B, C, R> zip3(
+        otherAttempt1: Try<A>,
+        otherAttempt2: Try<B>,
+        otherAttempt3: Try<C>,
+        combiner: (S, A, B, C) -> R
+    ): Try<R> {
+        return fold(
+            { s: S ->
+                otherAttempt1.fold(
+                    { a: A ->
+                        otherAttempt2.fold(
+                            { b: B ->
+                                otherAttempt3.fold(
+                                    { c: C ->
+                                        try {
+                                            success(combiner.invoke(s, a, b, c))
+                                        } catch (t: Throwable) {
+                                            failure(t)
+                                        }
+                                    },
+                                    { throwable: Throwable -> failure(throwable) }
+                                )
+                            },
+                            { throwable: Throwable -> failure(throwable) }
+                        )
                     },
-                    { throwable: Throwable ->
-                        failure(throwable)
-                    })
+                    { throwable: Throwable -> failure(throwable) }
+                )
+            },
+            { throwable: Throwable -> failure(throwable) }
+        )
     }
 
-    fun <A, B, C, R> zip3(otherAttempt1: Try<A>,
-                          otherAttempt2: Try<B>,
-                          otherAttempt3: Try<C>,
-                          combiner: (S, A, B, C) -> R): Try<R> {
-        return fold({ s: S ->
-                        otherAttempt1.fold({ a: A ->
-                                               otherAttempt2.fold({ b: B ->
-                                                                      otherAttempt3.fold({ c: C ->
-                                                                                             try {
-                                                                                                 success(combiner.invoke(s,
-                                                                                                                         a,
-                                                                                                                         b,
-                                                                                                                         c))
-                                                                                             } catch (t: Throwable) {
-                                                                                                 failure(t)
-                                                                                             }
-                                                                                         },
-                                                                                         { throwable: Throwable ->
-                                                                                             failure(throwable)
-                                                                                         })
-                                                                  },
-                                                                  { throwable: Throwable ->
-                                                                      failure(throwable)
-                                                                  })
-                                           },
-                                           { throwable: Throwable ->
-                                               failure(throwable)
-                                           })
-                    },
-                    { throwable: Throwable ->
-                        failure(throwable)
-                    })
+    fun <A, R> zip(optional: Optional<A>, combiner: (S, A) -> R): Try<R> {
+        return zip(fromOptional<A>(optional), combiner)
     }
 
-    fun <A, R> zip(optional: Optional<A>,
-                   combiner: (S, A) -> R): Try<R> {
-        return zip(fromOptional<A>(optional),
-                   combiner)
+    fun <A, R> zip(option: Option<A>, combiner: (S, A) -> R): Try<R> {
+        return zip(fromOption<A>(option), combiner)
     }
 
-    fun <A, R> zip(option: Option<A>,
-                   combiner: (S, A) -> R): Try<R> {
-        return zip(fromOption<A>(option),
-                   combiner)
+    fun <A, B, R> zip2(option1: Option<A>, option2: Option<B>, combiner: (S, A, B) -> R): Try<R> {
+        return zip2(fromOption<A>(option1), fromOption<B>(option2), combiner)
     }
 
-    fun <A, B, R> zip2(option1: Option<A>,
-                       option2: Option<B>,
-                       combiner: (S, A, B) -> R): Try<R> {
-        return zip2(fromOption<A>(option1),
-                    fromOption<B>(option2),
-                    combiner)
-    }
-
-    fun <A, B, C, R> zip3(option1: Option<A>,
-                          option2: Option<B>,
-                          option3: Option<C>,
-                          combiner: (S, A, B, C) -> R): Try<R> {
-        return zip3(fromOption<A>(option1),
-                    fromOption<B>(option2),
-                    fromOption<C>(option3),
-                    combiner)
+    fun <A, B, C, R> zip3(
+        option1: Option<A>,
+        option2: Option<B>,
+        option3: Option<C>,
+        combiner: (S, A, B, C) -> R
+    ): Try<R> {
+        return zip3(
+            fromOption<A>(option1),
+            fromOption<B>(option2),
+            fromOption<C>(option3),
+            combiner
+        )
     }
 
     fun orNull(): S? {
-        return fold({ s: S ->
-                        s
-                    },
-                    { _: Throwable ->
-                        null
-                    })
+        return fold({ s: S -> s }, { _: Throwable -> null })
     }
 
     fun orElse(defaultValue: @UnsafeVariance S): S {
-        return fold({ input: S ->
-                        input
-                    },
-                    { _: Throwable ->
-                        defaultValue
-                    })
+        return fold({ input: S -> input }, { _: Throwable -> defaultValue })
     }
 
     /**
      * Enables caller to fetch the result value if successful
      *
+     * Only if an error occurred at some point in the processing chain before this call does this
+     * method then request a default value from the supplier
      *
-     * Only if an error occurred at some point in the processing chain before this call does this method then request a default
-     * value from the supplier
-     *
-     * @param defaultValueSupplier - called if failure case
+     * @param defaultValueSupplier
+     * - called if failure case
      * @return the result success value or the result of the default value supplier
      */
     fun orElseGet(defaultValueSupplier: () -> @UnsafeVariance S): S {
-        return fold({ input: S ->
-                        input
-                    },
-                    { _: Throwable ->
-                        defaultValueSupplier.invoke()
-                    })
+        return fold({ input: S -> input }, { _: Throwable -> defaultValueSupplier.invoke() })
     }
 
     /**
-     * Enables caller to retrieve the result value directly, wrapping any error that may have occurred in the function application
-     * chain before it is thrown
+     * Enables caller to retrieve the result value directly, wrapping any error that may have
+     * occurred in the function application chain before it is thrown
      *
-     * @param exceptionWrapper - function that takes the error and wraps it in another error type
-     * @param <F>              - any throwable
-     * @return the result value if a success, or else throws an exception wrapping the error that occurred in the process
-     * @throws F - the wrapper type for the exception
+     * @param exceptionWrapper
+     * - function that takes the error and wraps it in another error type
+     * @param <F> - any throwable
+     * @return the result value if a success, or else throws an exception wrapping the error that
+     * occurred in the process
+     * @throws F
+     * - the wrapper type for the exception
      */
     fun <F : Throwable> orElseThrow(exceptionWrapper: (Throwable) -> F): S {
-        return fold({ input: S ->
-                        input
-                    },
-                    { throwable: Throwable ->
-                        throw exceptionWrapper.invoke(throwable)
-                    })
+        return fold(
+            { input: S -> input },
+            { throwable: Throwable -> throw exceptionWrapper.invoke(throwable) }
+        )
     }
 
     /**
-     * Enables caller to retrieve the result value directly, throwing any error that may have occurred in the function application
-     * if it was an unchecked exception type or wrapping then throwing the error in a [java.lang.RuntimeException]
+     * Enables caller to retrieve the result value directly, throwing any error that may have
+     * occurred in the function application if it was an unchecked exception type or wrapping then
+     * throwing the error in a [java.lang.RuntimeException]
      *
      * @param <F> - some unchecked exception throwable
      * @return the result value if a success, or else throws an unchecked exception
-     * @throws F - the unchecked exception type or a wrapped checked exception in a [java.lang.RuntimeException]
+     * @throws F
+     * - the unchecked exception type or a wrapped checked exception in a
+     * [java.lang.RuntimeException]
      */
     fun orElseThrow(): S {
-        return fold({ input: S ->
-                        input
-                    },
-                    { throwable: Throwable ->
-                        throw throwable
-                    })
+        return fold({ input: S -> input }, { throwable: Throwable -> throw throwable })
     }
 
     fun ifFailed(errorHandler: (Throwable) -> Unit) {
-        getFailure().fold({}) { throwable: Throwable ->
-            errorHandler.invoke(throwable)
-        }
+        getFailure().fold({}) { throwable: Throwable -> errorHandler.invoke(throwable) }
     }
 
     fun ifSuccess(successHandler: (S) -> Unit) {
@@ -825,24 +775,16 @@ sealed interface Try<out S> : Iterable<S> {
     }
 
     /**
-     * Provides the success value and a null value for the throwable if successful
-     * Provides a null value for success and the throwable value if failed at some point in the processing chain
+     * Provides the success value and a null value for the throwable if successful Provides a null
+     * value for success and the throwable value if failed at some point in the processing chain
      *
      * @param handler
      */
     fun onComplete(handler: (S?, Throwable?) -> Unit) {
-        fold({ input: S ->
-                 attempt {
-                     handler.invoke(input,
-                                    null)
-                 }
-             },
-             { throwable: Throwable ->
-                 attempt {
-                     handler.invoke(null,
-                                    throwable)
-                 }
-             })
+        fold(
+            { input: S -> attempt { handler.invoke(input, null) } },
+            { throwable: Throwable -> attempt { handler.invoke(null, throwable) } }
+        )
     }
 
     fun stream(): Stream<out S> {
@@ -850,40 +792,36 @@ sealed interface Try<out S> : Iterable<S> {
     }
 
     fun sequence(): Sequence<S> {
-        return fold({ input: S ->
-                        sequenceOf(input)
-                    },
-                    {
-                        emptySequence()
-                    })
+        return fold({ input: S -> sequenceOf(input) }, { emptySequence() })
     }
 
     /**
-     * Right is used to represent the success value per tradition since chained operations are typically
-     * performed on the right value more often than the left value in an Either monad
+     * Right is used to represent the success value per tradition since chained operations are
+     * typically performed on the right value more often than the left value in an Either monad
      */
     fun either(): Either<Throwable, S> {
         return fold({ input: S -> input.right() }) { throwable: Throwable -> throwable.left() }
     }
 
-    fun peek(successObserver: (S) -> Unit,
-             failureObserver: (Throwable) -> Unit): Try<S> {
-        return fold({ input: S ->
-                        try {
-                            successObserver.invoke(input)
-                            success<S>(input)
-                        } catch (t: Throwable) {
-                            failure<S>(t)
-                        }
-                    },
-                    { throwable: Throwable ->
-                        try {
-                            failureObserver.invoke(throwable)
-                            failure<S>(throwable)
-                        } catch (t: Throwable) {
-                            failure<S>(t)
-                        }
-                    })
+    fun peek(successObserver: (S) -> Unit, failureObserver: (Throwable) -> Unit): Try<S> {
+        return fold(
+            { input: S ->
+                try {
+                    successObserver.invoke(input)
+                    success<S>(input)
+                } catch (t: Throwable) {
+                    failure<S>(t)
+                }
+            },
+            { throwable: Throwable ->
+                try {
+                    failureObserver.invoke(throwable)
+                    failure<S>(throwable)
+                } catch (t: Throwable) {
+                    failure<S>(t)
+                }
+            }
+        )
     }
 
     fun peekIfSuccess(successObserver: (S) -> Unit): Try<S> {
@@ -891,8 +829,7 @@ sealed interface Try<out S> : Iterable<S> {
     }
 
     fun peekIfFailure(failureObserver: (Throwable) -> Unit): Try<S> {
-        return peek({},
-                    failureObserver)
+        return peek({}, failureObserver)
     }
 
     fun <R> transform(transformer: (Try<S>) -> R): R {
@@ -904,13 +841,11 @@ sealed interface Try<out S> : Iterable<S> {
     }
 
     /**
-     * Although some functional frameworks prefer success values to be handled by the
-     * right-hand side of the functional parameter set for folds,
-     * here, the success handler is placed to the left of the failure handler since
-     * typically in the method bodies where this is used, the success case and its return
-     * value is of more significance than the failure case and its return value
+     * Although some functional frameworks prefer success values to be handled by the right-hand
+     * side of the functional parameter set for folds, here, the success handler is placed to the
+     * left of the failure handler since typically in the method bodies where this is used, the
+     * success case and its return value is of more significance than the failure case and its
+     * return value
      */
-    fun <R> fold(successHandler: (S) -> R,
-                 failureHandler: (Throwable) -> R): R
-
+    fun <R> fold(successHandler: (S) -> R, failureHandler: (Throwable) -> R): R
 }
