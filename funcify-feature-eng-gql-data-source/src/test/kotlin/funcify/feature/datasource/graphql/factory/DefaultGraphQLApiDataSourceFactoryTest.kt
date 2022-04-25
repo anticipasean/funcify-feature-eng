@@ -10,6 +10,7 @@ import funcify.feature.datasource.graphql.metadata.MockGraphQLFetcherMetadataPro
 import funcify.feature.datasource.graphql.reader.DefaultGraphQLApiSourceMetadataReader
 import funcify.feature.datasource.graphql.schema.DefaultGraphQLSourceAttribute
 import funcify.feature.datasource.graphql.schema.DefaultGraphQLSourceContainerType
+import funcify.feature.datasource.graphql.schema.DefaultGraphQLSourceIndexFactory
 import funcify.feature.json.JsonObjectMappingConfiguration
 import funcify.feature.schema.MetamodelGraph
 import funcify.feature.schema.SchematicVertex
@@ -35,7 +36,10 @@ internal class DefaultGraphQLApiDataSourceFactoryTest {
         DefaultGraphQLApiDataSourceFactory(
             graphQLFetcherMetadataProvider =
                 MockGraphQLFetcherMetadataProvider(objectMapper = objectMapper),
-            graphQLMetadataReader = DefaultGraphQLApiSourceMetadataReader()
+            graphQLMetadataReader =
+                DefaultGraphQLApiSourceMetadataReader(
+                    graphQLSourceIndexFactory = DefaultGraphQLSourceIndexFactory()
+                )
         )
 
     @Test

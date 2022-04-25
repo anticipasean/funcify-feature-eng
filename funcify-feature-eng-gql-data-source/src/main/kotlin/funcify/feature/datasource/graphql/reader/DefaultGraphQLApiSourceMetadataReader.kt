@@ -42,7 +42,9 @@ import org.slf4j.Logger
  * @author smccarron
  * @created 4/8/22
  */
-internal class DefaultGraphQLApiSourceMetadataReader() : GraphQLApiSourceMetadataReader {
+internal class DefaultGraphQLApiSourceMetadataReader(
+    private val graphQLSourceIndexFactory: GraphQLSourceIndexFactory
+) : GraphQLApiSourceMetadataReader {
 
     companion object {
         private val logger: Logger = loggerFor<DefaultGraphQLApiSourceMetadataReader>()
@@ -98,7 +100,8 @@ internal class DefaultGraphQLApiSourceMetadataReader() : GraphQLApiSourceMetadat
 
     private fun createContextForRootQueryType(queryType: GraphQLObjectType): GqlSourceContext {
         val graphQLSourceContainerType =
-            GraphQLSourceIndexFactory.createRootSourceContainerType()
+            graphQLSourceIndexFactory
+                .createRootSourceContainerType()
                 .forGraphQLQueryObjectType(queryType)
         return GqlSourceContext(
             rootSourceContainerType = graphQLSourceContainerType,
@@ -184,6 +187,14 @@ internal class DefaultGraphQLApiSourceMetadataReader() : GraphQLApiSourceMetadat
         childFieldDefinition: GraphQLFieldDefinition
     ): GqlSourceContext {
         return when {
+            /**
+             * Case 0: UNNECESSARY to handle: Both parent and child field definitions have yet to be
+             * assigned a schematic path. If
+             * - the query type and its field definitions have been properly handled,
+             * - their respective indices have been created and assigned to vars in the context,
+             * - and the parent and child relationships are being processed in order, => then case 0
+             * is not necessary
+             */
             /** Case 1: Only the child field definition has yet to be assigned a schematic path */
             !currentContext.graphQLFieldDefinitionToPath.containsKey(childFieldDefinition) -> {
                 val parentPath =
@@ -197,7 +208,8 @@ internal class DefaultGraphQLApiSourceMetadataReader() : GraphQLApiSourceMetadat
                         .firstOrNull()
                         .toOption()
                         .or(
-                            GraphQLSourceIndexFactory.createSourceContainerType()
+                            graphQLSourceIndexFactory
+                                .createSourceContainerType()
                                 .forAttributePathAndDefinition(parentPath, parentFieldDefinition)
                         )
                         .getOrElse {
@@ -207,7 +219,8 @@ internal class DefaultGraphQLApiSourceMetadataReader() : GraphQLApiSourceMetadat
                             )
                         }
                 val childAsAttributeType: GraphQLSourceAttribute =
-                    GraphQLSourceIndexFactory.createSourceAttribute()
+                    graphQLSourceIndexFactory
+                        .createSourceAttribute()
                         .withParentPathAndDefinition(parentPath, parentFieldDefinition)
                         .forChildAttributeDefinition(childFieldDefinition)
                 val updatedAttributeSet: PersistentSet<GraphQLSourceAttribute> =
@@ -269,7 +282,8 @@ internal class DefaultGraphQLApiSourceMetadataReader() : GraphQLApiSourceMetadat
                         .firstOrNull()
                         .toOption()
                         .or(
-                            GraphQLSourceIndexFactory.createSourceContainerType()
+                            graphQLSourceIndexFactory
+                                .createSourceContainerType()
                                 .forAttributePathAndDefinition(parentPath, parentFieldDefinition)
                         )
                         .getOrElse {
@@ -287,7 +301,8 @@ internal class DefaultGraphQLApiSourceMetadataReader() : GraphQLApiSourceMetadat
                         .firstOrNull()
                         .toOption()
                         .getOrElse {
-                            GraphQLSourceIndexFactory.createSourceAttribute()
+                            graphQLSourceIndexFactory
+                                .createSourceAttribute()
                                 .withParentPathAndDefinition(parentPath, parentFieldDefinition)
                                 .forChildAttributeDefinition(childFieldDefinition)
                         }
@@ -363,7 +378,8 @@ internal class DefaultGraphQLApiSourceMetadataReader() : GraphQLApiSourceMetadat
                         context.indicesByPath,
                         { pm, pair ->
                             val updatedSourceContainerType =
-                                GraphQLSourceIndexFactory.updateSourceContainerType(pair.first)
+                                graphQLSourceIndexFactory
+                                    .updateSourceContainerType(pair.first)
                                     .withChildSourceAttributes(pair.second)
                             pm.put(
                                 updatedSourceContainerType.sourcePath,

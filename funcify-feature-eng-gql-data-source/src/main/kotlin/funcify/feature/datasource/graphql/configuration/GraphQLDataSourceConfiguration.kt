@@ -9,6 +9,8 @@ import funcify.feature.datasource.graphql.metadata.DefaultGraphQLFetcherMetadata
 import funcify.feature.datasource.graphql.metadata.GraphQLFetcherMetadataProvider
 import funcify.feature.datasource.graphql.reader.DefaultGraphQLApiSourceMetadataReader
 import funcify.feature.datasource.graphql.reader.GraphQLApiSourceMetadataReader
+import funcify.feature.datasource.graphql.schema.DefaultGraphQLSourceIndexFactory
+import funcify.feature.datasource.graphql.schema.GraphQLSourceIndexFactory
 import org.springframework.beans.factory.ObjectProvider
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
@@ -46,7 +48,8 @@ class GraphQLDataSourceConfiguration {
     fun graphQLApiDataSourceFactory(
         objectMapper: ObjectMapper,
         graphQLFetcherMetadataProvider: ObjectProvider<GraphQLFetcherMetadataProvider>,
-        graphQLMetadataReaderProvider: ObjectProvider<GraphQLApiSourceMetadataReader>
+        graphQLMetadataReaderProvider: ObjectProvider<GraphQLApiSourceMetadataReader>,
+        graphQLSourceIndexFactoryProvider: ObjectProvider<GraphQLSourceIndexFactory>
     ): GraphQLApiDataSourceFactory {
         return DefaultGraphQLApiDataSourceFactory(
             graphQLFetcherMetadataProvider =
@@ -55,8 +58,34 @@ class GraphQLDataSourceConfiguration {
                 },
             graphQLMetadataReader =
                 graphQLMetadataReaderProvider.getIfAvailable {
-                    DefaultGraphQLApiSourceMetadataReader()
+                    DefaultGraphQLApiSourceMetadataReader(
+                        graphQLSourceIndexFactoryProvider.getIfAvailable {
+                            DefaultGraphQLSourceIndexFactory()
+                        }
+                    )
                 }
         )
+    }
+
+    @ConditionalOnMissingBean(value = [GraphQLSourceIndexFactory::class])
+    @Bean
+    fun graphQLSourceIndexFactory(): GraphQLSourceIndexFactory {
+        return DefaultGraphQLSourceIndexFactory()
+    }
+
+    @ConditionalOnMissingBean(value = [GraphQLFetcherMetadataProvider::class])
+    @ConditionalOnBean(value = [ObjectMapper::class])
+    @Bean
+    fun graphQLFetcherMetadataProvider(objectMapper: ObjectMapper): GraphQLFetcherMetadataProvider {
+        return DefaultGraphQLFetcherMetadataProvider(objectMapper)
+    }
+
+    @ConditionalOnMissingBean(value = [GraphQLApiSourceMetadataReader::class])
+    @ConditionalOnBean(value = [GraphQLSourceIndexFactory::class])
+    @Bean
+    fun graphQLApiSourceMetadataReader(
+        graphQLSourceIndexFactory: GraphQLSourceIndexFactory
+    ): GraphQLApiSourceMetadataReader {
+        return DefaultGraphQLApiSourceMetadataReader(graphQLSourceIndexFactory)
     }
 }

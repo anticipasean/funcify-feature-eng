@@ -13,28 +13,15 @@ import kotlinx.collections.immutable.ImmutableSet
  */
 interface GraphQLSourceIndexFactory {
 
-    companion object {
+    fun createRootSourceContainerType(): RootSourceContainerTypeSpec
 
-        fun createRootSourceContainerType(): RootSourceContainerTypeSpec {
-            return DefaultGraphQLSourceIndexFactory.DefaultRootContainerTypeSpec()
-        }
+    fun createSourceContainerType(): AttributeBase
 
-        fun createSourceContainerType(): AttributeBase {
-            return DefaultGraphQLSourceIndexFactory.DefaultAttributeBase()
-        }
+    fun updateSourceContainerType(
+        graphQLSourceContainerType: GraphQLSourceContainerType
+    ): SourceContainerTypeUpdateSpec
 
-        fun updateSourceContainerType(
-            graphQLSourceContainerType: GraphQLSourceContainerType
-        ): SourceContainerTypeUpdateSpec {
-            return DefaultGraphQLSourceIndexFactory.DefaultSourceContainerTypeUpdateSpec(
-                graphQLSourceContainerType
-            )
-        }
-
-        fun createSourceAttribute(): ParentDefinitionBase {
-            return DefaultGraphQLSourceIndexFactory.DefaultParentDefinitionBase()
-        }
-    }
+    fun createSourceAttribute(): ParentDefinitionBase
 
     interface RootSourceContainerTypeSpec {
         fun forGraphQLQueryObjectType(

@@ -31,8 +31,26 @@ import kotlinx.collections.immutable.toPersistentList
  * @author smccarron
  * @created 4/10/22
  */
-internal class DefaultGraphQLSourceIndexFactory {
+internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
 
+    override fun createRootSourceContainerType():
+        GraphQLSourceIndexFactory.RootSourceContainerTypeSpec {
+        return DefaultRootContainerTypeSpec()
+    }
+
+    override fun createSourceContainerType(): GraphQLSourceIndexFactory.AttributeBase {
+        return DefaultAttributeBase()
+    }
+
+    override fun updateSourceContainerType(
+        graphQLSourceContainerType: GraphQLSourceContainerType
+    ): GraphQLSourceIndexFactory.SourceContainerTypeUpdateSpec {
+        return DefaultSourceContainerTypeUpdateSpec(graphQLSourceContainerType)
+    }
+
+    override fun createSourceAttribute(): GraphQLSourceIndexFactory.ParentDefinitionBase {
+        return DefaultParentDefinitionBase()
+    }
     class DefaultRootContainerTypeSpec() : GraphQLSourceIndexFactory.RootSourceContainerTypeSpec {
 
         override fun forGraphQLQueryObjectType(
