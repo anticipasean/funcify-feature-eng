@@ -5,8 +5,7 @@ import funcify.feature.schema.datasource.DataSourceType
 import funcify.feature.schema.datasource.RawDataSourceType
 import funcify.feature.schema.datasource.SourceIndex
 import funcify.feature.schema.path.SchematicPath
-import graphql.schema.GraphQLFieldDefinition
-import graphql.schema.GraphQLType
+import graphql.schema.GraphQLOutputType
 
 /**
  *
@@ -21,8 +20,5 @@ interface GraphQLSourceIndex : SourceIndex {
 
     override val name: ConventionalName
 
-    val schemaFieldDefinition: GraphQLFieldDefinition
-
-    val dataType: GraphQLType
-        get() = schemaFieldDefinition.type
+    val dataType: GraphQLOutputType
 }

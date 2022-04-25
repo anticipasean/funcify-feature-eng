@@ -2,7 +2,10 @@ package funcify.feature.datasource.graphql.schema
 
 import funcify.feature.naming.ConventionalName
 import funcify.feature.schema.path.SchematicPath
+import graphql.schema.GraphQLArgument
 import graphql.schema.GraphQLFieldDefinition
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.toPersistentList
 
 /**
  *
@@ -13,4 +16,9 @@ internal data class DefaultGraphQLSourceAttribute(
     override val sourcePath: SchematicPath,
     override val name: ConventionalName,
     override val schemaFieldDefinition: GraphQLFieldDefinition
-) : GraphQLSourceAttribute {}
+) : GraphQLSourceAttribute {
+
+    override val arguments: ImmutableList<GraphQLArgument> by lazy {
+        schemaFieldDefinition.arguments.toPersistentList()
+    }
+}

@@ -5,7 +5,6 @@ import funcify.feature.datasource.graphql.error.GQLDataSourceException
 import funcify.feature.naming.ConventionalName
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentMap
-import graphql.schema.GraphQLFieldDefinition
 import graphql.schema.GraphQLFieldsContainer
 import graphql.schema.GraphQLList
 import graphql.schema.GraphQLOutputType
@@ -21,13 +20,13 @@ import kotlinx.collections.immutable.persistentSetOf
 internal data class DefaultGraphQLSourceContainerType(
     override val sourcePath: SchematicPath,
     override val name: ConventionalName,
-    override val schemaFieldDefinition: GraphQLFieldDefinition,
+    override val dataType: GraphQLOutputType,
     override val sourceAttributes: PersistentSet<GraphQLSourceAttribute> = persistentSetOf()
 ) : GraphQLSourceContainerType {
 
     /** Should not throw exception if created through graphql source index factory */
     override val containerType: GraphQLFieldsContainer by lazy {
-        when (val gqlType: GraphQLOutputType = schemaFieldDefinition.type) {
+        when (val gqlType: GraphQLOutputType = dataType) {
             is GraphQLFieldsContainer -> {
                 gqlType
             }
@@ -37,14 +36,14 @@ internal data class DefaultGraphQLSourceContainerType(
                 } else {
                     throw GQLDataSourceException(
                         GQLDataSourceErrorResponse.UNEXPECTED_ERROR,
-                        "graphql container type not found in schema_field_definition"
+                        "graphql container type not found in graphql_output_type"
                     )
                 }
             }
             else -> {
                 throw GQLDataSourceException(
                     GQLDataSourceErrorResponse.UNEXPECTED_ERROR,
-                    "graphql container type not found in schema_field_definition"
+                    "graphql container type not found in graphql_output_type"
                 )
             }
         }

@@ -7,4 +7,5 @@ interface GraphQLSourceContainerType :
     GraphQLSourceIndex, SourceContainerType<GraphQLSourceAttribute> {
 
     val containerType: GraphQLFieldsContainer
+
 }

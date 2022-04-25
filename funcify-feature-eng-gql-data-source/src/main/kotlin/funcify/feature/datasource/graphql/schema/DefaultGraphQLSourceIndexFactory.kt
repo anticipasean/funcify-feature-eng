@@ -11,6 +11,7 @@ import arrow.core.toOption
 import funcify.feature.datasource.graphql.error.GQLDataSourceErrorResponse
 import funcify.feature.datasource.graphql.error.GQLDataSourceException
 import funcify.feature.datasource.graphql.naming.GraphQLSourceNamingConventions
+import funcify.feature.naming.StandardNamingConventions
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.schema.path.SchematicPathFactory
 import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
@@ -18,8 +19,9 @@ import graphql.schema.GraphQLFieldDefinition
 import graphql.schema.GraphQLFieldsContainer
 import graphql.schema.GraphQLList
 import graphql.schema.GraphQLNamedOutputType
-import graphql.schema.GraphQLOutputType
+import graphql.schema.GraphQLObjectType
 import kotlinx.collections.immutable.ImmutableSet
+import kotlinx.collections.immutable.PersistentSet
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toPersistentList
@@ -31,11 +33,32 @@ import kotlinx.collections.immutable.toPersistentList
  */
 internal class DefaultGraphQLSourceIndexFactory {
 
-    class DefaultRootBase() : GraphQLSourceIndexFactory.RootBase {
+    class DefaultRootContainerTypeSpec() : GraphQLSourceIndexFactory.RootSourceContainerTypeSpec {
 
-        override fun fromRootDefinition(
+        override fun forGraphQLQueryObjectType(
+            queryObjectType: GraphQLObjectType
+        ): GraphQLSourceContainerType {
+            return createRootSourceContainerType(
+                queryObjectType,
+                queryObjectType.fieldDefinitions.fold(persistentSetOf()) { ps, fd ->
+                    ps.add(createRootAttributeForFieldDefinition(fd))
+                }
+            )
+        }
+        private fun createRootSourceContainerType(
+            queryObjectType: GraphQLObjectType,
+            graphQLSourceAttributes: PersistentSet<GraphQLSourceAttribute>
+        ): DefaultGraphQLSourceContainerType {
+            return DefaultGraphQLSourceContainerType(
+                name = StandardNamingConventions.SNAKE_CASE.deriveName("Query"),
+                sourcePath = SchematicPathFactory.createRootPath(),
+                dataType = queryObjectType,
+                sourceAttributes = graphQLSourceAttributes
+            )
+        }
+        private fun createRootAttributeForFieldDefinition(
             fieldDefinition: GraphQLFieldDefinition
-        ): ImmutableSet<GraphQLSourceIndex> {
+        ): GraphQLSourceAttribute {
             val convPathName =
                 GraphQLSourceNamingConventions.getPathNamingConventionForGraphQLFieldDefinitions()
                     .deriveName(fieldDefinition)
@@ -46,57 +69,11 @@ internal class DefaultGraphQLSourceIndexFactory {
                 SchematicPathFactory.createPathWithSegments(
                     pathSegments = persistentListOf(convPathName.qualifiedForm)
                 )
-            when (val fieldType: GraphQLOutputType = fieldDefinition.type) {
-                is GraphQLFieldsContainer -> {
-                    val graphQLSourceContainerType =
-                        DefaultGraphQLSourceContainerType(
-                            sourcePath = sourcePath,
-                            name = convFieldName,
-                            schemaFieldDefinition = fieldDefinition
-                        )
-                    val graphQLSourceAttribute =
-                        DefaultGraphQLSourceAttribute(
-                            sourcePath = sourcePath,
-                            name = convFieldName,
-                            schemaFieldDefinition = fieldDefinition
-                        )
-                    return persistentSetOf(graphQLSourceContainerType, graphQLSourceAttribute)
-                }
-                is GraphQLList -> {
-                    if (fieldType.wrappedType is GraphQLFieldsContainer) {
-                        val graphQLSourceContainerType =
-                            DefaultGraphQLSourceContainerType(
-                                sourcePath = sourcePath,
-                                name = convFieldName,
-                                schemaFieldDefinition = fieldDefinition
-                            )
-                        val graphQLSourceAttribute =
-                            DefaultGraphQLSourceAttribute(
-                                sourcePath = sourcePath,
-                                name = convFieldName,
-                                schemaFieldDefinition = fieldDefinition
-                            )
-                        return persistentSetOf(graphQLSourceContainerType, graphQLSourceAttribute)
-                    } else {
-                        val graphQLSourceAttribute =
-                            DefaultGraphQLSourceAttribute(
-                                sourcePath = sourcePath,
-                                name = convFieldName,
-                                schemaFieldDefinition = fieldDefinition
-                            )
-                        return persistentSetOf(graphQLSourceAttribute)
-                    }
-                }
-                else -> {
-                    val graphQLSourceAttribute =
-                        DefaultGraphQLSourceAttribute(
-                            sourcePath = sourcePath,
-                            name = convFieldName,
-                            schemaFieldDefinition = fieldDefinition
-                        )
-                    return persistentSetOf(graphQLSourceAttribute)
-                }
-            }
+            return DefaultGraphQLSourceAttribute(
+                sourcePath = sourcePath,
+                name = convFieldName,
+                schemaFieldDefinition = fieldDefinition
+            )
         }
     }
 
@@ -114,7 +91,7 @@ internal class DefaultGraphQLSourceIndexFactory {
                                 GraphQLSourceNamingConventions
                                     .getFieldNamingConventionForGraphQLFieldDefinitions()
                                     .deriveName(attributeDefinition),
-                            schemaFieldDefinition = attributeDefinition
+                            dataType = fieldType
                         )
                         .some()
                 }
@@ -126,7 +103,7 @@ internal class DefaultGraphQLSourceIndexFactory {
                                     GraphQLSourceNamingConventions
                                         .getFieldNamingConventionForGraphQLFieldDefinitions()
                                         .deriveName(attributeDefinition),
-                                schemaFieldDefinition = attributeDefinition
+                                dataType = fieldType
                             )
                             .some()
                     } else {
@@ -145,18 +122,18 @@ internal class DefaultGraphQLSourceIndexFactory {
         override fun withParentPathAndDefinition(
             parentPath: SchematicPath,
             parentDefinition: GraphQLFieldDefinition
-        ): GraphQLSourceIndexFactory.ChildAttributeBuilder {
-            return DefaultChildAttributeBuilder(
+        ): GraphQLSourceIndexFactory.ChildAttributeSpec {
+            return DefaultChildAttributeSpec(
                 parentPath = parentPath,
                 parentDefinition = parentDefinition
             )
         }
     }
 
-    class DefaultChildAttributeBuilder(
+    class DefaultChildAttributeSpec(
         private val parentPath: SchematicPath,
         private val parentDefinition: GraphQLFieldDefinition
-    ) : GraphQLSourceIndexFactory.ChildAttributeBuilder {
+    ) : GraphQLSourceIndexFactory.ChildAttributeSpec {
 
         override fun forChildAttributeDefinition(
             childDefinition: GraphQLFieldDefinition
@@ -230,6 +207,48 @@ internal class DefaultGraphQLSourceIndexFactory {
                 name = childConvFieldName,
                 schemaFieldDefinition = childDefinition
             )
+        }
+    }
+
+    class DefaultSourceContainerTypeUpdateSpec(
+        private val graphQLSourceContainerType: GraphQLSourceContainerType
+    ) : GraphQLSourceIndexFactory.SourceContainerTypeUpdateSpec {
+        override fun withChildSourceAttributes(
+            graphQLSourceAttributes: ImmutableSet<GraphQLSourceAttribute>
+        ): GraphQLSourceContainerType {
+            val validatedAttributeSet =
+                graphQLSourceAttributes
+                    .stream()
+                    .reduce(
+                        persistentSetOf<GraphQLSourceAttribute>(),
+                        { ps, gsa ->
+                            if (gsa.sourcePath
+                                    .getParentPath()
+                                    .filter { sp -> sp != graphQLSourceContainerType.sourcePath }
+                                    .isDefined()
+                            ) {
+                                throw GQLDataSourceException(
+                                    GQLDataSourceErrorResponse.INVALID_INPUT,
+                                    """source path for attribute [ source_path: ${gsa.sourcePath} ] 
+                                    |is not child path of source_container_type 
+                                    |source_path [ source_path: ${graphQLSourceContainerType.sourcePath} ]
+                                    |""".flattenIntoOneLine()
+                                )
+                            } else {
+                                ps.add(gsa)
+                            }
+                        },
+                        { ps1, ps2 -> ps1.addAll(ps2) }
+                    )
+            return (graphQLSourceContainerType as? DefaultGraphQLSourceContainerType)?.copy(
+                sourceAttributes = validatedAttributeSet
+            )
+                ?: DefaultGraphQLSourceContainerType(
+                    sourcePath = graphQLSourceContainerType.sourcePath,
+                    dataType = graphQLSourceContainerType.dataType,
+                    name = graphQLSourceContainerType.name,
+                    sourceAttributes = validatedAttributeSet
+                )
         }
     }
 }

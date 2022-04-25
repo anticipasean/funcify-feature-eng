@@ -1,4 +1,4 @@
-package funcify.feature.schema.graph
+package funcify.feature.schema.vertex
 
 /**
  * Represents both an object type and an attribute of some object type within the schema As an

@@ -1,4 +1,4 @@
-package funcify.feature.schema.graph
+package funcify.feature.schema.vertex
 
 /**
  * Represents a feature function, the output of which being scalar or an iterable of scalar values,

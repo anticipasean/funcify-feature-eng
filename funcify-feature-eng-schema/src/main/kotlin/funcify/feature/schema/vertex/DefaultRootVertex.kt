@@ -1,4 +1,4 @@
-package funcify.feature.schema.graph
+package funcify.feature.schema.vertex
 
 import funcify.feature.schema.index.CompositeContainerType
 import funcify.feature.schema.path.SchematicPath

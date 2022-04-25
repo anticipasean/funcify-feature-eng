@@ -1,6 +1,5 @@
 package funcify.feature.datasource.graphql.reader
 
-import arrow.core.filterIsInstance
 import arrow.core.firstOrNone
 import arrow.core.getOrElse
 import arrow.core.lastOrNone
@@ -8,7 +7,9 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import funcify.feature.datasource.graphql.metadata.MockGraphQLFetcherMetadataProvider
 import funcify.feature.datasource.graphql.metadata.MockGraphQLFetcherMetadataProvider.Companion.fakeService
 import funcify.feature.datasource.graphql.schema.DefaultGraphQLSourceContainerType
+import funcify.feature.datasource.graphql.schema.GraphQLSourceContainerType
 import funcify.feature.json.JsonObjectMappingConfiguration
+import funcify.feature.tools.extensions.OptionExtensions.stream
 import graphql.schema.GraphQLSchema
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
@@ -47,7 +48,7 @@ internal class GraphQLApiSourceMetadataReaderTest {
          *                               }))
          * ```
          */
-        Assertions.assertEquals(3, sourceMetamodel.sourceIndicesByPath.size)
+        Assertions.assertEquals(11, sourceMetamodel.sourceIndicesByPath.size)
 
         Assertions.assertEquals(
             "shows",
@@ -74,10 +75,14 @@ internal class GraphQLApiSourceMetadataReaderTest {
                     entry.key.pathSegments.lastOrNone().filter { s -> s == "shows" }.isDefined()
                 }
                 .firstOrNone()
-                .flatMap { entry -> entry.value.firstOrNone() }
-                .filterIsInstance<DefaultGraphQLSourceContainerType>()
+                .map { entry -> entry.value }
+                .stream()
+                .flatMap { set -> set.stream() }
+                .filter { i -> i is DefaultGraphQLSourceContainerType }
+                .map { i -> i as GraphQLSourceContainerType }
                 .map { gqlSrcCont -> gqlSrcCont.sourceAttributes.size }
-                .getOrElse { -1 }
+                .findFirst()
+                .orElse(-1)
         )
 
         /*  sourceMetamodel

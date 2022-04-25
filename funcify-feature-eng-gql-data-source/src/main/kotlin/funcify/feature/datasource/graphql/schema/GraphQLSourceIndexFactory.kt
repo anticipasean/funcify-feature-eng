@@ -3,6 +3,7 @@ package funcify.feature.datasource.graphql.schema
 import arrow.core.Option
 import funcify.feature.schema.path.SchematicPath
 import graphql.schema.GraphQLFieldDefinition
+import graphql.schema.GraphQLObjectType
 import kotlinx.collections.immutable.ImmutableSet
 
 /**
@@ -14,12 +15,20 @@ interface GraphQLSourceIndexFactory {
 
     companion object {
 
-        fun createRootIndices(): RootBase {
-            return DefaultGraphQLSourceIndexFactory.DefaultRootBase()
+        fun createRootSourceContainerType(): RootSourceContainerTypeSpec {
+            return DefaultGraphQLSourceIndexFactory.DefaultRootContainerTypeSpec()
         }
 
         fun createSourceContainerType(): AttributeBase {
             return DefaultGraphQLSourceIndexFactory.DefaultAttributeBase()
+        }
+
+        fun updateSourceContainerType(
+            graphQLSourceContainerType: GraphQLSourceContainerType
+        ): SourceContainerTypeUpdateSpec {
+            return DefaultGraphQLSourceIndexFactory.DefaultSourceContainerTypeUpdateSpec(
+                graphQLSourceContainerType
+            )
         }
 
         fun createSourceAttribute(): ParentDefinitionBase {
@@ -27,11 +36,10 @@ interface GraphQLSourceIndexFactory {
         }
     }
 
-    interface RootBase {
-
-        fun fromRootDefinition(
-            fieldDefinition: GraphQLFieldDefinition
-        ): ImmutableSet<GraphQLSourceIndex>
+    interface RootSourceContainerTypeSpec {
+        fun forGraphQLQueryObjectType(
+            queryObjectType: GraphQLObjectType
+        ): GraphQLSourceContainerType
     }
 
     interface AttributeBase {
@@ -47,13 +55,19 @@ interface GraphQLSourceIndexFactory {
         fun withParentPathAndDefinition(
             parentPath: SchematicPath,
             parentDefinition: GraphQLFieldDefinition
-        ): ChildAttributeBuilder
+        ): ChildAttributeSpec
     }
 
-    interface ChildAttributeBuilder {
+    interface ChildAttributeSpec {
 
         fun forChildAttributeDefinition(
             childDefinition: GraphQLFieldDefinition
         ): GraphQLSourceAttribute
+    }
+
+    interface SourceContainerTypeUpdateSpec {
+        fun withChildSourceAttributes(
+            graphQLSourceAttributes: ImmutableSet<GraphQLSourceAttribute>
+        ): GraphQLSourceContainerType
     }
 }

@@ -1,4 +1,4 @@
-package funcify.feature.schema.graph
+package funcify.feature.schema.vertex
 
 /**
  * Represents a top-level domain within the context of the schema It must represent an object type

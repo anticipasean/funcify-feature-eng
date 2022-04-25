@@ -12,15 +12,15 @@ import funcify.feature.schema.datasource.SourceContainerType
 import funcify.feature.schema.datasource.SourceIndex
 import funcify.feature.schema.error.SchemaErrorResponse
 import funcify.feature.schema.error.SchemaException
-import funcify.feature.schema.graph.DefaultJunctionVertex
-import funcify.feature.schema.graph.DefaultLeafVertex
-import funcify.feature.schema.graph.DefaultRootVertex
-import funcify.feature.schema.graph.JunctionVertex
-import funcify.feature.schema.graph.LeafVertex
-import funcify.feature.schema.graph.RootVertex
 import funcify.feature.schema.index.DefaultCompositeAttribute
 import funcify.feature.schema.index.DefaultCompositeContainerType
 import funcify.feature.schema.path.SchematicPath
+import funcify.feature.schema.vertex.DefaultJunctionVertex
+import funcify.feature.schema.vertex.DefaultLeafVertex
+import funcify.feature.schema.vertex.DefaultRootVertex
+import funcify.feature.schema.vertex.JunctionVertex
+import funcify.feature.schema.vertex.LeafVertex
+import funcify.feature.schema.vertex.RootVertex
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
@@ -28,7 +28,7 @@ import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.toPersistentMap
 import org.slf4j.Logger
 
-internal class DefaultSchematicVertexFactory() : SchematicVertexFactory {
+internal class DefaultSchematicVertexFactory : SchematicVertexFactory {
 
     companion object {
 
@@ -322,30 +322,41 @@ internal class DefaultSchematicVertexFactory() : SchematicVertexFactory {
                                     }
                                 }
                                 is None -> {
-                                    DefaultJunctionVertex(
-                                        path = schematicPath,
-                                        compositeContainerType =
-                                            DefaultCompositeContainerType(
-                                                /**
-                                                 * Another location where entity resolution and
-                                                 * application of naming conventions can be done in
-                                                 * the future
-                                                 */
-                                                conventionalName = sourceIndex.name,
-                                                sourceContainerTypesByDataSource =
+                                    if (schematicPath.isRoot()) {
+                                        DefaultRootVertex(
+                                            path = schematicPath,
+                                            compositeContainerType =
+                                                DefaultCompositeContainerType(
+                                                    sourceIndex.name,
                                                     persistentMapOf(dataSource to sourceIndex)
-                                            ),
-                                        compositeAttribute =
-                                            DefaultCompositeAttribute(
-                                                /**
-                                                 * Another location where entity resolution and
-                                                 * application of naming conventions can be done in
-                                                 * the future
-                                                 */
-                                                conventionalName = sourceIndex.name,
-                                                sourceAttributesByDataSource = persistentMapOf()
-                                            )
-                                    )
+                                                )
+                                        )
+                                    } else {
+                                        DefaultJunctionVertex(
+                                            path = schematicPath,
+                                            compositeContainerType =
+                                                DefaultCompositeContainerType(
+                                                    /**
+                                                     * Another location where entity resolution and
+                                                     * application of naming conventions can be done
+                                                     * in the future
+                                                     */
+                                                    conventionalName = sourceIndex.name,
+                                                    sourceContainerTypesByDataSource =
+                                                        persistentMapOf(dataSource to sourceIndex)
+                                                ),
+                                            compositeAttribute =
+                                                DefaultCompositeAttribute(
+                                                    /**
+                                                     * Another location where entity resolution and
+                                                     * application of naming conventions can be done
+                                                     * in the future
+                                                     */
+                                                    conventionalName = sourceIndex.name,
+                                                    sourceAttributesByDataSource = persistentMapOf()
+                                                )
+                                        )
+                                    }
                                 }
                             }
                         }
