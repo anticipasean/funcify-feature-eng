@@ -1,12 +1,15 @@
 package funcify.feature.tools.container.deferred
 
 import arrow.core.Option
+import funcify.feature.tools.container.async.KFuture
 import funcify.feature.tools.container.attempt.Try
-import reactor.core.publisher.Flux
-import reactor.core.publisher.Mono
+import funcify.feature.tools.container.deferred.DeferredContainerFactory.FluxDeferredContainer.Companion.FluxDeferredContainerWT
+import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
 import java.util.*
 import java.util.concurrent.CompletionStage
 import java.util.stream.Stream
+import reactor.core.publisher.Flux
+import reactor.core.publisher.Mono
 
 /**
  * @param SWT: Source Container Witness Type
@@ -27,11 +30,73 @@ internal interface DeferredDesign<SWT, I> : Deferred<I> {
         )
     }
 
-    override fun filter(condition: (I) -> Boolean): Deferred<I> {
-        return FilterDesign<SWT, I>(
+    override fun <O> flatMapMono(mapper: (I) -> Mono<out O>): Deferred<O> {
+        return FlatMapMonoDesign<SWT, I, O>(
+            template = template,
+            currentDesign = this,
+            mapper = mapper
+        )
+    }
+
+    override fun <O> flatMapFlux(mapper: (I) -> Flux<out O>): Deferred<O> {
+        return when (val deferredContainer: DeferredContainer<SWT, I> = this.fold(template)) {
+            is DeferredContainerFactory.KFutureDeferredContainer<I> -> {
+                FlatMapFluxDesign<FluxDeferredContainerWT, I, O>(
+                    template = DeferredSourceContextFactory.fluxTemplate,
+                    fluxDesign =
+                        DeferredSourceContextFactory.FluxDeferredSourceContext<I>(
+                            flux = deferredContainer.kFuture.toMono().flux().map { i: I -> i }
+                        ),
+                    mapper = mapper
+                )
+            }
+            is DeferredContainerFactory.MonoDeferredContainer<I> -> {
+                FlatMapFluxDesign<FluxDeferredContainerWT, I, O>(
+                    template = DeferredSourceContextFactory.fluxTemplate,
+                    fluxDesign =
+                        DeferredSourceContextFactory.FluxDeferredSourceContext(
+                            flux = deferredContainer.mono.flux().map { i: I -> i }
+                        ),
+                    mapper = mapper
+                )
+            }
+            is DeferredContainerFactory.FluxDeferredContainer<I> -> {
+                FlatMapFluxDesign<FluxDeferredContainerWT, I, O>(
+                    template = DeferredSourceContextFactory.fluxTemplate,
+                    fluxDesign =
+                        DeferredSourceContextFactory.FluxDeferredSourceContext(
+                            flux = deferredContainer.flux.map { i: I -> i }
+                        ),
+                    mapper = mapper
+                )
+            }
+            else -> {
+                throw UnsupportedOperationException(
+                    """deferred container 
+                    |[ type: ${deferredContainer::class.qualifiedName} ] 
+                    |is not supported""".flattenIntoOneLine()
+                )
+            }
+        }
+    }
+
+    override fun filter(condition: (I) -> Boolean): Deferred<Option<I>> {
+        return FilterOptionDesign<SWT, I>(
             template = template,
             currentDesign = this,
             condition = condition
+        )
+    }
+
+    override fun filter(
+        condition: (I) -> Boolean,
+        ifConditionNotMet: (I) -> Throwable
+    ): Deferred<I> {
+        return FilterDesign<SWT, I>(
+            template = template,
+            currentDesign = this,
+            condition = condition,
+            ifConditionUnmet = ifConditionNotMet
         )
     }
 
@@ -206,6 +271,63 @@ internal interface DeferredDesign<SWT, I> : Deferred<I> {
                         "no non-null output was received from ${Flux::class.qualifiedName}"
                     )
                 }
+            }
+            else -> {
+                throw UnsupportedOperationException(
+                    "unhandled container type: [ ${container::class.qualifiedName} ]"
+                )
+            }
+        }
+    }
+
+    override fun toKFuture(): KFuture<I> {
+        return when (val container: DeferredContainer<SWT, I> = this.fold(template)) {
+            is DeferredContainerFactory.KFutureDeferredContainer -> {
+                container.kFuture
+            }
+            is DeferredContainerFactory.MonoDeferredContainer -> {
+                KFuture.of(container.mono.toFuture())
+            }
+            is DeferredContainerFactory.FluxDeferredContainer -> {
+                KFuture.of(container.flux.next().toFuture())
+            }
+            else -> {
+                throw UnsupportedOperationException(
+                    "unhandled container type: [ ${container::class.qualifiedName} ]"
+                )
+            }
+        }
+    }
+
+    override fun toMono(): Mono<out I> {
+        return when (val container: DeferredContainer<SWT, I> = this.fold(template)) {
+            is DeferredContainerFactory.KFutureDeferredContainer -> {
+                container.kFuture.toMono()
+            }
+            is DeferredContainerFactory.MonoDeferredContainer -> {
+                container.mono
+            }
+            is DeferredContainerFactory.FluxDeferredContainer -> {
+                container.flux.next()
+            }
+            else -> {
+                throw UnsupportedOperationException(
+                    "unhandled container type: [ ${container::class.qualifiedName} ]"
+                )
+            }
+        }
+    }
+
+    override fun toFlux(): Flux<out I> {
+        return when (val container: DeferredContainer<SWT, I> = this.fold(template)) {
+            is DeferredContainerFactory.KFutureDeferredContainer -> {
+                container.kFuture.toMono().flux()
+            }
+            is DeferredContainerFactory.MonoDeferredContainer -> {
+                container.mono.flux()
+            }
+            is DeferredContainerFactory.FluxDeferredContainer -> {
+                container.flux
             }
             else -> {
                 throw UnsupportedOperationException(

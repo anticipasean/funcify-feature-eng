@@ -1,5 +1,8 @@
 package funcify.feature.tools.container.deferred
 
+import arrow.core.None
+import arrow.core.Option
+import arrow.core.toOption
 import funcify.feature.tools.container.async.KFuture
 import funcify.feature.tools.container.deferred.DeferredContainerFactory.FluxDeferredContainer.Companion.FluxDeferredContainerWT
 import funcify.feature.tools.container.deferred.DeferredContainerFactory.narrowed
@@ -38,12 +41,52 @@ internal interface FluxDeferredTemplate : DeferredTemplate<FluxDeferredContainer
         )
     }
 
+    override fun <I, O> flatMapMono(
+        mapper: (I) -> Mono<out O>,
+        container: DeferredContainer<FluxDeferredContainerWT, I>
+    ): DeferredContainer<FluxDeferredContainerWT, O> {
+        return DeferredContainerFactory.FluxDeferredContainer(
+            container.narrowed().flux.flatMap(mapper)
+        )
+    }
+
+    override fun <I, O> flatMapFlux(
+        mapper: (I) -> Flux<out O>,
+        container: DeferredContainer<FluxDeferredContainerWT, I>
+    ): DeferredContainer<FluxDeferredContainerWT, O> {
+        return DeferredContainerFactory.FluxDeferredContainer(
+            container.narrowed().flux.flatMap(mapper)
+        )
+    }
+
     override fun <I> filter(
         condition: (I) -> Boolean,
         container: DeferredContainer<FluxDeferredContainerWT, I>
+    ): DeferredContainer<FluxDeferredContainerWT, Option<I>> {
+        return DeferredContainerFactory.FluxDeferredContainer(
+            container.narrowed().flux.map { i: I ->
+                if (condition.invoke(i)) {
+                    i.toOption()
+                } else {
+                    None
+                }
+            }
+        )
+    }
+
+    override fun <I> filter(
+        condition: (I) -> Boolean,
+        ifConditionUnmet: (I) -> Throwable,
+        container: DeferredContainer<FluxDeferredContainerWT, I>
     ): DeferredContainer<FluxDeferredContainerWT, I> {
         return DeferredContainerFactory.FluxDeferredContainer(
-            container.narrowed().flux.filter(condition)
+            container.narrowed().flux.flatMap { i: I ->
+                if (condition.invoke(i)) {
+                    Flux.just(i)
+                } else {
+                    Flux.error<I> { ifConditionUnmet.invoke(i) }
+                }
+            }
         )
     }
 }

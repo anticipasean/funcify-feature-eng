@@ -1,5 +1,6 @@
 package funcify.feature.tools.container.deferred
 
+import arrow.core.Option
 import funcify.feature.tools.container.async.KFuture
 import funcify.feature.tools.container.deferred.DeferredContainerFactory.KFutureDeferredContainer.Companion.KFutureDeferredContainerWT
 import funcify.feature.tools.container.deferred.DeferredContainerFactory.narrowed
@@ -45,10 +46,43 @@ internal interface KFutureDeferredTemplate : DeferredTemplate<KFutureDeferredCon
         )
     }
 
+    override fun <I, O> flatMapMono(
+        mapper: (I) -> Mono<out O>,
+        container: DeferredContainer<KFutureDeferredContainerWT, I>
+    ): DeferredContainer<KFutureDeferredContainerWT, O> {
+        return DeferredContainerFactory.KFutureDeferredContainer(
+            container.narrowed().kFuture.flatMap { i: I -> KFuture.of(mapper.invoke(i).toFuture()) }
+        )
+    }
+
+    /** Should not be called as there could be a loss of information */
+    override fun <I, O> flatMapFlux(
+        mapper: (I) -> Flux<out O>,
+        container: DeferredContainer<KFutureDeferredContainerWT, I>
+    ): DeferredContainer<KFutureDeferredContainerWT, O> {
+        return DeferredContainerFactory.KFutureDeferredContainer(
+            container.narrowed().kFuture.flatMap { i: I ->
+                KFuture.of(mapper.invoke(i).next().toFuture())
+            }
+        )
+    }
+
+    override fun <I> filter(
+        condition: (I) -> Boolean,
+        ifConditionUnmet: (I) -> Throwable,
+        container: DeferredContainer<KFutureDeferredContainerWT, I>
+    ): DeferredContainer<KFutureDeferredContainerWT, I> {
+        return DeferredContainerFactory.KFutureDeferredContainer(
+            container.narrowed().kFuture.filter(condition, ifConditionUnmet)
+        )
+    }
+
     override fun <I> filter(
         condition: (I) -> Boolean,
         container: DeferredContainer<KFutureDeferredContainerWT, I>
-    ): DeferredContainer<KFutureDeferredContainerWT, I> {
-        TODO("Not yet implemented")
+    ): DeferredContainer<KFutureDeferredContainerWT, Option<I>> {
+        return DeferredContainerFactory.KFutureDeferredContainer(
+            container.narrowed().kFuture.filter(condition)
+        )
     }
 }

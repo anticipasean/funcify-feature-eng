@@ -1,5 +1,6 @@
 package funcify.feature.tools.container.deferred
 
+import arrow.core.Option
 import funcify.feature.tools.container.async.KFuture
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.PredicateExtensions.negate
@@ -68,10 +69,20 @@ interface Deferred<out V> : Iterable<V> {
 
     fun <R> flatMapCompletionStage(mapper: (V) -> CompletionStage<out R>): Deferred<R>
 
-    fun filter(condition: (V) -> Boolean): Deferred<V>
+    fun <R> flatMapMono(mapper: (V) -> Mono<out R>): Deferred<R>
 
-    fun filterNot(condition: (V) -> Boolean): Deferred<V> {
+    fun <R> flatMapFlux(mapper: (V) -> Flux<out R>): Deferred<R>
+
+    fun filter(condition: (V) -> Boolean, ifConditionNotMet: (V) -> Throwable): Deferred<V>
+
+    fun filter(condition: (V) -> Boolean): Deferred<Option<V>>
+
+    fun filterNot(condition: (V) -> Boolean): Deferred<Option<V>> {
         return filter(condition.negate<V>())
+    }
+
+    fun filterNot(condition: (V) -> Boolean, ifConditionMet: (V) -> Throwable): Deferred<V> {
+        return filter(condition.negate<V>(), ifConditionMet)
     }
 
     /** Blocking method */
@@ -96,4 +107,10 @@ interface Deferred<out V> : Iterable<V> {
     fun blockForLast(): Try<V>
 
     fun blockForAll(): Try<List<V>>
+
+    fun toKFuture(): KFuture<V>
+
+    fun toMono(): Mono<out V>
+
+    fun toFlux(): Flux<out V>
 }

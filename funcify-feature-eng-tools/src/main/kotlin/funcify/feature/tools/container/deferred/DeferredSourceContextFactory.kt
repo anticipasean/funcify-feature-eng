@@ -9,9 +9,9 @@ import reactor.core.publisher.Mono
 
 internal object DeferredSourceContextFactory {
 
-    private val kFutureTemplate: KFutureDeferredTemplate = object : KFutureDeferredTemplate {}
-    private val monoTemplate: MonoDeferredTemplate = object : MonoDeferredTemplate {}
-    private val fluxTemplate: FluxDeferredTemplate = object : FluxDeferredTemplate {}
+    internal val kFutureTemplate: KFutureDeferredTemplate = object : KFutureDeferredTemplate {}
+    internal val monoTemplate: MonoDeferredTemplate = object : MonoDeferredTemplate {}
+    internal val fluxTemplate: FluxDeferredTemplate = object : FluxDeferredTemplate {}
     internal class KFutureDeferredSourceContext<V>(
         val kFuture: KFuture<V>,
         override val template: DeferredTemplate<KFutureDeferredContainerWT> = kFutureTemplate
