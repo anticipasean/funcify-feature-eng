@@ -4,7 +4,6 @@ import arrow.core.Option
 import funcify.feature.tools.container.async.KFuture
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.container.deferred.DeferredContainerFactory.FluxDeferredContainer.Companion.FluxDeferredContainerWT
-import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
 import java.util.*
 import java.util.concurrent.CompletionStage
 import java.util.stream.Stream
@@ -39,44 +38,19 @@ internal interface DeferredDesign<SWT, I> : Deferred<I> {
     }
 
     override fun <O> flatMapFlux(mapper: (I) -> Flux<out O>): Deferred<O> {
-        return when (val deferredContainer: DeferredContainer<SWT, I> = this.fold(template)) {
-            is DeferredContainerFactory.KFutureDeferredContainer<I> -> {
-                FlatMapFluxDesign<FluxDeferredContainerWT, I, O>(
-                    template = DeferredSourceContextFactory.fluxTemplate,
-                    fluxDesign =
-                        DeferredSourceContextFactory.FluxDeferredSourceContext<I>(
-                            flux = deferredContainer.kFuture.toMono().flux().map { i: I -> i }
-                        ),
-                    mapper = mapper
-                )
-            }
-            is DeferredContainerFactory.MonoDeferredContainer<I> -> {
-                FlatMapFluxDesign<FluxDeferredContainerWT, I, O>(
-                    template = DeferredSourceContextFactory.fluxTemplate,
-                    fluxDesign =
-                        DeferredSourceContextFactory.FluxDeferredSourceContext(
-                            flux = deferredContainer.mono.flux().map { i: I -> i }
-                        ),
-                    mapper = mapper
-                )
-            }
-            is DeferredContainerFactory.FluxDeferredContainer<I> -> {
-                FlatMapFluxDesign<FluxDeferredContainerWT, I, O>(
-                    template = DeferredSourceContextFactory.fluxTemplate,
-                    fluxDesign =
-                        DeferredSourceContextFactory.FluxDeferredSourceContext(
-                            flux = deferredContainer.flux.map { i: I -> i }
-                        ),
-                    mapper = mapper
-                )
-            }
-            else -> {
-                throw UnsupportedOperationException(
-                    """deferred container 
-                    |[ type: ${deferredContainer::class.qualifiedName} ] 
-                    |is not supported""".flattenIntoOneLine()
-                )
-            }
+        return if (template is FluxDeferredTemplate) {
+            FlatMapFluxDesign<SWT, I, O>(template = template, currentDesign = this, mapper = mapper)
+        } else {
+            FlatMapFluxDesign<FluxDeferredContainerWT, I, O>(
+                template = DeferredSourceContextFactory.fluxTemplate,
+                currentDesign =
+                    SwitchContainerTypeDesign<SWT, FluxDeferredContainerWT, I>(
+                        sourceDesign = this,
+                        sourceTemplate = template,
+                        targetTemplate = DeferredSourceContextFactory.fluxTemplate
+                    ),
+                mapper = mapper
+            )
         }
     }
 
