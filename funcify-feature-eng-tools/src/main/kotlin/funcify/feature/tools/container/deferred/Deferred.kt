@@ -5,15 +5,15 @@ import funcify.feature.tools.container.async.KFuture
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.container.deferred.source.DeferredSourceContextFactory
 import funcify.feature.tools.extensions.PredicateExtensions.negate
+import java.util.*
+import java.util.concurrent.CompletionStage
+import java.util.concurrent.Executor
+import java.util.stream.Stream
 import org.reactivestreams.Publisher
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.core.scheduler.Scheduler
 import reactor.util.concurrent.Queues
-import java.util.*
-import java.util.concurrent.CompletionStage
-import java.util.concurrent.Executor
-import java.util.stream.Stream
 
 interface Deferred<out I> : Iterable<I> {
 
@@ -66,6 +66,26 @@ interface Deferred<out I> : Iterable<I> {
         ): Deferred<T> {
             return fromKFutureOfIterable(KFuture.of(stage))
         }
+
+        @JvmStatic
+        fun <I> empty(): Deferred<I> {
+            return fromFlux(Flux.empty())
+        }
+
+        @JvmStatic
+        fun <I> completed(input: I): Deferred<I> {
+            return fromKFuture(KFuture.completed(input))
+        }
+
+        @JvmStatic
+        fun <I> errored(error: Throwable): Deferred<I> {
+            return fromKFuture(KFuture.failed(error))
+        }
+
+        @JvmStatic
+        fun <I> fromAttempt(attempt: Try<I>): Deferred<I> {
+            return fromKFuture(KFuture.fromAttempt(attempt))
+        }
     }
 
     fun <O> map(mapper: (I) -> O): Deferred<O>
@@ -74,6 +94,11 @@ interface Deferred<out I> : Iterable<I> {
 
     fun <O> map(scheduler: Scheduler, mapper: (I) -> O): Deferred<O>
 
+    fun <O> flatMap(mapper: (I) -> Deferred<O>): Deferred<O>
+
+    fun <O> flatMap(executor: Executor, mapper: (I) -> Deferred<O>): Deferred<O>
+
+    fun <O> flatMap(scheduler: Scheduler, mapper: (I) -> Deferred<O>): Deferred<O>
     fun <O> flatMapCompletionStage(mapper: (I) -> CompletionStage<out O>): Deferred<O>
 
     fun <O> flatMapCompletionStage(

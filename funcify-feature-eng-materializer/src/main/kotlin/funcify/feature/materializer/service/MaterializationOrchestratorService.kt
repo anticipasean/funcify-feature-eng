@@ -1,7 +1,7 @@
 package funcify.feature.materializer.service
 
 import funcify.feature.materializer.session.MaterializationSession
-import funcify.feature.tools.container.async.Async
+import funcify.feature.tools.container.deferred.Deferred
 
 /**
  *
@@ -12,5 +12,5 @@ interface MaterializationOrchestratorService {
 
     fun materializeDataElementsInSession(
         materializationSession: MaterializationSession
-    ): Async<MaterializationSession>
+    ): Deferred<MaterializationSession>
 }

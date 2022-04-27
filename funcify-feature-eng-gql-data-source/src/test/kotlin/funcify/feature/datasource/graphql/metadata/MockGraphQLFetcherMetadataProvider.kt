@@ -8,8 +8,8 @@ import com.fasterxml.jackson.module.kotlin.treeToValue
 import funcify.feature.datasource.graphql.GraphQLApiService
 import funcify.feature.datasource.graphql.error.GQLDataSourceErrorResponse
 import funcify.feature.datasource.graphql.error.GQLDataSourceException
-import funcify.feature.tools.container.async.Async
 import funcify.feature.tools.container.attempt.Try
+import funcify.feature.tools.container.deferred.Deferred
 import funcify.feature.tools.extensions.OptionExtensions.flatMapOptions
 import funcify.feature.tools.extensions.PersistentListExtensions.reduceToPersistentList
 import graphql.ExecutionResult
@@ -105,14 +105,14 @@ class MockGraphQLFetcherMetadataProvider(val objectMapper: ObjectMapper) :
                     query: String,
                     variables: Map<String, Any>,
                     operationName: String?
-                ): Async<JsonNode> {
-                    return Async.empty()
+                ): Deferred<JsonNode> {
+                    return Deferred.empty()
                 }
             }
     }
 
-    override fun provideMetadata(service: GraphQLApiService): Async<GraphQLSchema> {
-        return Async.fromAttempt(
+    override fun provideMetadata(service: GraphQLApiService): Deferred<GraphQLSchema> {
+        return Deferred.fromAttempt(
             mimicIntrospectionQueryAgainstGraphQLAPIServerOnParsedSchema().flatMap { jn ->
                 convertJsonNodeIntoGraphQLSchemaInstance(jn)
             }

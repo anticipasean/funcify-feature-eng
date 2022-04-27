@@ -9,7 +9,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode
 import funcify.feature.datasource.graphql.GraphQLApiService
 import funcify.feature.datasource.graphql.error.GQLDataSourceErrorResponse
 import funcify.feature.datasource.graphql.error.GQLDataSourceException
-import funcify.feature.tools.container.async.Async
+import funcify.feature.tools.container.deferred.Deferred
 import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
 import io.netty.handler.codec.http.HttpScheme
 import java.util.stream.Collectors
@@ -175,7 +175,7 @@ internal class DefaultGraphQLApiServiceFactory(
             query: String,
             variables: Map<String, Any>,
             operationName: String?
-        ): Async<JsonNode> {
+        ): Deferred<JsonNode> {
             logger.debug(
                 """execute_single_query: 
                     |[ query.length: ${query.length}, 
@@ -218,7 +218,7 @@ internal class DefaultGraphQLApiServiceFactory(
                             )
                         )
                     }
-            return Async.fromMono(
+            return Deferred.fromMono(
                 webClient
                     .post()
                     .contentType(MediaType.APPLICATION_JSON)

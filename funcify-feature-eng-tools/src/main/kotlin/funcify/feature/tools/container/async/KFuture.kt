@@ -82,6 +82,11 @@ interface KFuture<out T> {
         }
 
         @JvmStatic
+        fun <T> fromAttempt(attempt: Try<T>): KFuture<T> {
+            return attempt.fold({ t: T -> completed(t) }, { t: Throwable -> failed(t) })
+        }
+
+        @JvmStatic
         fun <T> combineArrayOf(vararg futures: KFuture<T>): KFuture<ImmutableList<T>> {
             val awaitAllAndReduceToList: () -> PersistentList<T> = { ->
                 val futuresList: PersistentList<CompletableFuture<out T>> =

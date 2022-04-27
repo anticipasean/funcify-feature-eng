@@ -1,6 +1,6 @@
 package funcify.feature.fetcher.metadata
 
-import funcify.feature.tools.container.async.Async
+import funcify.feature.tools.container.deferred.Deferred
 
 /**
  *
@@ -13,6 +13,6 @@ import funcify.feature.tools.container.async.Async
  */
 interface DataFetcherMetadataProvider<S, MD> {
 
-    fun provideMetadata(service: S): Async<MD>
+    fun provideMetadata(service: S): Deferred<MD>
 
 }

@@ -2,7 +2,7 @@ package funcify.feature.materializer.service
 
 import funcify.feature.materializer.request.RawGraphQLRequest
 import funcify.feature.materializer.response.SerializedGraphQLResponse
-import funcify.feature.tools.container.async.Async
+import funcify.feature.tools.container.deferred.Deferred
 
 /**
  *
@@ -11,5 +11,5 @@ import funcify.feature.tools.container.async.Async
  */
 interface GraphQLRequestExecutor {
 
-    fun executeSingleRequest(rawGraphQLRequest: RawGraphQLRequest): Async<SerializedGraphQLResponse>
+    fun executeSingleRequest(rawGraphQLRequest: RawGraphQLRequest): Deferred<SerializedGraphQLResponse>
 }

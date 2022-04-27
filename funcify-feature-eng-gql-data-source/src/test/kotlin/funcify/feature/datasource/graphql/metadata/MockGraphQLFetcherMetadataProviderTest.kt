@@ -20,7 +20,7 @@ internal class MockGraphQLFetcherMetadataProviderTest {
     fun provideMockMetadataTest() {
         MockGraphQLFetcherMetadataProvider(objectMapper)
             .provideMetadata(fakeService)
-            .blockFirst()
+            .blockForFirst()
             .fold(
                 { gqlSchema: GraphQLSchema ->
                     Assertions.assertEquals(1, gqlSchema.queryType.definition.fieldDefinitions.size)

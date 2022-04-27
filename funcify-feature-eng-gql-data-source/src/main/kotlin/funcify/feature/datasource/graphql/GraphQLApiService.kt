@@ -1,7 +1,7 @@
 package funcify.feature.datasource.graphql
 
 import com.fasterxml.jackson.databind.JsonNode
-import funcify.feature.tools.container.async.Async
+import funcify.feature.tools.container.deferred.Deferred
 import graphql.introspection.IntrospectionQuery
 
 /**
@@ -28,7 +28,7 @@ interface GraphQLApiService {
         query: String,
         variables: Map<String, Any> = mapOf(),
         operationName: String? = null
-    ): Async<JsonNode>
+    ): Deferred<JsonNode>
 
     interface Builder {
 

@@ -43,6 +43,7 @@ internal class DefaultGraphQLApiDataSourceFactory(
                         graphQLMetadataReader.readSourceMetamodelFromMetadata(gqlSchema)
                 )
             }
-            .blockFirstOrElseThrow()
+            .blockForFirst()
+            .orElseThrow()
     }
 }

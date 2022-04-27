@@ -13,13 +13,13 @@ import funcify.feature.tools.container.deferred.container.DeferredContainerFacto
 import funcify.feature.tools.container.deferred.source.DeferredSourceContextFactory
 import funcify.feature.tools.container.deferred.template.DeferredTemplate
 import funcify.feature.tools.container.deferred.template.FluxDeferredTemplate
-import reactor.core.publisher.Flux
-import reactor.core.publisher.Mono
-import reactor.core.scheduler.Scheduler
 import java.util.*
 import java.util.concurrent.CompletionStage
 import java.util.concurrent.Executor
 import java.util.stream.Stream
+import reactor.core.publisher.Flux
+import reactor.core.publisher.Mono
+import reactor.core.scheduler.Scheduler
 
 /**
  * @param SWT: Source Container Witness Type
@@ -30,6 +30,21 @@ internal interface DeferredDesign<SWT, I> : Deferred<I> {
     val template: DeferredTemplate<SWT>
     override fun <O> map(mapper: (I) -> O): Deferred<O> {
         return MapDesign<SWT, I, O>(template = template, currentDesign = this, mapper = mapper)
+    }
+
+    override fun <O> flatMap(mapper: (I) -> Deferred<O>): Deferred<O> {
+        val updatedMapper: (I) -> Flux<out O> = { i: I -> mapper.invoke(i).toFlux() }
+        return flatMapFlux(mapper = updatedMapper)
+    }
+
+    override fun <O> flatMap(executor: Executor, mapper: (I) -> Deferred<O>): Deferred<O> {
+        val updatedMapper: (I) -> Flux<out O> = { i: I -> mapper.invoke(i).toFlux() }
+        return flatMapFlux(executor = executor, mapper = updatedMapper)
+    }
+
+    override fun <O> flatMap(scheduler: Scheduler, mapper: (I) -> Deferred<O>): Deferred<O> {
+        val updatedMapper: (I) -> Flux<out O> = { i: I -> mapper.invoke(i).toFlux() }
+        return flatMapFlux(scheduler = scheduler, mapper = updatedMapper)
     }
 
     override fun <O> flatMapCompletionStage(mapper: (I) -> CompletionStage<out O>): Deferred<O> {

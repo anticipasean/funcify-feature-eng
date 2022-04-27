@@ -8,8 +8,8 @@ import com.fasterxml.jackson.module.kotlin.treeToValue
 import funcify.feature.datasource.graphql.GraphQLApiService
 import funcify.feature.datasource.graphql.error.GQLDataSourceErrorResponse
 import funcify.feature.datasource.graphql.error.GQLDataSourceException
-import funcify.feature.tools.container.async.Async
 import funcify.feature.tools.container.attempt.Try
+import funcify.feature.tools.container.deferred.Deferred
 import funcify.feature.tools.extensions.OptionExtensions.flatMapOptions
 import funcify.feature.tools.extensions.PersistentListExtensions.reduceToPersistentList
 import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
@@ -36,7 +36,7 @@ internal class DefaultGraphQLFetcherMetadataProvider(private val objectMapper: O
             LoggerFactory.getLogger(DefaultGraphQLFetcherMetadataProvider::class.java)
     }
 
-    override fun provideMetadata(service: GraphQLApiService): Async<GraphQLSchema> {
+    override fun provideMetadata(service: GraphQLApiService): Deferred<GraphQLSchema> {
         logger.debug(
             """provide_metadata: [ service: 
                 |{ name: ${service.serviceName}, 
@@ -45,10 +45,10 @@ internal class DefaultGraphQLFetcherMetadataProvider(private val objectMapper: O
                 |context_path: ${service.serviceContextPath} } ]
                 |""".flattenIntoOneLine()
         )
-        return Async.fromAttempt(
+        return Deferred.fromAttempt(
             service
                 .executeSingleQuery(service.metadataQuery)
-                .blockFirst()
+                .blockForFirst()
                 .flatMap { jn: JsonNode ->
                     when {
                         jn.has(GRAPHQL_RESPONSE_DATA_KEY) -> {
