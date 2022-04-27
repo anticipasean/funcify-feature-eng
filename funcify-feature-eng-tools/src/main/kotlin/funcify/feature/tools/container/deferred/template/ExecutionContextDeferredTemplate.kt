@@ -1,11 +1,12 @@
 package funcify.feature.tools.container.deferred.template
 
+import funcify.feature.tools.container.async.KFuture
 import funcify.feature.tools.container.deferred.container.DeferredContainer
+import java.util.concurrent.CompletionStage
+import java.util.concurrent.Executor
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.core.scheduler.Scheduler
-import java.util.concurrent.CompletionStage
-import java.util.concurrent.Executor
 
 internal interface ExecutionContextDeferredTemplate<WT> : DeferredTemplate<WT> {
 
@@ -13,6 +14,12 @@ internal interface ExecutionContextDeferredTemplate<WT> : DeferredTemplate<WT> {
         executor: Executor,
         mapper: (I) -> O,
         container: DeferredContainer<WT, I>,
+    ): DeferredContainer<WT, O>
+
+    fun <I, O> flatMapKFuture(
+        executor: Executor,
+        mapper: (I) -> KFuture<O>,
+        container: DeferredContainer<WT, I>
     ): DeferredContainer<WT, O>
 
     fun <I, O> flatMapCompletionStage(
@@ -37,6 +44,12 @@ internal interface ExecutionContextDeferredTemplate<WT> : DeferredTemplate<WT> {
         scheduler: Scheduler,
         mapper: (I) -> O,
         container: DeferredContainer<WT, I>,
+    ): DeferredContainer<WT, O>
+
+    fun <I, O> flatMapKFuture(
+        scheduler: Scheduler,
+        mapper: (I) -> KFuture<O>,
+        container: DeferredContainer<WT, I>
     ): DeferredContainer<WT, O>
 
     fun <I, O> flatMapCompletionStage(

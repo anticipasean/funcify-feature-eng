@@ -99,6 +99,13 @@ interface Deferred<out I> : Iterable<I> {
     fun <O> flatMap(executor: Executor, mapper: (I) -> Deferred<O>): Deferred<O>
 
     fun <O> flatMap(scheduler: Scheduler, mapper: (I) -> Deferred<O>): Deferred<O>
+
+    fun <O> flatMapKFuture(mapper: (I) -> KFuture<O>): Deferred<O>
+
+    fun <O> flatMapKFuture(executor: Executor, mapper: (I) -> KFuture<O>): Deferred<O>
+
+    fun <O> flatMapKFuture(scheduler: Scheduler, mapper: (I) -> KFuture<O>): Deferred<O>
+
     fun <O> flatMapCompletionStage(mapper: (I) -> CompletionStage<out O>): Deferred<O>
 
     fun <O> flatMapCompletionStage(
@@ -158,9 +165,9 @@ interface Deferred<out I> : Iterable<I> {
 
     fun blockForAll(): Try<List<I>>
 
-    fun toKFuture(): KFuture<I>
+    fun toKFuture(): KFuture<List<I>>
 
-    fun toMono(): Mono<out I>
+    fun toMono(): Mono<out List<I>>
 
     fun toFlux(): Flux<out I>
 }

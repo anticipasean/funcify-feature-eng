@@ -9,11 +9,12 @@ import funcify.feature.tools.container.deferred.container.DeferredContainerFacto
 import funcify.feature.tools.container.deferred.container.DeferredContainerFactory.MonoDeferredContainer.Companion.MonoDeferredContainerWT
 import funcify.feature.tools.container.deferred.container.DeferredContainerFactory.narrowed
 import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
+import java.util.concurrent.CompletionStage
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
-import java.util.concurrent.CompletionStage
 
 internal interface MonoDeferredTemplate : DeferredTemplate<MonoDeferredContainerWT> {
+
     override fun <I> fromKFuture(
         kFuture: KFuture<I>
     ): DeferredContainer<MonoDeferredContainerWT, I> {
@@ -37,7 +38,18 @@ internal interface MonoDeferredTemplate : DeferredTemplate<MonoDeferredContainer
         mapper: (I) -> O,
         container: DeferredContainer<MonoDeferredContainerWT, I>
     ): DeferredContainer<MonoDeferredContainerWT, O> {
-        return DeferredContainerFactory.MonoDeferredContainer(container.narrowed().mono.map(mapper))
+        return DeferredContainerFactory.MonoDeferredContainer(
+            container.narrowed().mono.mapNotNull(mapper)
+        )
+    }
+
+    override fun <I, O> flatMapKFuture(
+        mapper: (I) -> KFuture<O>,
+        container: DeferredContainer<MonoDeferredContainerWT, I>
+    ): DeferredContainer<MonoDeferredContainerWT, O> {
+        return DeferredContainerFactory.MonoDeferredContainer(
+            container.narrowed().mono.flatMap { i: I -> mapper.invoke(i).toMono() }
+        )
     }
 
     override fun <I, O> flatMapCompletionStage(
@@ -46,7 +58,7 @@ internal interface MonoDeferredTemplate : DeferredTemplate<MonoDeferredContainer
     ): DeferredContainer<MonoDeferredContainerWT, O> {
         return DeferredContainerFactory.MonoDeferredContainer(
             container.narrowed().mono.flatMap { i: I -> Mono.fromCompletionStage(mapper.invoke(i)) }
-                                                             )
+        )
     }
 
     override fun <I, O> flatMapMono(
@@ -55,7 +67,7 @@ internal interface MonoDeferredTemplate : DeferredTemplate<MonoDeferredContainer
     ): DeferredContainer<MonoDeferredContainerWT, O> {
         return DeferredContainerFactory.MonoDeferredContainer(
             container.narrowed().mono.flatMap(mapper)
-                                                             )
+        )
     }
 
     /** Should not be called since it could mean a loss of information */
@@ -83,7 +95,7 @@ internal interface MonoDeferredTemplate : DeferredTemplate<MonoDeferredContainer
                     Mono.error<I> { ifConditionUnmet.invoke(i) }
                 }
             }
-                                                             )
+        )
     }
 
     override fun <I> filter(
@@ -91,13 +103,13 @@ internal interface MonoDeferredTemplate : DeferredTemplate<MonoDeferredContainer
         container: DeferredContainer<MonoDeferredContainerWT, I>
     ): DeferredContainer<MonoDeferredContainerWT, Option<I>> {
         return DeferredContainerFactory.MonoDeferredContainer(
-            container.narrowed().mono.map { i: I ->
+            container.narrowed().mono.mapNotNull { i: I ->
                 if (condition.invoke(i)) {
                     i.toOption()
                 } else {
                     None
                 }
             }
-                                                             )
+        )
     }
 }

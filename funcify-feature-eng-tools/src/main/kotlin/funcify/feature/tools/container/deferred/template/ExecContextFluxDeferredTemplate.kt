@@ -1,15 +1,16 @@
 package funcify.feature.tools.container.deferred.template
 
+import funcify.feature.tools.container.async.KFuture
 import funcify.feature.tools.container.deferred.container.DeferredContainer
 import funcify.feature.tools.container.deferred.container.DeferredContainerFactory
 import funcify.feature.tools.container.deferred.container.DeferredContainerFactory.FluxDeferredContainer.Companion.FluxDeferredContainerWT
 import funcify.feature.tools.container.deferred.container.DeferredContainerFactory.narrowed
+import java.util.concurrent.CompletionStage
+import java.util.concurrent.Executor
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.core.scheduler.Scheduler
 import reactor.core.scheduler.Schedulers
-import java.util.concurrent.CompletionStage
-import java.util.concurrent.Executor
 
 internal interface ExecContextFluxDeferredTemplate :
     ExecutionContextDeferredTemplate<FluxDeferredContainerWT>, FluxDeferredTemplate {
@@ -20,8 +21,24 @@ internal interface ExecContextFluxDeferredTemplate :
         container: DeferredContainer<FluxDeferredContainerWT, I>
     ): DeferredContainer<FluxDeferredContainerWT, O> {
         return DeferredContainerFactory.FluxDeferredContainer(
-            container.narrowed().flux.publishOn(Schedulers.fromExecutor(executor)).map(mapper)
-                                                             )
+            container
+                .narrowed()
+                .flux
+                .publishOn(Schedulers.fromExecutor(executor))
+                .mapNotNull(mapper)
+        )
+    }
+
+    override fun <I, O> flatMapKFuture(
+        executor: Executor,
+        mapper: (I) -> KFuture<O>,
+        container: DeferredContainer<FluxDeferredContainerWT, I>
+    ): DeferredContainer<FluxDeferredContainerWT, O> {
+        return DeferredContainerFactory.FluxDeferredContainer(
+            container.narrowed().flux.publishOn(Schedulers.fromExecutor(executor)).flatMap { i: I ->
+                mapper.invoke(i).toMono()
+            }
+        )
     }
 
     override fun <I, O> flatMapCompletionStage(
@@ -33,7 +50,7 @@ internal interface ExecContextFluxDeferredTemplate :
             container.narrowed().flux.publishOn(Schedulers.fromExecutor(executor)).flatMap { i: I ->
                 Mono.fromCompletionStage(mapper.invoke(i)).flux()
             }
-                                                             )
+        )
     }
 
     override fun <I, O> flatMapMono(
@@ -43,7 +60,7 @@ internal interface ExecContextFluxDeferredTemplate :
     ): DeferredContainer<FluxDeferredContainerWT, O> {
         return DeferredContainerFactory.FluxDeferredContainer(
             container.narrowed().flux.publishOn(Schedulers.fromExecutor(executor)).flatMap(mapper)
-                                                             )
+        )
     }
 
     override fun <I, O> flatMapFlux(
@@ -53,7 +70,7 @@ internal interface ExecContextFluxDeferredTemplate :
     ): DeferredContainer<FluxDeferredContainerWT, O> {
         return DeferredContainerFactory.FluxDeferredContainer(
             container.narrowed().flux.publishOn(Schedulers.fromExecutor(executor)).flatMap(mapper)
-                                                             )
+        )
     }
 
     override fun <I, O> map(
@@ -62,8 +79,8 @@ internal interface ExecContextFluxDeferredTemplate :
         container: DeferredContainer<FluxDeferredContainerWT, I>
     ): DeferredContainer<FluxDeferredContainerWT, O> {
         return DeferredContainerFactory.FluxDeferredContainer(
-            container.narrowed().flux.publishOn(scheduler).map(mapper)
-                                                             )
+            container.narrowed().flux.publishOn(scheduler).mapNotNull(mapper)
+        )
     }
 
     override fun <I, O> flatMapCompletionStage(
@@ -75,7 +92,19 @@ internal interface ExecContextFluxDeferredTemplate :
             container.narrowed().flux.publishOn(scheduler).flatMap { i: I ->
                 Mono.fromCompletionStage(mapper.invoke(i))
             }
-                                                             )
+        )
+    }
+
+    override fun <I, O> flatMapKFuture(
+        scheduler: Scheduler,
+        mapper: (I) -> KFuture<O>,
+        container: DeferredContainer<FluxDeferredContainerWT, I>
+    ): DeferredContainer<FluxDeferredContainerWT, O> {
+        return DeferredContainerFactory.FluxDeferredContainer(
+            container.narrowed().flux.publishOn(scheduler).flatMap { i: I ->
+                mapper.invoke(i).toMono()
+            }
+        )
     }
 
     override fun <I, O> flatMapMono(
@@ -85,7 +114,7 @@ internal interface ExecContextFluxDeferredTemplate :
     ): DeferredContainer<FluxDeferredContainerWT, O> {
         return DeferredContainerFactory.FluxDeferredContainer(
             container.narrowed().flux.publishOn(scheduler).flatMap(mapper)
-                                                             )
+        )
     }
 
     override fun <I, O> flatMapFlux(
@@ -95,6 +124,6 @@ internal interface ExecContextFluxDeferredTemplate :
     ): DeferredContainer<FluxDeferredContainerWT, O> {
         return DeferredContainerFactory.FluxDeferredContainer(
             container.narrowed().flux.publishOn(scheduler).flatMap(mapper)
-                                                             )
+        )
     }
 }

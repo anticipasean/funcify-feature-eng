@@ -6,9 +6,9 @@ import arrow.core.Option
 import funcify.feature.tools.container.deferred.container.DeferredContainer
 import funcify.feature.tools.container.deferred.template.DeferredTemplate
 import funcify.feature.tools.container.deferred.template.ExecutionContextDeferredTemplate
-import reactor.core.scheduler.Scheduler
 import java.util.concurrent.CompletionStage
 import java.util.concurrent.Executor
+import reactor.core.scheduler.Scheduler
 
 internal class FlatMapCompletionStageDesign<SWT, I, O>(
     override val template: DeferredTemplate<SWT>,

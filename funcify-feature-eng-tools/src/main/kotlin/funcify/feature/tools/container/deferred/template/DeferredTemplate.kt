@@ -3,9 +3,9 @@ package funcify.feature.tools.container.deferred.template
 import arrow.core.Option
 import funcify.feature.tools.container.async.KFuture
 import funcify.feature.tools.container.deferred.container.DeferredContainer
+import java.util.concurrent.CompletionStage
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
-import java.util.concurrent.CompletionStage
 
 internal interface DeferredTemplate<WT> {
 
@@ -14,9 +14,15 @@ internal interface DeferredTemplate<WT> {
     fun <I> fromMono(mono: Mono<I>): DeferredContainer<WT, I>
 
     fun <I> fromFlux(flux: Flux<I>): DeferredContainer<WT, I>
+
     fun <I, O> map(
         mapper: (I) -> O,
         container: DeferredContainer<WT, I>,
+    ): DeferredContainer<WT, O>
+
+    fun <I, O> flatMapKFuture(
+        mapper: (I) -> KFuture<O>,
+        container: DeferredContainer<WT, I>
     ): DeferredContainer<WT, O>
 
     fun <I, O> flatMapCompletionStage(

@@ -15,7 +15,6 @@ import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.PersistentList
 import kotlinx.collections.immutable.persistentListOf
 import reactor.core.publisher.Mono
-import reactor.core.scheduler.Schedulers
 
 /**
  *
@@ -515,19 +514,19 @@ interface KFuture<out T> {
     }
 
     fun getWithin(amount: Long, timeunit: TimeUnit): Try<T> {
-        return Try.attempt({
+        return Try.attempt {
             fold { cs: CompletionStage<out T>, _: Option<Executor> ->
                 cs.toCompletableFuture().get(amount, timeunit)
             }
-        })
+        }
     }
 
     fun get(): Try<T> {
-        return Try.attempt({
+        return Try.attempt {
             fold { cs: CompletionStage<out T>, _: Option<Executor> ->
                 cs.toCompletableFuture().join()
             }
-        })
+        }
     }
 
     fun getOrElse(defaultValue: @UnsafeVariance T): T {
@@ -551,11 +550,8 @@ interface KFuture<out T> {
     }
 
     fun toMono(): Mono<out T> {
-        return fold { stage: CompletionStage<out T>, execOpt: Option<Executor> ->
-            execOpt.fold(
-                { Mono.fromCompletionStage(stage) },
-                { exec -> Mono.fromCompletionStage(stage).publishOn(Schedulers.fromExecutor(exec)) }
-            )
+        return fold { stage: CompletionStage<out T>, _: Option<Executor> ->
+            Mono.fromCompletionStage(stage)
         }
     }
 

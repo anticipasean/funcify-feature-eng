@@ -28,6 +28,7 @@ import reactor.core.scheduler.Scheduler
 internal interface DeferredDesign<SWT, I> : Deferred<I> {
 
     val template: DeferredTemplate<SWT>
+
     override fun <O> map(mapper: (I) -> O): Deferred<O> {
         return MapDesign<SWT, I, O>(template = template, currentDesign = this, mapper = mapper)
     }
@@ -45,6 +46,32 @@ internal interface DeferredDesign<SWT, I> : Deferred<I> {
     override fun <O> flatMap(scheduler: Scheduler, mapper: (I) -> Deferred<O>): Deferred<O> {
         val updatedMapper: (I) -> Flux<out O> = { i: I -> mapper.invoke(i).toFlux() }
         return flatMapFlux(scheduler = scheduler, mapper = updatedMapper)
+    }
+
+    override fun <O> flatMapKFuture(mapper: (I) -> KFuture<O>): Deferred<O> {
+        return FlatMapKFutureDesign<SWT, I, O>(
+            template = template,
+            currentDesign = this,
+            mapper = mapper
+        )
+    }
+
+    override fun <O> flatMapKFuture(executor: Executor, mapper: (I) -> KFuture<O>): Deferred<O> {
+        return FlatMapKFutureDesign<SWT, I, O>(
+            template = template,
+            currentDesign = this,
+            mapper = mapper,
+            execOpt = executor.left().toOption()
+        )
+    }
+
+    override fun <O> flatMapKFuture(scheduler: Scheduler, mapper: (I) -> KFuture<O>): Deferred<O> {
+        return FlatMapKFutureDesign<SWT, I, O>(
+            template = template,
+            currentDesign = this,
+            mapper = mapper,
+            execOpt = scheduler.right().toOption()
+        )
     }
 
     override fun <O> flatMapCompletionStage(mapper: (I) -> CompletionStage<out O>): Deferred<O> {
@@ -386,16 +413,16 @@ internal interface DeferredDesign<SWT, I> : Deferred<I> {
         }
     }
 
-    override fun toKFuture(): KFuture<I> {
+    override fun toKFuture(): KFuture<List<I>> {
         return when (val container: DeferredContainer<SWT, I> = this.fold(template)) {
             is DeferredContainerFactory.KFutureDeferredContainer -> {
-                container.kFuture
+                container.kFuture.map { i: I -> listOf(i) }
             }
             is DeferredContainerFactory.MonoDeferredContainer -> {
-                KFuture.of(container.mono.toFuture())
+                KFuture.of(container.mono.mapNotNull { i: I -> listOf(i) }.toFuture())
             }
             is DeferredContainerFactory.FluxDeferredContainer -> {
-                KFuture.of(container.flux.next().toFuture())
+                KFuture.of(container.flux.collectList().toFuture())
             }
             else -> {
                 throw UnsupportedOperationException(
@@ -405,16 +432,16 @@ internal interface DeferredDesign<SWT, I> : Deferred<I> {
         }
     }
 
-    override fun toMono(): Mono<out I> {
+    override fun toMono(): Mono<out List<I>> {
         return when (val container: DeferredContainer<SWT, I> = this.fold(template)) {
             is DeferredContainerFactory.KFutureDeferredContainer -> {
-                container.kFuture.toMono()
+                container.kFuture.map { i: I -> listOf(i) }.toMono()
             }
             is DeferredContainerFactory.MonoDeferredContainer -> {
-                container.mono
+                container.mono.mapNotNull { i: I -> listOf(i) }
             }
             is DeferredContainerFactory.FluxDeferredContainer -> {
-                container.flux.next()
+                container.flux.collectList()
             }
             else -> {
                 throw UnsupportedOperationException(

@@ -7,9 +7,9 @@ import funcify.feature.tools.container.deferred.container.DeferredContainerFacto
 import funcify.feature.tools.container.deferred.container.DeferredContainerFactory.KFutureDeferredContainer.Companion.KFutureDeferredContainerWT
 import funcify.feature.tools.container.deferred.container.DeferredContainerFactory.narrowed
 import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
+import java.util.concurrent.CompletionStage
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
-import java.util.concurrent.CompletionStage
 
 internal interface KFutureDeferredTemplate : DeferredTemplate<KFutureDeferredContainerWT> {
 
@@ -41,7 +41,16 @@ internal interface KFutureDeferredTemplate : DeferredTemplate<KFutureDeferredCon
     ): DeferredContainer<KFutureDeferredContainerWT, O> {
         return DeferredContainerFactory.KFutureDeferredContainer(
             container.narrowed().kFuture.map(mapper)
-                                                                )
+        )
+    }
+
+    override fun <I, O> flatMapKFuture(
+        mapper: (I) -> KFuture<O>,
+        container: DeferredContainer<KFutureDeferredContainerWT, I>
+    ): DeferredContainer<KFutureDeferredContainerWT, O> {
+        return DeferredContainerFactory.KFutureDeferredContainer(
+            container.narrowed().kFuture.flatMap(mapper)
+        )
     }
 
     override fun <I, O> flatMapCompletionStage(
@@ -50,7 +59,7 @@ internal interface KFutureDeferredTemplate : DeferredTemplate<KFutureDeferredCon
     ): DeferredContainer<KFutureDeferredContainerWT, O> {
         return DeferredContainerFactory.KFutureDeferredContainer(
             container.narrowed().kFuture.flatMapCompletionStage(mapper)
-                                                                )
+        )
     }
 
     override fun <I, O> flatMapMono(
@@ -59,7 +68,7 @@ internal interface KFutureDeferredTemplate : DeferredTemplate<KFutureDeferredCon
     ): DeferredContainer<KFutureDeferredContainerWT, O> {
         return DeferredContainerFactory.KFutureDeferredContainer(
             container.narrowed().kFuture.flatMap { i: I -> KFuture.of(mapper.invoke(i).toFuture()) }
-                                                                )
+        )
     }
 
     /** Should not be called as there could be a loss of information */
@@ -81,7 +90,7 @@ internal interface KFutureDeferredTemplate : DeferredTemplate<KFutureDeferredCon
     ): DeferredContainer<KFutureDeferredContainerWT, I> {
         return DeferredContainerFactory.KFutureDeferredContainer(
             container.narrowed().kFuture.filter(condition, ifConditionUnmet)
-                                                                )
+        )
     }
 
     override fun <I> filter(
@@ -90,6 +99,6 @@ internal interface KFutureDeferredTemplate : DeferredTemplate<KFutureDeferredCon
     ): DeferredContainer<KFutureDeferredContainerWT, Option<I>> {
         return DeferredContainerFactory.KFutureDeferredContainer(
             container.narrowed().kFuture.filter(condition)
-                                                                )
+        )
     }
 }
