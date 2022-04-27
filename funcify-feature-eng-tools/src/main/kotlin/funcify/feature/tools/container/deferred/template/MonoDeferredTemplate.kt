@@ -112,4 +112,48 @@ internal interface MonoDeferredTemplate : DeferredTemplate<MonoDeferredContainer
             }
         )
     }
+
+    override fun <I, I1, O> zip1(
+        other: DeferredContainer<MonoDeferredContainerWT, I1>,
+        combiner: (I, I1) -> O,
+        container: DeferredContainer<MonoDeferredContainerWT, I>
+    ): DeferredContainer<MonoDeferredContainerWT, O> {
+        return DeferredContainerFactory.MonoDeferredContainer(
+            container.narrowed().mono.zipWith(other.narrowed().mono, combiner)
+        )
+    }
+
+    override fun <I, I1, I2, O> zip2(
+        other1: DeferredContainer<MonoDeferredContainerWT, I1>,
+        other2: DeferredContainer<MonoDeferredContainerWT, I2>,
+        combiner: (I, I1, I2) -> O,
+        container: DeferredContainer<MonoDeferredContainerWT, I>
+    ): DeferredContainer<MonoDeferredContainerWT, O> {
+        return DeferredContainerFactory.MonoDeferredContainer(
+            container
+                .narrowed()
+                .mono
+                .zipWith(other1.narrowed().mono)
+                .zipWith(other2.narrowed().mono)
+                .map { t -> combiner.invoke(t.t1.t1, t.t1.t2, t.t2) }
+        )
+    }
+
+    override fun <I, I1, I2, I3, O> zip3(
+        other1: DeferredContainer<MonoDeferredContainerWT, I1>,
+        other2: DeferredContainer<MonoDeferredContainerWT, I2>,
+        other3: DeferredContainer<MonoDeferredContainerWT, I3>,
+        combiner: (I, I1, I2, I3) -> O,
+        container: DeferredContainer<MonoDeferredContainerWT, I>
+    ): DeferredContainer<MonoDeferredContainerWT, O> {
+        return DeferredContainerFactory.MonoDeferredContainer(
+            container
+                .narrowed()
+                .mono
+                .zipWith(other1.narrowed().mono)
+                .zipWith(other2.narrowed().mono)
+                .zipWith(other3.narrowed().mono)
+                .map { t -> combiner.invoke(t.t1.t1.t1, t.t1.t1.t2, t.t1.t2, t.t2) }
+        )
+    }
 }

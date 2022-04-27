@@ -41,7 +41,7 @@ open class SpringGraphQLRequestExecutor(
                                |session was not updated such that 
                                |a serialized_graphql_response was added to it
                                """.flattenIntoOneLine()
-                        Deferred.errored(IllegalStateException(message))
+                        Deferred.failed(IllegalStateException(message))
                     },
                     { sr -> Deferred.completed(sr) }
                 )

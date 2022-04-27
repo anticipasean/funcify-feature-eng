@@ -103,4 +103,48 @@ internal interface FluxDeferredTemplate : DeferredTemplate<FluxDeferredContainer
             }
         )
     }
+
+    override fun <I, I1, O> zip1(
+        other: DeferredContainer<FluxDeferredContainerWT, I1>,
+        combiner: (I, I1) -> O,
+        container: DeferredContainer<FluxDeferredContainerWT, I>
+    ): DeferredContainer<FluxDeferredContainerWT, O> {
+        return DeferredContainerFactory.FluxDeferredContainer(
+            container.narrowed().flux.zipWith(other.narrowed().flux, combiner)
+        )
+    }
+
+    override fun <I, I1, I2, O> zip2(
+        other1: DeferredContainer<FluxDeferredContainerWT, I1>,
+        other2: DeferredContainer<FluxDeferredContainerWT, I2>,
+        combiner: (I, I1, I2) -> O,
+        container: DeferredContainer<FluxDeferredContainerWT, I>
+    ): DeferredContainer<FluxDeferredContainerWT, O> {
+        return DeferredContainerFactory.FluxDeferredContainer(
+            container
+                .narrowed()
+                .flux
+                .zipWith(other1.narrowed().flux)
+                .zipWith(other2.narrowed().flux)
+                .map { t -> combiner.invoke(t.t1.t1, t.t1.t2, t.t2) }
+        )
+    }
+
+    override fun <I, I1, I2, I3, O> zip3(
+        other1: DeferredContainer<FluxDeferredContainerWT, I1>,
+        other2: DeferredContainer<FluxDeferredContainerWT, I2>,
+        other3: DeferredContainer<FluxDeferredContainerWT, I3>,
+        combiner: (I, I1, I2, I3) -> O,
+        container: DeferredContainer<FluxDeferredContainerWT, I>
+    ): DeferredContainer<FluxDeferredContainerWT, O> {
+        return DeferredContainerFactory.FluxDeferredContainer(
+            container
+                .narrowed()
+                .flux
+                .zipWith(other1.narrowed().flux)
+                .zipWith(other2.narrowed().flux)
+                .zipWith(other3.narrowed().flux)
+                .map { t -> combiner.invoke(t.t1.t1.t1, t.t1.t1.t2, t.t1.t2, t.t2) }
+        )
+    }
 }

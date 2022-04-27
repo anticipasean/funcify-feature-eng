@@ -101,4 +101,48 @@ internal interface KFutureDeferredTemplate : DeferredTemplate<KFutureDeferredCon
             container.narrowed().kFuture.filter(condition)
         )
     }
+
+    override fun <I, I1, O> zip1(
+        other: DeferredContainer<KFutureDeferredContainerWT, I1>,
+        combiner: (I, I1) -> O,
+        container: DeferredContainer<KFutureDeferredContainerWT, I>
+    ): DeferredContainer<KFutureDeferredContainerWT, O> {
+        return DeferredContainerFactory.KFutureDeferredContainer(
+            container.narrowed().kFuture.zip(other.narrowed().kFuture, combiner)
+        )
+    }
+
+    override fun <I, I1, I2, O> zip2(
+        other1: DeferredContainer<KFutureDeferredContainerWT, I1>,
+        other2: DeferredContainer<KFutureDeferredContainerWT, I2>,
+        combiner: (I, I1, I2) -> O,
+        container: DeferredContainer<KFutureDeferredContainerWT, I>
+    ): DeferredContainer<KFutureDeferredContainerWT, O> {
+        return DeferredContainerFactory.KFutureDeferredContainer(
+            container
+                .narrowed()
+                .kFuture
+                .zip2(other1.narrowed().kFuture, other2.narrowed().kFuture, combiner)
+        )
+    }
+
+    override fun <I, I1, I2, I3, O> zip3(
+        other1: DeferredContainer<KFutureDeferredContainerWT, I1>,
+        other2: DeferredContainer<KFutureDeferredContainerWT, I2>,
+        other3: DeferredContainer<KFutureDeferredContainerWT, I3>,
+        combiner: (I, I1, I2, I3) -> O,
+        container: DeferredContainer<KFutureDeferredContainerWT, I>
+    ): DeferredContainer<KFutureDeferredContainerWT, O> {
+        return DeferredContainerFactory.KFutureDeferredContainer(
+            container
+                .narrowed()
+                .kFuture
+                .zip3(
+                    other1.narrowed().kFuture,
+                    other2.narrowed().kFuture,
+                    other3.narrowed().kFuture,
+                    combiner
+                )
+        )
+    }
 }

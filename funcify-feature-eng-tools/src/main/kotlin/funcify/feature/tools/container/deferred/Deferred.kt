@@ -78,7 +78,7 @@ interface Deferred<out I> : Iterable<I> {
         }
 
         @JvmStatic
-        fun <I> errored(error: Throwable): Deferred<I> {
+        fun <I> failed(error: Throwable): Deferred<I> {
             return fromKFuture(KFuture.failed(error))
         }
 
@@ -130,6 +130,23 @@ interface Deferred<out I> : Iterable<I> {
 
     fun <O> flatMapFlux(scheduler: Scheduler, mapper: (I) -> Flux<out O>): Deferred<O>
 
+    fun <O> flatMapIterable(mapper: (I) -> Iterable<O>): Deferred<O>
+
+    fun <I1, O> zip(other: Deferred<I1>, combiner: (I, I1) -> O): Deferred<O>
+
+    fun <I1, I2, O> zip2(
+        other1: Deferred<I1>,
+        other2: Deferred<I2>,
+        combiner: (I, I1, I2) -> O
+    ): Deferred<O>
+
+    fun <I1, I2, I3, O> zip3(
+        other1: Deferred<I1>,
+        other2: Deferred<I2>,
+        other3: Deferred<I3>,
+        combiner: (I, I1, I2, I3) -> O
+    ): Deferred<O>
+
     fun filter(condition: (I) -> Boolean, ifConditionNotMet: (I) -> Throwable): Deferred<I>
 
     fun filter(condition: (I) -> Boolean): Deferred<Option<I>>
@@ -140,6 +157,10 @@ interface Deferred<out I> : Iterable<I> {
 
     fun filterNot(condition: (I) -> Boolean, ifConditionMet: (I) -> Throwable): Deferred<I> {
         return filter(condition.negate<I>(), ifConditionMet)
+    }
+
+    fun <O> ap(other: Deferred<(I) -> O>): Deferred<O> {
+        return flatMap { i: I -> other.map { func: (I) -> O -> func.invoke(i) } }
     }
 
     /** Blocking method */

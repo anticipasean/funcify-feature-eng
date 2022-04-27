@@ -48,6 +48,10 @@ internal interface DeferredDesign<SWT, I> : Deferred<I> {
         return flatMapFlux(scheduler = scheduler, mapper = updatedMapper)
     }
 
+    override fun <O> flatMapIterable(mapper: (I) -> Iterable<O>): Deferred<O> {
+        return flatMapFlux { i: I -> Flux.fromIterable(mapper.invoke(i)) }
+    }
+
     override fun <O> flatMapKFuture(mapper: (I) -> KFuture<O>): Deferred<O> {
         return FlatMapKFutureDesign<SWT, I, O>(
             template = template,
@@ -230,6 +234,31 @@ internal interface DeferredDesign<SWT, I> : Deferred<I> {
                 mapper = mapper,
                 execOpt = scheduler.right().toOption()
             )
+        }
+    }
+
+    override fun <I1, O> zip(other: Deferred<I1>, combiner: (I, I1) -> O): Deferred<O> {
+        return flatMap { i: I -> other.map { i1: I1 -> combiner.invoke(i, i1) } }
+    }
+
+    override fun <I1, I2, O> zip2(
+        other1: Deferred<I1>,
+        other2: Deferred<I2>,
+        combiner: (I, I1, I2) -> O
+    ): Deferred<O> {
+        return flatMap { i: I ->
+            other1.zip(other2) { i1: I1, i2: I2 -> combiner.invoke(i, i1, i2) }
+        }
+    }
+
+    override fun <I1, I2, I3, O> zip3(
+        other1: Deferred<I1>,
+        other2: Deferred<I2>,
+        other3: Deferred<I3>,
+        combiner: (I, I1, I2, I3) -> O
+    ): Deferred<O> {
+        return flatMap { i: I ->
+            other1.zip2(other2, other3) { i1: I1, i2: I2, i3: I3 -> combiner.invoke(i, i1, i2, i3) }
         }
     }
 

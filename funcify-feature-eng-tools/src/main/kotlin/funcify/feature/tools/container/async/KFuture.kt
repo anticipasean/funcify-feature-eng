@@ -490,6 +490,85 @@ interface KFuture<out T> {
         }
     }
 
+    fun <U, V, W, X> zip3(
+        other1: KFuture<U>,
+        other2: KFuture<V>,
+        other3: KFuture<W>,
+        zipper: (T, U, V, W) -> X
+    ): KFuture<X> {
+        return fold { thisStage: CompletionStage<out T>, executorOpt1: Option<Executor> ->
+            other1.fold { otherStage1: CompletionStage<out U>, executorOpt2: Option<Executor> ->
+                other2.fold { otherStage2: CompletionStage<out V>, executorOpt3: Option<Executor> ->
+                    other3.fold {
+                        otherStage3: CompletionStage<out W>,
+                        executorOpt4: Option<Executor> ->
+                        val awaitAllAndZipFunction: () -> X = { ->
+                            val thisFuture = thisStage.toCompletableFuture()
+                            val otherFuture1 = otherStage1.toCompletableFuture()
+                            val otherFuture2 = otherStage2.toCompletableFuture()
+                            val otherFuture3 = otherStage3.toCompletableFuture()
+                            val cfs: CompletableFuture<Void> =
+                                CompletableFuture.allOf(
+                                    thisFuture,
+                                    otherFuture1,
+                                    otherFuture2,
+                                    otherFuture3
+                                )
+                            cfs.join()
+                            zipper.invoke(
+                                thisFuture.join(),
+                                otherFuture1.join(),
+                                otherFuture2.join(),
+                                otherFuture3.join()
+                            )
+                        }
+                        when {
+                            executorOpt1.isDefined() -> {
+                                of(
+                                    CompletableFuture.supplyAsync(
+                                        awaitAllAndZipFunction,
+                                        executorOpt1.orNull()!!
+                                    ),
+                                    executorOpt1.orNull()!!
+                                )
+                            }
+                            executorOpt2.isDefined() -> {
+                                of(
+                                    CompletableFuture.supplyAsync(
+                                        awaitAllAndZipFunction,
+                                        executorOpt2.orNull()!!
+                                    ),
+                                    executorOpt2.orNull()!!
+                                )
+                            }
+                            executorOpt3.isDefined() -> {
+                                of(
+                                    CompletableFuture.supplyAsync(
+                                        awaitAllAndZipFunction,
+                                        executorOpt3.orNull()!!
+                                    ),
+                                    executorOpt3.orNull()!!
+                                )
+                            }
+                            executorOpt4.isDefined() -> {
+                                of(
+                                    CompletableFuture.supplyAsync(
+                                        awaitAllAndZipFunction,
+                                        executorOpt4.orNull()!!
+                                    ),
+                                    executorOpt4.orNull()!!
+                                )
+                            }
+                            else -> {
+                                of(CompletableFuture.supplyAsync(awaitAllAndZipFunction))
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     fun onComplete(action: (T?, Throwable?) -> Unit): KFuture<T> {
         return fold { completionStage: CompletionStage<out T>, executorOption: Option<Executor> ->
             executorOption.fold(
