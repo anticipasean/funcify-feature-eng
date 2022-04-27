@@ -1,11 +1,13 @@
-package funcify.feature.tools.container.deferred
+package funcify.feature.tools.container.deferred.template
 
 import arrow.core.None
 import arrow.core.Option
 import arrow.core.toOption
 import funcify.feature.tools.container.async.KFuture
-import funcify.feature.tools.container.deferred.DeferredContainerFactory.FluxDeferredContainer.Companion.FluxDeferredContainerWT
-import funcify.feature.tools.container.deferred.DeferredContainerFactory.narrowed
+import funcify.feature.tools.container.deferred.container.DeferredContainer
+import funcify.feature.tools.container.deferred.container.DeferredContainerFactory
+import funcify.feature.tools.container.deferred.container.DeferredContainerFactory.FluxDeferredContainer.Companion.FluxDeferredContainerWT
+import funcify.feature.tools.container.deferred.container.DeferredContainerFactory.narrowed
 import java.util.concurrent.CompletionStage
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
@@ -38,7 +40,7 @@ internal interface FluxDeferredTemplate : DeferredTemplate<FluxDeferredContainer
     ): DeferredContainer<FluxDeferredContainerWT, O> {
         return DeferredContainerFactory.FluxDeferredContainer(
             container.narrowed().flux.flatMap { i: I -> Mono.fromCompletionStage(mapper.invoke(i)) }
-        )
+                                                             )
     }
 
     override fun <I, O> flatMapMono(
@@ -47,7 +49,7 @@ internal interface FluxDeferredTemplate : DeferredTemplate<FluxDeferredContainer
     ): DeferredContainer<FluxDeferredContainerWT, O> {
         return DeferredContainerFactory.FluxDeferredContainer(
             container.narrowed().flux.flatMap(mapper)
-        )
+                                                             )
     }
 
     override fun <I, O> flatMapFlux(
@@ -56,7 +58,7 @@ internal interface FluxDeferredTemplate : DeferredTemplate<FluxDeferredContainer
     ): DeferredContainer<FluxDeferredContainerWT, O> {
         return DeferredContainerFactory.FluxDeferredContainer(
             container.narrowed().flux.flatMap(mapper)
-        )
+                                                             )
     }
 
     override fun <I> filter(
@@ -71,7 +73,7 @@ internal interface FluxDeferredTemplate : DeferredTemplate<FluxDeferredContainer
                     None
                 }
             }
-        )
+                                                             )
     }
 
     override fun <I> filter(
@@ -87,6 +89,6 @@ internal interface FluxDeferredTemplate : DeferredTemplate<FluxDeferredContainer
                     Flux.error<I> { ifConditionUnmet.invoke(i) }
                 }
             }
-        )
+                                                             )
     }
 }

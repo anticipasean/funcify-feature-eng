@@ -1,19 +1,15 @@
-package funcify.feature.tools.container.deferred
+package funcify.feature.tools.container.deferred.container
 
-import arrow.core.Option
-import arrow.core.none
 import funcify.feature.tools.container.async.KFuture
-import funcify.feature.tools.container.deferred.DeferredContainerFactory.FluxDeferredContainer.Companion.FluxDeferredContainerWT
-import funcify.feature.tools.container.deferred.DeferredContainerFactory.KFutureDeferredContainer.Companion.KFutureDeferredContainerWT
-import funcify.feature.tools.container.deferred.DeferredContainerFactory.MonoDeferredContainer.Companion.MonoDeferredContainerWT
+import funcify.feature.tools.container.deferred.container.DeferredContainerFactory.FluxDeferredContainer.Companion.FluxDeferredContainerWT
+import funcify.feature.tools.container.deferred.container.DeferredContainerFactory.KFutureDeferredContainer.Companion.KFutureDeferredContainerWT
+import funcify.feature.tools.container.deferred.container.DeferredContainerFactory.MonoDeferredContainer.Companion.MonoDeferredContainerWT
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
-import reactor.core.scheduler.Scheduler
 
 internal object DeferredContainerFactory {
 
-    fun <V> DeferredContainer<KFutureDeferredContainerWT, V>.narrowed():
-        KFutureDeferredContainer<V> {
+    fun <V> DeferredContainer<KFutureDeferredContainerWT, V>.narrowed(): KFutureDeferredContainer<V> {
         return KFutureDeferredContainer.narrow(this)
     }
 
@@ -24,8 +20,7 @@ internal object DeferredContainerFactory {
         return FluxDeferredContainer.narrow(this)
     }
 
-    internal class KFutureDeferredContainer<out V>(val kFuture: KFuture<V>) :
-        DeferredContainer<KFutureDeferredContainerWT, V> {
+    internal class KFutureDeferredContainer<out V>(val kFuture: KFuture<V>) : DeferredContainer<KFutureDeferredContainerWT, V> {
         companion object {
             enum class KFutureDeferredContainerWT
 
@@ -44,10 +39,7 @@ internal object DeferredContainerFactory {
         }
     }
 
-    internal class MonoDeferredContainer<out V>(
-        val mono: Mono<out V>,
-        val schedulerOpt: Option<Scheduler> = none<Scheduler>()
-    ) : DeferredContainer<MonoDeferredContainerWT, V> {
+    internal class MonoDeferredContainer<out V>(val mono: Mono<out V>) : DeferredContainer<MonoDeferredContainerWT, V> {
         companion object {
             enum class MonoDeferredContainerWT
 
@@ -67,10 +59,7 @@ internal object DeferredContainerFactory {
         }
     }
 
-    internal class FluxDeferredContainer<out V>(
-        val flux: Flux<out V>,
-        val schedulerOpt: Option<Scheduler> = none<Scheduler>()
-    ) : DeferredContainer<FluxDeferredContainerWT, V> {
+    internal class FluxDeferredContainer<out V>(val flux: Flux<out V>) : DeferredContainer<FluxDeferredContainerWT, V> {
         companion object {
 
             enum class FluxDeferredContainerWT

@@ -1,15 +1,17 @@
-package funcify.feature.tools.container.deferred
+package funcify.feature.tools.container.deferred.template
 
 import arrow.core.None
 import arrow.core.Option
 import arrow.core.toOption
 import funcify.feature.tools.container.async.KFuture
-import funcify.feature.tools.container.deferred.DeferredContainerFactory.MonoDeferredContainer.Companion.MonoDeferredContainerWT
-import funcify.feature.tools.container.deferred.DeferredContainerFactory.narrowed
+import funcify.feature.tools.container.deferred.container.DeferredContainer
+import funcify.feature.tools.container.deferred.container.DeferredContainerFactory
+import funcify.feature.tools.container.deferred.container.DeferredContainerFactory.MonoDeferredContainer.Companion.MonoDeferredContainerWT
+import funcify.feature.tools.container.deferred.container.DeferredContainerFactory.narrowed
 import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
-import java.util.concurrent.CompletionStage
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
+import java.util.concurrent.CompletionStage
 
 internal interface MonoDeferredTemplate : DeferredTemplate<MonoDeferredContainerWT> {
     override fun <I> fromKFuture(
@@ -44,7 +46,7 @@ internal interface MonoDeferredTemplate : DeferredTemplate<MonoDeferredContainer
     ): DeferredContainer<MonoDeferredContainerWT, O> {
         return DeferredContainerFactory.MonoDeferredContainer(
             container.narrowed().mono.flatMap { i: I -> Mono.fromCompletionStage(mapper.invoke(i)) }
-        )
+                                                             )
     }
 
     override fun <I, O> flatMapMono(
@@ -53,7 +55,7 @@ internal interface MonoDeferredTemplate : DeferredTemplate<MonoDeferredContainer
     ): DeferredContainer<MonoDeferredContainerWT, O> {
         return DeferredContainerFactory.MonoDeferredContainer(
             container.narrowed().mono.flatMap(mapper)
-        )
+                                                             )
     }
 
     /** Should not be called since it could mean a loss of information */
@@ -81,7 +83,7 @@ internal interface MonoDeferredTemplate : DeferredTemplate<MonoDeferredContainer
                     Mono.error<I> { ifConditionUnmet.invoke(i) }
                 }
             }
-        )
+                                                             )
     }
 
     override fun <I> filter(
@@ -96,6 +98,6 @@ internal interface MonoDeferredTemplate : DeferredTemplate<MonoDeferredContainer
                     None
                 }
             }
-        )
+                                                             )
     }
 }

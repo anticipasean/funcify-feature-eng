@@ -1,6 +1,8 @@
-package funcify.feature.tools.container.deferred
+package funcify.feature.tools.container.deferred.design
 
 import arrow.core.Option
+import funcify.feature.tools.container.deferred.container.DeferredContainer
+import funcify.feature.tools.container.deferred.template.DeferredTemplate
 
 internal class FilterOptionDesign<SWT, I>(
     override val template: DeferredTemplate<SWT>,

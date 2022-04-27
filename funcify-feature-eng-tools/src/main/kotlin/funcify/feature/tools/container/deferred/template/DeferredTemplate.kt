@@ -1,10 +1,11 @@
-package funcify.feature.tools.container.deferred
+package funcify.feature.tools.container.deferred.template
 
 import arrow.core.Option
 import funcify.feature.tools.container.async.KFuture
-import java.util.concurrent.CompletionStage
+import funcify.feature.tools.container.deferred.container.DeferredContainer
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
+import java.util.concurrent.CompletionStage
 
 internal interface DeferredTemplate<WT> {
 

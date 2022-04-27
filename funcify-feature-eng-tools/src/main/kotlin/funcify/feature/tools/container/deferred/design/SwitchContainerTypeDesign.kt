@@ -1,4 +1,8 @@
-package funcify.feature.tools.container.deferred
+package funcify.feature.tools.container.deferred.design
+
+import funcify.feature.tools.container.deferred.container.DeferredContainer
+import funcify.feature.tools.container.deferred.container.DeferredContainerFactory
+import funcify.feature.tools.container.deferred.template.DeferredTemplate
 
 /**
  * @param SWT

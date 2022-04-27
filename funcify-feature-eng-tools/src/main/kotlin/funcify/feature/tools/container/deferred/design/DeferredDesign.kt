@@ -1,14 +1,25 @@
-package funcify.feature.tools.container.deferred
+package funcify.feature.tools.container.deferred.design
 
 import arrow.core.Option
+import arrow.core.left
+import arrow.core.right
+import arrow.core.toOption
 import funcify.feature.tools.container.async.KFuture
 import funcify.feature.tools.container.attempt.Try
-import funcify.feature.tools.container.deferred.DeferredContainerFactory.FluxDeferredContainer.Companion.FluxDeferredContainerWT
-import java.util.*
-import java.util.concurrent.CompletionStage
-import java.util.stream.Stream
+import funcify.feature.tools.container.deferred.Deferred
+import funcify.feature.tools.container.deferred.container.DeferredContainer
+import funcify.feature.tools.container.deferred.container.DeferredContainerFactory
+import funcify.feature.tools.container.deferred.container.DeferredContainerFactory.FluxDeferredContainer.Companion.FluxDeferredContainerWT
+import funcify.feature.tools.container.deferred.source.DeferredSourceContextFactory
+import funcify.feature.tools.container.deferred.template.DeferredTemplate
+import funcify.feature.tools.container.deferred.template.FluxDeferredTemplate
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
+import reactor.core.scheduler.Scheduler
+import java.util.*
+import java.util.concurrent.CompletionStage
+import java.util.concurrent.Executor
+import java.util.stream.Stream
 
 /**
  * @param SWT: Source Container Witness Type
@@ -72,6 +83,112 @@ internal interface DeferredDesign<SWT, I> : Deferred<I> {
             condition = condition,
             ifConditionUnmet = ifConditionNotMet
         )
+    }
+
+    override fun <O> map(executor: Executor, mapper: (I) -> O): Deferred<O> {
+        return MapDesign<SWT, I, O>(
+            template = template,
+            currentDesign = this,
+            mapper = mapper,
+            execOpt = executor.left().toOption()
+        )
+    }
+
+    override fun <O> map(scheduler: Scheduler, mapper: (I) -> O): Deferred<O> {
+        return MapDesign<SWT, I, O>(
+            template = template,
+            currentDesign = this,
+            mapper = mapper,
+            execOpt = scheduler.right().toOption()
+        )
+    }
+
+    override fun <O> flatMapCompletionStage(
+        executor: Executor,
+        mapper: (I) -> CompletionStage<out O>
+    ): Deferred<O> {
+        return FlatMapCompletionStageDesign<SWT, I, O>(
+            template = template,
+            currentDesign = this,
+            mapper = mapper,
+            execOpt = executor.left().toOption()
+        )
+    }
+
+    override fun <O> flatMapCompletionStage(
+        scheduler: Scheduler,
+        mapper: (I) -> CompletionStage<out O>
+    ): Deferred<O> {
+        return FlatMapCompletionStageDesign<SWT, I, O>(
+            template = template,
+            currentDesign = this,
+            mapper = mapper,
+            execOpt = scheduler.right().toOption()
+        )
+    }
+
+    override fun <O> flatMapMono(executor: Executor, mapper: (I) -> Mono<out O>): Deferred<O> {
+        return FlatMapMonoDesign<SWT, I, O>(
+            template = template,
+            currentDesign = this,
+            mapper = mapper,
+            execOpt = executor.left().toOption()
+        )
+    }
+
+    override fun <O> flatMapMono(scheduler: Scheduler, mapper: (I) -> Mono<out O>): Deferred<O> {
+        return FlatMapMonoDesign<SWT, I, O>(
+            template = template,
+            currentDesign = this,
+            mapper = mapper,
+            execOpt = scheduler.right().toOption()
+        )
+    }
+
+    override fun <O> flatMapFlux(executor: Executor, mapper: (I) -> Flux<out O>): Deferred<O> {
+        return if (template is FluxDeferredTemplate) {
+            FlatMapFluxDesign<SWT, I, O>(
+                template = template,
+                currentDesign = this,
+                mapper = mapper,
+                execOpt = executor.left().toOption()
+            )
+        } else {
+            FlatMapFluxDesign<FluxDeferredContainerWT, I, O>(
+                template = DeferredSourceContextFactory.fluxTemplate,
+                currentDesign =
+                    SwitchContainerTypeDesign<SWT, FluxDeferredContainerWT, I>(
+                        sourceDesign = this,
+                        sourceTemplate = template,
+                        targetTemplate = DeferredSourceContextFactory.fluxTemplate
+                    ),
+                mapper = mapper,
+                execOpt = executor.left().toOption()
+            )
+        }
+    }
+
+    override fun <O> flatMapFlux(scheduler: Scheduler, mapper: (I) -> Flux<out O>): Deferred<O> {
+        return if (template is FluxDeferredTemplate) {
+            FlatMapFluxDesign<SWT, I, O>(
+                template = template,
+                currentDesign = this,
+                mapper = mapper,
+                execOpt = scheduler.right().toOption()
+            )
+        } else {
+            FlatMapFluxDesign<FluxDeferredContainerWT, I, O>(
+                template = DeferredSourceContextFactory.fluxTemplate,
+                currentDesign =
+                    SwitchContainerTypeDesign<SWT, FluxDeferredContainerWT, I>(
+                        sourceDesign = this,
+                        sourceTemplate = template,
+                        targetTemplate = DeferredSourceContextFactory.fluxTemplate
+                    ),
+                mapper = mapper,
+                execOpt = scheduler.right().toOption()
+            )
+        }
     }
 
     override fun iterator(): Iterator<I> {

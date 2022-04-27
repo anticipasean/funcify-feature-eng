@@ -1,17 +1,25 @@
-package funcify.feature.tools.container.deferred
+package funcify.feature.tools.container.deferred.source
 
 import funcify.feature.tools.container.async.KFuture
-import funcify.feature.tools.container.deferred.DeferredContainerFactory.FluxDeferredContainer.Companion.FluxDeferredContainerWT
-import funcify.feature.tools.container.deferred.DeferredContainerFactory.KFutureDeferredContainer.Companion.KFutureDeferredContainerWT
-import funcify.feature.tools.container.deferred.DeferredContainerFactory.MonoDeferredContainer.Companion.MonoDeferredContainerWT
+import funcify.feature.tools.container.deferred.container.DeferredContainer
+import funcify.feature.tools.container.deferred.container.DeferredContainerFactory.FluxDeferredContainer.Companion.FluxDeferredContainerWT
+import funcify.feature.tools.container.deferred.container.DeferredContainerFactory.KFutureDeferredContainer.Companion.KFutureDeferredContainerWT
+import funcify.feature.tools.container.deferred.container.DeferredContainerFactory.MonoDeferredContainer.Companion.MonoDeferredContainerWT
+import funcify.feature.tools.container.deferred.template.DeferredTemplate
+import funcify.feature.tools.container.deferred.template.ExecContextFluxDeferredTemplate
+import funcify.feature.tools.container.deferred.template.ExecContextKFutureDeferredTemplate
+import funcify.feature.tools.container.deferred.template.ExecContextMonoDeferredTemplate
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 
 internal object DeferredSourceContextFactory {
 
-    internal val kFutureTemplate: KFutureDeferredTemplate = object : KFutureDeferredTemplate {}
-    internal val monoTemplate: MonoDeferredTemplate = object : MonoDeferredTemplate {}
-    internal val fluxTemplate: FluxDeferredTemplate = object : FluxDeferredTemplate {}
+    internal val kFutureTemplate: ExecContextKFutureDeferredTemplate =
+        object : ExecContextKFutureDeferredTemplate {}
+    internal val monoTemplate: ExecContextMonoDeferredTemplate =
+        object : ExecContextMonoDeferredTemplate {}
+    internal val fluxTemplate: ExecContextFluxDeferredTemplate =
+        object : ExecContextFluxDeferredTemplate {}
     internal class KFutureDeferredSourceContext<V>(
         val kFuture: KFuture<V>,
         override val template: DeferredTemplate<KFutureDeferredContainerWT> = kFutureTemplate
