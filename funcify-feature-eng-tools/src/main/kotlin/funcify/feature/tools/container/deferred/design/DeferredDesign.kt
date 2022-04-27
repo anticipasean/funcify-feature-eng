@@ -238,7 +238,7 @@ internal interface DeferredDesign<SWT, I> : Deferred<I> {
     }
 
     override fun <I1, O> zip(other: Deferred<I1>, combiner: (I, I1) -> O): Deferred<O> {
-        return flatMap { i: I -> other.map { i1: I1 -> combiner.invoke(i, i1) } }
+        return Deferred.fromFlux(toFlux().zipWith(other.toFlux(), combiner))
     }
 
     override fun <I1, I2, O> zip2(
@@ -246,9 +246,13 @@ internal interface DeferredDesign<SWT, I> : Deferred<I> {
         other2: Deferred<I2>,
         combiner: (I, I1, I2) -> O
     ): Deferred<O> {
-        return flatMap { i: I ->
-            other1.zip(other2) { i1: I1, i2: I2 -> combiner.invoke(i, i1, i2) }
-        }
+        return Deferred.fromFlux(
+            toFlux()
+                .zipWith(other1.toFlux()) { i: I, i1: I1 ->
+                    { i2: I2 -> combiner.invoke(i, i1, i2) }
+                }
+                .zipWith<I2, O>(other2.toFlux()) { func: (I2) -> O, i2: I2 -> func.invoke(i2) }
+        )
     }
 
     override fun <I1, I2, I3, O> zip3(
@@ -257,9 +261,16 @@ internal interface DeferredDesign<SWT, I> : Deferred<I> {
         other3: Deferred<I3>,
         combiner: (I, I1, I2, I3) -> O
     ): Deferred<O> {
-        return flatMap { i: I ->
-            other1.zip2(other2, other3) { i1: I1, i2: I2, i3: I3 -> combiner.invoke(i, i1, i2, i3) }
-        }
+        return Deferred.fromFlux(
+            toFlux()
+                .zipWith<I1, (I2, I3) -> O>(other1.toFlux()) { i: I, i1: I1 ->
+                    { i2: I2, i3: I3 -> combiner.invoke(i, i1, i2, i3) }
+                }
+                .zipWith<I2, (I3) -> O>(other2.toFlux()) { func: (I2, I3) -> O, i2: I2 ->
+                    { i3: I3 -> func.invoke(i2, i3) }
+                }
+                .zipWith<I3, O>(other3.toFlux()) { func: (I3) -> O, i3: I3 -> func.invoke(i3) }
+        )
     }
 
     override fun iterator(): Iterator<I> {
