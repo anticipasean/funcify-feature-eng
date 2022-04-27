@@ -4,6 +4,7 @@ import arrow.core.Option
 import funcify.feature.tools.container.async.KFuture
 import funcify.feature.tools.container.deferred.DeferredContainerFactory.KFutureDeferredContainer.Companion.KFutureDeferredContainerWT
 import funcify.feature.tools.container.deferred.DeferredContainerFactory.narrowed
+import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
 import java.util.concurrent.CompletionStage
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
@@ -25,7 +26,11 @@ internal interface KFutureDeferredTemplate : DeferredTemplate<KFutureDeferredCon
      * returned in the kFuture
      */
     override fun <I> fromFlux(flux: Flux<I>): DeferredContainer<KFutureDeferredContainerWT, I> {
-        return fromKFuture(KFuture.of(flux.next().toFuture()))
+        throw UnsupportedOperationException(
+            """use of this method [ name: fromFlux ] on a 
+                |KFuture container would potentially result in 
+                |a loss of information and so is not supported""".flattenIntoOneLine()
+        )
     }
 
     override fun <I, O> map(
@@ -60,10 +65,10 @@ internal interface KFutureDeferredTemplate : DeferredTemplate<KFutureDeferredCon
         mapper: (I) -> Flux<out O>,
         container: DeferredContainer<KFutureDeferredContainerWT, I>
     ): DeferredContainer<KFutureDeferredContainerWT, O> {
-        return DeferredContainerFactory.KFutureDeferredContainer(
-            container.narrowed().kFuture.flatMap { i: I ->
-                KFuture.of(mapper.invoke(i).next().toFuture())
-            }
+        throw UnsupportedOperationException(
+            """use of this method [ name: flatMapFlux ] on a 
+                |KFuture container would potentially result in 
+                |a loss of information and so is not supported""".flattenIntoOneLine()
         )
     }
 
