@@ -147,6 +147,51 @@ interface Deferred<out I> : Iterable<I> {
         combiner: (I, I1, I2, I3) -> O
     ): Deferred<O>
 
+    fun <I1, O> zip(other: KFuture<I1>, combiner: (I, I1) -> O): Deferred<O>
+
+    fun <I1, I2, O> zip2(
+        other1: KFuture<I1>,
+        other2: KFuture<I2>,
+        combiner: (I, I1, I2) -> O
+    ): Deferred<O>
+
+    fun <I1, I2, I3, O> zip3(
+        other1: KFuture<I1>,
+        other2: KFuture<I2>,
+        other3: KFuture<I3>,
+        combiner: (I, I1, I2, I3) -> O
+    ): Deferred<O>
+
+    fun <I1, O> zip(other: Mono<I1>, combiner: (I, I1) -> O): Deferred<O>
+
+    fun <I1, I2, O> zip2(
+        other1: Mono<I1>,
+        other2: Mono<I2>,
+        combiner: (I, I1, I2) -> O
+    ): Deferred<O>
+
+    fun <I1, I2, I3, O> zip3(
+        other1: Mono<I1>,
+        other2: Mono<I2>,
+        other3: Mono<I3>,
+        combiner: (I, I1, I2, I3) -> O
+    ): Deferred<O>
+
+    fun <I1, O> zip(other: Flux<I1>, combiner: (I, I1) -> O): Deferred<O>
+
+    fun <I1, I2, O> zip2(
+        other1: Flux<I1>,
+        other2: Flux<I2>,
+        combiner: (I, I1, I2) -> O
+    ): Deferred<O>
+
+    fun <I1, I2, I3, O> zip3(
+        other1: Flux<I1>,
+        other2: Flux<I2>,
+        other3: Flux<I3>,
+        combiner: (I, I1, I2, I3) -> O
+    ): Deferred<O>
+
     fun filter(condition: (I) -> Boolean, ifConditionNotMet: (I) -> Throwable): Deferred<I>
 
     fun filter(condition: (I) -> Boolean): Deferred<Option<I>>

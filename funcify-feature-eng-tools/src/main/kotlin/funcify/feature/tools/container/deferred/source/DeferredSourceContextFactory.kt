@@ -14,12 +14,16 @@ import reactor.core.publisher.Mono
 
 internal object DeferredSourceContextFactory {
 
-    internal val kFutureTemplate: ExecContextKFutureDeferredTemplate =
+    internal val kFutureTemplate: ExecContextKFutureDeferredTemplate by lazy {
         object : ExecContextKFutureDeferredTemplate {}
-    internal val monoTemplate: ExecContextMonoDeferredTemplate =
+    }
+    internal val monoTemplate: ExecContextMonoDeferredTemplate by lazy {
         object : ExecContextMonoDeferredTemplate {}
-    internal val fluxTemplate: ExecContextFluxDeferredTemplate =
+    }
+    internal val fluxTemplate: ExecContextFluxDeferredTemplate by lazy {
         object : ExecContextFluxDeferredTemplate {}
+    }
+
     internal class KFutureDeferredSourceContext<V>(
         val kFuture: KFuture<V>,
         override val template: DeferredTemplate<KFutureDeferredContainerWT> = kFutureTemplate

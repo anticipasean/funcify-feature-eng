@@ -24,15 +24,11 @@ internal interface KFutureDeferredTemplate : DeferredTemplate<KFutureDeferredCon
     }
 
     /**
-     * Should not be used unless caller is aware that only the first element of the flux will be
-     * returned in the kFuture
+     * Should only be called when zipping with single value containers since at most one value will
+     * come from the containers with which this is being zipped
      */
     override fun <I> fromFlux(flux: Flux<I>): DeferredContainer<KFutureDeferredContainerWT, I> {
-        throw UnsupportedOperationException(
-            """use of this method [ name: fromFlux ] on a 
-                |KFuture container would potentially result in 
-                |a loss of information and so is not supported""".flattenIntoOneLine()
-        )
+        return DeferredContainerFactory.KFutureDeferredContainer(KFuture.of(flux.next().toFuture()))
     }
 
     override fun <I, O> map(
@@ -71,7 +67,9 @@ internal interface KFutureDeferredTemplate : DeferredTemplate<KFutureDeferredCon
         )
     }
 
-    /** Should not be called as there could be a loss of information */
+    /**
+     * Should not be called as there could be a loss of information: (single) to (many).only_first
+     */
     override fun <I, O> flatMapFlux(
         mapper: (I) -> Flux<out O>,
         container: DeferredContainer<KFutureDeferredContainerWT, I>

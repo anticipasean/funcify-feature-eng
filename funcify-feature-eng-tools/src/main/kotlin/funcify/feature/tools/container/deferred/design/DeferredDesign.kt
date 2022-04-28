@@ -10,6 +10,8 @@ import funcify.feature.tools.container.deferred.Deferred
 import funcify.feature.tools.container.deferred.container.DeferredContainer
 import funcify.feature.tools.container.deferred.container.DeferredContainerFactory
 import funcify.feature.tools.container.deferred.container.DeferredContainerFactory.FluxDeferredContainer.Companion.FluxDeferredContainerWT
+import funcify.feature.tools.container.deferred.container.DeferredContainerFactory.KFutureDeferredContainer.Companion.KFutureDeferredContainerWT
+import funcify.feature.tools.container.deferred.container.DeferredContainerFactory.MonoDeferredContainer.Companion.MonoDeferredContainerWT
 import funcify.feature.tools.container.deferred.source.DeferredSourceContextFactory
 import funcify.feature.tools.container.deferred.template.DeferredTemplate
 import funcify.feature.tools.container.deferred.template.FluxDeferredTemplate
@@ -270,6 +272,168 @@ internal interface DeferredDesign<SWT, I> : Deferred<I> {
                     { i3: I3 -> func.invoke(i2, i3) }
                 }
                 .zipWith<I3, O>(other3.toFlux()) { func: (I3) -> O, i3: I3 -> func.invoke(i3) }
+        )
+    }
+
+    override fun <I1, O> zip(other: KFuture<I1>, combiner: (I, I1) -> O): Deferred<O> {
+        return ZipDesign<KFutureDeferredContainerWT, I, I1, Any, Any, O>(
+            template = DeferredSourceContextFactory.kFutureTemplate,
+            currentDesign =
+                SwitchContainerTypeDesign<SWT, KFutureDeferredContainerWT, I>(
+                    sourceTemplate = template,
+                    sourceDesign = this,
+                    targetTemplate = DeferredSourceContextFactory.kFutureTemplate
+                ),
+            other1 = DeferredSourceContextFactory.KFutureDeferredSourceContext(other),
+            combiner1 = combiner
+        )
+    }
+
+    override fun <I1, I2, O> zip2(
+        other1: KFuture<I1>,
+        other2: KFuture<I2>,
+        combiner: (I, I1, I2) -> O
+    ): Deferred<O> {
+        return ZipDesign<KFutureDeferredContainerWT, I, I1, I2, Any, O>(
+            template = DeferredSourceContextFactory.kFutureTemplate,
+            currentDesign =
+                SwitchContainerTypeDesign<SWT, KFutureDeferredContainerWT, I>(
+                    sourceTemplate = template,
+                    sourceDesign = this,
+                    targetTemplate = DeferredSourceContextFactory.kFutureTemplate
+                ),
+            other1 = DeferredSourceContextFactory.KFutureDeferredSourceContext(other1),
+            other2 = DeferredSourceContextFactory.KFutureDeferredSourceContext(other2),
+            combiner2 = combiner
+        )
+    }
+
+    override fun <I1, I2, I3, O> zip3(
+        other1: KFuture<I1>,
+        other2: KFuture<I2>,
+        other3: KFuture<I3>,
+        combiner: (I, I1, I2, I3) -> O
+    ): Deferred<O> {
+        return ZipDesign<KFutureDeferredContainerWT, I, I1, I2, I3, O>(
+            template = DeferredSourceContextFactory.kFutureTemplate,
+            currentDesign =
+                SwitchContainerTypeDesign<SWT, KFutureDeferredContainerWT, I>(
+                    sourceTemplate = template,
+                    sourceDesign = this,
+                    targetTemplate = DeferredSourceContextFactory.kFutureTemplate
+                ),
+            other1 = DeferredSourceContextFactory.KFutureDeferredSourceContext(other1),
+            other2 = DeferredSourceContextFactory.KFutureDeferredSourceContext(other2),
+            other3 = DeferredSourceContextFactory.KFutureDeferredSourceContext(other3),
+            combiner3 = combiner
+        )
+    }
+
+    override fun <I1, O> zip(other: Mono<I1>, combiner: (I, I1) -> O): Deferred<O> {
+        return ZipDesign<MonoDeferredContainerWT, I, I1, Any, Any, O>(
+            template = DeferredSourceContextFactory.monoTemplate,
+            currentDesign =
+                SwitchContainerTypeDesign<SWT, MonoDeferredContainerWT, I>(
+                    sourceTemplate = template,
+                    sourceDesign = this,
+                    targetTemplate = DeferredSourceContextFactory.monoTemplate
+                ),
+            other1 = DeferredSourceContextFactory.MonoDeferredSourceContext(other),
+            combiner1 = combiner
+        )
+    }
+
+    override fun <I1, I2, O> zip2(
+        other1: Mono<I1>,
+        other2: Mono<I2>,
+        combiner: (I, I1, I2) -> O
+    ): Deferred<O> {
+        return ZipDesign<MonoDeferredContainerWT, I, I1, I2, Any, O>(
+            template = DeferredSourceContextFactory.monoTemplate,
+            currentDesign =
+                SwitchContainerTypeDesign<SWT, MonoDeferredContainerWT, I>(
+                    sourceTemplate = template,
+                    sourceDesign = this,
+                    targetTemplate = DeferredSourceContextFactory.monoTemplate
+                ),
+            other1 = DeferredSourceContextFactory.MonoDeferredSourceContext(other1),
+            other2 = DeferredSourceContextFactory.MonoDeferredSourceContext(other2),
+            combiner2 = combiner
+        )
+    }
+
+    override fun <I1, I2, I3, O> zip3(
+        other1: Mono<I1>,
+        other2: Mono<I2>,
+        other3: Mono<I3>,
+        combiner: (I, I1, I2, I3) -> O
+    ): Deferred<O> {
+        return ZipDesign<MonoDeferredContainerWT, I, I1, I2, I3, O>(
+            template = DeferredSourceContextFactory.monoTemplate,
+            currentDesign =
+                SwitchContainerTypeDesign<SWT, MonoDeferredContainerWT, I>(
+                    sourceTemplate = template,
+                    sourceDesign = this,
+                    targetTemplate = DeferredSourceContextFactory.monoTemplate
+                ),
+            other1 = DeferredSourceContextFactory.MonoDeferredSourceContext(other1),
+            other2 = DeferredSourceContextFactory.MonoDeferredSourceContext(other2),
+            other3 = DeferredSourceContextFactory.MonoDeferredSourceContext(other3),
+            combiner3 = combiner
+        )
+    }
+
+    override fun <I1, O> zip(other: Flux<I1>, combiner: (I, I1) -> O): Deferred<O> {
+        return ZipDesign<FluxDeferredContainerWT, I, I1, Any, Any, O>(
+            template = DeferredSourceContextFactory.fluxTemplate,
+            currentDesign =
+                SwitchContainerTypeDesign<SWT, FluxDeferredContainerWT, I>(
+                    sourceTemplate = template,
+                    sourceDesign = this,
+                    targetTemplate = DeferredSourceContextFactory.fluxTemplate
+                ),
+            other1 = DeferredSourceContextFactory.FluxDeferredSourceContext(other),
+            combiner1 = combiner
+        )
+    }
+
+    override fun <I1, I2, O> zip2(
+        other1: Flux<I1>,
+        other2: Flux<I2>,
+        combiner: (I, I1, I2) -> O
+    ): Deferred<O> {
+        return ZipDesign<FluxDeferredContainerWT, I, I1, I2, Any, O>(
+            template = DeferredSourceContextFactory.fluxTemplate,
+            currentDesign =
+                SwitchContainerTypeDesign<SWT, FluxDeferredContainerWT, I>(
+                    sourceTemplate = template,
+                    sourceDesign = this,
+                    targetTemplate = DeferredSourceContextFactory.fluxTemplate
+                ),
+            other1 = DeferredSourceContextFactory.FluxDeferredSourceContext(other1),
+            other2 = DeferredSourceContextFactory.FluxDeferredSourceContext(other2),
+            combiner2 = combiner
+        )
+    }
+
+    override fun <I1, I2, I3, O> zip3(
+        other1: Flux<I1>,
+        other2: Flux<I2>,
+        other3: Flux<I3>,
+        combiner: (I, I1, I2, I3) -> O
+    ): Deferred<O> {
+        return ZipDesign<FluxDeferredContainerWT, I, I1, I2, I3, O>(
+            template = DeferredSourceContextFactory.fluxTemplate,
+            currentDesign =
+                SwitchContainerTypeDesign<SWT, FluxDeferredContainerWT, I>(
+                    sourceTemplate = template,
+                    sourceDesign = this,
+                    targetTemplate = DeferredSourceContextFactory.fluxTemplate
+                ),
+            other1 = DeferredSourceContextFactory.FluxDeferredSourceContext(other1),
+            other2 = DeferredSourceContextFactory.FluxDeferredSourceContext(other2),
+            other3 = DeferredSourceContextFactory.FluxDeferredSourceContext(other3),
+            combiner3 = combiner
         )
     }
 

@@ -27,7 +27,7 @@ internal class DeferredTest {
 
     @Test
     fun zipFluxMonoTest() {
-        val deferredResult =
+        val deferredZippedWithDeferredResult =
             Deferred.fromFlux(
                     Flux.fromIterable(0..100).delayElements(Duration.of(5, ChronoUnit.MILLIS))
                 )
@@ -40,8 +40,30 @@ internal class DeferredTest {
                 .collectList()
                 .block()
                 .toOption()
-        Assertions.assertTrue { deferredResult.isSuccess() }
-        Assertions.assertEquals(1, deferredResult.getSuccess().map { l -> l.size }.getOrElse { -1 })
+        val deferredZippedWithMonoResult =
+            Deferred.fromFlux(
+                    Flux.fromIterable(0..100).delayElements(Duration.of(5, ChronoUnit.MILLIS))
+                )
+                .zip(Mono.just(200), { r, m -> r to m })
+                .blockForAll()
+        Assertions.assertTrue { deferredZippedWithDeferredResult.isSuccess() }
+        Assertions.assertTrue { deferredZippedWithMonoResult.isSuccess() }
+        Assertions.assertEquals(
+            1,
+            deferredZippedWithDeferredResult.getSuccess().map { l -> l.size }.getOrElse { -1 }
+        )
+        Assertions.assertEquals(
+            1,
+            deferredZippedWithMonoResult.getSuccess().map { l -> l.size }.getOrElse { -1 }
+        )
         Assertions.assertEquals(1, unwrappedFluxMonoZipResult.map { l -> l.size }.getOrElse { -1 })
+        Assertions.assertEquals(
+            0 to 200,
+            deferredZippedWithDeferredResult.getSuccess().getOrElse { listOf() }.first()
+        )
+        Assertions.assertEquals(
+            0 to 200,
+            deferredZippedWithMonoResult.getSuccess().getOrElse { listOf() }.first()
+        )
     }
 }

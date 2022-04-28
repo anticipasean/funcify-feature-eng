@@ -25,13 +25,12 @@ internal interface MonoDeferredTemplate : DeferredTemplate<MonoDeferredContainer
         return DeferredContainerFactory.MonoDeferredContainer(mono)
     }
 
-    /** avoid use since information could be lost */
+    /**
+     * Should only be called when zipping with single value containers since at most one value will
+     * come from the containers with which this is being zipped
+     */
     override fun <I> fromFlux(flux: Flux<I>): DeferredContainer<MonoDeferredContainerWT, I> {
-        throw UnsupportedOperationException(
-            """use of this method [ name: fromFlux ] on a 
-                |Mono container would potentially result in 
-                |a loss of information and so is not supported""".flattenIntoOneLine()
-        )
+        return DeferredContainerFactory.MonoDeferredContainer(flux.next())
     }
 
     override fun <I, O> map(
@@ -70,7 +69,9 @@ internal interface MonoDeferredTemplate : DeferredTemplate<MonoDeferredContainer
         )
     }
 
-    /** Should not be called since it could mean a loss of information */
+    /**
+     * Should not be called since it could mean a loss of information: (single) to (many).only_first
+     */
     override fun <I, O> flatMapFlux(
         mapper: (I) -> Flux<out O>,
         container: DeferredContainer<MonoDeferredContainerWT, I>
