@@ -19,6 +19,7 @@ import java.util.*
 import java.util.concurrent.CompletionStage
 import java.util.concurrent.Executor
 import java.util.stream.Stream
+import org.reactivestreams.Publisher
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.core.scheduler.Scheduler
@@ -237,6 +238,17 @@ internal interface DeferredDesign<SWT, I> : Deferred<I> {
                 execOpt = scheduler.right().toOption()
             )
         }
+    }
+
+    override fun flatMapFailure(mapper: (Throwable) -> Deferred<@UnsafeVariance I>): Deferred<I> {
+        val fluxTransformer: (Flux<out I>) -> Flux<out I> = { inputFlux: Flux<out I> ->
+            val wrappedMapper: (Throwable) -> Publisher<out Nothing> = { t: Throwable ->
+                @Suppress("UNCHECKED_CAST") //
+                mapper.invoke(t).toFlux() as Flux<out Nothing>
+            }
+            inputFlux.onErrorResume(wrappedMapper).map { i: I -> i }
+        }
+        return Deferred.fromFlux<I>(fluxTransformer.invoke(toFlux()))
     }
 
     override fun <I1, O> zip(other: Deferred<I1>, combiner: (I, I1) -> O): Deferred<O> {

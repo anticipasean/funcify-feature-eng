@@ -15,6 +15,15 @@ import reactor.core.publisher.Mono
 import reactor.core.scheduler.Scheduler
 import reactor.util.concurrent.Queues
 
+/**
+ * Abstraction for uniformly linking and handling different asynchronous return types:
+ * CompletableFuture<I>, Mono<I>, Flux<I>, Publisher<I>, etc. for both single value e.g.
+ * CompletionStage<I> and multiple value e.g. Flux<I> containers. The actual container might need to
+ * be used in cases where specialized features of that container e.g.
+ * [reactor.core.publisher.Flux.groupBy(java.util.function.Function<? super T,? extends K>)] are
+ * sought and can be retrieved through the transformer to*** methods e.g.
+ * [funcify.feature.tools.container.deferred.Deferred.toFlux]
+ */
 interface Deferred<out I> : Iterable<I> {
 
     companion object {
@@ -132,6 +141,12 @@ interface Deferred<out I> : Iterable<I> {
 
     fun <O> flatMapIterable(mapper: (I) -> Iterable<O>): Deferred<O>
 
+    fun flatMapFailure(mapper: (Throwable) -> Deferred<@UnsafeVariance I>): Deferred<I>
+
+    fun recoverFromFailure(mapper: (Throwable) -> Deferred<@UnsafeVariance I>): Deferred<I> {
+        return flatMapFailure(mapper)
+    }
+
     fun <I1, O> zip(other: Deferred<I1>, combiner: (I, I1) -> O): Deferred<O>
 
     fun <I1, I2, O> zip2(
@@ -230,6 +245,10 @@ interface Deferred<out I> : Iterable<I> {
     fun blockForLast(): Try<I>
 
     fun blockForAll(): Try<List<I>>
+
+    fun toCompletionStage(): CompletionStage<out List<I>> {
+        return toKFuture().fold { cs: CompletionStage<out List<I>>, _: Option<Executor> -> cs }
+    }
 
     fun toKFuture(): KFuture<List<I>>
 
