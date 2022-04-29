@@ -148,7 +148,7 @@ interface SchematicPath {
 
     interface Builder {
 
-        fun pathSegment(pathSegment: String): Builder
+        fun pathSegment(vararg pathSegment: String): Builder
 
         fun pathSegments(pathSegments: List<String>): Builder
 

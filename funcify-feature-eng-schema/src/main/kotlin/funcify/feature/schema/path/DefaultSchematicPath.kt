@@ -31,8 +31,8 @@ internal data class DefaultSchematicPath(
             private val dirsBuilder: PersistentMap.Builder<String, String> =
                 schematicPath.directives.builder()
 
-            override fun pathSegment(pathSegment: String): SchematicPath.Builder {
-                pathBuilder.add(pathSegment)
+            override fun pathSegment(vararg pathSegment: String): SchematicPath.Builder {
+                pathBuilder.addAll(pathSegment)
                 return this
             }
 
@@ -47,12 +47,12 @@ internal data class DefaultSchematicPath(
             }
 
             override fun argument(key: String, value: String): SchematicPath.Builder {
-                argsBuilder.put(key, value)
+                argsBuilder[key] = value
                 return this
             }
 
             override fun argument(keyValuePair: Pair<String, String>): SchematicPath.Builder {
-                argsBuilder.put(keyValuePair.first, keyValuePair.second)
+                argsBuilder[keyValuePair.first] = keyValuePair.second
                 return this
             }
 
@@ -67,12 +67,12 @@ internal data class DefaultSchematicPath(
             }
 
             override fun directive(key: String, value: String): SchematicPath.Builder {
-                dirsBuilder.put(key, value)
+                dirsBuilder[key] = value
                 return this
             }
 
             override fun directive(keyValuePair: Pair<String, String>): SchematicPath.Builder {
-                dirsBuilder.put(keyValuePair.first, keyValuePair.second)
+                dirsBuilder[keyValuePair.first] = keyValuePair.second
                 return this
             }
 
