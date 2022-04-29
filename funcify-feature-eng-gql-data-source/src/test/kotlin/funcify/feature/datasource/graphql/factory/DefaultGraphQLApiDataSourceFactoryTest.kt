@@ -19,7 +19,7 @@ import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.datasource.RawDataSourceType
 import funcify.feature.schema.index.CompositeAttribute
 import funcify.feature.schema.index.CompositeContainerType
-import funcify.feature.schema.path.SchematicPathFactory
+import funcify.feature.schema.path.SchematicPath
 import funcify.feature.schema.vertex.JunctionVertex
 import funcify.feature.schema.vertex.LeafVertex
 import funcify.feature.schema.vertex.RootVertex
@@ -135,15 +135,17 @@ internal class DefaultGraphQLApiDataSourceFactoryTest {
             "the name for the gql datasource does not match"
         )
         val artworkUrlPath =
-            SchematicPathFactory.createPathWithSegments(
-                /*
-                 * StandardNamingConventions.SNAKE_CASE.deriveName(graphQLApiDataSource.name)
-                 *     .qualifiedForm,
-                 */
-                "shows",
-                "artwork",
-                "url"
-            )
+            SchematicPath.getRootPath().transform {
+                pathSegment(
+                    /*
+                     * StandardNamingConventions.SNAKE_CASE.deriveName(graphQLApiDataSource.name)
+                     *     .qualifiedForm,
+                     */
+                    "shows",
+                    "artwork",
+                    "url"
+                )
+            }
         Assertions.assertNotNull(
             metamodelGraph.verticesByPath[artworkUrlPath],
             """expected vertex for path fes:/{data_source_name in snake_case}/shows/artwork/url

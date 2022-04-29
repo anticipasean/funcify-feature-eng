@@ -13,7 +13,6 @@ import funcify.feature.datasource.graphql.error.GQLDataSourceException
 import funcify.feature.datasource.graphql.naming.GraphQLSourceNamingConventions
 import funcify.feature.naming.StandardNamingConventions
 import funcify.feature.schema.path.SchematicPath
-import funcify.feature.schema.path.SchematicPathFactory
 import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
 import graphql.schema.GraphQLFieldDefinition
 import graphql.schema.GraphQLFieldsContainer
@@ -22,9 +21,7 @@ import graphql.schema.GraphQLNamedOutputType
 import graphql.schema.GraphQLObjectType
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.PersistentSet
-import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentSetOf
-import kotlinx.collections.immutable.toPersistentList
 
 /**
  *
@@ -69,7 +66,7 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
         ): DefaultGraphQLSourceContainerType {
             return DefaultGraphQLSourceContainerType(
                 name = StandardNamingConventions.SNAKE_CASE.deriveName("Query"),
-                sourcePath = SchematicPathFactory.createRootPath(),
+                sourcePath = SchematicPath.getRootPath(),
                 dataType = queryObjectType,
                 sourceAttributes = graphQLSourceAttributes
             )
@@ -84,9 +81,8 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
                 GraphQLSourceNamingConventions.getFieldNamingConventionForGraphQLFieldDefinitions()
                     .deriveName(fieldDefinition)
             val sourcePath: SchematicPath =
-                SchematicPathFactory.createPathWithSegments(
-                    pathSegments = persistentListOf(convPathName.qualifiedForm)
-                )
+                SchematicPath.getRootPath().transform { pathSegment(convPathName.qualifiedForm) }
+
             return DefaultGraphQLSourceAttribute(
                 sourcePath = sourcePath,
                 name = convFieldName,
@@ -212,14 +208,7 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
             val childConvFieldName =
                 GraphQLSourceNamingConventions.getFieldNamingConventionForGraphQLFieldDefinitions()
                     .deriveName(childDefinition)
-            val childPath =
-                SchematicPathFactory.createPathWithSegments(
-                    pathSegments =
-                        parentPath
-                            .pathSegments
-                            .toPersistentList()
-                            .add(childConvPathName.qualifiedForm)
-                )
+            val childPath = parentPath.transform { pathSegment(childConvPathName.qualifiedForm) }
             return DefaultGraphQLSourceAttribute(
                 sourcePath = childPath,
                 name = childConvFieldName,

@@ -145,33 +145,6 @@ internal data class DefaultSchematicPath(
         return uri
     }
 
-    fun prependPathSegment(pathSegment: String): SchematicPath {
-        return if (pathSegment.isNotEmpty()) {
-            this.copy(pathSegments = pathSegments.add(0, pathSegment))
-        } else {
-            this
-        }
-    }
-
-    fun appendPathSegment(pathSegment: String): SchematicPath {
-        return if (pathSegment.isNotEmpty()) {
-            this.copy(pathSegments = pathSegments.add(pathSegment))
-        } else {
-            this
-        }
-    }
-
-    fun dropPathSegment(): SchematicPath {
-        return this.copy(
-            pathSegments =
-                if (pathSegments.isNotEmpty()) {
-                    pathSegments.removeAt(pathSegments.size - 1)
-                } else {
-                    pathSegments
-                }
-        )
-    }
-
     override fun transform(
         mapper: SchematicPath.Builder.() -> SchematicPath.Builder
     ): SchematicPath {

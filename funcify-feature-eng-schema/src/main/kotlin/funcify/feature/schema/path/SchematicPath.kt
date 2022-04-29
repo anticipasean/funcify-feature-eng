@@ -16,7 +16,14 @@ import kotlinx.collections.immutable.ImmutableMap
  */
 interface SchematicPath {
 
-    companion object {}
+    companion object {
+
+        private val rootPath: SchematicPath = DefaultSchematicPath()
+
+        fun getRootPath(): SchematicPath {
+            return rootPath
+        }
+    }
 
     /**
      * Represented by URI path segments `/user/transactions/messageBody` in URI form and a
