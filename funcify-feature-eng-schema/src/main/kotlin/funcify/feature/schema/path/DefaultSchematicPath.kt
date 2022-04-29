@@ -19,6 +19,84 @@ internal data class DefaultSchematicPath(
     override val directives: PersistentMap<String, String> = persistentMapOf()
 ) : SchematicPath {
 
+    companion object {
+
+        data class DefaultBuilder(private val schematicPath: DefaultSchematicPath) :
+            SchematicPath.Builder {
+
+            private val pathBuilder: PersistentList.Builder<String> =
+                schematicPath.pathSegments.builder()
+            private val argsBuilder: PersistentMap.Builder<String, String> =
+                schematicPath.arguments.builder()
+            private val dirsBuilder: PersistentMap.Builder<String, String> =
+                schematicPath.directives.builder()
+
+            override fun pathSegment(pathSegment: String): SchematicPath.Builder {
+                pathBuilder.add(pathSegment)
+                return this
+            }
+
+            override fun pathSegments(pathSegments: List<String>): SchematicPath.Builder {
+                pathBuilder.addAll(pathSegments)
+                return this
+            }
+
+            override fun clearPathSegments(): SchematicPath.Builder {
+                pathBuilder.clear()
+                return this
+            }
+
+            override fun argument(key: String, value: String): SchematicPath.Builder {
+                argsBuilder.put(key, value)
+                return this
+            }
+
+            override fun argument(keyValuePair: Pair<String, String>): SchematicPath.Builder {
+                argsBuilder.put(keyValuePair.first, keyValuePair.second)
+                return this
+            }
+
+            override fun arguments(keyValuePairs: Map<String, String>): SchematicPath.Builder {
+                argsBuilder.putAll(keyValuePairs)
+                return this
+            }
+
+            override fun clearArguments(): SchematicPath.Builder {
+                argsBuilder.clear()
+                return this
+            }
+
+            override fun directive(key: String, value: String): SchematicPath.Builder {
+                dirsBuilder.put(key, value)
+                return this
+            }
+
+            override fun directive(keyValuePair: Pair<String, String>): SchematicPath.Builder {
+                dirsBuilder.put(keyValuePair.first, keyValuePair.second)
+                return this
+            }
+
+            override fun directive(keyValuePairs: Map<String, String>): SchematicPath.Builder {
+                dirsBuilder.putAll(keyValuePairs)
+                return this
+            }
+
+            override fun clearDirectives(): SchematicPath.Builder {
+                dirsBuilder.clear()
+                return this
+            }
+
+            override fun build(): SchematicPath {
+                return DefaultSchematicPath(
+                    scheme = schematicPath.scheme,
+                    pathSegments = pathBuilder.build(),
+                    arguments = argsBuilder.build(),
+                    directives = dirsBuilder.build()
+                )
+            }
+        }
+    }
+
     private val uri: URI by lazy { createUriFromProperties() }
 
     private fun createUriFromProperties(): URI {
@@ -77,6 +155,28 @@ internal data class DefaultSchematicPath(
                 }
         )
     }
+
+    override fun putArgument(key: String, value: String): SchematicPath {
+        return this.copy(arguments = arguments.put(key, value))
+    }
+
+    override fun putArgument(keyValuePair: Pair<String, String>): SchematicPath {
+        return this.copy(arguments = arguments.put(keyValuePair.first, keyValuePair.second))
+    }
+
+    override fun putDirective(key: String, value: String): SchematicPath {
+        return this.copy(directives = directives.put(key, value))
+    }
+
+    override fun putDirective(keyValuePair: Pair<String, String>): SchematicPath {
+        return this.copy(directives = directives.put(keyValuePair.first, keyValuePair.second))
+    }
+
+    override fun update(mapper: SchematicPath.Builder.() -> SchematicPath.Builder): SchematicPath {
+        val builder: SchematicPath.Builder = DefaultBuilder(this)
+        return mapper.invoke(builder).build()
+    }
+
     override fun toString(): String {
         return uri.toString()
     }

@@ -119,11 +119,21 @@ interface SchematicPath {
         }
     }
 
+    fun level(): Int = pathSegments.size
+
     fun prependPathSegment(pathSegment: String): SchematicPath
 
     fun appendPathSegment(pathSegment: String): SchematicPath
 
     fun dropPathSegment(): SchematicPath
+
+    fun putArgument(key: String, value: String): SchematicPath
+
+    fun putArgument(keyValuePair: Pair<String, String>): SchematicPath
+
+    fun putDirective(key: String, value: String): SchematicPath
+
+    fun putDirective(keyValuePair: Pair<String, String>): SchematicPath
 
     fun getParentPath(): Option<SchematicPath> {
         return when {
@@ -132,5 +142,34 @@ interface SchematicPath {
             }
             else -> dropPathSegment().some()
         }
+    }
+
+    fun update(mapper: Builder.() -> Builder): SchematicPath
+
+    interface Builder {
+
+        fun pathSegment(pathSegment: String): Builder
+
+        fun pathSegments(pathSegments: List<String>): Builder
+
+        fun clearPathSegments(): Builder
+
+        fun argument(key: String, value: String): Builder
+
+        fun argument(keyValuePair: Pair<String, String>): Builder
+
+        fun arguments(keyValuePairs: Map<String, String>): Builder
+
+        fun clearArguments(): Builder
+
+        fun directive(key: String, value: String): Builder
+
+        fun directive(keyValuePair: Pair<String, String>): Builder
+
+        fun directive(keyValuePairs: Map<String, String>): Builder
+
+        fun clearDirectives(): Builder
+
+        fun build(): SchematicPath
     }
 }
