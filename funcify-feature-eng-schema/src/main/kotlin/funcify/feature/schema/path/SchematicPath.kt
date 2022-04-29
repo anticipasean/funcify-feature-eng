@@ -94,9 +94,11 @@ interface SchematicPath {
             this.pathSegments.size == 0 && this.pathSegments.size == 0 -> {
                 true
             }
+            /** not same number of levels, then not siblings */
             this.pathSegments.size != other.pathSegments.size -> {
                 false
             }
+            /** siblings in the context of root */
             this.pathSegments.size == 1 && other.pathSegments.size == 1 -> {
                 true
             }
@@ -119,34 +121,88 @@ interface SchematicPath {
         }
     }
 
+    /**
+     * Has at least one path segment in common starting from root, with other having fewer path
+     * segments
+     */
+    fun isDescendentOf(other: SchematicPath): Boolean {
+        return when {
+            /** if root or same level, not descendents */
+            pathSegments.size == other.pathSegments.size -> {
+                false
+            }
+            /** if other has more path segments, not a descendent but could be an ancestor */
+            pathSegments.size < other.pathSegments.size -> {
+                false
+            }
+            /**
+             * if other has fewer path segments and the first segment of each matches, then this
+             * path is descendent
+             */
+            pathSegments.size > other.pathSegments.size && other.pathSegments.size > 0 -> {
+                pathSegments[0] == other.pathSegments[0]
+            }
+            else -> {
+                false
+            }
+        }
+    }
+
+    /**
+     * Has at least one path segment in common starting from root, with other having more path
+     * segments
+     */
+    fun isAncestorOf(other: SchematicPath): Boolean {
+        return when {
+            /** if root or same level, not ancestors */
+            pathSegments.size == other.pathSegments.size -> {
+                false
+            }
+            /** if other has fewer path segments, not an ancestor but could be descendent */
+            pathSegments.size > other.pathSegments.size -> {
+                false
+            }
+            /**
+             * if other has more path segments and the first segment of each matches, then this path
+             * is ancestor
+             */
+            pathSegments.size < other.pathSegments.size && pathSegments.size > 0 -> {
+                pathSegments[0] == other.pathSegments[0]
+            }
+            else -> {
+                false
+            }
+        }
+    }
+
     fun level(): Int = pathSegments.size
-
-    fun prependPathSegment(pathSegment: String): SchematicPath
-
-    fun appendPathSegment(pathSegment: String): SchematicPath
-
-    fun dropPathSegment(): SchematicPath
-
-    fun putArgument(key: String, value: String): SchematicPath
-
-    fun putArgument(keyValuePair: Pair<String, String>): SchematicPath
-
-    fun putDirective(key: String, value: String): SchematicPath
-
-    fun putDirective(keyValuePair: Pair<String, String>): SchematicPath
 
     fun getParentPath(): Option<SchematicPath> {
         return when {
             isRoot() -> {
                 none<SchematicPath>()
             }
-            else -> dropPathSegment().some()
+            else -> transform { dropPathSegment() }.some()
         }
     }
 
-    fun update(mapper: Builder.() -> Builder): SchematicPath
+    fun transform(mapper: Builder.() -> Builder): SchematicPath
 
     interface Builder {
+
+        fun prependPathSegment(vararg pathSegment: String): Builder
+
+        fun prependPathSegments(pathSegments: List<String>): Builder
+
+        fun appendPathSegment(vararg pathSegment: String): Builder {
+            return pathSegment(*pathSegment)
+        }
+
+        fun appendPathSegments(pathSegments: List<String>): Builder {
+            return pathSegments(pathSegments)
+        }
+
+        fun dropPathSegment(): Builder
 
         fun pathSegment(vararg pathSegment: String): Builder
 

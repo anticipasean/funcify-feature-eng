@@ -31,6 +31,22 @@ internal data class DefaultSchematicPath(
             private val dirsBuilder: PersistentMap.Builder<String, String> =
                 schematicPath.directives.builder()
 
+            override fun prependPathSegment(vararg pathSegment: String): SchematicPath.Builder {
+                return prependPathSegments(pathSegment.toList())
+            }
+
+            override fun prependPathSegments(pathSegments: List<String>): SchematicPath.Builder {
+                pathBuilder.addAll(0, pathSegments)
+                return this
+            }
+
+            override fun dropPathSegment(): SchematicPath.Builder {
+                if (pathBuilder.isNotEmpty()) {
+                    pathBuilder.removeLast()
+                }
+                return this
+            }
+
             override fun pathSegment(vararg pathSegment: String): SchematicPath.Builder {
                 pathBuilder.addAll(pathSegment)
                 return this
@@ -129,7 +145,7 @@ internal data class DefaultSchematicPath(
         return uri
     }
 
-    override fun prependPathSegment(pathSegment: String): SchematicPath {
+    fun prependPathSegment(pathSegment: String): SchematicPath {
         return if (pathSegment.isNotEmpty()) {
             this.copy(pathSegments = pathSegments.add(0, pathSegment))
         } else {
@@ -137,7 +153,7 @@ internal data class DefaultSchematicPath(
         }
     }
 
-    override fun appendPathSegment(pathSegment: String): SchematicPath {
+    fun appendPathSegment(pathSegment: String): SchematicPath {
         return if (pathSegment.isNotEmpty()) {
             this.copy(pathSegments = pathSegments.add(pathSegment))
         } else {
@@ -145,7 +161,7 @@ internal data class DefaultSchematicPath(
         }
     }
 
-    override fun dropPathSegment(): SchematicPath {
+    fun dropPathSegment(): SchematicPath {
         return this.copy(
             pathSegments =
                 if (pathSegments.isNotEmpty()) {
@@ -156,23 +172,9 @@ internal data class DefaultSchematicPath(
         )
     }
 
-    override fun putArgument(key: String, value: String): SchematicPath {
-        return this.copy(arguments = arguments.put(key, value))
-    }
-
-    override fun putArgument(keyValuePair: Pair<String, String>): SchematicPath {
-        return this.copy(arguments = arguments.put(keyValuePair.first, keyValuePair.second))
-    }
-
-    override fun putDirective(key: String, value: String): SchematicPath {
-        return this.copy(directives = directives.put(key, value))
-    }
-
-    override fun putDirective(keyValuePair: Pair<String, String>): SchematicPath {
-        return this.copy(directives = directives.put(keyValuePair.first, keyValuePair.second))
-    }
-
-    override fun update(mapper: SchematicPath.Builder.() -> SchematicPath.Builder): SchematicPath {
+    override fun transform(
+        mapper: SchematicPath.Builder.() -> SchematicPath.Builder
+    ): SchematicPath {
         val builder: SchematicPath.Builder = DefaultBuilder(this)
         return mapper.invoke(builder).build()
     }

@@ -9,7 +9,7 @@ internal class SchematicPathTest {
     fun argumentDisplayTest() {
         val path1: SchematicPath = SchematicPathFactory.createRootPath()
         val path2: SchematicPath =
-            path1.update { pathSegment("pets").pathSegment("dogs").argument("alias", "canines") }
+            path1.transform { pathSegment("pets").pathSegment("dogs").argument("alias", "canines") }
         Assertions.assertEquals("fes:/pets/dogs?alias=canines", path2.toString())
     }
 }
