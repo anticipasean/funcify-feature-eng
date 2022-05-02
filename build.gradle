@@ -40,10 +40,12 @@ subprojects {
                 implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8:${kotlinVersion}")
                 implementation("org.jetbrains.kotlin:kotlin-noarg:${kotlinVersion}")
                 implementation("org.jetbrains.kotlinx:kotlinx-collections-immutable-jvm:${kotlinxImmutableCollectionsVersion}")
+                implementation("org.jetbrains.kotlinx:dataframe:${kotlinxDataframeVersion}")
                 testImplementation("org.jetbrains.kotlin:kotlin-test:${kotlinVersion}")
                 testImplementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8:${kotlinVersion}")
                 testImplementation("org.jetbrains.kotlin:kotlin-noarg:${kotlinVersion}")
                 testImplementation("org.jetbrains.kotlinx:kotlinx-collections-immutable-jvm:${kotlinxImmutableCollectionsVersion}")
+                testImplementation("org.jetbrains.kotlinx:dataframe:${kotlinxDataframeVersion}")
             }
         }
         jackson {
@@ -64,6 +66,11 @@ subprojects {
                 testImplementation("com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:${jacksonVersion}")
                 testImplementation("com.fasterxml.jackson.module:jackson-module-kotlin:${jacksonVersion}")
                 testImplementation("com.fasterxml.jackson.module:jackson-module-parameter-names:${jacksonVersion}")
+            }
+        }
+        jacksonjq {
+            dependencies {
+                implementation("net.thisptr:jackson-jq:${jacksonJqVersion}")
             }
         }
         jayway {
