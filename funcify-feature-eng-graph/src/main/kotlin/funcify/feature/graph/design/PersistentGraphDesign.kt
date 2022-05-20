@@ -5,7 +5,9 @@ import funcify.feature.graph.PersistentGraph
 import funcify.feature.graph.container.PersistentGraphContainer
 import funcify.feature.graph.container.PersistentGraphContainerFactory
 import funcify.feature.graph.template.PersistentGraphTemplate
+import java.util.stream.IntStream
 import java.util.stream.Stream
+import kotlinx.collections.immutable.PersistentSet
 import kotlinx.collections.immutable.persistentSetOf
 
 internal interface PersistentGraphDesign<CWT, P, V, E> : PersistentGraph<P, V, E> {
@@ -46,29 +48,58 @@ internal interface PersistentGraphDesign<CWT, P, V, E> : PersistentGraph<P, V, E
     }
 
     override fun put(path: P, vertex: V): PersistentGraph<P, V, E> {
-        TODO("Not yet implemented")
+        return PutVertexDesign<CWT, P, V, E>(
+            template = template,
+            currentDesign = this,
+            path = path,
+            newVertex = vertex
+        )
     }
 
     override fun put(path1: P, path2: P, edge: E): PersistentGraph<P, V, E> {
-        TODO("Not yet implemented")
+        return PutEdgeDesign<CWT, P, V, E>(
+            template = template,
+            currentDesign = this,
+            vertexPath1 = path1,
+            vertexPath2 = path2,
+            newEdge = edge
+        )
     }
 
     override fun put(pathPair: Pair<P, P>, edge: E): PersistentGraph<P, V, E> {
-        TODO("Not yet implemented")
+        return PutEdgeDesign<CWT, P, V, E>(
+            template = template,
+            currentDesign = this,
+            vertexPath1 = pathPair.first,
+            vertexPath2 = pathPair.second,
+            newEdge = edge
+        )
     }
 
     override fun <M : Map<P, V>> putAllVertices(vertices: M): PersistentGraph<P, V, E> {
-        TODO("Not yet implemented")
+        return PutVerticesDesign<CWT, P, V, E>(
+            template = template,
+            currentDesign = this,
+            vertices = vertices
+        )
     }
 
     override fun <M : Map<Pair<P, P>, E>> putAllEdges(edges: M): PersistentGraph<P, V, E> {
-        TODO("Not yet implemented")
+        return PutEdgesDesign<CWT, P, V, E>(
+            template = template,
+            currentDesign = this,
+            edges = edges
+        )
     }
 
     override fun <S : Set<E>, M : Map<Pair<P, P>, S>> putAllEdgeSets(
         edges: M
     ): PersistentGraph<P, V, E> {
-        TODO("Not yet implemented")
+        return PutEdgeSetsDesign<CWT, P, V, E>(
+            template = template,
+            currentDesign = this,
+            edgeSets = edges
+        )
     }
 
     override fun filterVertices(condition: (V) -> Boolean): PersistentGraph<P, V, E> {
@@ -88,55 +119,165 @@ internal interface PersistentGraphDesign<CWT, P, V, E> : PersistentGraph<P, V, E
     }
 
     override fun <R> mapVertices(function: (V) -> R): PersistentGraph<P, R, E> {
-        TODO("Not yet implemented")
+        return MapVerticesDesign<CWT, P, V, E, R>(
+            template = template,
+            currentDesign = this,
+            mapper = function
+        )
     }
 
     override fun <R> mapEdges(function: (E) -> R): PersistentGraph<P, V, R> {
-        TODO("Not yet implemented")
+        return MapEdgesDesign<CWT, P, V, E, R>(
+            template = template,
+            currentDesign = this,
+            mapper = function
+        )
     }
 
     override fun <R, M : Map<out P, R>> flatMapVertices(
         function: (P, V) -> M
     ): PersistentGraph<P, R, E> {
-        TODO("Not yet implemented")
+        return FlatMapVerticesDesign<CWT, P, V, E, R, M>(
+            template = template,
+            currentDesign = this,
+            mapper = function
+        )
     }
 
     override fun <R, M : Map<out Pair<P, P>, R>> flatMapEdges(
         function: (Pair<P, P>, E) -> M
     ): PersistentGraph<P, V, R> {
-        TODO("Not yet implemented")
+        return FlatMapEdgesDesign<CWT, P, V, E, R, M>(
+            template = template,
+            currentDesign = this,
+            mapper = function
+        )
     }
 
     override fun vertexCount(): Int {
-        TODO("Not yet implemented")
+        return when (val container: PersistentGraphContainer<CWT, P, V, E> = this.fold(template)) {
+            is PersistentGraphContainerFactory.TwoToManyPathToEdgeGraph ->
+                container.verticesByPath.size
+            is PersistentGraphContainerFactory.TwoToOnePathToEdgeGraph ->
+                container.verticesByPath.size
+            else -> {
+                throw UnsupportedOperationException(
+                    "container type is not handled: [ container.type: ${container::class.qualifiedName} ]"
+                )
+            }
+        }
     }
 
     override fun edgeCount(): Int {
-        TODO("Not yet implemented")
+        return when (val container: PersistentGraphContainer<CWT, P, V, E> = this.fold(template)) {
+            is PersistentGraphContainerFactory.TwoToManyPathToEdgeGraph ->
+                container
+                    .edgesSetByPathPair
+                    .values
+                    .stream()
+                    .flatMapToInt { set: PersistentSet<E> -> IntStream.of(set.size) }
+                    .sum()
+            is PersistentGraphContainerFactory.TwoToOnePathToEdgeGraph ->
+                container.edgesByPathPair.size
+            else -> {
+                throw UnsupportedOperationException(
+                    "container type is not handled: [ container.type: ${container::class.qualifiedName} ]"
+                )
+            }
+        }
     }
 
     override fun vertices(): Iterable<V> {
-        TODO("Not yet implemented")
+        return when (val container: PersistentGraphContainer<CWT, P, V, E> = this.fold(template)) {
+            is PersistentGraphContainerFactory.TwoToManyPathToEdgeGraph ->
+                container.verticesByPath.values
+            is PersistentGraphContainerFactory.TwoToOnePathToEdgeGraph ->
+                container.verticesByPath.values
+            else -> {
+                throw UnsupportedOperationException(
+                    "container type is not handled: [ container.type: ${container::class.qualifiedName} ]"
+                )
+            }
+        }
     }
 
     override fun verticesAsStream(): Stream<out V> {
-        TODO("Not yet implemented")
+        return when (val container: PersistentGraphContainer<CWT, P, V, E> = this.fold(template)) {
+            is PersistentGraphContainerFactory.TwoToManyPathToEdgeGraph ->
+                container.verticesByPath.values.stream()
+            is PersistentGraphContainerFactory.TwoToOnePathToEdgeGraph ->
+                container.verticesByPath.values.stream()
+            else -> {
+                throw UnsupportedOperationException(
+                    "container type is not handled: [ container.type: ${container::class.qualifiedName} ]"
+                )
+            }
+        }
     }
 
     override fun edges(): Iterable<E> {
-        TODO("Not yet implemented")
+        return when (val container: PersistentGraphContainer<CWT, P, V, E> = this.fold(template)) {
+            is PersistentGraphContainerFactory.TwoToManyPathToEdgeGraph ->
+                Iterable<E> { ->
+                    container
+                        .edgesSetByPathPair
+                        .values
+                        .stream()
+                        .flatMap { s: PersistentSet<E> -> s.stream() }
+                        .iterator()
+                }
+            is PersistentGraphContainerFactory.TwoToOnePathToEdgeGraph ->
+                container.edgesByPathPair.values
+            else -> {
+                throw UnsupportedOperationException(
+                    "container type is not handled: [ container.type: ${container::class.qualifiedName} ]"
+                )
+            }
+        }
     }
 
     override fun edgesAsStream(): Stream<out E> {
-        TODO("Not yet implemented")
+        return when (val container: PersistentGraphContainer<CWT, P, V, E> = this.fold(template)) {
+            is PersistentGraphContainerFactory.TwoToManyPathToEdgeGraph ->
+                container.edgesSetByPathPair.values.stream().flatMap { s: PersistentSet<E> ->
+                    s.stream()
+                }
+            is PersistentGraphContainerFactory.TwoToOnePathToEdgeGraph ->
+                container.edgesByPathPair.values.stream()
+            else -> {
+                throw UnsupportedOperationException(
+                    "container type is not handled: [ container.type: ${container::class.qualifiedName} ]"
+                )
+            }
+        }
     }
 
     override fun connectedPaths(): Iterable<Pair<P, P>> {
-        TODO("Not yet implemented")
+        return when (val container: PersistentGraphContainer<CWT, P, V, E> = this.fold(template)) {
+            is PersistentGraphContainerFactory.TwoToManyPathToEdgeGraph ->
+                container.edgesSetByPathPair.keys
+            is PersistentGraphContainerFactory.TwoToOnePathToEdgeGraph ->
+                container.edgesByPathPair.keys
+            else -> {
+                throw UnsupportedOperationException(
+                    "container type is not handled: [ container.type: ${container::class.qualifiedName} ]"
+                )
+            }
+        }
     }
 
     override fun connectedPathsAsStream(): Stream<out Pair<P, P>> {
-        TODO("Not yet implemented")
+        return when (val container: PersistentGraphContainer<CWT, P, V, E> = this.fold(template)) {
+            is PersistentGraphContainerFactory.TwoToManyPathToEdgeGraph ->
+                container.edgesSetByPathPair.keys.stream()
+            is PersistentGraphContainerFactory.TwoToOnePathToEdgeGraph ->
+                container.edgesByPathPair.keys.stream()
+            else -> {
+                throw UnsupportedOperationException(
+                    "container type is not handled: [ container.type: ${container::class.qualifiedName} ]"
+                )
+            }
+        }
     }
 
     override fun hasCycles(): Boolean {
