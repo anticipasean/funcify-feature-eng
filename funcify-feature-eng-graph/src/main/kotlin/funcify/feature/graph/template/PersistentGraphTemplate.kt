@@ -37,7 +37,14 @@ internal interface PersistentGraphTemplate<CWT> {
         pathPair: Pair<P, P>,
         edge: E,
         container: PersistentGraphContainer<CWT, P, V, E>
-    ): PersistentGraphContainer<CWT, P, V, E>
+    ): PersistentGraphContainer<CWT, P, V, E> {
+        return put(
+            path1 = pathPair.first,
+            path2 = pathPair.second,
+            edge = edge,
+            container = container
+        )
+    }
 
     fun <P, V, E, M : Map<P, V>> putAllVertices(
         vertices: M,
