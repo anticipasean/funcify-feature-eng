@@ -75,7 +75,15 @@ internal interface TwoToOnePathToEdgePersistentGraphTemplate :
         edge: E,
         container: PersistentGraphContainer<TwoToOnePathToEdgeGraphWT, P, V, E>
     ): PersistentGraphContainer<TwoToOnePathToEdgeGraphWT, P, V, E> {
-        return this.put(pathPair, edge, container)
+        val verticesByPath = container.narrowed().verticesByPath
+        return if (pathPair.first in verticesByPath && pathPair.second in verticesByPath) {
+            fromVerticesAndEdges(
+                verticesByPath,
+                container.narrowed().edgesByPathPair.put(pathPair, edge)
+            )
+        } else {
+            container
+        }
     }
 
     override fun <P, V, E, M : Map<P, V>> putAllVertices(
