@@ -217,14 +217,7 @@ internal interface PersistentGraphDesign<CWT, P, V, E> : PersistentGraph<P, V, E
     override fun edges(): Iterable<E> {
         return when (val container: PersistentGraphContainer<CWT, P, V, E> = this.fold(template)) {
             is PersistentGraphContainerFactory.TwoToManyPathToEdgeGraph ->
-                Iterable<E> { ->
-                    container
-                        .edgesSetByPathPair
-                        .values
-                        .stream()
-                        .flatMap { s: PersistentSet<E> -> s.stream() }
-                        .iterator()
-                }
+                Iterable<E> { edgesAsStream().iterator() }
             is PersistentGraphContainerFactory.TwoToOnePathToEdgeGraph ->
                 container.edgesByPathPair.values
             else -> {
