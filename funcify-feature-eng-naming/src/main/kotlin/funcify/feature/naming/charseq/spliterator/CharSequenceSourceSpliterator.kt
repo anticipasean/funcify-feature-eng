@@ -1,28 +1,34 @@
 package funcify.feature.naming.charseq.spliterator
 
-import java.util.Spliterator
+import java.util.*
 import java.util.Spliterator.IMMUTABLE
 import java.util.Spliterator.NONNULL
 import java.util.Spliterator.ORDERED
 import java.util.Spliterator.SIZED
 import java.util.function.Consumer
 
-
 /**
  *
  * @author smccarron
  * @created 3/12/22
  */
-internal class CharSequenceSourceSpliterator(private val charSequence: CharSequence,
-                                             private var index: Int = 0,
-                                             private val exclusiveLimit: Int = charSequence.length,
-                                             private val characteristicsBitSet: Int = DEFAULT_CHARACTERISTICS_BITSET) : Spliterator<Char> {
+internal class CharSequenceSourceSpliterator(
+    private val charSequence: CharSequence,
+    private var index: Int = 0,
+    private val exclusiveLimit: Int = charSequence.length,
+    private val characteristicsBitSet: Int = DEFAULT_CHARACTERISTICS_BITSET
+) : Spliterator<Char> {
     companion object {
-        internal const val DEFAULT_CHARACTERISTICS_BITSET: Int = SIZED and NONNULL and IMMUTABLE and ORDERED
+        internal const val DEFAULT_CHARACTERISTICS_BITSET: Int =
+            SIZED or NONNULL or IMMUTABLE or ORDERED
     }
 
     private fun cannotAccessCharSequenceWithGivenParameters(): Boolean {
-        return charSequence.length == 0 || exclusiveLimit <= 0 || exclusiveLimit > charSequence.length || index < 0 || index >= exclusiveLimit
+        return charSequence.length == 0 ||
+            exclusiveLimit <= 0 ||
+            exclusiveLimit > charSequence.length ||
+            index < 0 ||
+            index >= exclusiveLimit
     }
 
     override fun tryAdvance(action: Consumer<in Char>?): Boolean {
@@ -42,10 +48,12 @@ internal class CharSequenceSourceSpliterator(private val charSequence: CharSeque
         return if (lo >= mid) {
             null
         } else {
-            CharSequenceSourceSpliterator(charSequence,
-                                          lo,
-                                          mid.also { index = it },
-                                          characteristicsBitSet)
+            CharSequenceSourceSpliterator(
+                charSequence,
+                lo,
+                mid.also { index = it },
+                characteristicsBitSet
+            )
         }
     }
 
@@ -69,5 +77,4 @@ internal class CharSequenceSourceSpliterator(private val charSequence: CharSeque
     override fun characteristics(): Int {
         return characteristicsBitSet
     }
-
 }

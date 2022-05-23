@@ -1,23 +1,20 @@
 package funcify.feature.naming.charseq.spliterator
 
-import java.util.Deque
-import java.util.LinkedList
-import java.util.Spliterator
-import java.util.Spliterators
+import java.util.*
 import java.util.function.Consumer
-
 
 /**
  *
  * @author smccarron
  * @created 3/22/22
  */
-internal data class TailFilterSpliterator<T>(private val inputSpliterator: Spliterator<T>,
-                                             private val tailCondition: (T) -> Boolean,
-                                             private val bufferSupplier: () -> Deque<T> = { LinkedList() },
-                                             private val sizeEstimate: Long = inputSpliterator.estimateSize(),
-                                             private val additionalCharacteristics: Int = inputSpliterator.characteristics()) : Spliterators.AbstractSpliterator<T>(sizeEstimate,
-                                                                                                                                                                    additionalCharacteristics) {
+internal data class TailFilterSpliterator<T>(
+    private val inputSpliterator: Spliterator<T>,
+    private val tailCondition: (T) -> Boolean,
+    private val bufferSupplier: () -> Deque<T> = { LinkedList() },
+    private val sizeEstimate: Long = inputSpliterator.estimateSize(),
+    private val additionalCharacteristics: Int = inputSpliterator.characteristics()
+) : Spliterators.AbstractSpliterator<T>(sizeEstimate, additionalCharacteristics) {
     private val buffer: Deque<T> by lazy { bufferSupplier.invoke() }
 
     private var expended: Boolean = false
@@ -33,9 +30,7 @@ internal data class TailFilterSpliterator<T>(private val inputSpliterator: Split
         if (expended) {
             return false
         }
-        while (inputSpliterator.tryAdvance { t ->
-                    buffer.offerLast(t)
-                }) {
+        while (inputSpliterator.tryAdvance { t -> buffer.offerLast(t) }) {
             if (buffer.peekLast() == null) {
                 buffer.pollLast()
             }

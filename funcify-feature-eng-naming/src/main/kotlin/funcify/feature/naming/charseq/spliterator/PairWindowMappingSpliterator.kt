@@ -1,19 +1,19 @@
 package funcify.feature.naming.charseq.spliterator
 
-import kotlinx.collections.immutable.ImmutableList
-import java.util.Spliterator
+import java.util.*
 import java.util.Spliterator.NONNULL
 import java.util.Spliterator.ORDERED
 import java.util.Spliterator.SIZED
 import java.util.function.Consumer
-
+import kotlinx.collections.immutable.ImmutableList
 
 /**
  *
  * @author smccarron
  * @created 3/24/22
  */
-internal class PairWindowMappingSpliterator<T>(private val inputSpliterator: Spliterator<T>) : Spliterator<Pair<T?, T?>> {
+internal class PairWindowMappingSpliterator<T>(private val inputSpliterator: Spliterator<T>) :
+    Spliterator<Pair<T?, T?>> {
 
     companion object {
 
@@ -23,19 +23,19 @@ internal class PairWindowMappingSpliterator<T>(private val inputSpliterator: Spl
             END
         }
 
-        private const val DEFAULT_CHARACTERISTICS: Int = ORDERED and NONNULL
-
+        private const val DEFAULT_CHARACTERISTICS: Int = ORDERED or NONNULL
     }
 
-    private val sourceWindowSplitr: SlidingListWindowMappingSpliterator<T, ImmutableList<T>> by lazy {
-        SlidingListWindowMappingSpliterator(inputSpliterator = inputSpliterator,
-                                            windowMapper = { wl -> wl },
-                                            windowSize = 2)
+    private val sourceWindowSplitr:
+        SlidingListWindowMappingSpliterator<T, ImmutableList<T>> by lazy {
+        SlidingListWindowMappingSpliterator(
+            inputSpliterator = inputSpliterator,
+            windowMapper = { wl -> wl },
+            windowSize = 2
+        )
     }
 
-    private val projectedSize: Long by lazy {
-        sourceWindowSplitr.estimateSize()
-    }
+    private val projectedSize: Long by lazy { sourceWindowSplitr.estimateSize() }
 
     private val characteristics: Int by lazy {
         DEFAULT_CHARACTERISTICS or sourceWindowSplitr.characteristics()
@@ -52,15 +52,15 @@ internal class PairWindowMappingSpliterator<T>(private val inputSpliterator: Spl
         when (sourcePosition) {
             SourcePosition.START -> {
                 var pairResult: Pair<T?, T?>? = null
-                val advanceStatus: Boolean = sourceWindowSplitr.tryAdvance { windowList ->
-                    pairResult = when (windowList.size) {
-                        1 -> Pair(null,
-                                  windowList[0])
-                        2 -> Pair(windowList[0],
-                                  windowList[1])
-                        else -> null
+                val advanceStatus: Boolean =
+                    sourceWindowSplitr.tryAdvance { windowList ->
+                        pairResult =
+                            when (windowList.size) {
+                                1 -> Pair(null, windowList[0])
+                                2 -> Pair(windowList[0], windowList[1])
+                                else -> null
+                            }
                     }
-                }
                 if (advanceStatus && pairResult != null) {
                     action.accept(pairResult!!)
                     index++
@@ -73,15 +73,15 @@ internal class PairWindowMappingSpliterator<T>(private val inputSpliterator: Spl
             }
             SourcePosition.MIDDLE -> {
                 var pairResult: Pair<T?, T?>? = null
-                val advanceStatus: Boolean = sourceWindowSplitr.tryAdvance { windowList ->
-                    pairResult = when (windowList.size) {
-                        2 -> Pair(windowList[0],
-                                  windowList[1])
-                        1 -> Pair(windowList[0],
-                                  null)
-                        else -> null
+                val advanceStatus: Boolean =
+                    sourceWindowSplitr.tryAdvance { windowList ->
+                        pairResult =
+                            when (windowList.size) {
+                                2 -> Pair(windowList[0], windowList[1])
+                                1 -> Pair(windowList[0], null)
+                                else -> null
+                            }
                     }
-                }
                 if (advanceStatus && pairResult != null) {
                     action.accept(pairResult!!)
                     index++
@@ -103,8 +103,7 @@ internal class PairWindowMappingSpliterator<T>(private val inputSpliterator: Spl
     }
 
     /**
-     * Cannot keep expanding and shrinking partial windows contracts
-     * for a given iteration if split
+     * Cannot keep expanding and shrinking partial windows contracts for a given iteration if split
      */
     override fun trySplit(): Spliterator<Pair<T?, T?>>? {
         return null
@@ -121,5 +120,4 @@ internal class PairWindowMappingSpliterator<T>(private val inputSpliterator: Spl
     override fun characteristics(): Int {
         return characteristics
     }
-
 }

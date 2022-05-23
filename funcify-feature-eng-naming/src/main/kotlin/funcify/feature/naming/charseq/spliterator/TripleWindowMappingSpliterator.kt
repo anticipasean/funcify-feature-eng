@@ -1,19 +1,19 @@
 package funcify.feature.naming.charseq.spliterator
 
-import kotlinx.collections.immutable.ImmutableList
-import java.util.Spliterator
+import java.util.*
 import java.util.Spliterator.NONNULL
 import java.util.Spliterator.ORDERED
 import java.util.Spliterator.SIZED
 import java.util.function.Consumer
-
+import kotlinx.collections.immutable.ImmutableList
 
 /**
  *
  * @author smccarron
  * @created 3/24/22
  */
-internal class TripleWindowMappingSpliterator<T>(private val inputSpliterator: Spliterator<T>) : Spliterator<Triple<T?, T, T?>> {
+internal class TripleWindowMappingSpliterator<T>(private val inputSpliterator: Spliterator<T>) :
+    Spliterator<Triple<T?, T, T?>> {
 
     companion object {
 
@@ -23,19 +23,19 @@ internal class TripleWindowMappingSpliterator<T>(private val inputSpliterator: S
             END
         }
 
-        private const val DEFAULT_CHARACTERISTICS: Int = ORDERED and NONNULL
-
+        private const val DEFAULT_CHARACTERISTICS: Int = ORDERED or NONNULL
     }
 
-    private val sourceWindowSplitr: SlidingListWindowMappingSpliterator<T, ImmutableList<T>> by lazy {
-        SlidingListWindowMappingSpliterator(inputSpliterator = inputSpliterator,
-                                            windowMapper = { wl -> wl },
-                                            windowSize = 3)
+    private val sourceWindowSplitr:
+        SlidingListWindowMappingSpliterator<T, ImmutableList<T>> by lazy {
+        SlidingListWindowMappingSpliterator(
+            inputSpliterator = inputSpliterator,
+            windowMapper = { wl -> wl },
+            windowSize = 3
+        )
     }
 
-    private val projectedSize: Long by lazy {
-        sourceWindowSplitr.estimateSize()
-    }
+    private val projectedSize: Long by lazy { sourceWindowSplitr.estimateSize() }
 
     private val characteristics: Int by lazy {
         DEFAULT_CHARACTERISTICS or sourceWindowSplitr.characteristics()
@@ -52,20 +52,16 @@ internal class TripleWindowMappingSpliterator<T>(private val inputSpliterator: S
         when (sourcePosition) {
             SourcePosition.START -> {
                 var tripleResult: Triple<T?, T, T?>? = null
-                val advanceStatus: Boolean = sourceWindowSplitr.tryAdvance { windowList ->
-                    tripleResult = when (windowList.size) {
-                        1 -> Triple(null,
-                                    windowList[0],
-                                    null)
-                        2 -> Triple(null,
-                                    windowList[0],
-                                    windowList[1])
-                        3 -> Triple(windowList[0],
-                                    windowList[1],
-                                    windowList[2])
-                        else -> null
+                val advanceStatus: Boolean =
+                    sourceWindowSplitr.tryAdvance { windowList ->
+                        tripleResult =
+                            when (windowList.size) {
+                                1 -> Triple(null, windowList[0], null)
+                                2 -> Triple(null, windowList[0], windowList[1])
+                                3 -> Triple(windowList[0], windowList[1], windowList[2])
+                                else -> null
+                            }
                     }
-                }
                 if (advanceStatus && tripleResult != null) {
                     action.accept(tripleResult!!)
                     index++
@@ -82,17 +78,15 @@ internal class TripleWindowMappingSpliterator<T>(private val inputSpliterator: S
             }
             SourcePosition.MIDDLE -> {
                 var tripleResult: Triple<T?, T, T?>? = null
-                val advanceStatus: Boolean = sourceWindowSplitr.tryAdvance { windowList ->
-                    tripleResult = when (windowList.size) {
-                        3 -> Triple(windowList[0],
-                                    windowList[1],
-                                    windowList[2])
-                        2 -> Triple(windowList[0],
-                                    windowList[1],
-                                    null)
-                        else -> null
+                val advanceStatus: Boolean =
+                    sourceWindowSplitr.tryAdvance { windowList ->
+                        tripleResult =
+                            when (windowList.size) {
+                                3 -> Triple(windowList[0], windowList[1], windowList[2])
+                                2 -> Triple(windowList[0], windowList[1], null)
+                                else -> null
+                            }
                     }
-                }
                 if (advanceStatus && tripleResult != null) {
                     action.accept(tripleResult!!)
                     index++
@@ -114,8 +108,7 @@ internal class TripleWindowMappingSpliterator<T>(private val inputSpliterator: S
     }
 
     /**
-     * Cannot keep expanding and shrinking partial windows contracts
-     * for a given iteration if split
+     * Cannot keep expanding and shrinking partial windows contracts for a given iteration if split
      */
     override fun trySplit(): Spliterator<Triple<T?, T, T?>>? {
         return null

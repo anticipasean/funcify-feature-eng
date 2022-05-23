@@ -15,7 +15,7 @@ import funcify.feature.datasource.graphql.schema.GraphQLSourceIndexFactory
 import funcify.feature.datasource.graphql.schema.GraphQLSourceMetamodel
 import funcify.feature.schema.datasource.SourceMetamodel
 import funcify.feature.schema.path.SchematicPath
-import funcify.feature.tools.control.ParentChildPairRecursiveSpliterator
+import funcify.feature.tools.control.RelationshipSpliterators
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.PersistentMapExtensions.combineWithPersistentSetValueMap
 import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentMap
@@ -157,9 +157,9 @@ internal class DefaultGraphQLApiSourceMetadataReader(
                         }
                     }
                 StreamSupport.stream(
-                    ParentChildPairRecursiveSpliterator(
-                        rootValue = gqlFieldDef,
-                        traversalFunction = traversalFunction
+                    RelationshipSpliterators.recursiveParentChildSpliterator(
+                        rootParent = gqlFieldDef,
+                        recursiveChildrenTraverser = traversalFunction
                     ),
                     false
                 )

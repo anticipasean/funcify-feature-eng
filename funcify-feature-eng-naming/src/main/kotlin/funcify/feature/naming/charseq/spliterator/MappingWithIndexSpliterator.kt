@@ -1,29 +1,32 @@
 package funcify.feature.naming.charseq.spliterator
 
-import java.util.Spliterator
+import java.util.*
 import java.util.Spliterator.NONNULL
 import java.util.Spliterator.ORDERED
 import java.util.Spliterator.SIZED
 import java.util.Spliterator.SUBSIZED
 import java.util.function.Consumer
 
-
 /**
  *
  * @author smccarron
  * @created 3/22/22
  */
-internal class MappingWithIndexSpliterator<T, R>(private val sourceSpliterator: Spliterator<T>,
-                                                 private val mapper: (Int, T) -> R,
-                                                 private var index: Int = 0,
-                                                 private val exclusiveLimit: Int = determineDefaultExclusiveLimit(sourceSpliterator),
-                                                 private val characteristics: Int = DEFAULT_CHARACTERISTICS or sourceSpliterator.characteristics()) : Spliterator<R> {
+internal class MappingWithIndexSpliterator<T, R>(
+    private val sourceSpliterator: Spliterator<T>,
+    private val mapper: (Int, T) -> R,
+    private var index: Int = 0,
+    private val exclusiveLimit: Int = determineDefaultExclusiveLimit(sourceSpliterator),
+    private val characteristics: Int =
+        DEFAULT_CHARACTERISTICS or sourceSpliterator.characteristics()
+) : Spliterator<R> {
 
     companion object {
-        const val DEFAULT_CHARACTERISTICS: Int = ORDERED and NONNULL
+        const val DEFAULT_CHARACTERISTICS: Int = ORDERED or NONNULL
 
         private fun isSizedPerCharacteristics(characteristics: Int): Boolean {
-            return (((characteristics and SIZED) == SIZED || (characteristics and SUBSIZED) == SUBSIZED))
+            return (((characteristics and SIZED) == SIZED ||
+                (characteristics and SUBSIZED) == SUBSIZED))
         }
 
         private fun <T> determineDefaultExclusiveLimit(sourceSpliterator: Spliterator<T>): Int {
@@ -45,17 +48,18 @@ internal class MappingWithIndexSpliterator<T, R>(private val sourceSpliterator: 
     private var expended: Boolean = false
 
     private fun cannotAccessSourceWithGivenParameters(): Boolean {
-        return expended || (isSizedPerCharacteristics(characteristics) && exclusiveLimit <= 0 || index < 0 || index >= exclusiveLimit)
+        return expended ||
+            (isSizedPerCharacteristics(characteristics) && exclusiveLimit <= 0 ||
+                index < 0 ||
+                index >= exclusiveLimit)
     }
 
     override fun tryAdvance(action: Consumer<in R>?): Boolean {
         if (action == null || cannotAccessSourceWithGivenParameters()) {
             return false
         }
-        val advanceStatus: Boolean = sourceSpliterator.tryAdvance { t ->
-            action.accept(mapper.invoke(index++,
-                                        t))
-        }
+        val advanceStatus: Boolean =
+            sourceSpliterator.tryAdvance { t -> action.accept(mapper.invoke(index++, t)) }
         if (!advanceStatus) {
             expended = true
         }
@@ -76,17 +80,18 @@ internal class MappingWithIndexSpliterator<T, R>(private val sourceSpliterator: 
                 return if (lo >= mid) {
                     null
                 } else {
-                    MappingWithIndexSpliterator(sourceSpliterator = split,
-                                                mapper = mapper,
-                                                index = lo,
-                                                exclusiveLimit = mid.also { index = it },
-                                                characteristics = characteristics)
+                    MappingWithIndexSpliterator(
+                        sourceSpliterator = split,
+                        mapper = mapper,
+                        index = lo,
+                        exclusiveLimit = mid.also { index = it },
+                        characteristics = characteristics
+                    )
                 }
             }
         }
         return null
     }
-
 
     override fun estimateSize(): Long {
         if (cannotAccessSourceWithGivenParameters()) {
@@ -102,4 +107,3 @@ internal class MappingWithIndexSpliterator<T, R>(private val sourceSpliterator: 
         return characteristics
     }
 }
-
