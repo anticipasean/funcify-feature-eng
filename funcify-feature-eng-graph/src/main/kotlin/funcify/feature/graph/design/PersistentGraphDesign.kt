@@ -5,7 +5,6 @@ import funcify.feature.graph.PersistentGraph
 import funcify.feature.graph.container.PersistentGraphContainer
 import funcify.feature.graph.container.PersistentGraphContainerFactory
 import funcify.feature.graph.template.PersistentGraphTemplate
-import java.util.stream.IntStream
 import java.util.stream.Stream
 import kotlinx.collections.immutable.PersistentSet
 import kotlinx.collections.immutable.persistentSetOf
@@ -175,7 +174,7 @@ internal interface PersistentGraphDesign<CWT, P, V, E> : PersistentGraph<P, V, E
                     .edgesSetByPathPair
                     .values
                     .stream()
-                    .flatMapToInt { set: PersistentSet<E> -> IntStream.of(set.size) }
+                    .mapToInt { set: PersistentSet<E> -> set.size }
                     .sum()
             is PersistentGraphContainerFactory.TwoToOnePathToEdgeGraph ->
                 container.edgesByPathPair.size
@@ -281,15 +280,72 @@ internal interface PersistentGraphDesign<CWT, P, V, E> : PersistentGraph<P, V, E
     }
 
     override fun hasCycles(): Boolean {
-        TODO("Not yet implemented")
+        return when (val container: PersistentGraphContainer<CWT, P, V, E> = this.fold(template)) {
+            is PersistentGraphContainerFactory.TwoToManyPathToEdgeGraph ->
+                container
+                    .edgesSetByPathPair
+                    .keys
+                    .parallelStream()
+                    .map { pathPair: Pair<P, P> -> pathPair.second to pathPair.first }
+                    .anyMatch { pathPair -> pathPair in container.edgesSetByPathPair }
+            is PersistentGraphContainerFactory.TwoToOnePathToEdgeGraph ->
+                container
+                    .edgesByPathPair
+                    .keys
+                    .parallelStream()
+                    .map { pathPair: Pair<P, P> -> pathPair.second to pathPair.first }
+                    .anyMatch { pathPair -> pathPair in container.edgesByPathPair }
+            else -> {
+                throw UnsupportedOperationException(
+                    "container type is not handled: [ container.type: ${container::class.qualifiedName} ]"
+                )
+            }
+        }
     }
 
     override fun getCycles(): Iterable<Pair<Triple<P, P, E>, Triple<P, P, E>>> {
-        TODO("Not yet implemented")
+        return Iterable<Pair<Triple<P, P, E>, Triple<P, P, E>>> { getCyclesAsStream().iterator() }
     }
 
     override fun getCyclesAsStream(): Stream<out Pair<Triple<P, P, E>, Triple<P, P, E>>> {
-        TODO("Not yet implemented")
+        return when (val container: PersistentGraphContainer<CWT, P, V, E> = this.fold(template)) {
+            is PersistentGraphContainerFactory.TwoToManyPathToEdgeGraph ->
+                container.edgesSetByPathPair.keys.parallelStream().flatMap { pathPair: Pair<P, P> ->
+                    val reversedPair = pathPair.second to pathPair.first
+                    container
+                        .edgesSetByPathPair
+                        .getOrElse(pathPair) { -> persistentSetOf() }
+                        .stream()
+                        .flatMap { e1: E ->
+                            container
+                                .edgesSetByPathPair
+                                .getOrElse(reversedPair) { -> persistentSetOf() }
+                                .stream()
+                                .map { e2: E ->
+                                    Triple(pathPair.first, pathPair.second, e1) to
+                                        Triple(reversedPair.first, reversedPair.second, e2)
+                                }
+                        }
+                }
+            is PersistentGraphContainerFactory.TwoToOnePathToEdgeGraph ->
+                container.edgesByPathPair.keys.parallelStream().flatMap { pathPair: Pair<P, P> ->
+                    val reversedPair = pathPair.second to pathPair.first
+                    val e1: E = container.edgesByPathPair[pathPair]!!
+                    when (val e2: E? = container.edgesByPathPair[reversedPair]) {
+                        null -> Stream.empty()
+                        else ->
+                            Stream.of<Pair<Triple<P, P, E>, Triple<P, P, E>>>(
+                                Triple(pathPair.first, pathPair.second, e1) to
+                                    Triple(reversedPair.first, reversedPair.second, e2)
+                            )
+                    }
+                }
+            else -> {
+                throw UnsupportedOperationException(
+                    "container type is not handled: [ container.type: ${container::class.qualifiedName} ]"
+                )
+            }
+        }
     }
 
     override fun depthFirstSearchOnPath(path: P): Stream<out Tuple5<V, P, E, P, V>> {
