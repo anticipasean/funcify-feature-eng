@@ -10,6 +10,9 @@ internal class SchematicPathTest {
         val path1: SchematicPath = SchematicPath.getRootPath()
         val path2: SchematicPath =
             path1.transform { pathSegment("pets").pathSegment("dogs").argument("alias", "canines") }
-        Assertions.assertEquals("fes:/pets/dogs?alias=canines", path2.toString())
+        Assertions.assertEquals(
+            SchematicPath.GRAPHQL_SCHEMATIC_PATH_SCHEME + ":/pets/dogs?alias=canines",
+            path2.toString()
+        )
     }
 }

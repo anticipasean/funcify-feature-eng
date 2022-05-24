@@ -8,8 +8,8 @@ import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableMap
 
 /**
- * Represents a feature function within the schema, its arguments / parameters, and any directives
- * specifying additional contextual information or processing steps
+ * Represents a data element, derived or raw, within the schema, its arguments / parameters, and any
+ * directives specifying additional contextual information or processing steps
  *
  * @author smccarron
  * @created 1/30/22
@@ -18,6 +18,8 @@ interface SchematicPath {
 
     companion object {
 
+        const val GRAPHQL_SCHEMATIC_PATH_SCHEME: String = "gqls"
+
         private val rootPath: SchematicPath = DefaultSchematicPath()
 
         fun getRootPath(): SchematicPath {
@@ -25,6 +27,7 @@ interface SchematicPath {
         }
     }
 
+    val scheme: String
     /**
      * Represented by URI path segments `/user/transactions/messageBody` in URI form and a
      * query/mutation/subscription graph structure:
@@ -63,6 +66,9 @@ interface SchematicPath {
 
     fun isParentTo(other: SchematicPath): Boolean {
         return when {
+            this.scheme != other.scheme -> {
+                false
+            }
             this.pathSegments.size >= other.pathSegments.size -> {
                 false
             }
@@ -79,6 +85,9 @@ interface SchematicPath {
     }
     fun isChildTo(other: SchematicPath): Boolean {
         return when {
+            this.scheme != other.scheme -> {
+                false
+            }
             this.pathSegments.size <= other.pathSegments.size -> {
                 false
             }
@@ -97,6 +106,9 @@ interface SchematicPath {
 
     fun isSiblingTo(other: SchematicPath): Boolean {
         return when {
+            this.scheme != other.scheme -> {
+                false
+            }
             /** Is root a sibling to itself? Yes??? */
             this.pathSegments.size == 0 && this.pathSegments.size == 0 -> {
                 true
@@ -134,6 +146,9 @@ interface SchematicPath {
      */
     fun isDescendentOf(other: SchematicPath): Boolean {
         return when {
+            this.scheme != other.scheme -> {
+                false
+            }
             /** if root or same level, not descendents */
             pathSegments.size == other.pathSegments.size -> {
                 false
@@ -161,6 +176,9 @@ interface SchematicPath {
      */
     fun isAncestorOf(other: SchematicPath): Boolean {
         return when {
+            this.scheme != other.scheme -> {
+                false
+            }
             /** if root or same level, not ancestors */
             pathSegments.size == other.pathSegments.size -> {
                 false
@@ -196,6 +214,8 @@ interface SchematicPath {
     fun transform(mapper: Builder.() -> Builder): SchematicPath
 
     interface Builder {
+
+        fun scheme(scheme: String): Builder
 
         fun prependPathSegment(vararg pathSegment: String): Builder
 

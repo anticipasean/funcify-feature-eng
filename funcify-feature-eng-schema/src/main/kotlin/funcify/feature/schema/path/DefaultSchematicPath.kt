@@ -13,7 +13,7 @@ import org.springframework.web.util.UriComponentsBuilder
  * @created 2/20/22
  */
 internal data class DefaultSchematicPath(
-    val scheme: String = "fes",
+    override val scheme: String = SchematicPath.GRAPHQL_SCHEMATIC_PATH_SCHEME,
     override val pathSegments: PersistentList<String> = persistentListOf(),
     override val arguments: PersistentMap<String, String> = persistentMapOf(),
     override val directives: PersistentMap<String, String> = persistentMapOf()
@@ -24,12 +24,19 @@ internal data class DefaultSchematicPath(
         data class DefaultBuilder(private val schematicPath: DefaultSchematicPath) :
             SchematicPath.Builder {
 
+            private var inputScheme: String = schematicPath.scheme
+
             private val pathBuilder: PersistentList.Builder<String> =
                 schematicPath.pathSegments.builder()
             private val argsBuilder: PersistentMap.Builder<String, String> =
                 schematicPath.arguments.builder()
             private val dirsBuilder: PersistentMap.Builder<String, String> =
                 schematicPath.directives.builder()
+
+            override fun scheme(scheme: String): SchematicPath.Builder {
+                inputScheme = scheme
+                return this
+            }
 
             override fun prependPathSegment(vararg pathSegment: String): SchematicPath.Builder {
                 return prependPathSegments(pathSegment.toList())
@@ -104,7 +111,7 @@ internal data class DefaultSchematicPath(
 
             override fun build(): SchematicPath {
                 return DefaultSchematicPath(
-                    scheme = schematicPath.scheme,
+                    scheme = inputScheme,
                     pathSegments = pathBuilder.build(),
                     arguments = argsBuilder.build(),
                     directives = dirsBuilder.build()
