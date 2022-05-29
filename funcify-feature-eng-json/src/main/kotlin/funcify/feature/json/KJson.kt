@@ -1,6 +1,6 @@
 package funcify.feature.json
 
-interface KJson {
+interface KJson : Iterable<KJson> {
 
     fun mapString(mapper: (String) -> String): KJson
 
@@ -8,9 +8,11 @@ interface KJson {
 
     fun mapBoolean(mapper: (Boolean) -> Boolean): KJson
 
-    fun <M : Map<String, KJson>> mapJsonObject(mapper: (M) -> M): KJson
+    fun mapObject(mapper: (String, KJson) -> Pair<String, KJson>): KJson
 
-    fun <L : List<KJson>> mapJsonArray(mapper: (L) -> L): KJson
+    fun mapArray(mapper: (Int, KJson) -> Pair<Int, KJson>): KJson
+
+    fun flatMapNull(mapper: () -> KJson): KJson
 
     fun flatMapString(mapper: (String) -> KJson): KJson
 
@@ -18,25 +20,26 @@ interface KJson {
 
     fun flatMapBoolean(mapper: (Boolean) -> KJson): KJson
 
-    fun <M : Map<String, KJson>> flatMapJsonObject(mapper: (M) -> KJson): KJson
+    fun flatMapObject(mapper: (String, KJson) -> KJson): KJson
 
-    fun <L : List<KJson>> flatMapJsonArray(mapper: (L) -> KJson): KJson
+    fun flatMapArray(mapper: (Int, KJson) -> KJson): KJson
 
-    fun <M : Map<String, KJson>> zipIntoKJsonObject(
-        keyValueEntry: Map.Entry<String, KJson>,
-        scalarFold: (M, Map.Entry<String, KJson>) -> M,
-        containerFold: (M, M) -> M,
+    fun <M : Map<String, KJson>> zipWithMap(
+        map: M,
+        zipper: (Pair<String, KJson>, Pair<String, KJson>) -> Pair<String, KJson>
     ): KJson
 
-    fun <M : Map<String, KJson>> zipIntoKJsonObject(
-        keyValuePair: Pair<String, KJson>,
-        scalarFold: (M, Pair<String, KJson>) -> M,
-        containerFold: (M, M) -> M,
-    ): KJson
+    fun <L : List<KJson>> zipWithList(list: L, zipper: (KJson, KJson) -> KJson): KJson
 
-    fun <L : List<KJson>> zipIntoKJsonArray(
-        other: KJson,
-        scalarFold: (L, KJson) -> L,
-        containerFold: (L, L) -> L,
-    ): KJson
+    fun <I : Iterable<KJson>> zipWithIterable(iterable: I, zipper: (KJson, KJson) -> KJson): KJson
+
+    fun <O> foldLeft(
+        initial: O,
+        foldObject: (O, Pair<String, KJson>) -> O,
+        foldArray: (O, Pair<Int, KJson>) -> O
+    ): O
+
+    fun <O> foldLeftObject(initial: O, fold: (O, Pair<String, KJson>) -> O): O
+
+    fun <O> foldLeftArray(initial: O, fold: (O, Pair<Int, KJson>) -> O): O
 }
