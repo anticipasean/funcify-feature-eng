@@ -22,9 +22,9 @@ interface KJsonContainer : KJson {
 
     fun mapArray(mapper: (KJson) -> KJson): KJsonContainer
 
-    fun flatMapObject(mapper: (String, KJson) -> KJsonContainer): KJsonContainer
+    fun <M : Map<String, KJson>> flatMapObject(mapper: (String, KJson) -> M): KJsonContainer
 
-    fun flatMapArray(mapper: (Int, KJson) -> KJsonContainer): KJsonContainer
+    fun <L : List<KJson>> flatMapArray(mapper: (Int, KJson) -> L): KJsonContainer
 
     fun mapObjectToArray(mapper: (Int, String, KJson) -> Pair<Int, KJson>): KJsonContainer
 
@@ -52,9 +52,9 @@ interface KJsonContainer : KJson {
 
     fun <O> foldLeft(initial: O, accumulator: (O, Triple<Int, String?, KJson>) -> O): O
 
-    fun <O> foldLeftObject(initial: O, fold: (O, Pair<String, KJson>) -> O): O
+    fun <O> foldLeftObject(initial: O, accumulator: (O, Pair<String, KJson>) -> O): O
 
-    fun <O> foldLeftArray(initial: O, fold: (O, Pair<Int, KJson>) -> O): O
+    fun <O> foldLeftArray(initial: O, accumulator: (O, Pair<Int, KJson>) -> O): O
 
     fun <O> foldRight(initial: O, accumulator: (Triple<Int, String?, KJson>, O) -> O): O
 
