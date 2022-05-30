@@ -184,4 +184,15 @@ class JsonObjectMappingConfiguration {
         )
         return configuration
     }
+
+    @Bean
+    fun jsonMapper(
+        objectMapper: ObjectMapper,
+        configuration: com.jayway.jsonpath.Configuration
+    ): JsonMapper {
+        return DefaultJsonMapperFactory.builder()
+            .jacksonObjectMapper(objectMapper)
+            .jaywayJsonPathConfiguration(configuration)
+            .build()
+    }
 }
