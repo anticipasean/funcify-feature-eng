@@ -142,6 +142,43 @@ class JsonObjectMappingConfiguration {
             builderCustomizationConsumer().invoke(builder)
             return postBuildObjectMapperEnhancer(builder.build())
         }
+
+        /**
+         * For use in tests where the full Spring application context need not be instantiated or is
+         * too cumbersome and thus autoconfiguration would not create the constituent beans needed
+         * as input
+         */
+        @JvmStatic
+        fun jsonMapper(): JsonMapper {
+            val objectMapper: ObjectMapper = objectMapper()
+            val configurationSupplier: () -> com.jayway.jsonpath.Configuration = { ->
+                val conf =
+                    com.jayway.jsonpath.Configuration.builder()
+                        .jsonProvider(JacksonJsonNodeJsonProvider(objectMapper))
+                        .mappingProvider(JacksonMappingProvider(objectMapper))
+                        .build()
+                com.jayway.jsonpath.Configuration.setDefaults(
+                    object : com.jayway.jsonpath.Configuration.Defaults {
+                        override fun jsonProvider(): JsonProvider {
+                            return conf.jsonProvider()
+                        }
+
+                        override fun options(): MutableSet<Option> {
+                            return conf.options
+                        }
+
+                        override fun mappingProvider(): MappingProvider {
+                            return conf.mappingProvider()
+                        }
+                    }
+                )
+                conf
+            }
+            return DefaultJsonMapperFactory.builder()
+                .jacksonObjectMapper(objectMapper)
+                .jaywayJsonPathConfiguration(configurationSupplier.invoke())
+                .build()
+        }
     }
 
     @Primary
