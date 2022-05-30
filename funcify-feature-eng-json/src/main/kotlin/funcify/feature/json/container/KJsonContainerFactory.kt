@@ -9,22 +9,19 @@ import com.fasterxml.jackson.databind.node.TextNode
 
 internal object KJsonContainerFactory {
 
-    internal interface KJsonContainer<WT, I>
+    internal interface KJsonNode<WT, I>
 
-    internal class KJsonObjectContainer<WT>(val objectNode: ObjectNode) :
-        KJsonContainer<WT, ObjectNode> {}
+    internal class KJsonObjectNode<WT>(val objectNode: ObjectNode) : KJsonNode<WT, ObjectNode> {}
 
-    internal class KJsonArrayContainer<WT>(val arrayNode: ArrayNode) :
-        KJsonContainer<WT, ArrayNode> {}
+    internal class KJsonArrayNode<WT>(val arrayNode: ArrayNode) : KJsonNode<WT, ArrayNode> {}
 
-    internal class KJsonBooleanContainer<WT>(val booleanNode: BooleanNode) :
-        KJsonContainer<WT, BooleanNode> {}
+    internal class KJsonBooleanNode<WT>(val booleanNode: BooleanNode) :
+        KJsonNode<WT, BooleanNode> {}
 
-    internal class KJsonNumericContainer<WT>(val numericNode: NumericNode) :
-        KJsonContainer<WT, NumericNode> {}
+    internal class KJsonNumericNode<WT>(val numericNode: NumericNode) :
+        KJsonNode<WT, NumericNode> {}
 
-    internal class KJsonStringContainer<WT>(val textNode: TextNode) :
-        KJsonContainer<WT, TextNode> {}
+    internal class KJsonStringNode<WT>(val textNode: TextNode) : KJsonNode<WT, TextNode> {}
 
-    internal class KJsonNullContainer<WT>(val nullNode: NullNode) : KJsonContainer<WT, NullNode> {}
+    internal class KJsonNullNode<WT>(val nullNode: NullNode) : KJsonNode<WT, NullNode> {}
 }

@@ -1,7 +1,7 @@
 package funcify.feature.json.design
 
 import funcify.feature.json.KJson
-import funcify.feature.json.container.KJsonContainerFactory.KJsonContainer
+import funcify.feature.json.container.KJsonContainerFactory.KJsonNode
 import funcify.feature.json.template.KJsonTemplate
 
 internal interface KJsonDesign<SWT, I> : KJson {
@@ -10,6 +10,6 @@ internal interface KJsonDesign<SWT, I> : KJson {
 
 
 
-    fun <WT> fold(template: KJsonTemplate<WT>): KJsonContainer<WT, I>
+    fun <WT> fold(template: KJsonTemplate<WT>): KJsonNode<WT, I>
 
 }
