@@ -2,6 +2,14 @@ package funcify.feature.json
 
 interface KJsonScalar : KJson {
 
+    override fun isScalar(): Boolean {
+        return true
+    }
+
+    override fun isContainer(): Boolean {
+        return false
+    }
+
     fun isString(): Boolean
 
     fun isNumeric(): Boolean
@@ -10,11 +18,27 @@ interface KJsonScalar : KJson {
 
     fun isNull(): Boolean
 
-    fun mapString(mapper: (String) -> String): KJson
+    fun mapString(mapper: (String) -> String): KJsonScalar
 
-    fun mapNumeric(mapper: (Number) -> Number): KJson
+    fun mapStringToObject(mapper: (String) -> Pair<String, String>): KJson
 
-    fun mapBoolean(mapper: (Boolean) -> Boolean): KJson
+    fun mapNumeric(mapper: (Number) -> Number): KJsonScalar
+
+    fun mapNumericToObject(mapper: (Number) -> Pair<String, Number>): KJson
+
+    fun mapBoolean(mapper: (Boolean) -> Boolean): KJsonScalar
+
+    fun mapBooleanToObject(mapper: (Boolean) -> Pair<String, Boolean>): KJson
+
+    fun mapNullToString(supplier: () -> String): KJsonScalar
+
+    fun mapNullToNumeric(supplier: () -> Number): KJsonScalar
+
+    fun mapNullToBoolean(supplier: () -> Boolean): KJsonScalar
+
+    fun mapNullToObject(keyProvider: () -> String): KJson
+
+    fun mapToArray(): KJsonContainer
 
     fun flatMapNull(mapper: () -> KJson): KJson
 
@@ -24,10 +48,34 @@ interface KJsonScalar : KJson {
 
     fun flatMapBoolean(mapper: (Boolean) -> KJson): KJson
 
-    fun filterString(condition: (String) -> Boolean): KJson
+    fun filterString(condition: (String) -> Boolean): KJsonScalar
 
-    fun filterNumeric(condition: (Number) -> Boolean): KJson
+    fun filterNumeric(condition: (Number) -> Boolean): KJsonScalar
 
-    fun filterBoolean(condition: (Boolean) -> Boolean): KJson
+    fun filterBoolean(condition: (Boolean) -> Boolean): KJsonScalar
 
+    fun getString(): String?
+
+    fun getStringOrElse(alternative: String): String
+
+    fun getStringOrElseGet(supplier: () -> String): String
+
+    fun getNumeric(): Number?
+
+    fun getNumericOrElse(alternative: Number): Number
+
+    fun getNumericOrElseGet(supplier: () -> Number): Number
+
+    fun getBoolean(): Boolean?
+
+    fun getBooleanOrElse(alternative: Boolean): Boolean
+
+    fun getBooleanOrElseGet(supplier: () -> Boolean): Boolean
+
+    fun <O> foldScalar(
+        stringHandler: (String) -> O,
+        numericHandler: (Number) -> O,
+        booleanHandler: (Boolean) -> O,
+        nullHandler: () -> O
+    ): O
 }
