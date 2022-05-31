@@ -14,6 +14,7 @@ dependencies {
     implementation(project(':funcify-feature-eng-data-fetcher'))
     implementation(project(':funcify-feature-eng-gql-data-source'))
     implementation(project(':funcify-feature-eng-materializer'))
+    implementation(project(':funcify-feature-eng-naming'))
     implementation(project(':funcify-feature-eng-schema'))
     implementation(project(':funcify-feature-eng-spring-webflux'))
     implementation(project(':funcify-feature-eng-tools'))
