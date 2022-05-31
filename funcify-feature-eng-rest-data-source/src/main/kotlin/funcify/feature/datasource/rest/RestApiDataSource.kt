@@ -1,24 +1,25 @@
 package funcify.feature.datasource.rest
 
-import kotlinx.collections.immutable.ImmutableList
-import kotlinx.collections.immutable.ImmutableMap
-import org.springframework.http.HttpMethod
-import kotlin.reflect.KClass
-
+import funcify.feature.datasource.rest.schema.RestApiSourceIndex
+import funcify.feature.schema.datasource.DataSource
+import funcify.feature.schema.datasource.DataSourceType
+import funcify.feature.schema.datasource.RawDataSourceType
+import funcify.feature.schema.datasource.SourceMetamodel
 
 /**
  *
  * @author smccarron
  * @created 2/16/22
  */
-interface RestApiDataSource {
+interface RestApiDataSource : DataSource<RestApiSourceIndex> {
 
-    val httpMethod: HttpMethod
+    override val sourceType: DataSourceType
+        get() = RawDataSourceType.REST_API
+
+    override val name: String
 
     val restApiService: RestApiService
 
-    val sourceSpecificPathComponents: ImmutableList<String>
-
-    val expectedInputTypesByQueryParameterName: ImmutableMap<String, KClass<*>>
+    override val sourceMetamodel: SourceMetamodel<RestApiSourceIndex>
 
 }

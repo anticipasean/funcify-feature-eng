@@ -14,5 +14,5 @@ interface GraphQLApiDataSourceFactory {
         name: String,
         graphQLApiService: GraphQLApiService
     ): GraphQLApiDataSource
-    
+
 }

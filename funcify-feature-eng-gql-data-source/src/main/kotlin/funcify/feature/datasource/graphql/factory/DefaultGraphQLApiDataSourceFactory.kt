@@ -2,13 +2,16 @@ package funcify.feature.datasource.graphql.factory
 
 import funcify.feature.datasource.graphql.GraphQLApiDataSource
 import funcify.feature.datasource.graphql.GraphQLApiService
+import funcify.feature.datasource.graphql.error.GQLDataSourceErrorResponse
+import funcify.feature.datasource.graphql.error.GQLDataSourceException
 import funcify.feature.datasource.graphql.metadata.GraphQLFetcherMetadataProvider
 import funcify.feature.datasource.graphql.reader.GraphQLApiSourceMetadataReader
 import funcify.feature.datasource.graphql.schema.GraphQLSourceIndex
 import funcify.feature.schema.datasource.SourceMetamodel
+import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
+import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
 import graphql.schema.GraphQLSchema
 import org.slf4j.Logger
-import org.slf4j.LoggerFactory
 
 internal class DefaultGraphQLApiDataSourceFactory(
     private val graphQLFetcherMetadataProvider: GraphQLFetcherMetadataProvider,
@@ -16,8 +19,7 @@ internal class DefaultGraphQLApiDataSourceFactory(
 ) : GraphQLApiDataSourceFactory {
 
     companion object {
-        private val logger: Logger =
-            LoggerFactory.getLogger(DefaultGraphQLApiServiceFactory::class.java)
+        private val logger: Logger = loggerFor<DefaultGraphQLApiServiceFactory>()
 
         internal data class DefaultGraphQLApiDataSource(
             override val name: String,
@@ -44,6 +46,13 @@ internal class DefaultGraphQLApiDataSourceFactory(
                 )
             }
             .blockForFirst()
-            .orElseThrow()
+            .orElseThrow { t: Throwable ->
+                GQLDataSourceException(
+                    GQLDataSourceErrorResponse.UNEXPECTED_ERROR,
+                    """error occurred when retrieving or processing metadata 
+                        |from graphql_api_data_source""".flattenIntoOneLine(),
+                    t
+                )
+            }
     }
 }

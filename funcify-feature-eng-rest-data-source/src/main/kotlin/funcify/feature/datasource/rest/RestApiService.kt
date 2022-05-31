@@ -1,7 +1,6 @@
 package funcify.feature.datasource.rest
 
-import funcify.feature.datasource.rest.factory.RestApiServiceFactory
-
+import org.springframework.web.reactive.function.client.WebClient
 
 /**
  *
@@ -20,7 +19,7 @@ interface RestApiService {
 
     val serviceContextPath: String
 
-
+    fun getWebClient(): WebClient
 
     interface Builder {
 
@@ -36,5 +35,4 @@ interface RestApiService {
 
         fun build(): RestApiService
     }
-
 }
