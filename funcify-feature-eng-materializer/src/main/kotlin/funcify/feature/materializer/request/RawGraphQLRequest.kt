@@ -12,6 +12,10 @@ import org.springframework.http.HttpHeaders
  */
 interface RawGraphQLRequest {
 
+    val requestId: String
+
+    val executionId: ExecutionId
+
     val uri: URI
 
     val headers: HttpHeaders
@@ -24,9 +28,6 @@ interface RawGraphQLRequest {
 
     val locale: Locale
 
-    val requestId: String
-
     val executionInputCustomizers: List<GraphQLExecutionInputCustomizer>
 
-    val executionId: ExecutionId
 }

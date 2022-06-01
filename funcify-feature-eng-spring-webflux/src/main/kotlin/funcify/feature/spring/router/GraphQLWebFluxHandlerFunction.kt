@@ -9,6 +9,7 @@ import funcify.feature.materializer.request.RawGraphQLRequest
 import funcify.feature.materializer.response.SerializedGraphQLResponse
 import funcify.feature.materializer.service.GraphQLRequestExecutor
 import funcify.feature.tools.container.deferred.Deferred
+import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.OptionExtensions.flatMapOptions
 import funcify.feature.tools.extensions.PersistentMapExtensions.reduceEntriesToPersistentMap
 import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentMap
@@ -18,7 +19,6 @@ import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.persistentMapOf
 import org.slf4j.Logger
-import org.slf4j.LoggerFactory
 import org.springframework.core.ParameterizedTypeReference
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
@@ -42,8 +42,7 @@ class GraphQLWebFluxHandlerFunction(
 ) : HandlerFunction<ServerResponse> {
 
     companion object {
-        private val logger: Logger =
-            LoggerFactory.getLogger(GraphQLWebFluxHandlerFunction::class.java)
+        private val logger: Logger = loggerFor<GraphQLWebFluxHandlerFunction>()
         private const val QUERY_KEY = "query"
         private const val GRAPHQL_REQUEST_VARIABLES_KEY = "variables"
         private const val OPERATION_NAME_KEY = "operationName"
@@ -62,16 +61,16 @@ class GraphQLWebFluxHandlerFunction(
         private fun <T> T?.toMono(nullableParameterName: String): Mono<T> {
             return this.toOption().map { t -> Mono.just(t) }.getOrElse {
                 val message =
-                    """
-                                  |parameter $nullableParameterName is null but 
-                                  |is required for processing this request successfully
-                                  """.flattenIntoOneLine()
+                    """[ parameter: $nullableParameterName ] is null but 
+                       |is required for processing this request successfully
+                       |""".flattenIntoOneLine()
                 Mono.error(IllegalArgumentException(message))
             }
         }
     }
 
     override fun handle(request: ServerRequest): Mono<ServerResponse> {
+        logger.info("handle: [ request.path: ${request.path()} ]")
         val rawGraphQLRequestMono: Mono<RawGraphQLRequest> =
             convertServerRequestIntoRawGraphQLRequest(request)
         return Deferred.fromMono(rawGraphQLRequestMono)
@@ -97,13 +96,13 @@ class GraphQLWebFluxHandlerFunction(
     private fun convertServerRequestIntoRawGraphQLRequest(
         request: ServerRequest
     ): Mono<RawGraphQLRequest> {
-        return when {
-            MEDIA_TYPE_APPLICATION_GRAPHQL_VALUE ==
-                request.headers().firstHeader(HttpHeaders.CONTENT_TYPE) -> {
+        return when (val firstContentTypeHeader =
+                request.headers().firstHeader(HttpHeaders.CONTENT_TYPE)
+        ) {
+            MEDIA_TYPE_APPLICATION_GRAPHQL_VALUE -> {
                 transformRawGraphQLOperationTextIntoRawGraphQLRequest(request)
             }
-            MediaType.APPLICATION_JSON_VALUE ==
-                request.headers().firstHeader(HttpHeaders.CONTENT_TYPE) -> {
+            MediaType.APPLICATION_JSON_VALUE -> {
                 transformJsonIntoRawGraphQLRequest(request)
             }
             else -> {

@@ -6,6 +6,5 @@ dependencies {
     implementation(project(":funcify-feature-eng-data-fetcher"))
     implementation(project(":funcify-feature-eng-gql-data-source"))
     implementation(project(":funcify-feature-eng-rest-data-source"))
-    implementation(project(":funcify-feature-eng-db-data-source"))
     implementation(project(":funcify-feature-eng-naming"))
 }

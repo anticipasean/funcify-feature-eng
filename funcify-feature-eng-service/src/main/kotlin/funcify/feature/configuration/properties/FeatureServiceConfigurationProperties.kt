@@ -1,4 +1,4 @@
-package funcify.feature.properties
+package funcify.feature.configuration.properties
 
 import funcify.feature.datasource.graphql.GraphQLApiService
 import funcify.feature.datasource.graphql.factory.GraphQLApiServiceFactory

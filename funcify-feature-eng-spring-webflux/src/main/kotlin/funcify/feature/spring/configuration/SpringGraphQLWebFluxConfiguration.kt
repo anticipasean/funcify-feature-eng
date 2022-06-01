@@ -24,7 +24,7 @@ open class SpringGraphQLWebFluxConfiguration {
     }
 
     @Bean
-    open fun graphQLWebFluxRouterFunction(@Value("\${funcify.feature-eng-service.graphql.path:/graphql}")
+    open fun graphQLWebFluxRouterFunction(@Value("\${feature-eng-service.graphql.path:/graphql}")
                                           graphQLPath: String,
                                           graphQLWebFluxHandlerFunction: GraphQLWebFluxHandlerFunction): RouterFunction<ServerResponse> {
         return RouterFunctions.route()

@@ -17,5 +17,4 @@ class MaterializerException(
         inputMessage: String,
         cause: Throwable
     ) : this(DEFAULT_ERROR_RESPONSE, inputMessage, cause)
-    
 }

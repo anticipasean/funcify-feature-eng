@@ -5,9 +5,9 @@ import funcify.feature.materializer.response.SerializedGraphQLResponse
 import funcify.feature.materializer.service.GraphQLRequestExecutor
 import funcify.feature.materializer.session.GraphQLExecutionSessionFactory
 import funcify.feature.tools.container.deferred.Deferred
+import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
 import org.slf4j.Logger
-import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 
 /**
@@ -22,13 +22,17 @@ open class SpringGraphQLRequestExecutor(
 ) : GraphQLRequestExecutor {
 
     companion object {
-        private val logger: Logger =
-            LoggerFactory.getLogger(SpringGraphQLRequestExecutor::class.java)
+        private val logger: Logger = loggerFor<SpringGraphQLRequestExecutor>()
     }
 
     override fun executeSingleRequest(
         rawGraphQLRequest: RawGraphQLRequest
     ): Deferred<SerializedGraphQLResponse> {
+        logger.info(
+            """execute_single_request: 
+                |[ raw_graphql_request: ${rawGraphQLRequest.requestId} ]
+                |""".flattenIntoOneLine()
+        )
         return Deferred.completed(
                 graphQLExecutionSessionFactory.createSessionForSingleRequest(rawGraphQLRequest)
             )
