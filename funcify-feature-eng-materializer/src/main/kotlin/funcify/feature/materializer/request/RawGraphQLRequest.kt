@@ -30,4 +30,34 @@ interface RawGraphQLRequest {
 
     val executionInputCustomizers: List<GraphQLExecutionInputCustomizer>
 
+    interface Builder {
+
+        fun requestId(requestId: String): Builder
+
+        fun executionId(executionId: ExecutionId): Builder
+
+        fun uri(uri: URI): Builder
+
+        fun headers(headers: HttpHeaders): Builder
+
+        fun rawGraphQLQueryText(rawGraphQLQueryText: String): Builder
+
+        fun operationName(operationName: String): Builder
+
+        fun variables(variables: Map<String, Any?>): Builder
+
+        fun variable(key: String, value: Any?): Builder
+
+        fun locale(locale: Locale): Builder
+
+        fun executionInputCustomizer(
+            executionInputCustomizer: GraphQLExecutionInputCustomizer
+        ): Builder
+
+        fun executionInputCustomizers(
+            executionInputCustomizers: List<GraphQLExecutionInputCustomizer>
+        ): Builder
+
+        fun build(): RawGraphQLRequest
+    }
 }

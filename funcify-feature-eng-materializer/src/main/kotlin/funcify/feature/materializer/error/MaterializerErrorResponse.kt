@@ -17,6 +17,12 @@ enum class MaterializerErrorResponse : ErrorResponse {
             get() = HttpStatus.INTERNAL_SERVER_ERROR.some()
         override val errorMessageIfHttp: Option<String>
             get() = "error occurred when creating startup metamodel graph".some()
+    },
+    INVALID_GRAPHQL_REQUEST {
+        override val responseStatusIfHttp: Option<HttpStatus>
+            get() = HttpStatus.BAD_REQUEST.some()
+        override val errorMessageIfHttp: Option<String>
+            get() = "invalid graphql request".some()
     };
     companion object {}
 }

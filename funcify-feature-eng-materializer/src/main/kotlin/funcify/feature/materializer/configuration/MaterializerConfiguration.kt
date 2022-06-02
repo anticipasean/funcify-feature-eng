@@ -5,12 +5,15 @@ import arrow.core.toOption
 import funcify.feature.error.FeatureEngCommonException
 import funcify.feature.materializer.error.MaterializerErrorResponse
 import funcify.feature.materializer.error.MaterializerException
+import funcify.feature.materializer.request.DefaultRawGraphQLRequestFactory
+import funcify.feature.materializer.request.RawGraphQLRequestFactory
 import funcify.feature.schema.MetamodelGraph
 import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.factory.MetamodelGraphFactory
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
 import org.slf4j.Logger
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 
@@ -21,6 +24,7 @@ class MaterializerConfiguration {
         private val logger: Logger = loggerFor<MaterializerConfiguration>()
     }
 
+    @ConditionalOnMissingBean(value = [MetamodelGraph::class])
     @Bean
     fun metamodelGraph(
         metamodelGraphFactory: MetamodelGraphFactory,
@@ -63,5 +67,11 @@ class MaterializerConfiguration {
                     }
                 }
             }
+    }
+
+    @ConditionalOnMissingBean(value = [RawGraphQLRequestFactory::class])
+    @Bean
+    fun rawGraphQLRequestFactory(): RawGraphQLRequestFactory {
+        return DefaultRawGraphQLRequestFactory()
     }
 }

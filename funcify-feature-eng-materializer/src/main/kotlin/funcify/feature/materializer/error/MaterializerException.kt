@@ -11,6 +11,11 @@ class MaterializerException(
 
     constructor(
         errorResponse: MaterializerErrorResponse,
+        inputMessage: String
+    ) : this(errorResponse, inputMessage, null)
+
+    constructor(
+        errorResponse: MaterializerErrorResponse,
         cause: Throwable
     ) : this(
         errorResponse,

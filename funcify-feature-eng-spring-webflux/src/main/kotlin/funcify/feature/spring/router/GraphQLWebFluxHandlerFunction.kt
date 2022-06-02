@@ -3,9 +3,9 @@ package funcify.feature.spring.router
 import arrow.core.getOrElse
 import arrow.core.toOption
 import com.fasterxml.jackson.databind.JsonNode
-import funcify.feature.materializer.request.DefaultRawGraphQLRequest
 import funcify.feature.materializer.request.GraphQLExecutionInputCustomizer
 import funcify.feature.materializer.request.RawGraphQLRequest
+import funcify.feature.materializer.request.RawGraphQLRequestFactory
 import funcify.feature.materializer.response.SerializedGraphQLResponse
 import funcify.feature.materializer.service.GraphQLRequestExecutor
 import funcify.feature.tools.container.deferred.Deferred
@@ -38,6 +38,7 @@ import reactor.core.publisher.Mono
 @Component
 class GraphQLWebFluxHandlerFunction(
     val graphQLRequestExecutor: GraphQLRequestExecutor,
+    val rawGraphQLRequestFactory: RawGraphQLRequestFactory,
     val graphQLExecutionInputCustomizers: List<GraphQLExecutionInputCustomizer>
 ) : HandlerFunction<ServerResponse> {
 
@@ -50,13 +51,14 @@ class GraphQLWebFluxHandlerFunction(
         private val STR_KEY_MAP_PARAMETERIZED_TYPE_REF =
             object : ParameterizedTypeReference<Map<String, Any?>>() {}
 
-        private fun extractLocaleFromRequest(request: ServerRequest) =
-            request
+        private fun extractLocaleFromRequest(request: ServerRequest): Locale {
+            return request
                 .exchange()
                 .localeContext
                 .toOption()
                 .flatMap { lc -> lc.locale.toOption() }
                 .getOrElse { Locale.getDefault() }
+        }
 
         private fun <T> T?.toMono(nullableParameterName: String): Mono<T> {
             return this.toOption().map { t -> Mono.just(t) }.getOrElse {
@@ -113,64 +115,70 @@ class GraphQLWebFluxHandlerFunction(
 
     private fun transformStringKeyMapIntoRawGraphQLRequest(
         request: ServerRequest
-    ): Mono<RawGraphQLRequest> =
-        request
+    ): Mono<RawGraphQLRequest> {
+        return request
             .bodyToMono(STR_KEY_MAP_PARAMETERIZED_TYPE_REF)
             .flatMap { map -> map.toMono("string_key_map") }
             .map { map ->
-                DefaultRawGraphQLRequest(
-                    uri = request.uri(),
-                    headers = extractReadOnlyHttpHeadersFromRequest(request),
-                    operationName =
-                        map[OPERATION_NAME_KEY].toOption().map { o -> o as String }.getOrElse {
-                            ""
-                        },
-                    rawGraphQLQueryText =
-                        map[QUERY_KEY].toOption().map { o -> o as String }.getOrElse { "" },
-                    variables = extractGraphQLVariablesFromStringKeyValueMap(map),
-                    locale = extractLocaleFromRequest(request),
-                    executionInputCustomizers = graphQLExecutionInputCustomizers
-                )
+                rawGraphQLRequestFactory
+                    .builder()
+                    .uri(request.uri())
+                    .headers(extractReadOnlyHttpHeadersFromRequest(request))
+                    .operationName(
+                        map[OPERATION_NAME_KEY].toOption().map { o -> o as String }.getOrElse { "" }
+                    )
+                    .rawGraphQLQueryText(
+                        map[QUERY_KEY].toOption().map { o -> o as String }.getOrElse { "" }
+                    )
+                    .variables(extractGraphQLVariablesFromStringKeyValueMap(map))
+                    .locale(extractLocaleFromRequest(request))
+                    .executionInputCustomizers(graphQLExecutionInputCustomizers)
+                    .build()
             }
+    }
 
     private fun transformJsonIntoRawGraphQLRequest(
         request: ServerRequest
-    ): Mono<RawGraphQLRequest> =
-        request
+    ): Mono<RawGraphQLRequest> {
+        return request
             .bodyToMono(JsonNode::class.java)
             .flatMap { jn -> jn.toMono("json_node_form_of_input") }
             .map { jn ->
-                DefaultRawGraphQLRequest(
-                    uri = request.uri(),
-                    headers = extractReadOnlyHttpHeadersFromRequest(request),
-                    operationName = jn.findPath(OPERATION_NAME_KEY).asText(""),
-                    rawGraphQLQueryText = jn.findPath(QUERY_KEY).asText(""),
-                    variables = extractGraphQLVariablesFromJson(jn),
-                    locale = extractLocaleFromRequest(request),
-                    executionInputCustomizers = graphQLExecutionInputCustomizers
-                )
+                rawGraphQLRequestFactory
+                    .builder()
+                    .uri(request.uri())
+                    .headers(extractReadOnlyHttpHeadersFromRequest(request))
+                    .operationName(jn.findPath(OPERATION_NAME_KEY).asText(""))
+                    .rawGraphQLQueryText(jn.findPath(QUERY_KEY).asText(""))
+                    .variables(extractGraphQLVariablesFromJson(jn))
+                    .locale(extractLocaleFromRequest(request))
+                    .executionInputCustomizers(graphQLExecutionInputCustomizers)
+                    .build()
             }
+    }
 
     private fun transformRawGraphQLOperationTextIntoRawGraphQLRequest(
         request: ServerRequest
-    ): Mono<RawGraphQLRequest> =
-        request
+    ): Mono<RawGraphQLRequest> {
+        return request
             .bodyToMono(String::class.java)
             .flatMap { gqlText -> gqlText.toMono("raw_graphql_text_input") }
             .map { txt ->
-                DefaultRawGraphQLRequest(
-                    uri = request.uri(),
-                    headers = extractReadOnlyHttpHeadersFromRequest(request),
-                    rawGraphQLQueryText = txt,
-                    locale = extractLocaleFromRequest(request),
-                    executionInputCustomizers = graphQLExecutionInputCustomizers
-                )
+                rawGraphQLRequestFactory
+                    .builder()
+                    .uri(request.uri())
+                    .headers(extractReadOnlyHttpHeadersFromRequest(request))
+                    .rawGraphQLQueryText(txt)
+                    .locale(extractLocaleFromRequest(request))
+                    .executionInputCustomizers(graphQLExecutionInputCustomizers)
+                    .build()
             }
+    }
 
     private fun extractGraphQLVariablesFromStringKeyValueMap(
         map: Map<String, Any?>
-    ): Map<String, Any?> =
-        map[GRAPHQL_REQUEST_VARIABLES_KEY]
+    ): Map<String, Any?> {
+        return map[GRAPHQL_REQUEST_VARIABLES_KEY]
             .toOption()
             .filter { m -> m is Map<*, *> }
             .map { m -> m as Map<*, *> }
@@ -183,14 +191,16 @@ class GraphQLWebFluxHandlerFunction(
                     .reducePairsToPersistentMap()
             }
             .getOrElse { persistentMapOf<String, Any?>() }
+    }
 
-    private fun extractGraphQLVariablesFromJson(jsonNode: JsonNode): Map<String, Any?> =
-        jsonNode
+    private fun extractGraphQLVariablesFromJson(jsonNode: JsonNode): Map<String, Any?> {
+        return jsonNode
             .findPath(GRAPHQL_REQUEST_VARIABLES_KEY)
             .toOption()
             .filter(JsonNode::isObject)
             .map { jn -> jn.fields().reduceEntriesToPersistentMap() }
             .getOrElse { persistentMapOf<String, Any?>() }
+    }
 
     private fun extractReadOnlyHttpHeadersFromRequest(request: ServerRequest): HttpHeaders {
         return HttpHeaders.readOnlyHttpHeaders(request.headers().asHttpHeaders())

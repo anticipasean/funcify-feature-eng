@@ -10,7 +10,6 @@ import org.springframework.web.reactive.function.server.RouterFunction
 import org.springframework.web.reactive.function.server.RouterFunctions
 import org.springframework.web.reactive.function.server.ServerResponse
 
-
 /**
  *
  * @author smccarron
@@ -24,17 +23,19 @@ open class SpringGraphQLWebFluxConfiguration {
     }
 
     @Bean
-    open fun graphQLWebFluxRouterFunction(@Value("\${feature-eng-service.graphql.path:/graphql}")
-                                          graphQLPath: String,
-                                          graphQLWebFluxHandlerFunction: GraphQLWebFluxHandlerFunction): RouterFunction<ServerResponse> {
+    open fun graphQLWebFluxRouterFunction(
+        @Value("\${feature-eng-service.graphql.path:/graphql}") graphQLPath: String,
+        graphQLWebFluxHandlerFunction: GraphQLWebFluxHandlerFunction
+    ): RouterFunction<ServerResponse> {
         return RouterFunctions.route()
-                .POST(graphQLPath,
-                      RequestPredicates.accept(MediaType.APPLICATION_JSON,
-                                               MediaType.valueOf(MEDIA_TYPE_APPLICATION_GRAPHQL_VALUE)
-                                              ),
-                      graphQLWebFluxHandlerFunction::handle
-                     )
-                .build()
+            .POST(
+                graphQLPath,
+                RequestPredicates.accept(
+                    MediaType.APPLICATION_JSON,
+                    MediaType.valueOf(MEDIA_TYPE_APPLICATION_GRAPHQL_VALUE)
+                ),
+                graphQLWebFluxHandlerFunction::handle
+            )
+            .build()
     }
-
 }
