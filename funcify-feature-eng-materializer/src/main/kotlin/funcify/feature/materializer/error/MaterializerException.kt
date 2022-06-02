@@ -1,5 +1,6 @@
 package funcify.feature.materializer.error
 
+import arrow.core.or
 import funcify.feature.error.FeatureEngCommonException
 import funcify.feature.materializer.error.MaterializerErrorResponse.UNEXPECTED_ERROR
 
@@ -29,4 +30,13 @@ class MaterializerException(
         inputMessage: String,
         cause: Throwable
     ) : this(UNEXPECTED_ERROR, inputMessage, cause)
+
+    constructor(
+        errorResponse: MaterializerErrorResponse
+    ) : this(
+        errorResponse,
+        errorResponse.errorMessageIfHttp.or(errorResponse.errorMessageIfGraphQL).orNull()
+            ?: MISSING_ERROR_MESSAGE,
+        null
+    )
 }

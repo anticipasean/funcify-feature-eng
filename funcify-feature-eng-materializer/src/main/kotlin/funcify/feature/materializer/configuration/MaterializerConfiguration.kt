@@ -7,18 +7,21 @@ import funcify.feature.materializer.error.MaterializerErrorResponse
 import funcify.feature.materializer.error.MaterializerException
 import funcify.feature.materializer.request.DefaultRawGraphQLRequestFactory
 import funcify.feature.materializer.request.RawGraphQLRequestFactory
+import funcify.feature.materializer.schema.DefaultMaterializationGraphQLSchemaFactory
+import funcify.feature.materializer.schema.MaterializationGraphQLSchemaFactory
 import funcify.feature.schema.MetamodelGraph
 import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.factory.MetamodelGraphFactory
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
+import graphql.schema.GraphQLSchema
 import org.slf4j.Logger
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 
 @Configuration
-class MaterializerConfiguration {
+open class MaterializerConfiguration {
 
     companion object {
         private val logger: Logger = loggerFor<MaterializerConfiguration>()
@@ -73,5 +76,22 @@ class MaterializerConfiguration {
     @Bean
     fun rawGraphQLRequestFactory(): RawGraphQLRequestFactory {
         return DefaultRawGraphQLRequestFactory()
+    }
+
+    @ConditionalOnMissingBean(value = [MaterializationGraphQLSchemaFactory::class])
+    @Bean
+    fun materializationGraphQLSchemaFactory(): MaterializationGraphQLSchemaFactory {
+        return DefaultMaterializationGraphQLSchemaFactory()
+    }
+
+    @ConditionalOnMissingBean(value = [GraphQLSchema::class])
+    @Bean
+    fun graphQLSchema(
+        metamodelGraph: MetamodelGraph,
+        materializationGraphQLSchemaFactory: MaterializationGraphQLSchemaFactory
+    ): GraphQLSchema {
+        return materializationGraphQLSchemaFactory
+            .createGraphQLSchemaFromMetamodelGraph(metamodelGraph)
+            .orElseThrow()
     }
 }

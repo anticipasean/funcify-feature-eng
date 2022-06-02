@@ -23,6 +23,12 @@ enum class MaterializerErrorResponse : ErrorResponse {
             get() = HttpStatus.BAD_REQUEST.some()
         override val errorMessageIfHttp: Option<String>
             get() = "invalid graphql request".some()
+    },
+    GRAPHQL_SCHEMA_CREATION_ERROR {
+        override val responseStatusIfHttp: Option<HttpStatus>
+            get() = HttpStatus.INTERNAL_SERVER_ERROR.some()
+        override val errorMessageIfHttp: Option<String>
+            get() = "error occurred during graphql schema creation".some()
     };
     companion object {}
 }
