@@ -11,6 +11,7 @@ import arrow.core.toOption
 import funcify.feature.datasource.graphql.error.GQLDataSourceErrorResponse
 import funcify.feature.datasource.graphql.error.GQLDataSourceException
 import funcify.feature.datasource.graphql.naming.GraphQLSourceNamingConventions
+import funcify.feature.datasource.graphql.reader.GraphQLApiSourceMetadataFilter
 import funcify.feature.naming.StandardNamingConventions
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
@@ -51,13 +52,18 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
     class DefaultRootContainerTypeSpec() : GraphQLSourceIndexFactory.RootSourceContainerTypeSpec {
 
         override fun forGraphQLQueryObjectType(
-            queryObjectType: GraphQLObjectType
+            queryObjectType: GraphQLObjectType,
+            metadataFilter: GraphQLApiSourceMetadataFilter
         ): GraphQLSourceContainerType {
             return createRootSourceContainerType(
                 queryObjectType,
-                queryObjectType.fieldDefinitions.fold(persistentSetOf()) { ps, fd ->
-                    ps.add(createRootAttributeForFieldDefinition(fd))
-                }
+                queryObjectType.fieldDefinitions
+                    .filter { gfd: GraphQLFieldDefinition ->
+                        metadataFilter.includeGraphQLFieldDefinition(gfd)
+                    }
+                    .fold(persistentSetOf()) { ps, fd ->
+                        ps.add(createRootAttributeForFieldDefinition(fd))
+                    }
             )
         }
         private fun createRootSourceContainerType(

@@ -1,6 +1,7 @@
 package funcify.feature.datasource.graphql.schema
 
 import arrow.core.Option
+import funcify.feature.datasource.graphql.reader.GraphQLApiSourceMetadataFilter
 import funcify.feature.schema.path.SchematicPath
 import graphql.schema.GraphQLFieldDefinition
 import graphql.schema.GraphQLObjectType
@@ -25,7 +26,9 @@ interface GraphQLSourceIndexFactory {
 
     interface RootSourceContainerTypeSpec {
         fun forGraphQLQueryObjectType(
-            queryObjectType: GraphQLObjectType
+            queryObjectType: GraphQLObjectType,
+            metadataFilter: GraphQLApiSourceMetadataFilter =
+                GraphQLApiSourceMetadataFilter.ACCEPT_ALL_FILTER
         ): GraphQLSourceContainerType
     }
 

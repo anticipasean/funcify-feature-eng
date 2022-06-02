@@ -146,9 +146,9 @@ internal class DefaultGraphQLApiSourceMetadataReader(
                         when (val fieldType: GraphQLOutputType = gqlf.type) {
                             is GraphQLFieldsContainer -> {
                                 fieldType.fieldDefinitions.stream().filter {
-                                    gqlFieldDef: GraphQLFieldDefinition ->
+                                    gfd: GraphQLFieldDefinition ->
                                     graphQLApiSourceMetadataFilter.includeGraphQLFieldDefinition(
-                                        gqlFieldDef
+                                        gfd
                                     )
                                 }
                             }
@@ -156,9 +156,9 @@ internal class DefaultGraphQLApiSourceMetadataReader(
                                 if (fieldType.wrappedType is GraphQLFieldsContainer) {
                                     (fieldType.wrappedType as GraphQLFieldsContainer)
                                         .fieldDefinitions.stream()
-                                        .filter { gqlFieldDef: GraphQLFieldDefinition ->
+                                        .filter { gfd: GraphQLFieldDefinition ->
                                             graphQLApiSourceMetadataFilter
-                                                .includeGraphQLFieldDefinition(gqlFieldDef)
+                                                .includeGraphQLFieldDefinition(gfd)
                                         }
                                 } else {
                                     Stream.empty<GraphQLFieldDefinition>()

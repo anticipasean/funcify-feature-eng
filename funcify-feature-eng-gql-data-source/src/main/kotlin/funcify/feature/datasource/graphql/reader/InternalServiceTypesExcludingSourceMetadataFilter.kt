@@ -1,12 +1,18 @@
 package funcify.feature.datasource.graphql.reader
 
+import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import graphql.schema.GraphQLFieldDefinition
 import graphql.schema.GraphQLNamedOutputType
 import graphql.schema.GraphQLOutputType
+import org.slf4j.Logger
 import org.springframework.stereotype.Component
 
 @Component
 open class InternalServiceTypesExcludingSourceMetadataFilter : GraphQLApiSourceMetadataFilter {
+
+    companion object {
+        private val logger: Logger = loggerFor<InternalServiceTypesExcludingSourceMetadataFilter>()
+    }
 
     override fun includeGraphQLFieldDefinition(
         graphQLFieldDefinition: GraphQLFieldDefinition

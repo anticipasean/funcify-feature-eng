@@ -4,6 +4,18 @@ import graphql.schema.GraphQLFieldDefinition
 
 interface GraphQLApiSourceMetadataFilter {
 
-    fun includeGraphQLFieldDefinition(graphQLFieldDefinition: GraphQLFieldDefinition): Boolean
+    companion object {
 
+        val ACCEPT_ALL_FILTER: GraphQLApiSourceMetadataFilter by lazy {
+            object : GraphQLApiSourceMetadataFilter {
+                override fun includeGraphQLFieldDefinition(
+                    graphQLFieldDefinition: GraphQLFieldDefinition
+                ): Boolean {
+                    return true
+                }
+            }
+        }
+    }
+
+    fun includeGraphQLFieldDefinition(graphQLFieldDefinition: GraphQLFieldDefinition): Boolean
 }
