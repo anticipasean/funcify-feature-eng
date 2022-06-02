@@ -13,4 +13,5 @@ interface GraphQLExecutionSessionCoordinator {
     fun conductSingleRequestSession(
         session: GraphQLSingleRequestSession
     ): Deferred<GraphQLSingleRequestSession>
+
 }

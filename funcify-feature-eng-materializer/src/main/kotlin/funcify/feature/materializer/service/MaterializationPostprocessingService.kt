@@ -13,4 +13,5 @@ interface MaterializationPostprocessingService {
     fun convertMaterializedValuesIntoExpectedOutputFormat(
         materializationSession: MaterializationSession
     ): Deferred<MaterializationSession>
+
 }

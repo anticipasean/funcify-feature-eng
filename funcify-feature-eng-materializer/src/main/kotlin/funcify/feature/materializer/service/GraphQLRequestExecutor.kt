@@ -11,5 +11,8 @@ import funcify.feature.tools.container.deferred.Deferred
  */
 interface GraphQLRequestExecutor {
 
-    fun executeSingleRequest(rawGraphQLRequest: RawGraphQLRequest): Deferred<SerializedGraphQLResponse>
+    fun executeSingleRequest(
+        rawGraphQLRequest: RawGraphQLRequest
+    ): Deferred<SerializedGraphQLResponse>
+
 }
