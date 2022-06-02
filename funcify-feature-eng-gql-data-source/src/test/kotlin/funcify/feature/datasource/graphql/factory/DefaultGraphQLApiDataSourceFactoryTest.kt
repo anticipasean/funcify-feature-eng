@@ -8,6 +8,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import funcify.feature.datasource.graphql.GraphQLApiDataSource
 import funcify.feature.datasource.graphql.metadata.MockGraphQLFetcherMetadataProvider
 import funcify.feature.datasource.graphql.reader.DefaultGraphQLApiSourceMetadataReader
+import funcify.feature.datasource.graphql.reader.InternalServiceTypesExcludingSourceMetadataFilter
 import funcify.feature.datasource.graphql.schema.DefaultGraphQLSourceAttribute
 import funcify.feature.datasource.graphql.schema.DefaultGraphQLSourceContainerType
 import funcify.feature.datasource.graphql.schema.DefaultGraphQLSourceIndexFactory
@@ -35,7 +36,9 @@ internal class DefaultGraphQLApiDataSourceFactoryTest {
                 MockGraphQLFetcherMetadataProvider(objectMapper = objectMapper),
             graphQLMetadataReader =
                 DefaultGraphQLApiSourceMetadataReader(
-                    graphQLSourceIndexFactory = DefaultGraphQLSourceIndexFactory()
+                    graphQLSourceIndexFactory = DefaultGraphQLSourceIndexFactory(),
+                    graphQLApiSourceMetadataFilter =
+                        InternalServiceTypesExcludingSourceMetadataFilter()
                 )
         )
 

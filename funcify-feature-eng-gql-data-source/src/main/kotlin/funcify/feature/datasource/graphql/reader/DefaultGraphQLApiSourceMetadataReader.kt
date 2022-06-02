@@ -43,7 +43,8 @@ import org.slf4j.Logger
  * @created 4/8/22
  */
 internal class DefaultGraphQLApiSourceMetadataReader(
-    private val graphQLSourceIndexFactory: GraphQLSourceIndexFactory
+    private val graphQLSourceIndexFactory: GraphQLSourceIndexFactory,
+    private val graphQLApiSourceMetadataFilter: GraphQLApiSourceMetadataFilter
 ) : GraphQLApiSourceMetadataReader {
 
     companion object {
@@ -86,6 +87,9 @@ internal class DefaultGraphQLApiSourceMetadataReader(
             .queryType
             .fieldDefinitions
             .parallelStream()
+            .filter { gqlFieldDef: GraphQLFieldDefinition ->
+                graphQLApiSourceMetadataFilter.includeGraphQLFieldDefinition(gqlFieldDef)
+            }
             .reduce(
                 createContextForRootQueryType(input.queryType),
                 { gsc: GqlSourceContext, fieldDef: GraphQLFieldDefinition ->
@@ -141,12 +145,21 @@ internal class DefaultGraphQLApiSourceMetadataReader(
                     { gqlf: GraphQLFieldDefinition ->
                         when (val fieldType: GraphQLOutputType = gqlf.type) {
                             is GraphQLFieldsContainer -> {
-                                fieldType.fieldDefinitions.stream()
+                                fieldType.fieldDefinitions.stream().filter {
+                                    gqlFieldDef: GraphQLFieldDefinition ->
+                                    graphQLApiSourceMetadataFilter.includeGraphQLFieldDefinition(
+                                        gqlFieldDef
+                                    )
+                                }
                             }
                             is GraphQLList -> {
                                 if (fieldType.wrappedType is GraphQLFieldsContainer) {
                                     (fieldType.wrappedType as GraphQLFieldsContainer)
                                         .fieldDefinitions.stream()
+                                        .filter { gqlFieldDef: GraphQLFieldDefinition ->
+                                            graphQLApiSourceMetadataFilter
+                                                .includeGraphQLFieldDefinition(gqlFieldDef)
+                                        }
                                 } else {
                                     Stream.empty<GraphQLFieldDefinition>()
                                 }

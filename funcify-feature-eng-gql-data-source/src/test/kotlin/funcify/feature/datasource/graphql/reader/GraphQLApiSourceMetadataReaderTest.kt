@@ -33,7 +33,10 @@ internal class GraphQLApiSourceMetadataReaderTest {
                 .blockForFirst()
                 .fold({ gqls: GraphQLSchema -> gqls }, { t: Throwable -> Assertions.fail(t) })
         val sourceMetamodel =
-            DefaultGraphQLApiSourceMetadataReader(DefaultGraphQLSourceIndexFactory())
+            DefaultGraphQLApiSourceMetadataReader(
+                    DefaultGraphQLSourceIndexFactory(),
+                    InternalServiceTypesExcludingSourceMetadataFilter()
+                )
                 .readSourceMetamodelFromMetadata(graphQLSchema)
         /**
          * println(sourceMetamodel.sourceIndicesByPath.asSequence()
