@@ -8,6 +8,7 @@ import com.fasterxml.jackson.databind.node.JsonNodeFactory
 import com.fasterxml.jackson.databind.node.ObjectNode
 import funcify.feature.datasource.graphql.GraphQLApiService
 import funcify.feature.datasource.graphql.error.GQLDataSourceErrorResponse
+import funcify.feature.datasource.graphql.error.GQLDataSourceErrorResponse.GRAPHQL_DATA_SOURCE_CREATION_ERROR
 import funcify.feature.datasource.graphql.error.GQLDataSourceException
 import funcify.feature.tools.container.deferred.Deferred
 import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
@@ -110,17 +111,38 @@ internal class DefaultGraphQLApiServiceFactory(
         override fun build(): GraphQLApiService {
             when {
                 serviceName == UNSET_SERVICE_NAME -> {
-                    throw IllegalStateException("service_name has not been set")
+                    throw GQLDataSourceException(
+                        GRAPHQL_DATA_SOURCE_CREATION_ERROR,
+                        "service_name has not been set"
+                    )
                 }
                 hostName == UNSET_HOST_NAME -> {
-                    throw IllegalStateException("host_name has not be set")
+                    throw GQLDataSourceException(
+                        GRAPHQL_DATA_SOURCE_CREATION_ERROR,
+                        "host_name has not be set"
+                    )
                 }
                 else -> {
+                    val httpScheme: HttpScheme =
+                        if (sslTlsSupported) {
+                            HttpScheme.HTTPS
+                        } else {
+                            HttpScheme.HTTP
+                        }
+                    val validatedPort: UInt =
+                        when {
+                            port == UNSET_PORT && httpScheme == HttpScheme.HTTPS ->
+                                HttpScheme.HTTPS.port()
+                            port == UNSET_PORT && httpScheme == HttpScheme.HTTP ->
+                                HttpScheme.HTTP.port()
+                            else -> port.toInt()
+                        }.toUInt()
                     return DefaultGraphQLApiService(
                         sslTlsSupported = sslTlsSupported,
+                        httpScheme = httpScheme,
                         serviceName = serviceName,
                         hostName = hostName,
-                        port = port,
+                        port = validatedPort,
                         serviceContextPath = serviceContextPath,
                         objectMapper = objectMapper,
                         webClientUpdater = webClientUpdater
@@ -132,6 +154,7 @@ internal class DefaultGraphQLApiServiceFactory(
 
     internal data class DefaultGraphQLApiService(
         @JsonProperty("ssl_tls_supported") override val sslTlsSupported: Boolean,
+        @JsonProperty("http_scheme") val httpScheme: HttpScheme,
         @JsonProperty("service_name") override val serviceName: String,
         @JsonProperty("host_name") override val hostName: String,
         @JsonProperty("port") override val port: UInt,
@@ -146,23 +169,11 @@ internal class DefaultGraphQLApiServiceFactory(
         }
 
         private val webClient: WebClient by lazy {
-            val scheme: HttpScheme =
-                if (sslTlsSupported) {
-                    HttpScheme.HTTPS
-                } else {
-                    HttpScheme.HTTP
-                }
-            val validatedPort: Int =
-                when {
-                    port == UNSET_PORT && scheme == HttpScheme.HTTPS -> HttpScheme.HTTPS.port()
-                    port == UNSET_PORT && scheme == HttpScheme.HTTP -> HttpScheme.HTTP.port()
-                    else -> port.toInt()
-                }
             val uriComponentsBuilder: UriComponentsBuilder =
                 UriComponentsBuilder.newInstance()
-                    .scheme(scheme.name().toString())
+                    .scheme(httpScheme.name().toString())
                     .host(hostName)
-                    .port(validatedPort)
+                    .port(port.toInt())
                     .path(serviceContextPath)
             val uriBuilderFactory: UriBuilderFactory =
                 DefaultUriBuilderFactory(uriComponentsBuilder)

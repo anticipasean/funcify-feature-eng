@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import funcify.feature.datasource.rest.RestApiService
 import funcify.feature.datasource.rest.error.RestApiDataSourceException
 import funcify.feature.datasource.rest.error.RestApiErrorResponse
+import funcify.feature.datasource.rest.error.RestApiErrorResponse.REST_API_DATA_SOURCE_CREATION_ERROR
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import io.netty.handler.codec.http.HttpScheme
@@ -69,10 +70,16 @@ internal class DefaultRestApiServiceFactory(
             override fun build(): RestApiService {
                 when {
                     serviceName == UNSET_SERVICE_NAME -> {
-                        throw IllegalStateException("service_name has not been set")
+                        throw RestApiDataSourceException(
+                            REST_API_DATA_SOURCE_CREATION_ERROR,
+                            "service_name has not been set"
+                        )
                     }
                     hostName == UNSET_HOST_NAME -> {
-                        throw IllegalStateException("host_name has not be set")
+                        throw RestApiDataSourceException(
+                            REST_API_DATA_SOURCE_CREATION_ERROR,
+                            "host_name has not be set"
+                        )
                     }
                     else -> {
                         val httpScheme: HttpScheme =
@@ -81,19 +88,20 @@ internal class DefaultRestApiServiceFactory(
                             } else {
                                 HttpScheme.HTTP
                             }
+                        val validatedPort =
+                            when {
+                                port == UNSET_PORT && httpScheme == HttpScheme.HTTPS ->
+                                    HttpScheme.HTTPS.port()
+                                port == UNSET_PORT && httpScheme == HttpScheme.HTTP ->
+                                    HttpScheme.HTTP.port()
+                                else -> port.toInt()
+                            }.toUInt()
                         return DefaultRestApiService(
                             sslTlsSupported = sslTlsSupported,
                             httpScheme = httpScheme,
                             serviceName = serviceName,
                             hostName = hostName,
-                            port =
-                                when {
-                                    port == UNSET_PORT && httpScheme == HttpScheme.HTTPS ->
-                                        HttpScheme.HTTPS.port()
-                                    port == UNSET_PORT && httpScheme == HttpScheme.HTTP ->
-                                        HttpScheme.HTTP.port()
-                                    else -> port.toInt()
-                                }.toUInt(),
+                            port = validatedPort,
                             serviceContextPath = serviceContextPath,
                             objectMapper = objectMapper,
                             webClientUpdater = webClientUpdater

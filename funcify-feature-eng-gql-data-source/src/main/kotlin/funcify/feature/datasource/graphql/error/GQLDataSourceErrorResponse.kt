@@ -9,6 +9,13 @@ import graphql.GraphqlErrorBuilder
 import org.springframework.http.HttpStatus
 
 enum class GQLDataSourceErrorResponse : ErrorResponse {
+    
+    GRAPHQL_DATA_SOURCE_CREATION_ERROR {
+        override val responseStatusIfHttp: Option<HttpStatus>
+            get() = HttpStatus.BAD_REQUEST.some()
+        override val errorMessageIfHttp: Option<String>
+            get() = "error occurred during creation of graphql_data_source".some()
+    },
     JSON_CONVERSION_ISSUE {
         override val responseStatusIfHttp: Option<HttpStatus>
             get() = HttpStatus.UNPROCESSABLE_ENTITY.some()
@@ -52,6 +59,5 @@ enum class GQLDataSourceErrorResponse : ErrorResponse {
             override val responseIfGraphQL: Option<GraphQLError>
                 get() = gqlError.some()
         }
-
     }
 }

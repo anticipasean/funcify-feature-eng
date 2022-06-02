@@ -10,6 +10,15 @@ class RestApiDataSourceException(
 ) : FeatureEngCommonException(errorResponse, inputMessage, cause) {
 
     constructor(
+        errorResponse: RestApiErrorResponse
+    ) : this(
+        errorResponse,
+        errorResponse.errorMessageIfHttp.or(errorResponse.errorMessageIfGraphQL).orNull()
+            ?: MISSING_ERROR_MESSAGE,
+        null
+    )
+
+    constructor(
         errorResponse: RestApiErrorResponse,
         inputMessage: String
     ) : this(errorResponse, inputMessage, null)
