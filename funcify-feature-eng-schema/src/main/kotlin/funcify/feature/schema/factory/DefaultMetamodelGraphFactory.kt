@@ -212,9 +212,23 @@ internal class DefaultMetamodelGraphFactory(
             override fun build(): Try<MetamodelGraph> {
                 return dataSourcesByNameAttempt
                     .zip(schematicVerticesByPathAttempt) {
-                        _: PersistentMap<String, DataSource<*>>,
+                        dsByName: PersistentMap<String, DataSource<*>>,
                         schematicVerticesByPath: PersistentMap<SchematicPath, SchematicVertex> ->
                         DefaultMetamodelGraph(
+                            dataSourcesByKey =
+                                dsByName.values.fold(persistentMapOf()) { pm, ds ->
+                                    if (pm.containsKey(ds.key)) {
+                                        throw SchemaException(
+                                            SchemaErrorResponse.UNIQUE_CONSTRAINT_VIOLATION,
+                                            """datasource with key: [ key: ${ds.key} ] 
+                                                |has already been added to 
+                                                |metamodel_graph.datasource_by_key map
+                                                |""".flattenIntoOneLine()
+                                        )
+                                    } else {
+                                        pm.put(ds.key, ds)
+                                    }
+                                },
                             pathBasedGraph =
                                 PathBasedGraph.emptyTwoToOnePathsToEdgeGraph<
                                         SchematicPath, SchematicVertex, SchematicEdge>()
