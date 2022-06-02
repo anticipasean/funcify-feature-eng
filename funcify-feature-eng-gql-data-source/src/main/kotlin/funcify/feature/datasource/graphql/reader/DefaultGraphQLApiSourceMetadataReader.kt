@@ -106,7 +106,7 @@ internal class DefaultGraphQLApiSourceMetadataReader(
         val graphQLSourceContainerType =
             graphQLSourceIndexFactory
                 .createRootSourceContainerType()
-                .forGraphQLQueryObjectType(queryType)
+                .forGraphQLQueryObjectType(queryType, graphQLApiSourceMetadataFilter)
         return GqlSourceContext(
             rootSourceContainerType = graphQLSourceContainerType,
             indicesByPath =
