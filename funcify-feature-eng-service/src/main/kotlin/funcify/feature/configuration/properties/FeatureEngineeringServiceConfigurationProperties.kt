@@ -26,7 +26,7 @@ import org.springframework.validation.annotation.Validated
 @Validated
 @Configuration
 @ConfigurationProperties(prefix = "funcify-feature-eng")
-data class FeatureServiceConfigurationProperties
+data class FeatureEngineeringServiceConfigurationProperties
 @ConstructorBinding
 constructor(
     @get:ValidTimeZone //
@@ -39,7 +39,7 @@ constructor(
 ) : InitializingBean {
 
     companion object {
-        private val logger: Logger = loggerFor<FeatureServiceConfigurationProperties>()
+        private val logger: Logger = loggerFor<FeatureEngineeringServiceConfigurationProperties>()
         private fun KClass<*>.snakeCaseName(): String {
             return StandardNamingConventions.SNAKE_CASE.deriveName(this.simpleName ?: "").toString()
         }
@@ -53,7 +53,7 @@ constructor(
     }
 
     override fun afterPropertiesSet() {
-        val kClassSnakeCaseName = FeatureServiceConfigurationProperties::class.snakeCaseName()
+        val kClassSnakeCaseName = FeatureEngineeringServiceConfigurationProperties::class.snakeCaseName()
         logger.info("${kClassSnakeCaseName}.after_properties_set: {}", this)
     }
 
