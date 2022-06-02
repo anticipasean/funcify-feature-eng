@@ -18,5 +18,6 @@ interface CompositeContainerType : CompositeIndex {
             e.key.sourceType == sourceType
         }
 
-    fun getSourceContainerTypeByDataSource(): ImmutableMap<DataSource<*>, SourceContainerType<*>>
+    fun getSourceContainerTypeByDataSource():
+        ImmutableMap<DataSource.Key<*>, SourceContainerType<*>>
 }

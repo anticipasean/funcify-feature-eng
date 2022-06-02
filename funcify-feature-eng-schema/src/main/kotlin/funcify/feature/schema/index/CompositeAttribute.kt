@@ -18,5 +18,5 @@ interface CompositeAttribute : CompositeIndex {
             e.key.sourceType == sourceType
         }
 
-    fun getSourceAttributeByDataSource(): ImmutableMap<DataSource<*>, SourceAttribute>
+    fun getSourceAttributeByDataSource(): ImmutableMap<DataSource.Key<*>, SourceAttribute>
 }

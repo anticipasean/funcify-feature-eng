@@ -9,7 +9,7 @@ import graphql.GraphqlErrorBuilder
 import org.springframework.http.HttpStatus
 
 enum class GQLDataSourceErrorResponse : ErrorResponse {
-    
+
     GRAPHQL_DATA_SOURCE_CREATION_ERROR {
         override val responseStatusIfHttp: Option<HttpStatus>
             get() = HttpStatus.BAD_REQUEST.some()

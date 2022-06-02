@@ -7,6 +7,8 @@ import funcify.feature.datasource.rest.error.RestApiErrorResponse
 import funcify.feature.datasource.rest.metadata.RestApiFetcherMetadataProvider
 import funcify.feature.datasource.rest.reader.RestApiSourceMetadataReader
 import funcify.feature.datasource.rest.schema.RestApiSourceIndex
+import funcify.feature.schema.datasource.DataSource
+import funcify.feature.schema.datasource.DataSourceType
 import funcify.feature.schema.datasource.SourceMetamodel
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
@@ -20,11 +22,20 @@ internal class DefaultRestApiDataSourceFactory<MD>(
     companion object {
         private val logger: Logger = loggerFor<DefaultRestApiDataSourceFactory<*>>()
 
+        internal data class DefaultRestApiDataSourceKey(
+            override val name: String,
+            override val sourceType: DataSourceType
+        ) : DataSource.Key<RestApiSourceIndex> {}
+
         internal data class DefaultRestApiDataSource(
             override val name: String,
             override val restApiService: RestApiService,
             override val sourceMetamodel: SourceMetamodel<RestApiSourceIndex>
-        ) : RestApiDataSource {}
+        ) : RestApiDataSource {
+            override val key: DataSource.Key<RestApiSourceIndex> by lazy {
+                DefaultRestApiDataSourceKey(name, sourceType)
+            }
+        }
     }
 
     override fun createRestApiDataSource(name: String, service: RestApiService): RestApiDataSource {

@@ -10,11 +10,11 @@ import kotlinx.collections.immutable.persistentMapOf
 internal data class DefaultCompositeContainerType(
     override val conventionalName: ConventionalName,
     private val sourceContainerTypesByDataSource:
-        PersistentMap<DataSource<*>, SourceContainerType<*>> =
+        PersistentMap<DataSource.Key<*>, SourceContainerType<*>> =
         persistentMapOf()
 ) : CompositeContainerType {
     override fun getSourceContainerTypeByDataSource():
-        ImmutableMap<DataSource<*>, SourceContainerType<*>> {
+        ImmutableMap<DataSource.Key<*>, SourceContainerType<*>> {
         return sourceContainerTypesByDataSource
     }
 }

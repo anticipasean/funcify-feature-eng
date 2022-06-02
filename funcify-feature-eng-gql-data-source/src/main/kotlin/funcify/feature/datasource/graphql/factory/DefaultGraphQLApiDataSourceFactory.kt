@@ -7,6 +7,8 @@ import funcify.feature.datasource.graphql.error.GQLDataSourceException
 import funcify.feature.datasource.graphql.metadata.GraphQLFetcherMetadataProvider
 import funcify.feature.datasource.graphql.reader.GraphQLApiSourceMetadataReader
 import funcify.feature.datasource.graphql.schema.GraphQLSourceIndex
+import funcify.feature.schema.datasource.DataSource
+import funcify.feature.schema.datasource.DataSourceType
 import funcify.feature.schema.datasource.SourceMetamodel
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
@@ -21,12 +23,21 @@ internal class DefaultGraphQLApiDataSourceFactory(
     companion object {
         private val logger: Logger = loggerFor<DefaultGraphQLApiServiceFactory>()
 
+        internal data class DefaultGraphQLApiDataSourceKey(
+            override val name: String,
+            override val sourceType: DataSourceType
+        ) : DataSource.Key<GraphQLSourceIndex> {}
+
         internal data class DefaultGraphQLApiDataSource(
             override val name: String,
             override val graphQLApiService: GraphQLApiService,
             override val graphQLSourceSchema: GraphQLSchema,
             override val sourceMetamodel: SourceMetamodel<GraphQLSourceIndex>
-        ) : GraphQLApiDataSource {}
+        ) : GraphQLApiDataSource {
+            override val key: DataSource.Key<GraphQLSourceIndex> by lazy {
+                DefaultGraphQLApiDataSourceKey(name, sourceType)
+            }
+        }
     }
 
     override fun createGraphQLApiDataSource(

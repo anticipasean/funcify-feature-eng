@@ -209,7 +209,7 @@ internal class DefaultSchematicVertexFactory : SchematicVertexFactory {
                                                             .compositeAttribute
                                                             .getSourceAttributeByDataSource()
                                                             .toPersistentMap()
-                                                            .put(dataSource, sourceIndex)
+                                                            .put(dataSource.key, sourceIndex)
                                                     )
                                             )
                                         is JunctionVertex ->
@@ -226,7 +226,7 @@ internal class DefaultSchematicVertexFactory : SchematicVertexFactory {
                                                                 .compositeAttribute
                                                                 .getSourceAttributeByDataSource()
                                                                 .toPersistentMap()
-                                                                .put(dataSource, sourceIndex)
+                                                                .put(dataSource.key, sourceIndex)
                                                     ),
                                                 compositeContainerType =
                                                     existingVertex.compositeContainerType
@@ -250,7 +250,7 @@ internal class DefaultSchematicVertexFactory : SchematicVertexFactory {
                                                  */
                                                 conventionalName = sourceIndex.name,
                                                 sourceAttributesByDataSource =
-                                                    persistentMapOf(dataSource to sourceIndex)
+                                                    persistentMapOf(dataSource.key to sourceIndex)
                                             )
                                     )
                                 }
@@ -274,7 +274,7 @@ internal class DefaultSchematicVertexFactory : SchematicVertexFactory {
                                                                 .compositeContainerType
                                                                 .getSourceContainerTypeByDataSource()
                                                                 .toPersistentMap()
-                                                                .put(dataSource, sourceIndex)
+                                                                .put(dataSource.key, sourceIndex)
                                                     )
                                             )
                                         is LeafVertex ->
@@ -288,7 +288,7 @@ internal class DefaultSchematicVertexFactory : SchematicVertexFactory {
                                                                 .conventionalName,
                                                         sourceContainerTypesByDataSource =
                                                             persistentMapOf(
-                                                                dataSource to sourceIndex
+                                                                dataSource.key to sourceIndex
                                                             )
                                                     ),
                                                 compositeAttribute =
@@ -308,7 +308,7 @@ internal class DefaultSchematicVertexFactory : SchematicVertexFactory {
                                                                 .compositeContainerType
                                                                 .getSourceContainerTypeByDataSource()
                                                                 .toPersistentMap()
-                                                                .put(dataSource, sourceIndex)
+                                                                .put(dataSource.key, sourceIndex)
                                                     ),
                                                 compositeAttribute =
                                                     existingVertex.compositeAttribute
@@ -328,7 +328,7 @@ internal class DefaultSchematicVertexFactory : SchematicVertexFactory {
                                             compositeContainerType =
                                                 DefaultCompositeContainerType(
                                                     sourceIndex.name,
-                                                    persistentMapOf(dataSource to sourceIndex)
+                                                    persistentMapOf(dataSource.key to sourceIndex)
                                                 )
                                         )
                                     } else {
@@ -343,7 +343,9 @@ internal class DefaultSchematicVertexFactory : SchematicVertexFactory {
                                                      */
                                                     conventionalName = sourceIndex.name,
                                                     sourceContainerTypesByDataSource =
-                                                        persistentMapOf(dataSource to sourceIndex)
+                                                        persistentMapOf(
+                                                            dataSource.key to sourceIndex
+                                                        )
                                                 ),
                                             compositeAttribute =
                                                 DefaultCompositeAttribute(
