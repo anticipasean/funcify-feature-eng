@@ -6,7 +6,7 @@ interface GraphQLApiSourceMetadataFilter {
 
     companion object {
 
-        val ACCEPT_ALL_FILTER: GraphQLApiSourceMetadataFilter by lazy {
+        val INCLUDE_ALL_FILTER: GraphQLApiSourceMetadataFilter by lazy {
             object : GraphQLApiSourceMetadataFilter {
                 override fun includeGraphQLFieldDefinition(
                     graphQLFieldDefinition: GraphQLFieldDefinition

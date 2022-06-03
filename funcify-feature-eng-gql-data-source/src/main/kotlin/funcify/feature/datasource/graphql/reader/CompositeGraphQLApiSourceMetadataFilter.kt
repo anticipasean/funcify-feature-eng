@@ -15,8 +15,12 @@ class CompositeGraphQLApiSourceMetadataFilter(
     override fun includeGraphQLFieldDefinition(
         graphQLFieldDefinition: GraphQLFieldDefinition
     ): Boolean {
-        return filtersList.parallelStream().allMatch { f: GraphQLApiSourceMetadataFilter ->
-            f.includeGraphQLFieldDefinition(graphQLFieldDefinition)
+        return if (filtersList.isEmpty()) {
+            true
+        } else {
+            filtersList.parallelStream().allMatch { f: GraphQLApiSourceMetadataFilter ->
+                f.includeGraphQLFieldDefinition(graphQLFieldDefinition)
+            }
         }
     }
 }

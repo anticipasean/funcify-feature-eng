@@ -28,7 +28,7 @@ interface GraphQLSourceIndexFactory {
         fun forGraphQLQueryObjectType(
             queryObjectType: GraphQLObjectType,
             metadataFilter: GraphQLApiSourceMetadataFilter =
-                GraphQLApiSourceMetadataFilter.ACCEPT_ALL_FILTER
+                GraphQLApiSourceMetadataFilter.INCLUDE_ALL_FILTER
         ): GraphQLSourceContainerType
     }
 
