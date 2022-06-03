@@ -1,12 +1,18 @@
 package funcify.feature.materializer.request
 
-import arrow.core.getOrElse
 import arrow.core.toOption
 import funcify.feature.materializer.error.MaterializerErrorResponse
 import funcify.feature.materializer.error.MaterializerException
+import funcify.feature.tools.container.attempt.Try
 import graphql.execution.ExecutionId
 import java.net.URI
 import java.util.*
+import kotlinx.collections.immutable.PersistentList
+import kotlinx.collections.immutable.PersistentMap
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.persistentMapOf
+import kotlinx.collections.immutable.toPersistentList
+import kotlinx.collections.immutable.toPersistentMap
 import org.springframework.http.HttpHeaders
 
 internal class DefaultRawGraphQLRequestFactory : RawGraphQLRequestFactory {
@@ -94,6 +100,14 @@ internal class DefaultRawGraphQLRequestFactory : RawGraphQLRequestFactory {
             }
 
             override fun build(): RawGraphQLRequest {
+                val validatedExecutionId =
+                    if (executionId == UNSET_EXECUTION_ID) {
+                        Try.fromOption(requestId.toOption().filterNot(String::isEmpty))
+                            .map(ExecutionId::from)
+                            .orElseGet { ExecutionId.generate() }
+                    } else {
+                        executionId
+                    }
                 return when {
                     rawGraphQLQueryText == UNSET_RAW_GRAPHQL_QUERY_TEXT -> {
                         throw MaterializerException(
@@ -101,17 +115,23 @@ internal class DefaultRawGraphQLRequestFactory : RawGraphQLRequestFactory {
                             "raw_graphql_query_text is empty"
                         )
                     }
+                    uri == UNSET_URI -> {
+                        throw MaterializerException(
+                            MaterializerErrorResponse.INVALID_GRAPHQL_REQUEST,
+                            "uri is missing"
+                        )
+                    }
                     else -> {
                         DefaultRawGraphQLRequest(
                             requestId = requestId,
-                            executionId = executionId,
+                            executionId = validatedExecutionId,
                             uri = uri,
                             headers = headers,
                             rawGraphQLQueryText = rawGraphQLQueryText,
                             operationName = operationName,
-                            variables = variables,
+                            variables = variables.toPersistentMap(),
                             locale = locale,
-                            executionInputCustomizers = executionInputCustomizers
+                            executionInputCustomizers = executionInputCustomizers.toPersistentList()
                         )
                     }
                 }
@@ -120,18 +140,16 @@ internal class DefaultRawGraphQLRequestFactory : RawGraphQLRequestFactory {
 
         internal data class DefaultRawGraphQLRequest(
             override val requestId: String = "",
-            override val executionId: ExecutionId =
-                requestId.toOption().filterNot(String::isEmpty).map(ExecutionId::from).getOrElse {
-                    ExecutionId.generate()
-                },
+            override val executionId: ExecutionId,
             override val uri: URI,
             override val headers: HttpHeaders,
             override val rawGraphQLQueryText: String = "",
             override val operationName: String = "",
-            override val variables: Map<String, Any?> = mutableMapOf(),
+            override val variables: PersistentMap<String, Any?> = persistentMapOf(),
             override val locale: Locale = Locale.getDefault(),
-            override val executionInputCustomizers: List<GraphQLExecutionInputCustomizer> =
-                mutableListOf()
+            override val executionInputCustomizers:
+                PersistentList<GraphQLExecutionInputCustomizer> =
+                persistentListOf()
         ) : RawGraphQLRequest {}
     }
 

@@ -3,6 +3,8 @@ package funcify.feature.materializer.request
 import graphql.execution.ExecutionId
 import java.net.URI
 import java.util.*
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.ImmutableMap
 import org.springframework.http.HttpHeaders
 
 /**
@@ -24,11 +26,11 @@ interface RawGraphQLRequest {
 
     val operationName: String
 
-    val variables: Map<String, Any?>
+    val variables: ImmutableMap<String, Any?>
 
     val locale: Locale
 
-    val executionInputCustomizers: List<GraphQLExecutionInputCustomizer>
+    val executionInputCustomizers: ImmutableList<GraphQLExecutionInputCustomizer>
 
     interface Builder {
 
