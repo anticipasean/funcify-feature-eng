@@ -19,6 +19,7 @@ import graphql.schema.GraphQLFieldDefinition
 import graphql.schema.GraphQLFieldsContainer
 import graphql.schema.GraphQLList
 import graphql.schema.GraphQLNamedOutputType
+import graphql.schema.GraphQLNonNull
 import graphql.schema.GraphQLObjectType
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.PersistentSet
@@ -116,6 +117,21 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
                         .some()
                 }
                 is GraphQLList -> {
+                    return if (fieldType.wrappedType is GraphQLFieldsContainer) {
+                        DefaultGraphQLSourceContainerType(
+                                sourcePath = attributePath,
+                                name =
+                                    GraphQLSourceNamingConventions
+                                        .getFieldNamingConventionForGraphQLFieldDefinitions()
+                                        .deriveName(attributeDefinition),
+                                dataType = fieldType
+                            )
+                            .some()
+                    } else {
+                        none<DefaultGraphQLSourceContainerType>()
+                    }
+                }
+                is GraphQLNonNull -> {
                     return if (fieldType.wrappedType is GraphQLFieldsContainer) {
                         DefaultGraphQLSourceContainerType(
                                 sourcePath = attributePath,

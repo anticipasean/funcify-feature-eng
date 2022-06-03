@@ -7,6 +7,7 @@ import funcify.feature.schema.path.SchematicPath
 import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentMap
 import graphql.schema.GraphQLFieldsContainer
 import graphql.schema.GraphQLList
+import graphql.schema.GraphQLNonNull
 import graphql.schema.GraphQLOutputType
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.PersistentSet
@@ -31,6 +32,16 @@ internal data class DefaultGraphQLSourceContainerType(
                 gqlType
             }
             is GraphQLList -> {
+                if (gqlType.wrappedType is GraphQLFieldsContainer) {
+                    gqlType.wrappedType as GraphQLFieldsContainer
+                } else {
+                    throw GQLDataSourceException(
+                        GQLDataSourceErrorResponse.UNEXPECTED_ERROR,
+                        "graphql container type not found in graphql_output_type"
+                    )
+                }
+            }
+            is GraphQLNonNull -> {
                 if (gqlType.wrappedType is GraphQLFieldsContainer) {
                     gqlType.wrappedType as GraphQLFieldsContainer
                 } else {

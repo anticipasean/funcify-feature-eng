@@ -25,6 +25,7 @@ import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
 import graphql.schema.GraphQLFieldDefinition
 import graphql.schema.GraphQLFieldsContainer
 import graphql.schema.GraphQLList
+import graphql.schema.GraphQLNonNull
 import graphql.schema.GraphQLObjectType
 import graphql.schema.GraphQLOutputType
 import graphql.schema.GraphQLSchema
@@ -153,6 +154,18 @@ internal class DefaultGraphQLApiSourceMetadataReader(
                                 }
                             }
                             is GraphQLList -> {
+                                if (fieldType.wrappedType is GraphQLFieldsContainer) {
+                                    (fieldType.wrappedType as GraphQLFieldsContainer)
+                                        .fieldDefinitions.stream()
+                                        .filter { gfd: GraphQLFieldDefinition ->
+                                            graphQLApiSourceMetadataFilter
+                                                .includeGraphQLFieldDefinition(gfd)
+                                        }
+                                } else {
+                                    Stream.empty<GraphQLFieldDefinition>()
+                                }
+                            }
+                            is GraphQLNonNull -> {
                                 if (fieldType.wrappedType is GraphQLFieldsContainer) {
                                     (fieldType.wrappedType as GraphQLFieldsContainer)
                                         .fieldDefinitions.stream()
