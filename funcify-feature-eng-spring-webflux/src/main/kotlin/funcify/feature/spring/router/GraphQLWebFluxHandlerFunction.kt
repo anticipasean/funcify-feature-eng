@@ -98,9 +98,7 @@ class GraphQLWebFluxHandlerFunction(
     private fun convertServerRequestIntoRawGraphQLRequest(
         request: ServerRequest
     ): Mono<RawGraphQLRequest> {
-        return when (val firstContentTypeHeader =
-                request.headers().firstHeader(HttpHeaders.CONTENT_TYPE)
-        ) {
+        return when (request.headers().firstHeader(HttpHeaders.CONTENT_TYPE)) {
             MEDIA_TYPE_APPLICATION_GRAPHQL_VALUE -> {
                 transformRawGraphQLOperationTextIntoRawGraphQLRequest(request)
             }
