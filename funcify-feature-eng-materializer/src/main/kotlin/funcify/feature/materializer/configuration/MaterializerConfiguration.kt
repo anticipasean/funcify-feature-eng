@@ -7,7 +7,9 @@ import funcify.feature.materializer.error.MaterializerErrorResponse
 import funcify.feature.materializer.error.MaterializerException
 import funcify.feature.materializer.request.DefaultRawGraphQLRequestFactory
 import funcify.feature.materializer.request.RawGraphQLRequestFactory
+import funcify.feature.materializer.schema.DefaultGraphQLObjectTypeDefinitionFactory
 import funcify.feature.materializer.schema.DefaultMaterializationGraphQLSchemaFactory
+import funcify.feature.materializer.schema.GraphQLObjectTypeDefinitionFactory
 import funcify.feature.materializer.schema.MaterializationGraphQLSchemaFactory
 import funcify.feature.schema.MetamodelGraph
 import funcify.feature.schema.datasource.DataSource
@@ -77,10 +79,20 @@ open class MaterializerConfiguration {
         return DefaultRawGraphQLRequestFactory()
     }
 
+    @ConditionalOnMissingBean(value = [GraphQLObjectTypeDefinitionFactory::class])
+    @Bean
+    fun graphQLObjectTypeDefinitionFactory(): GraphQLObjectTypeDefinitionFactory {
+        return DefaultGraphQLObjectTypeDefinitionFactory()
+    }
+
     @ConditionalOnMissingBean(value = [MaterializationGraphQLSchemaFactory::class])
     @Bean
-    fun materializationGraphQLSchemaFactory(): MaterializationGraphQLSchemaFactory {
-        return DefaultMaterializationGraphQLSchemaFactory()
+    fun materializationGraphQLSchemaFactory(
+        graphQLObjectTypeDefinitionFactory: GraphQLObjectTypeDefinitionFactory
+    ): MaterializationGraphQLSchemaFactory {
+        return DefaultMaterializationGraphQLSchemaFactory(
+            graphQLObjectTypeDefinitionFactory = graphQLObjectTypeDefinitionFactory
+        )
     }
 
     /*

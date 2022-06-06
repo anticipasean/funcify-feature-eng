@@ -72,7 +72,7 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
             graphQLSourceAttributes: PersistentSet<GraphQLSourceAttribute>
         ): DefaultGraphQLSourceContainerType {
             return DefaultGraphQLSourceContainerType(
-                name = StandardNamingConventions.SNAKE_CASE.deriveName("Query"),
+                name = StandardNamingConventions.SNAKE_CASE.deriveName("query"),
                 sourcePath = SchematicPath.getRootPath(),
                 dataType = queryObjectType,
                 sourceAttributes = graphQLSourceAttributes
