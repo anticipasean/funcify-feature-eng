@@ -1,7 +1,8 @@
 package funcify.feature.materializer.schema
 
+import arrow.core.getOrElse
 import arrow.core.toOption
-import funcify.feature.materializer.error.MaterializerErrorResponse
+import funcify.feature.materializer.error.MaterializerErrorResponse.GRAPHQL_SCHEMA_CREATION_ERROR
 import funcify.feature.materializer.error.MaterializerException
 import funcify.feature.naming.ConventionalName
 import funcify.feature.schema.MetamodelGraph
@@ -15,6 +16,7 @@ import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.PersistentMapExtensions.streamPairs
 import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
 import graphql.language.Comment
+import graphql.language.FieldDefinition
 import graphql.language.ObjectTypeDefinition
 import graphql.language.OperationTypeDefinition
 import graphql.language.SourceLocation
@@ -30,19 +32,23 @@ import kotlinx.collections.immutable.persistentMapOf
 import org.slf4j.Logger
 
 internal class DefaultMaterializationGraphQLSchemaFactory(
-    val graphQLObjectTypeDefinitionFactory: GraphQLObjectTypeDefinitionFactory
+    val graphQLObjectTypeDefinitionFactory: GraphQLObjectTypeDefinitionFactory,
+    val graphQLSDLFieldDefinitionFactory: GraphQLSDLFieldDefinitionFactory
 ) : MaterializationGraphQLSchemaFactory {
 
     companion object {
         private val logger: Logger = loggerFor<DefaultMaterializationGraphQLSchemaFactory>()
 
         private data class GraphQLSchemaBuildContext(
+            val objectTypeDefinitionsByPath: PersistentMap<SchematicPath, ObjectTypeDefinition> =
+                persistentMapOf(),
             val objectTypeDefinitionsByName: PersistentMap<String, ObjectTypeDefinition> =
                 persistentMapOf(),
             val otherTypeDefinitionsByName: PersistentMap<String, TypeDefinition<*>> =
                 persistentMapOf(),
             val sdlTypesByName: PersistentMap<String, Type<*>> = persistentMapOf(),
-            val operationTypeDefinitionsByName: PersistentMap<String, OperationTypeDefinition> =
+            val operationTypeDefinitionsByPath:
+                PersistentMap<SchematicPath, OperationTypeDefinition> =
                 persistentMapOf(),
             val runtimeWiringBuilder: RuntimeWiring.Builder = RuntimeWiring.newRuntimeWiring(),
             val scalarTypesByName: PersistentMap<String, GraphQLScalarType> = persistentMapOf(),
@@ -83,9 +89,7 @@ internal class DefaultMaterializationGraphQLSchemaFactory(
                 },
                 { bc1, _ -> bc1 }
             )
-        return Try.failure(
-            MaterializerException(MaterializerErrorResponse.GRAPHQL_SCHEMA_CREATION_ERROR)
-        )
+        return Try.failure(MaterializerException(GRAPHQL_SCHEMA_CREATION_ERROR))
     }
 
     private fun addSchematicVertexToBuildContext(
@@ -99,7 +103,7 @@ internal class DefaultMaterializationGraphQLSchemaFactory(
             is LeafVertex -> addLeafVertexToBuildContext(buildContext, vertex)
             else ->
                 throw MaterializerException(
-                    MaterializerErrorResponse.GRAPHQL_SCHEMA_CREATION_ERROR,
+                    GRAPHQL_SCHEMA_CREATION_ERROR,
                     "unsupported schematic_vertex type: [ type: ${vertex::class.qualifiedName}]"
                 )
         }
@@ -121,14 +125,19 @@ internal class DefaultMaterializationGraphQLSchemaFactory(
         val queryObjectTypeDefinition: ObjectTypeDefinition =
             ObjectTypeDefinition.newObjectTypeDefinition().name(queryObjectTypeName.name).build()
         return buildContext.copy(
-            operationTypeDefinitionsByName =
-                buildContext.operationTypeDefinitionsByName.put(
-                    conventionalName.toString(),
+            operationTypeDefinitionsByPath =
+                buildContext.operationTypeDefinitionsByPath.put(
+                    vertex.path,
                     queryOperationTypeDefinition
+                ),
+            objectTypeDefinitionsByPath =
+                buildContext.objectTypeDefinitionsByPath.put(
+                    vertex.path,
+                    queryObjectTypeDefinition
                 ),
             objectTypeDefinitionsByName =
                 buildContext.objectTypeDefinitionsByName.put(
-                    conventionalName.toString(),
+                    queryObjectTypeDefinition.name,
                     queryObjectTypeDefinition
                 )
         )
@@ -146,7 +155,7 @@ internal class DefaultMaterializationGraphQLSchemaFactory(
                 compositeContainerType.conventionalName
             } else {
                 throw MaterializerException(
-                    MaterializerErrorResponse.GRAPHQL_SCHEMA_CREATION_ERROR,
+                    GRAPHQL_SCHEMA_CREATION_ERROR,
                     """conventional_name instances on junction_vertex [ 
                         |container_type.name: ${compositeContainerType.conventionalName}, 
                         |attribute.name: ${compositeAttribute.conventionalName} ] do not match
@@ -157,8 +166,61 @@ internal class DefaultMaterializationGraphQLSchemaFactory(
             graphQLObjectTypeDefinitionFactory.createObjectTypeDefinitionForCompositeContainerType(
                 compositeContainerType = compositeContainerType
             )
-
-        return buildContext
+        val fieldDefinition: FieldDefinition =
+            graphQLSDLFieldDefinitionFactory.createFieldDefinitionForCompositeAttribute(
+                compositeAttribute = compositeAttribute
+            )
+        val parentPath: SchematicPath =
+            vertex.path.getParentPath().getOrElse {
+                throw MaterializerException(
+                    GRAPHQL_SCHEMA_CREATION_ERROR,
+                    """root_path cannot be used as path for 
+                       |junction_vertex [ path: ${vertex.path}, 
+                       |name: ${conventionalName} ]
+                       |""".flattenIntoOneLine()
+                )
+            }
+        val parentObjectTypeDefinition: ObjectTypeDefinition =
+            buildContext.objectTypeDefinitionsByPath[parentPath].toOption().getOrElse {
+                throw MaterializerException(
+                    GRAPHQL_SCHEMA_CREATION_ERROR,
+                    """object_type_definition for parent should be processed 
+                       |before its children [ parent_path: ${parentPath}, 
+                       |name: ${conventionalName} ]
+                       |""".flattenIntoOneLine()
+                )
+            }
+        val updatedParentDefinition =
+            parentObjectTypeDefinition.transform { bldr: ObjectTypeDefinition.Builder ->
+                bldr.fieldDefinition(fieldDefinition)
+            }
+        return if (objectTypeDefinition.name in buildContext.objectTypeDefinitionsByName) {
+            buildContext.copy(
+                objectTypeDefinitionsByPath =
+                    buildContext
+                        .objectTypeDefinitionsByPath
+                        .put(parentPath, updatedParentDefinition)
+                        .put(vertex.path, objectTypeDefinition),
+                objectTypeDefinitionsByName =
+                    buildContext.objectTypeDefinitionsByName.put(
+                        updatedParentDefinition.name,
+                        updatedParentDefinition
+                    )
+            )
+        } else {
+            buildContext.copy(
+                objectTypeDefinitionsByPath =
+                    buildContext
+                        .objectTypeDefinitionsByPath
+                        .put(parentPath, updatedParentDefinition)
+                        .put(vertex.path, objectTypeDefinition),
+                objectTypeDefinitionsByName =
+                    buildContext
+                        .objectTypeDefinitionsByName
+                        .put(updatedParentDefinition.name, updatedParentDefinition)
+                        .put(objectTypeDefinition.name, objectTypeDefinition)
+            )
+        }
     }
 
     private fun addLeafVertexToBuildContext(

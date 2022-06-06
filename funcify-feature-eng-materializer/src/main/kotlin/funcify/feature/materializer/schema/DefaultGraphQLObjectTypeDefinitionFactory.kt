@@ -48,19 +48,20 @@ internal class DefaultGraphQLObjectTypeDefinitionFactory : GraphQLObjectTypeDefi
     private fun deriveObjectTypeDefinitionFromFirstAvailableGraphQLApiSourceContainerType(
         compositeContainerType: CompositeContainerType
     ): ObjectTypeDefinition {
-        val firstGraphQLApiSourceContainerType =
+        val firstGraphQLApiSourceContainerType: SourceContainerType<*> =
             (compositeContainerType
                 .getSourceContainerTypeByDataSource()
                 .asSequence()
                 .filter { entry -> entry.key.sourceType == RawDataSourceType.GRAPHQL_API }
+                .map { entry -> entry.value }
                 .firstOrNull()
                 ?: throw MaterializerException(
                     MaterializerErrorResponse.GRAPHQL_SCHEMA_CREATION_ERROR,
-                    "graphql_api_source_type reported available but not found"
+                    "graphql_api_source_container_type reported available but not found"
                 ))
         val graphQLFieldsContainerType: GraphQLFieldsContainer =
             when (val graphQLSourceContainerType: SourceContainerType<*> =
-                    firstGraphQLApiSourceContainerType.value
+                    firstGraphQLApiSourceContainerType
             ) {
                 is GraphQLSourceContainerType -> {
                     graphQLSourceContainerType.containerType
