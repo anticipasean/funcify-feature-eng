@@ -1,6 +1,7 @@
 package funcify.feature.datasource.graphql.schema
 
 import arrow.core.Option
+import arrow.core.Some
 import arrow.core.filterIsInstance
 import arrow.core.getOrElse
 import arrow.core.lastOrNone
@@ -19,7 +20,6 @@ import graphql.schema.GraphQLFieldDefinition
 import graphql.schema.GraphQLFieldsContainer
 import graphql.schema.GraphQLList
 import graphql.schema.GraphQLNamedOutputType
-import graphql.schema.GraphQLNonNull
 import graphql.schema.GraphQLObjectType
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.PersistentSet
@@ -104,47 +104,17 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
             attributePath: SchematicPath,
             attributeDefinition: GraphQLFieldDefinition
         ): Option<GraphQLSourceContainerType> {
-            when (val fieldType = attributeDefinition.type) {
-                is GraphQLFieldsContainer -> {
+            when (GraphQLFieldsContainerTypeExtractor.invoke(attributeDefinition.type)) {
+                is Some -> {
                     return DefaultGraphQLSourceContainerType(
                             sourcePath = attributePath,
                             name =
                                 GraphQLSourceNamingConventions
                                     .getFieldNamingConventionForGraphQLFieldDefinitions()
                                     .deriveName(attributeDefinition),
-                            dataType = fieldType
+                            dataType = attributeDefinition.type
                         )
                         .some()
-                }
-                is GraphQLList -> {
-                    return if (fieldType.wrappedType is GraphQLFieldsContainer) {
-                        DefaultGraphQLSourceContainerType(
-                                sourcePath = attributePath,
-                                name =
-                                    GraphQLSourceNamingConventions
-                                        .getFieldNamingConventionForGraphQLFieldDefinitions()
-                                        .deriveName(attributeDefinition),
-                                dataType = fieldType
-                            )
-                            .some()
-                    } else {
-                        none<DefaultGraphQLSourceContainerType>()
-                    }
-                }
-                is GraphQLNonNull -> {
-                    return if (fieldType.wrappedType is GraphQLFieldsContainer) {
-                        DefaultGraphQLSourceContainerType(
-                                sourcePath = attributePath,
-                                name =
-                                    GraphQLSourceNamingConventions
-                                        .getFieldNamingConventionForGraphQLFieldDefinitions()
-                                        .deriveName(attributeDefinition),
-                                dataType = fieldType
-                            )
-                            .some()
-                    } else {
-                        none<DefaultGraphQLSourceContainerType>()
-                    }
                 }
                 else -> {
                     return none<DefaultGraphQLSourceContainerType>()

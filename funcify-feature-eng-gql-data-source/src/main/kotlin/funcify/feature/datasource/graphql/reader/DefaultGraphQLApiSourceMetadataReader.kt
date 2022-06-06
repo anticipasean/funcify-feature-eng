@@ -8,6 +8,7 @@ import funcify.feature.datasource.graphql.error.GQLDataSourceErrorResponse
 import funcify.feature.datasource.graphql.error.GQLDataSourceException
 import funcify.feature.datasource.graphql.schema.DefaultGraphQLSourceAttribute
 import funcify.feature.datasource.graphql.schema.DefaultGraphQLSourceContainerType
+import funcify.feature.datasource.graphql.schema.GraphQLFieldsContainerTypeExtractor
 import funcify.feature.datasource.graphql.schema.GraphQLSourceAttribute
 import funcify.feature.datasource.graphql.schema.GraphQLSourceContainerType
 import funcify.feature.datasource.graphql.schema.GraphQLSourceIndex
@@ -24,10 +25,7 @@ import funcify.feature.tools.extensions.PersistentMapExtensions.streamPairs
 import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
 import graphql.schema.GraphQLFieldDefinition
 import graphql.schema.GraphQLFieldsContainer
-import graphql.schema.GraphQLList
-import graphql.schema.GraphQLNonNull
 import graphql.schema.GraphQLObjectType
-import graphql.schema.GraphQLOutputType
 import graphql.schema.GraphQLSchema
 import java.util.stream.Stream
 import java.util.stream.StreamSupport
@@ -144,43 +142,16 @@ internal class DefaultGraphQLApiSourceMetadataReader(
             .flatMap { gqlFieldDef: GraphQLFieldDefinition ->
                 val traversalFunction: (GraphQLFieldDefinition) -> Stream<GraphQLFieldDefinition> =
                     { gqlf: GraphQLFieldDefinition ->
-                        when (val fieldType: GraphQLOutputType = gqlf.type) {
-                            is GraphQLFieldsContainer -> {
-                                fieldType.fieldDefinitions.stream().filter {
-                                    gfd: GraphQLFieldDefinition ->
+                        GraphQLFieldsContainerTypeExtractor.invoke(gqlf.type)
+                            .map { gqlfc: GraphQLFieldsContainer ->
+                                gqlfc.fieldDefinitions.stream().filter { gfd: GraphQLFieldDefinition
+                                    ->
                                     graphQLApiSourceMetadataFilter.includeGraphQLFieldDefinition(
                                         gfd
                                     )
                                 }
                             }
-                            is GraphQLList -> {
-                                if (fieldType.wrappedType is GraphQLFieldsContainer) {
-                                    (fieldType.wrappedType as GraphQLFieldsContainer)
-                                        .fieldDefinitions.stream()
-                                        .filter { gfd: GraphQLFieldDefinition ->
-                                            graphQLApiSourceMetadataFilter
-                                                .includeGraphQLFieldDefinition(gfd)
-                                        }
-                                } else {
-                                    Stream.empty<GraphQLFieldDefinition>()
-                                }
-                            }
-                            is GraphQLNonNull -> {
-                                if (fieldType.wrappedType is GraphQLFieldsContainer) {
-                                    (fieldType.wrappedType as GraphQLFieldsContainer)
-                                        .fieldDefinitions.stream()
-                                        .filter { gfd: GraphQLFieldDefinition ->
-                                            graphQLApiSourceMetadataFilter
-                                                .includeGraphQLFieldDefinition(gfd)
-                                        }
-                                } else {
-                                    Stream.empty<GraphQLFieldDefinition>()
-                                }
-                            }
-                            else -> {
-                                Stream.empty<GraphQLFieldDefinition>()
-                            }
-                        }
+                            .getOrElse { Stream.empty() }
                     }
                 StreamSupport.stream(
                     RelationshipSpliterators.recursiveParentChildSpliterator(
