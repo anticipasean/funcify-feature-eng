@@ -14,7 +14,7 @@ import kotlinx.collections.immutable.ImmutableMap
  * @author smccarron
  * @created 1/30/22
  */
-interface SchematicPath {
+interface SchematicPath : Comparable<SchematicPath> {
 
     companion object {
 
@@ -24,6 +24,58 @@ interface SchematicPath {
 
         fun getRootPath(): SchematicPath {
             return rootPath
+        }
+
+        private val comparator: Comparator<SchematicPath> by lazy {
+            val strStrMapComparatorFunction: (Map<String, String>, Map<String, String>) -> Int =
+                { map1, map2 -> //
+                    /*
+                     * Early exit approach: First non-matching pair found returns comparison value else considered equal
+                     */
+                    when (val mapSizeComparison: Int = map1.size.compareTo(map2.size)) {
+                        0 -> {
+                            map1.asSequence()
+                                .zip(map2.asSequence())
+                                .firstOrNull { (e1, e2) ->
+                                    e1.key.compareTo(e2.key) != 0 ||
+                                        e1.value.compareTo(e2.value) != 0
+                                }
+                                ?.let { (e1, e2) ->
+                                    when (val keyComparison: Int = e1.key.compareTo(e2.key)) {
+                                        0 -> e1.value.compareTo(e2.value)
+                                        else -> keyComparison
+                                    }
+                                }
+                                ?: 0
+                        }
+                        else -> {
+                            mapSizeComparison
+                        }
+                    }
+                }
+            val strListComparatorFunction: (List<String>, List<String>) -> Int = { l1, l2 -> //
+                /*
+                 * Early exit approach: First non-matching pair found returns comparison value else considered equal
+                 */
+                when (val listSizeComparison: Int = l1.size.compareTo(l2.size)) {
+                    0 -> {
+                        l1.asSequence()
+                            .zip(l2.asSequence())
+                            .firstOrNull { (s1, s2) -> s1.compareTo(s2) != 0 }
+                            ?.let { (s1, s2) -> s1.compareTo(s2) }
+                            ?: 0
+                    }
+                    else -> listSizeComparison
+                }
+            }
+            Comparator.comparing({ sp: SchematicPath -> sp.scheme }, String::compareTo)
+                .thenComparing({ sp: SchematicPath -> sp.pathSegments }, strListComparatorFunction)
+                .thenComparing({ sp: SchematicPath -> sp.arguments }, strStrMapComparatorFunction)
+                .thenComparing({ sp: SchematicPath -> sp.directives }, strStrMapComparatorFunction)
+        }
+
+        fun comparator(): Comparator<SchematicPath> {
+            return comparator
         }
     }
 
@@ -209,6 +261,10 @@ interface SchematicPath {
             }
             else -> transform { dropPathSegment() }.some()
         }
+    }
+
+    override fun compareTo(other: SchematicPath): Int {
+        return comparator().compare(this, other)
     }
 
     fun transform(mapper: Builder.() -> Builder): SchematicPath
