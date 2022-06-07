@@ -2,6 +2,7 @@ package funcify.feature.materializer.configuration
 
 import arrow.core.getOrElse
 import arrow.core.toOption
+import com.fasterxml.jackson.databind.ObjectMapper
 import funcify.feature.error.FeatureEngCommonException
 import funcify.feature.materializer.error.MaterializerErrorResponse
 import funcify.feature.materializer.error.MaterializerException
@@ -96,10 +97,12 @@ open class MaterializerConfiguration {
     @ConditionalOnMissingBean(value = [MaterializationGraphQLSchemaFactory::class])
     @Bean
     fun materializationGraphQLSchemaFactory(
+        objectMapper: ObjectMapper,
         graphQLObjectTypeDefinitionFactory: GraphQLObjectTypeDefinitionFactory,
         graphQLSDLFieldDefinitionFactory: GraphQLSDLFieldDefinitionFactory
     ): MaterializationGraphQLSchemaFactory {
         return DefaultMaterializationGraphQLSchemaFactory(
+            objectMapper = objectMapper,
             graphQLObjectTypeDefinitionFactory = graphQLObjectTypeDefinitionFactory,
             graphQLSDLFieldDefinitionFactory = graphQLSDLFieldDefinitionFactory
         )
