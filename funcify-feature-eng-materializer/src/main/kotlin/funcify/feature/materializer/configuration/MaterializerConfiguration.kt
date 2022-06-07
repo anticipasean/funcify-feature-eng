@@ -19,6 +19,7 @@ import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.factory.MetamodelGraphFactory
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
+import graphql.schema.GraphQLSchema
 import org.slf4j.Logger
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.context.annotation.Bean
@@ -108,16 +109,25 @@ open class MaterializerConfiguration {
         )
     }
 
-    /*
-     * @ConditionalOnMissingBean(value = [GraphQLSchema::class])
-     * @Bean
-     * fun graphQLSchema(
-     *     metamodelGraph: MetamodelGraph,
-     *     materializationGraphQLSchemaFactory: MaterializationGraphQLSchemaFactory
-     * ): GraphQLSchema {
-     *     return materializationGraphQLSchemaFactory
-     *         .createGraphQLSchemaFromMetamodelGraph(metamodelGraph)
-     *         .orElseThrow()
-     * }
-     */
+    @ConditionalOnMissingBean(value = [GraphQLSchema::class])
+    @Bean
+    fun graphQLSchema(
+        metamodelGraph: MetamodelGraph,
+        materializationGraphQLSchemaFactory: MaterializationGraphQLSchemaFactory
+    ): GraphQLSchema {
+        return materializationGraphQLSchemaFactory
+            .createGraphQLSchemaFromMetamodelGraph(metamodelGraph)
+            .peek(
+                { gs: GraphQLSchema ->
+                    logger.info(
+                        """graphql_schema: [ status: success ] 
+                            |[ graphql_schema.query_type.field_definitions.size: 
+                            |${gs.queryType.fieldDefinitions.size} ]
+                            |""".flattenIntoOneLine()
+                    )
+                },
+                { t: Throwable -> logger.error("graphql_schema: [ status: failed ]", t) }
+            )
+            .orElseThrow()
+    }
 }
