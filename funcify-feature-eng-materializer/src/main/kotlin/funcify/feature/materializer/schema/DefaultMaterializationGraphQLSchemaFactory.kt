@@ -98,12 +98,23 @@ internal class DefaultMaterializationGraphQLSchemaFactory(
                 createTypeDefinitionRegistryInBuildContext(ctx)
             }
             .map { ctx: GraphQLSchemaBuildContext -> updateRuntimeWiringBuilderInBuildContext(ctx) }
-            .map { ctx: GraphQLSchemaBuildContext ->
-                SchemaGenerator()
-                    .makeExecutableSchema(
-                        ctx.typeDefinitionRegistry,
-                        ctx.runtimeWiringBuilder.build()
-                    )
+            .flatMap { ctx: GraphQLSchemaBuildContext ->
+                Try.attempt({
+                        SchemaGenerator()
+                            .makeExecutableSchema(
+                                ctx.typeDefinitionRegistry,
+                                ctx.runtimeWiringBuilder.build()
+                            )
+                    })
+                    .mapFailure { t: Throwable ->
+                        MaterializerException(
+                            GRAPHQL_SCHEMA_CREATION_ERROR,
+                            """error occurred when creating executable schema: 
+                                |[ type: ${t::class.qualifiedName} ]
+                                |""".flattenIntoOneLine(),
+                            t
+                        )
+                    }
             }
     }
 
