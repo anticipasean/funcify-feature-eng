@@ -1,6 +1,5 @@
 package funcify.feature.materializer.schema
 
-import arrow.core.toOption
 import funcify.feature.datasource.graphql.schema.GraphQLSourceContainerType
 import funcify.feature.materializer.error.MaterializerErrorResponse
 import funcify.feature.materializer.error.MaterializerException
@@ -8,8 +7,6 @@ import funcify.feature.schema.datasource.RawDataSourceType
 import funcify.feature.schema.datasource.SourceContainerType
 import funcify.feature.schema.index.CompositeContainerType
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
-import funcify.feature.tools.extensions.OptionExtensions.flatMapOptions
-import funcify.feature.tools.extensions.PersistentListExtensions.reduceToPersistentList
 import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
 import graphql.language.Description
 import graphql.language.Node
@@ -91,40 +88,50 @@ internal class DefaultGraphQLObjectTypeDefinitionFactory : GraphQLObjectTypeDefi
                                 graphQLFieldsContainerType.description?.contains('\n') ?: false
                             )
                         )
-                        .fieldDefinitions(
-                            graphQLFieldsContainerType
-                                .fieldDefinitions
-                                .stream()
-                                .map { fd -> fd.definition.toOption() }
-                                .flatMapOptions()
-                                .reduceToPersistentList()
-                        )
+                        /* Let attribute vertices be added separately
+                         * .fieldDefinitions(
+                         *    graphQLFieldsContainerType
+                         *        .fieldDefinitions
+                         *        .stream()
+                         *        .map { fd -> fd.definition.toOption() }
+                         *        .flatMapOptions()
+                         *        .reduceToPersistentList()
+                         *)
+                         */
                         .build()
                 } else {
                     ObjectTypeDefinition.newObjectTypeDefinition()
                         .name(graphQLFieldsContainerType.name)
-                        .fieldDefinitions(
-                            graphQLFieldsContainerType
-                                .fieldDefinitions
-                                .stream()
-                                .map { fd -> fd.definition.toOption() }
-                                .flatMapOptions()
-                                .reduceToPersistentList()
-                        )
+                        /* Let attribute vertices be added separately
+                         * .fieldDefinitions(
+                         *     graphQLFieldsContainerType
+                         *         .fieldDefinitions
+                         *         .stream()
+                         *         .map { fd -> fd.definition.toOption() }
+                         *         .flatMapOptions()
+                         *         .reduceToPersistentList()
+                         * )
+                         */
                         .build()
                 }
             } //
             // only object_type_definition if fieldsContainerType is actually a GraphQLObjectType
             is ObjectTypeDefinition -> {
-                fieldsContainerDefinition
+                fieldsContainerDefinition.transform { builder: ObjectTypeDefinition.Builder ->
+                    /*
+                     * Clear list of field_definitions already available in given object_type_definition
+                     * Let this list be updated as source_attributes are updated
+                     */
+                    builder.fieldDefinitions(listOf())
+                }
             }
             else -> {
                 throw MaterializerException(
                     MaterializerErrorResponse.GRAPHQL_SCHEMA_CREATION_ERROR,
                     """graphql_fields_container_type does not conform to expected 
-                                |contract for get_definition: [ graphql_field_container_type.definition.type: 
-                                |${graphQLFieldsContainerType.definition::class.qualifiedName} 
-                                |]""".flattenIntoOneLine()
+                      |contract for get_definition: [ graphql_field_container_type.definition.type: 
+                      |${graphQLFieldsContainerType.definition::class.qualifiedName} 
+                      |]""".flattenIntoOneLine()
                 )
             }
         }
