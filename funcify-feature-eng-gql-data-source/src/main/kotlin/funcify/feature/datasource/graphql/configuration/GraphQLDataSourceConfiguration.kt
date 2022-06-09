@@ -30,7 +30,6 @@ import org.springframework.context.annotation.Configuration
 class GraphQLDataSourceConfiguration {
 
     @ConditionalOnMissingBean(value = [GraphQLApiServiceFactory::class])
-    @ConditionalOnBean(value = [ObjectMapper::class])
     @Bean
     fun graphQLApiServiceFactory(
         objectMapper: ObjectMapper,
@@ -45,7 +44,6 @@ class GraphQLDataSourceConfiguration {
     }
 
     @ConditionalOnMissingBean(value = [GraphQLApiDataSourceFactory::class])
-    @ConditionalOnBean(value = [ObjectMapper::class])
     @Bean
     fun graphQLApiDataSourceFactory(
         objectMapper: ObjectMapper,
@@ -78,7 +76,6 @@ class GraphQLDataSourceConfiguration {
     }
 
     @ConditionalOnMissingBean(value = [GraphQLFetcherMetadataProvider::class])
-    @ConditionalOnBean(value = [ObjectMapper::class])
     @Bean
     fun graphQLFetcherMetadataProvider(objectMapper: ObjectMapper): GraphQLFetcherMetadataProvider {
         return DefaultGraphQLFetcherMetadataProvider(objectMapper = objectMapper)

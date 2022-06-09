@@ -57,7 +57,6 @@ constructor(
         logger.info("${kClassSnakeCaseName}.after_properties_set: {}", this)
     }
 
-    @ConditionalOnBean(value = [GraphQLApiServiceFactory::class])
     @Bean
     fun graphQLApiServices(
         graphQLApiServiceFactory: GraphQLApiServiceFactory

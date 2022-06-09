@@ -3,6 +3,8 @@ package funcify.feature.materializer.configuration
 import arrow.core.getOrElse
 import arrow.core.toOption
 import com.fasterxml.jackson.databind.ObjectMapper
+import funcify.feature.datasource.graphql.GraphQLApiDataSource
+import funcify.feature.datasource.rest.RestApiDataSource
 import funcify.feature.error.FeatureEngCommonException
 import funcify.feature.materializer.error.MaterializerErrorResponse
 import funcify.feature.materializer.error.MaterializerException
@@ -10,17 +12,19 @@ import funcify.feature.materializer.request.DefaultRawGraphQLRequestFactory
 import funcify.feature.materializer.request.RawGraphQLRequestFactory
 import funcify.feature.materializer.schema.DefaultGraphQLObjectTypeDefinitionFactory
 import funcify.feature.materializer.schema.DefaultGraphQLSDLFieldDefinitionFactory
+import funcify.feature.materializer.schema.DefaultMaterializationGraphQLSchemaBroker
 import funcify.feature.materializer.schema.DefaultMaterializationGraphQLSchemaFactory
 import funcify.feature.materializer.schema.GraphQLObjectTypeDefinitionFactory
 import funcify.feature.materializer.schema.GraphQLSDLFieldDefinitionFactory
+import funcify.feature.materializer.schema.MaterializationGraphQLSchemaBroker
 import funcify.feature.materializer.schema.MaterializationGraphQLSchemaFactory
 import funcify.feature.schema.MetamodelGraph
-import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.factory.MetamodelGraphFactory
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
 import graphql.schema.GraphQLSchema
 import org.slf4j.Logger
+import org.springframework.beans.factory.ObjectProvider
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -32,13 +36,14 @@ open class MaterializerConfiguration {
         private val logger: Logger = loggerFor<MaterializerConfiguration>()
     }
 
-    @ConditionalOnMissingBean(value = [MetamodelGraph::class])
     @Bean
     fun metamodelGraph(
         metamodelGraphFactory: MetamodelGraphFactory,
-        dataSources: List<DataSource<*>>
+        graphQLApiDataSources: ObjectProvider<GraphQLApiDataSource>,
+        restApiDataSources: ObjectProvider<RestApiDataSource>
     ): MetamodelGraph {
-        return dataSources
+        return sequenceOf(graphQLApiDataSources, restApiDataSources)
+            .flatMap { dsProvider -> dsProvider }
             .fold(metamodelGraphFactory.builder()) { bldr, ds -> bldr.addDataSource(ds) }
             .build()
             .peek(
@@ -111,7 +116,7 @@ open class MaterializerConfiguration {
 
     @ConditionalOnMissingBean(value = [GraphQLSchema::class])
     @Bean
-    fun graphQLSchema(
+    fun materializationGraphQLSchema(
         metamodelGraph: MetamodelGraph,
         materializationGraphQLSchemaFactory: MaterializationGraphQLSchemaFactory
     ): GraphQLSchema {
@@ -120,14 +125,26 @@ open class MaterializerConfiguration {
             .peek(
                 { gs: GraphQLSchema ->
                     logger.info(
-                        """graphql_schema: [ status: success ] 
+                        """materialization_graphql_schema: [ status: success ] 
                             |[ graphql_schema.query_type.field_definitions.size: 
                             |${gs.queryType.fieldDefinitions.size} ]
                             |""".flattenIntoOneLine()
                     )
                 },
-                { t: Throwable -> logger.error("graphql_schema: [ status: failed ]", t) }
+                { t: Throwable ->
+                    logger.error("materialization_graphql_schema: [ status: failed ]", t)
+                }
             )
             .orElseThrow()
+    }
+
+    @ConditionalOnMissingBean(value = [MaterializationGraphQLSchemaBroker::class])
+    @Bean
+    fun materializationGraphQLSchemaBroker(
+        materializationGraphQLSchema: GraphQLSchema
+    ): MaterializationGraphQLSchemaBroker {
+        val broker: MaterializationGraphQLSchemaBroker = DefaultMaterializationGraphQLSchemaBroker()
+        broker.pushNewMaterializationSchema(materializationSchema = materializationGraphQLSchema)
+        return broker
     }
 }

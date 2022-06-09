@@ -19,7 +19,6 @@ import org.springframework.context.annotation.Configuration
 class RestApiDataSourceConfiguration {
 
     @ConditionalOnMissingBean(value = [RestApiServiceFactory::class])
-    @ConditionalOnBean(value = [ObjectMapper::class])
     @Bean
     fun restApiServiceFactory(
         objectMapper: ObjectMapper,

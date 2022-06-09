@@ -5,6 +5,7 @@ import arrow.core.toOption
 import arrow.integrations.jackson.module.registerArrowModule
 import com.fasterxml.jackson.annotation.JsonSetter
 import com.fasterxml.jackson.annotation.Nulls
+import com.fasterxml.jackson.databind.DeserializationFeature
 import com.fasterxml.jackson.databind.MapperFeature
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.SerializationFeature
@@ -82,6 +83,7 @@ class JsonObjectMappingConfiguration {
                 builder
                     .featuresToDisable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
                     .featuresToEnable(MapperFeature.ACCEPT_CASE_INSENSITIVE_ENUMS)
+                    .featuresToEnable(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS)
                     .findModulesViaServiceLoader(true)
             }
 
