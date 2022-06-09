@@ -4,8 +4,8 @@ import funcify.feature.datasource.graphql.GraphQLApiDataSource
 import funcify.feature.datasource.graphql.GraphQLApiService
 import funcify.feature.datasource.graphql.error.GQLDataSourceErrorResponse
 import funcify.feature.datasource.graphql.error.GQLDataSourceException
-import funcify.feature.datasource.graphql.metadata.GraphQLFetcherMetadataProvider
-import funcify.feature.datasource.graphql.reader.GraphQLApiSourceMetadataReader
+import funcify.feature.datasource.graphql.metadata.GraphQLApiSourceMetadataProvider
+import funcify.feature.datasource.graphql.metadata.GraphQLApiSourceMetadataReader
 import funcify.feature.datasource.graphql.schema.GraphQLSourceIndex
 import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.datasource.DataSourceType
@@ -16,8 +16,8 @@ import graphql.schema.GraphQLSchema
 import org.slf4j.Logger
 
 internal class DefaultGraphQLApiDataSourceFactory(
-    private val graphQLFetcherMetadataProvider: GraphQLFetcherMetadataProvider,
-    private val graphQLMetadataReader: GraphQLApiSourceMetadataReader
+    private val graphQLApiSourceMetadataProvider: GraphQLApiSourceMetadataProvider,
+    private val graphQLApiSourceMetadataReader: GraphQLApiSourceMetadataReader
 ) : GraphQLApiDataSourceFactory {
 
     companion object {
@@ -45,7 +45,7 @@ internal class DefaultGraphQLApiDataSourceFactory(
         graphQLApiService: GraphQLApiService
     ): GraphQLApiDataSource {
         logger.info("create_graphql_api_data_source: [ name: $name ]")
-        return graphQLFetcherMetadataProvider
+        return graphQLApiSourceMetadataProvider
             .provideMetadata(graphQLApiService)
             .map { gqlSchema: GraphQLSchema ->
                 DefaultGraphQLApiDataSource(
@@ -53,7 +53,7 @@ internal class DefaultGraphQLApiDataSourceFactory(
                     graphQLApiService = graphQLApiService,
                     graphQLSourceSchema = gqlSchema,
                     sourceMetamodel =
-                        graphQLMetadataReader.readSourceMetamodelFromMetadata(gqlSchema)
+                        graphQLApiSourceMetadataReader.readSourceMetamodelFromMetadata(gqlSchema)
                 )
             }
             .blockForFirst()

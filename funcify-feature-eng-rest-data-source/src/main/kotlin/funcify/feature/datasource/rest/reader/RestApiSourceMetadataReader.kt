@@ -1,8 +1,8 @@
 package funcify.feature.datasource.rest.reader
 
 import funcify.feature.datasource.rest.schema.RestApiSourceIndex
-import funcify.feature.schema.datasource.reader.MetadataReader
+import funcify.feature.datasource.metadata.reader.DataSourceMetadataReader
 
-interface RestApiSourceMetadataReader<MD> : MetadataReader<MD, RestApiSourceIndex> {
+interface RestApiSourceMetadataReader<MD> : DataSourceMetadataReader<MD, RestApiSourceIndex> {
 
 }

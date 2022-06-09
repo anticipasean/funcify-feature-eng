@@ -32,8 +32,8 @@ import kotlinx.collections.immutable.PersistentList
  * @author smccarron
  * @created 4/4/22
  */
-class MockGraphQLFetcherMetadataProvider(val objectMapper: ObjectMapper) :
-    GraphQLFetcherMetadataProvider {
+class MockGraphQLApiSourceMetadataProvider(val objectMapper: ObjectMapper) :
+    GraphQLApiSourceMetadataProvider {
 
     companion object {
         /**

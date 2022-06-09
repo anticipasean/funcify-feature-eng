@@ -1,7 +1,7 @@
 package funcify.feature.datasource.graphql.metadata
 
 import funcify.feature.datasource.graphql.GraphQLApiService
-import funcify.feature.fetcher.metadata.DataFetcherMetadataProvider
+import funcify.feature.datasource.metadata.provider.DataSourceMetadataProvider
 import graphql.schema.GraphQLSchema
 
 /**
@@ -9,5 +9,5 @@ import graphql.schema.GraphQLSchema
  * @author smccarron
  * @created 4/4/22
  */
-interface GraphQLFetcherMetadataProvider :
-    DataFetcherMetadataProvider<GraphQLApiService, GraphQLSchema> {}
+interface GraphQLApiSourceMetadataProvider :
+    DataSourceMetadataProvider<GraphQLApiService, GraphQLSchema>

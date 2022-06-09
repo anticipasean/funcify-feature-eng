@@ -1,4 +1,4 @@
-package funcify.feature.datasource.graphql.reader
+package funcify.feature.datasource.graphql.metadata
 
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import graphql.schema.GraphQLFieldDefinition
@@ -8,7 +8,7 @@ import org.slf4j.Logger
 import org.springframework.stereotype.Component
 
 @Component
-open class InternalServiceTypesExcludingSourceMetadataFilter : GraphQLApiSourceMetadataFilter {
+class InternalServiceTypesExcludingSourceMetadataFilter : GraphQLApiSourceMetadataFilter {
 
     companion object {
         private val logger: Logger = loggerFor<InternalServiceTypesExcludingSourceMetadataFilter>()

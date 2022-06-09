@@ -4,8 +4,10 @@ import arrow.core.firstOrNone
 import arrow.core.getOrElse
 import arrow.core.lastOrNone
 import com.fasterxml.jackson.databind.ObjectMapper
-import funcify.feature.datasource.graphql.metadata.MockGraphQLFetcherMetadataProvider
-import funcify.feature.datasource.graphql.metadata.MockGraphQLFetcherMetadataProvider.Companion.fakeService
+import funcify.feature.datasource.graphql.metadata.DefaultGraphQLApiSourceMetadataReader
+import funcify.feature.datasource.graphql.metadata.InternalServiceTypesExcludingSourceMetadataFilter
+import funcify.feature.datasource.graphql.metadata.MockGraphQLApiSourceMetadataProvider
+import funcify.feature.datasource.graphql.metadata.MockGraphQLApiSourceMetadataProvider.Companion.fakeService
 import funcify.feature.datasource.graphql.schema.DefaultGraphQLSourceContainerType
 import funcify.feature.datasource.graphql.schema.DefaultGraphQLSourceIndexFactory
 import funcify.feature.datasource.graphql.schema.GraphQLSourceContainerType
@@ -28,7 +30,7 @@ internal class GraphQLApiSourceMetadataReaderTest {
     fun readSourceMetamodelFromMetadataTest() {
 
         val graphQLSchema: GraphQLSchema =
-            MockGraphQLFetcherMetadataProvider(objectMapper)
+            MockGraphQLApiSourceMetadataProvider(objectMapper)
                 .provideMetadata(fakeService)
                 .blockForFirst()
                 .fold({ gqls: GraphQLSchema -> gqls }, { t: Throwable -> Assertions.fail(t) })

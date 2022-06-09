@@ -6,7 +6,7 @@ pluginManagement {
 rootProject.name = 'funcify-feature-eng'
 include('funcify-feature-eng-api-contract')
 include('funcify-feature-eng-common')
-include('funcify-feature-eng-data-fetcher')
+include('funcify-feature-eng-data-source')
 include('funcify-feature-eng-db-data-source')
 include('funcify-feature-eng-gql-data-source')
 include('funcify-feature-eng-graph')

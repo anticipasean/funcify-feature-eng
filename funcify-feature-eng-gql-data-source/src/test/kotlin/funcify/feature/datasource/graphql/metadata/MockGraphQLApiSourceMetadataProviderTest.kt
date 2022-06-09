@@ -1,7 +1,7 @@
 package funcify.feature.datasource.graphql.metadata
 
 import com.fasterxml.jackson.databind.ObjectMapper
-import funcify.feature.datasource.graphql.metadata.MockGraphQLFetcherMetadataProvider.Companion.fakeService
+import funcify.feature.datasource.graphql.metadata.MockGraphQLApiSourceMetadataProvider.Companion.fakeService
 import funcify.feature.json.JsonObjectMappingConfiguration
 import graphql.schema.GraphQLSchema
 import org.junit.jupiter.api.Assertions
@@ -12,13 +12,13 @@ import org.junit.jupiter.api.Test
  * @author smccarron
  * @created 4/5/22
  */
-internal class MockGraphQLFetcherMetadataProviderTest {
+internal class MockGraphQLApiSourceMetadataProviderTest {
 
     private val objectMapper: ObjectMapper = JsonObjectMappingConfiguration.objectMapper()
 
     @Test
     fun provideMockMetadataTest() {
-        MockGraphQLFetcherMetadataProvider(objectMapper)
+        MockGraphQLApiSourceMetadataProvider(objectMapper)
             .provideMetadata(fakeService)
             .blockForFirst()
             .fold(

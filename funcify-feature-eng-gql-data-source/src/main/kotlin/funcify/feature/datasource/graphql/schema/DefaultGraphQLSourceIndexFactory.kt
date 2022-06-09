@@ -11,8 +11,8 @@ import arrow.core.some
 import arrow.core.toOption
 import funcify.feature.datasource.graphql.error.GQLDataSourceErrorResponse
 import funcify.feature.datasource.graphql.error.GQLDataSourceException
+import funcify.feature.datasource.graphql.metadata.GraphQLApiSourceMetadataFilter
 import funcify.feature.datasource.graphql.naming.GraphQLSourceNamingConventions
-import funcify.feature.datasource.graphql.reader.GraphQLApiSourceMetadataFilter
 import funcify.feature.naming.StandardNamingConventions
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine

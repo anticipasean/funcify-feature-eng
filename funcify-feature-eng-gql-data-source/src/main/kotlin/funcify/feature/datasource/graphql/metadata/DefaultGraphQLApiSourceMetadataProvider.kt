@@ -26,14 +26,14 @@ import kotlinx.collections.immutable.PersistentList
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
-internal class DefaultGraphQLFetcherMetadataProvider(private val objectMapper: ObjectMapper) :
-    GraphQLFetcherMetadataProvider {
+internal class DefaultGraphQLApiSourceMetadataProvider(private val objectMapper: ObjectMapper) :
+    GraphQLApiSourceMetadataProvider {
 
     companion object {
         private const val GRAPHQL_RESPONSE_DATA_KEY = "data"
         private const val GRAPHQL_RESPONSE_ERRORS_KEY = "errors"
         private val logger: Logger =
-            LoggerFactory.getLogger(DefaultGraphQLFetcherMetadataProvider::class.java)
+            LoggerFactory.getLogger(DefaultGraphQLApiSourceMetadataProvider::class.java)
     }
 
     override fun provideMetadata(service: GraphQLApiService): Deferred<GraphQLSchema> {

@@ -1,4 +1,4 @@
-package funcify.feature.datasource.graphql.reader
+package funcify.feature.datasource.graphql.metadata
 
 import graphql.schema.GraphQLFieldDefinition
 import kotlinx.collections.immutable.persistentListOf

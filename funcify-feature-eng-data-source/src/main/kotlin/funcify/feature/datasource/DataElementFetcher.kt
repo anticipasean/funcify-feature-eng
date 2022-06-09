@@ -1,4 +1,4 @@
-package funcify.feature.fetcher
+package funcify.feature.datasource
 
 import funcify.feature.contract.DataElement
 

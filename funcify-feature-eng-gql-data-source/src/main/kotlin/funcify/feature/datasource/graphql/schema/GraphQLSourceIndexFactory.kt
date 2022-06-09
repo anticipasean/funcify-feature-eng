@@ -1,7 +1,7 @@
 package funcify.feature.datasource.graphql.schema
 
 import arrow.core.Option
-import funcify.feature.datasource.graphql.reader.GraphQLApiSourceMetadataFilter
+import funcify.feature.datasource.graphql.metadata.GraphQLApiSourceMetadataFilter
 import funcify.feature.schema.path.SchematicPath
 import graphql.schema.GraphQLFieldDefinition
 import graphql.schema.GraphQLObjectType

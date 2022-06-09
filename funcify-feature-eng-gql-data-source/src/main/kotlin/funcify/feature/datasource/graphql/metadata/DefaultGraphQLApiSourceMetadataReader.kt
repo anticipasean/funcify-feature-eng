@@ -1,4 +1,4 @@
-package funcify.feature.datasource.graphql.reader
+package funcify.feature.datasource.graphql.metadata
 
 import arrow.core.filterIsInstance
 import arrow.core.getOrElse
@@ -27,14 +27,14 @@ import graphql.schema.GraphQLFieldDefinition
 import graphql.schema.GraphQLFieldsContainer
 import graphql.schema.GraphQLObjectType
 import graphql.schema.GraphQLSchema
-import java.util.stream.Stream
-import java.util.stream.StreamSupport
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.PersistentSet
 import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toPersistentSet
 import org.slf4j.Logger
+import java.util.stream.Stream
+import java.util.stream.StreamSupport
 
 /**
  *
@@ -58,7 +58,7 @@ internal class DefaultGraphQLApiSourceMetadataReader(
             val sourceContainerTypeToAttributeTypes:
                 PersistentMap<GraphQLSourceContainerType, PersistentSet<GraphQLSourceAttribute>> =
                 persistentMapOf()
-        ) {}
+        )
     }
 
     override fun readSourceMetamodelFromMetadata(
