@@ -30,7 +30,5 @@ enum class MaterializerErrorResponse : ErrorResponse {
         override val errorMessageIfHttp: Option<String>
             get() = "error occurred during graphql schema creation".some()
     };
-    companion object {
-
-    }
+    companion object {}
 }
