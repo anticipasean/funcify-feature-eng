@@ -8,10 +8,12 @@ import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
 import graphql.language.Node
+import kotlin.reflect.KClass
 import org.slf4j.Logger
 
 internal class DefaultSourceIndexGqlSdlDefinitionFactory<
     SI : SourceIndex, SC : SourceContainerType<SA>, SA : SourceAttribute>(
+    private val sourceIndexType: KClass<SI>,
     override val dataSourceType: DataSourceType,
     private val sourceContainerTypeMapper: SourceContainerTypeGqlSdlObjectTypeDefinitionMapper<SC>,
     private val sourceAttributeMapper: SourceAttributeGqlSdlFieldDefinitionMapper<SA>
@@ -26,21 +28,36 @@ internal class DefaultSourceIndexGqlSdlDefinitionFactory<
         }
 
         internal class DefaultStepBuilder : SourceIndexGqlSdlDefinitionFactory.StepBuilder {
-            override fun dataSourceType(
-                dataSourceType: DataSourceType
-            ): SourceIndexGqlSdlDefinitionFactory.SourceContainerMapperStep {
-                return DefaultSourceContainerMapperStep(dataSourceType)
+
+            override fun <SI : SourceIndex> sourceIndexType(
+                sourceIndexType: KClass<SI>
+            ): SourceIndexGqlSdlDefinitionFactory.DataSourceTypeStep<SI> {
+                return DefaultDataSourceTypeStep<SI>(sourceIndexType)
             }
         }
 
-        internal class DefaultSourceContainerMapperStep(
+        internal class DefaultDataSourceTypeStep<SI : SourceIndex>(
+            private val sourceIndexType: KClass<SI>
+        ) : SourceIndexGqlSdlDefinitionFactory.DataSourceTypeStep<SI> {
+
+            override fun dataSourceType(
+                dataSourceType: DataSourceType
+            ): SourceIndexGqlSdlDefinitionFactory.SourceContainerMapperStep<SI> {
+                return DefaultSourceContainerMapperStep(sourceIndexType, dataSourceType)
+            }
+        }
+
+        internal class DefaultSourceContainerMapperStep<SI : SourceIndex>(
+            private val sourceIndexType: KClass<SI>,
             private val dataSourceType: DataSourceType
-        ) : SourceIndexGqlSdlDefinitionFactory.SourceContainerMapperStep {
+        ) : SourceIndexGqlSdlDefinitionFactory.SourceContainerMapperStep<SI> {
+
             override fun <
                 SC : SourceContainerType<SA>, SA : SourceAttribute> sourceContainerTypeMapper(
                 sourceContainerTypeMapper: SourceContainerTypeGqlSdlObjectTypeDefinitionMapper<SC>
-            ): SourceIndexGqlSdlDefinitionFactory.SourceAttributeMapperStep<SA> {
-                return DefaultSourceAttributeMapperStep<SC, SA>(
+            ): SourceIndexGqlSdlDefinitionFactory.SourceAttributeMapperStep<SI, SC, SA> {
+                return DefaultSourceAttributeMapperStep<SI, SC, SA>(
+                    sourceIndexType,
                     dataSourceType,
                     sourceContainerTypeMapper
                 )
@@ -48,15 +65,18 @@ internal class DefaultSourceIndexGqlSdlDefinitionFactory<
         }
 
         internal class DefaultSourceAttributeMapperStep<
-            SC : SourceContainerType<SA>, SA : SourceAttribute>(
+            SI : SourceIndex, SC : SourceContainerType<SA>, SA : SourceAttribute>(
+            private val sourceIndexType: KClass<SI>,
             private val dataSourceType: DataSourceType,
             private val sourceContainerTypeMapper:
                 SourceContainerTypeGqlSdlObjectTypeDefinitionMapper<SC>
-        ) : SourceIndexGqlSdlDefinitionFactory.SourceAttributeMapperStep<SA> {
+        ) : SourceIndexGqlSdlDefinitionFactory.SourceAttributeMapperStep<SI, SC, SA> {
+
             override fun sourceAttributeMapper(
                 sourceAttributeMapper: SourceAttributeGqlSdlFieldDefinitionMapper<SA>
-            ): SourceIndexGqlSdlDefinitionFactory.BuildStep<SA> {
-                return DefaultBuildStep<SA, SC, SA>(
+            ): SourceIndexGqlSdlDefinitionFactory.BuildStep<SI> {
+                return DefaultBuildStep<SI, SC, SA>(
+                    sourceIndexType,
                     dataSourceType,
                     sourceContainerTypeMapper,
                     sourceAttributeMapper
@@ -66,13 +86,16 @@ internal class DefaultSourceIndexGqlSdlDefinitionFactory<
 
         internal class DefaultBuildStep<
             SI : SourceIndex, SC : SourceContainerType<SA>, SA : SourceAttribute>(
+            private val sourceIndexType: KClass<SI>,
             private val dataSourceType: DataSourceType,
             private val sourceContainerTypeMapper:
                 SourceContainerTypeGqlSdlObjectTypeDefinitionMapper<SC>,
             private val sourceAttributeMapper: SourceAttributeGqlSdlFieldDefinitionMapper<SA>
         ) : SourceIndexGqlSdlDefinitionFactory.BuildStep<SI> {
+
             override fun build(): SourceIndexGqlSdlDefinitionFactory<SI> {
                 return DefaultSourceIndexGqlSdlDefinitionFactory<SI, SC, SA>(
+                    sourceIndexType,
                     dataSourceType,
                     sourceContainerTypeMapper,
                     sourceAttributeMapper

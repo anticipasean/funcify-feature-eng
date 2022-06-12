@@ -6,6 +6,7 @@ import funcify.feature.schema.datasource.SourceContainerType
 import funcify.feature.schema.datasource.SourceIndex
 import funcify.feature.tools.container.attempt.Try
 import graphql.language.Node
+import kotlin.reflect.KClass
 
 interface SourceIndexGqlSdlDefinitionFactory<in SI : SourceIndex> {
 
@@ -22,21 +23,27 @@ interface SourceIndexGqlSdlDefinitionFactory<in SI : SourceIndex> {
 
     interface StepBuilder {
 
-        fun dataSourceType(dataSourceType: DataSourceType): SourceContainerMapperStep
+        fun <SI : SourceIndex> sourceIndexType(sourceIndexType: KClass<SI>): DataSourceTypeStep<SI>
     }
 
-    interface SourceContainerMapperStep {
+    interface DataSourceTypeStep<SI : SourceIndex> {
+
+        fun dataSourceType(dataSourceType: DataSourceType): SourceContainerMapperStep<SI>
+    }
+
+    interface SourceContainerMapperStep<SI : SourceIndex> {
 
         fun <SC : SourceContainerType<SA>, SA : SourceAttribute> sourceContainerTypeMapper(
             sourceContainerTypeMapper: SourceContainerTypeGqlSdlObjectTypeDefinitionMapper<SC>
-        ): SourceAttributeMapperStep<SA>
+        ): SourceAttributeMapperStep<SI, SC, SA>
     }
 
-    interface SourceAttributeMapperStep<SA : SourceAttribute> {
+    interface SourceAttributeMapperStep<
+        SI : SourceIndex, SC : SourceContainerType<SA>, SA : SourceAttribute> {
 
         fun sourceAttributeMapper(
             sourceAttributeMapper: SourceAttributeGqlSdlFieldDefinitionMapper<SA>
-        ): BuildStep<SA>
+        ): BuildStep<SI>
     }
 
     interface BuildStep<SI : SourceIndex> {
