@@ -405,14 +405,14 @@ sealed interface Try<out S> : Iterable<S> {
             crossinline mapper: (Throwable) -> Try<S>
         ): Try<S> {
             return fold(
-                { input: S -> success(input) },
+                { input: S -> TryFactory.Success(input) },
                 { throwable: Throwable ->
                     try {
                         Option.fromNullable(mapper.invoke(throwable)).getOrElse {
-                            failure<S>(NoSuchElementException("result attempt is null"))
+                            TryFactory.Failure<S>(NoSuchElementException("result attempt is null"))
                         }
                     } catch (t: Throwable) {
-                        failure<S>(t)
+                        TryFactory.Failure<S>(t)
                     }
                 }
             )
@@ -422,9 +422,9 @@ sealed interface Try<out S> : Iterable<S> {
             crossinline mapper: (Throwable) -> Try<S>
         ): Try<S> = this.flatMapFailure(mapper)
 
-        inline fun <S, reified T : Any> Try<S>.filterInstanceOf(): Try<T> {
+        inline fun <reified T : Any> Try<*>.filterInstanceOf(): Try<T> {
             return this.fold(
-                { input: S ->
+                { input: Any? ->
                     when (input) {
                         is T -> {
                             TryFactory.Success(input)
