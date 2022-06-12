@@ -14,7 +14,7 @@ import org.springframework.http.HttpHeaders
  */
 interface RawGraphQLRequest {
 
-    val requestId: String
+    val requestId: UUID
 
     val executionId: ExecutionId
 
@@ -34,7 +34,7 @@ interface RawGraphQLRequest {
 
     interface Builder {
 
-        fun requestId(requestId: String): Builder
+        fun requestId(requestId: UUID): Builder
 
         fun executionId(executionId: ExecutionId): Builder
 

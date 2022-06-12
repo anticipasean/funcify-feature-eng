@@ -1,9 +1,8 @@
 package funcify.feature.materializer.request
 
-import arrow.core.toOption
 import funcify.feature.materializer.error.MaterializerErrorResponse
 import funcify.feature.materializer.error.MaterializerException
-import funcify.feature.tools.container.attempt.Try
+import funcify.feature.schema.path.SchematicPath
 import graphql.execution.ExecutionId
 import java.net.URI
 import java.util.*
@@ -19,14 +18,14 @@ internal class DefaultRawGraphQLRequestFactory : RawGraphQLRequestFactory {
 
     companion object {
 
-        private const val UNSET_REQUEST_ID: String = ""
-        private val UNSET_EXECUTION_ID: ExecutionId = ExecutionId.from(UUID(0, 0).toString())
-        private val UNSET_URI: URI = URI.create("mlfs:/")
+        private val UNSET_REQUEST_ID: UUID = UUID(0, 0)
+        private val UNSET_EXECUTION_ID: ExecutionId = ExecutionId.from(UNSET_REQUEST_ID.toString())
+        private val UNSET_URI: URI = SchematicPath.getRootPath().toURI()
         private const val UNSET_RAW_GRAPHQL_QUERY_TEXT: String = ""
         private const val UNSET_OPERATION_NAME: String = ""
 
         internal class DefaultRawGraphQLRequestBuilder(
-            var requestId: String = UNSET_REQUEST_ID,
+            var requestId: UUID = UNSET_REQUEST_ID,
             var executionId: ExecutionId = UNSET_EXECUTION_ID,
             var uri: URI = UNSET_URI,
             var headers: HttpHeaders = HttpHeaders(),
@@ -38,7 +37,7 @@ internal class DefaultRawGraphQLRequestFactory : RawGraphQLRequestFactory {
                 mutableListOf()
         ) : RawGraphQLRequest.Builder {
 
-            override fun requestId(requestId: String): RawGraphQLRequest.Builder {
+            override fun requestId(requestId: UUID): RawGraphQLRequest.Builder {
                 this.requestId = requestId
                 return this
             }
@@ -100,11 +99,15 @@ internal class DefaultRawGraphQLRequestFactory : RawGraphQLRequestFactory {
             }
 
             override fun build(): RawGraphQLRequest {
-                val validatedExecutionId =
+                val validatedRequestId: UUID =
+                    if (requestId == UNSET_REQUEST_ID) {
+                        UUID.randomUUID()
+                    } else {
+                        requestId
+                    }
+                val validatedExecutionId: ExecutionId =
                     if (executionId == UNSET_EXECUTION_ID) {
-                        Try.fromOption(requestId.toOption().filterNot(String::isEmpty))
-                            .map(ExecutionId::from)
-                            .orElseGet { ExecutionId.generate() }
+                        ExecutionId.from(validatedRequestId.toString())
                     } else {
                         executionId
                     }
@@ -123,7 +126,7 @@ internal class DefaultRawGraphQLRequestFactory : RawGraphQLRequestFactory {
                     }
                     else -> {
                         DefaultRawGraphQLRequest(
-                            requestId = requestId,
+                            requestId = validatedRequestId,
                             executionId = validatedExecutionId,
                             uri = uri,
                             headers = headers,
@@ -139,7 +142,7 @@ internal class DefaultRawGraphQLRequestFactory : RawGraphQLRequestFactory {
         }
 
         internal data class DefaultRawGraphQLRequest(
-            override val requestId: String = "",
+            override val requestId: UUID,
             override val executionId: ExecutionId,
             override val uri: URI,
             override val headers: HttpHeaders,

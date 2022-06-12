@@ -7,7 +7,7 @@ import funcify.feature.materializer.request.GraphQLExecutionInputCustomizer
 import funcify.feature.materializer.request.RawGraphQLRequest
 import funcify.feature.materializer.request.RawGraphQLRequestFactory
 import funcify.feature.materializer.response.SerializedGraphQLResponse
-import funcify.feature.materializer.service.GraphQLRequestExecutor
+import funcify.feature.spring.service.GraphQLSingleRequestExecutor
 import funcify.feature.tools.container.deferred.Deferred
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.OptionExtensions.flatMapOptions
@@ -37,7 +37,7 @@ import reactor.core.publisher.Mono
  */
 @Component
 class GraphQLWebFluxHandlerFunction(
-    val graphQLRequestExecutor: GraphQLRequestExecutor,
+    val graphQLSingleRequestExecutor: GraphQLSingleRequestExecutor,
     val rawGraphQLRequestFactory: RawGraphQLRequestFactory,
     val graphQLExecutionInputCustomizers: List<GraphQLExecutionInputCustomizer>
 ) : HandlerFunction<ServerResponse> {
@@ -77,7 +77,7 @@ class GraphQLWebFluxHandlerFunction(
             convertServerRequestIntoRawGraphQLRequest(request)
         return Deferred.fromMono(rawGraphQLRequestMono)
             .flatMap { rawReq: RawGraphQLRequest ->
-                graphQLRequestExecutor.executeSingleRequest(rawReq)
+                graphQLSingleRequestExecutor.executeSingleRequest(rawReq)
             }
             .map { serRes: SerializedGraphQLResponse -> serRes.executionResult.toSpecification() }
             .toFlux()
