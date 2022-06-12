@@ -8,7 +8,7 @@ import funcify.feature.tools.container.attempt.Try
 import graphql.language.Node
 import kotlin.reflect.KClass
 
-interface SourceIndexGqlSdlDefinitionFactory<in SI : SourceIndex> {
+interface SourceIndexGqlSdlDefinitionFactory<SI : SourceIndex> {
 
     companion object {
 
@@ -16,6 +16,8 @@ interface SourceIndexGqlSdlDefinitionFactory<in SI : SourceIndex> {
             return DefaultSourceIndexGqlSdlDefinitionFactory.builder()
         }
     }
+
+    val sourceIndexType: KClass<SI>
 
     val dataSourceType: DataSourceType
 

@@ -3,6 +3,7 @@ package funcify.feature.materializer.configuration
 import arrow.core.getOrElse
 import arrow.core.toOption
 import com.fasterxml.jackson.databind.ObjectMapper
+import funcify.feature.datasource.gql.SourceIndexGqlSdlDefinitionFactory
 import funcify.feature.datasource.graphql.GraphQLApiDataSource
 import funcify.feature.datasource.rest.RestApiDataSource
 import funcify.feature.error.FeatureEngCommonException
@@ -23,6 +24,7 @@ import funcify.feature.schema.factory.MetamodelGraphFactory
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
 import graphql.schema.GraphQLSchema
+import kotlinx.collections.immutable.toImmutableList
 import org.slf4j.Logger
 import org.springframework.beans.factory.ObjectProvider
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
@@ -90,14 +92,24 @@ open class MaterializerConfiguration {
 
     @ConditionalOnMissingBean(value = [GraphQLObjectTypeDefinitionFactory::class])
     @Bean
-    fun graphQLObjectTypeDefinitionFactory(): GraphQLObjectTypeDefinitionFactory {
-        return DefaultGraphQLObjectTypeDefinitionFactory()
+    fun graphQLObjectTypeDefinitionFactory(
+        sourceIndexGqlSdlDefinitionFactories: ObjectProvider<SourceIndexGqlSdlDefinitionFactory<*>>
+    ): GraphQLObjectTypeDefinitionFactory {
+        return DefaultGraphQLObjectTypeDefinitionFactory(
+            sourceIndexGqlSdlDefinitionFactories =
+                sourceIndexGqlSdlDefinitionFactories.toImmutableList()
+        )
     }
 
     @ConditionalOnMissingBean(value = [GraphQLSDLFieldDefinitionFactory::class])
     @Bean
-    fun graphQLSDLFieldDefinitionFactory(): GraphQLSDLFieldDefinitionFactory {
-        return DefaultGraphQLSDLFieldDefinitionFactory()
+    fun graphQLSDLFieldDefinitionFactory(
+        sourceIndexGqlSdlDefinitionFactories: ObjectProvider<SourceIndexGqlSdlDefinitionFactory<*>>
+    ): GraphQLSDLFieldDefinitionFactory {
+        return DefaultGraphQLSDLFieldDefinitionFactory(
+            sourceIndexGqlSdlDefinitionFactories =
+                sourceIndexGqlSdlDefinitionFactories.toImmutableList()
+        )
     }
 
     @ConditionalOnMissingBean(value = [MaterializationGraphQLSchemaFactory::class])

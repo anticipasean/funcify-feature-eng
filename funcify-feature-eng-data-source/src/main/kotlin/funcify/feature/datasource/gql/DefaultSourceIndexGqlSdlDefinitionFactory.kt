@@ -13,7 +13,7 @@ import org.slf4j.Logger
 
 internal class DefaultSourceIndexGqlSdlDefinitionFactory<
     SI : SourceIndex, SC : SourceContainerType<SA>, SA : SourceAttribute>(
-    private val sourceIndexType: KClass<SI>,
+    override val sourceIndexType: KClass<SI>,
     override val dataSourceType: DataSourceType,
     private val sourceContainerTypeMapper: SourceContainerTypeGqlSdlObjectTypeDefinitionMapper<SC>,
     private val sourceAttributeMapper: SourceAttributeGqlSdlFieldDefinitionMapper<SA>
