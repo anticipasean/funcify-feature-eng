@@ -22,7 +22,7 @@ internal class DefaultRawGraphQLRequestFactory : RawGraphQLRequestFactory {
         private val UNSET_EXECUTION_ID: ExecutionId = ExecutionId.from(UNSET_REQUEST_ID.toString())
         private val UNSET_URI: URI = SchematicPath.getRootPath().toURI()
         private const val UNSET_RAW_GRAPHQL_QUERY_TEXT: String = ""
-        private const val UNSET_OPERATION_NAME: String = ""
+        private const val UNSET_OPERATION_NAME: String = "DEFAULT_OPERATION"
 
         internal class DefaultRawGraphQLRequestBuilder(
             var requestId: UUID = UNSET_REQUEST_ID,

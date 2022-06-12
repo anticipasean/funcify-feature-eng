@@ -13,7 +13,7 @@ import graphql.schema.GraphQLSchema
  * @author smccarron
  * @created 2/20/22
  */
-internal data class DefaultGraphQLSingleRequestSession(
+internal data class DefaultSpringGraphQLSingleRequestSession(
     override val materializationSchema: GraphQLSchema,
     override val rawGraphQLRequest: RawGraphQLRequest,
     override val serializedGraphQLResponse: Option<SerializedGraphQLResponse> =
@@ -23,7 +23,7 @@ internal data class DefaultGraphQLSingleRequestSession(
     companion object {
 
         internal data class DefaultBuilder(
-            private val currentSession: DefaultGraphQLSingleRequestSession,
+            private val currentSession: DefaultSpringGraphQLSingleRequestSession,
             private var serializedGraphQLResponseOption: Option<SerializedGraphQLResponse> =
                 none<SerializedGraphQLResponse>()
         ) : GraphQLSingleRequestSession.Builder {

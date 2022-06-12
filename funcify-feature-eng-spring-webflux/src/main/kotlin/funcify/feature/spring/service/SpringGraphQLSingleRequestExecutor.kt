@@ -19,7 +19,7 @@ import org.springframework.stereotype.Component
 @Component
 class SpringGraphQLSingleRequestExecutor(
     val graphQLSingleRequestSessionFactory: GraphQLSingleRequestSessionFactory,
-    val sessionCoordinator: SpringGraphQLSingleRequestSessionCoordinator
+    val springGraphQLSingleRequestSessionCoordinator: SpringGraphQLSingleRequestSessionCoordinator
 ) : GraphQLSingleRequestExecutor {
 
     companion object {
@@ -31,13 +31,14 @@ class SpringGraphQLSingleRequestExecutor(
     ): Deferred<SerializedGraphQLResponse> {
         logger.info(
             """execute_single_request: 
-                |[ raw_graphql_request: ${rawGraphQLRequest.requestId} ]
+                |[ raw_graphql_request.request_id: 
+                |${rawGraphQLRequest.requestId} ]
                 |""".flattenIntoOneLine()
         )
         return graphQLSingleRequestSessionFactory
             .createSessionForSingleRequest(rawGraphQLRequest)
             .flatMap { session: GraphQLSingleRequestSession ->
-                sessionCoordinator.conductSingleRequestSession(session)
+                springGraphQLSingleRequestSessionCoordinator.conductSingleRequestSession(session)
             }
             .flatMap { session: GraphQLSingleRequestSession ->
                 session.serializedGraphQLResponse.fold(

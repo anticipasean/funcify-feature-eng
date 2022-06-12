@@ -35,10 +35,10 @@ class SpringGraphQLSingleRequestSessionFactory(
         )
         return materializationGraphQLSchemaBroker.fetchLatestMaterializationSchema().map {
             gqlSchema: GraphQLSchema ->
-            DefaultGraphQLSingleRequestSession(
+            DefaultSpringGraphQLSingleRequestSession(
                 materializationSchema = gqlSchema,
                 rawGraphQLRequest = rawGraphQLRequest
-            )
+                                                    )
         }
     }
 }
