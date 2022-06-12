@@ -16,9 +16,6 @@ import java.util.concurrent.CompletionException
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
 import java.util.stream.Stream
-import kotlin.reflect.KClass
-import kotlin.reflect.jvm.jvmErasure
-import kotlin.reflect.typeOf
 import kotlin.streams.asStream
 import kotlinx.collections.immutable.PersistentList
 import kotlinx.collections.immutable.persistentListOf
@@ -425,27 +422,22 @@ sealed interface Try<out S> : Iterable<S> {
             crossinline mapper: (Throwable) -> Try<S>
         ): Try<S> = this.flatMapFailure(mapper)
 
-        inline fun <reified T : Any> Try<*>.filterInstanceOf(): Try<T> {
-            return fold(
-                { input: Any? ->
-                    val tJvmErasedType: KClass<*> = typeOf<T>().jvmErasure
-                    when {
-                        tJvmErasedType.isInstance(input) -> {
-                            try {
-                                success<T>(input as T)
-                            } catch (t: Throwable) {
-                                failure<T>(t)
-                            }
+        inline fun <S, reified T : Any> Try<S>.filterInstanceOf(): Try<T> {
+            return this.fold(
+                { input: S ->
+                    when (input) {
+                        is T -> {
+                            TryFactory.Success(input)
                         }
                         else -> {
                             val messageSupplier: () -> String = { ->
-                                "input is not instance of [ type: ${tJvmErasedType.qualifiedName} ]"
+                                "input is not instance of [ type: ${T::class.qualifiedName} ]"
                             }
-                            failure<T>(IllegalArgumentException(messageSupplier.invoke()))
+                            TryFactory.Failure(IllegalArgumentException(messageSupplier.invoke()))
                         }
                     }
                 },
-                { throwable: Throwable -> failure<T>(throwable) }
+                { throwable: Throwable -> TryFactory.Failure(throwable) }
             )
         }
     }
