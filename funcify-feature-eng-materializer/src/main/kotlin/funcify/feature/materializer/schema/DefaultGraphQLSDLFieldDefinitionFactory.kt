@@ -1,6 +1,11 @@
 package funcify.feature.materializer.schema
 
+import arrow.core.Either
 import arrow.core.Option
+import arrow.core.left
+import arrow.core.none
+import arrow.core.right
+import arrow.core.some
 import arrow.core.toOption
 import funcify.feature.datasource.gql.SourceIndexGqlSdlDefinitionFactory
 import funcify.feature.datasource.graphql.schema.GraphQLSourceAttribute
@@ -11,27 +16,28 @@ import funcify.feature.schema.datasource.RawDataSourceType
 import funcify.feature.schema.datasource.SourceAttribute
 import funcify.feature.schema.datasource.SourceIndex
 import funcify.feature.schema.index.CompositeAttribute
+import funcify.feature.schema.path.SchematicPath
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.container.attempt.Try.Companion.filterInstanceOf
+import funcify.feature.tools.control.TraversalFunctions
+import funcify.feature.tools.extensions.FunctionExtensions.compose
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
 import graphql.language.Description
 import graphql.language.FieldDefinition
+import graphql.language.InputValueDefinition
 import graphql.language.ListType
 import graphql.language.NonNullType
 import graphql.language.SourceLocation
 import graphql.language.Type
 import graphql.language.TypeName
-import graphql.schema.GraphQLFieldDefinition
-import graphql.schema.GraphQLList
-import graphql.schema.GraphQLNamedOutputType
-import graphql.schema.GraphQLNonNull
-import graphql.schema.GraphQLOutputType
+import graphql.schema.*
 import kotlin.reflect.KClass
 import kotlin.reflect.full.isSuperclassOf
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.persistentSetOf
+import kotlinx.collections.immutable.toPersistentList
 import org.slf4j.Logger
 
 internal class DefaultGraphQLSDLFieldDefinitionFactory(
@@ -205,8 +211,14 @@ internal class DefaultGraphQLSDLFieldDefinitionFactory(
                             )
                         )
                         .type(
-                            deriveSDLTypeFromGraphQLFieldDefinitionOutputType(
-                                graphQLOutputType = graphQLFieldDefinitionOnThatSource.type
+                            recursivelyDetermineSDLTypeForGraphQLInputOrOutputType(
+                                graphQLInputOrOutputType = graphQLFieldDefinitionOnThatSource.type
+                            )
+                        )
+                        .inputValueDefinitions(
+                            extractInputValueDefinitionsFromArgumentsOnFieldDefinitionSource(
+                                firstAvailableGraphQLSourceAttribute.sourcePath,
+                                graphQLFieldDefinitionOnThatSource
                             )
                         )
                         .build()
@@ -214,8 +226,8 @@ internal class DefaultGraphQLSDLFieldDefinitionFactory(
                     FieldDefinition.newFieldDefinition()
                         .name(graphQLFieldDefinitionOnThatSource.name)
                         .type(
-                            deriveSDLTypeFromGraphQLFieldDefinitionOutputType(
-                                graphQLOutputType = graphQLFieldDefinitionOnThatSource.type
+                            recursivelyDetermineSDLTypeForGraphQLInputOrOutputType(
+                                graphQLInputOrOutputType = graphQLFieldDefinitionOnThatSource.type
                             )
                         )
                         .build()
@@ -227,122 +239,111 @@ internal class DefaultGraphQLSDLFieldDefinitionFactory(
         }
     }
 
-    fun deriveSDLTypeFromGraphQLFieldDefinitionOutputType(
-        graphQLOutputType: GraphQLOutputType
-    ): Type<*> {
-        return when (graphQLOutputType) {
-            is GraphQLNonNull -> {
-                if (graphQLOutputType.wrappedType is GraphQLList) {
-                    if ((graphQLOutputType.wrappedType as GraphQLList).wrappedType is GraphQLNonNull
-                    ) {
-                        NonNullType.newNonNullType(
-                                ListType.newListType(
-                                        NonNullType.newNonNullType(
-                                                TypeName.newTypeName(
-                                                        (((graphQLOutputType.wrappedType as?
-                                                                        GraphQLList)
-                                                                    ?.wrappedType as?
-                                                                    GraphQLNonNull)
-                                                                ?.wrappedType as?
-                                                                GraphQLNamedOutputType)
-                                                            ?.name
-                                                            ?: throw MaterializerException(
-                                                                MaterializerErrorResponse
-                                                                    .GRAPHQL_SCHEMA_CREATION_ERROR,
-                                                                "graphql_field_definition does not have name for use in SDL type creation"
-                                                            )
-                                                    )
-                                                    .build()
-                                            )
-                                            .build()
-                                    )
-                                    .build()
-                            )
-                            .build()
-                    } else {
-                        NonNullType.newNonNullType(
-                                ListType.newListType(
-                                        TypeName.newTypeName(
-                                                ((graphQLOutputType.wrappedType as? GraphQLList)
-                                                        ?.wrappedType as?
-                                                        GraphQLNamedOutputType)
-                                                    ?.name
-                                                    ?: throw MaterializerException(
-                                                        MaterializerErrorResponse
-                                                            .GRAPHQL_SCHEMA_CREATION_ERROR,
-                                                        "graphql_field_definition does not have name for use in SDL type creation"
-                                                    )
-                                            )
-                                            .build()
-                                    )
-                                    .build()
-                            )
-                            .build()
-                    }
-                } else {
-                    NonNullType.newNonNullType(
-                            TypeName.newTypeName(
-                                    (graphQLOutputType.wrappedType as? GraphQLNamedOutputType)?.name
-                                        ?: throw MaterializerException(
-                                            MaterializerErrorResponse.GRAPHQL_SCHEMA_CREATION_ERROR,
-                                            "graphql_field_definition does not have name for use in SDL type creation"
+    private fun extractInputValueDefinitionsFromArgumentsOnFieldDefinitionSource(
+        sourceAttributePath: SchematicPath,
+        definition: GraphQLFieldDefinition
+    ): List<InputValueDefinition> {
+        return if (definition.arguments.isEmpty()) {
+            emptyList()
+        } else {
+            definition
+                .arguments
+                .map { graphQLArgument: GraphQLArgument ->
+                    InputValueDefinition.newInputValueDefinition()
+                        .name(graphQLArgument.name)
+                        .description(
+                            Description(
+                                sourceAttributePath
+                                    .transform {
+                                        argument(
+                                            graphQLArgument.name,
+                                            graphQLArgument.argumentDefaultValue.value?.toString()
+                                                ?: ""
                                         )
-                                )
-                                .build()
+                                    }
+                                    .toString(),
+                                SourceLocation.EMPTY,
+                                false
+                            )
                         )
+                        .type(recursivelyDetermineSDLTypeForGraphQLInputOrOutputType(graphQLArgument.type))
                         .build()
                 }
-            }
-            is GraphQLList -> {
-                if (graphQLOutputType.wrappedType is GraphQLNonNull) {
-                    ListType.newListType(
-                            NonNullType.newNonNullType(
-                                    TypeName.newTypeName(
-                                            ((graphQLOutputType.wrappedType as? GraphQLNonNull)
-                                                    ?.wrappedType as?
-                                                    GraphQLNamedOutputType)
-                                                ?.name
-                                                ?: throw MaterializerException(
-                                                    MaterializerErrorResponse
-                                                        .GRAPHQL_SCHEMA_CREATION_ERROR,
-                                                    "graphql_field_definition does not have name for use in SDL type creation"
-                                                )
-                                        )
-                                        .build()
-                                )
-                                .build()
-                        )
-                        .build()
-                } else {
-                    ListType.newListType(
-                            TypeName.newTypeName(
-                                    (graphQLOutputType.wrappedType as? GraphQLNamedOutputType)?.name
-                                        ?: throw MaterializerException(
-                                            MaterializerErrorResponse.GRAPHQL_SCHEMA_CREATION_ERROR,
-                                            "graphql_field_definition does not have name for use in SDL type creation"
-                                        )
-                                )
-                                .build()
-                        )
-                        .build()
-                }
-            }
-            is GraphQLNamedOutputType -> {
-                TypeName.newTypeName(
-                        graphQLOutputType.name
-                            ?: throw MaterializerException(
-                                MaterializerErrorResponse.GRAPHQL_SCHEMA_CREATION_ERROR,
-                                "graphql_field_definition does not have name for use in SDL type creation"
-                            )
-                    )
-                    .build()
-            }
-            else -> {
-                throw MaterializerException(
-                    MaterializerErrorResponse.GRAPHQL_SCHEMA_CREATION_ERROR,
-                    "graphql_field_definition does not have name for use in SDL type creation"
-                )
-            }
+                .toPersistentList()
         }
+    }
+
+    private fun recursivelyDetermineSDLTypeForGraphQLInputOrOutputType(
+        graphQLInputOrOutputType: GraphQLType
+    ): Type<*> {
+        if (graphQLInputOrOutputType !is GraphQLOutputType &&
+                graphQLInputOrOutputType !is GraphQLInputType
+        ) {
+            val message =
+                """the graphql_type passed in as input is 
+                   |neither an input or output type 
+                   |so an SDL Type<*> instance cannot be determined: 
+                   |[ actual: ${graphQLInputOrOutputType::class.qualifiedName} 
+                   |]""".flattenIntoOneLine()
+            throw MaterializerException(
+                MaterializerErrorResponse.GRAPHQL_SCHEMA_CREATION_ERROR,
+                message
+            )
+        }
+        val traversalFunction:
+            (Pair<(Type<*>) -> Type<*>, GraphQLType>) -> Option<
+                    Either<Pair<(Type<*>) -> Type<*>, GraphQLType>, Type<*>>> =
+            { pair: Pair<(Type<*>) -> Type<*>, GraphQLType> ->
+                when (val graphQLType: GraphQLType = pair.second) {
+                    is GraphQLNonNull ->
+                        (pair.first.compose<Type<*>, Type<*>, Type<*>> { t: Type<*> ->
+                                NonNullType.newNonNullType().type(t).build()
+                            } to graphQLType.wrappedType)
+                            .left()
+                            .some()
+                    is GraphQLList ->
+                        (pair.first.compose<Type<*>, Type<*>, Type<*>> { t: Type<*> ->
+                                ListType.newListType().type(t).build()
+                            } to graphQLType.wrappedType)
+                            .left()
+                            .some()
+                    is GraphQLNamedType ->
+                        pair.first
+                            .invoke(TypeName.newTypeName(graphQLType.name).build())
+                            .right()
+                            .some()
+                    else -> none()
+                }
+            }
+        return TraversalFunctions.recurseWithOption(
+                ({ t: Type<*> -> t } to graphQLInputOrOutputType),
+                traversalFunction
+            )
+            .fold(
+                { ->
+                    throw unnamedGraphQLInputOrOutputTypeGraphQLSchemaCreationError(
+                        graphQLInputOrOutputType
+                    )
+                },
+                { t: Type<*> -> t }
+            )
+    }
+
+    private fun unnamedGraphQLInputOrOutputTypeGraphQLSchemaCreationError(
+        graphQLInputOrOutputType: GraphQLType
+    ): MaterializerException {
+        val inputOrOutputType: String =
+            if (graphQLInputOrOutputType is GraphQLInputType) {
+                "input_type"
+            } else {
+                "output_type"
+            }
+        return MaterializerException(
+            MaterializerErrorResponse.GRAPHQL_SCHEMA_CREATION_ERROR,
+            """graphql_field_definition.${inputOrOutputType} [ type.to_string: 
+                |$graphQLInputOrOutputType ] 
+                |does not have name for use in SDL type creation
+                |""".flattenIntoOneLine()
+        )
     }
 }
