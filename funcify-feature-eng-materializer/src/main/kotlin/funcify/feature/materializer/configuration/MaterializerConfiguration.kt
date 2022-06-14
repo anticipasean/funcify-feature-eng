@@ -3,7 +3,7 @@ package funcify.feature.materializer.configuration
 import arrow.core.getOrElse
 import arrow.core.toOption
 import com.fasterxml.jackson.databind.ObjectMapper
-import funcify.feature.datasource.gql.SourceIndexGqlSdlDefinitionFactory
+import funcify.feature.datasource.sdl.SourceIndexGqlSdlDefinitionFactory
 import funcify.feature.datasource.graphql.GraphQLApiDataSource
 import funcify.feature.datasource.rest.RestApiDataSource
 import funcify.feature.error.FeatureEngCommonException

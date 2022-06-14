@@ -2,7 +2,7 @@ package funcify.feature.materializer.schema
 
 import arrow.core.Option
 import arrow.core.toOption
-import funcify.feature.datasource.gql.SourceIndexGqlSdlDefinitionFactory
+import funcify.feature.datasource.sdl.SourceIndexGqlSdlDefinitionFactory
 import funcify.feature.datasource.graphql.schema.GraphQLSourceContainerType
 import funcify.feature.materializer.error.MaterializerErrorResponse
 import funcify.feature.materializer.error.MaterializerException

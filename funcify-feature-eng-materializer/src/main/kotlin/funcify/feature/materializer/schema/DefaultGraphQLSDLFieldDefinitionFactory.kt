@@ -7,7 +7,7 @@ import arrow.core.none
 import arrow.core.right
 import arrow.core.some
 import arrow.core.toOption
-import funcify.feature.datasource.gql.SourceIndexGqlSdlDefinitionFactory
+import funcify.feature.datasource.sdl.SourceIndexGqlSdlDefinitionFactory
 import funcify.feature.datasource.graphql.schema.GraphQLSourceAttribute
 import funcify.feature.materializer.error.MaterializerErrorResponse
 import funcify.feature.materializer.error.MaterializerException

@@ -1,4 +1,4 @@
-package funcify.feature.datasource.gql
+package funcify.feature.datasource.sdl
 
 import funcify.feature.schema.datasource.SourceAttribute
 import funcify.feature.tools.container.attempt.Try
