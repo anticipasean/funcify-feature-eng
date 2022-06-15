@@ -1,13 +1,11 @@
-package funcify.feature.materializer.schema
+package funcify.feature.materializer.sdl
 
 import arrow.core.Option
 import arrow.core.toOption
 import funcify.feature.datasource.sdl.SourceIndexGqlSdlDefinitionFactory
-import funcify.feature.datasource.graphql.schema.GraphQLSourceContainerType
 import funcify.feature.materializer.error.MaterializerErrorResponse
 import funcify.feature.materializer.error.MaterializerException
 import funcify.feature.schema.datasource.DataSourceType
-import funcify.feature.schema.datasource.RawDataSourceType
 import funcify.feature.schema.datasource.SourceContainerType
 import funcify.feature.schema.datasource.SourceIndex
 import funcify.feature.schema.index.CompositeContainerType
@@ -15,11 +13,7 @@ import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.container.attempt.Try.Companion.filterInstanceOf
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
-import graphql.language.Description
-import graphql.language.Node
 import graphql.language.ObjectTypeDefinition
-import graphql.language.SourceLocation
-import graphql.schema.GraphQLFieldsContainer
 import kotlin.reflect.KClass
 import kotlin.reflect.full.isSuperclassOf
 import kotlinx.collections.immutable.ImmutableMap
@@ -36,9 +30,9 @@ internal class DefaultGraphQLObjectTypeDefinitionFactory(
     }
 
     private val supportedDataSourceTypes: Set<DataSourceType> by lazy {
-        sourceIndexGqlSdlDefinitionFactories.fold(
-            persistentSetOf<DataSourceType>(RawDataSourceType.GRAPHQL_API)
-        ) { ps, factory -> ps.add(factory.dataSourceType) }
+        sourceIndexGqlSdlDefinitionFactories.fold(persistentSetOf()) { ps, factory ->
+            ps.add(factory.dataSourceType)
+        }
     }
 
     private val sourceIndexGqlSdlDefFactoryBySourceIndexType:
@@ -62,13 +56,6 @@ internal class DefaultGraphQLObjectTypeDefinitionFactory(
                |]""".flattenIntoOneLine()
         )
         return when {
-            compositeContainerType.canBeSourcedFrom(RawDataSourceType.GRAPHQL_API) -> {
-                Try.attempt {
-                    deriveObjectTypeDefinitionFromFirstAvailableGraphQLApiSourceContainerType(
-                        compositeContainerType
-                    )
-                }
-            }
             cachingCompositeContainerTypeTypeToFactoryFunction
                 .invoke(compositeContainerType)
                 .isDefined() -> {
@@ -158,100 +145,5 @@ internal class DefaultGraphQLObjectTypeDefinitionFactory(
         return factory
             .createGraphQLSDLNodeForSourceIndex(sourceContainerTypeAsExpectedSourceIndexType)
             .filterInstanceOf()
-    }
-
-    private fun deriveObjectTypeDefinitionFromFirstAvailableGraphQLApiSourceContainerType(
-        compositeContainerType: CompositeContainerType
-    ): ObjectTypeDefinition {
-        val firstGraphQLApiSourceContainerType: SourceContainerType<*> =
-            (compositeContainerType
-                .getSourceContainerTypeByDataSource()
-                .asSequence()
-                .filter { entry -> entry.key.sourceType == RawDataSourceType.GRAPHQL_API }
-                .map { entry -> entry.value }
-                .firstOrNull()
-                ?: throw MaterializerException(
-                    MaterializerErrorResponse.GRAPHQL_SCHEMA_CREATION_ERROR,
-                    "graphql_api_source_container_type reported available but not found"
-                ))
-        val graphQLFieldsContainerType: GraphQLFieldsContainer =
-            when (val graphQLSourceContainerType: SourceContainerType<*> =
-                    firstGraphQLApiSourceContainerType
-            ) {
-                is GraphQLSourceContainerType -> {
-                    graphQLSourceContainerType.containerType
-                }
-                else -> {
-                    throw MaterializerException(
-                        MaterializerErrorResponse.GRAPHQL_SCHEMA_CREATION_ERROR,
-                        """graphql_source_container_type.type [ 
-                                |expected: ${GraphQLSourceContainerType::class.qualifiedName}, 
-                                |actual: ${firstGraphQLApiSourceContainerType::class.qualifiedName} 
-                                |]""".flattenIntoOneLine()
-                    )
-                }
-            }
-        return when (val fieldsContainerDefinition: Node<Node<*>>? =
-                graphQLFieldsContainerType.definition
-        ) { //
-            // null if fieldsContainerType was not based on an SDL definition
-            null -> {
-                if (graphQLFieldsContainerType.description?.isNotEmpty() == true) {
-                    ObjectTypeDefinition.newObjectTypeDefinition()
-                        .name(graphQLFieldsContainerType.name)
-                        .description(
-                            Description(
-                                graphQLFieldsContainerType.description ?: "",
-                                SourceLocation.EMPTY,
-                                graphQLFieldsContainerType.description?.contains('\n') ?: false
-                            )
-                        )
-                        /* Let attribute vertices be added separately
-                         * .fieldDefinitions(
-                         *    graphQLFieldsContainerType
-                         *        .fieldDefinitions
-                         *        .stream()
-                         *        .map { fd -> fd.definition.toOption() }
-                         *        .flatMapOptions()
-                         *        .reduceToPersistentList()
-                         *)
-                         */
-                        .build()
-                } else {
-                    ObjectTypeDefinition.newObjectTypeDefinition()
-                        .name(graphQLFieldsContainerType.name)
-                        /* Let attribute vertices be added separately
-                         * .fieldDefinitions(
-                         *     graphQLFieldsContainerType
-                         *         .fieldDefinitions
-                         *         .stream()
-                         *         .map { fd -> fd.definition.toOption() }
-                         *         .flatMapOptions()
-                         *         .reduceToPersistentList()
-                         * )
-                         */
-                        .build()
-                }
-            } //
-            // only object_type_definition if fieldsContainerType is actually a GraphQLObjectType
-            is ObjectTypeDefinition -> {
-                fieldsContainerDefinition.transform { builder: ObjectTypeDefinition.Builder ->
-                    /*
-                     * Clear list of field_definitions already available in given object_type_definition
-                     * Let this list be updated as source_attributes are updated
-                     */
-                    builder.fieldDefinitions(listOf())
-                }
-            }
-            else -> {
-                throw MaterializerException(
-                    MaterializerErrorResponse.GRAPHQL_SCHEMA_CREATION_ERROR,
-                    """graphql_fields_container_type does not conform to expected 
-                      |contract for get_definition: [ graphql_field_container_type.definition.type: 
-                      |${graphQLFieldsContainerType.definition::class.qualifiedName} 
-                      |]""".flattenIntoOneLine()
-                )
-            }
-        }
     }
 }

@@ -12,7 +12,12 @@ import funcify.feature.datasource.graphql.metadata.GraphQLApiSourceMetadataFilte
 import funcify.feature.datasource.graphql.metadata.GraphQLApiSourceMetadataProvider
 import funcify.feature.datasource.graphql.metadata.GraphQLApiSourceMetadataReader
 import funcify.feature.datasource.graphql.schema.DefaultGraphQLSourceIndexFactory
+import funcify.feature.datasource.graphql.schema.GraphQLSourceIndex
 import funcify.feature.datasource.graphql.schema.GraphQLSourceIndexFactory
+import funcify.feature.datasource.graphql.sdl.GraphQLSourceAttributeSDLDefinitionMapper
+import funcify.feature.datasource.graphql.sdl.GraphQLSourceContainerTypeSDLDefinitionMapper
+import funcify.feature.datasource.sdl.SourceIndexGqlSdlDefinitionFactory
+import funcify.feature.schema.datasource.RawDataSourceType
 import org.springframework.beans.factory.ObjectProvider
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
@@ -102,5 +107,16 @@ class GraphQLDataSourceConfiguration {
             graphQLSourceIndexFactory = graphQLSourceIndexFactory,
             graphQLApiSourceMetadataFilter = compositeGraphQLApiSourceMetadataFilter
         )
+    }
+
+    @Bean
+    fun graphQLSourceIndexSDLDefinitionFactory():
+        SourceIndexGqlSdlDefinitionFactory<GraphQLSourceIndex> {
+        return SourceIndexGqlSdlDefinitionFactory.defaultFactoryBuilder()
+            .sourceIndexType(GraphQLSourceIndex::class)
+            .dataSourceType(RawDataSourceType.GRAPHQL_API)
+            .sourceContainerTypeMapper(GraphQLSourceContainerTypeSDLDefinitionMapper())
+            .sourceAttributeMapper(GraphQLSourceAttributeSDLDefinitionMapper())
+            .build()
     }
 }

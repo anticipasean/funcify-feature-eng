@@ -1,4 +1,4 @@
-package funcify.feature.materializer.schema
+package funcify.feature.materializer.sdl
 
 import funcify.feature.schema.index.CompositeContainerType
 import graphql.language.ObjectTypeDefinition

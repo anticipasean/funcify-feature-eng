@@ -6,6 +6,8 @@ import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import funcify.feature.materializer.error.MaterializerErrorResponse.GRAPHQL_SCHEMA_CREATION_ERROR
 import funcify.feature.materializer.error.MaterializerException
+import funcify.feature.materializer.sdl.GraphQLObjectTypeDefinitionFactory
+import funcify.feature.materializer.sdl.GraphQLSDLFieldDefinitionFactory
 import funcify.feature.naming.ConventionalName
 import funcify.feature.schema.MetamodelGraph
 import funcify.feature.schema.SchematicVertex

@@ -9,12 +9,17 @@ import graphql.GraphqlErrorBuilder
 import org.springframework.http.HttpStatus
 
 enum class GQLDataSourceErrorResponse : ErrorResponse {
-
     GRAPHQL_DATA_SOURCE_CREATION_ERROR {
         override val responseStatusIfHttp: Option<HttpStatus>
             get() = HttpStatus.BAD_REQUEST.some()
         override val errorMessageIfHttp: Option<String>
             get() = "error occurred during creation of graphql_data_source".some()
+    },
+    SCHEMA_CREATION_ERROR {
+        override val responseStatusIfHttp: Option<HttpStatus>
+            get() = HttpStatus.INTERNAL_SERVER_ERROR.some()
+        override val errorMessageIfHttp: Option<String>
+            get() = "error occurred during creation of materialization schema".some()
     },
     JSON_CONVERSION_ISSUE {
         override val responseStatusIfHttp: Option<HttpStatus>
