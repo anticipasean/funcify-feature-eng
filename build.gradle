@@ -124,12 +124,14 @@ subprojects {
                 // not currently available on maven_central but is available on spring milestone
                 implementation("org.springframework.graphql:spring-graphql:${springGraphQLVersion}")
                 implementation("com.querydsl:querydsl-core:5.0.0")
-                implementation("com.netflix.graphql.dgs:graphql-dgs-webflux-starter:${dgsVersion}")
-                implementation("com.netflix.graphql.dgs:graphql-dgs-extended-scalars:${dgsVersion}")
                 implementation("com.graphql-java:graphql-java:${graphQLJavaVersion}")
                 testImplementation("com.graphql-java:graphql-java:${graphQLJavaVersion}")
                 implementation("com.graphql-java:graphql-java-extended-scalars:${graphQLJavaExtScalarsVersion}")
                 testImplementation("com.graphql-java:graphql-java-extended-scalars:${graphQLJavaExtScalarsVersion}")
+                /**
+                 * graphql-java has guava dependency
+                 */
+                implementation("com.google.guava:guava:${guavaVersion}")
             }
         }
         validator {
