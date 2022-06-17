@@ -17,6 +17,7 @@ import funcify.feature.tools.extensions.FunctionExtensions.compose
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
 import graphql.language.Description
+import graphql.language.Directive
 import graphql.language.FieldDefinition
 import graphql.language.InputValueDefinition
 import graphql.language.ListType
@@ -24,6 +25,7 @@ import graphql.language.NonNullType
 import graphql.language.SourceLocation
 import graphql.language.Type
 import graphql.language.TypeName
+import graphql.schema.GraphQLAppliedDirective
 import graphql.schema.GraphQLArgument
 import graphql.schema.GraphQLFieldDefinition
 import graphql.schema.GraphQLInputType
@@ -67,9 +69,10 @@ class GraphQLSourceAttributeSDLDefinitionMapper :
                             Description(
                                 graphQLSourceAttribute.schemaFieldDefinition.description,
                                 SourceLocation.EMPTY,
-                                graphQLSourceAttribute.schemaFieldDefinition.description.contains(
+                                graphQLSourceAttribute.schemaFieldDefinition.description?.contains(
                                     '\n'
                                 )
+                                    ?: false
                             )
                         )
                         .type(
@@ -135,9 +138,30 @@ class GraphQLSourceAttributeSDLDefinitionMapper :
                                 graphQLArgument.type
                             )
                         )
+                        .directives(
+                            extractDirectivesOnGraphQLArgumentFromFieldDefinition(
+                                graphQLArgument,
+                                definition
+                            )
+                        )
                         .build()
                 }
                 .toPersistentList()
+        }
+    }
+
+    private fun extractDirectivesOnGraphQLArgumentFromFieldDefinition(
+        graphQLArgument: GraphQLArgument,
+        definition: GraphQLFieldDefinition,
+    ): List<Directive> {
+        return if (graphQLArgument.directives.isEmpty()) {
+            emptyList()
+        } else {
+            graphQLArgument.allAppliedDirectivesByName.asSequence().map {
+                entry: Map.Entry<String, MutableList<GraphQLAppliedDirective>> ->
+
+            }
+            emptyList()
         }
     }
 
