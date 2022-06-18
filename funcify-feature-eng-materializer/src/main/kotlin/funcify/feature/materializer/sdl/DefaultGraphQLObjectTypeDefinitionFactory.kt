@@ -8,7 +8,7 @@ import funcify.feature.materializer.error.MaterializerException
 import funcify.feature.schema.datasource.DataSourceType
 import funcify.feature.schema.datasource.SourceContainerType
 import funcify.feature.schema.datasource.SourceIndex
-import funcify.feature.schema.index.CompositeContainerType
+import funcify.feature.schema.index.CompositeSourceContainerType
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.container.attempt.Try.Companion.filterInstanceOf
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
@@ -43,12 +43,12 @@ internal class DefaultGraphQLObjectTypeDefinitionFactory(
     }
 
     private val cachingCompositeContainerTypeTypeToFactoryFunction:
-        (CompositeContainerType) -> Option<
+                (CompositeSourceContainerType) -> Option<
                 Pair<SourceContainerType<*>, SourceIndexGqlSdlDefinitionFactory<*>>> =
         createCachingFactoryForCompositeContainerTypeFunction()
 
     override fun createObjectTypeDefinitionForCompositeContainerType(
-        compositeContainerType: CompositeContainerType
+        compositeContainerType: CompositeSourceContainerType
     ): ObjectTypeDefinition {
         logger.debug(
             """create_object_type_definition_for_composite_container_type: 
@@ -99,11 +99,11 @@ internal class DefaultGraphQLObjectTypeDefinitionFactory(
     }
 
     private fun createCachingFactoryForCompositeContainerTypeFunction():
-        (CompositeContainerType) -> Option<
+                (CompositeSourceContainerType) -> Option<
                 Pair<SourceContainerType<*>, SourceIndexGqlSdlDefinitionFactory<*>>> {
         val sourceIndexSuperTypeBySourceIndexSubType: MutableMap<KClass<*>, KClass<*>> =
             mutableMapOf()
-        return { cct: CompositeContainerType ->
+        return { cct: CompositeSourceContainerType ->
             cct.getSourceContainerTypeByDataSource()
                 .values
                 .asSequence()

@@ -3,9 +3,13 @@ package funcify.feature.schema.path
 import arrow.core.Option
 import arrow.core.none
 import arrow.core.some
+import com.fasterxml.jackson.databind.JsonNode
+import com.fasterxml.jackson.databind.node.JsonNodeFactory
+import java.math.BigDecimal
 import java.net.URI
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableMap
+import net.thisptr.jackson.jq.internal.misc.JsonNodeComparator
 
 /**
  * Represents a data element, derived or raw, within the schema, its arguments / parameters, and any
@@ -27,7 +31,9 @@ interface SchematicPath : Comparable<SchematicPath> {
         }
 
         private val comparator: Comparator<SchematicPath> by lazy {
-            val strStrMapComparatorFunction: (Map<String, String>, Map<String, String>) -> Int =
+            val jsonNodeComparator: JsonNodeComparator = JsonNodeComparator.getInstance()
+            val strJsonMapComparatorFunction:
+                (Map<String, JsonNode>, Map<String, JsonNode>) -> Int =
                 { map1, map2 -> //
                     /*
                      * Early exit approach: First non-matching pair found returns comparison value else considered equal
@@ -38,11 +44,11 @@ interface SchematicPath : Comparable<SchematicPath> {
                                 .zip(map2.asSequence())
                                 .firstOrNull { (e1, e2) ->
                                     e1.key.compareTo(e2.key) != 0 ||
-                                        e1.value.compareTo(e2.value) != 0
+                                        jsonNodeComparator.compare(e1.value, e2.value) != 0
                                 }
                                 ?.let { (e1, e2) ->
                                     when (val keyComparison: Int = e1.key.compareTo(e2.key)) {
-                                        0 -> e1.value.compareTo(e2.value)
+                                        0 -> jsonNodeComparator.compare(e1.value, e2.value)
                                         else -> keyComparison
                                     }
                                 }
@@ -70,8 +76,8 @@ interface SchematicPath : Comparable<SchematicPath> {
             }
             Comparator.comparing({ sp: SchematicPath -> sp.scheme }, String::compareTo)
                 .thenComparing({ sp: SchematicPath -> sp.pathSegments }, strListComparatorFunction)
-                .thenComparing({ sp: SchematicPath -> sp.arguments }, strStrMapComparatorFunction)
-                .thenComparing({ sp: SchematicPath -> sp.directives }, strStrMapComparatorFunction)
+                .thenComparing({ sp: SchematicPath -> sp.arguments }, strJsonMapComparatorFunction)
+                .thenComparing({ sp: SchematicPath -> sp.directives }, strJsonMapComparatorFunction)
         }
 
         fun comparator(): Comparator<SchematicPath> {
@@ -100,14 +106,14 @@ interface SchematicPath : Comparable<SchematicPath> {
      * input arguments `node(context: {"correlation_id":
      * "82b1d1cd-8020-41f1-9536-dc143c320ff1","user_id": 123})` in GraphQL SDL form
      */
-    val arguments: ImmutableMap<String, String>
+    val arguments: ImmutableMap<String, JsonNode>
 
     /**
      * Represented by URI fragments `#uppercase&aliases=names=amount_remaining_3m_1m,amt_rem_3m1m`
      * in URI form and schema directives `@uppercase @aliases(names: ["amount_remaining_3m_1m",
      * "amt_rem_3m1m" ])` in GraphQL SDL form
      */
-    val directives: ImmutableMap<String, String>
+    val directives: ImmutableMap<String, JsonNode>
 
     /** URI representation of path on which feature function is located within service context */
     fun toURI(): URI
@@ -293,19 +299,83 @@ interface SchematicPath : Comparable<SchematicPath> {
 
         fun clearPathSegments(): Builder
 
-        fun argument(key: String, value: String): Builder
+        fun argument(key: String, value: JsonNode): Builder
 
-        fun argument(keyValuePair: Pair<String, String>): Builder
+        fun argument(key: String, stringValue: String): Builder {
+            return argument(key, JsonNodeFactory.instance.textNode(stringValue))
+        }
 
-        fun arguments(keyValuePairs: Map<String, String>): Builder
+        fun argument(key: String, intValue: Int): Builder {
+            return argument(key, JsonNodeFactory.instance.numberNode(intValue))
+        }
+
+        fun argument(key: String, longValue: Long): Builder {
+            return argument(key, JsonNodeFactory.instance.numberNode(longValue))
+        }
+
+        fun argument(key: String, doubleValue: Double): Builder {
+            return argument(key, JsonNodeFactory.instance.numberNode(doubleValue))
+        }
+
+        fun argument(key: String, floatValue: Float): Builder {
+            return argument(key, JsonNodeFactory.instance.numberNode(floatValue))
+        }
+
+        fun argument(key: String, bigDecimalValue: BigDecimal): Builder {
+            return argument(key, JsonNodeFactory.instance.numberNode(bigDecimalValue))
+        }
+
+        fun argument(key: String, booleanValue: Boolean): Builder {
+            return argument(key, JsonNodeFactory.instance.booleanNode(booleanValue))
+        }
+
+        fun argument(key: String): Builder {
+            return argument(key, JsonNodeFactory.instance.nullNode())
+        }
+
+        fun argument(keyValuePair: Pair<String, JsonNode>): Builder
+
+        fun arguments(keyValuePairs: Map<String, JsonNode>): Builder
 
         fun clearArguments(): Builder
 
-        fun directive(key: String, value: String): Builder
+        fun directive(key: String, value: JsonNode): Builder
 
-        fun directive(keyValuePair: Pair<String, String>): Builder
+        fun directive(key: String, stringValue: String): Builder {
+            return directive(key, JsonNodeFactory.instance.textNode(stringValue))
+        }
 
-        fun directive(keyValuePairs: Map<String, String>): Builder
+        fun directive(key: String, intValue: Int): Builder {
+            return directive(key, JsonNodeFactory.instance.numberNode(intValue))
+        }
+
+        fun directive(key: String, longValue: Long): Builder {
+            return directive(key, JsonNodeFactory.instance.numberNode(longValue))
+        }
+
+        fun directive(key: String, doubleValue: Double): Builder {
+            return directive(key, JsonNodeFactory.instance.numberNode(doubleValue))
+        }
+
+        fun directive(key: String, floatValue: Float): Builder {
+            return directive(key, JsonNodeFactory.instance.numberNode(floatValue))
+        }
+
+        fun directive(key: String, bigDecimalValue: BigDecimal): Builder {
+            return directive(key, JsonNodeFactory.instance.numberNode(bigDecimalValue))
+        }
+
+        fun directive(key: String, booleanValue: Boolean): Builder {
+            return directive(key, JsonNodeFactory.instance.booleanNode(booleanValue))
+        }
+
+        fun directive(key: String): Builder {
+            return directive(key, JsonNodeFactory.instance.nullNode())
+        }
+
+        fun directive(keyValuePair: Pair<String, JsonNode>): Builder
+
+        fun directive(keyValuePairs: Map<String, JsonNode>): Builder
 
         fun clearDirectives(): Builder
 

@@ -23,5 +23,11 @@ enum class SchemaErrorResponse : ErrorResponse {
             get() = HttpStatus.NOT_ACCEPTABLE.some()
         override val errorMessageIfHttp: Option<String>
             get() = "input is not unique within context".some()
+    },
+    SCHEMATIC_INTEGRITY_VIOLATION {
+        override val responseStatusIfHttp: Option<HttpStatus>
+            get() = HttpStatus.NOT_ACCEPTABLE.some()
+        override val errorMessageIfHttp: Option<String>
+            get() = "schema input fails to meet required conditions".some()
     }
 }

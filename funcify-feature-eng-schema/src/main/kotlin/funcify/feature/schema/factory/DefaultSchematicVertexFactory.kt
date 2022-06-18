@@ -12,15 +12,15 @@ import funcify.feature.schema.datasource.SourceContainerType
 import funcify.feature.schema.datasource.SourceIndex
 import funcify.feature.schema.error.SchemaErrorResponse
 import funcify.feature.schema.error.SchemaException
-import funcify.feature.schema.index.DefaultCompositeAttribute
-import funcify.feature.schema.index.DefaultCompositeContainerType
+import funcify.feature.schema.index.DefaultCompositeSourceAttribute
+import funcify.feature.schema.index.DefaultCompositeSourceContainerType
 import funcify.feature.schema.path.SchematicPath
-import funcify.feature.schema.vertex.DefaultJunctionVertex
-import funcify.feature.schema.vertex.DefaultLeafVertex
-import funcify.feature.schema.vertex.DefaultRootVertex
-import funcify.feature.schema.vertex.JunctionVertex
-import funcify.feature.schema.vertex.LeafVertex
-import funcify.feature.schema.vertex.RootVertex
+import funcify.feature.schema.vertex.DefaultSourceJunctionVertex
+import funcify.feature.schema.vertex.DefaultSourceLeafVertex
+import funcify.feature.schema.vertex.DefaultSourceRootVertex
+import funcify.feature.schema.vertex.SourceJunctionVertex
+import funcify.feature.schema.vertex.SourceLeafVertex
+import funcify.feature.schema.vertex.SourceRootVertex
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
@@ -196,11 +196,11 @@ internal class DefaultSchematicVertexFactory : SchematicVertexFactory {
                             when (existingSchematicVertexOpt) {
                                 is Some -> {
                                     when (val existingVertex = existingSchematicVertexOpt.value) {
-                                        is LeafVertex ->
-                                            DefaultLeafVertex(
+                                        is SourceLeafVertex ->
+                                            DefaultSourceLeafVertex(
                                                 path = schematicPath,
                                                 compositeAttribute =
-                                                    DefaultCompositeAttribute(
+                                                    DefaultCompositeSourceAttribute(
                                                         conventionalName =
                                                             existingVertex
                                                                 .compositeAttribute
@@ -210,13 +210,13 @@ internal class DefaultSchematicVertexFactory : SchematicVertexFactory {
                                                             .getSourceAttributeByDataSource()
                                                             .toPersistentMap()
                                                             .put(dataSource.key, sourceIndex)
-                                                    )
-                                            )
-                                        is JunctionVertex ->
-                                            DefaultJunctionVertex(
+                                                                                   )
+                                                                   )
+                                        is SourceJunctionVertex ->
+                                            DefaultSourceJunctionVertex(
                                                 path = schematicPath,
                                                 compositeAttribute =
-                                                    DefaultCompositeAttribute(
+                                                    DefaultCompositeSourceAttribute(
                                                         conventionalName =
                                                             existingVertex
                                                                 .compositeAttribute
@@ -227,10 +227,10 @@ internal class DefaultSchematicVertexFactory : SchematicVertexFactory {
                                                                 .getSourceAttributeByDataSource()
                                                                 .toPersistentMap()
                                                                 .put(dataSource.key, sourceIndex)
-                                                    ),
+                                                                                   ),
                                                 compositeContainerType =
                                                     existingVertex.compositeContainerType
-                                            )
+                                                                       )
                                         else -> {
                                             throw SchemaException(
                                                 SchemaErrorResponse.UNEXPECTED_ERROR,
@@ -240,10 +240,10 @@ internal class DefaultSchematicVertexFactory : SchematicVertexFactory {
                                     }
                                 }
                                 is None -> {
-                                    DefaultLeafVertex(
+                                    DefaultSourceLeafVertex(
                                         path = schematicPath,
                                         compositeAttribute =
-                                            DefaultCompositeAttribute(
+                                            DefaultCompositeSourceAttribute(
                                                 /**
                                                  * Location where entity resolution and application
                                                  * of naming conventions can be done in the future
@@ -251,8 +251,8 @@ internal class DefaultSchematicVertexFactory : SchematicVertexFactory {
                                                 conventionalName = sourceIndex.name,
                                                 sourceAttributesByDataSource =
                                                     persistentMapOf(dataSource.key to sourceIndex)
-                                            )
-                                    )
+                                                                           )
+                                                           )
                                 }
                             }
                         }
@@ -260,11 +260,11 @@ internal class DefaultSchematicVertexFactory : SchematicVertexFactory {
                             when (existingSchematicVertexOpt) {
                                 is Some -> {
                                     when (val existingVertex = existingSchematicVertexOpt.value) {
-                                        is RootVertex ->
-                                            DefaultRootVertex(
+                                        is SourceRootVertex ->
+                                            DefaultSourceRootVertex(
                                                 path = schematicPath,
                                                 compositeContainerType =
-                                                    DefaultCompositeContainerType(
+                                                    DefaultCompositeSourceContainerType(
                                                         conventionalName =
                                                             existingVertex
                                                                 .compositeContainerType
@@ -275,13 +275,13 @@ internal class DefaultSchematicVertexFactory : SchematicVertexFactory {
                                                                 .getSourceContainerTypeByDataSource()
                                                                 .toPersistentMap()
                                                                 .put(dataSource.key, sourceIndex)
-                                                    )
-                                            )
-                                        is LeafVertex ->
-                                            DefaultJunctionVertex(
+                                                                                       )
+                                                                   )
+                                        is SourceLeafVertex ->
+                                            DefaultSourceJunctionVertex(
                                                 path = schematicPath,
                                                 compositeContainerType =
-                                                    DefaultCompositeContainerType(
+                                                    DefaultCompositeSourceContainerType(
                                                         conventionalName =
                                                             existingVertex
                                                                 .compositeAttribute
@@ -290,15 +290,15 @@ internal class DefaultSchematicVertexFactory : SchematicVertexFactory {
                                                             persistentMapOf(
                                                                 dataSource.key to sourceIndex
                                                             )
-                                                    ),
+                                                                                       ),
                                                 compositeAttribute =
                                                     existingVertex.compositeAttribute
-                                            )
-                                        is JunctionVertex ->
-                                            DefaultJunctionVertex(
+                                                                       )
+                                        is SourceJunctionVertex ->
+                                            DefaultSourceJunctionVertex(
                                                 path = schematicPath,
                                                 compositeContainerType =
-                                                    DefaultCompositeContainerType(
+                                                    DefaultCompositeSourceContainerType(
                                                         conventionalName =
                                                             existingVertex
                                                                 .compositeContainerType
@@ -309,10 +309,10 @@ internal class DefaultSchematicVertexFactory : SchematicVertexFactory {
                                                                 .getSourceContainerTypeByDataSource()
                                                                 .toPersistentMap()
                                                                 .put(dataSource.key, sourceIndex)
-                                                    ),
+                                                                                       ),
                                                 compositeAttribute =
                                                     existingVertex.compositeAttribute
-                                            )
+                                                                       )
                                         else -> {
                                             throw SchemaException(
                                                 SchemaErrorResponse.UNEXPECTED_ERROR,
@@ -323,19 +323,19 @@ internal class DefaultSchematicVertexFactory : SchematicVertexFactory {
                                 }
                                 is None -> {
                                     if (schematicPath.isRoot()) {
-                                        DefaultRootVertex(
+                                        DefaultSourceRootVertex(
                                             path = schematicPath,
                                             compositeContainerType =
-                                                DefaultCompositeContainerType(
+                                                DefaultCompositeSourceContainerType(
                                                     sourceIndex.name,
                                                     persistentMapOf(dataSource.key to sourceIndex)
-                                                )
-                                        )
+                                                                                   )
+                                                               )
                                     } else {
-                                        DefaultJunctionVertex(
+                                        DefaultSourceJunctionVertex(
                                             path = schematicPath,
                                             compositeContainerType =
-                                                DefaultCompositeContainerType(
+                                                DefaultCompositeSourceContainerType(
                                                     /**
                                                      * Another location where entity resolution and
                                                      * application of naming conventions can be done
@@ -346,9 +346,9 @@ internal class DefaultSchematicVertexFactory : SchematicVertexFactory {
                                                         persistentMapOf(
                                                             dataSource.key to sourceIndex
                                                         )
-                                                ),
+                                                                                   ),
                                             compositeAttribute =
-                                                DefaultCompositeAttribute(
+                                                DefaultCompositeSourceAttribute(
                                                     /**
                                                      * Another location where entity resolution and
                                                      * application of naming conventions can be done
@@ -356,8 +356,8 @@ internal class DefaultSchematicVertexFactory : SchematicVertexFactory {
                                                      */
                                                     conventionalName = sourceIndex.name,
                                                     sourceAttributesByDataSource = persistentMapOf()
-                                                )
-                                        )
+                                                                               )
+                                                                   )
                                     }
                                 }
                             }

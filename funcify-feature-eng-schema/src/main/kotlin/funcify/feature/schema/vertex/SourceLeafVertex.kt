@@ -6,4 +6,4 @@ package funcify.feature.schema.vertex
  * @author smccarron
  * @created 1/30/22
  */
-interface LeafVertex : AttributeVertex
+interface SourceLeafVertex : SourceAttributeVertex

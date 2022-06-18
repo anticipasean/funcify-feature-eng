@@ -10,7 +10,7 @@ import funcify.feature.schema.datasource.DataSourceType
  * @author smccarron
  * @created 2/7/22
  */
-interface CompositeIndex {
+interface CompositeSourceIndex {
 
     val conventionalName: ConventionalName
 

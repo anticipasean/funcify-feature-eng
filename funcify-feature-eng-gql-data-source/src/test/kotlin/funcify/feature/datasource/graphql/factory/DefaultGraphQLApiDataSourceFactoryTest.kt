@@ -19,9 +19,9 @@ import funcify.feature.schema.configuration.SchemaConfiguration
 import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.datasource.RawDataSourceType
 import funcify.feature.schema.path.SchematicPath
-import funcify.feature.schema.vertex.JunctionVertex
-import funcify.feature.schema.vertex.LeafVertex
-import funcify.feature.schema.vertex.RootVertex
+import funcify.feature.schema.vertex.SourceJunctionVertex
+import funcify.feature.schema.vertex.SourceLeafVertex
+import funcify.feature.schema.vertex.SourceRootVertex
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
 import org.junit.jupiter.api.Assertions
@@ -102,7 +102,7 @@ internal class DefaultGraphQLApiDataSourceFactoryTest {
             metamodelGraph.verticesByPath.asIterable().first().value.toOption()
         val gqlDatasource: DataSource.Key<*>? =
             firstVertexOpt
-                .filterIsInstance<RootVertex>()
+                .filterIsInstance<SourceRootVertex>()
                 .map { v ->
                     v.compositeContainerType
                         .getSourceContainerTypeByDataSource()
@@ -111,7 +111,7 @@ internal class DefaultGraphQLApiDataSourceFactoryTest {
                         .key
                 }
                 .or(
-                    firstVertexOpt.filterIsInstance<JunctionVertex>().map { v ->
+                    firstVertexOpt.filterIsInstance<SourceJunctionVertex>().map { v ->
                         v.compositeContainerType
                             .getSourceContainerTypeByDataSource()
                             .asIterable()
@@ -120,7 +120,7 @@ internal class DefaultGraphQLApiDataSourceFactoryTest {
                     }
                 )
                 .or(
-                    firstVertexOpt.filterIsInstance<LeafVertex>().map { v ->
+                    firstVertexOpt.filterIsInstance<SourceLeafVertex>().map { v ->
                         v.compositeAttribute
                             .getSourceAttributeByDataSource()
                             .asIterable()
@@ -154,7 +154,7 @@ internal class DefaultGraphQLApiDataSourceFactoryTest {
             """.trimMargin()
         )
         Assertions.assertTrue(
-            metamodelGraph.verticesByPath[artworkUrlPath] is LeafVertex,
+            metamodelGraph.verticesByPath[artworkUrlPath] is SourceLeafVertex,
             """expected artwork url to be leaf vertex within metamodel graph
                 |; if failed, composite attributes are likely not being 
                 |mapped properly to their graph positions 
@@ -163,7 +163,7 @@ internal class DefaultGraphQLApiDataSourceFactoryTest {
         Assertions.assertTrue(
             metamodelGraph.verticesByPath[artworkUrlPath.getParentPath().orNull()!!]
                 .toOption()
-                .filterIsInstance<JunctionVertex>()
+                .filterIsInstance<SourceJunctionVertex>()
                 .filter { jv ->
                     jv.compositeAttribute.getSourceAttributeByDataSource()[
                         graphQLApiDataSource.key] is

@@ -8,4 +8,4 @@ package funcify.feature.schema.vertex
  * @author smccarron
  * @created 1/30/22
  */
-interface RootVertex : ContainerTypeVertex
+interface SourceRootVertex : SourceContainerTypeVertex

@@ -1,7 +1,7 @@
 package funcify.feature.schema.vertex
 
 import funcify.feature.schema.SchematicVertex
-import funcify.feature.schema.index.CompositeAttribute
+import funcify.feature.schema.index.CompositeSourceAttribute
 
 /**
  * Represents a feature function within a graph that uses the context of its parent type vertex for
@@ -9,7 +9,7 @@ import funcify.feature.schema.index.CompositeAttribute
  * @author smccarron
  * @created 1/30/22
  */
-interface AttributeVertex : SchematicVertex {
+interface SourceAttributeVertex : SchematicVertex {
 
-    val compositeAttribute: CompositeAttribute
+    val compositeAttribute: CompositeSourceAttribute
 }

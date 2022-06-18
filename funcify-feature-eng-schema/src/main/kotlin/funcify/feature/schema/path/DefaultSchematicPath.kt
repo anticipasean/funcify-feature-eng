@@ -1,5 +1,6 @@
 package funcify.feature.schema.path
 
+import com.fasterxml.jackson.databind.JsonNode
 import java.net.URI
 import kotlinx.collections.immutable.PersistentList
 import kotlinx.collections.immutable.PersistentMap
@@ -15,8 +16,8 @@ import org.springframework.web.util.UriComponentsBuilder
 internal data class DefaultSchematicPath(
     override val scheme: String = SchematicPath.GRAPHQL_SCHEMATIC_PATH_SCHEME,
     override val pathSegments: PersistentList<String> = persistentListOf(),
-    override val arguments: PersistentMap<String, String> = persistentMapOf(),
-    override val directives: PersistentMap<String, String> = persistentMapOf()
+    override val arguments: PersistentMap<String, JsonNode> = persistentMapOf(),
+    override val directives: PersistentMap<String, JsonNode> = persistentMapOf()
 ) : SchematicPath {
 
     companion object {
@@ -28,9 +29,9 @@ internal data class DefaultSchematicPath(
 
             private val pathBuilder: PersistentList.Builder<String> =
                 schematicPath.pathSegments.builder()
-            private val argsBuilder: PersistentMap.Builder<String, String> =
+            private val argsBuilder: PersistentMap.Builder<String, JsonNode> =
                 schematicPath.arguments.builder()
-            private val dirsBuilder: PersistentMap.Builder<String, String> =
+            private val dirsBuilder: PersistentMap.Builder<String, JsonNode> =
                 schematicPath.directives.builder()
 
             override fun scheme(scheme: String): SchematicPath.Builder {
@@ -69,17 +70,17 @@ internal data class DefaultSchematicPath(
                 return this
             }
 
-            override fun argument(key: String, value: String): SchematicPath.Builder {
+            override fun argument(key: String, value: JsonNode): SchematicPath.Builder {
                 argsBuilder[key] = value
                 return this
             }
 
-            override fun argument(keyValuePair: Pair<String, String>): SchematicPath.Builder {
+            override fun argument(keyValuePair: Pair<String, JsonNode>): SchematicPath.Builder {
                 argsBuilder[keyValuePair.first] = keyValuePair.second
                 return this
             }
 
-            override fun arguments(keyValuePairs: Map<String, String>): SchematicPath.Builder {
+            override fun arguments(keyValuePairs: Map<String, JsonNode>): SchematicPath.Builder {
                 argsBuilder.putAll(keyValuePairs)
                 return this
             }
@@ -89,17 +90,17 @@ internal data class DefaultSchematicPath(
                 return this
             }
 
-            override fun directive(key: String, value: String): SchematicPath.Builder {
+            override fun directive(key: String, value: JsonNode): SchematicPath.Builder {
                 dirsBuilder[key] = value
                 return this
             }
 
-            override fun directive(keyValuePair: Pair<String, String>): SchematicPath.Builder {
+            override fun directive(keyValuePair: Pair<String, JsonNode>): SchematicPath.Builder {
                 dirsBuilder[keyValuePair.first] = keyValuePair.second
                 return this
             }
 
-            override fun directive(keyValuePairs: Map<String, String>): SchematicPath.Builder {
+            override fun directive(keyValuePairs: Map<String, JsonNode>): SchematicPath.Builder {
                 dirsBuilder.putAll(keyValuePairs)
                 return this
             }
@@ -132,11 +133,11 @@ internal data class DefaultSchematicPath(
                         UriComponentsBuilder.newInstance()
                             .scheme(scheme)
                             .path(pathSegments.joinToString(separator = "/", prefix = "/")),
-                        { ucb: UriComponentsBuilder, entry: Map.Entry<String, String> ->
+                        { ucb: UriComponentsBuilder, entry: Map.Entry<String, JsonNode> ->
                             ucb.queryParam(entry.key, entry.value)
                         }
                     ),
-                { ucb: UriComponentsBuilder, entry: Map.Entry<String, String> ->
+                { ucb: UriComponentsBuilder, entry: Map.Entry<String, JsonNode> ->
                     if (entry.value.isEmpty()) {
                         ucb.fragment(entry.key)
                     } else {

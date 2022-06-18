@@ -9,7 +9,7 @@ import funcify.feature.schema.datasource.DataSourceType
 import funcify.feature.schema.datasource.RawDataSourceType
 import funcify.feature.schema.datasource.SourceAttribute
 import funcify.feature.schema.datasource.SourceIndex
-import funcify.feature.schema.index.CompositeAttribute
+import funcify.feature.schema.index.CompositeSourceAttribute
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.container.attempt.Try.Companion.filterInstanceOf
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
@@ -44,12 +44,12 @@ internal class DefaultGraphQLSDLFieldDefinitionFactory(
     }
 
     private val cachingCompositeAttributeTypeToFactoryFunction:
-        (CompositeAttribute) -> Option<
+                (CompositeSourceAttribute) -> Option<
                 Pair<SourceAttribute, SourceIndexGqlSdlDefinitionFactory<*>>> =
         createCachingFactoryForCompositeAttributeFunction()
 
     override fun createFieldDefinitionForCompositeAttribute(
-        compositeAttribute: CompositeAttribute
+        compositeAttribute: CompositeSourceAttribute
     ): FieldDefinition {
         logger.debug(
             """create_field_definition_for_composite_attribute: [ 
@@ -111,11 +111,11 @@ internal class DefaultGraphQLSDLFieldDefinitionFactory(
     }
 
     private fun createCachingFactoryForCompositeAttributeFunction():
-        (CompositeAttribute) -> Option<
+                (CompositeSourceAttribute) -> Option<
                 Pair<SourceAttribute, SourceIndexGqlSdlDefinitionFactory<*>>> {
         val sourceIndexSuperTypeBySourceIndexSubType: MutableMap<KClass<*>, KClass<*>> =
             mutableMapOf()
-        return { ca: CompositeAttribute ->
+        return { ca: CompositeSourceAttribute ->
             ca.getSourceAttributeByDataSource()
                 .values
                 .asSequence()

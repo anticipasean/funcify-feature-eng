@@ -11,11 +11,11 @@ import funcify.feature.materializer.sdl.GraphQLSDLFieldDefinitionFactory
 import funcify.feature.naming.ConventionalName
 import funcify.feature.schema.MetamodelGraph
 import funcify.feature.schema.SchematicVertex
-import funcify.feature.schema.index.CompositeAttribute
+import funcify.feature.schema.index.CompositeSourceAttribute
 import funcify.feature.schema.path.SchematicPath
-import funcify.feature.schema.vertex.JunctionVertex
-import funcify.feature.schema.vertex.LeafVertex
-import funcify.feature.schema.vertex.RootVertex
+import funcify.feature.schema.vertex.SourceJunctionVertex
+import funcify.feature.schema.vertex.SourceLeafVertex
+import funcify.feature.schema.vertex.SourceRootVertex
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentMap
@@ -174,9 +174,9 @@ internal class DefaultMaterializationGraphQLSchemaFactory(
     ): GraphQLSchemaBuildContext {
         logger.debug("add_schematic_vertex_to_build_context: [ vertex.path: ${vertex.path} ]")
         return when (vertex) {
-            is RootVertex -> addRootVertexToBuildContext(buildContext, vertex)
-            is JunctionVertex -> addJunctionVertexToBuildContext(buildContext, vertex)
-            is LeafVertex -> addLeafVertexToBuildContext(buildContext, vertex)
+            is SourceRootVertex -> addRootVertexToBuildContext(buildContext, vertex)
+            is SourceJunctionVertex -> addJunctionVertexToBuildContext(buildContext, vertex)
+            is SourceLeafVertex -> addLeafVertexToBuildContext(buildContext, vertex)
             else ->
                 throw MaterializerException(
                     GRAPHQL_SCHEMA_CREATION_ERROR,
@@ -187,7 +187,7 @@ internal class DefaultMaterializationGraphQLSchemaFactory(
 
     private fun addRootVertexToBuildContext(
         buildContext: GraphQLSchemaBuildContext,
-        vertex: RootVertex
+        vertex: SourceRootVertex
     ): GraphQLSchemaBuildContext {
         logger.debug("add_root_vertex_to_build_context: [ vertex.path: ${vertex.path} ]")
         val conventionalName: ConventionalName = vertex.compositeContainerType.conventionalName
@@ -221,7 +221,7 @@ internal class DefaultMaterializationGraphQLSchemaFactory(
 
     private fun addJunctionVertexToBuildContext(
         buildContext: GraphQLSchemaBuildContext,
-        vertex: JunctionVertex
+        vertex: SourceJunctionVertex
     ): GraphQLSchemaBuildContext {
         logger.debug("add_junction_vertex_to_build_context: [ vertex.path: ${vertex.path} ]")
         val compositeContainerType = vertex.compositeContainerType
@@ -301,10 +301,10 @@ internal class DefaultMaterializationGraphQLSchemaFactory(
 
     private fun addLeafVertexToBuildContext(
         buildContext: GraphQLSchemaBuildContext,
-        vertex: LeafVertex
+        vertex: SourceLeafVertex
     ): GraphQLSchemaBuildContext {
         logger.debug("add_leaf_vertex_to_build_context: [ vertex.path: ${vertex.path} ]")
-        val compositeAttribute: CompositeAttribute = vertex.compositeAttribute
+        val compositeAttribute: CompositeSourceAttribute = vertex.compositeAttribute
         val conventionalName: ConventionalName = compositeAttribute.conventionalName
         val fieldDefinition: FieldDefinition =
             graphQLSDLFieldDefinitionFactory.createFieldDefinitionForCompositeAttribute(
