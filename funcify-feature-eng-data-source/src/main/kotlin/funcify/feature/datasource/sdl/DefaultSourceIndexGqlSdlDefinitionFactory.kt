@@ -12,7 +12,7 @@ import kotlin.reflect.KClass
 import org.slf4j.Logger
 
 internal class DefaultSourceIndexGqlSdlDefinitionFactory<
-    SI : SourceIndex, SC : SourceContainerType<SA>, SA : SourceAttribute>(
+    SI : SourceIndex<SI>, SC : SourceContainerType<SI, SA>, SA : SourceAttribute<SI>>(
     override val sourceIndexType: KClass<SI>,
     override val dataSourceType: DataSourceType,
     private val sourceContainerTypeMapper: SourceContainerTypeGqlSdlObjectTypeDefinitionMapper<SC>,
@@ -29,14 +29,14 @@ internal class DefaultSourceIndexGqlSdlDefinitionFactory<
 
         internal class DefaultStepBuilder : SourceIndexGqlSdlDefinitionFactory.StepBuilder {
 
-            override fun <SI : SourceIndex> sourceIndexType(
+            override fun <SI : SourceIndex<SI>> sourceIndexType(
                 sourceIndexType: KClass<SI>
             ): SourceIndexGqlSdlDefinitionFactory.DataSourceTypeStep<SI> {
                 return DefaultDataSourceTypeStep<SI>(sourceIndexType)
             }
         }
 
-        internal class DefaultDataSourceTypeStep<SI : SourceIndex>(
+        internal class DefaultDataSourceTypeStep<SI : SourceIndex<SI>>(
             private val sourceIndexType: KClass<SI>
         ) : SourceIndexGqlSdlDefinitionFactory.DataSourceTypeStep<SI> {
 
@@ -47,13 +47,14 @@ internal class DefaultSourceIndexGqlSdlDefinitionFactory<
             }
         }
 
-        internal class DefaultSourceContainerMapperStep<SI : SourceIndex>(
+        internal class DefaultSourceContainerMapperStep<SI : SourceIndex<SI>>(
             private val sourceIndexType: KClass<SI>,
             private val dataSourceType: DataSourceType
         ) : SourceIndexGqlSdlDefinitionFactory.SourceContainerMapperStep<SI> {
 
             override fun <
-                SC : SourceContainerType<SA>, SA : SourceAttribute> sourceContainerTypeMapper(
+                SC : SourceContainerType<SI, SA>,
+                SA : SourceAttribute<SI>> sourceContainerTypeMapper(
                 sourceContainerTypeMapper: SourceContainerTypeGqlSdlObjectTypeDefinitionMapper<SC>
             ): SourceIndexGqlSdlDefinitionFactory.SourceAttributeMapperStep<SI, SC, SA> {
                 return DefaultSourceAttributeMapperStep<SI, SC, SA>(
@@ -65,7 +66,7 @@ internal class DefaultSourceIndexGqlSdlDefinitionFactory<
         }
 
         internal class DefaultSourceAttributeMapperStep<
-            SI : SourceIndex, SC : SourceContainerType<SA>, SA : SourceAttribute>(
+            SI : SourceIndex<SI>, SC : SourceContainerType<SI, SA>, SA : SourceAttribute<SI>>(
             private val sourceIndexType: KClass<SI>,
             private val dataSourceType: DataSourceType,
             private val sourceContainerTypeMapper:
@@ -85,7 +86,7 @@ internal class DefaultSourceIndexGqlSdlDefinitionFactory<
         }
 
         internal class DefaultBuildStep<
-            SI : SourceIndex, SC : SourceContainerType<SA>, SA : SourceAttribute>(
+            SI : SourceIndex<SI>, SC : SourceContainerType<SI, SA>, SA : SourceAttribute<SI>>(
             private val sourceIndexType: KClass<SI>,
             private val dataSourceType: DataSourceType,
             private val sourceContainerTypeMapper:
@@ -108,19 +109,19 @@ internal class DefaultSourceIndexGqlSdlDefinitionFactory<
         logger.debug(
             "create_graphql_sdl_node_for_source_index: [ source_index.name: ${sourceIndex.name} ]"
         )
-        if (sourceIndex.dataSourceType != dataSourceType) {
+        if (sourceIndex.dataSourceLookupKey.dataSourceType != dataSourceType) {
             return Try.failure<Node<*>>(
                     IllegalArgumentException(
                         """source_index.data_source_type does not match 
                            |expected data_source_type: [ expected: ${dataSourceType}, 
-                           |actual: ${sourceIndex.dataSourceType} ]
+                           |actual: ${sourceIndex.dataSourceLookupKey.dataSourceType} ]
                            |""".flattenIntoOneLine()
                     )
                 )
                 .peekIfFailure(failureLogger())
         }
         return when (sourceIndex) {
-            is SourceContainerType<*> ->
+            is SourceContainerType<*, *> ->
                 Try.attempt({
                         @Suppress("UNCHECKED_CAST") //
                         sourceIndex as SC
@@ -129,7 +130,7 @@ internal class DefaultSourceIndexGqlSdlDefinitionFactory<
                         sourceContainerTypeMapper
                             .convertSourceContainerTypeIntoGraphQLObjectTypeSDLDefinition(sc)
                     }
-            is SourceAttribute ->
+            is SourceAttribute<*> ->
                 Try.attempt({
                         @Suppress("UNCHECKED_CAST") //
                         sourceIndex as SA

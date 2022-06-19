@@ -14,6 +14,7 @@ import funcify.feature.datasource.graphql.error.GQLDataSourceException
 import funcify.feature.datasource.graphql.metadata.GraphQLApiSourceMetadataFilter
 import funcify.feature.datasource.graphql.naming.GraphQLSourceNamingConventions
 import funcify.feature.naming.StandardNamingConventions
+import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
 import graphql.schema.GraphQLFieldDefinition
@@ -32,13 +33,16 @@ import kotlinx.collections.immutable.persistentSetOf
  */
 internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
 
-    override fun createRootSourceContainerType():
-        GraphQLSourceIndexFactory.RootSourceContainerTypeSpec {
-        return DefaultRootContainerTypeSpec()
+    override fun createRootSourceContainerTypeForDataSourceKey(
+        key: DataSource.Key<GraphQLSourceIndex>
+    ): GraphQLSourceIndexFactory.RootSourceContainerTypeSpec {
+        return DefaultRootContainerTypeSpec(key)
     }
 
-    override fun createSourceContainerType(): GraphQLSourceIndexFactory.AttributeBase {
-        return DefaultAttributeBase()
+    override fun createSourceContainerTypeForDataSourceKey(
+        key: DataSource.Key<GraphQLSourceIndex>
+    ): GraphQLSourceIndexFactory.AttributeBase {
+        return DefaultAttributeBase(key)
     }
 
     override fun updateSourceContainerType(
@@ -47,10 +51,13 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
         return DefaultSourceContainerTypeUpdateSpec(graphQLSourceContainerType)
     }
 
-    override fun createSourceAttribute(): GraphQLSourceIndexFactory.ParentDefinitionBase {
-        return DefaultParentDefinitionBase()
+    override fun createSourceAttributeForDataSourceKey(
+        key: DataSource.Key<GraphQLSourceIndex>
+    ): GraphQLSourceIndexFactory.ParentDefinitionBase {
+        return DefaultParentDefinitionBase(key)
     }
-    class DefaultRootContainerTypeSpec() : GraphQLSourceIndexFactory.RootSourceContainerTypeSpec {
+    class DefaultRootContainerTypeSpec(private val key: DataSource.Key<GraphQLSourceIndex>) :
+        GraphQLSourceIndexFactory.RootSourceContainerTypeSpec {
 
         override fun forGraphQLQueryObjectType(
             queryObjectType: GraphQLObjectType,
@@ -72,6 +79,7 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
             graphQLSourceAttributes: PersistentSet<GraphQLSourceAttribute>
         ): DefaultGraphQLSourceContainerType {
             return DefaultGraphQLSourceContainerType(
+                dataSourceLookupKey = key,
                 name = StandardNamingConventions.SNAKE_CASE.deriveName("query"),
                 sourcePath = SchematicPath.getRootPath(),
                 dataType = queryObjectType,
@@ -91,6 +99,7 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
                 SchematicPath.getRootPath().transform { pathSegment(convPathName.qualifiedForm) }
 
             return DefaultGraphQLSourceAttribute(
+                dataSourceLookupKey = key,
                 sourcePath = sourcePath,
                 name = convFieldName,
                 schemaFieldDefinition = fieldDefinition
@@ -98,7 +107,8 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
         }
     }
 
-    class DefaultAttributeBase() : GraphQLSourceIndexFactory.AttributeBase {
+    class DefaultAttributeBase(private val key: DataSource.Key<GraphQLSourceIndex>) :
+        GraphQLSourceIndexFactory.AttributeBase {
 
         override fun forAttributePathAndDefinition(
             attributePath: SchematicPath,
@@ -107,6 +117,7 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
             when (GraphQLFieldsContainerTypeExtractor.invoke(attributeDefinition.type)) {
                 is Some -> {
                     return DefaultGraphQLSourceContainerType(
+                            dataSourceLookupKey = key,
                             sourcePath = attributePath,
                             name =
                                 GraphQLSourceNamingConventions
@@ -123,13 +134,15 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
         }
     }
 
-    class DefaultParentDefinitionBase() : GraphQLSourceIndexFactory.ParentDefinitionBase {
+    class DefaultParentDefinitionBase(private val key: DataSource.Key<GraphQLSourceIndex>) :
+        GraphQLSourceIndexFactory.ParentDefinitionBase {
 
         override fun withParentPathAndDefinition(
             parentPath: SchematicPath,
             parentDefinition: GraphQLFieldDefinition
         ): GraphQLSourceIndexFactory.ChildAttributeSpec {
             return DefaultChildAttributeSpec(
+                dataSourceLookupKey = key,
                 parentPath = parentPath,
                 parentDefinition = parentDefinition
             )
@@ -137,8 +150,9 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
     }
 
     class DefaultChildAttributeSpec(
+        private val dataSourceLookupKey: DataSource.Key<GraphQLSourceIndex>,
         private val parentPath: SchematicPath,
-        private val parentDefinition: GraphQLFieldDefinition
+        private val parentDefinition: GraphQLFieldDefinition,
     ) : GraphQLSourceIndexFactory.ChildAttributeSpec {
 
         override fun forChildAttributeDefinition(
@@ -202,6 +216,7 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
                     .deriveName(childDefinition)
             val childPath = parentPath.transform { pathSegment(childConvPathName.qualifiedForm) }
             return DefaultGraphQLSourceAttribute(
+                dataSourceLookupKey = dataSourceLookupKey,
                 sourcePath = childPath,
                 name = childConvFieldName,
                 schemaFieldDefinition = childDefinition
@@ -243,6 +258,7 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
                 sourceAttributes = validatedAttributeSet
             )
                 ?: DefaultGraphQLSourceContainerType(
+                    dataSourceLookupKey = graphQLSourceContainerType.dataSourceLookupKey,
                     sourcePath = graphQLSourceContainerType.sourcePath,
                     dataType = graphQLSourceContainerType.dataType,
                     name = graphQLSourceContainerType.name,

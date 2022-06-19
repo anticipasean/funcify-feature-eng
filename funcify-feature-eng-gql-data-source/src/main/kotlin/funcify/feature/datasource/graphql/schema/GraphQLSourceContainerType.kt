@@ -4,7 +4,7 @@ import funcify.feature.schema.datasource.SourceContainerType
 import graphql.schema.GraphQLFieldsContainer
 
 interface GraphQLSourceContainerType :
-    GraphQLSourceIndex, SourceContainerType<GraphQLSourceAttribute> {
+    GraphQLSourceIndex, SourceContainerType<GraphQLSourceIndex, GraphQLSourceAttribute> {
 
     val containerType: GraphQLFieldsContainer
 

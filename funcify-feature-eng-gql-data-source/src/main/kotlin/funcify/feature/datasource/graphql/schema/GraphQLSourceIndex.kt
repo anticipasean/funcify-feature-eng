@@ -12,10 +12,8 @@ import graphql.schema.GraphQLOutputType
  * @author smccarron
  * @created 2/7/22
  */
-interface GraphQLSourceIndex : SourceIndex {
+interface GraphQLSourceIndex : SourceIndex<GraphQLSourceIndex> {
 
-    override val dataSourceType: DataSourceType
-        get() = RawDataSourceType.GRAPHQL_API
     override val sourcePath: SchematicPath
 
     override val name: ConventionalName

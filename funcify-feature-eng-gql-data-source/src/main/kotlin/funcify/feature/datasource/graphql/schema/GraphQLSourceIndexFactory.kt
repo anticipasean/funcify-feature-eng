@@ -2,6 +2,7 @@ package funcify.feature.datasource.graphql.schema
 
 import arrow.core.Option
 import funcify.feature.datasource.graphql.metadata.GraphQLApiSourceMetadataFilter
+import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.path.SchematicPath
 import graphql.schema.GraphQLFieldDefinition
 import graphql.schema.GraphQLObjectType
@@ -14,15 +15,21 @@ import kotlinx.collections.immutable.ImmutableSet
  */
 interface GraphQLSourceIndexFactory {
 
-    fun createRootSourceContainerType(): RootSourceContainerTypeSpec
+    fun createRootSourceContainerTypeForDataSourceKey(
+        key: DataSource.Key<GraphQLSourceIndex>
+    ): RootSourceContainerTypeSpec
 
-    fun createSourceContainerType(): AttributeBase
+    fun createSourceContainerTypeForDataSourceKey(
+        key: DataSource.Key<GraphQLSourceIndex>
+    ): AttributeBase
 
     fun updateSourceContainerType(
         graphQLSourceContainerType: GraphQLSourceContainerType
     ): SourceContainerTypeUpdateSpec
 
-    fun createSourceAttribute(): ParentDefinitionBase
+    fun createSourceAttributeForDataSourceKey(
+        key: DataSource.Key<GraphQLSourceIndex>
+    ): ParentDefinitionBase
 
     interface RootSourceContainerTypeSpec {
         fun forGraphQLQueryObjectType(

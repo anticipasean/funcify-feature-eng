@@ -18,7 +18,7 @@ import kotlin.reflect.KClass
  * set logic will be added to Kotlin at some point making the compiler capable of asserting joint
  * membership of source container types and source attribute types to the same source index type
  */
-interface SourceIndexGqlSdlDefinitionFactory<SI : SourceIndex> {
+interface SourceIndexGqlSdlDefinitionFactory<SI : SourceIndex<SI>> {
 
     companion object {
 
@@ -35,30 +35,32 @@ interface SourceIndexGqlSdlDefinitionFactory<SI : SourceIndex> {
 
     interface StepBuilder {
 
-        fun <SI : SourceIndex> sourceIndexType(sourceIndexType: KClass<SI>): DataSourceTypeStep<SI>
+        fun <SI : SourceIndex<SI>> sourceIndexType(
+            sourceIndexType: KClass<SI>
+        ): DataSourceTypeStep<SI>
     }
 
-    interface DataSourceTypeStep<SI : SourceIndex> {
+    interface DataSourceTypeStep<SI : SourceIndex<SI>> {
 
         fun dataSourceType(dataSourceType: DataSourceType): SourceContainerMapperStep<SI>
     }
 
-    interface SourceContainerMapperStep<SI : SourceIndex> {
+    interface SourceContainerMapperStep<SI : SourceIndex<SI>> {
 
-        fun <SC : SourceContainerType<SA>, SA : SourceAttribute> sourceContainerTypeMapper(
+        fun <SC : SourceContainerType<SI, SA>, SA : SourceAttribute<SI>> sourceContainerTypeMapper(
             sourceContainerTypeMapper: SourceContainerTypeGqlSdlObjectTypeDefinitionMapper<SC>
         ): SourceAttributeMapperStep<SI, SC, SA>
     }
 
     interface SourceAttributeMapperStep<
-        SI : SourceIndex, SC : SourceContainerType<SA>, SA : SourceAttribute> {
+        SI : SourceIndex<SI>, SC : SourceContainerType<SI, SA>, SA : SourceAttribute<SI>> {
 
         fun sourceAttributeMapper(
             sourceAttributeMapper: SourceAttributeGqlSdlFieldDefinitionMapper<SA>
         ): BuildStep<SI>
     }
 
-    interface BuildStep<SI : SourceIndex> {
+    interface BuildStep<SI : SourceIndex<SI>> {
 
         fun build(): SourceIndexGqlSdlDefinitionFactory<SI>
     }

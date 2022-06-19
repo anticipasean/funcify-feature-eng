@@ -14,6 +14,7 @@ import funcify.feature.datasource.graphql.schema.GraphQLSourceContainerType
 import funcify.feature.datasource.graphql.schema.GraphQLSourceIndex
 import funcify.feature.datasource.graphql.schema.GraphQLSourceIndexFactory
 import funcify.feature.datasource.graphql.schema.GraphQLSourceMetamodel
+import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.datasource.SourceMetamodel
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.tools.control.RelationshipSpliterators
@@ -27,14 +28,14 @@ import graphql.schema.GraphQLFieldDefinition
 import graphql.schema.GraphQLFieldsContainer
 import graphql.schema.GraphQLObjectType
 import graphql.schema.GraphQLSchema
+import java.util.stream.Stream
+import java.util.stream.StreamSupport
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.PersistentSet
 import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toPersistentSet
 import org.slf4j.Logger
-import java.util.stream.Stream
-import java.util.stream.StreamSupport
 
 /**
  *
@@ -50,6 +51,7 @@ internal class DefaultGraphQLApiSourceMetadataReader(
         private val logger: Logger = loggerFor<DefaultGraphQLApiSourceMetadataReader>()
 
         private data class GqlSourceContext(
+            val dataSourceKey: DataSource.Key<GraphQLSourceIndex>,
             val rootSourceContainerType: GraphQLSourceContainerType,
             val graphQLFieldDefinitionToPath: PersistentMap<GraphQLFieldDefinition, SchematicPath> =
                 persistentMapOf(),
@@ -62,6 +64,7 @@ internal class DefaultGraphQLApiSourceMetadataReader(
     }
 
     override fun readSourceMetamodelFromMetadata(
+        dataSourceKey: DataSource.Key<GraphQLSourceIndex>,
         input: GraphQLSchema
     ): SourceMetamodel<GraphQLSourceIndex> {
         logger.debug(
@@ -90,7 +93,7 @@ internal class DefaultGraphQLApiSourceMetadataReader(
                 graphQLApiSourceMetadataFilter.includeGraphQLFieldDefinition(gqlFieldDef)
             }
             .reduce(
-                createContextForRootQueryType(input.queryType),
+                createContextForRootQueryType(dataSourceKey, input.queryType),
                 { gsc: GqlSourceContext, fieldDef: GraphQLFieldDefinition ->
                     addFieldDefinitionToGqlContext(gsc, fieldDef)
                 },
@@ -101,12 +104,16 @@ internal class DefaultGraphQLApiSourceMetadataReader(
             }
     }
 
-    private fun createContextForRootQueryType(queryType: GraphQLObjectType): GqlSourceContext {
+    private fun createContextForRootQueryType(
+        dataSourceKey: DataSource.Key<GraphQLSourceIndex>,
+        queryType: GraphQLObjectType
+    ): GqlSourceContext {
         val graphQLSourceContainerType =
             graphQLSourceIndexFactory
-                .createRootSourceContainerType()
+                .createRootSourceContainerTypeForDataSourceKey(dataSourceKey)
                 .forGraphQLQueryObjectType(queryType, graphQLApiSourceMetadataFilter)
         return GqlSourceContext(
+            dataSourceKey = dataSourceKey,
             rootSourceContainerType = graphQLSourceContainerType,
             indicesByPath =
                 graphQLSourceContainerType
@@ -206,7 +213,9 @@ internal class DefaultGraphQLApiSourceMetadataReader(
                         .toOption()
                         .or(
                             graphQLSourceIndexFactory
-                                .createSourceContainerType()
+                                .createSourceContainerTypeForDataSourceKey(
+                                    currentContext.dataSourceKey
+                                )
                                 .forAttributePathAndDefinition(parentPath, parentFieldDefinition)
                         )
                         .getOrElse {
@@ -217,7 +226,7 @@ internal class DefaultGraphQLApiSourceMetadataReader(
                         }
                 val childAsAttributeType: GraphQLSourceAttribute =
                     graphQLSourceIndexFactory
-                        .createSourceAttribute()
+                        .createSourceAttributeForDataSourceKey(currentContext.dataSourceKey)
                         .withParentPathAndDefinition(parentPath, parentFieldDefinition)
                         .forChildAttributeDefinition(childFieldDefinition)
                 val updatedAttributeSet: PersistentSet<GraphQLSourceAttribute> =
@@ -280,7 +289,9 @@ internal class DefaultGraphQLApiSourceMetadataReader(
                         .toOption()
                         .or(
                             graphQLSourceIndexFactory
-                                .createSourceContainerType()
+                                .createSourceContainerTypeForDataSourceKey(
+                                    currentContext.dataSourceKey
+                                )
                                 .forAttributePathAndDefinition(parentPath, parentFieldDefinition)
                         )
                         .getOrElse {
@@ -299,7 +310,7 @@ internal class DefaultGraphQLApiSourceMetadataReader(
                         .toOption()
                         .getOrElse {
                             graphQLSourceIndexFactory
-                                .createSourceAttribute()
+                                .createSourceAttributeForDataSourceKey(currentContext.dataSourceKey)
                                 .withParentPathAndDefinition(parentPath, parentFieldDefinition)
                                 .forChildAttributeDefinition(childFieldDefinition)
                         }
@@ -356,6 +367,7 @@ internal class DefaultGraphQLApiSourceMetadataReader(
                 gqlSourceContext1.sourceContainerTypeToAttributeTypes
             )
         return GqlSourceContext(
+            dataSourceKey = gqlSourceContext1.dataSourceKey,
             rootSourceContainerType = gqlSourceContext1.rootSourceContainerType,
             graphQLFieldDefinitionToPath = updatedGraphQLFieldDefinitionToPath,
             indicesByPath = updatedIndicesByPath,

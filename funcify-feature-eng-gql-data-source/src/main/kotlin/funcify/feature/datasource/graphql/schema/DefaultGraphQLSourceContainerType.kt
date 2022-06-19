@@ -5,6 +5,7 @@ import arrow.core.Some
 import funcify.feature.datasource.graphql.error.GQLDataSourceErrorResponse
 import funcify.feature.datasource.graphql.error.GQLDataSourceException
 import funcify.feature.naming.ConventionalName
+import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentMap
 import graphql.schema.GraphQLFieldsContainer
@@ -19,6 +20,7 @@ import kotlinx.collections.immutable.persistentSetOf
  * @created 2/7/22
  */
 internal data class DefaultGraphQLSourceContainerType(
+    override val dataSourceLookupKey: DataSource.Key<GraphQLSourceIndex>,
     override val sourcePath: SchematicPath,
     override val name: ConventionalName,
     override val dataType: GraphQLOutputType,
@@ -40,7 +42,7 @@ internal data class DefaultGraphQLSourceContainerType(
         }
     }
 
-    val sourceAttributesByName: PersistentMap<String, GraphQLSourceAttribute> by lazy {
+    private val sourceAttributesByName: PersistentMap<String, GraphQLSourceAttribute> by lazy {
         sourceAttributes
             .parallelStream()
             .map { gqlsa -> gqlsa.name.qualifiedForm to gqlsa }

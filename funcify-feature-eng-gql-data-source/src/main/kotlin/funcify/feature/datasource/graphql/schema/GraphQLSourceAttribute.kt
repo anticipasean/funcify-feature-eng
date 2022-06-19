@@ -6,7 +6,7 @@ import graphql.schema.GraphQLFieldDefinition
 import graphql.schema.GraphQLOutputType
 import kotlinx.collections.immutable.ImmutableList
 
-interface GraphQLSourceAttribute : GraphQLSourceIndex, SourceAttribute {
+interface GraphQLSourceAttribute : GraphQLSourceIndex, SourceAttribute<GraphQLSourceIndex> {
 
     val schemaFieldDefinition: GraphQLFieldDefinition
 
