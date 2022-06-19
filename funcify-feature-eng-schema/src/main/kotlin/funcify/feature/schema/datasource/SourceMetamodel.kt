@@ -14,9 +14,7 @@ import kotlinx.collections.immutable.ImmutableSet
  * @author smccarron
  * @created 4/9/22
  */
-interface SourceMetamodel<SI : SourceIndex> {
-
-    val dataSourceType: DataSourceType
+interface SourceMetamodel<SI : SourceIndex<SI>> {
 
     val sourceIndicesByPath: ImmutableMap<SchematicPath, ImmutableSet<SI>>
 

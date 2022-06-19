@@ -4,7 +4,7 @@ import funcify.feature.schema.path.SchematicPath
 
 interface SourcePathTransformer {
 
-    fun <SI : SourceIndex> transformSourcePathToSchematicPathForDataSource(
+    fun <SI : SourceIndex<SI>> transformSourcePathToSchematicPathForDataSource(
         sourcePath: SchematicPath,
         dataSource: DataSource<SI>
     ): SchematicPath

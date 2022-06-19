@@ -56,7 +56,7 @@ internal class DefaultGraphQLApiDataSourceFactoryTest {
         )
         Assertions.assertEquals(
             RawDataSourceType.GRAPHQL_API,
-            graphQLApiDataSource.sourceType,
+            graphQLApiDataSource.dataSourceType,
             "not graphql_api data source"
         )
         Assertions.assertFalse(

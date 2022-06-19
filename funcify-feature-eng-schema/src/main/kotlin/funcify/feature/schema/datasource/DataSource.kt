@@ -1,10 +1,12 @@
 package funcify.feature.schema.datasource
 
-interface DataSource<SI : SourceIndex> {
+import kotlin.reflect.KClass
+
+interface DataSource<SI : SourceIndex<SI>> {
 
     val name: String
 
-    val sourceType: DataSourceType
+    val dataSourceType: DataSourceType
 
     val key: Key<SI>
 
@@ -15,11 +17,12 @@ interface DataSource<SI : SourceIndex> {
      * place of the [DataSource] instance itself in maps since [DataSource] instances may contain
      * values with inconsistent hash codes, thereby rendering them unfit for use as map keys
      */
-    interface Key<SI : SourceIndex> {
+    interface Key<SI : SourceIndex<SI>> {
+
+        val sourceIndexType: KClass<SI>
 
         val name: String
 
-        val sourceType: DataSourceType
-
+        val dataSourceType: DataSourceType
     }
 }

@@ -18,7 +18,7 @@ interface MetamodelGraph : PathBasedGraph<SchematicPath, SchematicVertex, Schema
 
     interface Builder {
 
-        fun <SI : SourceIndex> addDataSource(dataSource: DataSource<SI>): Builder
+        fun <SI : SourceIndex<SI>> addDataSource(dataSource: DataSource<SI>): Builder
 
         fun build(): Try<MetamodelGraph>
     }

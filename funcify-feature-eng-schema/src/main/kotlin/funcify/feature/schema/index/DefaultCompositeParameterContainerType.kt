@@ -15,12 +15,12 @@ import kotlinx.collections.immutable.persistentMapOf
 internal data class DefaultCompositeParameterContainerType(
     override val conventionalName: ConventionalName,
     private val parameterContainerTypeByDataSource:
-        PersistentMap<DataSource.Key<*>, ParameterContainerType> =
+        PersistentMap<DataSource.Key<*>, ParameterContainerType<*, *>> =
         persistentMapOf()
 ) : CompositeParameterContainerType {
 
     override fun getParameterContainerTypeByDataSource():
-        ImmutableMap<DataSource.Key<*>, ParameterContainerType> {
+        ImmutableMap<DataSource.Key<*>, ParameterContainerType<*, *>> {
         return parameterContainerTypeByDataSource
     }
 }

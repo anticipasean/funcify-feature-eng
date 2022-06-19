@@ -12,6 +12,7 @@ import funcify.feature.schema.datasource.DataSourceType
 import funcify.feature.schema.datasource.SourceMetamodel
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
+import kotlin.reflect.KClass
 import org.slf4j.Logger
 
 internal class DefaultRestApiDataSourceFactory<MD>(
@@ -24,8 +25,10 @@ internal class DefaultRestApiDataSourceFactory<MD>(
 
         internal data class DefaultRestApiDataSourceKey(
             override val name: String,
-            override val sourceType: DataSourceType
-        ) : DataSource.Key<RestApiSourceIndex> {}
+            override val dataSourceType: DataSourceType
+        ) : DataSource.Key<RestApiSourceIndex> {
+            override val sourceIndexType: KClass<RestApiSourceIndex> = RestApiSourceIndex::class
+        }
 
         internal data class DefaultRestApiDataSource(
             override val name: String,
@@ -33,7 +36,7 @@ internal class DefaultRestApiDataSourceFactory<MD>(
             override val sourceMetamodel: SourceMetamodel<RestApiSourceIndex>
         ) : RestApiDataSource {
             override val key: DataSource.Key<RestApiSourceIndex> by lazy {
-                DefaultRestApiDataSourceKey(name, sourceType)
+                DefaultRestApiDataSourceKey(name, dataSourceType)
             }
         }
     }

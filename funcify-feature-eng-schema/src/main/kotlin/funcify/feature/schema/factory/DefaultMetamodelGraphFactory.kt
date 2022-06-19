@@ -43,11 +43,11 @@ internal class DefaultMetamodelGraphFactory(
                 Try.success(persistentMapOf())
         ) : MetamodelGraph.Builder {
 
-            override fun <SI : SourceIndex> addDataSource(
+            override fun <SI : SourceIndex<SI>> addDataSource(
                 dataSource: DataSource<SI>
             ): MetamodelGraph.Builder {
                 logger.debug(
-                    "add_data_source: [ name: ${dataSource.name}, type: ${dataSource.sourceType} ]"
+                    "add_data_source: [ name: ${dataSource.name}, type: ${dataSource.dataSourceType} ]"
                 )
                 return when {
                     /**
@@ -144,7 +144,7 @@ internal class DefaultMetamodelGraphFactory(
                 }
             }
 
-            private fun <SI : SourceIndex> expandAndIncludeChildSourceIndicesRecursively(
+            private fun <SI : SourceIndex<SI>> expandAndIncludeChildSourceIndicesRecursively(
                 entry: Map.Entry<SchematicPath, ImmutableSet<SI>>
             ): Stream<SI> {
                 return entry
@@ -152,7 +152,7 @@ internal class DefaultMetamodelGraphFactory(
                     .stream()
                     .flatMap { si: SI ->
                         TraversalFunctions.recurseWithStream(si) { inputSI: SI ->
-                            if (inputSI is SourceContainerType<*>) {
+                            if (inputSI is SourceContainerType<*, *>) {
                                 Stream.concat(
                                     inputSI
                                         .sourceAttributes
@@ -176,7 +176,7 @@ internal class DefaultMetamodelGraphFactory(
                     .sorted(Comparator.comparing { si: SI -> si.sourcePath.pathSegments.size })
             }
 
-            private fun <SI : SourceIndex> createNewOrUpdateExistingSchematicVertex(
+            private fun <SI : SourceIndex<SI>> createNewOrUpdateExistingSchematicVertex(
                 dataSource: DataSource<SI>,
                 existingSchematicVerticesByPath: PersistentMap<SchematicPath, SchematicVertex>,
                 sourceIndex: SI

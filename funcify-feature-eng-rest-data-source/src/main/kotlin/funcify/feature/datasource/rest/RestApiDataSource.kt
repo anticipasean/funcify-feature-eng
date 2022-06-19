@@ -13,7 +13,7 @@ import funcify.feature.schema.datasource.SourceMetamodel
  */
 interface RestApiDataSource : DataSource<RestApiSourceIndex> {
 
-    override val sourceType: DataSourceType
+    override val dataSourceType: DataSourceType
         get() = RawDataSourceType.REST_API
 
     override val name: String

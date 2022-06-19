@@ -16,10 +16,16 @@ interface SchematicVertexFactory {
 
     interface SourceIndexSpec {
 
-        fun <SI : SourceIndex> forSourceIndex(sourceIndex: SI): DataSourceSpec<SI> {
+        fun <SI : SourceIndex<SI>> forSourceIndex(sourceIndex: SI): DataSourceSpec<SI> {
             return when (sourceIndex) {
-                is SourceContainerType<*> -> forSourceContainerType(sourceIndex)
-                is SourceAttribute -> forSourceAttribute(sourceIndex)
+                is SourceContainerType<*, *> -> {
+                    @Suppress("UNCHECKED_CAST") //
+                    forSourceContainerType(sourceIndex as SourceContainerType<SI, *>)
+                }
+                is SourceAttribute<*> -> {
+                    @Suppress("UNCHECKED_CAST") //
+                    forSourceAttribute(sourceIndex as SourceAttribute<SI>)
+                }
                 else ->
                     throw SchemaException(
                         SchemaErrorResponse.UNEXPECTED_ERROR,
@@ -28,12 +34,12 @@ interface SchematicVertexFactory {
             }
         }
 
-        fun <SI : SourceIndex> forSourceAttribute(
-            sourceAttribute: SourceAttribute
+        fun <SI : SourceIndex<SI>> forSourceAttribute(
+            sourceAttribute: SourceAttribute<SI>
         ): DataSourceSpec<SI>
 
-        fun <SI : SourceIndex, A : SourceAttribute> forSourceContainerType(
-            sourceContainerType: SourceContainerType<A>
+        fun <SI : SourceIndex<SI>, A : SourceAttribute<SI>> forSourceContainerType(
+            sourceContainerType: SourceContainerType<SI, A>
         ): DataSourceSpec<SI>
 
         fun fromExistingVertex(
@@ -43,10 +49,16 @@ interface SchematicVertexFactory {
 
     interface ExistingSchematicVertexSpec {
 
-        fun <SI : SourceIndex> forSourceIndex(sourceIndex: SI): DataSourceSpec<SI> {
+        fun <SI : SourceIndex<SI>> forSourceIndex(sourceIndex: SI): DataSourceSpec<SI> {
             return when (sourceIndex) {
-                is SourceContainerType<*> -> forSourceContainerType(sourceIndex)
-                is SourceAttribute -> forSourceAttribute(sourceIndex)
+                is SourceContainerType<*, *> -> {
+                    @Suppress("UNCHECKED_CAST") //
+                    forSourceContainerType(sourceIndex as SourceContainerType<SI, *>)
+                }
+                is SourceAttribute<*> -> {
+                    @Suppress("UNCHECKED_CAST") //
+                    forSourceAttribute(sourceIndex as SourceAttribute<SI>)
+                }
                 else ->
                     throw SchemaException(
                         SchemaErrorResponse.UNEXPECTED_ERROR,
@@ -55,16 +67,16 @@ interface SchematicVertexFactory {
             }
         }
 
-        fun <SI : SourceIndex> forSourceAttribute(
-            sourceAttribute: SourceAttribute
+        fun <SI : SourceIndex<SI>> forSourceAttribute(
+            sourceAttribute: SourceAttribute<SI>
         ): DataSourceSpec<SI>
 
-        fun <SI : SourceIndex, A : SourceAttribute> forSourceContainerType(
-            sourceContainerType: SourceContainerType<A>
+        fun <SI : SourceIndex<SI>, A : SourceAttribute<SI>> forSourceContainerType(
+            sourceContainerType: SourceContainerType<SI, A>
         ): DataSourceSpec<SI>
     }
 
-    interface DataSourceSpec<SI : SourceIndex> {
+    interface DataSourceSpec<SI : SourceIndex<SI>> {
         fun onDataSource(dataSource: DataSource<SI>): Try<SchematicVertex>
     }
 }

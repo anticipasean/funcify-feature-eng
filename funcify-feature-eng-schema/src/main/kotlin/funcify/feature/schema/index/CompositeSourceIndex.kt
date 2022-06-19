@@ -15,4 +15,6 @@ interface CompositeSourceIndex {
     val conventionalName: ConventionalName
 
     fun canBeSourcedFrom(sourceType: DataSourceType): Boolean
+
+    fun canBeSourcedFrom(sourceName: String): Boolean
 }

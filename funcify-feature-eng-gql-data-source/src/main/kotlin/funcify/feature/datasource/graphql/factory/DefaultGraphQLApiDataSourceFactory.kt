@@ -13,6 +13,7 @@ import funcify.feature.schema.datasource.SourceMetamodel
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
 import graphql.schema.GraphQLSchema
+import kotlin.reflect.KClass
 import org.slf4j.Logger
 
 internal class DefaultGraphQLApiDataSourceFactory(
@@ -25,8 +26,10 @@ internal class DefaultGraphQLApiDataSourceFactory(
 
         internal data class DefaultGraphQLApiDataSourceKey(
             override val name: String,
-            override val sourceType: DataSourceType
-        ) : DataSource.Key<GraphQLSourceIndex> {}
+            override val dataSourceType: DataSourceType
+        ) : DataSource.Key<GraphQLSourceIndex> {
+            override val sourceIndexType: KClass<GraphQLSourceIndex> = GraphQLSourceIndex::class
+        }
 
         internal data class DefaultGraphQLApiDataSource(
             override val name: String,
@@ -35,7 +38,7 @@ internal class DefaultGraphQLApiDataSourceFactory(
             override val sourceMetamodel: SourceMetamodel<GraphQLSourceIndex>
         ) : GraphQLApiDataSource {
             override val key: DataSource.Key<GraphQLSourceIndex> by lazy {
-                DefaultGraphQLApiDataSourceKey(name, sourceType)
+                DefaultGraphQLApiDataSourceKey(name, dataSourceType)
             }
         }
     }

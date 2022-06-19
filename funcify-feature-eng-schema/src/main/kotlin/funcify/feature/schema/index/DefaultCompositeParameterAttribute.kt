@@ -15,12 +15,12 @@ import kotlinx.collections.immutable.persistentMapOf
 internal data class DefaultCompositeParameterAttribute(
     override val conventionalName: ConventionalName,
     private val parameterAttributeByDataSource:
-        PersistentMap<DataSource.Key<*>, ParameterAttribute> =
+        PersistentMap<DataSource.Key<*>, ParameterAttribute<*>> =
         persistentMapOf()
 ) : CompositeParameterAttribute {
 
     override fun getParameterAttributesByDataSource():
-        ImmutableMap<DataSource.Key<*>, ParameterAttribute> {
+        ImmutableMap<DataSource.Key<*>, ParameterAttribute<*>> {
         return parameterAttributeByDataSource
     }
 }

@@ -14,7 +14,7 @@ import graphql.schema.GraphQLSchema
  */
 interface GraphQLApiDataSource : DataSource<GraphQLSourceIndex> {
 
-    override val sourceType: DataSourceType
+    override val dataSourceType: DataSourceType
         get() = RawDataSourceType.GRAPHQL_API
 
     override val name: String

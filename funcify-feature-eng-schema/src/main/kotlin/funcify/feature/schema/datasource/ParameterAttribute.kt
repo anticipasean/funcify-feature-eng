@@ -7,4 +7,4 @@ package funcify.feature.schema.datasource
  * @author smccarron
  * @created 2022-06-18
  */
-interface ParameterAttribute : ParameterIndex {}
+interface ParameterAttribute<SI : SourceIndex<SI>> : ParameterIndex<SI> {}

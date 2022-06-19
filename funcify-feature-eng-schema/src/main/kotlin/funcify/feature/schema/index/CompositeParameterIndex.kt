@@ -14,4 +14,6 @@ interface CompositeParameterIndex {
 
     fun canBeProvidedTo(sourceType: DataSourceType): Boolean
 
+    fun canBeProvidedTo(sourceName: String): Boolean
+
 }

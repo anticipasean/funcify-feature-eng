@@ -10,15 +10,16 @@ import funcify.feature.schema.path.SchematicPath
  * @author smccarron
  * @created 2022-06-18
  */
-interface ParameterIndex {
+interface ParameterIndex<SI : SourceIndex<SI>> : SourceIndex<SI> {
 
-    val dataSourceType: DataSourceType
+    override val dataSourceLookupKey: DataSource.Key<SI>
 
-    val name: ConventionalName
+    override val name: ConventionalName
 
     /**
      * The path for a parameter must contain at least one argument or directive. Otherwise, it
-     * violates schema constraints
+     * violates schema constraints and may throw a [funcify.feature.schema.error.SchemaException] on
+     * creation
      */
-    val parameterPath: SchematicPath
+    override val sourcePath: SchematicPath
 }

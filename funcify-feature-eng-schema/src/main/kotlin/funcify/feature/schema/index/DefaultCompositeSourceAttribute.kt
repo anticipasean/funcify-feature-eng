@@ -9,12 +9,12 @@ import kotlinx.collections.immutable.persistentMapOf
 
 internal data class DefaultCompositeSourceAttribute(
     override val conventionalName: ConventionalName,
-    private val sourceAttributesByDataSource: PersistentMap<DataSource.Key<*>, SourceAttribute> =
+    private val sourceAttributesByDataSource: PersistentMap<DataSource.Key<*>, SourceAttribute<*>> =
         persistentMapOf()
 ) : CompositeSourceAttribute {
 
     override fun getSourceAttributeByDataSource():
-        ImmutableMap<DataSource.Key<*>, SourceAttribute> {
+        ImmutableMap<DataSource.Key<*>, SourceAttribute<*>> {
         return sourceAttributesByDataSource
     }
 }
