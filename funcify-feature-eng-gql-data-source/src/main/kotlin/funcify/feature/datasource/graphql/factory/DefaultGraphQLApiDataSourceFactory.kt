@@ -9,12 +9,13 @@ import funcify.feature.datasource.graphql.metadata.GraphQLApiSourceMetadataReade
 import funcify.feature.datasource.graphql.schema.GraphQLSourceIndex
 import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.datasource.DataSourceType
+import funcify.feature.schema.datasource.RawDataSourceType
 import funcify.feature.schema.datasource.SourceMetamodel
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
 import graphql.schema.GraphQLSchema
-import kotlin.reflect.KClass
 import org.slf4j.Logger
+import kotlin.reflect.KClass
 
 internal class DefaultGraphQLApiDataSourceFactory(
     private val graphQLApiSourceMetadataProvider: GraphQLApiSourceMetadataProvider,
@@ -26,8 +27,8 @@ internal class DefaultGraphQLApiDataSourceFactory(
 
         internal data class DefaultGraphQLApiDataSourceKey(
             override val name: String,
-            override val dataSourceType: DataSourceType
         ) : DataSource.Key<GraphQLSourceIndex> {
+            override val dataSourceType: DataSourceType = RawDataSourceType.GRAPHQL_API
             override val sourceIndexType: KClass<GraphQLSourceIndex> = GraphQLSourceIndex::class
         }
 
@@ -35,12 +36,9 @@ internal class DefaultGraphQLApiDataSourceFactory(
             override val name: String,
             override val graphQLApiService: GraphQLApiService,
             override val graphQLSourceSchema: GraphQLSchema,
-            override val sourceMetamodel: SourceMetamodel<GraphQLSourceIndex>
-        ) : GraphQLApiDataSource {
-            override val key: DataSource.Key<GraphQLSourceIndex> by lazy {
-                DefaultGraphQLApiDataSourceKey(name, dataSourceType)
-            }
-        }
+            override val sourceMetamodel: SourceMetamodel<GraphQLSourceIndex>,
+            override val key: DataSource.Key<GraphQLSourceIndex>
+        ) : GraphQLApiDataSource
     }
 
     override fun createGraphQLApiDataSource(
@@ -51,12 +49,14 @@ internal class DefaultGraphQLApiDataSourceFactory(
         return graphQLApiSourceMetadataProvider
             .provideMetadata(graphQLApiService)
             .map { gqlSchema: GraphQLSchema ->
+                val dataSourceKey = DefaultGraphQLApiDataSourceKey(name = name)
                 DefaultGraphQLApiDataSource(
                     name = name,
                     graphQLApiService = graphQLApiService,
                     graphQLSourceSchema = gqlSchema,
                     sourceMetamodel =
-                        graphQLApiSourceMetadataReader.readSourceMetamodelFromMetadata(gqlSchema)
+                        graphQLApiSourceMetadataReader.readSourceMetamodelFromMetadata(dataSourceKey, gqlSchema),
+                    key = dataSourceKey
                 )
             }
             .blockForFirst()

@@ -9,7 +9,7 @@ import funcify.feature.schema.datasource.SourceAttribute
  * @created 1/30/22
  */
 interface RelDatabaseSourceAttribute : RelDatabaseSourceIndex,
-                                       SourceAttribute {
+                                       SourceAttribute<RelDatabaseSourceIndex> {
 
     val columnName: String
 

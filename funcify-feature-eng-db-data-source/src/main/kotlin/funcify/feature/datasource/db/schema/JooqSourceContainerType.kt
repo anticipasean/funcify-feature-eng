@@ -3,7 +3,9 @@ package funcify.feature.datasource.db.schema
 import funcify.feature.naming.ConventionalName
 import funcify.feature.naming.impl.DefaultConventionalName
 import funcify.feature.naming.impl.DefaultNameSegment
+import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.path.SchematicPath
+import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.persistentListOf
@@ -36,6 +38,17 @@ data class JooqSourceContainerType(val jooqRelTable: JooqRelTable) :
                 jooqRelTable.name
             )
         }
+
+    override val dataSourceLookupKey: DataSource.Key<RelDatabaseSourceIndex> by lazy {
+        JooqDataSourceKey(
+            jooqRelTable.catalog?.name
+                ?: throw IllegalArgumentException(
+                    """cannot create data_source.key for absent 
+                    |catalog name for relational_database_index
+                    |""".flattenIntoOneLine()
+                )
+        )
+    }
 
     val sourceAttributesByName: PersistentMap<String, RelDatabaseSourceAttribute> by lazy {
         sourceAttributes.fold(

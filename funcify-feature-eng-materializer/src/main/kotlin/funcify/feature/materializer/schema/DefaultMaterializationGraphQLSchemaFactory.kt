@@ -148,7 +148,7 @@ internal class DefaultMaterializationGraphQLSchemaFactory(
                     Description(
                         gqlScalarType.description,
                         SourceLocation.EMPTY,
-                        gqlScalarType.description.contains('\n')
+                        gqlScalarType.description?.contains('\n') ?: false
                     )
                 pm.put(
                     gqlScalarType.name,

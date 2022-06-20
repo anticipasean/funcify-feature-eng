@@ -96,7 +96,7 @@ class GraphQLSourceContainerTypeSDLDefinitionMapper :
                     GQLDataSourceErrorResponse.SCHEMA_CREATION_ERROR,
                     """graphql_fields_container_type does not conform to expected 
                       |contract for get_definition: [ graphql_field_container_type.definition.type: 
-                      |${graphQLFieldsContainerType.definition::class.qualifiedName} 
+                      |${fieldsContainerDefinition::class.qualifiedName} 
                       |]""".flattenIntoOneLine()
                 )
             }

@@ -4,6 +4,8 @@ import arrow.core.firstOrNone
 import arrow.core.getOrElse
 import arrow.core.lastOrNone
 import com.fasterxml.jackson.databind.ObjectMapper
+import funcify.feature.datasource.graphql.factory.DefaultGraphQLApiDataSourceFactory
+import funcify.feature.datasource.graphql.factory.DefaultGraphQLApiDataSourceFactory.Companion.DefaultGraphQLApiDataSourceKey
 import funcify.feature.datasource.graphql.metadata.DefaultGraphQLApiSourceMetadataReader
 import funcify.feature.datasource.graphql.metadata.InternalServiceTypesExcludingSourceMetadataFilter
 import funcify.feature.datasource.graphql.metadata.MockGraphQLApiSourceMetadataProvider
@@ -39,7 +41,12 @@ internal class GraphQLApiSourceMetadataReaderTest {
                     DefaultGraphQLSourceIndexFactory(),
                     InternalServiceTypesExcludingSourceMetadataFilter()
                 )
-                .readSourceMetamodelFromMetadata(graphQLSchema)
+                .readSourceMetamodelFromMetadata(
+                    DefaultGraphQLApiDataSourceKey(
+                        name = "mock-service"
+                    ),
+                    graphQLSchema
+                )
         /**
          * println(sourceMetamodel.sourceIndicesByPath.asSequence()
          * ```

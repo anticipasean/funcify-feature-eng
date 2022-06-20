@@ -23,10 +23,13 @@ internal class MockGraphQLApiSourceMetadataProviderTest {
             .blockForFirst()
             .fold(
                 { gqlSchema: GraphQLSchema ->
-                    Assertions.assertEquals(1, gqlSchema.queryType.definition.fieldDefinitions.size)
+                    Assertions.assertEquals(
+                        1,
+                        gqlSchema.queryType.definition?.fieldDefinitions?.size
+                    )
                     Assertions.assertEquals(
                         "shows",
-                        gqlSchema.queryType.definition.fieldDefinitions[0].name
+                        gqlSchema.queryType?.definition?.fieldDefinitions?.get(0)?.name
                     )
                 },
                 { thr: Throwable ->

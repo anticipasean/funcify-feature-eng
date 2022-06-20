@@ -37,7 +37,7 @@ internal class DefaultGraphQLSDLFieldDefinitionFactory(
     }
 
     private val sourceIndexGqlSdlDefFactoryBySourceIndexType:
-        ImmutableMap<KClass<out SourceIndex>, SourceIndexGqlSdlDefinitionFactory<*>> by lazy {
+        ImmutableMap<KClass<out SourceIndex<*>>, SourceIndexGqlSdlDefinitionFactory<*>> by lazy {
         sourceIndexGqlSdlDefinitionFactories.fold(persistentMapOf()) { pm, factory ->
             pm.put(factory.sourceIndexType, factory)
         }
@@ -45,7 +45,7 @@ internal class DefaultGraphQLSDLFieldDefinitionFactory(
 
     private val cachingCompositeAttributeTypeToFactoryFunction:
                 (CompositeSourceAttribute) -> Option<
-                Pair<SourceAttribute, SourceIndexGqlSdlDefinitionFactory<*>>> =
+                Pair<SourceAttribute<*>, SourceIndexGqlSdlDefinitionFactory<*>>> =
         createCachingFactoryForCompositeAttributeFunction()
 
     override fun createFieldDefinitionForCompositeAttribute(
@@ -99,9 +99,9 @@ internal class DefaultGraphQLSDLFieldDefinitionFactory(
         }.orElseThrow()
     }
 
-    private fun <SI : SourceIndex> createFieldDefinitionUsingFactory(
+    private fun <SI : SourceIndex<SI>> createFieldDefinitionUsingFactory(
         factory: SourceIndexGqlSdlDefinitionFactory<SI>,
-        sourceAttribute: SourceAttribute
+        sourceAttribute: SourceAttribute<*>
     ): Try<FieldDefinition> {
         @Suppress("UNCHECKED_CAST") //
         val sourceAttributeAsExpectedSourceIndex: SI = sourceAttribute as SI
@@ -112,14 +112,14 @@ internal class DefaultGraphQLSDLFieldDefinitionFactory(
 
     private fun createCachingFactoryForCompositeAttributeFunction():
                 (CompositeSourceAttribute) -> Option<
-                Pair<SourceAttribute, SourceIndexGqlSdlDefinitionFactory<*>>> {
+                Pair<SourceAttribute<*>, SourceIndexGqlSdlDefinitionFactory<*>>> {
         val sourceIndexSuperTypeBySourceIndexSubType: MutableMap<KClass<*>, KClass<*>> =
             mutableMapOf()
         return { ca: CompositeSourceAttribute ->
             ca.getSourceAttributeByDataSource()
                 .values
                 .asSequence()
-                .filter { sa: SourceAttribute ->
+                .filter { sa: SourceAttribute<*> ->
                     if (sa::class in sourceIndexSuperTypeBySourceIndexSubType) {
                         true
                     } else {
@@ -134,7 +134,7 @@ internal class DefaultGraphQLSDLFieldDefinitionFactory(
                         sa::class in sourceIndexSuperTypeBySourceIndexSubType
                     }
                 }
-                .flatMap { sa: SourceAttribute ->
+                .flatMap { sa: SourceAttribute<*> ->
                     sourceIndexSuperTypeBySourceIndexSubType[sa::class]
                         .toOption()
                         .flatMap { siKCls: KClass<*> ->

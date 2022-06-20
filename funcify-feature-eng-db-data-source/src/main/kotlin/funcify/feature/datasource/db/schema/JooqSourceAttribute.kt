@@ -6,7 +6,9 @@ import arrow.core.toOption
 import funcify.feature.naming.ConventionalName
 import funcify.feature.naming.impl.DefaultConventionalName
 import funcify.feature.naming.impl.DefaultNameSegment
+import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.path.SchematicPath
+import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
 import kotlinx.collections.immutable.persistentListOf
 import org.jooq.Record
 import org.jooq.TableField
@@ -42,4 +44,14 @@ data class JooqSourceAttribute(val jooqTableField: TableField<Record, *>) :
                 jooqTableField.name
             )
         }
+    override val dataSourceLookupKey: DataSource.Key<RelDatabaseSourceIndex> by lazy {
+        JooqDataSourceKey(
+            jooqTableField.table?.catalog?.name
+                ?: throw IllegalArgumentException(
+                    """cannot create data_source.key for absent 
+                    |catalog name for relational_database_index
+                    |""".flattenIntoOneLine()
+                )
+        )
+    }
 }

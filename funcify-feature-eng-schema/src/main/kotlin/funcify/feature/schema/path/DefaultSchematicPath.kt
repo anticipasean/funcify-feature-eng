@@ -22,7 +22,7 @@ internal data class DefaultSchematicPath(
 
     companion object {
 
-        data class DefaultBuilder(private val schematicPath: DefaultSchematicPath) :
+        internal data class DefaultBuilder(private val schematicPath: DefaultSchematicPath) :
             SchematicPath.Builder {
 
             private var inputScheme: String = schematicPath.scheme
@@ -134,7 +134,11 @@ internal data class DefaultSchematicPath(
                             .scheme(scheme)
                             .path(pathSegments.joinToString(separator = "/", prefix = "/")),
                         { ucb: UriComponentsBuilder, entry: Map.Entry<String, JsonNode> ->
-                            ucb.queryParam(entry.key, entry.value)
+                            if (entry.value.isNull) {
+                                ucb.queryParam(entry.key)
+                            } else {
+                                ucb.queryParam(entry.key, entry.value)
+                            }
                         }
                     ),
                 { ucb: UriComponentsBuilder, entry: Map.Entry<String, JsonNode> ->
@@ -161,6 +165,6 @@ internal data class DefaultSchematicPath(
     }
 
     override fun toString(): String {
-        return uri.toString()
+        return uri.toASCIIString()
     }
 }

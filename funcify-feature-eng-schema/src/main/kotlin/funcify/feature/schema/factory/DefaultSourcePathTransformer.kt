@@ -10,7 +10,7 @@ import funcify.feature.schema.path.SchematicPath
  * "snake_case" form, and prepends it to the source path
  */
 internal class DefaultSourcePathTransformer : SourcePathTransformer {
-    override fun <SI : SourceIndex> transformSourcePathToSchematicPathForDataSource(
+    override fun <SI : SourceIndex<SI>> transformSourcePathToSchematicPathForDataSource(
         sourcePath: SchematicPath,
         dataSource: DataSource<SI>
     ): SchematicPath {

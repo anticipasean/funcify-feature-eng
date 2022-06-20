@@ -9,6 +9,7 @@ import funcify.feature.datasource.rest.reader.RestApiSourceMetadataReader
 import funcify.feature.datasource.rest.schema.RestApiSourceIndex
 import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.datasource.DataSourceType
+import funcify.feature.schema.datasource.RawDataSourceType
 import funcify.feature.schema.datasource.SourceMetamodel
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
@@ -33,12 +34,9 @@ internal class DefaultRestApiDataSourceFactory<MD>(
         internal data class DefaultRestApiDataSource(
             override val name: String,
             override val restApiService: RestApiService,
-            override val sourceMetamodel: SourceMetamodel<RestApiSourceIndex>
-        ) : RestApiDataSource {
-            override val key: DataSource.Key<RestApiSourceIndex> by lazy {
-                DefaultRestApiDataSourceKey(name, dataSourceType)
-            }
-        }
+            override val sourceMetamodel: SourceMetamodel<RestApiSourceIndex>,
+            override val key: DataSource.Key<RestApiSourceIndex>
+        ) : RestApiDataSource
     }
 
     override fun createRestApiDataSource(name: String, service: RestApiService): RestApiDataSource {
@@ -50,13 +48,22 @@ internal class DefaultRestApiDataSourceFactory<MD>(
         return restApiFetcherMetadataProvider
             .provideMetadata(service)
             .map { metadata: MD ->
-                restApiSourceMetadataReader.readSourceMetamodelFromMetadata(metadata)
+                val dataSourceKey: DataSource.Key<RestApiSourceIndex> =
+                    DefaultRestApiDataSourceKey(name, RawDataSourceType.REST_API)
+                dataSourceKey to
+                    restApiSourceMetadataReader.readSourceMetamodelFromMetadata(
+                        dataSourceKey,
+                        metadata
+                    )
             }
-            .map { sourceMetamodel: SourceMetamodel<RestApiSourceIndex> ->
+            .map {
+                sourceMetamodelPair:
+                    Pair<DataSource.Key<RestApiSourceIndex>, SourceMetamodel<RestApiSourceIndex>> ->
                 DefaultRestApiDataSource(
                     name = name,
-                    sourceMetamodel = sourceMetamodel,
-                    restApiService = service
+                    sourceMetamodel = sourceMetamodelPair.second,
+                    restApiService = service,
+                    key = sourceMetamodelPair.first
                 )
             }
             .blockForFirst()

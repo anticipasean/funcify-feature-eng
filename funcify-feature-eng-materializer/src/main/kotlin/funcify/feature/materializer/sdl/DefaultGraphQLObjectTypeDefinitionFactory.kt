@@ -36,15 +36,15 @@ internal class DefaultGraphQLObjectTypeDefinitionFactory(
     }
 
     private val sourceIndexGqlSdlDefFactoryBySourceIndexType:
-        ImmutableMap<KClass<out SourceIndex>, SourceIndexGqlSdlDefinitionFactory<*>> by lazy {
+        ImmutableMap<KClass<out SourceIndex<*>>, SourceIndexGqlSdlDefinitionFactory<*>> by lazy {
         sourceIndexGqlSdlDefinitionFactories.fold(persistentMapOf()) { pm, factory ->
             pm.put(factory.sourceIndexType, factory)
         }
     }
 
     private val cachingCompositeContainerTypeTypeToFactoryFunction:
-                (CompositeSourceContainerType) -> Option<
-                Pair<SourceContainerType<*>, SourceIndexGqlSdlDefinitionFactory<*>>> =
+        (CompositeSourceContainerType) -> Option<
+                Pair<SourceContainerType<*, *>, SourceIndexGqlSdlDefinitionFactory<*>>> =
         createCachingFactoryForCompositeContainerTypeFunction()
 
     override fun createObjectTypeDefinitionForCompositeContainerType(
@@ -99,15 +99,15 @@ internal class DefaultGraphQLObjectTypeDefinitionFactory(
     }
 
     private fun createCachingFactoryForCompositeContainerTypeFunction():
-                (CompositeSourceContainerType) -> Option<
-                Pair<SourceContainerType<*>, SourceIndexGqlSdlDefinitionFactory<*>>> {
+        (CompositeSourceContainerType) -> Option<
+                Pair<SourceContainerType<*, *>, SourceIndexGqlSdlDefinitionFactory<*>>> {
         val sourceIndexSuperTypeBySourceIndexSubType: MutableMap<KClass<*>, KClass<*>> =
             mutableMapOf()
         return { cct: CompositeSourceContainerType ->
             cct.getSourceContainerTypeByDataSource()
                 .values
                 .asSequence()
-                .filter { sct: SourceContainerType<*> ->
+                .filter { sct: SourceContainerType<*, *> ->
                     if (sct::class in sourceIndexSuperTypeBySourceIndexSubType) {
                         true
                     } else {
@@ -122,7 +122,7 @@ internal class DefaultGraphQLObjectTypeDefinitionFactory(
                         sct::class in sourceIndexSuperTypeBySourceIndexSubType
                     }
                 }
-                .flatMap { sct: SourceContainerType<*> ->
+                .flatMap { sct: SourceContainerType<*, *> ->
                     sourceIndexSuperTypeBySourceIndexSubType[sct::class]
                         .toOption()
                         .flatMap { siKCls: KClass<*> ->
@@ -136,9 +136,9 @@ internal class DefaultGraphQLObjectTypeDefinitionFactory(
         }
     }
 
-    private fun <SI : SourceIndex> createObjectTypeDefinitionUsingFactory(
+    private fun <SI : SourceIndex<SI>> createObjectTypeDefinitionUsingFactory(
         factory: SourceIndexGqlSdlDefinitionFactory<SI>,
-        sourceContainerType: SourceContainerType<*>
+        sourceContainerType: SourceContainerType<*, *>
     ): Try<ObjectTypeDefinition> {
         @Suppress("UNCHECKED_CAST") //
         val sourceContainerTypeAsExpectedSourceIndexType: SI = sourceContainerType as SI
