@@ -118,10 +118,27 @@ interface SchematicPath : Comparable<SchematicPath> {
     /** URI representation of path on which feature function is located within service context */
     fun toURI(): URI
 
+    /**
+     * Root doesn't have any path segments and doesn't have arguments or directives indicating it
+     * represents a parameter to some source container or attribute type
+     */
     fun isRoot(): Boolean {
-        return pathSegments.isEmpty()
+        return pathSegments.isEmpty() && arguments.isEmpty() && directives.isEmpty()
     }
 
+    /**
+     * One schematic path is a parent to another when:
+     * - parent has the same path segments _up to_ the child's final segment and neither parent nor
+     * child schematic path represents parameters (=> have arguments or directives) to a source
+     * container or attribute type e.g. `(Parent) gqls:/path_1 -> (Child) gqls:/path_1/path_2`
+     * - parent has the same path segments as child does but child has arguments and/or directives
+     * indicating it is a parameter specification for the parent source container or attribute type
+     * e.g. `(Parent) gqls:/path_1 -> (Child) gqls:/path_1?argument_1=1`
+     *
+     * There is not a parent-child relationship when one path represents different parameters than
+     * another _on the same_ source container or attribute type: `gqls:/path_1?argument_1=1 NOT
+     * PARENT TO to gqls:/path_1#directive_1=23.3`
+     */
     fun isParentTo(other: SchematicPath): Boolean {
         return when {
             this.scheme != other.scheme -> {
@@ -134,13 +151,41 @@ interface SchematicPath : Comparable<SchematicPath> {
                 pathSegments
                     .asSequence()
                     .zip(other.pathSegments.asSequence()) { a: String, b: String -> a == b }
-                    .all { matched -> matched }
+                    .all { matched -> matched } &&
+                    arguments.isEmpty() &&
+                    directives.isEmpty() &&
+                    other.arguments.isEmpty() &&
+                    other.directives.isEmpty()
+            }
+            this.pathSegments.size == other.pathSegments.size -> {
+                pathSegments
+                    .asSequence()
+                    .zip(other.pathSegments.asSequence()) { a: String, b: String -> a == b }
+                    .all { matched -> matched } &&
+                    arguments.isEmpty() &&
+                    directives.isEmpty() &&
+                    (other.arguments.isNotEmpty() || other.directives.isNotEmpty())
             }
             else -> {
                 false
             }
         }
     }
+    /**
+     * Inverse of #isParentTo logic:
+     *
+     * One schematic path is a child to another when:
+     * - child has N-1 path segments the same as the parent and neither parent nor child schematic
+     * path represents parameters (=> have arguments or directives) to a source container or
+     * attribute type e.g. `(Child) gqls:/path_1/path_2 -> (Parent) gqls:/path_1`
+     * - child has the same path segments as parent does but child has arguments and/or directives
+     * indicating it is a parameter specification for the parent source container or attribute type
+     * e.g. `(Child) gqls:/path_1?argument_1=1 -> (Parent) gqls:/path_1`
+     *
+     * There is not a parent-child relationship when one path represents different parameters than
+     * another _on the same_ source container or attribute type: `gqls:/path_1?argument_1=1 NOT
+     * CHILD TO to gqls:/path_1#directive_1=23.3`
+     */
     fun isChildTo(other: SchematicPath): Boolean {
         return when {
             this.scheme != other.scheme -> {
@@ -154,7 +199,21 @@ interface SchematicPath : Comparable<SchematicPath> {
                     .pathSegments
                     .asSequence()
                     .zip(this.pathSegments.asSequence()) { a: String, b: String -> a == b }
-                    .all { matched -> matched }
+                    .all { matched -> matched } &&
+                    arguments.isEmpty() &&
+                    directives.isEmpty() &&
+                    other.arguments.isEmpty() &&
+                    other.directives.isEmpty()
+            }
+            this.pathSegments.size == other.pathSegments.size -> {
+                other
+                    .pathSegments
+                    .asSequence()
+                    .zip(this.pathSegments.asSequence()) { a: String, b: String -> a == b }
+                    .all { matched -> matched } &&
+                    (arguments.isNotEmpty() || directives.isNotEmpty()) &&
+                    other.arguments.isEmpty() &&
+                    other.directives.isEmpty()
             }
             else -> {
                 false
@@ -162,22 +221,52 @@ interface SchematicPath : Comparable<SchematicPath> {
         }
     }
 
+    /**
+     * Siblings must represent the same parent source container or attribute type within the schema
+     * (=> share the same N - 1 path segments)
+     *
+     * e.g. `gqls:/path_1/path_2/path_3 IS SIBLING TO gqls:/path_1/path_2/path_4`
+     *
+     * OR
+     *
+     * represent parameters on the same parent source container or attribute type within the schema
+     * (=> share the same N path segments) but represent different parameters on that source
+     * container or attribute type:
+     *
+     * e.g. `gqls:/path_1/path_2?argument_1=1 IS SIBLING TO gqls:/path_1/path_2#directive_1=1`
+     */
     fun isSiblingTo(other: SchematicPath): Boolean {
         return when {
             this.scheme != other.scheme -> {
                 false
             }
             /** Is root a sibling to itself? Yes??? */
-            this.pathSegments.size == 0 && this.pathSegments.size == 0 -> {
+            this.isRoot() && other.isRoot() -> {
                 true
+            }
+            /** References root source container but both at least have one argument or directive */
+            this.pathSegments.size == 0 && this.pathSegments.size == 0 -> {
+                (this.arguments.isNotEmpty() || this.directives.isNotEmpty()) &&
+                    (other.arguments.isNotEmpty() || other.directives.isNotEmpty())
             }
             /** not same number of levels, then not siblings */
             this.pathSegments.size != other.pathSegments.size -> {
                 false
             }
-            /** siblings in the context of root */
-            this.pathSegments.size == 1 && other.pathSegments.size == 1 -> {
-                true
+            /**
+             * both have root as parent and:
+             *
+             * neither has any arguments or directives, or both have the same path segment and have
+             * at least one argument or directive
+             */
+            this.pathSegments.size == 1 && this.pathSegments.size == 1 -> {
+                (this.arguments.isEmpty() &&
+                    this.directives.isEmpty() &&
+                    other.arguments.isEmpty() &&
+                    other.directives.isEmpty()) ||
+                    (this.pathSegments.last() == other.pathSegments.last() &&
+                        ((this.arguments.isNotEmpty() || this.directives.isNotEmpty()) &&
+                            (other.arguments.isNotEmpty() || other.directives.isNotEmpty())))
             }
             this.pathSegments.size == other.pathSegments.size -> {
                 /** Assumes path_segments.size must be greater than 1 if here */
@@ -190,7 +279,14 @@ interface SchematicPath : Comparable<SchematicPath> {
                         b: String ->
                         a == b
                     }
-                    .all { matched -> matched }
+                    .all { matched -> matched } &&
+                    ((this.arguments.isEmpty() &&
+                        this.directives.isEmpty() &&
+                        other.arguments.isEmpty() &&
+                        other.directives.isEmpty()) ||
+                        (this.pathSegments.last() == other.pathSegments.last() &&
+                            ((this.arguments.isNotEmpty() || this.directives.isNotEmpty()) &&
+                                (other.arguments.isNotEmpty() || other.directives.isNotEmpty()))))
             }
             else -> {
                 false
