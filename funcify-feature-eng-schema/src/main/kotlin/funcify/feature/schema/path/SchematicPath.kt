@@ -140,27 +140,46 @@ interface SchematicPath : Comparable<SchematicPath> {
      * PARENT TO to gqls:/path_1#directive_1=23.3`
      */
     fun isParentTo(other: SchematicPath): Boolean {
+        /**
+         * Strategy: Attempt to make quick decisions based on size differences in path_segment lists
+         * before checking for equality between path_segments
+         */
         return when {
             this.scheme != other.scheme -> {
                 false
             }
-            this.pathSegments.size >= other.pathSegments.size -> {
+            /** Special handling for root or size of path_segments is zero */
+            this.isRoot() -> {
+                other.pathSegments.size == 0 &&
+                    (other.arguments.isNotEmpty() || other.directives.isNotEmpty())
+            }
+            this.pathSegments.size > other.pathSegments.size -> {
                 false
             }
+            /**
+             * All but last segment on other must match and both paths cannot represent parameter
+             * indices (=> have arguments or directives)
+             */
             this.pathSegments.size + 1 == other.pathSegments.size -> {
                 pathSegments
                     .asSequence()
-                    .zip(other.pathSegments.asSequence()) { a: String, b: String -> a == b }
+                    .zip(other.pathSegments.asSequence().take(this.pathSegments.size)) { t, o ->
+                        t == o
+                    }
                     .all { matched -> matched } &&
                     arguments.isEmpty() &&
                     directives.isEmpty() &&
                     other.arguments.isEmpty() &&
                     other.directives.isEmpty()
             }
+            /**
+             * All segments on both paths must match and other path must represent a parameter index
+             * on this path
+             */
             this.pathSegments.size == other.pathSegments.size -> {
                 pathSegments
                     .asSequence()
-                    .zip(other.pathSegments.asSequence()) { a: String, b: String -> a == b }
+                    .zip(other.pathSegments.asSequence()) { t, o -> t == o }
                     .all { matched -> matched } &&
                     arguments.isEmpty() &&
                     directives.isEmpty() &&
@@ -187,31 +206,47 @@ interface SchematicPath : Comparable<SchematicPath> {
      * CHILD TO to gqls:/path_1#directive_1=23.3`
      */
     fun isChildTo(other: SchematicPath): Boolean {
+        /**
+         * Strategy: Attempt to make quick decisions based on size differences in path_segment lists
+         * before checking for equality between path_segments
+         */
         return when {
             this.scheme != other.scheme -> {
                 false
             }
-            this.pathSegments.size <= other.pathSegments.size -> {
+            /** Special case for root or number of path_segments equal to zero */
+            other.isRoot() -> {
+                this.pathSegments.size == 0 &&
+                    (this.arguments.isNotEmpty() || this.directives.isNotEmpty())
+            }
+            this.pathSegments.size < other.pathSegments.size -> {
                 false
             }
-            this.pathSegments.size - 1 == other.pathSegments.size -> {
-                other
-                    .pathSegments
+            /**
+             * All path_segments _up to last one_ must match and neither path can represent a
+             * parameter index (=> have arguments or directives)
+             */
+            this.pathSegments.size == other.pathSegments.size + 1 -> {
+                this.pathSegments
                     .asSequence()
-                    .zip(this.pathSegments.asSequence()) { a: String, b: String -> a == b }
+                    .take(other.pathSegments.size)
+                    .zip(other.pathSegments.asSequence()) { t, o -> t == o }
                     .all { matched -> matched } &&
                     arguments.isEmpty() &&
                     directives.isEmpty() &&
                     other.arguments.isEmpty() &&
                     other.directives.isEmpty()
             }
+            /**
+             * All path_segments must match and this path must represent a parameter index on the
+             * other path (=> have arguments or directives)
+             */
             this.pathSegments.size == other.pathSegments.size -> {
-                other
-                    .pathSegments
+                pathSegments
                     .asSequence()
-                    .zip(this.pathSegments.asSequence()) { a: String, b: String -> a == b }
+                    .zip(other.pathSegments.asSequence()) { t, o -> t == o }
                     .all { matched -> matched } &&
-                    (arguments.isNotEmpty() || directives.isNotEmpty()) &&
+                    (this.arguments.isNotEmpty() || this.directives.isNotEmpty()) &&
                     other.arguments.isEmpty() &&
                     other.directives.isEmpty()
             }
@@ -236,57 +271,56 @@ interface SchematicPath : Comparable<SchematicPath> {
      * e.g. `gqls:/path_1/path_2?argument_1=1 IS SIBLING TO gqls:/path_1/path_2#directive_1=1`
      */
     fun isSiblingTo(other: SchematicPath): Boolean {
+        /**
+         * Strategy: Attempt to make quick decisions based on size differences in path_segment lists
+         * before checking for equality between path_segments
+         */
         return when {
             this.scheme != other.scheme -> {
                 false
-            }
-            /** Is root a sibling to itself? Yes??? */
-            this.isRoot() && other.isRoot() -> {
-                true
-            }
-            /** References root source container but both at least have one argument or directive */
-            this.pathSegments.size == 0 && this.pathSegments.size == 0 -> {
-                (this.arguments.isNotEmpty() || this.directives.isNotEmpty()) &&
-                    (other.arguments.isNotEmpty() || other.directives.isNotEmpty())
             }
             /** not same number of levels, then not siblings */
             this.pathSegments.size != other.pathSegments.size -> {
                 false
             }
-            /**
-             * both have root as parent and:
-             *
-             * neither has any arguments or directives, or both have the same path segment and have
-             * at least one argument or directive
-             */
-            this.pathSegments.size == 1 && this.pathSegments.size == 1 -> {
-                (this.arguments.isEmpty() &&
-                    this.directives.isEmpty() &&
-                    other.arguments.isEmpty() &&
-                    other.directives.isEmpty()) ||
-                    (this.pathSegments.last() == other.pathSegments.last() &&
-                        ((this.arguments.isNotEmpty() || this.directives.isNotEmpty()) &&
-                            (other.arguments.isNotEmpty() || other.directives.isNotEmpty())))
+            /** Both are root */
+            this.isRoot() -> {
+                other.isRoot()
             }
-            this.pathSegments.size == other.pathSegments.size -> {
-                /** Assumes path_segments.size must be greater than 1 if here */
-                val parentPathSegmentsSize = pathSegments.size - 1
-                pathSegments
+            /** Both are parameter indices on root */
+            this.pathSegments.size == 0 && other.pathSegments.size == 0 -> {
+                (this.arguments.isNotEmpty() || this.directives.isNotEmpty()) &&
+                    (other.arguments.isNotEmpty() || other.directives.isNotEmpty())
+            }
+            /**
+             * Same number of path_segments but no arguments or directives on either, then assess
+             * whether all path segments _up to last one_ match
+             */
+            this.pathSegments.size >= 1 &&
+                this.pathSegments.size == other.pathSegments.size &&
+                this.arguments.isEmpty() &&
+                this.directives.isEmpty() &&
+                other.arguments.isEmpty() &&
+                other.directives.isEmpty() -> {
+                val parentSize: Int = this.pathSegments.size - 1
+                this.pathSegments
                     .asSequence()
-                    .take(parentPathSegmentsSize)
-                    .zip(other.pathSegments.asSequence().take(parentPathSegmentsSize)) {
-                        a: String,
-                        b: String ->
-                        a == b
-                    }
-                    .all { matched -> matched } &&
-                    ((this.arguments.isEmpty() &&
-                        this.directives.isEmpty() &&
-                        other.arguments.isEmpty() &&
-                        other.directives.isEmpty()) ||
-                        (this.pathSegments.last() == other.pathSegments.last() &&
-                            ((this.arguments.isNotEmpty() || this.directives.isNotEmpty()) &&
-                                (other.arguments.isNotEmpty() || other.directives.isNotEmpty()))))
+                    .take(parentSize)
+                    .zip(other.pathSegments.asSequence().take(parentSize)) { t, o -> t == o }
+                    .all { matched -> matched }
+            }
+            /**
+             * Same number of path_segments but at least one argument or directive on each, then
+             * assess whether _all_ path_segments match
+             */
+            this.pathSegments.size >= 1 &&
+                this.pathSegments.size == other.pathSegments.size &&
+                (this.arguments.isNotEmpty() || this.directives.isNotEmpty()) &&
+                (other.arguments.isNotEmpty() || other.directives.isNotEmpty()) -> {
+                this.pathSegments
+                    .asSequence()
+                    .zip(other.pathSegments.asSequence()) { t, o -> t == o }
+                    .all { matched -> matched }
             }
             else -> {
                 false
@@ -295,28 +329,45 @@ interface SchematicPath : Comparable<SchematicPath> {
     }
 
     /**
-     * Has at least one path segment in common starting from root, with other having fewer path
-     * segments
+     * Has all path segments in common up to other.path_segments.size - 1 index and with all path
+     * segments being equal, this path is a parameter index (child) to the other
      */
     fun isDescendentOf(other: SchematicPath): Boolean {
+        /**
+         * Strategy: Attempt to make quick decisions based on size differences in path_segment lists
+         * before checking for equality between path_segments
+         */
         return when {
             this.scheme != other.scheme -> {
                 false
             }
-            /** if root or same level, not descendents */
-            pathSegments.size == other.pathSegments.size -> {
-                false
+            /** Every path but root itself is a descendent of root */
+            other.isRoot() -> {
+                !this.isRoot()
             }
             /** if other has more path segments, not a descendent but could be an ancestor */
-            pathSegments.size < other.pathSegments.size -> {
+            this.pathSegments.size < other.pathSegments.size -> {
                 false
             }
             /**
-             * if other has fewer path segments and the first segment of each matches, then this
-             * path is descendent
+             * if other has fewer path segments than this one, then this is a descendent of the
+             * other if all path segments of the other match those within this path
              */
-            pathSegments.size > other.pathSegments.size && other.pathSegments.size > 0 -> {
-                pathSegments[0] == other.pathSegments[0]
+            this.pathSegments.size > other.pathSegments.size && other.pathSegments.size > 0 -> {
+                this.pathSegments
+                    .asSequence()
+                    .take(other.pathSegments.size)
+                    .zip(other.pathSegments.asSequence()) { t, o -> t == o }
+                    .all { matched -> matched }
+            }
+            this.pathSegments.size == other.pathSegments.size && other.pathSegments.size > 0 -> {
+                this.pathSegments
+                    .asSequence()
+                    .zip(other.pathSegments.asSequence()) { t, o -> t == o }
+                    .all { matched -> matched } &&
+                    (this.arguments.isNotEmpty() || this.directives.isNotEmpty()) &&
+                    other.arguments.isEmpty() &&
+                    other.directives.isEmpty()
             }
             else -> {
                 false
@@ -325,28 +376,42 @@ interface SchematicPath : Comparable<SchematicPath> {
     }
 
     /**
-     * Has at least one path segment in common starting from root, with other having more path
-     * segments
+     * Has all path segments in common up to this.path_segments.size - 1 index and with all path
+     * segments being equal, this path is not a parameter index (child) for the other
      */
     fun isAncestorOf(other: SchematicPath): Boolean {
+        /**
+         * Strategy: Attempt to make quick decisions based on size differences in path_segment lists
+         * before checking for equality between path_segments
+         */
         return when {
             this.scheme != other.scheme -> {
                 false
             }
-            /** if root or same level, not ancestors */
-            pathSegments.size == other.pathSegments.size -> {
-                false
+            /** root is an ancestor to all but itself */
+            this.isRoot() -> {
+                !other.isRoot()
             }
             /** if other has fewer path segments, not an ancestor but could be descendent */
-            pathSegments.size > other.pathSegments.size -> {
+            this.pathSegments.size > other.pathSegments.size -> {
                 false
             }
-            /**
-             * if other has more path segments and the first segment of each matches, then this path
-             * is ancestor
-             */
-            pathSegments.size < other.pathSegments.size && pathSegments.size > 0 -> {
-                pathSegments[0] == other.pathSegments[0]
+            this.pathSegments.size < other.pathSegments.size && this.pathSegments.size > 0 -> {
+                this.pathSegments
+                    .asSequence()
+                    .zip(other.pathSegments.asSequence().take(this.pathSegments.size)) { t, o ->
+                        t == o
+                    }
+                    .all { matched -> matched }
+            }
+            this.pathSegments.size == other.pathSegments.size && this.pathSegments.size > 0 -> {
+                this.pathSegments
+                    .asSequence()
+                    .zip(other.pathSegments.asSequence()) { t, o -> t == o }
+                    .all { matched -> matched } &&
+                    arguments.isEmpty() &&
+                    directives.isEmpty() &&
+                    (other.arguments.isNotEmpty() || other.directives.isNotEmpty())
             }
             else -> {
                 false
@@ -361,7 +426,12 @@ interface SchematicPath : Comparable<SchematicPath> {
             isRoot() -> {
                 none<SchematicPath>()
             }
-            else -> transform { dropPathSegment() }.some()
+            arguments.isNotEmpty() || directives.isNotEmpty() -> {
+                transform { clearArguments().clearDirectives() }.some()
+            }
+            else -> {
+                transform { dropPathSegment() }.some()
+            }
         }
     }
 
