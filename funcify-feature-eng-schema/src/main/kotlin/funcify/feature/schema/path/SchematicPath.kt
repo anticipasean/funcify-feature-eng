@@ -42,16 +42,16 @@ interface SchematicPath : Comparable<SchematicPath> {
                         0 -> {
                             map1.asSequence()
                                 .zip(map2.asSequence())
-                                .firstOrNull { (e1, e2) ->
-                                    e1.key.compareTo(e2.key) != 0 ||
-                                        jsonNodeComparator.compare(e1.value, e2.value) != 0
-                                }
-                                ?.let { (e1, e2) ->
-                                    when (val keyComparison: Int = e1.key.compareTo(e2.key)) {
-                                        0 -> jsonNodeComparator.compare(e1.value, e2.value)
-                                        else -> keyComparison
+                                .map { (e1, e2) ->
+                                    e1.key.compareTo(e2.key).let { keyComp ->
+                                        if (keyComp != 0) {
+                                            keyComp
+                                        } else {
+                                            jsonNodeComparator.compare(e1.value, e2.value)
+                                        }
                                     }
                                 }
+                                .firstOrNull { keyOrValCompResult -> keyOrValCompResult != 0 }
                                 ?: 0
                         }
                         else -> {
@@ -67,8 +67,8 @@ interface SchematicPath : Comparable<SchematicPath> {
                     0 -> {
                         l1.asSequence()
                             .zip(l2.asSequence())
-                            .firstOrNull { (s1, s2) -> s1.compareTo(s2) != 0 }
-                            ?.let { (s1, s2) -> s1.compareTo(s2) }
+                            .map { (s1, s2) -> s1.compareTo(s2) }
+                            .firstOrNull { compResult -> compResult != 0 }
                             ?: 0
                     }
                     else -> listSizeComparison
@@ -421,6 +421,15 @@ interface SchematicPath : Comparable<SchematicPath> {
 
     fun level(): Int = pathSegments.size
 
+    /**
+     * A parent path is:
+     * - one that represents the container if the current path represents an attribute on that
+     * container
+     *
+     * _OR_
+     * - one that represents an attribute on a data source to which the value represented by the
+     * current path may be passed as a parameter
+     */
     fun getParentPath(): Option<SchematicPath> {
         return when {
             isRoot() -> {
