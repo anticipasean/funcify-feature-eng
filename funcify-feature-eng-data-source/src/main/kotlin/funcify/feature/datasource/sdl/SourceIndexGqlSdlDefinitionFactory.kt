@@ -8,16 +8,6 @@ import funcify.feature.tools.container.attempt.Try
 import graphql.language.Node
 import kotlin.reflect.KClass
 
-/**
- * Note: Kotlin's generic type system doesn't currently enable the API to be created in such a way
- * that the compiler can verify that both SCT (SourceContainerType type parameters) and SA
- * (SourceAttribute type parameters) belong to the same SI (SourceIndex type parameter), only that
- * SA must be of the type SCT expects within its single type parameter, SA, on
- * SourceContainerType<SA>. Consequently, if the input sourceIndex type <SI> is not a supertype of
- * SCT then all casts of sourceIndices to SCT or SA will fail. Hopefully, some type parameter union
- * set logic will be added to Kotlin at some point making the compiler capable of asserting joint
- * membership of source container types and source attribute types to the same source index type
- */
 interface SourceIndexGqlSdlDefinitionFactory<SI : SourceIndex<SI>> {
 
     companion object {
