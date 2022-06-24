@@ -152,6 +152,11 @@ subprojects {
                 implementation("org.jooq:jooq-codegen:${jooqVersion}")
             }
         }
+        swagger {
+            dependencies {
+                implementation("io.swagger.parser.v3:swagger-parser:${swaggerParserVersion}")
+            }
+        }
     }
 
     test {
