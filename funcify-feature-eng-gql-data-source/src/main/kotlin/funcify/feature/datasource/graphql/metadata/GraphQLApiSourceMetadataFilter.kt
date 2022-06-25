@@ -2,18 +2,12 @@ package funcify.feature.datasource.graphql.metadata
 
 import graphql.schema.GraphQLFieldDefinition
 
-interface GraphQLApiSourceMetadataFilter {
+fun interface GraphQLApiSourceMetadataFilter {
 
     companion object {
 
-        val INCLUDE_ALL_FILTER: GraphQLApiSourceMetadataFilter by lazy {
-            object : GraphQLApiSourceMetadataFilter {
-                override fun includeGraphQLFieldDefinition(
-                    graphQLFieldDefinition: GraphQLFieldDefinition
-                ): Boolean {
-                    return true
-                }
-            }
+        val INCLUDE_ALL_FILTER: GraphQLApiSourceMetadataFilter = GraphQLApiSourceMetadataFilter {
+            true
         }
     }
 

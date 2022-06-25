@@ -2,18 +2,17 @@ package funcify.feature.datasource.db.schema
 
 import org.jooq.meta.Database
 
-
 /**
  *
  * @author smccarron
  * @created 3/5/22
  */
-interface JooqMetadataGatheringDatabaseConfigurer : (Database) -> Database {
+fun interface JooqMetadataGatheringDatabaseConfigurer : (Database) -> Database {
 
     companion object {
-        val NO_CONFIGURATION_CHANGES_INSTANCE by lazy { { db: Database -> db } as JooqMetadataGatheringDatabaseConfigurer }
+        @JvmStatic
+        val NO_CONFIGURATION_CHANGES_INSTANCE = JooqMetadataGatheringDatabaseConfigurer { db -> db }
     }
 
     override fun invoke(db: Database): Database
-
 }

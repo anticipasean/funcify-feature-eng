@@ -11,8 +11,7 @@ import funcify.feature.tools.container.deferred.Deferred
  * @author smccarron
  * @created 4/4/22
  */
-interface DataSourceMetadataProvider<S, MD> {
+fun interface DataSourceMetadataProvider<S, MD> {
 
     fun provideMetadata(service: S): Deferred<MD>
-
 }
