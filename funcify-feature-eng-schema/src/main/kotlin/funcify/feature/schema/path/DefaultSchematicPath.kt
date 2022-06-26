@@ -85,6 +85,13 @@ internal data class DefaultSchematicPath(
                 return this
             }
 
+            override fun dropArgument(key: String): SchematicPath.Builder {
+                if (key in argsBuilder) {
+                    argsBuilder.remove(key)
+                }
+                return this
+            }
+
             override fun clearArguments(): SchematicPath.Builder {
                 argsBuilder.clear()
                 return this
@@ -100,8 +107,15 @@ internal data class DefaultSchematicPath(
                 return this
             }
 
-            override fun directive(keyValuePairs: Map<String, JsonNode>): SchematicPath.Builder {
+            override fun directives(keyValuePairs: Map<String, JsonNode>): SchematicPath.Builder {
                 dirsBuilder.putAll(keyValuePairs)
+                return this
+            }
+
+            override fun dropDirective(key: String): SchematicPath.Builder {
+                if (key in dirsBuilder) {
+                    dirsBuilder.remove(key)
+                }
                 return this
             }
 

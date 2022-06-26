@@ -1,6 +1,7 @@
 package funcify.feature.schema.path
 
 import arrow.core.Option
+import arrow.core.getOrElse
 import arrow.core.none
 import arrow.core.some
 import com.fasterxml.jackson.databind.JsonNode
@@ -9,6 +10,7 @@ import java.math.BigDecimal
 import java.net.URI
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableMap
+import kotlinx.collections.immutable.toPersistentMap
 import net.thisptr.jackson.jq.internal.misc.JsonNodeComparator
 
 /**
@@ -26,40 +28,47 @@ interface SchematicPath : Comparable<SchematicPath> {
 
         private val rootPath: SchematicPath = DefaultSchematicPath()
 
+        @JvmStatic
         fun getRootPath(): SchematicPath {
             return rootPath
         }
 
-        private val comparator: Comparator<SchematicPath> by lazy {
+        @JvmStatic
+        fun of(builderFunction: Builder.() -> Builder): SchematicPath {
+            return rootPath.transform(builderFunction)
+        }
+
+        private val stringKeyJsonValueMapComparator: Comparator<Map<String, JsonNode>> by lazy {
             val jsonNodeComparator: JsonNodeComparator = JsonNodeComparator.getInstance()
-            val strJsonMapComparatorFunction:
-                (Map<String, JsonNode>, Map<String, JsonNode>) -> Int =
-                { map1, map2 -> //
-                    /*
-                     * Early exit approach: First non-matching pair found returns comparison value else considered equal
-                     */
-                    when (val mapSizeComparison: Int = map1.size.compareTo(map2.size)) {
-                        0 -> {
-                            map1.asSequence()
-                                .zip(map2.asSequence())
-                                .map { (e1, e2) ->
-                                    e1.key.compareTo(e2.key).let { keyComp ->
-                                        if (keyComp != 0) {
-                                            keyComp
-                                        } else {
-                                            jsonNodeComparator.compare(e1.value, e2.value)
-                                        }
+            Comparator<Map<String, JsonNode>> { map1, map2 -> //
+                /*
+                 * Early exit approach: First non-matching pair found returns comparison value else considered equal
+                 */
+                when (val mapSizeComparison: Int = map1.size.compareTo(map2.size)) {
+                    0 -> {
+                        map1.asSequence()
+                            .zip(map2.asSequence())
+                            .map { (e1, e2) ->
+                                e1.key.compareTo(e2.key).let { keyComp ->
+                                    if (keyComp != 0) {
+                                        keyComp
+                                    } else {
+                                        jsonNodeComparator.compare(e1.value, e2.value)
                                     }
                                 }
-                                .firstOrNull { keyOrValCompResult -> keyOrValCompResult != 0 }
-                                ?: 0
-                        }
-                        else -> {
-                            mapSizeComparison
-                        }
+                            }
+                            .firstOrNull { keyOrValCompResult -> keyOrValCompResult != 0 }
+                            ?: 0
+                    }
+                    else -> {
+                        mapSizeComparison
                     }
                 }
-            val strListComparatorFunction: (List<String>, List<String>) -> Int = { l1, l2 -> //
+            }
+        }
+
+        private val stringListComparator: Comparator<List<String>> by lazy {
+            Comparator<List<String>> { l1, l2 -> //
                 /*
                  * Early exit approach: First non-matching pair found returns comparison value else considered equal
                  */
@@ -74,14 +83,18 @@ interface SchematicPath : Comparable<SchematicPath> {
                     else -> listSizeComparison
                 }
             }
-            Comparator.comparing({ sp: SchematicPath -> sp.scheme }, String::compareTo)
-                .thenComparing({ sp: SchematicPath -> sp.pathSegments }, strListComparatorFunction)
-                .thenComparing({ sp: SchematicPath -> sp.arguments }, strJsonMapComparatorFunction)
-                .thenComparing({ sp: SchematicPath -> sp.directives }, strJsonMapComparatorFunction)
         }
 
+        private val schematicPathComparator: Comparator<SchematicPath> by lazy {
+            Comparator.comparing(SchematicPath::scheme, String::compareTo)
+                .thenComparing(SchematicPath::pathSegments, stringListComparator)
+                .thenComparing(SchematicPath::arguments, stringKeyJsonValueMapComparator)
+                .thenComparing(SchematicPath::directives, stringKeyJsonValueMapComparator)
+        }
+
+        @JvmStatic
         fun comparator(): Comparator<SchematicPath> {
-            return comparator
+            return schematicPathComparator
         }
     }
 
@@ -173,17 +186,44 @@ interface SchematicPath : Comparable<SchematicPath> {
                     other.directives.isEmpty()
             }
             /**
-             * All segments on both paths must match and other path must represent a parameter index
-             * on this path
+             * All segments on both paths must match and other path must represent a parameter
+             * junction index on this path
              */
-            this.pathSegments.size == other.pathSegments.size -> {
-                pathSegments
+            this.pathSegments.size == other.pathSegments.size &&
+                this.arguments.isEmpty() &&
+                this.directives.isEmpty() &&
+                (other.arguments.isNotEmpty() || other.directives.isNotEmpty()) -> {
+                this.pathSegments
                     .asSequence()
                     .zip(other.pathSegments.asSequence()) { t, o -> t == o }
                     .all { matched -> matched } &&
-                    arguments.isEmpty() &&
-                    directives.isEmpty() &&
-                    (other.arguments.isNotEmpty() || other.directives.isNotEmpty())
+                    other.arguments.all { entry -> entry.value.isNull || entry.value.isEmpty } &&
+                    other.directives.all { entry -> entry.value.isNull || entry.value.isEmpty }
+            }
+            /**
+             * All segments on both paths must match and other path must represent a parameter
+             * attribute index on this parameter junction index path
+             */
+            this.pathSegments.size == other.pathSegments.size &&
+                (this.arguments.isNotEmpty() || this.directives.isNotEmpty()) &&
+                (other.arguments.isNotEmpty() || other.directives.isNotEmpty()) -> {
+                this.pathSegments
+                    .asSequence()
+                    .zip(other.pathSegments.asSequence()) { t, o -> t == o }
+                    .all { matched -> matched } &&
+                    other
+                        .getParentPath()
+                        .map { otherParentPath ->
+                            stringKeyJsonValueMapComparator.compare(
+                                this.arguments,
+                                otherParentPath.arguments
+                            ) == 0 &&
+                                stringKeyJsonValueMapComparator.compare(
+                                    this.directives,
+                                    otherParentPath.directives
+                                ) == 0
+                        }
+                        .getOrElse { false }
             }
             else -> {
                 false
@@ -226,29 +266,55 @@ interface SchematicPath : Comparable<SchematicPath> {
              * All path_segments _up to last one_ must match and neither path can represent a
              * parameter index (=> have arguments or directives)
              */
-            this.pathSegments.size == other.pathSegments.size + 1 -> {
+            this.pathSegments.size == other.pathSegments.size + 1 &&
+                arguments.isEmpty() &&
+                directives.isEmpty() &&
+                other.arguments.isEmpty() &&
+                other.directives.isEmpty() -> {
                 this.pathSegments
                     .asSequence()
                     .take(other.pathSegments.size)
                     .zip(other.pathSegments.asSequence()) { t, o -> t == o }
-                    .all { matched -> matched } &&
-                    arguments.isEmpty() &&
-                    directives.isEmpty() &&
-                    other.arguments.isEmpty() &&
-                    other.directives.isEmpty()
+                    .all { matched -> matched }
             }
             /**
-             * All path_segments must match and this path must represent a parameter index on the
-             * other path (=> have arguments or directives)
+             * All path_segments must match and this path must represent a parameter junction index
+             * on the other path (=> have arguments or directives)
              */
-            this.pathSegments.size == other.pathSegments.size -> {
-                pathSegments
+            this.pathSegments.size == other.pathSegments.size &&
+                (this.arguments.isNotEmpty() || this.directives.isNotEmpty()) &&
+                other.arguments.isEmpty() &&
+                other.directives.isEmpty() -> {
+                this.pathSegments
                     .asSequence()
                     .zip(other.pathSegments.asSequence()) { t, o -> t == o }
                     .all { matched -> matched } &&
-                    (this.arguments.isNotEmpty() || this.directives.isNotEmpty()) &&
-                    other.arguments.isEmpty() &&
-                    other.directives.isEmpty()
+                    this.arguments.all { entry -> entry.value.isNull || entry.value.isEmpty } &&
+                    this.directives.all { entry -> entry.value.isNull || entry.value.isEmpty }
+            }
+            /**
+             * All segments on both paths must match and this path must represent a parameter
+             * attribute index on the other parameter junction index
+             */
+            this.pathSegments.size == other.pathSegments.size &&
+                (this.arguments.isNotEmpty() || this.directives.isNotEmpty()) &&
+                (other.arguments.isNotEmpty() || other.directives.isNotEmpty()) -> {
+                this.pathSegments
+                    .asSequence()
+                    .zip(other.pathSegments.asSequence()) { t, o -> t == o }
+                    .all { matched -> matched } &&
+                    this.getParentPath()
+                        .map { thisParentPath ->
+                            stringKeyJsonValueMapComparator.compare(
+                                thisParentPath.arguments,
+                                other.arguments
+                            ) == 0 &&
+                                stringKeyJsonValueMapComparator.compare(
+                                    thisParentPath.directives,
+                                    other.directives
+                                ) == 0
+                        }
+                        .getOrElse { false }
             }
             else -> {
                 false
@@ -279,51 +345,11 @@ interface SchematicPath : Comparable<SchematicPath> {
             this.scheme != other.scheme -> {
                 false
             }
-            /** not same number of levels, then not siblings */
-            this.pathSegments.size != other.pathSegments.size -> {
-                false
-            }
-            /** Both are root */
-            this.isRoot() -> {
-                other.isRoot()
-            }
-            /** Both are parameter indices on root */
-            this.pathSegments.size == 0 && other.pathSegments.size == 0 -> {
-                (this.arguments.isNotEmpty() || this.directives.isNotEmpty()) &&
-                    (other.arguments.isNotEmpty() || other.directives.isNotEmpty())
-            }
-            /**
-             * Same number of path_segments but no arguments or directives on either, then assess
-             * whether all path segments _up to last one_ match
-             */
-            this.pathSegments.size >= 1 &&
-                this.pathSegments.size == other.pathSegments.size &&
-                this.arguments.isEmpty() &&
-                this.directives.isEmpty() &&
-                other.arguments.isEmpty() &&
-                other.directives.isEmpty() -> {
-                val parentSize: Int = this.pathSegments.size - 1
-                this.pathSegments
-                    .asSequence()
-                    .take(parentSize)
-                    .zip(other.pathSegments.asSequence().take(parentSize)) { t, o -> t == o }
-                    .all { matched -> matched }
-            }
-            /**
-             * Same number of path_segments but at least one argument or directive on each, then
-             * assess whether _all_ path_segments match
-             */
-            this.pathSegments.size >= 1 &&
-                this.pathSegments.size == other.pathSegments.size &&
-                (this.arguments.isNotEmpty() || this.directives.isNotEmpty()) &&
-                (other.arguments.isNotEmpty() || other.directives.isNotEmpty()) -> {
-                this.pathSegments
-                    .asSequence()
-                    .zip(other.pathSegments.asSequence()) { t, o -> t == o }
-                    .all { matched -> matched }
-            }
             else -> {
-                false
+                this.getParentPath()
+                    .zip(other.getParentPath(), schematicPathComparator::compare)
+                    .map { comp -> comp == 0 }
+                    .getOrElse { false }
             }
         }
     }
@@ -360,14 +386,33 @@ interface SchematicPath : Comparable<SchematicPath> {
                     .zip(other.pathSegments.asSequence()) { t, o -> t == o }
                     .all { matched -> matched }
             }
-            this.pathSegments.size == other.pathSegments.size && other.pathSegments.size > 0 -> {
+            this.pathSegments.size == other.pathSegments.size &&
+                (this.arguments.isNotEmpty() || this.directives.isNotEmpty()) &&
+                other.arguments.isEmpty() &&
+                other.directives.isEmpty() -> {
+                this.pathSegments
+                    .asSequence()
+                    .zip(other.pathSegments.asSequence()) { t, o -> t == o }
+                    .all { matched -> matched }
+            }
+            this.pathSegments.size == other.pathSegments.size &&
+                (this.arguments.isNotEmpty() || this.directives.isNotEmpty()) &&
+                (other.arguments.isNotEmpty() || other.directives.isNotEmpty()) -> {
                 this.pathSegments
                     .asSequence()
                     .zip(other.pathSegments.asSequence()) { t, o -> t == o }
                     .all { matched -> matched } &&
-                    (this.arguments.isNotEmpty() || this.directives.isNotEmpty()) &&
-                    other.arguments.isEmpty() &&
-                    other.directives.isEmpty()
+                    stringKeyJsonValueMapComparator.compare(this.arguments, other.arguments).let {
+                        argComp ->
+                        if (argComp == 0) {
+                            stringKeyJsonValueMapComparator.compare(
+                                this.directives,
+                                other.directives
+                            )
+                        } else {
+                            argComp
+                        }
+                    } > 0
             }
             else -> {
                 false
@@ -404,14 +449,33 @@ interface SchematicPath : Comparable<SchematicPath> {
                     }
                     .all { matched -> matched }
             }
-            this.pathSegments.size == other.pathSegments.size && this.pathSegments.size > 0 -> {
+            this.pathSegments.size == other.pathSegments.size &&
+                arguments.isEmpty() &&
+                directives.isEmpty() &&
+                (other.arguments.isNotEmpty() || other.directives.isNotEmpty()) -> {
+                this.pathSegments
+                    .asSequence()
+                    .zip(other.pathSegments.asSequence()) { t, o -> t == o }
+                    .all { matched -> matched }
+            }
+            this.pathSegments.size == other.pathSegments.size &&
+                (arguments.isNotEmpty() || directives.isNotEmpty()) &&
+                (other.arguments.isNotEmpty() || other.directives.isNotEmpty()) -> {
                 this.pathSegments
                     .asSequence()
                     .zip(other.pathSegments.asSequence()) { t, o -> t == o }
                     .all { matched -> matched } &&
-                    arguments.isEmpty() &&
-                    directives.isEmpty() &&
-                    (other.arguments.isNotEmpty() || other.directives.isNotEmpty())
+                    stringKeyJsonValueMapComparator.compare(this.arguments, other.arguments).let {
+                        argComp ->
+                        if (argComp == 0) {
+                            stringKeyJsonValueMapComparator.compare(
+                                this.directives,
+                                other.directives
+                            )
+                        } else {
+                            argComp
+                        }
+                    } < 0
             }
             else -> {
                 false
@@ -435,11 +499,71 @@ interface SchematicPath : Comparable<SchematicPath> {
             isRoot() -> {
                 none<SchematicPath>()
             }
-            arguments.isNotEmpty() || directives.isNotEmpty() -> {
-                transform { clearArguments().clearDirectives() }.some()
+            arguments.isEmpty() && directives.isEmpty() -> {
+                transform { dropPathSegment() }.some()
+            }
+            arguments.isNotEmpty() &&
+                directives.isEmpty() &&
+                arguments.size == 1 &&
+                arguments.firstNotNullOf { entry -> entry.value.isNull || entry.value.isEmpty } -> {
+                transform { clearArguments() }.some()
+            }
+            arguments.isEmpty() &&
+                directives.isNotEmpty() &&
+                directives.size == 1 &&
+                directives.firstNotNullOf { entry ->
+                    entry.value.isNull || entry.value.isEmpty
+                } -> {
+                transform { clearDirectives() }.some()
             }
             else -> {
-                transform { dropPathSegment() }.some()
+                /**
+                 * Remove the last directive if it represents a container: null or empty json node
+                 * Else, make the last directive json value null node
+                 */
+                if (directives.isNotEmpty()) {
+                    val lastKey = directives.keys.last()
+                    directives[lastKey]?.let { jn ->
+                        if (jn.isNull || jn.isEmpty) {
+                            transform {
+                                    clearDirectives()
+                                        .directives(
+                                            this@SchematicPath.directives
+                                                .toPersistentMap()
+                                                .remove(lastKey)
+                                        )
+                                }
+                                .some()
+                        } else {
+                            transform { directive(lastKey) }.some()
+                        }
+                    }
+                        ?: none<SchematicPath>()
+                    /**
+                     * Remove the last argument if it represents a container: null or empty Else,
+                     * make the last argument json value null node
+                     */
+                } else if (arguments.isNotEmpty()) {
+                    val lastKey = arguments.keys.last()
+                    arguments[lastKey]?.let { jn ->
+                        if (jn.isNull || jn.isEmpty) {
+                            transform {
+                                    clearArguments()
+                                        .arguments(
+                                            this@SchematicPath.arguments
+                                                .toPersistentMap()
+                                                .remove(lastKey)
+                                        )
+                                }
+                                .some()
+                        } else {
+                            transform { argument(lastKey) }.some()
+                        }
+                    }
+                        ?: none<SchematicPath>()
+                } else {
+                    none<SchematicPath>()
+                }
             }
         }
     }
@@ -512,6 +636,8 @@ interface SchematicPath : Comparable<SchematicPath> {
 
         fun arguments(keyValuePairs: Map<String, JsonNode>): Builder
 
+        fun dropArgument(key: String): Builder
+
         fun clearArguments(): Builder
 
         fun directive(key: String, value: JsonNode): Builder
@@ -550,7 +676,9 @@ interface SchematicPath : Comparable<SchematicPath> {
 
         fun directive(keyValuePair: Pair<String, JsonNode>): Builder
 
-        fun directive(keyValuePairs: Map<String, JsonNode>): Builder
+        fun directives(keyValuePairs: Map<String, JsonNode>): Builder
+
+        fun dropDirective(key: String): Builder
 
         fun clearDirectives(): Builder
 
