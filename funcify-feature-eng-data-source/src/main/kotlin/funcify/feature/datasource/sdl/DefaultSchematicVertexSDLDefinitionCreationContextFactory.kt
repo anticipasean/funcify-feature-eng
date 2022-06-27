@@ -18,13 +18,16 @@ import funcify.feature.schema.vertex.SourceLeafVertex
 import funcify.feature.schema.vertex.SourceRootVertex
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
+import graphql.language.ImplementingTypeDefinition
 import graphql.language.NamedNode
 import graphql.language.Node
 import graphql.language.ScalarTypeDefinition
 import graphql.language.Type
 import graphql.language.TypeName
 import kotlinx.collections.immutable.PersistentMap
+import kotlinx.collections.immutable.PersistentSet
 import kotlinx.collections.immutable.persistentMapOf
+import kotlinx.collections.immutable.persistentSetOf
 import org.slf4j.Logger
 
 /**
@@ -45,7 +48,8 @@ internal class DefaultSchematicVertexSDLDefinitionCreationContextFactory :
                 persistentMapOf(),
             private var namedSDLDefinitionsByName: PersistentMap<String, NamedNode<*>> =
                 persistentMapOf(),
-            private var sdlDefinitionsBySchematicPath: PersistentMap<SchematicPath, Node<*>> =
+            private var sdlDefinitionsBySchematicPath:
+                PersistentMap<SchematicPath, PersistentSet<Node<*>>> =
                 persistentMapOf(),
             private var sdlTypeDefinitionsByName: PersistentMap<String, Type<*>> =
                 persistentMapOf(),
@@ -58,26 +62,88 @@ internal class DefaultSchematicVertexSDLDefinitionCreationContextFactory :
                 sdlDefinition: Node<*>,
             ): Builder<V> {
                 when (sdlDefinition) {
-                    is NamedNode -> {
+                    is ImplementingTypeDefinition<*> -> {
+                        if (sdlDefinition.name !in sdlTypeDefinitionsByName) {
+                            sdlTypeDefinitionsByName =
+                                sdlTypeDefinitionsByName.put(
+                                    sdlDefinition.name,
+                                    TypeName.newTypeName(sdlDefinition.name).build()
+                                )
+                        }
                         namedSDLDefinitionsByName =
                             namedSDLDefinitionsByName.put(sdlDefinition.name, sdlDefinition)
                         sdlDefinitionsBySchematicPath =
-                            sdlDefinitionsBySchematicPath.put(schematicPath, sdlDefinition)
+                            sdlDefinitionsBySchematicPath.put(
+                                schematicPath,
+                                sdlDefinitionsBySchematicPath
+                                    .getOrDefault(schematicPath, persistentSetOf())
+                                    .add(sdlDefinition)
+                            )
+                    }
+                    is NamedNode<*> -> {
+                        namedSDLDefinitionsByName =
+                            namedSDLDefinitionsByName.put(sdlDefinition.name, sdlDefinition)
+                        sdlDefinitionsBySchematicPath =
+                            sdlDefinitionsBySchematicPath.put(
+                                schematicPath,
+                                sdlDefinitionsBySchematicPath
+                                    .getOrDefault(schematicPath, persistentSetOf())
+                                    .add(sdlDefinition)
+                            )
                     }
                     else -> {
                         sdlDefinitionsBySchematicPath =
-                            sdlDefinitionsBySchematicPath.put(schematicPath, sdlDefinition)
+                            sdlDefinitionsBySchematicPath.put(
+                                schematicPath,
+                                sdlDefinitionsBySchematicPath
+                                    .getOrDefault(schematicPath, persistentSetOf())
+                                    .add(sdlDefinition)
+                            )
                     }
                 }
                 return this
             }
 
-            override fun addNamedNonScalarSDLType(namedNonScalarType: TypeName): Builder<V> {
-                if (namedNonScalarType.name !in namedSDLDefinitionsByName) {
+            override fun removeSDLDefinitionForSchematicPath(
+                schematicPath: SchematicPath,
+                sdlDefinition: Node<*>
+            ): Builder<V> {
+                return if (schematicPath in sdlDefinitionsBySchematicPath &&
+                        sdlDefinition in
+                            (sdlDefinitionsBySchematicPath[schematicPath] ?: persistentSetOf())
+                ) {
+                    sdlDefinitionsBySchematicPath =
+                        sdlDefinitionsBySchematicPath.put(
+                            schematicPath,
+                            sdlDefinitionsBySchematicPath[schematicPath]!!.remove(sdlDefinition)
+                        )
+                    sdlTypeDefinitionsByName =
+                        if (sdlDefinition is ImplementingTypeDefinition<*> &&
+                                sdlDefinition.name in sdlTypeDefinitionsByName
+                        ) {
+                            sdlTypeDefinitionsByName.remove(sdlDefinition.name)
+                        } else {
+                            sdlTypeDefinitionsByName
+                        }
                     namedSDLDefinitionsByName =
-                        namedSDLDefinitionsByName.put(namedNonScalarType.name, namedNonScalarType)
+                        if (sdlDefinition is NamedNode &&
+                                sdlDefinition.name in namedSDLDefinitionsByName
+                        ) {
+                            namedSDLDefinitionsByName.remove(sdlDefinition.name)
+                        } else {
+                            namedSDLDefinitionsByName
+                        }
+                    DefaultSchematicSDLDefinitionCreationContextBuilder<V>(
+                        scalarTypeDefinitionsByName = scalarTypeDefinitionsByName,
+                        namedSDLDefinitionsByName = namedSDLDefinitionsByName,
+                        sdlDefinitionsBySchematicPath = sdlDefinitionsBySchematicPath,
+                        sdlTypeDefinitionsByName = sdlTypeDefinitionsByName,
+                        metamodelGraph = metamodelGraph,
+                        currentVertex = currentVertex
+                    )
+                } else {
+                    this
                 }
-                return this
             }
 
             override fun <SV : SchematicVertex> nextVertex(nextVertex: SV): Builder<SV> {
@@ -174,7 +240,8 @@ internal class DefaultSchematicVertexSDLDefinitionCreationContextFactory :
                 persistentMapOf(),
             override val namedSDLDefinitionsByName: PersistentMap<String, NamedNode<*>> =
                 persistentMapOf(),
-            override val sdlDefinitionsBySchematicPath: PersistentMap<SchematicPath, Node<*>> =
+            override val sdlDefinitionsBySchematicPath:
+                PersistentMap<SchematicPath, PersistentSet<Node<*>>> =
                 persistentMapOf(),
             override val sdlTypeDefinitionsByName: PersistentMap<String, Type<*>> =
                 persistentMapOf(),
@@ -203,7 +270,8 @@ internal class DefaultSchematicVertexSDLDefinitionCreationContextFactory :
                 persistentMapOf(),
             override val namedSDLDefinitionsByName: PersistentMap<String, NamedNode<*>> =
                 persistentMapOf(),
-            override val sdlDefinitionsBySchematicPath: PersistentMap<SchematicPath, Node<*>> =
+            override val sdlDefinitionsBySchematicPath:
+                PersistentMap<SchematicPath, PersistentSet<Node<*>>> =
                 persistentMapOf(),
             override val sdlTypeDefinitionsByName: PersistentMap<String, Type<*>> =
                 persistentMapOf(),
@@ -232,7 +300,8 @@ internal class DefaultSchematicVertexSDLDefinitionCreationContextFactory :
                 persistentMapOf(),
             override val namedSDLDefinitionsByName: PersistentMap<String, NamedNode<*>> =
                 persistentMapOf(),
-            override val sdlDefinitionsBySchematicPath: PersistentMap<SchematicPath, Node<*>> =
+            override val sdlDefinitionsBySchematicPath:
+                PersistentMap<SchematicPath, PersistentSet<Node<*>>> =
                 persistentMapOf(),
             override val sdlTypeDefinitionsByName: PersistentMap<String, Type<*>> =
                 persistentMapOf(),
@@ -260,7 +329,8 @@ internal class DefaultSchematicVertexSDLDefinitionCreationContextFactory :
                 persistentMapOf(),
             override val namedSDLDefinitionsByName: PersistentMap<String, NamedNode<*>> =
                 persistentMapOf(),
-            override val sdlDefinitionsBySchematicPath: PersistentMap<SchematicPath, Node<*>> =
+            override val sdlDefinitionsBySchematicPath:
+                PersistentMap<SchematicPath, PersistentSet<Node<*>>> =
                 persistentMapOf(),
             override val sdlTypeDefinitionsByName: PersistentMap<String, Type<*>> =
                 persistentMapOf(),
@@ -289,7 +359,8 @@ internal class DefaultSchematicVertexSDLDefinitionCreationContextFactory :
                 persistentMapOf(),
             override val namedSDLDefinitionsByName: PersistentMap<String, NamedNode<*>> =
                 persistentMapOf(),
-            override val sdlDefinitionsBySchematicPath: PersistentMap<SchematicPath, Node<*>> =
+            override val sdlDefinitionsBySchematicPath:
+                PersistentMap<SchematicPath, PersistentSet<Node<*>>> =
                 persistentMapOf(),
             override val sdlTypeDefinitionsByName: PersistentMap<String, Type<*>> =
                 persistentMapOf(),

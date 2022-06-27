@@ -1,7 +1,8 @@
 package funcify.feature.datasource.sdl
 
 import arrow.core.Option
-import arrow.core.toOption
+import arrow.core.firstOrNone
+import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionCreationContext.Builder
 import funcify.feature.schema.MetamodelGraph
 import funcify.feature.schema.SchematicVertex
 import funcify.feature.schema.index.CompositeParameterAttribute
@@ -14,15 +15,22 @@ import funcify.feature.schema.vertex.ParameterLeafVertex
 import funcify.feature.schema.vertex.SourceJunctionVertex
 import funcify.feature.schema.vertex.SourceLeafVertex
 import funcify.feature.schema.vertex.SourceRootVertex
-import graphql.language.NamedNode
-import graphql.language.Node
-import graphql.language.ScalarTypeDefinition
-import graphql.language.Type
-import graphql.language.TypeName
+import graphql.language.*
 import kotlinx.collections.immutable.ImmutableMap
+import kotlinx.collections.immutable.ImmutableSet
+import kotlinx.collections.immutable.persistentSetOf
 
 /**
+ * Immutable context providing what GraphQL SDL definitions have already been defined for a given
+ * vertex in the [MetamodelGraph], its parent context (if it has a parent vertex), and its composite
+ * source index value. Callers may "update" this context through the [update] function parameter
+ * (effectively creating a new context instance with whatever new definitions that have been added
+ * or old definitions that have been removed)
  *
+ * Typically, the initial context that is created will be for the root source index and any declared
+ * strategy functions will be called during the processing of each vertex. The [Builder.nextVertex]
+ * will be called by the factory creating the desired [GraphQLSchema] until all vertices have been
+ * processed.
  * @author smccarron
  * @created 2022-06-24
  */
@@ -32,7 +40,7 @@ sealed interface SchematicVertexSDLDefinitionCreationContext<V : SchematicVertex
 
     val namedSDLDefinitionsByName: ImmutableMap<String, NamedNode<*>>
 
-    val sdlDefinitionsBySchematicPath: ImmutableMap<SchematicPath, Node<*>>
+    val sdlDefinitionsBySchematicPath: ImmutableMap<SchematicPath, ImmutableSet<Node<*>>>
 
     val sdlTypeDefinitionsByName: ImmutableMap<String, Type<*>>
 
@@ -49,13 +57,27 @@ sealed interface SchematicVertexSDLDefinitionCreationContext<V : SchematicVertex
     val parentVertex: Option<SchematicVertex>
         get() = parentPath.flatMap { pp -> metamodelGraph.getVertex(pp) }
 
-    val existingSDLDefinition: Option<Node<*>>
-        get() = sdlDefinitionsBySchematicPath[path].toOption()
+    val parentContext: Option<SchematicVertexSDLDefinitionCreationContext<*>>
+        get() = parentVertex.map { pv -> update { nextVertex(pv) } }
+
+    val currentSDLDefinitionsForSchematicPath: ImmutableSet<Node<*>>
+        get() = sdlDefinitionsBySchematicPath[path] ?: persistentSetOf()
 
     fun <SV : SchematicVertex> update(
         updater: Builder<V>.() -> Builder<SV>
     ): SchematicVertexSDLDefinitionCreationContext<SV>
 
+    /**
+     * The main methods the strategies will manipulate in the given context are:
+     * - [addSDLDefinitionForSchematicPath]
+     * - [removeSDLDefinitionForSchematicPath]
+     *
+     * The builder should handle updating related context fields e.g. [sdlTypeDefinitionsByName],
+     * [namedSDLDefinitionsByName]
+     *
+     * [nextVertex] will be called by the materialization module when aggregating the sdl
+     * definitions into the materialization [graphql.schema.GraphQLSchema]
+     */
     interface Builder<V : SchematicVertex> {
 
         fun addSDLDefinitionForSchematicPath(
@@ -63,7 +85,10 @@ sealed interface SchematicVertexSDLDefinitionCreationContext<V : SchematicVertex
             sdlDefinition: Node<*>
         ): Builder<V>
 
-        fun addNamedNonScalarSDLType(namedNonScalarType: TypeName): Builder<V>
+        fun removeSDLDefinitionForSchematicPath(
+            schematicPath: SchematicPath,
+            sdlDefinition: Node<*>
+        ): Builder<V>
 
         fun <SV : SchematicVertex> nextVertex(nextVertex: SV): Builder<SV>
 
@@ -75,6 +100,18 @@ sealed interface SchematicVertexSDLDefinitionCreationContext<V : SchematicVertex
 
         val compositeSourceContainerType: CompositeSourceContainerType
             get() = currentVertex.compositeContainerType
+
+        val existingObjectTypeDefinition: Option<ObjectTypeDefinition>
+            get() =
+                currentSDLDefinitionsForSchematicPath
+                    .filterIsInstance<ObjectTypeDefinition>()
+                    .firstOrNone()
+
+        val existingInterfaceTypeDefinition: Option<InterfaceTypeDefinition>
+            get() =
+                currentSDLDefinitionsForSchematicPath
+                    .filterIsInstance<InterfaceTypeDefinition>()
+                    .firstOrNone()
     }
 
     interface SourceJunctionVertexSDLDefinitionCreationContext :
@@ -85,6 +122,24 @@ sealed interface SchematicVertexSDLDefinitionCreationContext<V : SchematicVertex
 
         val compositeSourceAttribute: CompositeSourceAttribute
             get() = currentVertex.compositeAttribute
+
+        val existingObjectTypeDefinition: Option<ObjectTypeDefinition>
+            get() =
+                currentSDLDefinitionsForSchematicPath
+                    .filterIsInstance<ObjectTypeDefinition>()
+                    .firstOrNone()
+
+        val existingInterfaceTypeDefinition: Option<InterfaceTypeDefinition>
+            get() =
+                currentSDLDefinitionsForSchematicPath
+                    .filterIsInstance<InterfaceTypeDefinition>()
+                    .firstOrNone()
+
+        val existingFieldDefinition: Option<FieldDefinition>
+            get() =
+                currentSDLDefinitionsForSchematicPath
+                    .filterIsInstance<FieldDefinition>()
+                    .firstOrNone()
     }
 
     interface SourceLeafVertexSDLDefinitionCreationContext :
@@ -92,6 +147,12 @@ sealed interface SchematicVertexSDLDefinitionCreationContext<V : SchematicVertex
 
         val compositeSourceAttribute: CompositeSourceAttribute
             get() = currentVertex.compositeAttribute
+
+        val existingFieldDefinition: Option<FieldDefinition>
+            get() =
+                currentSDLDefinitionsForSchematicPath
+                    .filterIsInstance<FieldDefinition>()
+                    .firstOrNone()
     }
 
     interface ParameterJunctionVertexSDLDefinitionCreationContext :
@@ -102,6 +163,25 @@ sealed interface SchematicVertexSDLDefinitionCreationContext<V : SchematicVertex
 
         val compositeParameterAttribute: CompositeParameterAttribute
             get() = currentVertex.compositeParameterAttribute
+
+        val existingArgumentDefinition: Option<InputValueDefinition>
+            get() =
+                currentSDLDefinitionsForSchematicPath
+                    .filterIsInstance<InputValueDefinition>()
+                    .firstOrNone()
+
+        val existingDirectionDefinition: Option<DirectiveDefinition>
+            get() =
+                currentSDLDefinitionsForSchematicPath
+                    .filterIsInstance<DirectiveDefinition>()
+                    .firstOrNone()
+
+        val existingInputObjectTypeDefinition: Option<InputObjectTypeDefinition>
+            get() {
+                return currentSDLDefinitionsForSchematicPath
+                    .filterIsInstance<InputObjectTypeDefinition>()
+                    .firstOrNone()
+            }
     }
 
     interface ParameterLeafVertexSDLDefinitionCreationContext :
@@ -109,5 +189,11 @@ sealed interface SchematicVertexSDLDefinitionCreationContext<V : SchematicVertex
 
         val compositeParameterAttribute: CompositeParameterAttribute
             get() = currentVertex.compositeParameterAttribute
+
+        val existingInputValueDefinition: Option<InputValueDefinition>
+            get() =
+                currentSDLDefinitionsForSchematicPath
+                    .filterIsInstance<InputValueDefinition>()
+                    .firstOrNone()
     }
 }

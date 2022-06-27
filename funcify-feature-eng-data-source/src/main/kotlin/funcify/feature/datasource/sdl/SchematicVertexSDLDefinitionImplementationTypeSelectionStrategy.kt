@@ -14,20 +14,6 @@ fun interface SchematicVertexSDLDefinitionImplementationTypeSelectionStrategy :
         const val HIGHEST_PRIORITY: Int = Int.MIN_VALUE
         const val DEFAULT_PRIORITY: Int = 0
         const val LOWEST_PRIORITY: Int = Int.MAX_VALUE
-
-        val DEFAULT_STRATEGY by lazy {
-            SchematicVertexSDLDefinitionImplementationTypeSelectionStrategy {
-                context: SchematicVertexSDLDefinitionCreationContext<*> ->
-                when (context) {
-
-                    is SchematicVertexSDLDefinitionCreationContext.ParameterJunctionVertexSDLDefinitionCreationContext -> TODO()
-                    is SchematicVertexSDLDefinitionCreationContext.ParameterLeafVertexSDLDefinitionCreationContext -> TODO()
-                    is SchematicVertexSDLDefinitionCreationContext.SourceJunctionVertexSDLDefinitionCreationContext -> TODO()
-                    is SchematicVertexSDLDefinitionCreationContext.SourceLeafVertexSDLDefinitionCreationContext -> TODO()
-                    is SchematicVertexSDLDefinitionCreationContext.SourceRootVertexSDLDefinitionCreationContext -> TODO()
-                }
-            }
-        }
     }
 
     /**
