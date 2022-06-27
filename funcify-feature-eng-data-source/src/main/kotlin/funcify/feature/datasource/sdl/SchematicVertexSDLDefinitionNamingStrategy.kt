@@ -27,7 +27,7 @@ fun interface SchematicVertexSDLDefinitionNamingStrategy :
 
     /**
      * If this strategy fails to determine a name for the vertex within the context (=> results in a
-     * Try.Failure), the strategy will be used
+     * Try.Failure), the next strategy will be used
      */
     fun determineNameForSDLDefinitionForSchematicVertexInContext(
         context: SchematicVertexSDLDefinitionCreationContext<*>

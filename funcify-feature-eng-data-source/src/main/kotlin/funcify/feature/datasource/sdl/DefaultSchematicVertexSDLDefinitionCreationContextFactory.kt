@@ -169,36 +169,6 @@ internal class DefaultSchematicVertexSDLDefinitionCreationContextFactory :
             }
         }
 
-        internal abstract class DefaultBaseSchematicSDLDefinitionCreationContext<
-            V : SchematicVertex>(
-            override val scalarTypeDefinitionsByName: PersistentMap<String, ScalarTypeDefinition> =
-                persistentMapOf(),
-            override val namedSDLDefinitionsByName: PersistentMap<String, NamedNode<*>> =
-                persistentMapOf(),
-            override val sdlDefinitionsBySchematicPath: PersistentMap<SchematicPath, Node<*>> =
-                persistentMapOf(),
-            override val sdlTypeDefinitionsByName: PersistentMap<String, Type<*>> =
-                persistentMapOf(),
-            override val metamodelGraph: MetamodelGraph,
-            override val currentVertex: V
-        ) : SchematicVertexSDLDefinitionCreationContext<V> {
-
-            override fun <SV : SchematicVertex> update(
-                updater: Builder<V>.() -> Builder<SV>
-            ): SchematicVertexSDLDefinitionCreationContext<SV> {
-                val builder: DefaultSchematicSDLDefinitionCreationContextBuilder<V> =
-                    DefaultSchematicSDLDefinitionCreationContextBuilder<V>(
-                        scalarTypeDefinitionsByName = scalarTypeDefinitionsByName,
-                        namedSDLDefinitionsByName = namedSDLDefinitionsByName,
-                        sdlDefinitionsBySchematicPath = sdlDefinitionsBySchematicPath,
-                        sdlTypeDefinitionsByName = sdlTypeDefinitionsByName,
-                        metamodelGraph = metamodelGraph,
-                        currentVertex = currentVertex
-                    )
-                return updater.invoke(builder).build()
-            }
-        }
-
         internal data class DefaultSourceRootVertexSDLDefinitionCreationContext(
             override val scalarTypeDefinitionsByName: PersistentMap<String, ScalarTypeDefinition> =
                 persistentMapOf(),
@@ -210,16 +180,23 @@ internal class DefaultSchematicVertexSDLDefinitionCreationContextFactory :
                 persistentMapOf(),
             override val metamodelGraph: MetamodelGraph,
             override val currentVertex: SourceRootVertex
-        ) :
-            DefaultBaseSchematicSDLDefinitionCreationContext<SourceRootVertex>(
-                scalarTypeDefinitionsByName = scalarTypeDefinitionsByName,
-                namedSDLDefinitionsByName = namedSDLDefinitionsByName,
-                sdlDefinitionsBySchematicPath = sdlDefinitionsBySchematicPath,
-                sdlTypeDefinitionsByName = sdlTypeDefinitionsByName,
-                metamodelGraph = metamodelGraph,
-                currentVertex = currentVertex
-            ),
-            SourceRootVertexSDLDefinitionCreationContext {}
+        ) : SourceRootVertexSDLDefinitionCreationContext {
+
+            override fun <SV : SchematicVertex> update(
+                updater: Builder<SourceRootVertex>.() -> Builder<SV>
+            ): SchematicVertexSDLDefinitionCreationContext<SV> {
+                val builder: DefaultSchematicSDLDefinitionCreationContextBuilder<SourceRootVertex> =
+                    DefaultSchematicSDLDefinitionCreationContextBuilder<SourceRootVertex>(
+                        scalarTypeDefinitionsByName = scalarTypeDefinitionsByName,
+                        namedSDLDefinitionsByName = namedSDLDefinitionsByName,
+                        sdlDefinitionsBySchematicPath = sdlDefinitionsBySchematicPath,
+                        sdlTypeDefinitionsByName = sdlTypeDefinitionsByName,
+                        metamodelGraph = metamodelGraph,
+                        currentVertex = currentVertex
+                    )
+                return updater.invoke(builder).build()
+            }
+        }
 
         internal data class DefaultSourceJunctionVertexSDLDefinitionCreationContext(
             override val scalarTypeDefinitionsByName: PersistentMap<String, ScalarTypeDefinition> =
@@ -232,16 +209,23 @@ internal class DefaultSchematicVertexSDLDefinitionCreationContextFactory :
                 persistentMapOf(),
             override val metamodelGraph: MetamodelGraph,
             override val currentVertex: SourceJunctionVertex
-        ) :
-            DefaultBaseSchematicSDLDefinitionCreationContext<SourceJunctionVertex>(
-                scalarTypeDefinitionsByName = scalarTypeDefinitionsByName,
-                namedSDLDefinitionsByName = namedSDLDefinitionsByName,
-                sdlDefinitionsBySchematicPath = sdlDefinitionsBySchematicPath,
-                sdlTypeDefinitionsByName = sdlTypeDefinitionsByName,
-                metamodelGraph = metamodelGraph,
-                currentVertex = currentVertex
-            ),
-            SourceJunctionVertexSDLDefinitionCreationContext {}
+        ) : SourceJunctionVertexSDLDefinitionCreationContext {
+            override fun <SV : SchematicVertex> update(
+                updater: Builder<SourceJunctionVertex>.() -> Builder<SV>
+            ): SchematicVertexSDLDefinitionCreationContext<SV> {
+                val builder:
+                    DefaultSchematicSDLDefinitionCreationContextBuilder<SourceJunctionVertex> =
+                    DefaultSchematicSDLDefinitionCreationContextBuilder<SourceJunctionVertex>(
+                        scalarTypeDefinitionsByName = scalarTypeDefinitionsByName,
+                        namedSDLDefinitionsByName = namedSDLDefinitionsByName,
+                        sdlDefinitionsBySchematicPath = sdlDefinitionsBySchematicPath,
+                        sdlTypeDefinitionsByName = sdlTypeDefinitionsByName,
+                        metamodelGraph = metamodelGraph,
+                        currentVertex = currentVertex
+                    )
+                return updater.invoke(builder).build()
+            }
+        }
 
         internal data class DefaultSourceLeafVertexSDLDefinitionCreationContext(
             override val scalarTypeDefinitionsByName: PersistentMap<String, ScalarTypeDefinition> =
@@ -254,16 +238,22 @@ internal class DefaultSchematicVertexSDLDefinitionCreationContextFactory :
                 persistentMapOf(),
             override val metamodelGraph: MetamodelGraph,
             override val currentVertex: SourceLeafVertex
-        ) :
-            DefaultBaseSchematicSDLDefinitionCreationContext<SourceLeafVertex>(
-                scalarTypeDefinitionsByName = scalarTypeDefinitionsByName,
-                namedSDLDefinitionsByName = namedSDLDefinitionsByName,
-                sdlDefinitionsBySchematicPath = sdlDefinitionsBySchematicPath,
-                sdlTypeDefinitionsByName = sdlTypeDefinitionsByName,
-                metamodelGraph = metamodelGraph,
-                currentVertex = currentVertex
-            ),
-            SourceLeafVertexSDLDefinitionCreationContext {}
+        ) : SourceLeafVertexSDLDefinitionCreationContext {
+            override fun <SV : SchematicVertex> update(
+                updater: Builder<SourceLeafVertex>.() -> Builder<SV>
+            ): SchematicVertexSDLDefinitionCreationContext<SV> {
+                val builder: DefaultSchematicSDLDefinitionCreationContextBuilder<SourceLeafVertex> =
+                    DefaultSchematicSDLDefinitionCreationContextBuilder<SourceLeafVertex>(
+                        scalarTypeDefinitionsByName = scalarTypeDefinitionsByName,
+                        namedSDLDefinitionsByName = namedSDLDefinitionsByName,
+                        sdlDefinitionsBySchematicPath = sdlDefinitionsBySchematicPath,
+                        sdlTypeDefinitionsByName = sdlTypeDefinitionsByName,
+                        metamodelGraph = metamodelGraph,
+                        currentVertex = currentVertex
+                    )
+                return updater.invoke(builder).build()
+            }
+        }
 
         internal data class DefaultParameterJunctionVertexSDLDefinitionCreationContext(
             override val scalarTypeDefinitionsByName: PersistentMap<String, ScalarTypeDefinition> =
@@ -276,16 +266,23 @@ internal class DefaultSchematicVertexSDLDefinitionCreationContextFactory :
                 persistentMapOf(),
             override val metamodelGraph: MetamodelGraph,
             override val currentVertex: ParameterJunctionVertex
-        ) :
-            DefaultBaseSchematicSDLDefinitionCreationContext<ParameterJunctionVertex>(
-                scalarTypeDefinitionsByName = scalarTypeDefinitionsByName,
-                namedSDLDefinitionsByName = namedSDLDefinitionsByName,
-                sdlDefinitionsBySchematicPath = sdlDefinitionsBySchematicPath,
-                sdlTypeDefinitionsByName = sdlTypeDefinitionsByName,
-                metamodelGraph = metamodelGraph,
-                currentVertex = currentVertex
-            ),
-            ParameterJunctionVertexSDLDefinitionCreationContext {}
+        ) : ParameterJunctionVertexSDLDefinitionCreationContext {
+            override fun <SV : SchematicVertex> update(
+                updater: Builder<ParameterJunctionVertex>.() -> Builder<SV>
+            ): SchematicVertexSDLDefinitionCreationContext<SV> {
+                val builder:
+                    DefaultSchematicSDLDefinitionCreationContextBuilder<ParameterJunctionVertex> =
+                    DefaultSchematicSDLDefinitionCreationContextBuilder<ParameterJunctionVertex>(
+                        scalarTypeDefinitionsByName = scalarTypeDefinitionsByName,
+                        namedSDLDefinitionsByName = namedSDLDefinitionsByName,
+                        sdlDefinitionsBySchematicPath = sdlDefinitionsBySchematicPath,
+                        sdlTypeDefinitionsByName = sdlTypeDefinitionsByName,
+                        metamodelGraph = metamodelGraph,
+                        currentVertex = currentVertex
+                    )
+                return updater.invoke(builder).build()
+            }
+        }
 
         internal data class DefaultParameterLeafVertexSDLDefinitionCreationContext(
             override val scalarTypeDefinitionsByName: PersistentMap<String, ScalarTypeDefinition> =
@@ -298,16 +295,24 @@ internal class DefaultSchematicVertexSDLDefinitionCreationContextFactory :
                 persistentMapOf(),
             override val metamodelGraph: MetamodelGraph,
             override val currentVertex: ParameterLeafVertex
-        ) :
-            DefaultBaseSchematicSDLDefinitionCreationContext<ParameterLeafVertex>(
-                scalarTypeDefinitionsByName = scalarTypeDefinitionsByName,
-                namedSDLDefinitionsByName = namedSDLDefinitionsByName,
-                sdlDefinitionsBySchematicPath = sdlDefinitionsBySchematicPath,
-                sdlTypeDefinitionsByName = sdlTypeDefinitionsByName,
-                metamodelGraph = metamodelGraph,
-                currentVertex = currentVertex
-            ),
-            ParameterLeafVertexSDLDefinitionCreationContext {}
+        ) : ParameterLeafVertexSDLDefinitionCreationContext {
+
+            override fun <SV : SchematicVertex> update(
+                updater: Builder<ParameterLeafVertex>.() -> Builder<SV>
+            ): SchematicVertexSDLDefinitionCreationContext<SV> {
+                val builder:
+                    DefaultSchematicSDLDefinitionCreationContextBuilder<ParameterLeafVertex> =
+                    DefaultSchematicSDLDefinitionCreationContextBuilder<ParameterLeafVertex>(
+                        scalarTypeDefinitionsByName = scalarTypeDefinitionsByName,
+                        namedSDLDefinitionsByName = namedSDLDefinitionsByName,
+                        sdlDefinitionsBySchematicPath = sdlDefinitionsBySchematicPath,
+                        sdlTypeDefinitionsByName = sdlTypeDefinitionsByName,
+                        metamodelGraph = metamodelGraph,
+                        currentVertex = currentVertex
+                    )
+                return updater.invoke(builder).build()
+            }
+        }
     }
 
     override fun createInitialContextForRootSchematicVertexSDLDefinition(

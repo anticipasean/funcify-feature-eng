@@ -27,8 +27,8 @@ fun interface SchematicVertexSDLDefinitionTypeStrategy :
     }
 
     /**
-     * If this strategy fails to determine a name for the vertex within the context (=> results in a
-     * Try.Failure), the strategy will be used
+     * If this strategy fails to determine a type for the vertex within the context (=> results in a
+     * Try.Failure), the next strategy will be applied
      */
     fun determineSDLTypeForSchematicVertexInContext(
         context: SchematicVertexSDLDefinitionCreationContext<*>
