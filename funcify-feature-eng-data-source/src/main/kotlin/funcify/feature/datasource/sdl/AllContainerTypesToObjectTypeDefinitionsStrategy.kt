@@ -19,7 +19,7 @@ import graphql.language.SourceLocation
  * @author smccarron
  * @created 2022-06-27
  */
-class AllContainerTypesObjectTypeDefinitionImplementationTypeSelectionStrategy :
+class AllContainerTypesToObjectTypeDefinitionsStrategy :
     SchematicVertexSDLDefinitionImplementationTypeSelectionStrategy {
 
     override fun determineSDLImplementationDefinitionForSchematicVertexInContext(

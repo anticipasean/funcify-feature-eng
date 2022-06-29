@@ -12,6 +12,7 @@ import funcify.feature.schema.index.CompositeSourceContainerType
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.schema.vertex.ParameterJunctionVertex
 import funcify.feature.schema.vertex.ParameterLeafVertex
+import funcify.feature.schema.vertex.SchematicGraphVertexType
 import funcify.feature.schema.vertex.SourceJunctionVertex
 import funcify.feature.schema.vertex.SourceLeafVertex
 import funcify.feature.schema.vertex.SourceRootVertex
@@ -63,6 +64,8 @@ sealed interface SchematicVertexSDLDefinitionCreationContext<V : SchematicVertex
     val currentSDLDefinitionsForSchematicPath: ImmutableSet<Node<*>>
         get() = sdlDefinitionsBySchematicPath[path] ?: persistentSetOf()
 
+    val currentGraphVertexType: SchematicGraphVertexType
+
     fun <SV : SchematicVertex> update(
         updater: Builder<V>.() -> Builder<SV>
     ): SchematicVertexSDLDefinitionCreationContext<SV>
@@ -98,6 +101,9 @@ sealed interface SchematicVertexSDLDefinitionCreationContext<V : SchematicVertex
     interface SourceRootVertexSDLDefinitionCreationContext :
         SchematicVertexSDLDefinitionCreationContext<SourceRootVertex> {
 
+        override val currentGraphVertexType: SchematicGraphVertexType
+            get() = SchematicGraphVertexType.SOURCE_ROOT_VERTEX
+
         val compositeSourceContainerType: CompositeSourceContainerType
             get() = currentVertex.compositeContainerType
 
@@ -116,6 +122,9 @@ sealed interface SchematicVertexSDLDefinitionCreationContext<V : SchematicVertex
 
     interface SourceJunctionVertexSDLDefinitionCreationContext :
         SchematicVertexSDLDefinitionCreationContext<SourceJunctionVertex> {
+
+        override val currentGraphVertexType: SchematicGraphVertexType
+            get() = SchematicGraphVertexType.SOURCE_JUNCTION_VERTEX
 
         val compositeSourceContainerType: CompositeSourceContainerType
             get() = currentVertex.compositeContainerType
@@ -145,6 +154,9 @@ sealed interface SchematicVertexSDLDefinitionCreationContext<V : SchematicVertex
     interface SourceLeafVertexSDLDefinitionCreationContext :
         SchematicVertexSDLDefinitionCreationContext<SourceLeafVertex> {
 
+        override val currentGraphVertexType: SchematicGraphVertexType
+            get() = SchematicGraphVertexType.SOURCE_LEAF_VERTEX
+
         val compositeSourceAttribute: CompositeSourceAttribute
             get() = currentVertex.compositeAttribute
 
@@ -157,6 +169,9 @@ sealed interface SchematicVertexSDLDefinitionCreationContext<V : SchematicVertex
 
     interface ParameterJunctionVertexSDLDefinitionCreationContext :
         SchematicVertexSDLDefinitionCreationContext<ParameterJunctionVertex> {
+
+        override val currentGraphVertexType: SchematicGraphVertexType
+            get() = SchematicGraphVertexType.PARAMETER_JUNCTION_VERTEX
 
         val compositeParameterContainerType: CompositeParameterContainerType
             get() = currentVertex.compositeParameterContainerType
@@ -186,6 +201,9 @@ sealed interface SchematicVertexSDLDefinitionCreationContext<V : SchematicVertex
 
     interface ParameterLeafVertexSDLDefinitionCreationContext :
         SchematicVertexSDLDefinitionCreationContext<ParameterLeafVertex> {
+
+        override val currentGraphVertexType: SchematicGraphVertexType
+            get() = SchematicGraphVertexType.PARAMETER_LEAF_VERTEX
 
         val compositeParameterAttribute: CompositeParameterAttribute
             get() = currentVertex.compositeParameterAttribute
