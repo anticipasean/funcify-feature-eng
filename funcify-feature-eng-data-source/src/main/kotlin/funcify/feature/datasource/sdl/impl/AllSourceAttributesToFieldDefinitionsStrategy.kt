@@ -14,7 +14,6 @@ import funcify.feature.naming.StandardNamingConventions
 import funcify.feature.schema.vertex.SchematicGraphVertexType
 import funcify.feature.tools.container.attempt.Try
 import graphql.language.FieldDefinition
-import graphql.language.Type
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentSetOf
 
@@ -34,48 +33,11 @@ class AllSourceAttributesToFieldDefinitionsStrategy(
     SchematicGraphVertexTypeBasedSDLDefinitionStrategy,
     SchematicVertexSDLDefinitionImplementationStrategy {
 
-    private val composedNamingStrategy: SchematicVertexSDLDefinitionNamingStrategy by lazy {
-        val emptyStrategiesFailure: Try<String> =
-            Try.failure<String>(
-                DataSourceException(
-                    DataSourceErrorResponse.STRATEGY_MISSING,
-                    "no naming strategy was provided"
-                )
-            )
-        SchematicVertexSDLDefinitionNamingStrategy { ctx ->
-            sdlDefinitionNamingStrategies.asSequence().sorted().fold(emptyStrategiesFailure) {
-                namingAttempt: Try<String>,
-                strategy: SchematicVertexSDLDefinitionNamingStrategy ->
-                if (namingAttempt.isSuccess()) {
-                    namingAttempt
-                } else {
-                    strategy.determineNameForSDLDefinitionForSchematicVertexInContext(ctx)
-                }
-            }
-        }
-    }
+    private val compositeSDLDefinitionNamingStrategy: CompositeSDLDefinitionNamingStrategy =
+        CompositeSDLDefinitionNamingStrategy(sdlDefinitionNamingStrategies)
 
-    // TODO: Move this composition logic out into separate "composite" type when API more stable
-    private val composedTypeSelectionStrategy: SchematicVertexSDLDefinitionTypeStrategy by lazy {
-        val emptyStrategiesFailure: Try<Type<*>> =
-            Try.failure<Type<*>>(
-                DataSourceException(
-                    DataSourceErrorResponse.STRATEGY_MISSING,
-                    "no type resolving strategy was provided"
-                )
-            )
-        SchematicVertexSDLDefinitionTypeStrategy { ctx ->
-            sdlDefinitionTypeStrategies.asSequence().sorted().fold(emptyStrategiesFailure) {
-                typeResolutionAttempt: Try<Type<*>>,
-                strategy: SchematicVertexSDLDefinitionTypeStrategy ->
-                if (typeResolutionAttempt.isSuccess()) {
-                    typeResolutionAttempt
-                } else {
-                    strategy.determineSDLTypeForSchematicVertexInContext(ctx)
-                }
-            }
-        }
-    }
+    private val compositeSDLDefinitionTypeStrategy: CompositeSDLDefinitionTypeStrategy =
+        CompositeSDLDefinitionTypeStrategy(sdlDefinitionTypeStrategies)
 
     override val applicableSchematicGraphVertexTypes:
         ImmutableSet<SchematicGraphVertexType> by lazy {
@@ -94,10 +56,10 @@ class AllSourceAttributesToFieldDefinitionsStrategy(
                 if (context.existingFieldDefinition.isDefined()) {
                     Try.success(context)
                 } else {
-                    composedNamingStrategy
+                    compositeSDLDefinitionNamingStrategy
                         .determineNameForSDLDefinitionForSchematicVertexInContext(context)
                         .zip(
-                            composedTypeSelectionStrategy
+                            compositeSDLDefinitionTypeStrategy
                                 .determineSDLTypeForSchematicVertexInContext(context)
                         )
                         .map { (name, sdlType) ->
@@ -128,10 +90,10 @@ class AllSourceAttributesToFieldDefinitionsStrategy(
                 if (context.existingFieldDefinition.isDefined()) {
                     Try.success(context)
                 } else {
-                    composedNamingStrategy
+                    compositeSDLDefinitionNamingStrategy
                         .determineNameForSDLDefinitionForSchematicVertexInContext(context)
                         .zip(
-                            composedTypeSelectionStrategy
+                            compositeSDLDefinitionTypeStrategy
                                 .determineSDLTypeForSchematicVertexInContext(context)
                         )
                         .map { (name, sdlType) ->
