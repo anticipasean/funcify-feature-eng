@@ -3,31 +3,48 @@ package funcify.feature.datasource.sdl
 import funcify.feature.datasource.error.DataSourceErrorResponse
 import funcify.feature.datasource.error.DataSourceException
 import funcify.feature.datasource.naming.SchemaDefinitionLanguageNamingConventions
-import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionCreationContext.ParameterJunctionVertexSDLDefinitionCreationContext
-import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionCreationContext.ParameterLeafVertexSDLDefinitionCreationContext
 import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionCreationContext.SourceJunctionVertexSDLDefinitionCreationContext
-import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionCreationContext.SourceLeafVertexSDLDefinitionCreationContext
 import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionCreationContext.SourceRootVertexSDLDefinitionCreationContext
+import funcify.feature.naming.StandardNamingConventions
+import funcify.feature.schema.vertex.SchematicGraphVertexType
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
 import graphql.language.Description
 import graphql.language.ObjectTypeDefinition
 import graphql.language.SourceLocation
+import kotlinx.collections.immutable.ImmutableSet
+import kotlinx.collections.immutable.persistentSetOf
 
 /**
- *
+ * Strategy: Create [ObjectTypeDefinition]s for all source index container types rather than more
+ * nuanced strategy leveraging:
+ * - [graphql.language.InterfaceTypeDefinition]s
+ * - [graphql.language.UnionTypeDefinition]s
+ * - [graphql.language.InterfaceTypeExtensionDefinition]s
+ * - [graphql.language.UnionTypeExtensionDefinition]s
+ * - [graphql.language.ObjectTypeExtensionDefinition]s
  * @author smccarron
  * @created 2022-06-27
  */
-class AllContainerTypesToObjectTypeDefinitionsStrategy :
+class AllSourceContainerTypesToObjectTypeDefinitionsStrategy :
+    SchematicGraphVertexTypeBasedSDLDefinitionStrategy,
     SchematicVertexSDLDefinitionImplementationTypeSelectionStrategy {
+
+    override val applicableSchematicGraphVertexTypes:
+        ImmutableSet<SchematicGraphVertexType> by lazy {
+        persistentSetOf(
+            SchematicGraphVertexType.SOURCE_ROOT_VERTEX,
+            SchematicGraphVertexType.SOURCE_JUNCTION_VERTEX
+        )
+    }
 
     override fun determineSDLImplementationDefinitionForSchematicVertexInContext(
         context: SchematicVertexSDLDefinitionCreationContext<*>
     ): Try<SchematicVertexSDLDefinitionCreationContext<*>> {
+        //TODO: Add logging statements once API stable
         return when (context) {
             is SourceRootVertexSDLDefinitionCreationContext -> {
-                if (context.currentSDLDefinitionsForSchematicPath.isNotEmpty()) {
+                if (context.existingObjectTypeDefinition.isDefined()) {
                     Try.success(context)
                 } else {
                     Try.attempt(
@@ -71,7 +88,7 @@ class AllContainerTypesToObjectTypeDefinitionsStrategy :
                 }
             }
             is SourceJunctionVertexSDLDefinitionCreationContext -> {
-                if (context.currentSDLDefinitionsForSchematicPath.isNotEmpty()) {
+                if (context.existingObjectTypeDefinition.isDefined()) {
                     Try.success(context)
                 } else {
                     Try.attempt(
@@ -114,14 +131,28 @@ class AllContainerTypesToObjectTypeDefinitionsStrategy :
                         }
                 }
             }
-            is SourceLeafVertexSDLDefinitionCreationContext -> {
-                TODO()
-            }
-            is ParameterJunctionVertexSDLDefinitionCreationContext -> {
-                TODO()
-            }
-            is ParameterLeafVertexSDLDefinitionCreationContext -> {
-                TODO()
+            else -> {
+                val clsNameInSnakeFormat =
+                    StandardNamingConventions.SNAKE_CASE.deriveName(
+                        AllSourceContainerTypesToObjectTypeDefinitionsStrategy::class.simpleName
+                            ?: ""
+                    )
+                val applicableTypesAsString =
+                    applicableSchematicGraphVertexTypes.joinToString(
+                        ", ",
+                        "{ ",
+                        " }",
+                        transform = SchematicGraphVertexType::toString
+                    )
+                Try.failure(
+                    DataSourceException(
+                        DataSourceErrorResponse.STRATEGY_INCORRECTLY_APPLIED,
+                        """$clsNameInSnakeFormat should not be applied to context 
+                            |[ expected: context for types $applicableTypesAsString, 
+                            |actual: context for ${context.currentGraphVertexType} ]
+                            |"""
+                    )
+                )
             }
         }
     }

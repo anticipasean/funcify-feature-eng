@@ -61,6 +61,12 @@ internal class DefaultSchematicVertexSDLDefinitionCreationContextFactory :
                 schematicPath: SchematicPath,
                 sdlDefinition: Node<*>,
             ): Builder<V> {
+                logger.debug(
+                    """add_sdl_definition_for_schematic_path: 
+                       |[ path: ${schematicPath}, 
+                       |sdl_definition.type: ${sdlDefinition::class.simpleName} 
+                       |]""".flattenIntoOneLine()
+                )
                 when (sdlDefinition) {
                     is ImplementingTypeDefinition<*> -> {
                         if (sdlDefinition.name !in sdlTypeDefinitionsByName) {
@@ -223,11 +229,11 @@ internal class DefaultSchematicVertexSDLDefinitionCreationContextFactory :
                                 .joinToString(", ", "{ ", " }")
                         val message =
                             """current/next_vertex not instance of 
-                                |graph vertex type: [ expected: 
-                                |one of ${expectedGraphVertexTypeNamesSet}, 
-                                |actual: ${currentVertex::class.qualifiedName} ]
-                                |""".flattenIntoOneLine()
-                        logger.error(message)
+                               |graph vertex type: [ expected: 
+                               |one of ${expectedGraphVertexTypeNamesSet}, 
+                               |actual: ${currentVertex::class.qualifiedName} ]
+                               |""".flattenIntoOneLine()
+                        logger.error("build: [ status: failed ] [ message: {} ]", message)
                         throw SchemaException(SchemaErrorResponse.INVALID_INPUT, message)
                     }
                 } as
@@ -405,10 +411,14 @@ internal class DefaultSchematicVertexSDLDefinitionCreationContextFactory :
                 )
             }
             else -> {
-                throw SchemaException(
-                    SchemaErrorResponse.SCHEMATIC_INTEGRITY_VIOLATION,
-                    "root_vertex missing in metamodel_graph"
+                val message = "root_vertex missing in metamodel_graph"
+                logger.error(
+                    """create_initial_context_for_root_schematic_vertex_sdl_definition: 
+                    |[ status: failed ] 
+                    |[ message: $message ]
+                    |""".flattenIntoOneLine()
                 )
+                throw SchemaException(SchemaErrorResponse.SCHEMATIC_INTEGRITY_VIOLATION, message)
             }
         }
     }
