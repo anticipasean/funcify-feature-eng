@@ -7,8 +7,8 @@ import funcify.feature.tools.container.attempt.Try
  * @author smccarron
  * @created 2022-06-25
  */
-fun interface SchematicVertexSDLDefinitionImplementationTypeSelectionStrategy :
-    Comparable<SchematicVertexSDLDefinitionImplementationTypeSelectionStrategy> {
+fun interface SchematicVertexSDLDefinitionImplementationStrategy :
+    Comparable<SchematicVertexSDLDefinitionImplementationStrategy> {
 
     companion object {
         const val HIGHEST_PRIORITY: Int = Int.MIN_VALUE
@@ -22,7 +22,7 @@ fun interface SchematicVertexSDLDefinitionImplementationTypeSelectionStrategy :
      * strategies will be applied in whatever order Spring populates the composite strategy
      */
     override fun compareTo(
-        other: SchematicVertexSDLDefinitionImplementationTypeSelectionStrategy
+        other: SchematicVertexSDLDefinitionImplementationStrategy
     ): Int {
         return DEFAULT_PRIORITY
     }

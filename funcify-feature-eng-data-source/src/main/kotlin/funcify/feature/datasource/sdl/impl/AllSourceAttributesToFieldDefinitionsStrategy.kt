@@ -7,7 +7,7 @@ import funcify.feature.datasource.sdl.SchematicGraphVertexTypeBasedSDLDefinition
 import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionCreationContext
 import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionCreationContext.SourceJunctionVertexSDLDefinitionCreationContext
 import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionCreationContext.SourceLeafVertexSDLDefinitionCreationContext
-import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionImplementationTypeSelectionStrategy
+import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionImplementationStrategy
 import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionNamingStrategy
 import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionTypeStrategy
 import funcify.feature.naming.StandardNamingConventions
@@ -32,7 +32,7 @@ class AllSourceAttributesToFieldDefinitionsStrategy(
     private val sdlDefinitionTypeStrategies: List<SchematicVertexSDLDefinitionTypeStrategy>
 ) :
     SchematicGraphVertexTypeBasedSDLDefinitionStrategy,
-    SchematicVertexSDLDefinitionImplementationTypeSelectionStrategy {
+    SchematicVertexSDLDefinitionImplementationStrategy {
 
     private val composedNamingStrategy: SchematicVertexSDLDefinitionNamingStrategy by lazy {
         val emptyStrategiesFailure: Try<String> =

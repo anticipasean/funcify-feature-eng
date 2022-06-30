@@ -7,7 +7,7 @@ import funcify.feature.datasource.sdl.SchematicGraphVertexTypeBasedSDLDefinition
 import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionCreationContext
 import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionCreationContext.SourceJunctionVertexSDLDefinitionCreationContext
 import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionCreationContext.SourceRootVertexSDLDefinitionCreationContext
-import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionImplementationTypeSelectionStrategy
+import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionImplementationStrategy
 import funcify.feature.naming.StandardNamingConventions
 import funcify.feature.schema.vertex.SchematicGraphVertexType
 import funcify.feature.tools.container.attempt.Try
@@ -31,7 +31,7 @@ import kotlinx.collections.immutable.persistentSetOf
  */
 class AllSourceContainerTypesToObjectTypeDefinitionsStrategy :
     SchematicGraphVertexTypeBasedSDLDefinitionStrategy,
-    SchematicVertexSDLDefinitionImplementationTypeSelectionStrategy {
+    SchematicVertexSDLDefinitionImplementationStrategy {
 
     override val applicableSchematicGraphVertexTypes:
         ImmutableSet<SchematicGraphVertexType> by lazy {
