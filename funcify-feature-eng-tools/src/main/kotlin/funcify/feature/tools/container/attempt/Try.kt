@@ -616,6 +616,10 @@ sealed interface Try<out S> : Iterable<S> {
         )
     }
 
+    fun <A> zip(otherAttempt: Try<A>): Try<Pair<S, A>> {
+        return zip(otherAttempt) { s, a -> s to a }
+    }
+
     fun <A, B, R> zip2(
         otherAttempt1: Try<A>,
         otherAttempt2: Try<B>,
@@ -641,6 +645,10 @@ sealed interface Try<out S> : Iterable<S> {
             },
             { throwable: Throwable -> failure(throwable) }
         )
+    }
+
+    fun <A, B> zip2(otherAttempt1: Try<A>, otherAttempt2: Try<B>): Try<Triple<S, A, B>> {
+        return zip2(otherAttempt1, otherAttempt2) { s, a, b -> Triple(s, a, b) }
     }
 
     fun <A, B, C, R> zip3(
