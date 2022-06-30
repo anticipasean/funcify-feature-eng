@@ -1,10 +1,13 @@
-package funcify.feature.datasource.sdl
+package funcify.feature.datasource.sdl.impl
 
 import funcify.feature.datasource.error.DataSourceErrorResponse
 import funcify.feature.datasource.error.DataSourceException
 import funcify.feature.datasource.naming.SchemaDefinitionLanguageNamingConventions
+import funcify.feature.datasource.sdl.SchematicGraphVertexTypeBasedSDLDefinitionStrategy
+import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionCreationContext
 import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionCreationContext.SourceJunctionVertexSDLDefinitionCreationContext
 import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionCreationContext.SourceRootVertexSDLDefinitionCreationContext
+import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionImplementationTypeSelectionStrategy
 import funcify.feature.naming.StandardNamingConventions
 import funcify.feature.schema.vertex.SchematicGraphVertexType
 import funcify.feature.tools.container.attempt.Try
@@ -41,7 +44,7 @@ class AllSourceContainerTypesToObjectTypeDefinitionsStrategy :
     override fun determineSDLImplementationDefinitionForSchematicVertexInContext(
         context: SchematicVertexSDLDefinitionCreationContext<*>
     ): Try<SchematicVertexSDLDefinitionCreationContext<*>> {
-        //TODO: Add logging statements once API stable
+        // TODO: Add logging statements once API stable
         return when (context) {
             is SourceRootVertexSDLDefinitionCreationContext -> {
                 if (context.existingObjectTypeDefinition.isDefined()) {
@@ -71,13 +74,15 @@ class AllSourceContainerTypesToObjectTypeDefinitionsStrategy :
                                         .deriveName(entry.value)
                                         .toString()
                                 )
-                                .description(
-                                    Description(
-                                        "data_source: [ name: ${entry.key.name} ] [ container_type_name: ${entry.value.name} ]",
-                                        SourceLocation.EMPTY,
-                                        false
-                                    )
-                                )
+                                //                                .description(
+                                //                                    Description(
+                                //                                        "data_source: [ name:
+                                // ${entry.key.name} ] [ container_type_name: ${entry.value.name}
+                                // ]",
+                                //                                        SourceLocation.EMPTY,
+                                //                                        false
+                                //                                    )
+                                //                                )
                                 .build()
                         }
                         .map { objTypeDef ->
@@ -97,7 +102,7 @@ class AllSourceContainerTypesToObjectTypeDefinitionsStrategy :
                                 .getSourceContainerTypeByDataSource()
                                 .asSequence()::first
                         )
-                        .mapFailure { t ->
+                        .mapFailure { _ ->
                             DataSourceException(
                                 DataSourceErrorResponse.DATASOURCE_SCHEMA_INTEGRITY_VIOLATION,
                                 """composite_source_container_type must have at 

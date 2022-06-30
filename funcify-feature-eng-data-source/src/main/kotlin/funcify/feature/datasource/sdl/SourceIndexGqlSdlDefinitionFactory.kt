@@ -1,5 +1,6 @@
 package funcify.feature.datasource.sdl
 
+import funcify.feature.datasource.sdl.impl.DefaultSourceIndexGqlSdlDefinitionFactory
 import funcify.feature.schema.datasource.DataSourceType
 import funcify.feature.schema.datasource.SourceAttribute
 import funcify.feature.schema.datasource.SourceContainerType

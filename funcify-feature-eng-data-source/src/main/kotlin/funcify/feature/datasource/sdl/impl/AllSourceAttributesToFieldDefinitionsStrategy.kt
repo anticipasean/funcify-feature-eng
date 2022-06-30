@@ -1,17 +1,19 @@
-package funcify.feature.datasource.sdl
+package funcify.feature.datasource.sdl.impl
 
 import funcify.feature.datasource.error.DataSourceErrorResponse
 import funcify.feature.datasource.error.DataSourceException
 import funcify.feature.datasource.naming.SchemaDefinitionLanguageNamingConventions
+import funcify.feature.datasource.sdl.SchematicGraphVertexTypeBasedSDLDefinitionStrategy
+import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionCreationContext
 import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionCreationContext.SourceJunctionVertexSDLDefinitionCreationContext
 import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionCreationContext.SourceLeafVertexSDLDefinitionCreationContext
+import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionImplementationTypeSelectionStrategy
+import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionNamingStrategy
+import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionTypeStrategy
 import funcify.feature.naming.StandardNamingConventions
 import funcify.feature.schema.vertex.SchematicGraphVertexType
 import funcify.feature.tools.container.attempt.Try
-import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
-import graphql.language.Description
 import graphql.language.FieldDefinition
-import graphql.language.SourceLocation
 import graphql.language.Type
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentSetOf
@@ -26,10 +28,32 @@ import kotlinx.collections.immutable.persistentSetOf
  * @created 2022-06-29
  */
 class AllSourceAttributesToFieldDefinitionsStrategy(
+    private val sdlDefinitionNamingStrategies: List<SchematicVertexSDLDefinitionNamingStrategy>,
     private val sdlDefinitionTypeStrategies: List<SchematicVertexSDLDefinitionTypeStrategy>
 ) :
     SchematicGraphVertexTypeBasedSDLDefinitionStrategy,
     SchematicVertexSDLDefinitionImplementationTypeSelectionStrategy {
+
+    private val composedNamingStrategy: SchematicVertexSDLDefinitionNamingStrategy by lazy {
+        val emptyStrategiesFailure: Try<String> =
+            Try.failure<String>(
+                DataSourceException(
+                    DataSourceErrorResponse.STRATEGY_MISSING,
+                    "no naming strategy was provided"
+                )
+            )
+        SchematicVertexSDLDefinitionNamingStrategy { ctx ->
+            sdlDefinitionNamingStrategies.asSequence().sorted().fold(emptyStrategiesFailure) {
+                namingAttempt: Try<String>,
+                strategy: SchematicVertexSDLDefinitionNamingStrategy ->
+                if (namingAttempt.isSuccess()) {
+                    namingAttempt
+                } else {
+                    strategy.determineNameForSDLDefinitionForSchematicVertexInContext(ctx)
+                }
+            }
+        }
+    }
 
     // TODO: Move this composition logic out into separate "composite" type when API more stable
     private val composedTypeSelectionStrategy: SchematicVertexSDLDefinitionTypeStrategy by lazy {
@@ -70,43 +94,26 @@ class AllSourceAttributesToFieldDefinitionsStrategy(
                 if (context.existingFieldDefinition.isDefined()) {
                     Try.success(context)
                 } else {
-                    Try.attempt(
-                            context
-                                .compositeSourceAttribute
-                                .getSourceAttributeByDataSource()
-                                .asSequence()::first
-                        )
-                        .mapFailure { t ->
-                            DataSourceException(
-                                DataSourceErrorResponse.DATASOURCE_SCHEMA_INTEGRITY_VIOLATION,
-                                """composite_source_attribute must have at 
-                                   |least one datasource defined: [ name: 
-                                   |${context.compositeSourceAttribute.conventionalName} 
-                                   |]
-                                   |""".flattenIntoOneLine()
-                            )
-                        }
+                    composedNamingStrategy
+                        .determineNameForSDLDefinitionForSchematicVertexInContext(context)
                         .zip(
                             composedTypeSelectionStrategy
                                 .determineSDLTypeForSchematicVertexInContext(context)
-                        ) { entry, sdlType -> Triple(entry.key, entry.value, sdlType) }
-                        .map { (dsKey, sourceAttr, sdlType) ->
+                        )
+                        .map { (name, sdlType) ->
                             FieldDefinition.newFieldDefinition()
-                                .name(
-                                    SchemaDefinitionLanguageNamingConventions
-                                        .FIELD_NAMING_CONVENTION
-                                        .deriveName(sourceAttr)
-                                        .toString()
-                                )
-                                .description(
-                                    Description(
-                                        """data_source: [ name: ${dsKey.name} ] 
-                                        |[ container_attribute_name: ${sourceAttr.name} ]
-                                        |""".flattenIntoOneLine(),
-                                        SourceLocation.EMPTY,
-                                        false
-                                    )
-                                )
+                                .name(name)
+                                //                                .description(
+                                //                                    Description(
+                                //                                        """data_source: [ name:
+                                // ${dsKey.name} ]
+                                //                                        |[
+                                // container_attribute_name: ${sourceAttr.name} ]
+                                //                                        |""".flattenIntoOneLine(),
+                                //                                        SourceLocation.EMPTY,
+                                //                                        false
+                                //                                    )
+                                //                                )
                                 .type(sdlType)
                                 .build()
                         }
@@ -121,43 +128,26 @@ class AllSourceAttributesToFieldDefinitionsStrategy(
                 if (context.existingFieldDefinition.isDefined()) {
                     Try.success(context)
                 } else {
-                    Try.attempt(
-                            context
-                                .compositeSourceAttribute
-                                .getSourceAttributeByDataSource()
-                                .asSequence()::first
-                        )
-                        .mapFailure { t ->
-                            DataSourceException(
-                                DataSourceErrorResponse.DATASOURCE_SCHEMA_INTEGRITY_VIOLATION,
-                                """composite_source_attribute must have at 
-                                   |least one datasource defined: [ name: 
-                                   |${context.compositeSourceAttribute.conventionalName} 
-                                   |]
-                                   |""".flattenIntoOneLine()
-                            )
-                        }
+                    composedNamingStrategy
+                        .determineNameForSDLDefinitionForSchematicVertexInContext(context)
                         .zip(
                             composedTypeSelectionStrategy
                                 .determineSDLTypeForSchematicVertexInContext(context)
-                        ) { entry, sdlType -> Triple(entry.key, entry.value, sdlType) }
-                        .map { (dsKey, sourceAttr, sdlType) ->
+                        )
+                        .map { (name, sdlType) ->
                             FieldDefinition.newFieldDefinition()
-                                .name(
-                                    SchemaDefinitionLanguageNamingConventions
-                                        .FIELD_NAMING_CONVENTION
-                                        .deriveName(sourceAttr)
-                                        .toString()
-                                )
-                                .description(
-                                    Description(
-                                        """data_source: [ name: ${dsKey.name} ] 
-                                        |[ container_attribute_name: ${sourceAttr.name} ]
-                                        |""".flattenIntoOneLine(),
-                                        SourceLocation.EMPTY,
-                                        false
-                                    )
-                                )
+                                .name(name)
+                                //                                .description(
+                                //                                    Description(
+                                //                                        """data_source: [ name:
+                                // ${dsKey.name} ]
+                                //                                        |[
+                                // container_attribute_name: ${sourceAttr.name} ]
+                                //                                        |""".flattenIntoOneLine(),
+                                //                                        SourceLocation.EMPTY,
+                                //                                        false
+                                //                                    )
+                                //                                )
                                 .type(sdlType)
                                 .build()
                         }

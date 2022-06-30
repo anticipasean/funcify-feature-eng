@@ -1,5 +1,8 @@
-package funcify.feature.datasource.sdl
+package funcify.feature.datasource.sdl.impl
 
+import funcify.feature.datasource.sdl.SourceAttributeGqlSdlFieldDefinitionMapper
+import funcify.feature.datasource.sdl.SourceContainerTypeGqlSdlObjectTypeDefinitionMapper
+import funcify.feature.datasource.sdl.SourceIndexGqlSdlDefinitionFactory
 import funcify.feature.schema.datasource.DataSourceType
 import funcify.feature.schema.datasource.SourceAttribute
 import funcify.feature.schema.datasource.SourceContainerType
@@ -69,8 +72,7 @@ internal class DefaultSourceIndexGqlSdlDefinitionFactory<
             SI : SourceIndex<SI>, SC : SourceContainerType<SI, SA>, SA : SourceAttribute<SI>>(
             private val sourceIndexType: KClass<SI>,
             private val dataSourceType: DataSourceType,
-            private val sourceContainerTypeMapper:
-                SourceContainerTypeGqlSdlObjectTypeDefinitionMapper<SC>
+            private val sourceContainerTypeMapper: SourceContainerTypeGqlSdlObjectTypeDefinitionMapper<SC>
         ) : SourceIndexGqlSdlDefinitionFactory.SourceAttributeMapperStep<SI, SC, SA> {
 
             override fun sourceAttributeMapper(
@@ -89,8 +91,7 @@ internal class DefaultSourceIndexGqlSdlDefinitionFactory<
             SI : SourceIndex<SI>, SC : SourceContainerType<SI, SA>, SA : SourceAttribute<SI>>(
             private val sourceIndexType: KClass<SI>,
             private val dataSourceType: DataSourceType,
-            private val sourceContainerTypeMapper:
-                SourceContainerTypeGqlSdlObjectTypeDefinitionMapper<SC>,
+            private val sourceContainerTypeMapper: SourceContainerTypeGqlSdlObjectTypeDefinitionMapper<SC>,
             private val sourceAttributeMapper: SourceAttributeGqlSdlFieldDefinitionMapper<SA>
         ) : SourceIndexGqlSdlDefinitionFactory.BuildStep<SI> {
 
@@ -108,7 +109,7 @@ internal class DefaultSourceIndexGqlSdlDefinitionFactory<
     override fun createGraphQLSDLNodeForSourceIndex(sourceIndex: SI): Try<Node<*>> {
         logger.debug(
             "create_graphql_sdl_node_for_source_index: [ source_index.name: ${sourceIndex.name} ]"
-        )
+                    )
         if (sourceIndex.dataSourceLookupKey.dataSourceType != dataSourceType) {
             return Try.failure<Node<*>>(
                     IllegalArgumentException(
@@ -157,6 +158,6 @@ internal class DefaultSourceIndexGqlSdlDefinitionFactory<
                |[ type: ${t::class.simpleName}, message: ${t.message} ]
                |""".flattenIntoOneLine(),
             t
-        )
+                    )
     }
 }
