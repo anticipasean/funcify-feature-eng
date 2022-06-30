@@ -17,7 +17,11 @@ import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentSetOf
 
 /**
- *
+ * Strategy: Create "simple" field definition i.e. no directives, arguments, etc. for all vertices
+ * with [funcify.feature.schema.index.CompositeSourceAttribute] with:
+ * - name based on datasource.key on first available source attribute and following
+ * [SchemaDefinitionLanguageNamingConventions]
+ * - type based on available [SchematicVertexSDLDefinitionTypeStrategy] (-ies)
  * @author smccarron
  * @created 2022-06-29
  */
@@ -32,7 +36,7 @@ class AllSourceAttributesToFieldDefinitionsStrategy(
         val emptyStrategiesFailure: Try<Type<*>> =
             Try.failure<Type<*>>(
                 DataSourceException(
-                    DataSourceErrorResponse.STRATEGY_INCORRECTLY_APPLIED,
+                    DataSourceErrorResponse.STRATEGY_MISSING,
                     "no type resolving strategy was provided"
                 )
             )
