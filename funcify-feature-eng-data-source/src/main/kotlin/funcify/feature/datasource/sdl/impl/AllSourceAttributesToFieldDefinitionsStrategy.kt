@@ -2,7 +2,7 @@ package funcify.feature.datasource.sdl.impl
 
 import funcify.feature.datasource.error.DataSourceErrorResponse
 import funcify.feature.datasource.error.DataSourceException
-import funcify.feature.datasource.naming.SchemaDefinitionLanguageNamingConventions
+import funcify.feature.datasource.naming.DataSourceSDLDefinitionNamingConventions
 import funcify.feature.datasource.sdl.SchematicGraphVertexTypeBasedSDLDefinitionStrategy
 import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionCreationContext
 import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionCreationContext.SourceJunctionVertexSDLDefinitionCreationContext
@@ -24,7 +24,7 @@ import org.slf4j.Logger
  * Strategy: Create "simple" field definition i.e. no directives, arguments, etc. for all vertices
  * with [funcify.feature.schema.index.CompositeSourceAttribute] with:
  * - name based on datasource.key on first available source attribute and following
- * [SchemaDefinitionLanguageNamingConventions]
+ * [DataSourceSDLDefinitionNamingConventions]
  * - type based on available [SchematicVertexSDLDefinitionTypeStrategy] (-ies)
  * @author smccarron
  * @created 2022-06-29

@@ -37,7 +37,8 @@ import org.slf4j.Logger
  * @author smccarron
  * @created 2022-06-24
  */
-internal class DefaultSchematicVertexSDLDefinitionCreationContextFactory : SchematicVertexSDLDefinitionCreationContextFactory {
+internal class DefaultSchematicVertexSDLDefinitionCreationContextFactory :
+    SchematicVertexSDLDefinitionCreationContextFactory {
 
     companion object {
 
@@ -67,7 +68,7 @@ internal class DefaultSchematicVertexSDLDefinitionCreationContextFactory : Schem
                        |[ path: ${schematicPath}, 
                        |sdl_definition.type: ${sdlDefinition::class.simpleName} 
                        |]""".flattenIntoOneLine()
-                            )
+                )
                 when (sdlDefinition) {
                     is ImplementingTypeDefinition<*> -> {
                         if (sdlDefinition.name !in sdlTypeDefinitionsByName) {
@@ -237,7 +238,8 @@ internal class DefaultSchematicVertexSDLDefinitionCreationContextFactory : Schem
                         logger.error("build: [ status: failed ] [ message: {} ]", message)
                         throw SchemaException(SchemaErrorResponse.INVALID_INPUT, message)
                     }
-                } as SchematicVertexSDLDefinitionCreationContext<V>
+                } as
+                    SchematicVertexSDLDefinitionCreationContext<V>
             }
         }
 
@@ -287,7 +289,8 @@ internal class DefaultSchematicVertexSDLDefinitionCreationContextFactory : Schem
             override fun <SV : SchematicVertex> update(
                 updater: Builder<SourceJunctionVertex>.() -> Builder<SV>
             ): SchematicVertexSDLDefinitionCreationContext<SV> {
-                val builder: DefaultSchematicSDLDefinitionCreationContextBuilder<SourceJunctionVertex> =
+                val builder:
+                    DefaultSchematicSDLDefinitionCreationContextBuilder<SourceJunctionVertex> =
                     DefaultSchematicSDLDefinitionCreationContextBuilder<SourceJunctionVertex>(
                         scalarTypeDefinitionsByName = scalarTypeDefinitionsByName,
                         namedSDLDefinitionsByName = namedSDLDefinitionsByName,
@@ -345,7 +348,8 @@ internal class DefaultSchematicVertexSDLDefinitionCreationContextFactory : Schem
             override fun <SV : SchematicVertex> update(
                 updater: Builder<ParameterJunctionVertex>.() -> Builder<SV>
             ): SchematicVertexSDLDefinitionCreationContext<SV> {
-                val builder: DefaultSchematicSDLDefinitionCreationContextBuilder<ParameterJunctionVertex> =
+                val builder:
+                    DefaultSchematicSDLDefinitionCreationContextBuilder<ParameterJunctionVertex> =
                     DefaultSchematicSDLDefinitionCreationContextBuilder<ParameterJunctionVertex>(
                         scalarTypeDefinitionsByName = scalarTypeDefinitionsByName,
                         namedSDLDefinitionsByName = namedSDLDefinitionsByName,
@@ -375,7 +379,8 @@ internal class DefaultSchematicVertexSDLDefinitionCreationContextFactory : Schem
             override fun <SV : SchematicVertex> update(
                 updater: Builder<ParameterLeafVertex>.() -> Builder<SV>
             ): SchematicVertexSDLDefinitionCreationContext<SV> {
-                val builder: DefaultSchematicSDLDefinitionCreationContextBuilder<ParameterLeafVertex> =
+                val builder:
+                    DefaultSchematicSDLDefinitionCreationContextBuilder<ParameterLeafVertex> =
                     DefaultSchematicSDLDefinitionCreationContextBuilder<ParameterLeafVertex>(
                         scalarTypeDefinitionsByName = scalarTypeDefinitionsByName,
                         namedSDLDefinitionsByName = namedSDLDefinitionsByName,
@@ -397,7 +402,7 @@ internal class DefaultSchematicVertexSDLDefinitionCreationContextFactory : Schem
                |[ metamodel_graph.vertices_by_path.size: 
                |${metamodelGraph.verticesByPath.size} ]
                |""".flattenIntoOneLine()
-                    )
+        )
         return when (val rootVertex: SchematicVertex? =
                 metamodelGraph.verticesByPath[SchematicPath.getRootPath()]
         ) {
@@ -414,7 +419,7 @@ internal class DefaultSchematicVertexSDLDefinitionCreationContextFactory : Schem
                     |[ status: failed ] 
                     |[ message: $message ]
                     |""".flattenIntoOneLine()
-                            )
+                )
                 throw SchemaException(SchemaErrorResponse.SCHEMATIC_INTEGRITY_VIOLATION, message)
             }
         }

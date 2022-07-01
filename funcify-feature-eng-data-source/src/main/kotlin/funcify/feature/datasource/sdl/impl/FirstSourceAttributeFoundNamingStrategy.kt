@@ -2,7 +2,7 @@ package funcify.feature.datasource.sdl.impl
 
 import funcify.feature.datasource.error.DataSourceErrorResponse
 import funcify.feature.datasource.error.DataSourceException
-import funcify.feature.datasource.naming.SchemaDefinitionLanguageNamingConventions
+import funcify.feature.datasource.naming.DataSourceSDLDefinitionNamingConventions
 import funcify.feature.datasource.sdl.SchematicGraphVertexTypeBasedSDLDefinitionStrategy
 import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionCreationContext
 import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionCreationContext.SourceJunctionVertexSDLDefinitionCreationContext
@@ -42,7 +42,7 @@ class FirstSourceAttributeFoundNamingStrategy :
                             .getSourceAttributeByDataSource()
                             .asSequence()::first
                     )
-                    .mapFailure { t ->
+                    .mapFailure { _ ->
                         DataSourceException(
                             DataSourceErrorResponse.DATASOURCE_SCHEMA_INTEGRITY_VIOLATION,
                             """composite_source_attribute must have at 
@@ -53,7 +53,7 @@ class FirstSourceAttributeFoundNamingStrategy :
                         )
                     }
                     .map { (_, sourceAttr) ->
-                        SchemaDefinitionLanguageNamingConventions.FIELD_NAMING_CONVENTION
+                        DataSourceSDLDefinitionNamingConventions.FIELD_NAMING_CONVENTION
                             .deriveName(sourceAttr)
                             .toString()
                     }
@@ -65,7 +65,7 @@ class FirstSourceAttributeFoundNamingStrategy :
                             .getSourceAttributeByDataSource()
                             .asSequence()::first
                     )
-                    .mapFailure { t ->
+                    .mapFailure { _ ->
                         DataSourceException(
                             DataSourceErrorResponse.DATASOURCE_SCHEMA_INTEGRITY_VIOLATION,
                             """composite_source_attribute must have at 
@@ -76,7 +76,7 @@ class FirstSourceAttributeFoundNamingStrategy :
                         )
                     }
                     .map { (_, sourceAttr) ->
-                        SchemaDefinitionLanguageNamingConventions.FIELD_NAMING_CONVENTION
+                        DataSourceSDLDefinitionNamingConventions.FIELD_NAMING_CONVENTION
                             .deriveName(sourceAttr)
                             .toString()
                     }

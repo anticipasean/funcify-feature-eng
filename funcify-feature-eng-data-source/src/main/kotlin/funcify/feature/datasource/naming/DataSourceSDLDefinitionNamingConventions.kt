@@ -5,7 +5,7 @@ import funcify.feature.naming.NamingConventionFactory
 import funcify.feature.schema.datasource.SourceAttribute
 import funcify.feature.schema.datasource.SourceContainerType
 
-internal object SchemaDefinitionLanguageNamingConventions {
+internal object DataSourceSDLDefinitionNamingConventions {
 
     enum class ConventionType {
         OBJECT_TYPE_NAMING_CONVENTION,
@@ -27,7 +27,7 @@ internal object SchemaDefinitionLanguageNamingConventions {
             }
             .joinSegmentsWithoutDelimiter()
             .namedAndIdentifiedBy(
-                SchemaDefinitionLanguageNamingConventions::class.simpleName!!,
+                DataSourceSDLDefinitionNamingConventions::class.simpleName!!,
                 ConventionType.OBJECT_TYPE_NAMING_CONVENTION
             )
     }
@@ -47,7 +47,7 @@ internal object SchemaDefinitionLanguageNamingConventions {
             }
             .joinSegmentsWithoutDelimiter()
             .namedAndIdentifiedBy(
-                SchemaDefinitionLanguageNamingConventions::class.simpleName!!,
+                DataSourceSDLDefinitionNamingConventions::class.simpleName!!,
                 ConventionType.FIELD_NAMING_CONVENTION
             )
     }
