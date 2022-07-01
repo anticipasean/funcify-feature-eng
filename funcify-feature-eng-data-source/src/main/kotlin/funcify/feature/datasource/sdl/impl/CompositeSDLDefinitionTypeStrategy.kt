@@ -12,8 +12,8 @@ import graphql.language.Type
 import kotlinx.collections.immutable.toPersistentSet
 
 /**
- * Strategy: Take other naming strategies as input, sort them based on priority, apply each until
- * one naming attempt is successful, and return that Success<String> instance
+ * Strategy: Take other type strategies as input, sort them based on priority, apply each until one
+ * type resolution attempt is successful, and return that Success<Type<*>> instance
  * @author smccarron
  * @created 2022-06-30
  */
@@ -30,7 +30,7 @@ class CompositeSDLDefinitionTypeStrategy(
                 typeResolutionAttempt: Try<Type<*>>,
                 strategy: SchematicVertexSDLDefinitionTypeStrategy ->
                 /*
-                 * earlier naming attempt was successful, so keep that name
+                 * earlier type resolution attempt was successful, so keep that name
                  */
                 if (typeResolutionAttempt.isSuccess()) {
                     typeResolutionAttempt
@@ -86,7 +86,7 @@ class CompositeSDLDefinitionTypeStrategy(
                             strat.applicableSchematicGraphVertexTypes.asIterable()
                         } else {
                             /*
-                             * if strategy is not type-based, assume all vertex types are supported
+                             * if strategy is not type-based, assume all graph vertex types are supported
                              */
                             SchematicGraphVertexType.values().asIterable()
                         }

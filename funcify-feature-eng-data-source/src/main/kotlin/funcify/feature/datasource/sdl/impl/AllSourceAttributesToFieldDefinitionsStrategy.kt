@@ -13,9 +13,12 @@ import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionTypeStrategy
 import funcify.feature.naming.StandardNamingConventions
 import funcify.feature.schema.vertex.SchematicGraphVertexType
 import funcify.feature.tools.container.attempt.Try
+import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
+import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
 import graphql.language.FieldDefinition
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentSetOf
+import org.slf4j.Logger
 
 /**
  * Strategy: Create "simple" field definition i.e. no directives, arguments, etc. for all vertices
@@ -32,6 +35,10 @@ class AllSourceAttributesToFieldDefinitionsStrategy(
 ) :
     SchematicGraphVertexTypeBasedSDLDefinitionStrategy,
     SchematicVertexSDLDefinitionImplementationStrategy {
+
+    companion object {
+        private val logger: Logger = loggerFor<AllSourceAttributesToFieldDefinitionsStrategy>()
+    }
 
     private val compositeSDLDefinitionNamingStrategy: CompositeSDLDefinitionNamingStrategy =
         CompositeSDLDefinitionNamingStrategy(sdlDefinitionNamingStrategies)
@@ -50,7 +57,12 @@ class AllSourceAttributesToFieldDefinitionsStrategy(
     override fun determineSDLImplementationDefinitionForSchematicVertexInContext(
         context: SchematicVertexSDLDefinitionCreationContext<*>
     ): Try<SchematicVertexSDLDefinitionCreationContext<*>> {
-        // TODO: Add logging statements once API stable
+        logger.debug(
+            """determine_sdl_implementation_definition_for_
+               |schematic_vertex_in_context: [ 
+               |current_vertex.path: ${context.currentVertex.path} 
+               |]""".flattenIntoOneLine()
+        )
         return when (context) {
             is SourceJunctionVertexSDLDefinitionCreationContext -> {
                 if (context.existingFieldDefinition.isDefined()) {
