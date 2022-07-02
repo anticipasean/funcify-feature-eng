@@ -27,6 +27,7 @@ interface DataSourceBasedSDLDefinitionStrategy<T : Any> : SchematicVertexSDLDefi
     }
 
     val expectedDataSourceAttributeValues: ImmutableSet<DataSourceAttribute<*>>
+
     override fun canBeAppliedToContext(
         context: SchematicVertexSDLDefinitionCreationContext<*>
     ): Boolean {
