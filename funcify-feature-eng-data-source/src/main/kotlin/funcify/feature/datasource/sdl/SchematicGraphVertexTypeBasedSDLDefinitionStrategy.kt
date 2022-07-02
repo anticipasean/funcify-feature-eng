@@ -1,6 +1,5 @@
 package funcify.feature.datasource.sdl
 
-import funcify.feature.schema.SchematicVertex
 import funcify.feature.schema.vertex.SchematicGraphVertexType
 import kotlinx.collections.immutable.ImmutableSet
 
@@ -9,12 +8,17 @@ import kotlinx.collections.immutable.ImmutableSet
  * @author smccarron
  * @created 2022-06-29
  */
-interface SchematicGraphVertexTypeBasedSDLDefinitionStrategy {
+interface SchematicGraphVertexTypeBasedSDLDefinitionStrategy<T : Any> :
+    SchematicVertexSDLDefinitionStrategy<T> {
 
     val applicableSchematicGraphVertexTypes: ImmutableSet<SchematicGraphVertexType>
 
-    fun isApplicableToVertex(vertex: SchematicVertex): Boolean {
-        return SchematicGraphVertexType.getSchematicGraphTypeForVertexSubtype(vertex::class)
+    override fun canBeAppliedToContext(
+        context: SchematicVertexSDLDefinitionCreationContext<*>
+    ): Boolean {
+        return SchematicGraphVertexType.getSchematicGraphTypeForVertexSubtype(
+                context.currentVertex::class
+            )
             .isDefined()
     }
 }

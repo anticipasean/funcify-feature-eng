@@ -33,7 +33,8 @@ class AllSourceAttributesToFieldDefinitionsStrategy(
     private val sdlDefinitionNamingStrategies: List<SchematicVertexSDLDefinitionNamingStrategy>,
     private val sdlDefinitionTypeStrategies: List<SchematicVertexSDLDefinitionTypeStrategy>
 ) :
-    SchematicGraphVertexTypeBasedSDLDefinitionStrategy,
+    SchematicGraphVertexTypeBasedSDLDefinitionStrategy<
+        SchematicVertexSDLDefinitionCreationContext<*>>,
     SchematicVertexSDLDefinitionImplementationStrategy {
 
     companion object {
@@ -54,7 +55,7 @@ class AllSourceAttributesToFieldDefinitionsStrategy(
         )
     }
 
-    override fun determineSDLImplementationDefinitionForSchematicVertexInContext(
+    override fun applyToContext(
         context: SchematicVertexSDLDefinitionCreationContext<*>
     ): Try<SchematicVertexSDLDefinitionCreationContext<*>> {
         logger.debug(
@@ -69,11 +70,8 @@ class AllSourceAttributesToFieldDefinitionsStrategy(
                     Try.success(context)
                 } else {
                     compositeSDLDefinitionNamingStrategy
-                        .determineNameForSDLDefinitionForSchematicVertexInContext(context)
-                        .zip(
-                            compositeSDLDefinitionTypeStrategy
-                                .determineSDLTypeForSchematicVertexInContext(context)
-                        )
+                        .applyToContext(context)
+                        .zip(compositeSDLDefinitionTypeStrategy.applyToContext(context))
                         .map { (name, sdlType) ->
                             FieldDefinition.newFieldDefinition()
                                 .name(name)
@@ -103,11 +101,8 @@ class AllSourceAttributesToFieldDefinitionsStrategy(
                     Try.success(context)
                 } else {
                     compositeSDLDefinitionNamingStrategy
-                        .determineNameForSDLDefinitionForSchematicVertexInContext(context)
-                        .zip(
-                            compositeSDLDefinitionTypeStrategy
-                                .determineSDLTypeForSchematicVertexInContext(context)
-                        )
+                        .applyToContext(context)
+                        .zip(compositeSDLDefinitionTypeStrategy.applyToContext(context))
                         .map { (name, sdlType) ->
                             FieldDefinition.newFieldDefinition()
                                 .name(name)

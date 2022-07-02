@@ -32,27 +32,24 @@ class CompositeSDLDefinitionTypeStrategy(
                 /*
                  * earlier type resolution attempt was successful, so keep that name
                  */
-                if (typeResolutionAttempt.isSuccess()) {
-                    typeResolutionAttempt
-                    /*
-                     * test whether strategy is graph_vertex_type_based and
-                     * if so, check whether strategy is applicable to given context's vertex type
-                     * before application to the context
-                     */
-                } else if (strategy is SchematicGraphVertexTypeBasedSDLDefinitionStrategy &&
-                        strategy.isApplicableToVertex(ctx.currentVertex)
-                ) {
-                    strategy.determineSDLTypeForSchematicVertexInContext(ctx)
-                    /*
-                     * if strategy is not graph_vertex_type_based, then apply to context
-                     */
-                } else if (strategy !is SchematicGraphVertexTypeBasedSDLDefinitionStrategy) {
-                    strategy.determineSDLTypeForSchematicVertexInContext(ctx)
-                } else {
-                    /*
-                     * strategy could not be applied, so prior error state holds
-                     */
-                    typeResolutionAttempt
+                when {
+                    typeResolutionAttempt.isSuccess() -> {
+                        typeResolutionAttempt
+                        /*
+                         * test whether strategy is graph_vertex_type_based and
+                         * if so, check whether strategy is applicable to given context's vertex type
+                         * before application to the context
+                         */
+                    }
+                    strategy.canBeAppliedToContext(context = ctx) -> {
+                        strategy.applyToContext(ctx)
+                    }
+                    else -> {
+                        /*
+                         * strategy could not be applied, so prior error state holds
+                         */
+                        typeResolutionAttempt
+                    }
                 }
             }
         }
@@ -82,7 +79,7 @@ class CompositeSDLDefinitionTypeStrategy(
                         /*
                          * extract applicable graph vertex types from each strategy that is type-based
                          */
-                        if (strat is SchematicGraphVertexTypeBasedSDLDefinitionStrategy) {
+                        if (strat is SchematicGraphVertexTypeBasedSDLDefinitionStrategy<*>) {
                             strat.applicableSchematicGraphVertexTypes.asIterable()
                         } else {
                             /*
@@ -105,11 +102,9 @@ class CompositeSDLDefinitionTypeStrategy(
         }
     }
 
-    override fun determineSDLTypeForSchematicVertexInContext(
+    override fun applyToContext(
         context: SchematicVertexSDLDefinitionCreationContext<*>
     ): Try<Type<*>> {
-        return composedTypeDeterminationStrategy.determineSDLTypeForSchematicVertexInContext(
-            context
-        )
+        return composedTypeDeterminationStrategy.applyToContext(context)
     }
 }

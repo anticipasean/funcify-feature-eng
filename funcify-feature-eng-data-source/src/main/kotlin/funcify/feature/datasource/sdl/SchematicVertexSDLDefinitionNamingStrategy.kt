@@ -8,6 +8,7 @@ import funcify.feature.tools.container.attempt.Try
  * @created 2022-06-25
  */
 fun interface SchematicVertexSDLDefinitionNamingStrategy :
+    SchematicVertexSDLDefinitionStrategy<String>,
     Comparable<SchematicVertexSDLDefinitionNamingStrategy> {
 
     companion object {
@@ -29,7 +30,7 @@ fun interface SchematicVertexSDLDefinitionNamingStrategy :
      * If this strategy fails to determine a name for the vertex within the context (=> results in a
      * Try.Failure), the next strategy will be used
      */
-    fun determineNameForSDLDefinitionForSchematicVertexInContext(
+    override fun applyToContext(
         context: SchematicVertexSDLDefinitionCreationContext<*>
     ): Try<String>
 }

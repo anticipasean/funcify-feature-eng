@@ -8,6 +8,7 @@ import funcify.feature.tools.container.attempt.Try
  * @created 2022-06-25
  */
 fun interface SchematicVertexSDLDefinitionImplementationStrategy :
+    SchematicVertexSDLDefinitionStrategy<SchematicVertexSDLDefinitionCreationContext<*>>,
     Comparable<SchematicVertexSDLDefinitionImplementationStrategy> {
 
     companion object {
@@ -21,9 +22,7 @@ fun interface SchematicVertexSDLDefinitionImplementationStrategy :
      * naming strategies being available. If all strategies use the #DEFAULT_PRIORITY, then
      * strategies will be applied in whatever order Spring populates the composite strategy
      */
-    override fun compareTo(
-        other: SchematicVertexSDLDefinitionImplementationStrategy
-    ): Int {
+    override fun compareTo(other: SchematicVertexSDLDefinitionImplementationStrategy): Int {
         return DEFAULT_PRIORITY
     }
 
@@ -31,7 +30,7 @@ fun interface SchematicVertexSDLDefinitionImplementationStrategy :
      * If this strategy fails to determine a base type definition for the vertex within the context
      * (=> results in a Try.Failure), the next strategy will be applied
      */
-    fun determineSDLImplementationDefinitionForSchematicVertexInContext(
+    override fun applyToContext(
         context: SchematicVertexSDLDefinitionCreationContext<*>
     ): Try<SchematicVertexSDLDefinitionCreationContext<*>>
 }

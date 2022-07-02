@@ -14,9 +14,9 @@ import kotlinx.collections.immutable.persistentSetOf
  * @author smccarron
  * @created 2022-07-01
  */
-abstract class DataSourceIndexTypeBasedSDLDefinitionStrategy<SI : SourceIndex<SI>>(
+abstract class DataSourceIndexTypeBasedSDLDefinitionStrategy<SI : SourceIndex<SI>, T : Any>(
     val applicableSourceIndexType: KClass<out SI>
-) : DataSourceBasedSDLDefinitionStrategy {
+) : DataSourceBasedSDLDefinitionStrategy<T> {
 
     companion object {
         data class DefaultDataSourceAttribute<out T : Any>(

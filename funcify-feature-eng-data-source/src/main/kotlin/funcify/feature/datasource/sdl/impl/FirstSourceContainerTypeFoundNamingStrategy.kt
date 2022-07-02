@@ -21,7 +21,8 @@ import kotlinx.collections.immutable.persistentSetOf
  * @created 2022-06-30
  */
 class FirstSourceContainerTypeFoundNamingStrategy :
-    SchematicGraphVertexTypeBasedSDLDefinitionStrategy, SchematicVertexSDLDefinitionNamingStrategy {
+    SchematicGraphVertexTypeBasedSDLDefinitionStrategy<String>,
+    SchematicVertexSDLDefinitionNamingStrategy {
 
     override val applicableSchematicGraphVertexTypes:
         ImmutableSet<SchematicGraphVertexType> by lazy {
@@ -31,7 +32,7 @@ class FirstSourceContainerTypeFoundNamingStrategy :
         )
     }
 
-    override fun determineNameForSDLDefinitionForSchematicVertexInContext(
+    override fun applyToContext(
         context: SchematicVertexSDLDefinitionCreationContext<*>
     ): Try<String> {
         return when (context) {

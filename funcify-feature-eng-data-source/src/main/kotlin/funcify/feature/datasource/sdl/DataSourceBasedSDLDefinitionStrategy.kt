@@ -4,7 +4,6 @@ import arrow.core.Option
 import arrow.core.Predicate
 import arrow.core.filterIsInstance
 import arrow.core.toOption
-import funcify.feature.schema.SchematicVertex
 import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.vertex.ParameterJunctionVertex
 import funcify.feature.schema.vertex.ParameterLeafVertex
@@ -19,7 +18,7 @@ import kotlinx.collections.immutable.ImmutableSet
  * @author smccarron
  * @created 2022-06-29
  */
-interface DataSourceBasedSDLDefinitionStrategy {
+interface DataSourceBasedSDLDefinitionStrategy<T : Any> : SchematicVertexSDLDefinitionStrategy<T> {
 
     interface DataSourceAttribute<out T : Any> {
         val name: String
@@ -28,10 +27,13 @@ interface DataSourceBasedSDLDefinitionStrategy {
     }
 
     val expectedDataSourceAttributeValues: ImmutableSet<DataSourceAttribute<*>>
-
-    fun isApplicableToVertex(vertex: SchematicVertex): Boolean {
+    override fun canBeAppliedToContext(
+        context: SchematicVertexSDLDefinitionCreationContext<*>
+    ): Boolean {
         val schematicGraphTypeOption: Option<SchematicGraphVertexType> =
-            SchematicGraphVertexType.getSchematicGraphTypeForVertexSubtype(vertex::class)
+            SchematicGraphVertexType.getSchematicGraphTypeForVertexSubtype(
+                context.currentVertex::class
+            )
         /*
          * Early Exit Approach: If vertex cannot be mapped to known graph vertex type,
          * then its data_source_keys cannot be extracted
@@ -64,7 +66,8 @@ interface DataSourceBasedSDLDefinitionStrategy {
         }
         return when (schematicGraphTypeOption.orNull()!!) {
             SchematicGraphVertexType.SOURCE_ROOT_VERTEX -> {
-                vertex
+                context
+                    .currentVertex
                     .toOption()
                     .filterIsInstance<SourceRootVertex>()
                     .map { srt ->
@@ -74,7 +77,8 @@ interface DataSourceBasedSDLDefinitionStrategy {
                     .isDefined()
             }
             SchematicGraphVertexType.SOURCE_JUNCTION_VERTEX -> {
-                vertex
+                context
+                    .currentVertex
                     .toOption()
                     .filterIsInstance<SourceJunctionVertex>()
                     .map { sjt ->
@@ -84,7 +88,8 @@ interface DataSourceBasedSDLDefinitionStrategy {
                     .isDefined()
             }
             SchematicGraphVertexType.SOURCE_LEAF_VERTEX -> {
-                vertex
+                context
+                    .currentVertex
                     .toOption()
                     .filterIsInstance<SourceLeafVertex>()
                     .map { sjt -> sjt.compositeAttribute.getSourceAttributeByDataSource().keys }
@@ -92,7 +97,8 @@ interface DataSourceBasedSDLDefinitionStrategy {
                     .isDefined()
             }
             SchematicGraphVertexType.PARAMETER_JUNCTION_VERTEX -> {
-                vertex
+                context
+                    .currentVertex
                     .toOption()
                     .filterIsInstance<ParameterJunctionVertex>()
                     .map { sjt ->
@@ -103,7 +109,8 @@ interface DataSourceBasedSDLDefinitionStrategy {
                     .isDefined()
             }
             SchematicGraphVertexType.PARAMETER_LEAF_VERTEX -> {
-                vertex
+                context
+                    .currentVertex
                     .toOption()
                     .filterIsInstance<ParameterLeafVertex>()
                     .map { sjt ->

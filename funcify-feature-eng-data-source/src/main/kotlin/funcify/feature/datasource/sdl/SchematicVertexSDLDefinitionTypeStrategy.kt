@@ -9,6 +9,7 @@ import graphql.language.Type
  * @created 2022-06-25
  */
 fun interface SchematicVertexSDLDefinitionTypeStrategy :
+    SchematicVertexSDLDefinitionStrategy<Type<*>>,
     Comparable<SchematicVertexSDLDefinitionTypeStrategy> {
 
     companion object {
@@ -30,7 +31,7 @@ fun interface SchematicVertexSDLDefinitionTypeStrategy :
      * If this strategy fails to determine a type for the vertex within the context (=> results in a
      * Try.Failure), the next strategy will be applied
      */
-    fun determineSDLTypeForSchematicVertexInContext(
+    override fun applyToContext(
         context: SchematicVertexSDLDefinitionCreationContext<*>
     ): Try<Type<*>>
 }

@@ -32,7 +32,8 @@ import org.slf4j.Logger
 class AllSourceContainerTypesToObjectTypeDefinitionsStrategy(
     private val sdlDefinitionNamingStrategies: List<SchematicVertexSDLDefinitionNamingStrategy>
 ) :
-    SchematicGraphVertexTypeBasedSDLDefinitionStrategy,
+    SchematicGraphVertexTypeBasedSDLDefinitionStrategy<
+        SchematicVertexSDLDefinitionCreationContext<*>>,
     SchematicVertexSDLDefinitionImplementationStrategy {
 
     companion object {
@@ -51,7 +52,7 @@ class AllSourceContainerTypesToObjectTypeDefinitionsStrategy(
         )
     }
 
-    override fun determineSDLImplementationDefinitionForSchematicVertexInContext(
+    override fun applyToContext(
         context: SchematicVertexSDLDefinitionCreationContext<*>
     ): Try<SchematicVertexSDLDefinitionCreationContext<*>> {
         logger.debug(
@@ -66,7 +67,7 @@ class AllSourceContainerTypesToObjectTypeDefinitionsStrategy(
                     Try.success(context)
                 } else {
                     compositeSDLDefinitionNamingStrategy
-                        .determineNameForSDLDefinitionForSchematicVertexInContext(context)
+                        .applyToContext(context)
                         .map { name ->
                             ObjectTypeDefinition.newObjectTypeDefinition()
                                 .name(name)
@@ -93,7 +94,7 @@ class AllSourceContainerTypesToObjectTypeDefinitionsStrategy(
                     Try.success(context)
                 } else {
                     compositeSDLDefinitionNamingStrategy
-                        .determineNameForSDLDefinitionForSchematicVertexInContext(context)
+                        .applyToContext(context)
                         .map { name ->
                             ObjectTypeDefinition.newObjectTypeDefinition()
                                 .name(name)

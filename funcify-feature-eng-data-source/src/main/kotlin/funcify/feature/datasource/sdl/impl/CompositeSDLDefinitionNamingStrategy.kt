@@ -29,27 +29,23 @@ class CompositeSDLDefinitionNamingStrategy(
                 /*
                  * earlier naming attempt was successful, so keep that name
                  */
-                if (namingAttempt.isSuccess()) {
-                    namingAttempt
-                    /*
-                     * test whether strategy is graph_vertex_type_based and
-                     * if so, check whether strategy is applicable to given context's vertex type
-                     * before application to the context
-                     */
-                } else if (strategy is SchematicGraphVertexTypeBasedSDLDefinitionStrategy &&
-                        strategy.isApplicableToVertex(ctx.currentVertex)
-                ) {
-                    strategy.determineNameForSDLDefinitionForSchematicVertexInContext(ctx)
-                    /*
-                     * if strategy is not graph_vertex_type_based, then apply to context
-                     */
-                } else if (strategy !is SchematicGraphVertexTypeBasedSDLDefinitionStrategy) {
-                    strategy.determineNameForSDLDefinitionForSchematicVertexInContext(ctx)
-                } else {
-                    /*
-                     * strategy could not be applied, so prior error state holds
-                     */
-                    namingAttempt
+                when {
+                    namingAttempt.isSuccess() -> {
+                        namingAttempt /*
+                                       * test whether strategy is graph_vertex_type_based and
+                                       * if so, check whether strategy is applicable to given context's vertex type
+                                       * before application to the context
+                                       */
+                    }
+                    strategy.canBeAppliedToContext(ctx) -> {
+                        strategy.applyToContext(ctx)
+                    }
+                    else -> {
+                        /*
+                         * strategy could not be applied, so prior error state holds
+                         */
+                        namingAttempt
+                    }
                 }
             }
         }
@@ -79,7 +75,7 @@ class CompositeSDLDefinitionNamingStrategy(
                         /*
                          * extract applicable graph vertex types from each strategy that is type-based
                          */
-                        if (strat is SchematicGraphVertexTypeBasedSDLDefinitionStrategy) {
+                        if (strat is SchematicGraphVertexTypeBasedSDLDefinitionStrategy<*>) {
                             strat.applicableSchematicGraphVertexTypes.asIterable()
                         } else {
                             /*
@@ -102,11 +98,9 @@ class CompositeSDLDefinitionNamingStrategy(
         }
     }
 
-    override fun determineNameForSDLDefinitionForSchematicVertexInContext(
+    override fun applyToContext(
         context: SchematicVertexSDLDefinitionCreationContext<*>
     ): Try<String> {
-        return composedNamingStrategy.determineNameForSDLDefinitionForSchematicVertexInContext(
-            context
-        )
+        return composedNamingStrategy.applyToContext(context)
     }
 }
