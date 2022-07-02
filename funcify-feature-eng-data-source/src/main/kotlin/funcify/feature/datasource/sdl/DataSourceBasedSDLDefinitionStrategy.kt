@@ -52,16 +52,12 @@ interface DataSourceBasedSDLDefinitionStrategy<T : Any> : SchematicVertexSDLDefi
          */
         val dataSourceKeysCondition: Predicate<Iterable<DataSource.Key<*>>> = { dataSourceKeys ->
             dataSourceKeys.any { dataSourceKey ->
-                expectedDataSourceAttributeValues.asSequence().fold(true) {
-                    outcome: Boolean,
-                    applicableAttribute: DataSourceAttribute<*> ->
-                    outcome &&
-                        try {
-                            applicableAttribute.valueExtractor.invoke(dataSourceKey) ==
-                                applicableAttribute.expectedValue
-                        } catch (t: Throwable) {
-                            false
-                        }
+                expectedDataSourceAttributeValues.all { dsAttr ->
+                    try {
+                        dsAttr.expectedValue == dsAttr.valueExtractor.invoke(dataSourceKey)
+                    } catch (_: Throwable) {
+                        false
+                    }
                 }
             }
         }
