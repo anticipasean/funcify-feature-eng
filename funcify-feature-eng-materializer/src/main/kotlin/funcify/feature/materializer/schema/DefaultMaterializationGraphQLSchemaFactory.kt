@@ -34,6 +34,7 @@ import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.PersistentSet
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentMapOf
+import kotlinx.collections.immutable.toPersistentList
 import org.slf4j.Logger
 import org.springframework.beans.factory.ObjectProvider
 
@@ -48,12 +49,12 @@ internal class DefaultMaterializationGraphQLSchemaFactory(
         private val logger: Logger = loggerFor<DefaultMaterializationGraphQLSchemaFactory>()
 
         private data class ParentChildNodeCombinationContext(
+            val metamodelGraph: MetamodelGraph,
+            val scalarTypeDefinitions: PersistentList<ScalarTypeDefinition> = persistentListOf(),
             val implementingTypeDefinitionsBySchematicPath:
                 PersistentMap<SchematicPath, ImplementingTypeDefinition<*>> =
                 persistentMapOf(),
             val fieldDefinitionsBySchematicPath: PersistentMap<SchematicPath, FieldDefinition> =
-                persistentMapOf(),
-            val argumentDefinitionBySchematicPath: PersistentMap<SchematicPath, Argument> =
                 persistentMapOf(),
             val directiveDefinitionBySchematicPath:
                 PersistentMap<SchematicPath, DirectiveDefinition> =
@@ -116,31 +117,15 @@ internal class DefaultMaterializationGraphQLSchemaFactory(
             .stream()
             .sorted { sv1, sv2 -> sv1.path.compareTo(sv2.path) }
             .reduce(
-                Try.success(createInitialContextWithExtendedScalars(metamodelGraph)),
-                { gqlbcTry: Try<SchematicVertexSDLDefinitionCreationContext<*>>, sv: SchematicVertex
-                    ->
-                    gqlbcTry
-                        .flatMap { ctx: SchematicVertexSDLDefinitionCreationContext<*> ->
-                            if (compositeSDLDefinitionImplementationStrategy.canBeAppliedToContext(
-                                    ctx
-                                )
-                            ) {
-                                compositeSDLDefinitionImplementationStrategy.applyToContext(ctx)
-                            } else {
-                                Try.failure<SchematicVertexSDLDefinitionCreationContext<*>>(
-                                    MaterializerException(
-                                        GRAPHQL_SCHEMA_CREATION_ERROR,
-                                        "no strategy could be applied to context: [ context.path: ${ctx.path} ]"
-                                    )
-                                )
-                            }
-                        }
-                        .map { ctx -> ctx.update { nextVertex(sv) } }
-                },
+                Try.attempt { createInitialContextWithExtendedScalars(metamodelGraph) },
+                ::applyStrategyToSchematicVertexSDLDefinitionCreationContextAndSwitchToNextVertex,
                 { sdlDefCreationCtx, _ -> sdlDefCreationCtx }
             )
             .map { ctx: SchematicVertexSDLDefinitionCreationContext<*> ->
                 createBuildContextPlacingDependentDefinitionsInImplementingTypeDefinitions(ctx)
+            }
+            .map { ctx: ParentChildNodeCombinationContext ->
+                combineChildDefinitionsWithTheirParentDefinition(ctx)
             }
             .map { ctx: GraphQLSchemaBuildContext ->
                 createTypeDefinitionRegistryInBuildContext(ctx)
@@ -164,6 +149,154 @@ internal class DefaultMaterializationGraphQLSchemaFactory(
                         )
                     }
             }
+    }
+
+    private fun combineChildDefinitionsWithTheirParentDefinition(
+        parentChildNodeCombinationContext: ParentChildNodeCombinationContext
+    ): GraphQLSchemaBuildContext {
+        val parametersAddedToParentsContext =
+            parentChildNodeCombinationContext.inputValueDefinitionsBySchematicPath.asSequence()
+                .fold(parentChildNodeCombinationContext) {
+                    parentChildNodeComboCtx,
+                    childInputValDefEntry ->
+                    when (val parentInputObjectTypeDef: InputObjectTypeDefinition? =
+                            childInputValDefEntry
+                                .key
+                                .getParentPath()
+                                .filter { parentPath ->
+                                    parentPath in
+                                        parentChildNodeComboCtx
+                                            .inputObjectTypeDefinitionsBySchematicPath
+                                }
+                                .map { parentPath ->
+                                    parentChildNodeComboCtx
+                                        .inputObjectTypeDefinitionsBySchematicPath[parentPath]
+                                }
+                                .orNull()
+                    ) {
+                        null -> {
+                            when (val parentFieldDef: FieldDefinition? =
+                                    childInputValDefEntry
+                                        .key
+                                        .getParentPath()
+                                        .filter { parentPath ->
+                                            parentPath in
+                                                parentChildNodeComboCtx
+                                                    .fieldDefinitionsBySchematicPath
+                                        }
+                                        .map { parentPath ->
+                                            parentChildNodeComboCtx.fieldDefinitionsBySchematicPath[
+                                                parentPath]
+                                        }
+                                        .orNull()
+                            ) {
+                                null -> {
+                                    when (val parentDirectiveDef: DirectiveDefinition? =
+                                            childInputValDefEntry
+                                                .key
+                                                .getParentPath()
+                                                .filter { parentPath ->
+                                                    parentPath in
+                                                        parentChildNodeComboCtx
+                                                            .directiveDefinitionBySchematicPath
+                                                }
+                                                .map { parentPath ->
+                                                    parentChildNodeComboCtx
+                                                        .directiveDefinitionBySchematicPath[
+                                                        parentPath]
+                                                }
+                                                .orNull()
+                                    ) {
+                                        null -> {
+                                            throw MaterializerException(
+                                                GRAPHQL_SCHEMA_CREATION_ERROR,
+                                                """child input_value_definition does not appear to have 
+                                                    |input_object_definition, 
+                                                    |field_definition, or 
+                                                    |directive_definition parent: 
+                                                    |[ path: ${childInputValDefEntry.key}, 
+                                                    |definition: ${childInputValDefEntry.value} ]
+                                                    |""".flattenIntoOneLine()
+                                            )
+                                        }
+                                        else -> {
+                                            parentChildNodeComboCtx.copy(
+                                                directiveDefinitionBySchematicPath =
+                                                    parentChildNodeComboCtx
+                                                        .directiveDefinitionBySchematicPath.put(
+                                                        childInputValDefEntry
+                                                            .key
+                                                            .getParentPath()
+                                                            .orNull()!!,
+                                                        parentDirectiveDef.transform { builder ->
+                                                            builder.inputValueDefinition(
+                                                                childInputValDefEntry.value
+                                                            )
+                                                        }
+                                                    )
+                                            )
+                                        }
+                                    }
+                                }
+                                else -> {
+                                    parentChildNodeComboCtx.copy(
+                                        fieldDefinitionsBySchematicPath =
+                                            parentChildNodeComboCtx.fieldDefinitionsBySchematicPath
+                                                .put(
+                                                    childInputValDefEntry
+                                                        .key
+                                                        .getParentPath()
+                                                        .orNull()!!,
+                                                    parentFieldDef.transform { builder ->
+                                                        builder.inputValueDefinition(
+                                                            childInputValDefEntry.value
+                                                        )
+                                                    }
+                                                )
+                                    )
+                                }
+                            }
+                        }
+                        else -> {
+                            parentChildNodeComboCtx.copy(
+                                inputObjectTypeDefinitionsBySchematicPath =
+                                    parentChildNodeCombinationContext
+                                        .inputObjectTypeDefinitionsBySchematicPath.put(
+                                        childInputValDefEntry.key.getParentPath().orNull()!!,
+                                        parentInputObjectTypeDef.transform { builder ->
+                                            builder.inputValueDefinition(
+                                                childInputValDefEntry.value
+                                            )
+                                        }
+                                    )
+                            )
+                        }
+                    }
+                }
+
+        return GraphQLSchemaBuildContext(
+            metamodelGraph = parametersAddedToParentsContext.metamodelGraph
+        )
+    }
+
+    private fun applyStrategyToSchematicVertexSDLDefinitionCreationContextAndSwitchToNextVertex(
+        creationContextUpdateAttempt: Try<SchematicVertexSDLDefinitionCreationContext<*>>,
+        sv: SchematicVertex
+    ): Try<SchematicVertexSDLDefinitionCreationContext<SchematicVertex>> {
+        return creationContextUpdateAttempt
+            .flatMap { ctx: SchematicVertexSDLDefinitionCreationContext<*> ->
+                if (compositeSDLDefinitionImplementationStrategy.canBeAppliedToContext(ctx)) {
+                    compositeSDLDefinitionImplementationStrategy.applyToContext(ctx)
+                } else {
+                    Try.failure(
+                        MaterializerException(
+                            GRAPHQL_SCHEMA_CREATION_ERROR,
+                            "no strategy could be applied to context: [ context.path: ${ctx.path} ]"
+                        )
+                    )
+                }
+            }
+            .map { ctx -> ctx.update { nextVertex(sv) } }
     }
 
     private fun createInitialContextWithExtendedScalars(
@@ -214,7 +347,7 @@ internal class DefaultMaterializationGraphQLSchemaFactory(
 
     private fun createBuildContextPlacingDependentDefinitionsInImplementingTypeDefinitions(
         sdlDefinitionCreationContext: SchematicVertexSDLDefinitionCreationContext<*>
-    ): GraphQLSchemaBuildContext {
+    ): ParentChildNodeCombinationContext {
         logger.debug(
             """create_build_context_placing_dependent_definitions_
                |in_implementing_type_definitions: [ sdl_definition_creation_context.
@@ -224,22 +357,28 @@ internal class DefaultMaterializationGraphQLSchemaFactory(
         )
         val sdlDefinitionsBySchematicPath: ImmutableMap<SchematicPath, ImmutableSet<Node<*>>> =
             sdlDefinitionCreationContext.sdlDefinitionsBySchematicPath
-        sdlDefinitionsBySchematicPath
+        return sdlDefinitionsBySchematicPath
             .streamPairs()
             .sorted { p1, p2 -> p1.first.compareTo(p2.first) }
             .flatMap { pathAndNodes ->
                 pathAndNodes.second.stream().map { node -> pathAndNodes.first to node }
             }
+            .parallel()
             .reduce(
-                ParentChildNodeCombinationContext(),
+                ParentChildNodeCombinationContext(
+                    metamodelGraph = sdlDefinitionCreationContext.metamodelGraph,
+                    scalarTypeDefinitions =
+                        sdlDefinitionCreationContext.scalarTypeDefinitionsByName.values
+                            .toPersistentList()
+                ),
                 { ctx, (path, node) ->
-                    updateParentChildCombineContextWithNewRelationshipDefinition(ctx, path, node)
+                    updateParentChildCombinationContextWithSDLDefinition(ctx, path, node)
                 },
                 { ctx, _ -> ctx }
             )
     }
 
-    private fun updateParentChildCombineContextWithNewRelationshipDefinition(
+    private fun updateParentChildCombinationContextWithSDLDefinition(
         parentChildNodeCombinationContext: ParentChildNodeCombinationContext,
         path: SchematicPath,
         node: Node<*>,
@@ -256,15 +395,6 @@ internal class DefaultMaterializationGraphQLSchemaFactory(
                 parentChildNodeCombinationContext.copy(
                     fieldDefinitionsBySchematicPath =
                         parentChildNodeCombinationContext.fieldDefinitionsBySchematicPath.put(
-                            path,
-                            node
-                        )
-                )
-            }
-            is Argument -> {
-                parentChildNodeCombinationContext.copy(
-                    argumentDefinitionBySchematicPath =
-                        parentChildNodeCombinationContext.argumentDefinitionBySchematicPath.put(
                             path,
                             node
                         )
