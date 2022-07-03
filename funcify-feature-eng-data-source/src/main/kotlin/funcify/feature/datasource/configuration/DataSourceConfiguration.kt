@@ -16,7 +16,8 @@ class DataSourceConfiguration {
 
     @ConditionalOnMissingBean(value = [SchematicVertexSDLDefinitionCreationContextFactory::class])
     @Bean
-    fun schematicVertexSDLDefinitionCreationContextFactory(): SchematicVertexSDLDefinitionCreationContextFactory {
+    fun schematicVertexSDLDefinitionCreationContextFactory():
+        SchematicVertexSDLDefinitionCreationContextFactory {
         return DefaultSchematicVertexSDLDefinitionCreationContextFactory()
     }
 

@@ -1,5 +1,7 @@
 package funcify.feature.datasource.sdl.impl
 
+import arrow.core.firstOrNone
+import arrow.core.toOption
 import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionCreationContext
 import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionCreationContext.Builder
 import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionCreationContext.ParameterJunctionVertexSDLDefinitionCreationContext
@@ -21,12 +23,7 @@ import funcify.feature.schema.vertex.SourceRootVertex
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentMap
 import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
-import graphql.language.ImplementingTypeDefinition
-import graphql.language.NamedNode
-import graphql.language.Node
-import graphql.language.ScalarTypeDefinition
-import graphql.language.Type
-import graphql.language.TypeName
+import graphql.language.*
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.PersistentSet
 import kotlinx.collections.immutable.persistentMapOf
@@ -49,7 +46,21 @@ internal class DefaultSchematicVertexSDLDefinitionCreationContextFactory :
         internal class DefaultSchematicSDLDefinitionCreationContextBuilder<V : SchematicVertex>(
             private var scalarTypeDefinitionsByName: PersistentMap<String, ScalarTypeDefinition> =
                 persistentMapOf(),
-            private var namedSDLDefinitionsByName: PersistentMap<String, NamedNode<*>> =
+            private var directiveDefinitionsByName: PersistentMap<String, DirectiveDefinition> =
+                persistentMapOf(),
+            private var implementingTypeDefinitionsBySchematicPath:
+                PersistentMap<SchematicPath, ImplementingTypeDefinition<*>> =
+                persistentMapOf(),
+            private var fieldDefinitionsBySchematicPath:
+                PersistentMap<SchematicPath, FieldDefinition> =
+                persistentMapOf(),
+            private var directivesBySchematicPath: PersistentMap<SchematicPath, Directive> =
+                persistentMapOf(),
+            private var inputObjectTypeDefinitionsBySchematicPath:
+                PersistentMap<SchematicPath, InputObjectTypeDefinition> =
+                persistentMapOf(),
+            private var inputValueDefinitionsBySchematicPath:
+                PersistentMap<SchematicPath, InputValueDefinition> =
                 persistentMapOf(),
             private var sdlDefinitionsBySchematicPath:
                 PersistentMap<SchematicPath, PersistentSet<Node<*>>> =
@@ -70,6 +81,13 @@ internal class DefaultSchematicVertexSDLDefinitionCreationContextFactory :
                        |sdl_definition.type: ${sdlDefinition::class.simpleName} 
                        |]""".flattenIntoOneLine()
                 )
+                sdlDefinitionsBySchematicPath =
+                    sdlDefinitionsBySchematicPath.put(
+                        schematicPath,
+                        sdlDefinitionsBySchematicPath
+                            .getOrDefault(schematicPath, persistentSetOf())
+                            .add(sdlDefinition)
+                    )
                 when (sdlDefinition) {
                     is ImplementingTypeDefinition<*> -> {
                         if (sdlDefinition.name !in sdlTypeDefinitionsByName) {
@@ -79,45 +97,351 @@ internal class DefaultSchematicVertexSDLDefinitionCreationContextFactory :
                                     TypeName.newTypeName(sdlDefinition.name).build()
                                 )
                         }
-                        namedSDLDefinitionsByName =
-                            namedSDLDefinitionsByName.put(sdlDefinition.name, sdlDefinition)
-                        sdlDefinitionsBySchematicPath =
-                            sdlDefinitionsBySchematicPath.put(
+                        implementingTypeDefinitionsBySchematicPath =
+                            implementingTypeDefinitionsBySchematicPath.put(
                                 schematicPath,
-                                sdlDefinitionsBySchematicPath
-                                    .getOrDefault(schematicPath, persistentSetOf())
-                                    .add(sdlDefinition)
+                                sdlDefinition
                             )
                     }
-                    is NamedNode<*> -> {
-                        namedSDLDefinitionsByName =
-                            namedSDLDefinitionsByName.put(sdlDefinition.name, sdlDefinition)
-                        sdlDefinitionsBySchematicPath =
-                            sdlDefinitionsBySchematicPath.put(
+                    is FieldDefinition -> {
+                        fieldDefinitionsBySchematicPath =
+                            fieldDefinitionsBySchematicPath.put(schematicPath, sdlDefinition)
+                    }
+                    is Directive -> {
+                        directivesBySchematicPath =
+                            directivesBySchematicPath.put(schematicPath, sdlDefinition)
+                    }
+                    is InputObjectTypeDefinition -> {
+                        if (sdlDefinition.name !in sdlTypeDefinitionsByName) {
+                            sdlTypeDefinitionsByName =
+                                sdlTypeDefinitionsByName.put(
+                                    sdlDefinition.name,
+                                    TypeName.newTypeName(sdlDefinition.name).build()
+                                )
+                        }
+                        inputObjectTypeDefinitionsBySchematicPath =
+                            inputObjectTypeDefinitionsBySchematicPath.put(
                                 schematicPath,
-                                sdlDefinitionsBySchematicPath
-                                    .getOrDefault(schematicPath, persistentSetOf())
-                                    .add(sdlDefinition)
+                                sdlDefinition
                             )
                     }
-                    else -> {
-                        sdlDefinitionsBySchematicPath =
-                            sdlDefinitionsBySchematicPath.put(
-                                schematicPath,
-                                sdlDefinitionsBySchematicPath
-                                    .getOrDefault(schematicPath, persistentSetOf())
-                                    .add(sdlDefinition)
-                            )
+                    is InputValueDefinition -> {
+                        inputValueDefinitionsBySchematicPath =
+                            inputValueDefinitionsBySchematicPath.put(schematicPath, sdlDefinition)
                     }
                 }
+                if (sdlDefinition !is ImplementingTypeDefinition<*> &&
+                        sdlDefinition !is InputObjectTypeDefinition
+                ) {
+                    updateParentNodeAfterAddition(schematicPath, sdlDefinition)
+                }
                 return this
+            }
+
+            private fun updateParentNodeAfterAddition(
+                childPath: SchematicPath,
+                childDefinition: Node<*>
+            ) {
+                when (val definedParentNode: Node<*>? =
+                        childPath
+                            .getParentPath()
+                            .filter { parentPath -> parentPath in sdlDefinitionsBySchematicPath }
+                            .flatMap { parentPath ->
+                                sdlDefinitionsBySchematicPath[parentPath].toOption()
+                            }
+                            .flatMap { parentNodes ->
+                                parentNodes
+                                    .asIterable()
+                                    .filter { node: Node<*> ->
+                                        (childDefinition is FieldDefinition &&
+                                            node is ImplementingTypeDefinition<*>) ||
+                                            (childDefinition is Argument &&
+                                                node is FieldDefinition) ||
+                                            childDefinition is Directive ||
+                                            childDefinition is InputValueDefinition
+                                    }
+                                    .firstOrNone()
+                            }
+                            .orNull()
+                ) {
+                    is ObjectTypeDefinition -> {
+                        if (childDefinition is FieldDefinition) {
+                            /*
+                             * entry for field_definition already exists -> replace it
+                             */
+                            if (childDefinition.name in definedParentNode.namedChildren.children) {
+                                /*
+                                 * Recursive: Call own method on parent
+                                 */
+                                addSDLDefinitionForSchematicPath(
+                                    // non-null assertion: parent_path cannot be null if parent
+                                    // node was found
+                                    childPath.getParentPath().orNull()!!,
+                                    definedParentNode.transform { builder ->
+                                        builder.fieldDefinitions(
+                                            definedParentNode.fieldDefinitions.map { fieldDef ->
+                                                if (fieldDef.name == childDefinition.name) {
+                                                    childDefinition
+                                                } else {
+                                                    fieldDef
+                                                }
+                                            }
+                                        )
+                                    }
+                                )
+                            } else {
+                                /*
+                                 * field definition does not already exist -> add it
+                                 */
+                                addSDLDefinitionForSchematicPath(
+                                    // non-null assertion: parent_path cannot be null if parent
+                                    // node was found
+                                    childPath.getParentPath().orNull()!!,
+                                    definedParentNode.transform { builder ->
+                                        builder.fieldDefinition(childDefinition)
+                                    }
+                                )
+                            }
+                        } else if (childDefinition is Directive) {
+                            if (definedParentNode.hasDirective(childDefinition.name)) {
+                                addSDLDefinitionForSchematicPath(
+                                    childPath.getParentPath().orNull()!!,
+                                    definedParentNode.transform { builder ->
+                                        builder.directives(
+                                            definedParentNode.directives.map { dir ->
+                                                if (dir.name == childDefinition.name) {
+                                                    childDefinition
+                                                } else {
+                                                    dir
+                                                }
+                                            }
+                                        )
+                                    }
+                                )
+                            } else {
+                                addSDLDefinitionForSchematicPath(
+                                    childPath.getParentPath().orNull()!!,
+                                    definedParentNode.transform { builder ->
+                                        builder.directive(childDefinition)
+                                    }
+                                )
+                            }
+                        }
+                    }
+                    is InterfaceTypeDefinition -> {
+                        if (childDefinition is FieldDefinition) {
+                            /*
+                             * entry for field_definition already exists -> replace it
+                             */
+                            if (childDefinition.name in definedParentNode.namedChildren.children) {
+                                /*
+                                 * Recursive: Call own method on parent
+                                 */
+                                addSDLDefinitionForSchematicPath(
+                                    // non-null assertion: parent_path cannot be null if parent
+                                    // node was found
+                                    childPath.getParentPath().orNull()!!,
+                                    definedParentNode.transform { builder ->
+                                        builder.definitions(
+                                            definedParentNode.fieldDefinitions.map { fieldDef ->
+                                                if (fieldDef.name == childDefinition.name) {
+                                                    childDefinition
+                                                } else {
+                                                    fieldDef
+                                                }
+                                            }
+                                        )
+                                    }
+                                )
+                            } else {
+                                /*
+                                 * field definition does not already exist -> add it
+                                 */
+                                addSDLDefinitionForSchematicPath(
+                                    // non-null assertion: parent_path cannot be null if parent
+                                    // node was found
+                                    childPath.getParentPath().orNull()!!,
+                                    definedParentNode.transform { builder ->
+                                        builder.definition(childDefinition)
+                                    }
+                                )
+                            }
+                        } else if (childDefinition is Directive) {
+                            if (definedParentNode.hasDirective(childDefinition.name)) {
+                                addSDLDefinitionForSchematicPath(
+                                    childPath.getParentPath().orNull()!!,
+                                    definedParentNode.transform { builder ->
+                                        builder.directives(
+                                            definedParentNode.directives.map { dir ->
+                                                if (dir.name == childDefinition.name) {
+                                                    childDefinition
+                                                } else {
+                                                    dir
+                                                }
+                                            }
+                                        )
+                                    }
+                                )
+                            } else {
+                                addSDLDefinitionForSchematicPath(
+                                    childPath.getParentPath().orNull()!!,
+                                    definedParentNode.transform { builder ->
+                                        builder.directive(childDefinition)
+                                    }
+                                )
+                            }
+                        }
+                    }
+                    is FieldDefinition -> {
+                        if (childDefinition is InputValueDefinition) {
+                            if (definedParentNode.inputValueDefinitions.any { ivd ->
+                                    ivd.name == childDefinition.name
+                                }
+                            ) {
+                                addSDLDefinitionForSchematicPath(
+                                    childPath.getParentPath().orNull()!!,
+                                    definedParentNode.transform { builder ->
+                                        builder.inputValueDefinitions(
+                                            definedParentNode.inputValueDefinitions.map { ivd ->
+                                                if (ivd.name == childDefinition.name) {
+                                                    childDefinition
+                                                } else {
+                                                    ivd
+                                                }
+                                            }
+                                        )
+                                    }
+                                )
+                            } else {
+                                addSDLDefinitionForSchematicPath(
+                                    childPath.getParentPath().orNull()!!,
+                                    definedParentNode.transform { builder ->
+                                        builder.inputValueDefinition(childDefinition)
+                                    }
+                                )
+                            }
+                        } else if (childDefinition is Directive) {
+                            if (definedParentNode.hasDirective(childDefinition.name)) {
+                                addSDLDefinitionForSchematicPath(
+                                    childPath.getParentPath().orNull()!!,
+                                    definedParentNode.transform { builder ->
+                                        builder.directives(
+                                            definedParentNode.directives.map { dir ->
+                                                if (dir.name == childDefinition.name) {
+                                                    childDefinition
+                                                } else {
+                                                    dir
+                                                }
+                                            }
+                                        )
+                                    }
+                                )
+                            } else {
+                                addSDLDefinitionForSchematicPath(
+                                    childPath.getParentPath().orNull()!!,
+                                    definedParentNode.transform { builder ->
+                                        builder.directive(childDefinition)
+                                    }
+                                )
+                            }
+                        }
+                    }
+                    is InputObjectTypeDefinition -> {
+                        if (childDefinition is InputValueDefinition) {
+                            if (definedParentNode.inputValueDefinitions.any { ivd ->
+                                    ivd.name == childDefinition.name
+                                }
+                            ) {
+                                addSDLDefinitionForSchematicPath(
+                                    childPath.getParentPath().orNull()!!,
+                                    definedParentNode.transform { builder ->
+                                        builder.inputValueDefinitions(
+                                            definedParentNode.inputValueDefinitions.map { ivd ->
+                                                if (ivd.name == childDefinition.name) {
+                                                    childDefinition
+                                                } else {
+                                                    ivd
+                                                }
+                                            }
+                                        )
+                                    }
+                                )
+                            } else {
+                                addSDLDefinitionForSchematicPath(
+                                    childPath.getParentPath().orNull()!!,
+                                    definedParentNode.transform { builder ->
+                                        builder.inputValueDefinition(childDefinition)
+                                    }
+                                )
+                            }
+                        } else if (childDefinition is Directive) {
+                            if (definedParentNode.hasDirective(childDefinition.name)) {
+                                addSDLDefinitionForSchematicPath(
+                                    childPath.getParentPath().orNull()!!,
+                                    definedParentNode.transform { builder ->
+                                        builder.directives(
+                                            definedParentNode.directives.map { dir ->
+                                                if (dir.name == childDefinition.name) {
+                                                    childDefinition
+                                                } else {
+                                                    dir
+                                                }
+                                            }
+                                        )
+                                    }
+                                )
+                            } else {
+                                addSDLDefinitionForSchematicPath(
+                                    childPath.getParentPath().orNull()!!,
+                                    definedParentNode.transform { builder ->
+                                        builder.directive(childDefinition)
+                                    }
+                                )
+                            }
+                        }
+                    }
+                    is InputValueDefinition -> {
+                        if (childDefinition is Directive) {
+                            if (definedParentNode.hasDirective(childDefinition.name)) {
+                                addSDLDefinitionForSchematicPath(
+                                    childPath.getParentPath().orNull()!!,
+                                    definedParentNode.transform { builder ->
+                                        builder.directives(
+                                            definedParentNode.directives.map { dir ->
+                                                if (dir.name == childDefinition.name) {
+                                                    childDefinition
+                                                } else {
+                                                    dir
+                                                }
+                                            }
+                                        )
+                                    }
+                                )
+                            } else {
+                                addSDLDefinitionForSchematicPath(
+                                    childPath.getParentPath().orNull()!!,
+                                    definedParentNode.transform { builder ->
+                                        builder.directive(childDefinition)
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
             }
 
             override fun removeSDLDefinitionForSchematicPath(
                 schematicPath: SchematicPath,
                 sdlDefinition: Node<*>
             ): Builder<V> {
-                return if (schematicPath in sdlDefinitionsBySchematicPath &&
+                logger.debug(
+                    """remove_sdl_definition_for_schematic_path: 
+                       |[ path: ${schematicPath}, 
+                       |sdl_definition.type: 
+                       |${sdlDefinition::class.simpleName} 
+                       |]""".flattenIntoOneLine()
+                )
+                if (schematicPath in sdlDefinitionsBySchematicPath &&
                         sdlDefinition in
                             (sdlDefinitionsBySchematicPath[schematicPath] ?: persistentSetOf())
                 ) {
@@ -127,38 +451,235 @@ internal class DefaultSchematicVertexSDLDefinitionCreationContextFactory :
                             sdlDefinitionsBySchematicPath[schematicPath]!!.remove(sdlDefinition)
                         )
                     sdlTypeDefinitionsByName =
-                        if (sdlDefinition is ImplementingTypeDefinition<*> &&
-                                sdlDefinition.name in sdlTypeDefinitionsByName
-                        ) {
-                            sdlTypeDefinitionsByName.remove(sdlDefinition.name)
-                        } else {
-                            sdlTypeDefinitionsByName
+                        when {
+                            sdlDefinition is ImplementingTypeDefinition<*> &&
+                                sdlDefinition.name in sdlTypeDefinitionsByName -> {
+                                sdlTypeDefinitionsByName.remove(sdlDefinition.name)
+                            }
+                            sdlDefinition is InputObjectTypeDefinition &&
+                                sdlDefinition.name in sdlTypeDefinitionsByName -> {
+                                sdlTypeDefinitionsByName.remove(sdlDefinition.name)
+                            }
+                            else -> {
+                                sdlTypeDefinitionsByName
+                            }
                         }
-                    namedSDLDefinitionsByName =
-                        if (sdlDefinition is NamedNode &&
-                                sdlDefinition.name in namedSDLDefinitionsByName
-                        ) {
-                            namedSDLDefinitionsByName.remove(sdlDefinition.name)
-                        } else {
-                            namedSDLDefinitionsByName
+                    when (sdlDefinition) {
+                        is ImplementingTypeDefinition<*> -> {
+                            implementingTypeDefinitionsBySchematicPath =
+                                implementingTypeDefinitionsBySchematicPath.remove(schematicPath)
                         }
-                    DefaultSchematicSDLDefinitionCreationContextBuilder<V>(
-                        scalarTypeDefinitionsByName = scalarTypeDefinitionsByName,
-                        namedSDLDefinitionsByName = namedSDLDefinitionsByName,
-                        sdlDefinitionsBySchematicPath = sdlDefinitionsBySchematicPath,
-                        sdlTypeDefinitionsByName = sdlTypeDefinitionsByName,
-                        metamodelGraph = metamodelGraph,
-                        currentVertex = currentVertex
-                    )
-                } else {
-                    this
+                        is FieldDefinition -> {
+                            fieldDefinitionsBySchematicPath =
+                                fieldDefinitionsBySchematicPath.remove(schematicPath)
+                        }
+                        is DirectiveDefinition -> {
+                            directivesBySchematicPath =
+                                directivesBySchematicPath.remove(schematicPath)
+                        }
+                        is InputObjectTypeDefinition -> {
+                            inputObjectTypeDefinitionsBySchematicPath =
+                                inputObjectTypeDefinitionsBySchematicPath.remove(schematicPath)
+                        }
+                        is InputValueDefinition -> {
+                            inputValueDefinitionsBySchematicPath =
+                                inputValueDefinitionsBySchematicPath.remove(schematicPath)
+                        }
+                    }
+                }
+                if (sdlDefinition !is ImplementingTypeDefinition<*> &&
+                        sdlDefinition !is InputObjectTypeDefinition
+                ) {
+                    updateParentNodeAfterRemoval(schematicPath, sdlDefinition)
+                }
+                return this
+            }
+
+            private fun updateParentNodeAfterRemoval(
+                childPath: SchematicPath,
+                childDefinition: Node<*>
+            ) {
+                when (val definedParentNode: Node<*>? =
+                        childPath
+                            .getParentPath()
+                            .filter { parentPath -> parentPath in sdlDefinitionsBySchematicPath }
+                            .flatMap { parentPath ->
+                                sdlDefinitionsBySchematicPath[parentPath].toOption()
+                            }
+                            .flatMap { parentNodes ->
+                                parentNodes
+                                    .asIterable()
+                                    .filter { node: Node<*> ->
+                                        (childDefinition is FieldDefinition &&
+                                            node is ImplementingTypeDefinition<*>) ||
+                                            (childDefinition is Argument &&
+                                                node is FieldDefinition) ||
+                                            childDefinition is Directive ||
+                                            childDefinition is InputValueDefinition
+                                    }
+                                    .firstOrNone()
+                            }
+                            .orNull()
+                ) {
+                    is ObjectTypeDefinition -> {
+                        if (childDefinition is FieldDefinition &&
+                                childDefinition.name in definedParentNode.namedChildren.children
+                        ) {
+                            /*
+                             * Recursive: Call own method on parent
+                             */
+                            addSDLDefinitionForSchematicPath(
+                                // non-null assertion: parent_path cannot be null if parent
+                                // node was found
+                                childPath.getParentPath().orNull()!!,
+                                definedParentNode.transform { builder ->
+                                    builder.fieldDefinitions(
+                                        definedParentNode.fieldDefinitions.filter { fieldDef ->
+                                            fieldDef.name != childDefinition.name
+                                        }
+                                    )
+                                }
+                            )
+                        } else if (childDefinition is Directive &&
+                                definedParentNode.hasDirective(childDefinition.name)
+                        ) {
+                            addSDLDefinitionForSchematicPath(
+                                childPath.getParentPath().orNull()!!,
+                                definedParentNode.transform { builder ->
+                                    builder.directives(
+                                        definedParentNode.directives.filter { dir ->
+                                            dir.name != childDefinition.name
+                                        }
+                                    )
+                                }
+                            )
+                        }
+                    }
+                    is InterfaceTypeDefinition -> {
+                        if (childDefinition is FieldDefinition &&
+                                childDefinition.name in definedParentNode.namedChildren.children
+                        ) {
+                            /*
+                             * Recursive: Call own method on parent
+                             */
+                            addSDLDefinitionForSchematicPath(
+                                // non-null assertion: parent_path cannot be null if parent
+                                // node was found
+                                childPath.getParentPath().orNull()!!,
+                                definedParentNode.transform { builder ->
+                                    builder.definitions(
+                                        definedParentNode.fieldDefinitions.filter { fieldDef ->
+                                            fieldDef.name != childDefinition.name
+                                        }
+                                    )
+                                }
+                            )
+                        } else if (childDefinition is Directive &&
+                                definedParentNode.hasDirective(childDefinition.name)
+                        ) {
+                            addSDLDefinitionForSchematicPath(
+                                childPath.getParentPath().orNull()!!,
+                                definedParentNode.transform { builder ->
+                                    builder.directives(
+                                        definedParentNode.directives.filter { dir ->
+                                            dir.name != childDefinition.name
+                                        }
+                                    )
+                                }
+                            )
+                        }
+                    }
+                    is FieldDefinition -> {
+                        if (childDefinition is InputValueDefinition &&
+                                definedParentNode.inputValueDefinitions.any { ivd ->
+                                    ivd.name == childDefinition.name
+                                }
+                        ) {
+                            addSDLDefinitionForSchematicPath(
+                                childPath.getParentPath().orNull()!!,
+                                definedParentNode.transform { builder ->
+                                    builder.inputValueDefinitions(
+                                        definedParentNode.inputValueDefinitions.filter { ivd ->
+                                            ivd.name != childDefinition.name
+                                        }
+                                    )
+                                }
+                            )
+                        } else if (childDefinition is Directive &&
+                                definedParentNode.hasDirective(childDefinition.name)
+                        ) {
+                            addSDLDefinitionForSchematicPath(
+                                childPath.getParentPath().orNull()!!,
+                                definedParentNode.transform { builder ->
+                                    builder.directives(
+                                        definedParentNode.directives.filter { dir ->
+                                            dir.name != childDefinition.name
+                                        }
+                                    )
+                                }
+                            )
+                        }
+                    }
+                    is InputObjectTypeDefinition -> {
+                        if (childDefinition is InputValueDefinition &&
+                                definedParentNode.inputValueDefinitions.any { ivd ->
+                                    ivd.name == childDefinition.name
+                                }
+                        ) {
+                            addSDLDefinitionForSchematicPath(
+                                childPath.getParentPath().orNull()!!,
+                                definedParentNode.transform { builder ->
+                                    builder.inputValueDefinitions(
+                                        definedParentNode.inputValueDefinitions.filter { ivd ->
+                                            ivd.name != childDefinition.name
+                                        }
+                                    )
+                                }
+                            )
+                        } else if (childDefinition is Directive &&
+                                definedParentNode.hasDirective(childDefinition.name)
+                        ) {
+                            addSDLDefinitionForSchematicPath(
+                                childPath.getParentPath().orNull()!!,
+                                definedParentNode.transform { builder ->
+                                    builder.directives(
+                                        definedParentNode.directives.filter { dir ->
+                                            dir.name != childDefinition.name
+                                        }
+                                    )
+                                }
+                            )
+                        }
+                    }
+                    is InputValueDefinition -> {
+                        if (childDefinition is Directive &&
+                                definedParentNode.hasDirective(childDefinition.name)
+                        ) {
+                            addSDLDefinitionForSchematicPath(
+                                childPath.getParentPath().orNull()!!,
+                                definedParentNode.transform { builder ->
+                                    builder.directives(
+                                        definedParentNode.directives.filter { dir ->
+                                            dir.name != childDefinition.name
+                                        }
+                                    )
+                                }
+                            )
+                        }
+                    }
                 }
             }
 
             override fun <SV : SchematicVertex> nextVertex(nextVertex: SV): Builder<SV> {
                 return DefaultSchematicSDLDefinitionCreationContextBuilder<SV>(
                     scalarTypeDefinitionsByName = scalarTypeDefinitionsByName,
-                    namedSDLDefinitionsByName = namedSDLDefinitionsByName,
+                    implementingTypeDefinitionsBySchematicPath =
+                        implementingTypeDefinitionsBySchematicPath,
+                    fieldDefinitionsBySchematicPath = fieldDefinitionsBySchematicPath,
+                    directivesBySchematicPath = directivesBySchematicPath,
+                    inputObjectTypeDefinitionsBySchematicPath =
+                        inputObjectTypeDefinitionsBySchematicPath,
+                    inputValueDefinitionsBySchematicPath = inputValueDefinitionsBySchematicPath,
                     sdlDefinitionsBySchematicPath = sdlDefinitionsBySchematicPath,
                     sdlTypeDefinitionsByName = sdlTypeDefinitionsByName,
                     metamodelGraph = metamodelGraph,
@@ -172,7 +693,15 @@ internal class DefaultSchematicVertexSDLDefinitionCreationContextFactory :
                     is SourceRootVertex -> {
                         DefaultSourceRootVertexSDLDefinitionCreationContext(
                             scalarTypeDefinitionsByName = scalarTypeDefinitionsByName,
-                            namedSDLDefinitionsByName = namedSDLDefinitionsByName,
+                            directiveDefinitionsByName = directiveDefinitionsByName,
+                            implementingTypeDefinitionsBySchematicPath =
+                                implementingTypeDefinitionsBySchematicPath,
+                            fieldDefinitionsBySchematicPath = fieldDefinitionsBySchematicPath,
+                            directivesBySchematicPath = directivesBySchematicPath,
+                            inputObjectTypeDefinitionsBySchematicPath =
+                                inputObjectTypeDefinitionsBySchematicPath,
+                            inputValueDefinitionsBySchematicPath =
+                                inputValueDefinitionsBySchematicPath,
                             sdlDefinitionsBySchematicPath = sdlDefinitionsBySchematicPath,
                             sdlTypeDefinitionsByName = sdlTypeDefinitionsByName,
                             metamodelGraph = metamodelGraph,
@@ -182,7 +711,15 @@ internal class DefaultSchematicVertexSDLDefinitionCreationContextFactory :
                     is SourceJunctionVertex -> {
                         DefaultSourceJunctionVertexSDLDefinitionCreationContext(
                             scalarTypeDefinitionsByName = scalarTypeDefinitionsByName,
-                            namedSDLDefinitionsByName = namedSDLDefinitionsByName,
+                            directiveDefinitionsByName = directiveDefinitionsByName,
+                            implementingTypeDefinitionsBySchematicPath =
+                                implementingTypeDefinitionsBySchematicPath,
+                            fieldDefinitionsBySchematicPath = fieldDefinitionsBySchematicPath,
+                            directivesBySchematicPath = directivesBySchematicPath,
+                            inputObjectTypeDefinitionsBySchematicPath =
+                                inputObjectTypeDefinitionsBySchematicPath,
+                            inputValueDefinitionsBySchematicPath =
+                                inputValueDefinitionsBySchematicPath,
                             sdlDefinitionsBySchematicPath = sdlDefinitionsBySchematicPath,
                             sdlTypeDefinitionsByName = sdlTypeDefinitionsByName,
                             metamodelGraph = metamodelGraph,
@@ -192,7 +729,15 @@ internal class DefaultSchematicVertexSDLDefinitionCreationContextFactory :
                     is SourceLeafVertex -> {
                         DefaultSourceLeafVertexSDLDefinitionCreationContext(
                             scalarTypeDefinitionsByName = scalarTypeDefinitionsByName,
-                            namedSDLDefinitionsByName = namedSDLDefinitionsByName,
+                            directiveDefinitionsByName = directiveDefinitionsByName,
+                            implementingTypeDefinitionsBySchematicPath =
+                                implementingTypeDefinitionsBySchematicPath,
+                            fieldDefinitionsBySchematicPath = fieldDefinitionsBySchematicPath,
+                            directivesBySchematicPath = directivesBySchematicPath,
+                            inputObjectTypeDefinitionsBySchematicPath =
+                                inputObjectTypeDefinitionsBySchematicPath,
+                            inputValueDefinitionsBySchematicPath =
+                                inputValueDefinitionsBySchematicPath,
                             sdlDefinitionsBySchematicPath = sdlDefinitionsBySchematicPath,
                             sdlTypeDefinitionsByName = sdlTypeDefinitionsByName,
                             metamodelGraph = metamodelGraph,
@@ -202,7 +747,15 @@ internal class DefaultSchematicVertexSDLDefinitionCreationContextFactory :
                     is ParameterJunctionVertex -> {
                         DefaultParameterJunctionVertexSDLDefinitionCreationContext(
                             scalarTypeDefinitionsByName = scalarTypeDefinitionsByName,
-                            namedSDLDefinitionsByName = namedSDLDefinitionsByName,
+                            directiveDefinitionsByName = directiveDefinitionsByName,
+                            implementingTypeDefinitionsBySchematicPath =
+                                implementingTypeDefinitionsBySchematicPath,
+                            fieldDefinitionsBySchematicPath = fieldDefinitionsBySchematicPath,
+                            directivesBySchematicPath = directivesBySchematicPath,
+                            inputObjectTypeDefinitionsBySchematicPath =
+                                inputObjectTypeDefinitionsBySchematicPath,
+                            inputValueDefinitionsBySchematicPath =
+                                inputValueDefinitionsBySchematicPath,
                             sdlDefinitionsBySchematicPath = sdlDefinitionsBySchematicPath,
                             sdlTypeDefinitionsByName = sdlTypeDefinitionsByName,
                             metamodelGraph = metamodelGraph,
@@ -212,7 +765,15 @@ internal class DefaultSchematicVertexSDLDefinitionCreationContextFactory :
                     is ParameterLeafVertex -> {
                         DefaultParameterLeafVertexSDLDefinitionCreationContext(
                             scalarTypeDefinitionsByName = scalarTypeDefinitionsByName,
-                            namedSDLDefinitionsByName = namedSDLDefinitionsByName,
+                            directiveDefinitionsByName = directiveDefinitionsByName,
+                            implementingTypeDefinitionsBySchematicPath =
+                                implementingTypeDefinitionsBySchematicPath,
+                            fieldDefinitionsBySchematicPath = fieldDefinitionsBySchematicPath,
+                            directivesBySchematicPath = directivesBySchematicPath,
+                            inputObjectTypeDefinitionsBySchematicPath =
+                                inputObjectTypeDefinitionsBySchematicPath,
+                            inputValueDefinitionsBySchematicPath =
+                                inputValueDefinitionsBySchematicPath,
                             sdlDefinitionsBySchematicPath = sdlDefinitionsBySchematicPath,
                             sdlTypeDefinitionsByName = sdlTypeDefinitionsByName,
                             metamodelGraph = metamodelGraph,
@@ -247,7 +808,21 @@ internal class DefaultSchematicVertexSDLDefinitionCreationContextFactory :
         internal data class DefaultSourceRootVertexSDLDefinitionCreationContext(
             override val scalarTypeDefinitionsByName: PersistentMap<String, ScalarTypeDefinition> =
                 persistentMapOf(),
-            override val namedSDLDefinitionsByName: PersistentMap<String, NamedNode<*>> =
+            override val directiveDefinitionsByName: PersistentMap<String, DirectiveDefinition> =
+                persistentMapOf(),
+            override val implementingTypeDefinitionsBySchematicPath:
+                PersistentMap<SchematicPath, ImplementingTypeDefinition<*>> =
+                persistentMapOf(),
+            override val fieldDefinitionsBySchematicPath:
+                PersistentMap<SchematicPath, FieldDefinition> =
+                persistentMapOf(),
+            override val directivesBySchematicPath: PersistentMap<SchematicPath, Directive> =
+                persistentMapOf(),
+            override val inputObjectTypeDefinitionsBySchematicPath:
+                PersistentMap<SchematicPath, InputObjectTypeDefinition> =
+                persistentMapOf(),
+            override val inputValueDefinitionsBySchematicPath:
+                PersistentMap<SchematicPath, InputValueDefinition> =
                 persistentMapOf(),
             override val sdlDefinitionsBySchematicPath:
                 PersistentMap<SchematicPath, PersistentSet<Node<*>>> =
@@ -264,7 +839,14 @@ internal class DefaultSchematicVertexSDLDefinitionCreationContextFactory :
                 val builder: DefaultSchematicSDLDefinitionCreationContextBuilder<SourceRootVertex> =
                     DefaultSchematicSDLDefinitionCreationContextBuilder<SourceRootVertex>(
                         scalarTypeDefinitionsByName = scalarTypeDefinitionsByName,
-                        namedSDLDefinitionsByName = namedSDLDefinitionsByName,
+                        directiveDefinitionsByName = directiveDefinitionsByName,
+                        implementingTypeDefinitionsBySchematicPath =
+                            implementingTypeDefinitionsBySchematicPath,
+                        fieldDefinitionsBySchematicPath = fieldDefinitionsBySchematicPath,
+                        directivesBySchematicPath = directivesBySchematicPath,
+                        inputObjectTypeDefinitionsBySchematicPath =
+                            inputObjectTypeDefinitionsBySchematicPath,
+                        inputValueDefinitionsBySchematicPath = inputValueDefinitionsBySchematicPath,
                         sdlDefinitionsBySchematicPath = sdlDefinitionsBySchematicPath,
                         sdlTypeDefinitionsByName = sdlTypeDefinitionsByName,
                         metamodelGraph = metamodelGraph,
@@ -277,7 +859,21 @@ internal class DefaultSchematicVertexSDLDefinitionCreationContextFactory :
         internal data class DefaultSourceJunctionVertexSDLDefinitionCreationContext(
             override val scalarTypeDefinitionsByName: PersistentMap<String, ScalarTypeDefinition> =
                 persistentMapOf(),
-            override val namedSDLDefinitionsByName: PersistentMap<String, NamedNode<*>> =
+            override val directiveDefinitionsByName: PersistentMap<String, DirectiveDefinition> =
+                persistentMapOf(),
+            override val implementingTypeDefinitionsBySchematicPath:
+                PersistentMap<SchematicPath, ImplementingTypeDefinition<*>> =
+                persistentMapOf(),
+            override val fieldDefinitionsBySchematicPath:
+                PersistentMap<SchematicPath, FieldDefinition> =
+                persistentMapOf(),
+            override val directivesBySchematicPath: PersistentMap<SchematicPath, Directive> =
+                persistentMapOf(),
+            override val inputObjectTypeDefinitionsBySchematicPath:
+                PersistentMap<SchematicPath, InputObjectTypeDefinition> =
+                persistentMapOf(),
+            override val inputValueDefinitionsBySchematicPath:
+                PersistentMap<SchematicPath, InputValueDefinition> =
                 persistentMapOf(),
             override val sdlDefinitionsBySchematicPath:
                 PersistentMap<SchematicPath, PersistentSet<Node<*>>> =
@@ -285,7 +881,7 @@ internal class DefaultSchematicVertexSDLDefinitionCreationContextFactory :
             override val sdlTypeDefinitionsByName: PersistentMap<String, Type<*>> =
                 persistentMapOf(),
             override val metamodelGraph: MetamodelGraph,
-            override val currentVertex: SourceJunctionVertex
+            override val currentVertex: SourceJunctionVertex,
         ) : SourceJunctionVertexSDLDefinitionCreationContext {
             override fun <SV : SchematicVertex> update(
                 updater: Builder<SourceJunctionVertex>.() -> Builder<SV>
@@ -294,7 +890,14 @@ internal class DefaultSchematicVertexSDLDefinitionCreationContextFactory :
                     DefaultSchematicSDLDefinitionCreationContextBuilder<SourceJunctionVertex> =
                     DefaultSchematicSDLDefinitionCreationContextBuilder<SourceJunctionVertex>(
                         scalarTypeDefinitionsByName = scalarTypeDefinitionsByName,
-                        namedSDLDefinitionsByName = namedSDLDefinitionsByName,
+                        directiveDefinitionsByName = directiveDefinitionsByName,
+                        implementingTypeDefinitionsBySchematicPath =
+                            implementingTypeDefinitionsBySchematicPath,
+                        fieldDefinitionsBySchematicPath = fieldDefinitionsBySchematicPath,
+                        directivesBySchematicPath = directivesBySchematicPath,
+                        inputObjectTypeDefinitionsBySchematicPath =
+                            inputObjectTypeDefinitionsBySchematicPath,
+                        inputValueDefinitionsBySchematicPath = inputValueDefinitionsBySchematicPath,
                         sdlDefinitionsBySchematicPath = sdlDefinitionsBySchematicPath,
                         sdlTypeDefinitionsByName = sdlTypeDefinitionsByName,
                         metamodelGraph = metamodelGraph,
@@ -307,7 +910,21 @@ internal class DefaultSchematicVertexSDLDefinitionCreationContextFactory :
         internal data class DefaultSourceLeafVertexSDLDefinitionCreationContext(
             override val scalarTypeDefinitionsByName: PersistentMap<String, ScalarTypeDefinition> =
                 persistentMapOf(),
-            override val namedSDLDefinitionsByName: PersistentMap<String, NamedNode<*>> =
+            override val directiveDefinitionsByName: PersistentMap<String, DirectiveDefinition> =
+                persistentMapOf(),
+            override val implementingTypeDefinitionsBySchematicPath:
+                PersistentMap<SchematicPath, ImplementingTypeDefinition<*>> =
+                persistentMapOf(),
+            override val fieldDefinitionsBySchematicPath:
+                PersistentMap<SchematicPath, FieldDefinition> =
+                persistentMapOf(),
+            override val directivesBySchematicPath: PersistentMap<SchematicPath, Directive> =
+                persistentMapOf(),
+            override val inputObjectTypeDefinitionsBySchematicPath:
+                PersistentMap<SchematicPath, InputObjectTypeDefinition> =
+                persistentMapOf(),
+            override val inputValueDefinitionsBySchematicPath:
+                PersistentMap<SchematicPath, InputValueDefinition> =
                 persistentMapOf(),
             override val sdlDefinitionsBySchematicPath:
                 PersistentMap<SchematicPath, PersistentSet<Node<*>>> =
@@ -323,7 +940,14 @@ internal class DefaultSchematicVertexSDLDefinitionCreationContextFactory :
                 val builder: DefaultSchematicSDLDefinitionCreationContextBuilder<SourceLeafVertex> =
                     DefaultSchematicSDLDefinitionCreationContextBuilder<SourceLeafVertex>(
                         scalarTypeDefinitionsByName = scalarTypeDefinitionsByName,
-                        namedSDLDefinitionsByName = namedSDLDefinitionsByName,
+                        directiveDefinitionsByName = directiveDefinitionsByName,
+                        implementingTypeDefinitionsBySchematicPath =
+                            implementingTypeDefinitionsBySchematicPath,
+                        fieldDefinitionsBySchematicPath = fieldDefinitionsBySchematicPath,
+                        directivesBySchematicPath = directivesBySchematicPath,
+                        inputObjectTypeDefinitionsBySchematicPath =
+                            inputObjectTypeDefinitionsBySchematicPath,
+                        inputValueDefinitionsBySchematicPath = inputValueDefinitionsBySchematicPath,
                         sdlDefinitionsBySchematicPath = sdlDefinitionsBySchematicPath,
                         sdlTypeDefinitionsByName = sdlTypeDefinitionsByName,
                         metamodelGraph = metamodelGraph,
@@ -336,7 +960,21 @@ internal class DefaultSchematicVertexSDLDefinitionCreationContextFactory :
         internal data class DefaultParameterJunctionVertexSDLDefinitionCreationContext(
             override val scalarTypeDefinitionsByName: PersistentMap<String, ScalarTypeDefinition> =
                 persistentMapOf(),
-            override val namedSDLDefinitionsByName: PersistentMap<String, NamedNode<*>> =
+            override val directiveDefinitionsByName: PersistentMap<String, DirectiveDefinition> =
+                persistentMapOf(),
+            override val implementingTypeDefinitionsBySchematicPath:
+                PersistentMap<SchematicPath, ImplementingTypeDefinition<*>> =
+                persistentMapOf(),
+            override val fieldDefinitionsBySchematicPath:
+                PersistentMap<SchematicPath, FieldDefinition> =
+                persistentMapOf(),
+            override val directivesBySchematicPath: PersistentMap<SchematicPath, Directive> =
+                persistentMapOf(),
+            override val inputObjectTypeDefinitionsBySchematicPath:
+                PersistentMap<SchematicPath, InputObjectTypeDefinition> =
+                persistentMapOf(),
+            override val inputValueDefinitionsBySchematicPath:
+                PersistentMap<SchematicPath, InputValueDefinition> =
                 persistentMapOf(),
             override val sdlDefinitionsBySchematicPath:
                 PersistentMap<SchematicPath, PersistentSet<Node<*>>> =
@@ -353,7 +991,14 @@ internal class DefaultSchematicVertexSDLDefinitionCreationContextFactory :
                     DefaultSchematicSDLDefinitionCreationContextBuilder<ParameterJunctionVertex> =
                     DefaultSchematicSDLDefinitionCreationContextBuilder<ParameterJunctionVertex>(
                         scalarTypeDefinitionsByName = scalarTypeDefinitionsByName,
-                        namedSDLDefinitionsByName = namedSDLDefinitionsByName,
+                        directiveDefinitionsByName = directiveDefinitionsByName,
+                        implementingTypeDefinitionsBySchematicPath =
+                            implementingTypeDefinitionsBySchematicPath,
+                        fieldDefinitionsBySchematicPath = fieldDefinitionsBySchematicPath,
+                        directivesBySchematicPath = directivesBySchematicPath,
+                        inputObjectTypeDefinitionsBySchematicPath =
+                            inputObjectTypeDefinitionsBySchematicPath,
+                        inputValueDefinitionsBySchematicPath = inputValueDefinitionsBySchematicPath,
                         sdlDefinitionsBySchematicPath = sdlDefinitionsBySchematicPath,
                         sdlTypeDefinitionsByName = sdlTypeDefinitionsByName,
                         metamodelGraph = metamodelGraph,
@@ -366,7 +1011,21 @@ internal class DefaultSchematicVertexSDLDefinitionCreationContextFactory :
         internal data class DefaultParameterLeafVertexSDLDefinitionCreationContext(
             override val scalarTypeDefinitionsByName: PersistentMap<String, ScalarTypeDefinition> =
                 persistentMapOf(),
-            override val namedSDLDefinitionsByName: PersistentMap<String, NamedNode<*>> =
+            override val directiveDefinitionsByName: PersistentMap<String, DirectiveDefinition> =
+                persistentMapOf(),
+            override val implementingTypeDefinitionsBySchematicPath:
+                PersistentMap<SchematicPath, ImplementingTypeDefinition<*>> =
+                persistentMapOf(),
+            override val fieldDefinitionsBySchematicPath:
+                PersistentMap<SchematicPath, FieldDefinition> =
+                persistentMapOf(),
+            override val directivesBySchematicPath: PersistentMap<SchematicPath, Directive> =
+                persistentMapOf(),
+            override val inputObjectTypeDefinitionsBySchematicPath:
+                PersistentMap<SchematicPath, InputObjectTypeDefinition> =
+                persistentMapOf(),
+            override val inputValueDefinitionsBySchematicPath:
+                PersistentMap<SchematicPath, InputValueDefinition> =
                 persistentMapOf(),
             override val sdlDefinitionsBySchematicPath:
                 PersistentMap<SchematicPath, PersistentSet<Node<*>>> =
@@ -384,7 +1043,14 @@ internal class DefaultSchematicVertexSDLDefinitionCreationContextFactory :
                     DefaultSchematicSDLDefinitionCreationContextBuilder<ParameterLeafVertex> =
                     DefaultSchematicSDLDefinitionCreationContextBuilder<ParameterLeafVertex>(
                         scalarTypeDefinitionsByName = scalarTypeDefinitionsByName,
-                        namedSDLDefinitionsByName = namedSDLDefinitionsByName,
+                        directiveDefinitionsByName = directiveDefinitionsByName,
+                        implementingTypeDefinitionsBySchematicPath =
+                            implementingTypeDefinitionsBySchematicPath,
+                        fieldDefinitionsBySchematicPath = fieldDefinitionsBySchematicPath,
+                        directivesBySchematicPath = directivesBySchematicPath,
+                        inputObjectTypeDefinitionsBySchematicPath =
+                            inputObjectTypeDefinitionsBySchematicPath,
+                        inputValueDefinitionsBySchematicPath = inputValueDefinitionsBySchematicPath,
                         sdlDefinitionsBySchematicPath = sdlDefinitionsBySchematicPath,
                         sdlTypeDefinitionsByName = sdlTypeDefinitionsByName,
                         metamodelGraph = metamodelGraph,
@@ -397,7 +1063,8 @@ internal class DefaultSchematicVertexSDLDefinitionCreationContextFactory :
 
     override fun createInitialContextForRootSchematicVertexSDLDefinition(
         metamodelGraph: MetamodelGraph,
-        scalarTypeDefinitions: List<ScalarTypeDefinition>
+        scalarTypeDefinitions: List<ScalarTypeDefinition>,
+        directiveDefinitions: List<DirectiveDefinition>
     ): SchematicVertexSDLDefinitionCreationContext<SourceRootVertex> {
         logger.debug(
             """create_initial_context_for_root_schematic_vertex_sdl_definition: 
@@ -416,6 +1083,11 @@ internal class DefaultSchematicVertexSDLDefinitionCreationContextFactory :
                         scalarTypeDefinitions
                             .stream()
                             .map { std -> std.name to std }
+                            .reducePairsToPersistentMap(),
+                    directiveDefinitionsByName =
+                        directiveDefinitions
+                            .stream()
+                            .map { dd -> dd.name to dd }
                             .reducePairsToPersistentMap()
                 )
             }

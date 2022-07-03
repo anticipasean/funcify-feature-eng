@@ -39,7 +39,19 @@ sealed interface SchematicVertexSDLDefinitionCreationContext<V : SchematicVertex
 
     val scalarTypeDefinitionsByName: ImmutableMap<String, ScalarTypeDefinition>
 
-    val namedSDLDefinitionsByName: ImmutableMap<String, NamedNode<*>>
+    val directiveDefinitionsByName: ImmutableMap<String, DirectiveDefinition>
+
+    val implementingTypeDefinitionsBySchematicPath:
+        ImmutableMap<SchematicPath, ImplementingTypeDefinition<*>>
+
+    val fieldDefinitionsBySchematicPath: ImmutableMap<SchematicPath, FieldDefinition>
+
+    val directivesBySchematicPath: ImmutableMap<SchematicPath, Directive>
+
+    val inputObjectTypeDefinitionsBySchematicPath:
+        ImmutableMap<SchematicPath, InputObjectTypeDefinition>
+
+    val inputValueDefinitionsBySchematicPath: ImmutableMap<SchematicPath, InputValueDefinition>
 
     val sdlDefinitionsBySchematicPath: ImmutableMap<SchematicPath, ImmutableSet<Node<*>>>
 

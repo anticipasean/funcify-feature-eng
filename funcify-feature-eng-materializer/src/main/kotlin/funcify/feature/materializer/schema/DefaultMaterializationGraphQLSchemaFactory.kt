@@ -19,7 +19,14 @@ import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.PersistentMapExtensions.streamPairs
 import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
 import graphql.GraphQLError
-import graphql.language.*
+import graphql.language.Description
+import graphql.language.DirectiveDefinition
+import graphql.language.ImplementingTypeDefinition
+import graphql.language.OperationTypeDefinition
+import graphql.language.ScalarTypeDefinition
+import graphql.language.SchemaDefinition
+import graphql.language.SourceLocation
+import graphql.language.TypeName
 import graphql.scalars.ExtendedScalars
 import graphql.schema.GraphQLScalarType
 import graphql.schema.GraphQLSchema
@@ -27,13 +34,8 @@ import graphql.schema.idl.RuntimeWiring
 import graphql.schema.idl.SchemaGenerator
 import graphql.schema.idl.TypeDefinitionRegistry
 import kotlinx.collections.immutable.ImmutableList
-import kotlinx.collections.immutable.ImmutableMap
-import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.PersistentList
-import kotlinx.collections.immutable.PersistentMap
-import kotlinx.collections.immutable.PersistentSet
 import kotlinx.collections.immutable.persistentListOf
-import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.toPersistentList
 import org.slf4j.Logger
 import org.springframework.beans.factory.ObjectProvider
@@ -48,36 +50,36 @@ internal class DefaultMaterializationGraphQLSchemaFactory(
     companion object {
         private val logger: Logger = loggerFor<DefaultMaterializationGraphQLSchemaFactory>()
 
-        private data class ParentChildNodeCombinationContext(
-            val metamodelGraph: MetamodelGraph,
-            val scalarTypeDefinitions: PersistentList<ScalarTypeDefinition> = persistentListOf(),
-            val implementingTypeDefinitionsBySchematicPath:
-                PersistentMap<SchematicPath, ImplementingTypeDefinition<*>> =
-                persistentMapOf(),
-            val fieldDefinitionsBySchematicPath: PersistentMap<SchematicPath, FieldDefinition> =
-                persistentMapOf(),
-            val directiveDefinitionBySchematicPath:
-                PersistentMap<SchematicPath, DirectiveDefinition> =
-                persistentMapOf(),
-            val inputObjectTypeDefinitionsBySchematicPath:
-                PersistentMap<SchematicPath, InputObjectTypeDefinition> =
-                persistentMapOf(),
-            val inputValueDefinitionsBySchematicPath:
-                PersistentMap<SchematicPath, InputValueDefinition> =
-                persistentMapOf()
-        )
-
         private data class GraphQLSchemaBuildContext(
             val metamodelGraph: MetamodelGraph,
-            val sdlDefinitionsBySchematicPath:
-                PersistentMap<SchematicPath, PersistentSet<Node<*>>> =
-                persistentMapOf(),
             val scalarTypeDefinitions: PersistentList<ScalarTypeDefinition> = persistentListOf(),
+            val directiveDefinitions: PersistentList<DirectiveDefinition> = persistentListOf(),
             val implementingTypeDefinitions: PersistentList<ImplementingTypeDefinition<*>> =
                 persistentListOf(),
             val runtimeWiringBuilder: RuntimeWiring.Builder = RuntimeWiring.newRuntimeWiring(),
             val typeDefinitionRegistry: TypeDefinitionRegistry = TypeDefinitionRegistry()
         )
+
+        private val extendedGraphQLScalarTypesToSupport: ImmutableList<GraphQLScalarType> by lazy {
+            persistentListOf(
+                ExtendedScalars.GraphQLBigDecimal,
+                ExtendedScalars.GraphQLBigInteger,
+                ExtendedScalars.GraphQLByte,
+                ExtendedScalars.GraphQLChar,
+                ExtendedScalars.GraphQLLong,
+                ExtendedScalars.GraphQLShort,
+                ExtendedScalars.Date,
+                ExtendedScalars.DateTime,
+                ExtendedScalars.Time,
+                ExtendedScalars.Json,
+                ExtendedScalars.Locale,
+                ExtendedScalars.PositiveFloat,
+                ExtendedScalars.PositiveInt,
+                ExtendedScalars.NegativeFloat,
+                ExtendedScalars.NegativeInt,
+                ExtendedScalars.Url
+            )
+        }
     }
 
     private val compositeSDLDefinitionImplementationStrategy:
@@ -122,10 +124,7 @@ internal class DefaultMaterializationGraphQLSchemaFactory(
                 { sdlDefCreationCtx, _ -> sdlDefCreationCtx }
             )
             .map { ctx: SchematicVertexSDLDefinitionCreationContext<*> ->
-                createBuildContextPlacingDependentDefinitionsInImplementingTypeDefinitions(ctx)
-            }
-            .map { ctx: ParentChildNodeCombinationContext ->
-                combineChildDefinitionsWithTheirParentDefinition(ctx)
+                createBuildContextFromSDLDefinitionCreationContext(ctx)
             }
             .map { ctx: GraphQLSchemaBuildContext ->
                 createTypeDefinitionRegistryInBuildContext(ctx)
@@ -151,134 +150,6 @@ internal class DefaultMaterializationGraphQLSchemaFactory(
             }
     }
 
-    private fun combineChildDefinitionsWithTheirParentDefinition(
-        parentChildNodeCombinationContext: ParentChildNodeCombinationContext
-    ): GraphQLSchemaBuildContext {
-        val parametersAddedToParentsContext =
-            parentChildNodeCombinationContext.inputValueDefinitionsBySchematicPath.asSequence()
-                .fold(parentChildNodeCombinationContext) {
-                    parentChildNodeComboCtx,
-                    childInputValDefEntry ->
-                    when (val parentInputObjectTypeDef: InputObjectTypeDefinition? =
-                            childInputValDefEntry
-                                .key
-                                .getParentPath()
-                                .filter { parentPath ->
-                                    parentPath in
-                                        parentChildNodeComboCtx
-                                            .inputObjectTypeDefinitionsBySchematicPath
-                                }
-                                .map { parentPath ->
-                                    parentChildNodeComboCtx
-                                        .inputObjectTypeDefinitionsBySchematicPath[parentPath]
-                                }
-                                .orNull()
-                    ) {
-                        null -> {
-                            when (val parentFieldDef: FieldDefinition? =
-                                    childInputValDefEntry
-                                        .key
-                                        .getParentPath()
-                                        .filter { parentPath ->
-                                            parentPath in
-                                                parentChildNodeComboCtx
-                                                    .fieldDefinitionsBySchematicPath
-                                        }
-                                        .map { parentPath ->
-                                            parentChildNodeComboCtx.fieldDefinitionsBySchematicPath[
-                                                parentPath]
-                                        }
-                                        .orNull()
-                            ) {
-                                null -> {
-                                    when (val parentDirectiveDef: DirectiveDefinition? =
-                                            childInputValDefEntry
-                                                .key
-                                                .getParentPath()
-                                                .filter { parentPath ->
-                                                    parentPath in
-                                                        parentChildNodeComboCtx
-                                                            .directiveDefinitionBySchematicPath
-                                                }
-                                                .map { parentPath ->
-                                                    parentChildNodeComboCtx
-                                                        .directiveDefinitionBySchematicPath[
-                                                        parentPath]
-                                                }
-                                                .orNull()
-                                    ) {
-                                        null -> {
-                                            throw MaterializerException(
-                                                GRAPHQL_SCHEMA_CREATION_ERROR,
-                                                """child input_value_definition does not appear to have 
-                                                    |input_object_definition, 
-                                                    |field_definition, or 
-                                                    |directive_definition parent: 
-                                                    |[ path: ${childInputValDefEntry.key}, 
-                                                    |definition: ${childInputValDefEntry.value} ]
-                                                    |""".flattenIntoOneLine()
-                                            )
-                                        }
-                                        else -> {
-                                            parentChildNodeComboCtx.copy(
-                                                directiveDefinitionBySchematicPath =
-                                                    parentChildNodeComboCtx
-                                                        .directiveDefinitionBySchematicPath.put(
-                                                        childInputValDefEntry
-                                                            .key
-                                                            .getParentPath()
-                                                            .orNull()!!,
-                                                        parentDirectiveDef.transform { builder ->
-                                                            builder.inputValueDefinition(
-                                                                childInputValDefEntry.value
-                                                            )
-                                                        }
-                                                    )
-                                            )
-                                        }
-                                    }
-                                }
-                                else -> {
-                                    parentChildNodeComboCtx.copy(
-                                        fieldDefinitionsBySchematicPath =
-                                            parentChildNodeComboCtx.fieldDefinitionsBySchematicPath
-                                                .put(
-                                                    childInputValDefEntry
-                                                        .key
-                                                        .getParentPath()
-                                                        .orNull()!!,
-                                                    parentFieldDef.transform { builder ->
-                                                        builder.inputValueDefinition(
-                                                            childInputValDefEntry.value
-                                                        )
-                                                    }
-                                                )
-                                    )
-                                }
-                            }
-                        }
-                        else -> {
-                            parentChildNodeComboCtx.copy(
-                                inputObjectTypeDefinitionsBySchematicPath =
-                                    parentChildNodeCombinationContext
-                                        .inputObjectTypeDefinitionsBySchematicPath.put(
-                                        childInputValDefEntry.key.getParentPath().orNull()!!,
-                                        parentInputObjectTypeDef.transform { builder ->
-                                            builder.inputValueDefinition(
-                                                childInputValDefEntry.value
-                                            )
-                                        }
-                                    )
-                            )
-                        }
-                    }
-                }
-
-        return GraphQLSchemaBuildContext(
-            metamodelGraph = parametersAddedToParentsContext.metamodelGraph
-        )
-    }
-
     private fun applyStrategyToSchematicVertexSDLDefinitionCreationContextAndSwitchToNextVertex(
         creationContextUpdateAttempt: Try<SchematicVertexSDLDefinitionCreationContext<*>>,
         sv: SchematicVertex
@@ -302,27 +173,8 @@ internal class DefaultMaterializationGraphQLSchemaFactory(
     private fun createInitialContextWithExtendedScalars(
         metamodelGraph: MetamodelGraph
     ): SchematicVertexSDLDefinitionCreationContext<*> {
-        val extendedScalarTypes: PersistentList<GraphQLScalarType> =
-            persistentListOf(
-                ExtendedScalars.GraphQLBigDecimal,
-                ExtendedScalars.GraphQLBigInteger,
-                ExtendedScalars.GraphQLByte,
-                ExtendedScalars.GraphQLChar,
-                ExtendedScalars.GraphQLLong,
-                ExtendedScalars.GraphQLShort,
-                ExtendedScalars.Date,
-                ExtendedScalars.DateTime,
-                ExtendedScalars.Time,
-                ExtendedScalars.Json,
-                ExtendedScalars.Locale,
-                ExtendedScalars.PositiveFloat,
-                ExtendedScalars.PositiveInt,
-                ExtendedScalars.NegativeFloat,
-                ExtendedScalars.NegativeInt,
-                ExtendedScalars.Url
-            )
         val scalarTypeDefinitions: ImmutableList<ScalarTypeDefinition> =
-            extendedScalarTypes.fold(persistentListOf<ScalarTypeDefinition>()) {
+            extendedGraphQLScalarTypesToSupport.fold(persistentListOf<ScalarTypeDefinition>()) {
                 pl: PersistentList<ScalarTypeDefinition>,
                 gqlScalarType: GraphQLScalarType ->
                 val description: Description =
@@ -345,93 +197,26 @@ internal class DefaultMaterializationGraphQLSchemaFactory(
             )
     }
 
-    private fun createBuildContextPlacingDependentDefinitionsInImplementingTypeDefinitions(
+    private fun createBuildContextFromSDLDefinitionCreationContext(
         sdlDefinitionCreationContext: SchematicVertexSDLDefinitionCreationContext<*>
-    ): ParentChildNodeCombinationContext {
+    ): GraphQLSchemaBuildContext {
         logger.debug(
-            """create_build_context_placing_dependent_definitions_
-               |in_implementing_type_definitions: [ sdl_definition_creation_context.
+            """create_build_context_from_sdl_definition_creation_context: 
+                [ sdl_definition_creation_context.
                |sdl_definitions_by_schematic_path.size: 
                |${sdlDefinitionCreationContext.sdlDefinitionsBySchematicPath.size} ]
                |""".flattenIntoOneLine()
         )
-        val sdlDefinitionsBySchematicPath: ImmutableMap<SchematicPath, ImmutableSet<Node<*>>> =
-            sdlDefinitionCreationContext.sdlDefinitionsBySchematicPath
-        return sdlDefinitionsBySchematicPath
-            .streamPairs()
-            .sorted { p1, p2 -> p1.first.compareTo(p2.first) }
-            .flatMap { pathAndNodes ->
-                pathAndNodes.second.stream().map { node -> pathAndNodes.first to node }
-            }
-            .parallel()
-            .reduce(
-                ParentChildNodeCombinationContext(
-                    metamodelGraph = sdlDefinitionCreationContext.metamodelGraph,
-                    scalarTypeDefinitions =
-                        sdlDefinitionCreationContext.scalarTypeDefinitionsByName.values
-                            .toPersistentList()
-                ),
-                { ctx, (path, node) ->
-                    updateParentChildCombinationContextWithSDLDefinition(ctx, path, node)
-                },
-                { ctx, _ -> ctx }
-            )
-    }
-
-    private fun updateParentChildCombinationContextWithSDLDefinition(
-        parentChildNodeCombinationContext: ParentChildNodeCombinationContext,
-        path: SchematicPath,
-        node: Node<*>,
-    ): ParentChildNodeCombinationContext {
-        return when (node) {
-            is ImplementingTypeDefinition<*> -> {
-                parentChildNodeCombinationContext.copy(
-                    implementingTypeDefinitionsBySchematicPath =
-                        parentChildNodeCombinationContext.implementingTypeDefinitionsBySchematicPath
-                            .put(path, node)
-                )
-            }
-            is FieldDefinition -> {
-                parentChildNodeCombinationContext.copy(
-                    fieldDefinitionsBySchematicPath =
-                        parentChildNodeCombinationContext.fieldDefinitionsBySchematicPath.put(
-                            path,
-                            node
-                        )
-                )
-            }
-            is DirectiveDefinition -> {
-                parentChildNodeCombinationContext.copy(
-                    directiveDefinitionBySchematicPath =
-                        parentChildNodeCombinationContext.directiveDefinitionBySchematicPath.put(
-                            path,
-                            node
-                        )
-                )
-            }
-            is InputObjectTypeDefinition -> {
-                parentChildNodeCombinationContext.copy(
-                    inputObjectTypeDefinitionsBySchematicPath =
-                        parentChildNodeCombinationContext.inputObjectTypeDefinitionsBySchematicPath
-                            .put(path, node)
-                )
-            }
-            is InputValueDefinition -> {
-                parentChildNodeCombinationContext.copy(
-                    inputValueDefinitionsBySchematicPath =
-                        parentChildNodeCombinationContext.inputValueDefinitionsBySchematicPath.put(
-                            path,
-                            node
-                        )
-                )
-            }
-            else -> {
-                throw MaterializerException(
-                    GRAPHQL_SCHEMA_CREATION_ERROR,
-                    "unhandled graphql node type: [ actual: ${node::class.qualifiedName} ]"
-                )
-            }
-        }
+        return GraphQLSchemaBuildContext(
+            metamodelGraph = sdlDefinitionCreationContext.metamodelGraph,
+            scalarTypeDefinitions =
+                sdlDefinitionCreationContext.scalarTypeDefinitionsByName.values.toPersistentList(),
+            directiveDefinitions =
+                sdlDefinitionCreationContext.directiveDefinitionsByName.values.toPersistentList(),
+            implementingTypeDefinitions =
+                sdlDefinitionCreationContext.implementingTypeDefinitionsBySchematicPath.values
+                    .toPersistentList()
+        )
     }
 
     private fun createTypeDefinitionRegistryInBuildContext(
@@ -439,8 +224,8 @@ internal class DefaultMaterializationGraphQLSchemaFactory(
     ): GraphQLSchemaBuildContext {
         logger.debug(
             """create_type_definition_registry_in_build_context: 
-                |[ build_context.sdl_definitions_by_schematic_path.size: 
-                |${buildContext.sdlDefinitionsBySchematicPath.size} 
+                |[ build_context.implementing_type_definitions.size: 
+                |${buildContext.implementingTypeDefinitions.size} 
                 |]""".flattenIntoOneLine()
         )
         val queryOperationDefinition: OperationTypeDefinition =
@@ -456,6 +241,9 @@ internal class DefaultMaterializationGraphQLSchemaFactory(
         typeDefinitionRegistry
             .addAll(buildContext.scalarTypeDefinitions)
             .ifPresent(typeRegistryUpdateGraphQLErrorHandler("scalar_type_definitions"))
+        typeDefinitionRegistry
+            .addAll(buildContext.directiveDefinitions)
+            .ifPresent(typeRegistryUpdateGraphQLErrorHandler("directive_definitions"))
         typeDefinitionRegistry
             .addAll(buildContext.implementingTypeDefinitions)
             .ifPresent(typeRegistryUpdateGraphQLErrorHandler("implementing_type_definitions"))
@@ -520,12 +308,12 @@ internal class DefaultMaterializationGraphQLSchemaFactory(
     ): GraphQLSchemaBuildContext {
         logger.debug(
             """update_runtime_wiring_builder_in_build_context: 
-                |[ build_context.graphql_scalar_types.size: 
-                |${buildContext.scalarTypesByName.size} ]
+                |[ extended_graphql_scalar_types_to_support.size: 
+                |${extendedGraphQLScalarTypesToSupport.size} ]
                 |""".flattenIntoOneLine()
         )
         val runtimeWiringBuilder: RuntimeWiring.Builder =
-            buildContext.scalarTypesByName.values.fold(buildContext.runtimeWiringBuilder) {
+            extendedGraphQLScalarTypesToSupport.fold(buildContext.runtimeWiringBuilder) {
                 rwBuilder: RuntimeWiring.Builder,
                 scalarType: GraphQLScalarType ->
                 rwBuilder.scalar(scalarType)
