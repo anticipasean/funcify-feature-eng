@@ -1,24 +1,21 @@
 package funcify.feature.materializer.schema
 
-import arrow.core.getOrElse
 import arrow.core.toOption
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
+import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionCreationContext
+import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionCreationContextFactory
+import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionImplementationStrategy
+import funcify.feature.datasource.sdl.impl.CompositeSDLDefinitionImplementationStrategy
 import funcify.feature.materializer.error.MaterializerErrorResponse.GRAPHQL_SCHEMA_CREATION_ERROR
 import funcify.feature.materializer.error.MaterializerException
-import funcify.feature.materializer.sdl.GraphQLObjectTypeDefinitionFactory
-import funcify.feature.materializer.sdl.GraphQLSDLFieldDefinitionFactory
-import funcify.feature.naming.ConventionalName
+import funcify.feature.naming.StandardNamingConventions
 import funcify.feature.schema.MetamodelGraph
 import funcify.feature.schema.SchematicVertex
-import funcify.feature.schema.index.CompositeSourceAttribute
 import funcify.feature.schema.path.SchematicPath
-import funcify.feature.schema.vertex.SourceJunctionVertex
-import funcify.feature.schema.vertex.SourceLeafVertex
 import funcify.feature.schema.vertex.SourceRootVertex
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
-import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentMap
 import funcify.feature.tools.extensions.PersistentMapExtensions.streamPairs
 import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
 import graphql.GraphQLError
@@ -29,35 +26,64 @@ import graphql.schema.GraphQLSchema
 import graphql.schema.idl.RuntimeWiring
 import graphql.schema.idl.SchemaGenerator
 import graphql.schema.idl.TypeDefinitionRegistry
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.ImmutableMap
+import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.PersistentList
 import kotlinx.collections.immutable.PersistentMap
+import kotlinx.collections.immutable.PersistentSet
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentMapOf
 import org.slf4j.Logger
+import org.springframework.beans.factory.ObjectProvider
 
 internal class DefaultMaterializationGraphQLSchemaFactory(
     val objectMapper: ObjectMapper,
-    val graphQLObjectTypeDefinitionFactory: GraphQLObjectTypeDefinitionFactory,
-    val graphQLSDLFieldDefinitionFactory: GraphQLSDLFieldDefinitionFactory
+    val sdlDefinitionCreationContextFactory: SchematicVertexSDLDefinitionCreationContextFactory,
+    val sdlDefinitionImplementationStrategyProvider:
+        ObjectProvider<SchematicVertexSDLDefinitionImplementationStrategy>
 ) : MaterializationGraphQLSchemaFactory {
 
     companion object {
         private val logger: Logger = loggerFor<DefaultMaterializationGraphQLSchemaFactory>()
 
+        private data class ParentChildNodeCombinationContext(
+            val implementingTypeDefinitionsBySchematicPath:
+                PersistentMap<SchematicPath, ImplementingTypeDefinition<*>> =
+                persistentMapOf(),
+            val fieldDefinitionsBySchematicPath: PersistentMap<SchematicPath, FieldDefinition> =
+                persistentMapOf(),
+            val argumentDefinitionBySchematicPath: PersistentMap<SchematicPath, Argument> =
+                persistentMapOf(),
+            val directiveDefinitionBySchematicPath:
+                PersistentMap<SchematicPath, DirectiveDefinition> =
+                persistentMapOf(),
+            val inputObjectTypeDefinitionsBySchematicPath:
+                PersistentMap<SchematicPath, InputObjectTypeDefinition> =
+                persistentMapOf(),
+            val inputValueDefinitionsBySchematicPath:
+                PersistentMap<SchematicPath, InputValueDefinition> =
+                persistentMapOf()
+        )
+
         private data class GraphQLSchemaBuildContext(
-            val objectTypeDefinitionsByPath: PersistentMap<SchematicPath, ObjectTypeDefinition> =
+            val metamodelGraph: MetamodelGraph,
+            val sdlDefinitionsBySchematicPath:
+                PersistentMap<SchematicPath, PersistentSet<Node<*>>> =
                 persistentMapOf(),
-            val objectTypeDefinitionsByName: PersistentMap<String, ObjectTypeDefinition> =
-                persistentMapOf(),
-            val scalarTypeDefinitionsByName: PersistentMap<String, ScalarTypeDefinition> =
-                persistentMapOf(),
-            val sdlTypesByName: PersistentMap<String, Type<*>> = persistentMapOf(),
-            val operationTypeDefinitionsByPath:
-                PersistentMap<SchematicPath, OperationTypeDefinition> =
-                persistentMapOf(),
+            val scalarTypeDefinitions: PersistentList<ScalarTypeDefinition> = persistentListOf(),
+            val implementingTypeDefinitions: PersistentList<ImplementingTypeDefinition<*>> =
+                persistentListOf(),
             val runtimeWiringBuilder: RuntimeWiring.Builder = RuntimeWiring.newRuntimeWiring(),
-            val scalarTypesByName: PersistentMap<String, GraphQLScalarType> = persistentMapOf(),
             val typeDefinitionRegistry: TypeDefinitionRegistry = TypeDefinitionRegistry()
+        )
+    }
+
+    private val compositeSDLDefinitionImplementationStrategy:
+        CompositeSDLDefinitionImplementationStrategy by lazy {
+        CompositeSDLDefinitionImplementationStrategy(
+            sdlDefinitionImplementationStrategies =
+                sdlDefinitionImplementationStrategyProvider.toList()
         )
     }
 
@@ -79,23 +105,43 @@ internal class DefaultMaterializationGraphQLSchemaFactory(
                 |] ]""".flattenIntoOneLine()
         )
         var counter: Int = 0
-        metamodelGraph.verticesByPath.streamPairs().forEach {
-            pair: Pair<SchematicPath, SchematicVertex> ->
-            logger.info("[${++counter}]: [ path: ${pair.first}, vertex: [ ${pair.second}]")
+        if (logger.isDebugEnabled) {
+            metamodelGraph.verticesByPath.streamPairs().forEach {
+                pair: Pair<SchematicPath, SchematicVertex> ->
+                logger.debug("[${++counter}]: [ path: ${pair.first}, vertex: [ ${pair.second}]")
+            }
         }
         return metamodelGraph
             .vertices
             .stream()
             .sorted { sv1, sv2 -> sv1.path.compareTo(sv2.path) }
             .reduce(
-                Try.success(createInitialContextWithExtendedScalars()),
-                { gqlbcTry: Try<GraphQLSchemaBuildContext>, sv: SchematicVertex ->
-                    gqlbcTry.map { ctx: GraphQLSchemaBuildContext ->
-                        addSchematicVertexToBuildContext(ctx, sv)
-                    }
+                Try.success(createInitialContextWithExtendedScalars(metamodelGraph)),
+                { gqlbcTry: Try<SchematicVertexSDLDefinitionCreationContext<*>>, sv: SchematicVertex
+                    ->
+                    gqlbcTry
+                        .flatMap { ctx: SchematicVertexSDLDefinitionCreationContext<*> ->
+                            if (compositeSDLDefinitionImplementationStrategy.canBeAppliedToContext(
+                                    ctx
+                                )
+                            ) {
+                                compositeSDLDefinitionImplementationStrategy.applyToContext(ctx)
+                            } else {
+                                Try.failure<SchematicVertexSDLDefinitionCreationContext<*>>(
+                                    MaterializerException(
+                                        GRAPHQL_SCHEMA_CREATION_ERROR,
+                                        "no strategy could be applied to context: [ context.path: ${ctx.path} ]"
+                                    )
+                                )
+                            }
+                        }
+                        .map { ctx -> ctx.update { nextVertex(sv) } }
                 },
-                { bc1, _ -> bc1 }
+                { sdlDefCreationCtx, _ -> sdlDefCreationCtx }
             )
+            .map { ctx: SchematicVertexSDLDefinitionCreationContext<*> ->
+                createBuildContextPlacingDependentDefinitionsInImplementingTypeDefinitions(ctx)
+            }
             .map { ctx: GraphQLSchemaBuildContext ->
                 createTypeDefinitionRegistryInBuildContext(ctx)
             }
@@ -120,7 +166,9 @@ internal class DefaultMaterializationGraphQLSchemaFactory(
             }
     }
 
-    private fun createInitialContextWithExtendedScalars(): GraphQLSchemaBuildContext {
+    private fun createInitialContextWithExtendedScalars(
+        metamodelGraph: MetamodelGraph
+    ): SchematicVertexSDLDefinitionCreationContext<*> {
         val extendedScalarTypes: PersistentList<GraphQLScalarType> =
             persistentListOf(
                 ExtendedScalars.GraphQLBigDecimal,
@@ -140,209 +188,120 @@ internal class DefaultMaterializationGraphQLSchemaFactory(
                 ExtendedScalars.NegativeInt,
                 ExtendedScalars.Url
             )
-        val extendedScalarTypeDefinitionsByName: PersistentMap<String, ScalarTypeDefinition> =
-            extendedScalarTypes.fold(persistentMapOf<String, ScalarTypeDefinition>()) {
-                pm,
-                gqlScalarType ->
+        val scalarTypeDefinitions: ImmutableList<ScalarTypeDefinition> =
+            extendedScalarTypes.fold(persistentListOf<ScalarTypeDefinition>()) {
+                pl: PersistentList<ScalarTypeDefinition>,
+                gqlScalarType: GraphQLScalarType ->
                 val description: Description =
                     Description(
                         gqlScalarType.description,
                         SourceLocation.EMPTY,
                         gqlScalarType.description?.contains('\n') ?: false
                     )
-                pm.put(
-                    gqlScalarType.name,
+                pl.add(
                     ScalarTypeDefinition.newScalarTypeDefinition()
                         .name(gqlScalarType.name)
                         .description(description)
                         .build()
                 )
             }
-        return GraphQLSchemaBuildContext(
-            scalarTypeDefinitionsByName = extendedScalarTypeDefinitionsByName,
-            scalarTypesByName =
-                extendedScalarTypes
-                    .parallelStream()
-                    .map { gqls: GraphQLScalarType -> gqls.name to gqls }
-                    .reducePairsToPersistentMap()
-        )
+        return sdlDefinitionCreationContextFactory
+            .createInitialContextForRootSchematicVertexSDLDefinition(
+                metamodelGraph = metamodelGraph,
+                scalarTypeDefinitions = scalarTypeDefinitions
+            )
     }
 
-    private fun addSchematicVertexToBuildContext(
-        buildContext: GraphQLSchemaBuildContext,
-        vertex: SchematicVertex
+    private fun createBuildContextPlacingDependentDefinitionsInImplementingTypeDefinitions(
+        sdlDefinitionCreationContext: SchematicVertexSDLDefinitionCreationContext<*>
     ): GraphQLSchemaBuildContext {
-        logger.debug("add_schematic_vertex_to_build_context: [ vertex.path: ${vertex.path} ]")
-        return when (vertex) {
-            is SourceRootVertex -> addRootVertexToBuildContext(buildContext, vertex)
-            is SourceJunctionVertex -> addJunctionVertexToBuildContext(buildContext, vertex)
-            is SourceLeafVertex -> addLeafVertexToBuildContext(buildContext, vertex)
-            else ->
+        logger.debug(
+            """create_build_context_placing_dependent_definitions_
+               |in_implementing_type_definitions: [ sdl_definition_creation_context.
+               |sdl_definitions_by_schematic_path.size: 
+               |${sdlDefinitionCreationContext.sdlDefinitionsBySchematicPath.size} ]
+               |""".flattenIntoOneLine()
+        )
+        val sdlDefinitionsBySchematicPath: ImmutableMap<SchematicPath, ImmutableSet<Node<*>>> =
+            sdlDefinitionCreationContext.sdlDefinitionsBySchematicPath
+        sdlDefinitionsBySchematicPath
+            .streamPairs()
+            .sorted { p1, p2 -> p1.first.compareTo(p2.first) }
+            .flatMap { pathAndNodes ->
+                pathAndNodes.second.stream().map { node -> pathAndNodes.first to node }
+            }
+            .reduce(
+                ParentChildNodeCombinationContext(),
+                { ctx, (path, node) ->
+                    updateParentChildCombineContextWithNewRelationshipDefinition(ctx, path, node)
+                },
+                { ctx, _ -> ctx }
+            )
+    }
+
+    private fun updateParentChildCombineContextWithNewRelationshipDefinition(
+        parentChildNodeCombinationContext: ParentChildNodeCombinationContext,
+        path: SchematicPath,
+        node: Node<*>,
+    ): ParentChildNodeCombinationContext {
+        return when (node) {
+            is ImplementingTypeDefinition<*> -> {
+                parentChildNodeCombinationContext.copy(
+                    implementingTypeDefinitionsBySchematicPath =
+                        parentChildNodeCombinationContext.implementingTypeDefinitionsBySchematicPath
+                            .put(path, node)
+                )
+            }
+            is FieldDefinition -> {
+                parentChildNodeCombinationContext.copy(
+                    fieldDefinitionsBySchematicPath =
+                        parentChildNodeCombinationContext.fieldDefinitionsBySchematicPath.put(
+                            path,
+                            node
+                        )
+                )
+            }
+            is Argument -> {
+                parentChildNodeCombinationContext.copy(
+                    argumentDefinitionBySchematicPath =
+                        parentChildNodeCombinationContext.argumentDefinitionBySchematicPath.put(
+                            path,
+                            node
+                        )
+                )
+            }
+            is DirectiveDefinition -> {
+                parentChildNodeCombinationContext.copy(
+                    directiveDefinitionBySchematicPath =
+                        parentChildNodeCombinationContext.directiveDefinitionBySchematicPath.put(
+                            path,
+                            node
+                        )
+                )
+            }
+            is InputObjectTypeDefinition -> {
+                parentChildNodeCombinationContext.copy(
+                    inputObjectTypeDefinitionsBySchematicPath =
+                        parentChildNodeCombinationContext.inputObjectTypeDefinitionsBySchematicPath
+                            .put(path, node)
+                )
+            }
+            is InputValueDefinition -> {
+                parentChildNodeCombinationContext.copy(
+                    inputValueDefinitionsBySchematicPath =
+                        parentChildNodeCombinationContext.inputValueDefinitionsBySchematicPath.put(
+                            path,
+                            node
+                        )
+                )
+            }
+            else -> {
                 throw MaterializerException(
                     GRAPHQL_SCHEMA_CREATION_ERROR,
-                    "unsupported schematic_vertex type: [ type: ${vertex::class.qualifiedName}]"
+                    "unhandled graphql node type: [ actual: ${node::class.qualifiedName} ]"
                 )
+            }
         }
-    }
-
-    private fun addRootVertexToBuildContext(
-        buildContext: GraphQLSchemaBuildContext,
-        vertex: SourceRootVertex
-    ): GraphQLSchemaBuildContext {
-        logger.debug("add_root_vertex_to_build_context: [ vertex.path: ${vertex.path} ]")
-        val conventionalName: ConventionalName = vertex.compositeContainerType.conventionalName
-        val queryObjectTypeName: TypeName = TypeName("Query")
-        val queryOperationTypeDefinition: OperationTypeDefinition =
-            OperationTypeDefinition.newOperationTypeDefinition()
-                .name(conventionalName.toString())
-                .typeName(queryObjectTypeName)
-                .comments(listOf(Comment("root_type: ${vertex.path}", SourceLocation.EMPTY)))
-                .build()
-        val queryObjectTypeDefinition: ObjectTypeDefinition =
-            ObjectTypeDefinition.newObjectTypeDefinition().name(queryObjectTypeName.name).build()
-        return buildContext.copy(
-            operationTypeDefinitionsByPath =
-                buildContext.operationTypeDefinitionsByPath.put(
-                    vertex.path,
-                    queryOperationTypeDefinition
-                ),
-            objectTypeDefinitionsByPath =
-                buildContext.objectTypeDefinitionsByPath.put(
-                    vertex.path,
-                    queryObjectTypeDefinition
-                ),
-            objectTypeDefinitionsByName =
-                buildContext.objectTypeDefinitionsByName.put(
-                    queryObjectTypeDefinition.name,
-                    queryObjectTypeDefinition
-                )
-        )
-    }
-
-    private fun addJunctionVertexToBuildContext(
-        buildContext: GraphQLSchemaBuildContext,
-        vertex: SourceJunctionVertex
-    ): GraphQLSchemaBuildContext {
-        logger.debug("add_junction_vertex_to_build_context: [ vertex.path: ${vertex.path} ]")
-        val compositeContainerType = vertex.compositeContainerType
-        val compositeAttribute = vertex.compositeAttribute
-        val conventionalName: ConventionalName =
-            if (compositeContainerType.conventionalName == compositeAttribute.conventionalName) {
-                compositeContainerType.conventionalName
-            } else {
-                throw MaterializerException(
-                    GRAPHQL_SCHEMA_CREATION_ERROR,
-                    """conventional_name instances on junction_vertex [ 
-                        |container_type.name: ${compositeContainerType.conventionalName}, 
-                        |attribute.name: ${compositeAttribute.conventionalName} ] do not match
-                        |""".flattenIntoOneLine()
-                )
-            }
-        val objectTypeDefinition: ObjectTypeDefinition =
-            graphQLObjectTypeDefinitionFactory.createObjectTypeDefinitionForCompositeContainerType(
-                compositeContainerType = compositeContainerType
-            )
-        val fieldDefinition: FieldDefinition =
-            graphQLSDLFieldDefinitionFactory.createFieldDefinitionForCompositeAttribute(
-                compositeAttribute = compositeAttribute
-            )
-        val parentPath: SchematicPath =
-            vertex.path.getParentPath().getOrElse {
-                throw MaterializerException(
-                    GRAPHQL_SCHEMA_CREATION_ERROR,
-                    """root_path cannot be used as path for 
-                       |junction_vertex [ path: ${vertex.path}, 
-                       |name: $conventionalName ]
-                       |""".flattenIntoOneLine()
-                )
-            }
-        val parentObjectTypeDefinition: ObjectTypeDefinition =
-            buildContext.objectTypeDefinitionsByPath[parentPath].toOption().getOrElse {
-                throw MaterializerException(
-                    GRAPHQL_SCHEMA_CREATION_ERROR,
-                    """object_type_definition for parent should be processed 
-                       |before its children [ parent_path: ${parentPath}, 
-                       |name: $conventionalName ]
-                       |""".flattenIntoOneLine()
-                )
-            }
-        val updatedParentDefinition =
-            parentObjectTypeDefinition.transform { bldr: ObjectTypeDefinition.Builder ->
-                bldr.fieldDefinition(fieldDefinition)
-            }
-        return if (objectTypeDefinition.name in buildContext.objectTypeDefinitionsByName) {
-            buildContext.copy(
-                objectTypeDefinitionsByPath =
-                    buildContext
-                        .objectTypeDefinitionsByPath
-                        .put(parentPath, updatedParentDefinition)
-                        .put(vertex.path, objectTypeDefinition),
-                objectTypeDefinitionsByName =
-                    buildContext.objectTypeDefinitionsByName.put(
-                        updatedParentDefinition.name,
-                        updatedParentDefinition
-                    )
-            )
-        } else {
-            buildContext.copy(
-                objectTypeDefinitionsByPath =
-                    buildContext
-                        .objectTypeDefinitionsByPath
-                        .put(parentPath, updatedParentDefinition)
-                        .put(vertex.path, objectTypeDefinition),
-                objectTypeDefinitionsByName =
-                    buildContext
-                        .objectTypeDefinitionsByName
-                        .put(updatedParentDefinition.name, updatedParentDefinition)
-                        .put(objectTypeDefinition.name, objectTypeDefinition)
-            )
-        }
-    }
-
-    private fun addLeafVertexToBuildContext(
-        buildContext: GraphQLSchemaBuildContext,
-        vertex: SourceLeafVertex
-    ): GraphQLSchemaBuildContext {
-        logger.debug("add_leaf_vertex_to_build_context: [ vertex.path: ${vertex.path} ]")
-        val compositeAttribute: CompositeSourceAttribute = vertex.compositeAttribute
-        val conventionalName: ConventionalName = compositeAttribute.conventionalName
-        val fieldDefinition: FieldDefinition =
-            graphQLSDLFieldDefinitionFactory.createFieldDefinitionForCompositeAttribute(
-                compositeAttribute = compositeAttribute
-            )
-        val parentPath: SchematicPath =
-            vertex.path.getParentPath().getOrElse {
-                throw MaterializerException(
-                    GRAPHQL_SCHEMA_CREATION_ERROR,
-                    """root_path cannot be used as path for 
-                       |leaf_vertex [ path: ${vertex.path}, 
-                       |name: $conventionalName ]
-                       |""".flattenIntoOneLine()
-                )
-            }
-        val parentObjectTypeDefinition: ObjectTypeDefinition =
-            buildContext.objectTypeDefinitionsByPath[parentPath].toOption().getOrElse {
-                throw MaterializerException(
-                    GRAPHQL_SCHEMA_CREATION_ERROR,
-                    """object_type_definition for parent should be processed 
-                       |before its children [ parent_path: ${parentPath}, 
-                       |name: $conventionalName ]
-                       |""".flattenIntoOneLine()
-                )
-            }
-        val updatedParentDefinition =
-            parentObjectTypeDefinition.transform { bldr: ObjectTypeDefinition.Builder ->
-                bldr.fieldDefinition(fieldDefinition)
-            }
-        return buildContext.copy(
-            objectTypeDefinitionsByPath =
-                buildContext.objectTypeDefinitionsByPath.put(parentPath, updatedParentDefinition),
-            objectTypeDefinitionsByName =
-                buildContext.objectTypeDefinitionsByName.put(
-                    updatedParentDefinition.name,
-                    updatedParentDefinition
-                )
-        )
     }
 
     private fun createTypeDefinitionRegistryInBuildContext(
@@ -350,28 +309,64 @@ internal class DefaultMaterializationGraphQLSchemaFactory(
     ): GraphQLSchemaBuildContext {
         logger.debug(
             """create_type_definition_registry_in_build_context: 
-                |[ build_context.object_type_definitions_by_path.size: 
-                |${buildContext.objectTypeDefinitionsByPath.size} 
+                |[ build_context.sdl_definitions_by_schematic_path.size: 
+                |${buildContext.sdlDefinitionsBySchematicPath.size} 
                 |]""".flattenIntoOneLine()
         )
-        val currentTypeDefinitionRegistry: TypeDefinitionRegistry =
-            buildContext.typeDefinitionRegistry
-        currentTypeDefinitionRegistry
+        val queryOperationDefinition: OperationTypeDefinition =
+            createQueryOperationDefinitionFromSourceRootVertex(buildContext.metamodelGraph)
+        val typeDefinitionRegistry: TypeDefinitionRegistry = TypeDefinitionRegistry()
+        typeDefinitionRegistry
             .add(
                 SchemaDefinition.newSchemaDefinition()
-                    .operationTypeDefinitions(
-                        buildContext.operationTypeDefinitionsByPath.values.toList()
-                    )
+                    .operationTypeDefinition(queryOperationDefinition)
                     .build()
             )
             .ifPresent(typeRegistryUpdateGraphQLErrorHandler("schema_definition"))
-        currentTypeDefinitionRegistry
-            .addAll(buildContext.scalarTypeDefinitionsByName.values)
+        typeDefinitionRegistry
+            .addAll(buildContext.scalarTypeDefinitions)
             .ifPresent(typeRegistryUpdateGraphQLErrorHandler("scalar_type_definitions"))
-        currentTypeDefinitionRegistry
-            .addAll(buildContext.objectTypeDefinitionsByName.values)
-            .ifPresent(typeRegistryUpdateGraphQLErrorHandler("object_type_definitions"))
-        return buildContext.copy(typeDefinitionRegistry = currentTypeDefinitionRegistry)
+        typeDefinitionRegistry
+            .addAll(buildContext.implementingTypeDefinitions)
+            .ifPresent(typeRegistryUpdateGraphQLErrorHandler("implementing_type_definitions"))
+        return buildContext.copy(typeDefinitionRegistry = typeDefinitionRegistry)
+    }
+
+    private fun createQueryOperationDefinitionFromSourceRootVertex(
+        metamodelGraph: MetamodelGraph
+    ): OperationTypeDefinition {
+        return when (val sourceRootVertex: SourceRootVertex? =
+                metamodelGraph.verticesByPath[SchematicPath.getRootPath()] as? SourceRootVertex
+        ) {
+            null -> {
+                throw MaterializerException(
+                    GRAPHQL_SCHEMA_CREATION_ERROR,
+                    """root_source_vertex not found in metamodel_graph; 
+                       |cannot create operation definition""".flattenIntoOneLine()
+                )
+            }
+            else -> {
+                OperationTypeDefinition.newOperationTypeDefinition()
+                    .name(
+                        StandardNamingConventions.CAMEL_CASE
+                            .deriveName(
+                                sourceRootVertex.compositeContainerType.conventionalName.toString()
+                            )
+                            .toString()
+                    )
+                    .typeName(
+                        TypeName(
+                            StandardNamingConventions.PASCAL_CASE
+                                .deriveName(
+                                    sourceRootVertex.compositeContainerType.conventionalName
+                                        .toString()
+                                )
+                                .toString()
+                        )
+                    )
+                    .build()
+            }
+        }
     }
 
     private fun typeRegistryUpdateGraphQLErrorHandler(definitionTypeBeingAdded: String) =

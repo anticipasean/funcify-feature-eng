@@ -19,6 +19,7 @@ import funcify.feature.schema.vertex.SourceJunctionVertex
 import funcify.feature.schema.vertex.SourceLeafVertex
 import funcify.feature.schema.vertex.SourceRootVertex
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
+import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentMap
 import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
 import graphql.language.ImplementingTypeDefinition
 import graphql.language.NamedNode
@@ -395,7 +396,8 @@ internal class DefaultSchematicVertexSDLDefinitionCreationContextFactory :
     }
 
     override fun createInitialContextForRootSchematicVertexSDLDefinition(
-        metamodelGraph: MetamodelGraph
+        metamodelGraph: MetamodelGraph,
+        scalarTypeDefinitions: List<ScalarTypeDefinition>
     ): SchematicVertexSDLDefinitionCreationContext<SourceRootVertex> {
         logger.debug(
             """create_initial_context_for_root_schematic_vertex_sdl_definition: 
@@ -409,7 +411,12 @@ internal class DefaultSchematicVertexSDLDefinitionCreationContextFactory :
             is SourceRootVertex -> {
                 DefaultSourceRootVertexSDLDefinitionCreationContext(
                     metamodelGraph = metamodelGraph,
-                    currentVertex = rootVertex
+                    currentVertex = rootVertex,
+                    scalarTypeDefinitionsByName =
+                        scalarTypeDefinitions
+                            .stream()
+                            .map { std -> std.name to std }
+                            .reducePairsToPersistentMap()
                 )
             }
             else -> {

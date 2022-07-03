@@ -2,6 +2,7 @@ package funcify.feature.datasource.sdl
 
 import funcify.feature.schema.MetamodelGraph
 import funcify.feature.schema.vertex.SourceRootVertex
+import graphql.language.ScalarTypeDefinition
 
 /**
  *
@@ -11,7 +12,7 @@ import funcify.feature.schema.vertex.SourceRootVertex
 interface SchematicVertexSDLDefinitionCreationContextFactory {
 
     fun createInitialContextForRootSchematicVertexSDLDefinition(
-        metamodelGraph: MetamodelGraph
+        metamodelGraph: MetamodelGraph,
+        scalarTypeDefinitions: List<ScalarTypeDefinition> = listOf()
     ): SchematicVertexSDLDefinitionCreationContext<SourceRootVertex>
-
 }

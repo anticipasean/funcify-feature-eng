@@ -5,15 +5,14 @@ import funcify.feature.naming.NamingConventionFactory
 import funcify.feature.schema.datasource.SourceAttribute
 import funcify.feature.schema.datasource.SourceContainerType
 
-internal object DataSourceSDLDefinitionNamingConventions {
+object DataSourceSDLDefinitionNamingConventions {
 
     enum class ConventionType {
         OBJECT_TYPE_NAMING_CONVENTION,
         FIELD_NAMING_CONVENTION
     }
 
-    internal val OBJECT_TYPE_NAMING_CONVENTION:
-        NamingConvention<SourceContainerType<*, *>> by lazy {
+    val OBJECT_TYPE_NAMING_CONVENTION: NamingConvention<SourceContainerType<*, *>> by lazy {
         NamingConventionFactory.getDefaultFactory()
             .createConventionFor<SourceContainerType<*, *>>()
             .whenInputProvided {
@@ -32,7 +31,7 @@ internal object DataSourceSDLDefinitionNamingConventions {
             )
     }
 
-    internal val FIELD_NAMING_CONVENTION: NamingConvention<SourceAttribute<*>> by lazy {
+        val FIELD_NAMING_CONVENTION: NamingConvention<SourceAttribute<*>> by lazy {
         NamingConventionFactory.getDefaultFactory()
             .createConventionFor<SourceAttribute<*>>()
             .whenInputProvided {

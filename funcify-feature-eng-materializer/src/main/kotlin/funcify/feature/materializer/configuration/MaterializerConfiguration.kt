@@ -3,20 +3,17 @@ package funcify.feature.materializer.configuration
 import arrow.core.getOrElse
 import arrow.core.toOption
 import com.fasterxml.jackson.databind.ObjectMapper
-import funcify.feature.datasource.sdl.SourceIndexGqlSdlDefinitionFactory
 import funcify.feature.datasource.graphql.GraphQLApiDataSource
 import funcify.feature.datasource.rest.RestApiDataSource
+import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionCreationContextFactory
+import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionImplementationStrategy
 import funcify.feature.error.FeatureEngCommonException
 import funcify.feature.materializer.error.MaterializerErrorResponse
 import funcify.feature.materializer.error.MaterializerException
 import funcify.feature.materializer.request.DefaultRawGraphQLRequestFactory
 import funcify.feature.materializer.request.RawGraphQLRequestFactory
-import funcify.feature.materializer.sdl.DefaultGraphQLObjectTypeDefinitionFactory
-import funcify.feature.materializer.sdl.DefaultGraphQLSDLFieldDefinitionFactory
 import funcify.feature.materializer.schema.DefaultMaterializationGraphQLSchemaBroker
 import funcify.feature.materializer.schema.DefaultMaterializationGraphQLSchemaFactory
-import funcify.feature.materializer.sdl.GraphQLObjectTypeDefinitionFactory
-import funcify.feature.materializer.sdl.GraphQLSDLFieldDefinitionFactory
 import funcify.feature.materializer.schema.MaterializationGraphQLSchemaBroker
 import funcify.feature.materializer.schema.MaterializationGraphQLSchemaFactory
 import funcify.feature.schema.MetamodelGraph
@@ -24,7 +21,6 @@ import funcify.feature.schema.factory.MetamodelGraphFactory
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
 import graphql.schema.GraphQLSchema
-import kotlinx.collections.immutable.toImmutableList
 import org.slf4j.Logger
 import org.springframework.beans.factory.ObjectProvider
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
@@ -90,39 +86,19 @@ open class MaterializerConfiguration {
         return DefaultRawGraphQLRequestFactory()
     }
 
-    @ConditionalOnMissingBean(value = [GraphQLObjectTypeDefinitionFactory::class])
-    @Bean
-    fun graphQLObjectTypeDefinitionFactory(
-        sourceIndexGqlSdlDefinitionFactories: ObjectProvider<SourceIndexGqlSdlDefinitionFactory<*>>
-    ): GraphQLObjectTypeDefinitionFactory {
-        return DefaultGraphQLObjectTypeDefinitionFactory(
-            sourceIndexGqlSdlDefinitionFactories =
-                sourceIndexGqlSdlDefinitionFactories.toImmutableList()
-        )
-    }
-
-    @ConditionalOnMissingBean(value = [GraphQLSDLFieldDefinitionFactory::class])
-    @Bean
-    fun graphQLSDLFieldDefinitionFactory(
-        sourceIndexGqlSdlDefinitionFactories: ObjectProvider<SourceIndexGqlSdlDefinitionFactory<*>>
-    ): GraphQLSDLFieldDefinitionFactory {
-        return DefaultGraphQLSDLFieldDefinitionFactory(
-            sourceIndexGqlSdlDefinitionFactories =
-                sourceIndexGqlSdlDefinitionFactories.toImmutableList()
-        )
-    }
-
     @ConditionalOnMissingBean(value = [MaterializationGraphQLSchemaFactory::class])
     @Bean
     fun materializationGraphQLSchemaFactory(
         objectMapper: ObjectMapper,
-        graphQLObjectTypeDefinitionFactory: GraphQLObjectTypeDefinitionFactory,
-        graphQLSDLFieldDefinitionFactory: GraphQLSDLFieldDefinitionFactory
+        sdlDefinitionCreationContextFactory: SchematicVertexSDLDefinitionCreationContextFactory,
+        sdlDefinitionImplementationStrategyProvider:
+            ObjectProvider<SchematicVertexSDLDefinitionImplementationStrategy>
     ): MaterializationGraphQLSchemaFactory {
         return DefaultMaterializationGraphQLSchemaFactory(
             objectMapper = objectMapper,
-            graphQLObjectTypeDefinitionFactory = graphQLObjectTypeDefinitionFactory,
-            graphQLSDLFieldDefinitionFactory = graphQLSDLFieldDefinitionFactory
+            sdlDefinitionCreationContextFactory = sdlDefinitionCreationContextFactory,
+            sdlDefinitionImplementationStrategyProvider =
+                sdlDefinitionImplementationStrategyProvider
         )
     }
 
