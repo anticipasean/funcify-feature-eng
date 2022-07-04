@@ -4,7 +4,10 @@ import arrow.core.Option
 import funcify.feature.datasource.graphql.metadata.GraphQLApiSourceMetadataFilter
 import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.path.SchematicPath
+import graphql.schema.GraphQLAppliedDirective
+import graphql.schema.GraphQLArgument
 import graphql.schema.GraphQLFieldDefinition
+import graphql.schema.GraphQLInputObjectType
 import graphql.schema.GraphQLObjectType
 import kotlinx.collections.immutable.ImmutableSet
 
@@ -29,7 +32,19 @@ interface GraphQLSourceIndexFactory {
 
     fun createSourceAttributeForDataSourceKey(
         key: DataSource.Key<GraphQLSourceIndex>
-    ): ParentDefinitionBase
+    ): SourceParentDefinitionBase
+
+    fun createParameterContainerTypeForDataSourceKey(
+        key: DataSource.Key<GraphQLSourceIndex>
+    ): ParameterContainerTypeBase
+
+    fun updateParameterContainerType(
+        graphQLParameterContainerType: GraphQLParameterContainerType
+    ): ParameterContainerTypeUpdateSpec
+
+    fun createParameterAttributeForDataSourceKey(
+        key: DataSource.Key<GraphQLSourceIndex>
+    ): ParameterParentDefinitionBase
 
     interface RootSourceContainerTypeSpec {
         fun forGraphQLQueryObjectType(
@@ -47,7 +62,7 @@ interface GraphQLSourceIndexFactory {
         ): Option<GraphQLSourceContainerType>
     }
 
-    interface ParentDefinitionBase {
+    interface SourceParentDefinitionBase {
 
         fun withParentPathAndDefinition(
             parentPath: SchematicPath,
@@ -63,8 +78,49 @@ interface GraphQLSourceIndexFactory {
     }
 
     interface SourceContainerTypeUpdateSpec {
+
         fun withChildSourceAttributes(
             graphQLSourceAttributes: ImmutableSet<GraphQLSourceAttribute>
         ): GraphQLSourceContainerType
+    }
+
+    interface ParameterContainerTypeUpdateSpec {
+
+        fun withChildSourceAttributes(
+            graphQLParameterAttributes: ImmutableSet<GraphQLParameterAttribute>
+        ): GraphQLParameterContainerType
+    }
+
+    interface ParameterParentDefinitionBase {
+
+        fun withParentPathAndDefinition(
+            parentPath: SchematicPath,
+            parentDefinition: GraphQLFieldDefinition
+        ): ParameterAttributeSpec
+    }
+
+    interface ParameterAttributeSpec {
+
+        fun forChildArgument(childArgument: GraphQLArgument): GraphQLParameterAttribute
+
+        fun forChildDirective(childDirective: GraphQLAppliedDirective): GraphQLParameterAttribute
+    }
+
+    interface ParameterContainerTypeBase {
+
+        fun forArgumentPathAndDefinition(
+            argumentPath: SchematicPath,
+            argumentDefinition: GraphQLArgument
+        ): Option<GraphQLParameterContainerType>
+
+        fun forInputParameterContainerPathAndDefinition(
+            inputParameterContainerPath: SchematicPath,
+            inputObjectType: GraphQLInputObjectType
+        ): Option<GraphQLParameterContainerType>
+
+        fun forDirectivePathAndDefinition(
+            directivePath: SchematicPath,
+            directive: GraphQLAppliedDirective
+        ): Option<GraphQLParameterContainerType>
     }
 }
