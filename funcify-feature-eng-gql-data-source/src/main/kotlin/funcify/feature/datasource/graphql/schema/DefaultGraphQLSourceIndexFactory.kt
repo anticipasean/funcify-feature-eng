@@ -1,40 +1,28 @@
 package funcify.feature.datasource.graphql.schema
 
-import arrow.core.Option
 import arrow.core.Some
 import arrow.core.filterIsInstance
 import arrow.core.getOrElse
+import arrow.core.identity
 import arrow.core.lastOrNone
-import arrow.core.none
 import arrow.core.some
 import arrow.core.toOption
+import com.fasterxml.jackson.databind.node.JsonNodeFactory
 import funcify.feature.datasource.graphql.error.GQLDataSourceErrorResponse
 import funcify.feature.datasource.graphql.error.GQLDataSourceException
 import funcify.feature.datasource.graphql.metadata.GraphQLApiSourceMetadataFilter
 import funcify.feature.datasource.graphql.naming.GraphQLSourceNamingConventions
-import funcify.feature.datasource.graphql.schema.GraphQLSourceIndexFactory.AttributeBase
-import funcify.feature.datasource.graphql.schema.GraphQLSourceIndexFactory.ChildAttributeSpec
-import funcify.feature.datasource.graphql.schema.GraphQLSourceIndexFactory.ParameterAttributeSpec
-import funcify.feature.datasource.graphql.schema.GraphQLSourceIndexFactory.ParameterContainerTypeBase
-import funcify.feature.datasource.graphql.schema.GraphQLSourceIndexFactory.ParameterContainerTypeUpdateSpec
-import funcify.feature.datasource.graphql.schema.GraphQLSourceIndexFactory.ParameterParentDefinitionBase
-import funcify.feature.datasource.graphql.schema.GraphQLSourceIndexFactory.RootSourceContainerTypeSpec
-import funcify.feature.datasource.graphql.schema.GraphQLSourceIndexFactory.SourceContainerTypeUpdateSpec
-import funcify.feature.datasource.graphql.schema.GraphQLSourceIndexFactory.SourceParentDefinitionBase
+import funcify.feature.datasource.graphql.schema.GraphQLSourceIndexFactory.*
 import funcify.feature.naming.ConventionalName
 import funcify.feature.naming.StandardNamingConventions
 import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.path.SchematicPath
+import funcify.feature.tools.container.attempt.Try
+import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentMap
 import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
-import graphql.schema.GraphQLAppliedDirective
-import graphql.schema.GraphQLArgument
-import graphql.schema.GraphQLFieldDefinition
-import graphql.schema.GraphQLInputFieldsContainer
-import graphql.schema.GraphQLInputObjectType
-import graphql.schema.GraphQLNamedOutputType
-import graphql.schema.GraphQLObjectType
-import graphql.schema.GraphQLOutputType
-import graphql.schema.GraphQLTypeReference
+import funcify.feature.tools.extensions.TryExtensions.failure
+import funcify.feature.tools.extensions.TryExtensions.success
+import graphql.schema.*
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.PersistentSet
 import kotlinx.collections.immutable.persistentSetOf
@@ -55,18 +43,20 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
             override fun forGraphQLQueryObjectType(
                 queryObjectType: GraphQLObjectType,
                 metadataFilter: GraphQLApiSourceMetadataFilter
-            ): GraphQLSourceContainerType {
-                return createRootSourceContainerType(
-                    queryObjectType,
-                    queryObjectType.fieldDefinitions
-                        .filter { gfd: GraphQLFieldDefinition ->
-                            metadataFilter.includeGraphQLFieldDefinition(gfd)
+            ): Try<GraphQLSourceContainerType> {
+                return queryObjectType
+                    .fieldDefinitions
+                    .filter { gfd: GraphQLFieldDefinition ->
+                        metadataFilter.includeGraphQLFieldDefinition(gfd)
+                    }
+                    .fold(Try.success(persistentSetOf<GraphQLSourceAttribute>())) { psAttempt, fd ->
+                        psAttempt.flatMap { ps ->
+                            createRootAttributeForFieldDefinition(fd).map { attr -> ps.add(attr) }
                         }
-                        .fold(persistentSetOf()) { ps, fd ->
-                            ps.add(createRootAttributeForFieldDefinition(fd))
-                        }
-                )
+                    }
+                    .map { ps -> createRootSourceContainerType(queryObjectType, ps) }
             }
+
             private fun createRootSourceContainerType(
                 queryObjectType: GraphQLObjectType,
                 graphQLSourceAttributes: PersistentSet<GraphQLSourceAttribute>
@@ -79,9 +69,10 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
                     sourceAttributes = graphQLSourceAttributes
                 )
             }
+
             private fun createRootAttributeForFieldDefinition(
                 fieldDefinition: GraphQLFieldDefinition
-            ): GraphQLSourceAttribute {
+            ): Try<GraphQLSourceAttribute> {
                 val convPathName =
                     GraphQLSourceNamingConventions
                         .getPathNamingConventionForGraphQLFieldDefinitions()
@@ -94,13 +85,13 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
                     SchematicPath.getRootPath().transform {
                         pathSegment(convPathName.qualifiedForm)
                     }
-
                 return DefaultGraphQLSourceAttribute(
-                    dataSourceLookupKey = key,
-                    sourcePath = sourcePath,
-                    name = convFieldName,
-                    schemaFieldDefinition = fieldDefinition
-                )
+                        dataSourceLookupKey = key,
+                        sourcePath = sourcePath,
+                        name = convFieldName,
+                        schemaFieldDefinition = fieldDefinition
+                    )
+                    .success()
             }
         }
 
@@ -110,10 +101,13 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
             override fun forAttributePathAndDefinition(
                 attributePath: SchematicPath,
                 attributeDefinition: GraphQLFieldDefinition
-            ): Option<GraphQLSourceContainerType> {
-                when (GraphQLFieldsContainerTypeExtractor.invoke(attributeDefinition.type)) {
+            ): Try<GraphQLSourceContainerType> {
+                return when (GraphQLOutputFieldsContainerTypeExtractor.invoke(
+                        attributeDefinition.type
+                    )
+                ) {
                     is Some -> {
-                        return DefaultGraphQLSourceContainerType(
+                        DefaultGraphQLSourceContainerType(
                                 dataSourceLookupKey = key,
                                 sourcePath = attributePath,
                                 name =
@@ -122,10 +116,17 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
                                         .deriveName(attributeDefinition),
                                 dataType = attributeDefinition.type
                             )
-                            .some()
+                            .success()
                     }
                     else -> {
-                        return none<DefaultGraphQLSourceContainerType>()
+                        GQLDataSourceException(
+                                GQLDataSourceErrorResponse.INVALID_INPUT,
+                                """field_definition.type is not a graphql_fields_container_type 
+                                   |and cannot represent a graphql_source_container_type: 
+                                   |[ actual: ${attributeDefinition.type::class.qualifiedName} 
+                                   |]""".flattenIntoOneLine()
+                            )
+                            .failure()
                     }
                 }
             }
@@ -155,7 +156,7 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
 
             override fun forChildAttributeDefinition(
                 childDefinition: GraphQLFieldDefinition
-            ): GraphQLSourceAttribute {
+            ): Try<GraphQLSourceAttribute> {
                 if (parentPath.pathSegments.isEmpty() ||
                         parentPath
                             .pathSegments
@@ -169,33 +170,39 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
                             }
                             .isDefined()
                 ) {
+                    val parentDefinitionPathNameSegment =
+                        GraphQLSourceNamingConventions
+                            .getPathNamingConventionForGraphQLFieldDefinitions()
+                            .deriveName(parentDefinition)
+                            .qualifiedForm
                     val message =
-                        """
-                    |parent_path [ path: ${parentPath.toURI()} ] does not match expected requirements 
-                    |for parent_definition input [ qualified_name: ${
-                    GraphQLSourceNamingConventions.getPathNamingConventionForGraphQLFieldDefinitions()
-                            .deriveName(parentDefinition).qualifiedForm
+                        """parent_path [ path: ${parentPath.toURI()} ] does not match expected requirements 
+                           |for parent_definition input [ qualified_name: $parentDefinitionPathNameSegment
+                           |""".flattenIntoOneLine()
+                    return GQLDataSourceException(GQLDataSourceErrorResponse.INVALID_INPUT, message)
+                        .failure<GraphQLSourceAttribute>()
                 }
-                    |""".flattenIntoOneLine()
-                    throw IllegalArgumentException(message)
-                }
-                if (GraphQLFieldsContainerTypeExtractor.invoke(parentDefinition.type)
+                if (GraphQLOutputFieldsContainerTypeExtractor.invoke(parentDefinition.type)
                         .filter { gqlObjType ->
                             !gqlObjType.fieldDefinitions.contains(childDefinition)
                         }
                         .isDefined()
                 ) {
-                    val message =
-                        """child_definition [ name: ${childDefinition.name} ] 
-                           |is not found in child_field_definitions 
-                           |of parent_definition object_type or wrapped object_type [ name: ${
-                    parentDefinition.type.toOption()
+                    val parentDefinitionTypeName =
+                        parentDefinition
+                            .type
+                            .toOption()
                             .filterIsInstance<GraphQLNamedOutputType>()
                             .map(GraphQLNamedOutputType::getName)
                             .getOrElse { "<NA>" }
-                } ]
-                    """.flattenIntoOneLine()
-                    throw GQLDataSourceException(GQLDataSourceErrorResponse.INVALID_INPUT, message)
+                    val message =
+                        """child_definition [ name: ${childDefinition.name} ] 
+                           |is not found in child_field_definitions 
+                           |of parent_definition object_type or wrapped object_type 
+                           |[ name: $parentDefinitionTypeName ]
+                           |""".flattenIntoOneLine()
+                    return GQLDataSourceException(GQLDataSourceErrorResponse.INVALID_INPUT, message)
+                        .failure()
                 }
                 val childConvPathName =
                     GraphQLSourceNamingConventions
@@ -208,11 +215,12 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
                 val childPath =
                     parentPath.transform { pathSegment(childConvPathName.qualifiedForm) }
                 return DefaultGraphQLSourceAttribute(
-                    dataSourceLookupKey = dataSourceLookupKey,
-                    sourcePath = childPath,
-                    name = childConvFieldName,
-                    schemaFieldDefinition = childDefinition
-                )
+                        dataSourceLookupKey = dataSourceLookupKey,
+                        sourcePath = childPath,
+                        name = childConvFieldName,
+                        schemaFieldDefinition = childDefinition
+                    )
+                    .success()
             }
         }
 
@@ -221,13 +229,13 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
         ) : SourceContainerTypeUpdateSpec {
             override fun withChildSourceAttributes(
                 graphQLSourceAttributes: ImmutableSet<GraphQLSourceAttribute>
-            ): GraphQLSourceContainerType {
+            ): Try<GraphQLSourceContainerType> {
                 val validatedAttributeSet =
                     graphQLSourceAttributes
                         .stream()
                         .reduce(
-                            persistentSetOf<GraphQLSourceAttribute>(),
-                            { ps, gsa ->
+                            Try.success(persistentSetOf<GraphQLSourceAttribute>()),
+                            { psAttempt, gsa ->
                                 if (gsa.sourcePath
                                         .getParentPath()
                                         .filter { sp ->
@@ -235,43 +243,159 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
                                         }
                                         .isDefined()
                                 ) {
-                                    throw GQLDataSourceException(
-                                        GQLDataSourceErrorResponse.INVALID_INPUT,
-                                        """source path for attribute [ source_path: ${gsa.sourcePath} ] 
-                                    |is not child path of source_container_type 
-                                    |source_path [ source_path: ${graphQLSourceContainerType.sourcePath} ]
-                                    |""".flattenIntoOneLine()
-                                    )
+                                    GQLDataSourceException(
+                                            GQLDataSourceErrorResponse.INVALID_INPUT,
+                                            """source path for attribute [ source_path: ${gsa.sourcePath} ] 
+                                               |is not child path of source_container_type 
+                                               |source_path [ source_path: ${graphQLSourceContainerType.sourcePath} ]
+                                               |""".flattenIntoOneLine()
+                                        )
+                                        .failure<PersistentSet<GraphQLSourceAttribute>>()
                                 } else {
-                                    ps.add(gsa)
+                                    psAttempt.map { ps -> ps.add(gsa) }
                                 }
                             },
-                            { ps1, ps2 -> ps1.addAll(ps2) }
+                            { ps1Attempt, ps2Attempt ->
+                                ps1Attempt.flatMap { ps1 ->
+                                    ps2Attempt.map { ps2 -> ps1.addAll(ps2) }
+                                }
+                            }
                         )
-                return (graphQLSourceContainerType as? DefaultGraphQLSourceContainerType)?.copy(
-                    sourceAttributes = validatedAttributeSet
-                )
-                    ?: DefaultGraphQLSourceContainerType(
-                        dataSourceLookupKey = graphQLSourceContainerType.dataSourceLookupKey,
-                        sourcePath = graphQLSourceContainerType.sourcePath,
-                        dataType = graphQLSourceContainerType.dataType as? GraphQLOutputType
-                                ?: throw GQLDataSourceException(
-                                    GQLDataSourceErrorResponse.SCHEMA_CREATION_ERROR,
-                                    """source_container_type must have graphql_output_type, 
-                                        |not an input or other kind of type""".flattenIntoOneLine()
-                                ),
-                        name = graphQLSourceContainerType.name,
-                        sourceAttributes = validatedAttributeSet
+                if (validatedAttributeSet.isFailure()) {
+                    return validatedAttributeSet.getFailure().orNull()!!.failure()
+                }
+                return ((graphQLSourceContainerType as? DefaultGraphQLSourceContainerType)?.copy(
+                        sourceAttributes = validatedAttributeSet.orNull()!!
                     )
+                        ?: DefaultGraphQLSourceContainerType(
+                            dataSourceLookupKey = graphQLSourceContainerType.dataSourceLookupKey,
+                            sourcePath = graphQLSourceContainerType.sourcePath,
+                            dataType = graphQLSourceContainerType.dataType as? GraphQLOutputType
+                                    ?: throw GQLDataSourceException(
+                                        GQLDataSourceErrorResponse.SCHEMA_CREATION_ERROR,
+                                        """source_container_type must have graphql_output_type, 
+                                           |not an input or other kind of type""".flattenIntoOneLine()
+                                    ),
+                            name = graphQLSourceContainerType.name,
+                            sourceAttributes = validatedAttributeSet.orNull()!!
+                        ))
+                    .success()
             }
         }
 
-        internal class DefaultParameterContainerTypeUpdateSpec : ParameterContainerTypeUpdateSpec {
+        internal class DefaultParameterContainerTypeUpdateSpec(
+            private val graphQLParameterContainerType: GraphQLParameterContainerType
+        ) : ParameterContainerTypeUpdateSpec {
 
             override fun withChildSourceAttributes(
                 graphQLParameterAttributes: ImmutableSet<GraphQLParameterAttribute>
-            ): GraphQLParameterContainerType {
-                TODO("Not yet implemented")
+            ): Try<GraphQLParameterContainerType> {
+                when (graphQLParameterContainerType) {
+                    is DefaultGraphQLParameterDirectiveContainerType -> {
+                        val directiveArgumentTypesByName =
+                            graphQLParameterContainerType
+                                .graphQLAppliedDirective
+                                .map { directive: GraphQLAppliedDirective -> directive.arguments }
+                                .fold(::emptyList, ::identity)
+                                .stream()
+                                .map { dir -> dir.name to dir.type }
+                                .reducePairsToPersistentMap()
+                        return graphQLParameterAttributes
+                            .asSequence()
+                            .fold(Try.success(persistentSetOf<GraphQLParameterAttribute>())) {
+                                psAttempt,
+                                gqlParmAttr ->
+                                psAttempt.flatMap { ps ->
+                                    Try.attempt {
+                                        if (gqlParmAttr.name.toString() in
+                                                directiveArgumentTypesByName &&
+                                                gqlParmAttr
+                                                    .appliedDirectiveArgument
+                                                    .filter { appDirArg ->
+                                                        appDirArg.type ==
+                                                            directiveArgumentTypesByName[
+                                                                gqlParmAttr.name.toString()]
+                                                    }
+                                                    .isDefined()
+                                        ) {
+                                            gqlParmAttr
+                                        } else {
+                                            throw GQLDataSourceException(
+                                                GQLDataSourceErrorResponse.INVALID_INPUT,
+                                                """graphql_parameter_attribute not matching 
+                                                    |directive_argument.name and directive_argument.type 
+                                                    |of parent: [ actual: { name: ${gqlParmAttr.name}, 
+                                                    |type: ${gqlParmAttr.dataType} }""".flattenIntoOneLine()
+                                            )
+                                        }
+                                    }
+                                        .map { gpa -> ps.add(gpa) }
+                                }
+                            }
+                            .map { gqlParmAttrs ->
+                                graphQLParameterContainerType.copy(
+                                    parameterAttributes = gqlParmAttrs
+                                )
+                            }
+                    }
+                    is DefaultGraphQLParameterInputObjectContainerType -> {
+                        val inputObjFieldTypesByName =
+                            graphQLParameterContainerType
+                                .graphQLInputFieldsContainerType
+                                .map { ifc -> ifc.fieldDefinitions }
+                                .fold(::emptyList, ::identity)
+                                .stream()
+                                .map { gqlif -> gqlif.name to gqlif.type }
+                                .reducePairsToPersistentMap()
+                        return graphQLParameterAttributes
+                            .asSequence()
+                            .fold(Try.success(persistentSetOf<GraphQLParameterAttribute>())) {
+                                psAttempt,
+                                gqlParamAttr ->
+                                psAttempt.flatMap { ps ->
+                                    Try.attempt {
+                                        if (gqlParamAttr.name.toString() in
+                                                inputObjFieldTypesByName &&
+                                                gqlParamAttr
+                                                    .inputObjectField
+                                                    .filter { gqlif ->
+                                                        gqlif.type ==
+                                                            inputObjFieldTypesByName[
+                                                                gqlParamAttr.name.toString()]
+                                                    }
+                                                    .isDefined()
+                                        ) {
+                                            gqlParamAttr
+                                        } else {
+                                            throw GQLDataSourceException(
+                                                GQLDataSourceErrorResponse.INVALID_INPUT,
+                                                """graphql_parameter_attribute name and/or type does 
+                                            |not match those of graphql_parameter_container_type 
+                                            |input_object_field values: [ actual: 
+                                            |{ name: ${gqlParamAttr.name}, 
+                                            |type: ${gqlParamAttr.dataType} } ]
+                                            |""".flattenIntoOneLine()
+                                            )
+                                        }
+                                    }
+                                        .map { gqlpa -> ps.add(gqlpa) }
+                                }
+                            }
+                            .map { gqlpas ->
+                                graphQLParameterContainerType.copy(parameterAttributes = gqlpas)
+                            }
+                    }
+                    else -> {
+                        return GQLDataSourceException(
+                                GQLDataSourceErrorResponse.UNEXPECTED_ERROR,
+                                """a graphql_parameter_source_container_type 
+                                |is not handled: [ container_type: 
+                                |${graphQLParameterContainerType::class.qualifiedName} ]
+                                |""".flattenIntoOneLine()
+                            )
+                            .failure()
+                    }
+                }
             }
         }
         internal class DefaultParameterParentDefinitionBase(
@@ -318,7 +442,7 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
 
             override fun forChildArgument(
                 childArgument: GraphQLArgument
-            ): GraphQLParameterAttribute {
+            ): Try<GraphQLParameterAttribute> {
                 if (parentDefinition.getArgument(childArgument.name) == null) {
                     val parentFieldDefinitionArgumentNames =
                         parentDefinition
@@ -326,33 +450,35 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
                             .asSequence()
                             .map { gqlArg -> gqlArg.name }
                             .joinToString(", ", "{ ", " }")
-                    throw GQLDataSourceException(
-                        GQLDataSourceErrorResponse.INVALID_INPUT,
-                        """child_argument_definition must be present 
-                            |given parent field_definition: 
-                            |[ child_argument_definition.name: 
-                            |${childArgument.name}, 
-                            |parent_field_definition.arguments.names: 
-                            |${parentFieldDefinitionArgumentNames} 
-                            |]""".flattenIntoOneLine()
-                    )
+                    return GQLDataSourceException(
+                            GQLDataSourceErrorResponse.INVALID_INPUT,
+                            """child_argument_definition must be present 
+                               |given parent field_definition: 
+                               |[ child_argument_definition.name: 
+                               |${childArgument.name}, 
+                               |parent_field_definition.arguments.names: 
+                               |${parentFieldDefinitionArgumentNames} 
+                               |]""".flattenIntoOneLine()
+                        )
+                        .failure<GraphQLParameterAttribute>()
                 }
                 val argumentConventionalName: ConventionalName =
                     StandardNamingConventions.CAMEL_CASE.deriveName(childArgument.name)
                 val argumentPath: SchematicPath =
                     parentPath.transform { argument(argumentConventionalName.toString()) }
                 return DefaultGraphQLParameterArgumentAttribute(
-                    sourcePath = argumentPath,
-                    name = argumentConventionalName,
-                    dataType = childArgument.type,
-                    dataSourceLookupKey = key,
-                    argument = childArgument.some()
-                )
+                        sourcePath = argumentPath,
+                        name = argumentConventionalName,
+                        dataType = childArgument.type,
+                        dataSourceLookupKey = key,
+                        argument = childArgument.some()
+                    )
+                    .success()
             }
 
             override fun forChildDirective(
                 childDirective: GraphQLAppliedDirective
-            ): GraphQLParameterAttribute {
+            ): Try<GraphQLParameterAttribute> {
                 if (!parentDefinition.hasAppliedDirective(childDirective.name)) {
                     val appliedDirectiveNames: String =
                         parentDefinition
@@ -360,80 +486,191 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
                             .asSequence()
                             .map { gqld -> gqld.name }
                             .joinToString(", ", "{ ", " }")
-                    throw GQLDataSourceException(
-                        GQLDataSourceErrorResponse.INVALID_INPUT,
-                        """child_directive must be present on 
-                           |parent_field_definition: 
-                           |[ expected: one of ${appliedDirectiveNames}, 
-                           |actual: ${childDirective.name} ]
-                           |""".flattenIntoOneLine()
-                    )
+                    return GQLDataSourceException(
+                            GQLDataSourceErrorResponse.INVALID_INPUT,
+                            """child_directive must be present on 
+                               |parent_field_definition: 
+                               |[ expected: one of ${appliedDirectiveNames}, 
+                               |actual: ${childDirective.name} ]
+                               |""".flattenIntoOneLine()
+                        )
+                        .failure()
                 }
                 val directiveConventionalName: ConventionalName =
                     StandardNamingConventions.CAMEL_CASE.deriveName(childDirective.name)
                 val directivePath: SchematicPath =
                     parentPath.transform { directive(directiveConventionalName.toString()) }
+                val attributeTypeName: ConventionalName =
+                    StandardNamingConventions.PASCAL_CASE.deriveName(
+                        childDirective.name + " Directive"
+                    )
+                val attributeType: GraphQLInputType =
+                    GraphQLTypeReference(attributeTypeName.toString())
                 return DefaultGraphQLParameterDirectiveAttribute(
-                    sourcePath = directivePath,
-                    name = directiveConventionalName,
-                    dataType = GraphQLTypeReference(childDirective.name),
-                    dataSourceLookupKey = key,
-                    directive = childDirective.some()
-                )
+                        sourcePath = directivePath,
+                        name = directiveConventionalName,
+                        dataType = attributeType,
+                        dataSourceLookupKey = key,
+                        directive = childDirective.some()
+                    )
+                    .success()
             }
         }
         internal class DefaultParameterContainerTypeBase(
             private val key: DataSource.Key<GraphQLSourceIndex>
         ) : ParameterContainerTypeBase {
 
-            override fun forArgumentPathAndDefinition(
-                argumentPath: SchematicPath,
-                argumentDefinition: GraphQLArgument,
-            ): Option<GraphQLParameterContainerType> {
-                val argumentInputObjectType: GraphQLInputObjectType =
-                    when (val argumentInputFieldsContainerType: GraphQLInputFieldsContainer? =
-                            GraphQLInputFieldsContainerTypeExtractor.invoke(argumentDefinition.type)
-                                .orNull()
-                    ) {
-                        null -> {
-                            throw GQLDataSourceException(
-                                GQLDataSourceErrorResponse.INVALID_INPUT,
-                                """child_argument_definition.type is not an 
-                                   |input_fields_container type and 
-                                   |therefore cannot serve as a 
-                                   |parameter_container_type: [ expected: 
-                                   |subtype of ${GraphQLInputFieldsContainer::class.simpleName}, 
-                                   |actual: ${argumentDefinition.type::class.simpleName} ]
-                                   |""".flattenIntoOneLine()
-                            )
-                        }
-                        is GraphQLInputObjectType -> argumentInputFieldsContainerType
-                        else -> {
-                            throw GQLDataSourceException(
-                                GQLDataSourceErrorResponse.UNEXPECTED_ERROR,
-                                """new subtype of graphql_input_fields_container 
-                                   |added to API that is not yet handled: [ 
-                                   |subtype: 
-                                   |${argumentInputFieldsContainerType::class.qualifiedName} 
-                                   |]""".flattenIntoOneLine()
-                            )
-                        }
-                    }
-                TODO("Not yet implemented")
-            }
-
-            override fun forInputParameterContainerPathAndDefinition(
-                inputParameterContainerPath: SchematicPath,
+            override fun forArgumentNameAndInputObjectType(
+                name: String,
                 inputObjectType: GraphQLInputObjectType,
-            ): Option<GraphQLParameterContainerType> {
-                TODO("Not yet implemented")
+            ): InputObjectTypeContainerSpec {
+                return DefaultInputObjectTypeContainerSpec(
+                    key = key,
+                    name = name,
+                    inputObjectType = inputObjectType
+                )
             }
 
-            override fun forDirectivePathAndDefinition(
-                directivePath: SchematicPath,
+            override fun forDirective(
                 directive: GraphQLAppliedDirective,
-            ): Option<GraphQLParameterContainerType> {
+            ): DirectiveContainerTypeSpec {
+                return DefaultDirectiveContainerTypeSpec(key = key, appliedDirective = directive)
+            }
+        }
+
+        internal class DefaultInputObjectTypeContainerSpec(
+            private val key: DataSource.Key<GraphQLSourceIndex>,
+            private val name: String,
+            private val inputObjectType: GraphQLInputObjectType
+        ) : InputObjectTypeContainerSpec {
+
+            override fun onFieldArgumentValue(
+                argumentPath: SchematicPath,
+                graphQLArgument: GraphQLArgument
+            ): Try<GraphQLParameterContainerType> {
+                if (argumentPath.arguments.isEmpty()) {
+                    return GQLDataSourceException(
+                            GQLDataSourceErrorResponse.INVALID_INPUT,
+                            """source_path for graphql_argument must 
+                               |have at least one argument: 
+                               |[ actual: ${argumentPath} ]
+                               |""".flattenIntoOneLine()
+                        )
+                        .failure()
+                }
+                if (!argumentPath
+                        .arguments
+                        .asSequence()
+                        .firstOrNull()
+                        .toOption()
+                        .filter { (argName, _) -> argName == graphQLArgument.name }
+                        .isDefined()
+                ) {
+                    val firstArgumentName: String =
+                        argumentPath
+                            .arguments
+                            .asSequence()
+                            .firstOrNull()
+                            .toOption()
+                            .map { entry -> entry.key }
+                            .orNull()
+                            ?: "<NA>"
+                    return GQLDataSourceException(
+                            GQLDataSourceErrorResponse.INVALID_INPUT,
+                            """source_path.arguments[0].key does not represent 
+                               |graphql_argument: [ expected: ${graphQLArgument.name}, 
+                               |actual: $firstArgumentName ]
+                               |""".flattenIntoOneLine()
+                        )
+                        .failure()
+                }
+                val parameterContainerPath =
+                    argumentPath.transform {
+                        clearArguments()
+                            .clearDirectives()
+                            .argument(
+                                graphQLArgument.name,
+                                JsonNodeFactory.instance.objectNode().putNull(name)
+                            )
+                    }
+                return when (val graphQLInputFieldsContainer: GraphQLInputFieldsContainer? =
+                        GraphQLInputFieldsContainerTypeExtractor.invoke(graphQLArgument.type)
+                            .orNull()
+                ) {
+                    null -> {
+                        GQLDataSourceException(
+                                GQLDataSourceErrorResponse.INVALID_INPUT,
+                                """graphql_argument_value_type is not a 
+                                       |graphql_input_fields_container subtype and 
+                                       |therefore cannot be made a graphql_parameter_container_type: 
+                                       |[ actual_datatype: ${graphQLArgument.type::class.qualifiedName} 
+                                       |]""".flattenIntoOneLine()
+                            )
+                            .failure()
+                    }
+                    else -> {
+                        DefaultGraphQLParameterInputObjectContainerType(
+                                sourcePath = parameterContainerPath,
+                                name =
+                                    StandardNamingConventions.PASCAL_CASE.deriveName(
+                                        inputObjectType.name
+                                    ),
+                                dataType = inputObjectType,
+                                dataSourceLookupKey = key,
+                            )
+                            .success()
+                    }
+                }
+            }
+
+            override fun onDirectiveArgumentValue(
+                directivePath: SchematicPath,
+                graphQLAppliedDirective: GraphQLAppliedDirective,
+            ): Try<GraphQLParameterContainerType> {
                 TODO("Not yet implemented")
+            }
+        }
+
+        internal class DefaultDirectiveContainerTypeSpec(
+            private val key: DataSource.Key<GraphQLSourceIndex>,
+            private val appliedDirective: GraphQLAppliedDirective
+        ) : DirectiveContainerTypeSpec {
+
+            override fun onFieldDefinition(
+                sourceAttributePath: SchematicPath,
+                graphQLFieldDefinition: GraphQLFieldDefinition,
+            ): Try<GraphQLParameterContainerType> {
+                if (sourceAttributePath.arguments.isNotEmpty() ||
+                        sourceAttributePath.directives.isNotEmpty()
+                ) {
+                    return GQLDataSourceException(
+                            GQLDataSourceErrorResponse.INVALID_INPUT,
+                            """source_attribute_path cannot have any arguments 
+                               |or directives; must represent source_attribute: 
+                               |[ actual: ${sourceAttributePath} ]
+                               |""".flattenIntoOneLine()
+                        )
+                        .failure()
+                }
+                if (!graphQLFieldDefinition.hasAppliedDirective(appliedDirective.name)) {
+                    return GQLDataSourceException(
+                            GQLDataSourceErrorResponse.INVALID_INPUT,
+                            """graphql_field_definition does not have 
+                               |applied_directive with name within 
+                               |applied_directives set: [ applied_directive.name: 
+                               |${appliedDirective.name} ]
+                               |""".flattenIntoOneLine()
+                        )
+                        .failure()
+                }
+                val directivePath: SchematicPath =
+                    sourceAttributePath.transform { directive(appliedDirective.name) }
+                return DefaultGraphQLParameterDirectiveContainerType(
+                        sourcePath = directivePath,
+                        dataSourceLookupKey = key,
+                        graphQLAppliedDirective = appliedDirective.some()
+                    )
+                    .success()
             }
         }
     }
@@ -471,7 +708,7 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
     override fun updateParameterContainerType(
         graphQLParameterContainerType: GraphQLParameterContainerType
     ): ParameterContainerTypeUpdateSpec {
-        TODO("Not yet implemented")
+        return DefaultParameterContainerTypeUpdateSpec(graphQLParameterContainerType)
     }
 
     override fun createParameterAttributeForDataSourceKey(

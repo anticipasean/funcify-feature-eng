@@ -1,9 +1,9 @@
 package funcify.feature.datasource.graphql.schema
 
-import arrow.core.Option
 import funcify.feature.datasource.graphql.metadata.GraphQLApiSourceMetadataFilter
 import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.path.SchematicPath
+import funcify.feature.tools.container.attempt.Try
 import graphql.schema.GraphQLAppliedDirective
 import graphql.schema.GraphQLArgument
 import graphql.schema.GraphQLFieldDefinition
@@ -51,7 +51,7 @@ interface GraphQLSourceIndexFactory {
             queryObjectType: GraphQLObjectType,
             metadataFilter: GraphQLApiSourceMetadataFilter =
                 GraphQLApiSourceMetadataFilter.INCLUDE_ALL_FILTER
-        ): GraphQLSourceContainerType
+        ): Try<GraphQLSourceContainerType>
     }
 
     interface AttributeBase {
@@ -59,7 +59,7 @@ interface GraphQLSourceIndexFactory {
         fun forAttributePathAndDefinition(
             attributePath: SchematicPath,
             attributeDefinition: GraphQLFieldDefinition
-        ): Option<GraphQLSourceContainerType>
+        ): Try<GraphQLSourceContainerType>
     }
 
     interface SourceParentDefinitionBase {
@@ -74,21 +74,21 @@ interface GraphQLSourceIndexFactory {
 
         fun forChildAttributeDefinition(
             childDefinition: GraphQLFieldDefinition
-        ): GraphQLSourceAttribute
+        ): Try<GraphQLSourceAttribute>
     }
 
     interface SourceContainerTypeUpdateSpec {
 
         fun withChildSourceAttributes(
             graphQLSourceAttributes: ImmutableSet<GraphQLSourceAttribute>
-        ): GraphQLSourceContainerType
+        ): Try<GraphQLSourceContainerType>
     }
 
     interface ParameterContainerTypeUpdateSpec {
 
         fun withChildSourceAttributes(
             graphQLParameterAttributes: ImmutableSet<GraphQLParameterAttribute>
-        ): GraphQLParameterContainerType
+        ): Try<GraphQLParameterContainerType>
     }
 
     interface ParameterParentDefinitionBase {
@@ -101,26 +101,41 @@ interface GraphQLSourceIndexFactory {
 
     interface ParameterAttributeSpec {
 
-        fun forChildArgument(childArgument: GraphQLArgument): GraphQLParameterAttribute
+        fun forChildArgument(childArgument: GraphQLArgument): Try<GraphQLParameterAttribute>
 
-        fun forChildDirective(childDirective: GraphQLAppliedDirective): GraphQLParameterAttribute
+        fun forChildDirective(
+            childDirective: GraphQLAppliedDirective
+        ): Try<GraphQLParameterAttribute>
     }
 
     interface ParameterContainerTypeBase {
 
-        fun forArgumentPathAndDefinition(
-            argumentPath: SchematicPath,
-            argumentDefinition: GraphQLArgument
-        ): Option<GraphQLParameterContainerType>
-
-        fun forInputParameterContainerPathAndDefinition(
-            inputParameterContainerPath: SchematicPath,
+        fun forArgumentNameAndInputObjectType(
+            name: String,
             inputObjectType: GraphQLInputObjectType
-        ): Option<GraphQLParameterContainerType>
+        ): InputObjectTypeContainerSpec
 
-        fun forDirectivePathAndDefinition(
+        fun forDirective(directive: GraphQLAppliedDirective): DirectiveContainerTypeSpec
+    }
+
+    interface InputObjectTypeContainerSpec {
+
+        fun onFieldArgumentValue(
+            argumentPath: SchematicPath,
+            graphQLArgument: GraphQLArgument
+        ): Try<GraphQLParameterContainerType>
+
+        fun onDirectiveArgumentValue(
             directivePath: SchematicPath,
-            directive: GraphQLAppliedDirective
-        ): Option<GraphQLParameterContainerType>
+            graphQLAppliedDirective: GraphQLAppliedDirective
+        ): Try<GraphQLParameterContainerType>
+    }
+
+    interface DirectiveContainerTypeSpec {
+
+        fun onFieldDefinition(
+            sourceAttributePath: SchematicPath,
+            graphQLFieldDefinition: GraphQLFieldDefinition
+        ): Try<GraphQLParameterContainerType>
     }
 }

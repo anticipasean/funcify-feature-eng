@@ -30,7 +30,7 @@ internal data class DefaultGraphQLSourceContainerType(
     /** Should not throw exception if created through graphql source index factory */
     override val containerType: GraphQLFieldsContainer by lazy {
         when (val gqlFieldContOpt: Option<GraphQLFieldsContainer> =
-                GraphQLFieldsContainerTypeExtractor.invoke(dataType)
+                GraphQLOutputFieldsContainerTypeExtractor.invoke(dataType)
         ) {
             is Some -> gqlFieldContOpt.value
             else -> {

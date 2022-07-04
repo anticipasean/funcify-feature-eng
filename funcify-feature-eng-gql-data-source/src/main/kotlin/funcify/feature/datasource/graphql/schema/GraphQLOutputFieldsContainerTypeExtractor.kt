@@ -20,7 +20,7 @@ import graphql.schema.GraphQLType
  * MyObjectType())))
  * ```
  */
-object GraphQLFieldsContainerTypeExtractor : (GraphQLType) -> Option<GraphQLFieldsContainer> {
+object GraphQLOutputFieldsContainerTypeExtractor : (GraphQLType) -> Option<GraphQLFieldsContainer> {
 
     override fun invoke(graphQLType: GraphQLType): Option<GraphQLFieldsContainer> {
         return when (graphQLType) {

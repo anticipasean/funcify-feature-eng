@@ -8,7 +8,7 @@ import funcify.feature.datasource.graphql.error.GQLDataSourceErrorResponse
 import funcify.feature.datasource.graphql.error.GQLDataSourceException
 import funcify.feature.datasource.graphql.schema.DefaultGraphQLSourceAttribute
 import funcify.feature.datasource.graphql.schema.DefaultGraphQLSourceContainerType
-import funcify.feature.datasource.graphql.schema.GraphQLFieldsContainerTypeExtractor
+import funcify.feature.datasource.graphql.schema.GraphQLOutputFieldsContainerTypeExtractor
 import funcify.feature.datasource.graphql.schema.GraphQLSourceAttribute
 import funcify.feature.datasource.graphql.schema.GraphQLSourceContainerType
 import funcify.feature.datasource.graphql.schema.GraphQLSourceIndex
@@ -149,7 +149,7 @@ internal class DefaultGraphQLApiSourceMetadataReader(
             .flatMap { gqlFieldDef: GraphQLFieldDefinition ->
                 val traversalFunction: (GraphQLFieldDefinition) -> Stream<GraphQLFieldDefinition> =
                     { gqlf: GraphQLFieldDefinition ->
-                        GraphQLFieldsContainerTypeExtractor.invoke(gqlf.type)
+                        GraphQLOutputFieldsContainerTypeExtractor.invoke(gqlf.type)
                             .map { gqlfc: GraphQLFieldsContainer ->
                                 gqlfc.fieldDefinitions.stream().filter { gfd: GraphQLFieldDefinition
                                     ->
