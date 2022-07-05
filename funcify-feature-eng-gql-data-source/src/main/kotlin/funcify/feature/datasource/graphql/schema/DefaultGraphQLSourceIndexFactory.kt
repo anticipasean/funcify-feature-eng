@@ -627,7 +627,34 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
                 directivePath: SchematicPath,
                 graphQLAppliedDirective: GraphQLAppliedDirective,
             ): Try<GraphQLParameterContainerType> {
-                TODO("Not yet implemented")
+                if (directivePath.directives.isEmpty()) {
+                    return GQLDataSourceException(
+                            GQLDataSourceErrorResponse.INVALID_INPUT,
+                            """directive_path does not represent a directive 
+                               |on a source_index: [ actual: ${directivePath} ]
+                               |""".flattenIntoOneLine()
+                        )
+                        .failure()
+                }
+                if (directivePath.directives.none { (name, jsonVal) ->
+                        name == graphQLAppliedDirective.name && (jsonVal.isEmpty || jsonVal.isNull)
+                    }
+                ) {
+                    return GQLDataSourceException(
+                            GQLDataSourceErrorResponse.INVALID_INPUT,
+                            """directive_path.directives does not contain 
+                               |the given applied_directive.name (or if present, 
+                               |does not represent empty or null container directive): 
+                               |[ actual: ${directivePath} ]""".flattenIntoOneLine()
+                        )
+                        .failure()
+                }
+                return DefaultGraphQLParameterDirectiveContainerType(
+                        sourcePath = directivePath,
+                        graphQLAppliedDirective = graphQLAppliedDirective.some(),
+                        dataSourceLookupKey = key
+                    )
+                    .success()
             }
         }
 

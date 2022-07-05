@@ -3,6 +3,7 @@ package funcify.feature.datasource.graphql.metadata
 import arrow.core.filterIsInstance
 import arrow.core.getOrElse
 import arrow.core.or
+import arrow.core.some
 import arrow.core.toOption
 import funcify.feature.datasource.graphql.error.GQLDataSourceErrorResponse
 import funcify.feature.datasource.graphql.error.GQLDataSourceException
@@ -17,6 +18,7 @@ import funcify.feature.datasource.graphql.schema.GraphQLSourceMetamodel
 import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.datasource.SourceMetamodel
 import funcify.feature.schema.path.SchematicPath
+import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.control.RelationshipSpliterators
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.PersistentMapExtensions.combineWithPersistentSetValueMap
@@ -94,51 +96,59 @@ internal class DefaultGraphQLApiSourceMetadataReader(
             }
             .reduce(
                 createContextForRootQueryType(dataSourceKey, input.queryType),
-                { gsc: GqlSourceContext, fieldDef: GraphQLFieldDefinition ->
-                    addFieldDefinitionToGqlContext(gsc, fieldDef)
+                { gscAttempt: Try<GqlSourceContext>, fieldDef: GraphQLFieldDefinition ->
+                    gscAttempt.map { gsc -> addFieldDefinitionToGqlContext(gsc, fieldDef) }
                 },
-                { gsc1, gsc2 -> combineTopLevelGqlSourceContexts(gsc1, gsc2) }
+                { gsc1Attempt, gsc2Attempt ->
+                    gsc1Attempt.flatMap { gsc1 ->
+                        gsc2Attempt.map { gsc2 -> combineTopLevelGqlSourceContexts(gsc1, gsc2) }
+                    }
+                }
             )
-            .let { context: GqlSourceContext ->
-                extractSourceContainerTypeIterableFromFinalContext(context)
+            .let { gscAttempt: Try<GqlSourceContext> ->
+                gscAttempt.map { gsc -> extractSourceContainerTypeIterableFromFinalContext(gsc) }
             }
+            .orElseThrow()
     }
 
     private fun createContextForRootQueryType(
         dataSourceKey: DataSource.Key<GraphQLSourceIndex>,
         queryType: GraphQLObjectType
-    ): GqlSourceContext {
-        val graphQLSourceContainerType =
-            graphQLSourceIndexFactory
-                .createRootSourceContainerTypeForDataSourceKey(dataSourceKey)
-                .forGraphQLQueryObjectType(queryType, graphQLApiSourceMetadataFilter)
-        return GqlSourceContext(
-            dataSourceKey = dataSourceKey,
-            rootSourceContainerType = graphQLSourceContainerType,
-            indicesByPath =
-                graphQLSourceContainerType
-                    .sourceAttributes
-                    .stream()
-                    .map { gsa -> gsa.sourcePath to gsa }
-                    .reducePairsToPersistentSetValueMap()
-                    .combineWithPersistentSetValueMap(
-                        persistentMapOf(
-                            graphQLSourceContainerType.sourcePath to
-                                persistentSetOf<GraphQLSourceIndex>(graphQLSourceContainerType)
-                        )
+    ): Try<GqlSourceContext> {
+        return Try.attempt {
+            val graphQLSourceContainerType =
+                graphQLSourceIndexFactory
+                    .createRootSourceContainerTypeForDataSourceKey(dataSourceKey)
+                    .forGraphQLQueryObjectType(queryType, graphQLApiSourceMetadataFilter)
+                    .orElseThrow()
+            GqlSourceContext(
+                dataSourceKey = dataSourceKey,
+                rootSourceContainerType = graphQLSourceContainerType,
+                indicesByPath =
+                    graphQLSourceContainerType
+                        .sourceAttributes
+                        .stream()
+                        .map { gsa -> gsa.sourcePath to gsa }
+                        .reducePairsToPersistentSetValueMap()
+                        .combineWithPersistentSetValueMap(
+                            persistentMapOf(
+                                graphQLSourceContainerType.sourcePath to
+                                    persistentSetOf<GraphQLSourceIndex>(graphQLSourceContainerType)
+                            )
+                        ),
+                sourceContainerTypeToAttributeTypes =
+                    persistentMapOf(
+                        graphQLSourceContainerType to
+                            graphQLSourceContainerType.sourceAttributes.toPersistentSet()
                     ),
-            sourceContainerTypeToAttributeTypes =
-                persistentMapOf(
-                    graphQLSourceContainerType to
-                        graphQLSourceContainerType.sourceAttributes.toPersistentSet()
-                ),
-            graphQLFieldDefinitionToPath =
-                graphQLSourceContainerType
-                    .sourceAttributes
-                    .stream()
-                    .map { gsa -> gsa.schemaFieldDefinition to gsa.sourcePath }
-                    .reducePairsToPersistentMap()
-        )
+                graphQLFieldDefinitionToPath =
+                    graphQLSourceContainerType
+                        .sourceAttributes
+                        .stream()
+                        .map { gsa -> gsa.schemaFieldDefinition to gsa.sourcePath }
+                        .reducePairsToPersistentMap()
+            )
+        }
     }
 
     private fun addFieldDefinitionToGqlContext(
@@ -217,6 +227,8 @@ internal class DefaultGraphQLApiSourceMetadataReader(
                                     currentContext.dataSourceKey
                                 )
                                 .forAttributePathAndDefinition(parentPath, parentFieldDefinition)
+                                .orElseThrow()
+                                .some()
                         )
                         .getOrElse {
                             throw GQLDataSourceException(
@@ -229,6 +241,7 @@ internal class DefaultGraphQLApiSourceMetadataReader(
                         .createSourceAttributeForDataSourceKey(currentContext.dataSourceKey)
                         .withParentPathAndDefinition(parentPath, parentFieldDefinition)
                         .forChildAttributeDefinition(childFieldDefinition)
+                        .orElseThrow()
                 val updatedAttributeSet: PersistentSet<GraphQLSourceAttribute> =
                     currentContext
                         .sourceContainerTypeToAttributeTypes
@@ -293,6 +306,8 @@ internal class DefaultGraphQLApiSourceMetadataReader(
                                     currentContext.dataSourceKey
                                 )
                                 .forAttributePathAndDefinition(parentPath, parentFieldDefinition)
+                                .orElseThrow()
+                                .some()
                         )
                         .getOrElse {
                             throw GQLDataSourceException(
@@ -313,6 +328,7 @@ internal class DefaultGraphQLApiSourceMetadataReader(
                                 .createSourceAttributeForDataSourceKey(currentContext.dataSourceKey)
                                 .withParentPathAndDefinition(parentPath, parentFieldDefinition)
                                 .forChildAttributeDefinition(childFieldDefinition)
+                                .orElseThrow()
                         }
                 val updatedAttributeSet =
                     currentContext
@@ -390,6 +406,7 @@ internal class DefaultGraphQLApiSourceMetadataReader(
                                 graphQLSourceIndexFactory
                                     .updateSourceContainerType(pair.first)
                                     .withChildSourceAttributes(pair.second)
+                                    .orElseThrow()
                             pm.put(
                                 updatedSourceContainerType.sourcePath,
                                 pm.getOrDefault(
