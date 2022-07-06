@@ -6,6 +6,6 @@ import graphql.schema.GraphQLFieldsContainer
 interface GraphQLSourceContainerType :
     GraphQLSourceIndex, SourceContainerType<GraphQLSourceIndex, GraphQLSourceAttribute> {
 
-    val containerType: GraphQLFieldsContainer
+    val graphQLFieldsContainerType: GraphQLFieldsContainer
 
 }

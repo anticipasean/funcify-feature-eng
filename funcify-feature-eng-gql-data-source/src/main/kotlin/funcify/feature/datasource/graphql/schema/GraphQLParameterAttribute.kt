@@ -16,7 +16,7 @@ import graphql.schema.GraphQLInputObjectField
 interface GraphQLParameterAttribute :
     GraphQLParameterIndex, ParameterAttribute<GraphQLSourceIndex> {
 
-    val argument: Option<GraphQLArgument>
+    val fieldArgument: Option<GraphQLArgument>
         get() = none()
 
     val directive: Option<GraphQLAppliedDirective>
@@ -25,22 +25,22 @@ interface GraphQLParameterAttribute :
     val inputObjectField: Option<GraphQLInputObjectField>
         get() = none()
 
-    val appliedDirectiveArgument: Option<GraphQLAppliedDirectiveArgument>
+    val directiveArgument: Option<GraphQLAppliedDirectiveArgument>
         get() = none()
 
-    fun isOnDirective(): Boolean {
+    fun isDirective(): Boolean {
         return directive.isDefined()
     }
 
-    fun isOnArgument(): Boolean {
-        return argument.isDefined()
+    fun isArgumentOnFieldDefinition(): Boolean {
+        return fieldArgument.isDefined()
     }
 
-    fun isOnInputObject(): Boolean {
+    fun isFieldOnInputObject(): Boolean {
         return inputObjectField.isDefined()
     }
 
     fun isArgumentOnDirective(): Boolean {
-        return appliedDirectiveArgument.isDefined()
+        return directiveArgument.isDefined()
     }
 }

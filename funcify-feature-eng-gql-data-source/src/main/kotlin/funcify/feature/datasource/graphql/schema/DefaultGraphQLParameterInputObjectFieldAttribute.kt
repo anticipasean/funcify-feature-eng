@@ -11,6 +11,7 @@ import funcify.feature.naming.ConventionalName
 import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
+import funcify.feature.tools.extensions.TryExtensions.successIfDefined
 import graphql.schema.GraphQLInputObjectField
 import graphql.schema.GraphQLInputType
 
@@ -22,12 +23,22 @@ import graphql.schema.GraphQLInputType
 internal data class DefaultGraphQLParameterInputObjectFieldAttribute(
     override val sourcePath: SchematicPath,
     override val name: ConventionalName,
-    override val dataType: GraphQLInputType,
     override val dataSourceLookupKey: DataSource.Key<GraphQLSourceIndex>,
     override val inputObjectField: Option<GraphQLInputObjectField>
 ) : GraphQLParameterAttribute {
 
     init {
+        inputObjectField
+            .successIfDefined {
+                GQLDataSourceException(
+                    GQLDataSourceErrorResponse.INVALID_INPUT,
+                    """input_object_field must be defined 
+                       |in 
+                       |${DefaultGraphQLParameterInputObjectFieldAttribute::class.qualifiedName}
+                       |""".flattenIntoOneLine()
+                )
+            }
+            .orElseThrow()
         if (sourcePath.arguments.isEmpty() && sourcePath.directives.isEmpty()) {
             throw GQLDataSourceException(
                 GQLDataSourceErrorResponse.INVALID_INPUT,
@@ -117,5 +128,9 @@ internal data class DefaultGraphQLParameterInputObjectFieldAttribute(
                     |actual_directives_as_json_node: $dirsObjectNodeAsString ]""".flattenIntoOneLine()
             )
         }
+    }
+
+    override val dataType: GraphQLInputType by lazy {
+        inputObjectField.map { iof -> iof.type }.successIfDefined().orElseThrow()
     }
 }

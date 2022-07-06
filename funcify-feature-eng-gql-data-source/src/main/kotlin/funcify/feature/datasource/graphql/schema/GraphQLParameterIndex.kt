@@ -17,5 +17,5 @@ interface GraphQLParameterIndex : GraphQLSourceIndex, ParameterIndex<GraphQLSour
 
     override val name: ConventionalName
 
-    override val dataType: GraphQLType
+    override val dataType: GraphQLInputType
 }

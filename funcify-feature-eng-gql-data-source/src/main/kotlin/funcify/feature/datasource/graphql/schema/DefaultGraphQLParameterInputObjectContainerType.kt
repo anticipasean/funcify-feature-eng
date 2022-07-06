@@ -1,6 +1,5 @@
 package funcify.feature.datasource.graphql.schema
 
-import arrow.core.Option
 import funcify.feature.datasource.graphql.error.GQLDataSourceErrorResponse
 import funcify.feature.datasource.graphql.error.GQLDataSourceException
 import funcify.feature.naming.ConventionalName
@@ -9,7 +8,7 @@ import funcify.feature.schema.path.SchematicPath
 import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentMap
 import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
 import graphql.schema.GraphQLInputFieldsContainer
-import graphql.schema.GraphQLInputType
+import graphql.schema.GraphQLInputObjectType
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.PersistentSet
 import kotlinx.collections.immutable.persistentSetOf
@@ -22,14 +21,10 @@ import kotlinx.collections.immutable.persistentSetOf
 internal data class DefaultGraphQLParameterInputObjectContainerType(
     override val sourcePath: SchematicPath,
     override val name: ConventionalName,
-    override val dataType: GraphQLInputType,
+    override val dataType: GraphQLInputObjectType,
     override val dataSourceLookupKey: DataSource.Key<GraphQLSourceIndex>,
     override val parameterAttributes: PersistentSet<GraphQLParameterAttribute> = persistentSetOf(),
 ) : GraphQLParameterContainerType {
-
-    override val graphQLInputFieldsContainerType: Option<GraphQLInputFieldsContainer> by lazy {
-        GraphQLInputFieldsContainerTypeExtractor.invoke(dataType)
-    }
 
     init {
         if (sourcePath.arguments.isEmpty() && sourcePath.directives.isEmpty()) {
@@ -41,22 +36,9 @@ internal data class DefaultGraphQLParameterInputObjectContainerType(
                    |""".flattenIntoOneLine()
             )
         }
-        if (!graphQLInputFieldsContainerType.isDefined()) {
-            val dataTypeSuperTypesSetStr: String =
-                dataType::class
-                    .supertypes
-                    .asSequence()
-                    .map { kt -> kt.toString() }
-                    .joinToString(", ", "{ ", " }")
-            throw GQLDataSourceException(
-                GQLDataSourceErrorResponse.INVALID_INPUT,
-                """data_type given for parameter_input_object_container_type 
-                    |must be a graphql_input_fields_container: [ actual: ${dataType::class.qualifiedName} 
-                    |implementing $dataTypeSuperTypesSetStr ]
-                    |""".flattenIntoOneLine()
-            )
-        }
     }
+
+    override val inputFieldsContainerType: GraphQLInputFieldsContainer = dataType
 
     private val parameterAttributesByName:
         PersistentMap<String, GraphQLParameterAttribute> by lazy {

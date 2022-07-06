@@ -8,10 +8,10 @@ import kotlinx.collections.immutable.ImmutableList
 
 interface GraphQLSourceAttribute : GraphQLSourceIndex, SourceAttribute<GraphQLSourceIndex> {
 
-    val schemaFieldDefinition: GraphQLFieldDefinition
+    val graphQLFieldDefinition: GraphQLFieldDefinition
 
     override val dataType: GraphQLOutputType
-        get() = schemaFieldDefinition.type
+        get() = graphQLFieldDefinition.type
 
     val arguments: ImmutableList<GraphQLArgument>
 }

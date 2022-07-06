@@ -119,7 +119,7 @@ internal class DefaultGraphQLApiSourceMetadataReader(
             val graphQLSourceContainerType =
                 graphQLSourceIndexFactory
                     .createRootSourceContainerTypeForDataSourceKey(dataSourceKey)
-                    .forGraphQLQueryObjectType(queryType, graphQLApiSourceMetadataFilter)
+                    .forGraphQLQueryObjectType(queryType)
                     .orElseThrow()
             GqlSourceContext(
                 dataSourceKey = dataSourceKey,
@@ -145,7 +145,7 @@ internal class DefaultGraphQLApiSourceMetadataReader(
                     graphQLSourceContainerType
                         .sourceAttributes
                         .stream()
-                        .map { gsa -> gsa.schemaFieldDefinition to gsa.sourcePath }
+                        .map { gsa -> gsa.graphQLFieldDefinition to gsa.sourcePath }
                         .reducePairsToPersistentMap()
             )
         }

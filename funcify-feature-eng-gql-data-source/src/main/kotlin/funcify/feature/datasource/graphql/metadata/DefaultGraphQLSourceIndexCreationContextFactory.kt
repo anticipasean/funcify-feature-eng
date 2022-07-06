@@ -6,18 +6,20 @@ import arrow.core.or
 import arrow.core.some
 import funcify.feature.datasource.graphql.error.GQLDataSourceErrorResponse
 import funcify.feature.datasource.graphql.error.GQLDataSourceException
-import funcify.feature.datasource.graphql.metadata.GraphQLSourceIndexCreationContext.ArgumentParameterSourceIndexCreationContext
 import funcify.feature.datasource.graphql.metadata.GraphQLSourceIndexCreationContext.Builder
 import funcify.feature.datasource.graphql.metadata.GraphQLSourceIndexCreationContext.DirectiveArgumentSourceIndexCreationContext
 import funcify.feature.datasource.graphql.metadata.GraphQLSourceIndexCreationContext.DirectiveSourceIndexCreationContext
+import funcify.feature.datasource.graphql.metadata.GraphQLSourceIndexCreationContext.FieldArgumentParameterSourceIndexCreationContext
 import funcify.feature.datasource.graphql.metadata.GraphQLSourceIndexCreationContext.FieldDefinitionSourceIndexCreationContext
 import funcify.feature.datasource.graphql.metadata.GraphQLSourceIndexCreationContext.InputObjectFieldSourceIndexCreationContext
+import funcify.feature.datasource.graphql.metadata.GraphQLSourceIndexCreationContext.InputObjectTypeSourceIndexCreationContext
 import funcify.feature.datasource.graphql.metadata.GraphQLSourceIndexCreationContext.OutputObjectTypeSourceIndexCreationContext
 import funcify.feature.datasource.graphql.schema.GraphQLParameterAttribute
 import funcify.feature.datasource.graphql.schema.GraphQLParameterContainerType
 import funcify.feature.datasource.graphql.schema.GraphQLSourceAttribute
 import funcify.feature.datasource.graphql.schema.GraphQLSourceContainerType
 import funcify.feature.datasource.graphql.schema.GraphQLSourceIndex
+import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
@@ -26,6 +28,7 @@ import graphql.schema.GraphQLAppliedDirectiveArgument
 import graphql.schema.GraphQLArgument
 import graphql.schema.GraphQLFieldDefinition
 import graphql.schema.GraphQLInputObjectField
+import graphql.schema.GraphQLInputObjectType
 import graphql.schema.GraphQLObjectType
 import graphql.schema.GraphQLSchemaElement
 import kotlinx.collections.immutable.PersistentMap
@@ -56,6 +59,7 @@ internal object DefaultGraphQLSourceIndexCreationContextFactory :
         private var graphqlParameterAttributesBySchematicPath:
             PersistentMap<SchematicPath, GraphQLParameterAttribute> =
             persistentMapOf(),
+        private var graphQLApiDataSourceKey: DataSource.Key<GraphQLSourceIndex>,
         private var parentPath: Option<SchematicPath>,
         private var currentElement: E
     ) : Builder<E> {
@@ -83,7 +87,7 @@ internal object DefaultGraphQLSourceIndexCreationContextFactory :
                         )
                     schematicPathCreatedBySchemaElement =
                         schematicPathCreatedBySchemaElement.put(
-                            graphQLSourceIndex.containerType,
+                            graphQLSourceIndex.graphQLFieldsContainerType,
                             containerTypePath
                         )
                     schemaElementsBySchematicPath =
@@ -91,7 +95,7 @@ internal object DefaultGraphQLSourceIndexCreationContextFactory :
                             containerTypePath,
                             schemaElementsBySchematicPath
                                 .getOrDefault(containerTypePath, persistentSetOf())
-                                .add(graphQLSourceIndex.containerType)
+                                .add(graphQLSourceIndex.graphQLFieldsContainerType)
                         )
                 }
                 is GraphQLSourceAttribute -> {
@@ -103,7 +107,7 @@ internal object DefaultGraphQLSourceIndexCreationContextFactory :
                         )
                     schematicPathCreatedBySchemaElement =
                         schematicPathCreatedBySchemaElement.put(
-                            graphQLSourceIndex.schemaFieldDefinition,
+                            graphQLSourceIndex.graphQLFieldDefinition,
                             attributePath
                         )
                     schemaElementsBySchematicPath =
@@ -111,7 +115,7 @@ internal object DefaultGraphQLSourceIndexCreationContextFactory :
                             attributePath,
                             schemaElementsBySchematicPath
                                 .getOrDefault(attributePath, persistentSetOf())
-                                .add(graphQLSourceIndex.schemaFieldDefinition)
+                                .add(graphQLSourceIndex.graphQLFieldDefinition)
                         )
                 }
                 is GraphQLParameterContainerType -> {
@@ -123,8 +127,10 @@ internal object DefaultGraphQLSourceIndexCreationContextFactory :
                         )
                     when (val schemaElement: GraphQLSchemaElement? =
                             graphQLSourceIndex
-                                .graphQLAppliedDirective
-                                .or(graphQLSourceIndex.graphQLInputFieldsContainerType)
+                                .fieldArgument
+                                .or(graphQLSourceIndex.directiveArgument)
+                                .or(graphQLSourceIndex.inputObjectField)
+                                .or(graphQLSourceIndex.directive)
                                 .orNull()
                     ) {
                         null -> {}
@@ -152,9 +158,10 @@ internal object DefaultGraphQLSourceIndexCreationContextFactory :
                         )
                     when (val schemaElement: GraphQLSchemaElement? =
                             graphQLSourceIndex
-                                .directive
-                                .or(graphQLSourceIndex.appliedDirectiveArgument)
+                                .fieldArgument
+                                .or(graphQLSourceIndex.directiveArgument)
                                 .or(graphQLSourceIndex.inputObjectField)
+                                .or(graphQLSourceIndex.directive)
                                 .orNull()
                     ) {
                         null -> {}
@@ -205,6 +212,7 @@ internal object DefaultGraphQLSourceIndexCreationContextFactory :
                     graphqlParameterContainerTypesBySchematicPath,
                 graphqlParameterAttributesBySchematicPath =
                     graphqlParameterAttributesBySchematicPath,
+                graphQLApiDataSourceKey = graphQLApiDataSourceKey,
                 parentPath = parentPath.some(),
                 currentElement = nextElement
             )
@@ -225,6 +233,7 @@ internal object DefaultGraphQLSourceIndexCreationContextFactory :
                             graphqlParameterContainerTypesBySchematicPath,
                         graphqlParameterAttributesBySchematicPath =
                             graphqlParameterAttributesBySchematicPath,
+                        graphQLApiDataSourceKey = graphQLApiDataSourceKey,
                         parentPath = parentPath,
                         currentElement = nextElement
                     )
@@ -241,12 +250,13 @@ internal object DefaultGraphQLSourceIndexCreationContextFactory :
                             graphqlParameterContainerTypesBySchematicPath,
                         graphqlParameterAttributesBySchematicPath =
                             graphqlParameterAttributesBySchematicPath,
+                        graphQLApiDataSourceKey = graphQLApiDataSourceKey,
                         parentPath = parentPath,
                         currentElement = nextElement
                     )
                 }
                 is GraphQLArgument -> {
-                    DefaultArgumentParameterSourceIndexCreationContext(
+                    DefaultFieldArgumentParameterSourceIndexCreationContext(
                         schematicPathCreatedBySchemaElement = schematicPathCreatedBySchemaElement,
                         schemaElementsBySchematicPath = schemaElementsBySchematicPath,
                         graphqlSourceContainerTypesBySchematicPath =
@@ -257,6 +267,7 @@ internal object DefaultGraphQLSourceIndexCreationContextFactory :
                             graphqlParameterContainerTypesBySchematicPath,
                         graphqlParameterAttributesBySchematicPath =
                             graphqlParameterAttributesBySchematicPath,
+                        graphQLApiDataSourceKey = graphQLApiDataSourceKey,
                         parentPath = parentPath,
                         currentElement = nextElement
                     )
@@ -273,6 +284,7 @@ internal object DefaultGraphQLSourceIndexCreationContextFactory :
                             graphqlParameterContainerTypesBySchematicPath,
                         graphqlParameterAttributesBySchematicPath =
                             graphqlParameterAttributesBySchematicPath,
+                        graphQLApiDataSourceKey = graphQLApiDataSourceKey,
                         parentPath = parentPath,
                         currentElement = nextElement
                     )
@@ -289,6 +301,7 @@ internal object DefaultGraphQLSourceIndexCreationContextFactory :
                             graphqlParameterContainerTypesBySchematicPath,
                         graphqlParameterAttributesBySchematicPath =
                             graphqlParameterAttributesBySchematicPath,
+                        graphQLApiDataSourceKey = graphQLApiDataSourceKey,
                         parentPath = parentPath,
                         currentElement = nextElement
                     )
@@ -305,6 +318,7 @@ internal object DefaultGraphQLSourceIndexCreationContextFactory :
                             graphqlParameterContainerTypesBySchematicPath,
                         graphqlParameterAttributesBySchematicPath =
                             graphqlParameterAttributesBySchematicPath,
+                        graphQLApiDataSourceKey = graphQLApiDataSourceKey,
                         parentPath = parentPath,
                         currentElement = nextElement
                     )
@@ -343,6 +357,7 @@ internal object DefaultGraphQLSourceIndexCreationContextFactory :
         override val graphqlParameterAttributesBySchematicPath:
             PersistentMap<SchematicPath, GraphQLParameterAttribute> =
             persistentMapOf(),
+        override val graphQLApiDataSourceKey: DataSource.Key<GraphQLSourceIndex>,
         override val parentPath: Option<SchematicPath>,
         override val currentElement: GraphQLObjectType
     ) : OutputObjectTypeSourceIndexCreationContext {
@@ -361,6 +376,7 @@ internal object DefaultGraphQLSourceIndexCreationContextFactory :
                         graphqlParameterContainerTypesBySchematicPath,
                     graphqlParameterAttributesBySchematicPath =
                         graphqlParameterAttributesBySchematicPath,
+                    graphQLApiDataSourceKey = graphQLApiDataSourceKey,
                     parentPath = parentPath,
                     currentElement = currentElement
                 )
@@ -387,6 +403,7 @@ internal object DefaultGraphQLSourceIndexCreationContextFactory :
         override val graphqlParameterAttributesBySchematicPath:
             PersistentMap<SchematicPath, GraphQLParameterAttribute> =
             persistentMapOf(),
+        override val graphQLApiDataSourceKey: DataSource.Key<GraphQLSourceIndex>,
         override val parentPath: Option<SchematicPath>,
         override val currentElement: GraphQLFieldDefinition
     ) : FieldDefinitionSourceIndexCreationContext {
@@ -405,6 +422,7 @@ internal object DefaultGraphQLSourceIndexCreationContextFactory :
                         graphqlParameterContainerTypesBySchematicPath,
                     graphqlParameterAttributesBySchematicPath =
                         graphqlParameterAttributesBySchematicPath,
+                    graphQLApiDataSourceKey = graphQLApiDataSourceKey,
                     parentPath = parentPath,
                     currentElement = currentElement
                 )
@@ -412,7 +430,7 @@ internal object DefaultGraphQLSourceIndexCreationContextFactory :
         }
     }
 
-    internal class DefaultArgumentParameterSourceIndexCreationContext(
+    internal class DefaultFieldArgumentParameterSourceIndexCreationContext(
         override val schematicPathCreatedBySchemaElement:
             PersistentMap<GraphQLSchemaElement, SchematicPath> =
             persistentMapOf(),
@@ -431,9 +449,10 @@ internal object DefaultGraphQLSourceIndexCreationContextFactory :
         override val graphqlParameterAttributesBySchematicPath:
             PersistentMap<SchematicPath, GraphQLParameterAttribute> =
             persistentMapOf(),
+        override val graphQLApiDataSourceKey: DataSource.Key<GraphQLSourceIndex>,
         override val parentPath: Option<SchematicPath>,
         override val currentElement: GraphQLArgument
-    ) : ArgumentParameterSourceIndexCreationContext {
+    ) : FieldArgumentParameterSourceIndexCreationContext {
 
         override fun <NE : GraphQLSchemaElement> update(
             transformer: (Builder<GraphQLArgument>) -> Builder<NE>
@@ -449,6 +468,53 @@ internal object DefaultGraphQLSourceIndexCreationContextFactory :
                         graphqlParameterContainerTypesBySchematicPath,
                     graphqlParameterAttributesBySchematicPath =
                         graphqlParameterAttributesBySchematicPath,
+                    graphQLApiDataSourceKey = graphQLApiDataSourceKey,
+                    parentPath = parentPath,
+                    currentElement = currentElement
+                )
+            return transformer.invoke(newBuilder).build()
+        }
+    }
+
+    internal class DefaultInputObjectTypeSourceIndexCreationContext(
+        override val schematicPathCreatedBySchemaElement:
+            PersistentMap<GraphQLSchemaElement, SchematicPath> =
+            persistentMapOf(),
+        override val schemaElementsBySchematicPath:
+            PersistentMap<SchematicPath, PersistentSet<GraphQLSchemaElement>> =
+            persistentMapOf(),
+        override val graphqlSourceContainerTypesBySchematicPath:
+            PersistentMap<SchematicPath, GraphQLSourceContainerType> =
+            persistentMapOf(),
+        override val graphqlSourceAttributesBySchematicPath:
+            PersistentMap<SchematicPath, GraphQLSourceAttribute> =
+            persistentMapOf(),
+        override val graphqlParameterContainerTypesBySchematicPath:
+            PersistentMap<SchematicPath, GraphQLParameterContainerType> =
+            persistentMapOf(),
+        override val graphqlParameterAttributesBySchematicPath:
+            PersistentMap<SchematicPath, GraphQLParameterAttribute> =
+            persistentMapOf(),
+        override val graphQLApiDataSourceKey: DataSource.Key<GraphQLSourceIndex>,
+        override val parentPath: Option<SchematicPath>,
+        override val currentElement: GraphQLInputObjectType
+    ) : InputObjectTypeSourceIndexCreationContext {
+
+        override fun <NE : GraphQLSchemaElement> update(
+            transformer: (Builder<GraphQLInputObjectType>) -> Builder<NE>
+        ): GraphQLSourceIndexCreationContext<NE> {
+            val newBuilder =
+                DefaultBuilder(
+                    schematicPathCreatedBySchemaElement = schematicPathCreatedBySchemaElement,
+                    schemaElementsBySchematicPath = schemaElementsBySchematicPath,
+                    graphqlSourceContainerTypesBySchematicPath =
+                        graphqlSourceContainerTypesBySchematicPath,
+                    graphqlSourceAttributesBySchematicPath = graphqlSourceAttributesBySchematicPath,
+                    graphqlParameterContainerTypesBySchematicPath =
+                        graphqlParameterContainerTypesBySchematicPath,
+                    graphqlParameterAttributesBySchematicPath =
+                        graphqlParameterAttributesBySchematicPath,
+                    graphQLApiDataSourceKey = graphQLApiDataSourceKey,
                     parentPath = parentPath,
                     currentElement = currentElement
                 )
@@ -475,6 +541,7 @@ internal object DefaultGraphQLSourceIndexCreationContextFactory :
         override val graphqlParameterAttributesBySchematicPath:
             PersistentMap<SchematicPath, GraphQLParameterAttribute> =
             persistentMapOf(),
+        override val graphQLApiDataSourceKey: DataSource.Key<GraphQLSourceIndex>,
         override val parentPath: Option<SchematicPath>,
         override val currentElement: GraphQLInputObjectField
     ) : InputObjectFieldSourceIndexCreationContext {
@@ -493,6 +560,7 @@ internal object DefaultGraphQLSourceIndexCreationContextFactory :
                         graphqlParameterContainerTypesBySchematicPath,
                     graphqlParameterAttributesBySchematicPath =
                         graphqlParameterAttributesBySchematicPath,
+                    graphQLApiDataSourceKey = graphQLApiDataSourceKey,
                     parentPath = parentPath,
                     currentElement = currentElement
                 )
@@ -519,6 +587,7 @@ internal object DefaultGraphQLSourceIndexCreationContextFactory :
         override val graphqlParameterAttributesBySchematicPath:
             PersistentMap<SchematicPath, GraphQLParameterAttribute> =
             persistentMapOf(),
+        override val graphQLApiDataSourceKey: DataSource.Key<GraphQLSourceIndex>,
         override val parentPath: Option<SchematicPath>,
         override val currentElement: GraphQLAppliedDirective
     ) : DirectiveSourceIndexCreationContext {
@@ -537,6 +606,7 @@ internal object DefaultGraphQLSourceIndexCreationContextFactory :
                         graphqlParameterContainerTypesBySchematicPath,
                     graphqlParameterAttributesBySchematicPath =
                         graphqlParameterAttributesBySchematicPath,
+                    graphQLApiDataSourceKey = graphQLApiDataSourceKey,
                     parentPath = parentPath,
                     currentElement = currentElement
                 )
@@ -563,6 +633,7 @@ internal object DefaultGraphQLSourceIndexCreationContextFactory :
         override val graphqlParameterAttributesBySchematicPath:
             PersistentMap<SchematicPath, GraphQLParameterAttribute> =
             persistentMapOf(),
+        override val graphQLApiDataSourceKey: DataSource.Key<GraphQLSourceIndex>,
         override val parentPath: Option<SchematicPath>,
         override val currentElement: GraphQLAppliedDirectiveArgument
     ) : DirectiveArgumentSourceIndexCreationContext {
@@ -581,6 +652,7 @@ internal object DefaultGraphQLSourceIndexCreationContextFactory :
                         graphqlParameterContainerTypesBySchematicPath,
                     graphqlParameterAttributesBySchematicPath =
                         graphqlParameterAttributesBySchematicPath,
+                    graphQLApiDataSourceKey = graphQLApiDataSourceKey,
                     parentPath = parentPath,
                     currentElement = currentElement
                 )
@@ -591,6 +663,7 @@ internal object DefaultGraphQLSourceIndexCreationContextFactory :
     private val logger: Logger = loggerFor<DefaultGraphQLSourceIndexCreationContextFactory>()
 
     override fun createRootSourceIndexCreationContextForQueryGraphQLObjectType(
+        graphQLApiDataSourceKey: DataSource.Key<GraphQLSourceIndex>,
         graphQLObjectType: GraphQLObjectType
     ): GraphQLSourceIndexCreationContext<GraphQLObjectType> {
         logger.debug(
@@ -601,6 +674,7 @@ internal object DefaultGraphQLSourceIndexCreationContextFactory :
                |} ]""".flattenIntoOneLine()
         )
         return DefaultOutputObjectTypeSourceIndexCreationContext(
+            graphQLApiDataSourceKey = graphQLApiDataSourceKey,
             parentPath = none(),
             currentElement = graphQLObjectType
         )

@@ -7,23 +7,32 @@ import funcify.feature.naming.ConventionalName
 import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
+import funcify.feature.tools.extensions.TryExtensions.successIfDefined
 import graphql.schema.GraphQLArgument
 import graphql.schema.GraphQLInputType
+import graphql.schema.GraphQLType
 
 /**
  *
  * @author smccarron
  * @created 2022-07-03
  */
-internal data class DefaultGraphQLParameterArgumentAttribute(
+internal data class DefaultGraphQLParameterFieldArgumentAttribute(
     override val sourcePath: SchematicPath,
     override val name: ConventionalName,
-    override val dataType: GraphQLInputType,
     override val dataSourceLookupKey: DataSource.Key<GraphQLSourceIndex>,
-    override val argument: Option<GraphQLArgument>
+    override val fieldArgument: Option<GraphQLArgument>
 ) : GraphQLParameterAttribute {
 
     init {
+        fieldArgument
+            .successIfDefined {
+                GQLDataSourceException(
+                    GQLDataSourceErrorResponse.INVALID_INPUT,
+                    "field_argument must be defined on this type"
+                )
+            }
+            .orElseThrow()
         if (sourcePath.arguments.isEmpty()) {
             throw GQLDataSourceException(
                 GQLDataSourceErrorResponse.INVALID_INPUT,
@@ -33,5 +42,9 @@ internal data class DefaultGraphQLParameterArgumentAttribute(
                    |""".flattenIntoOneLine()
             )
         }
+    }
+
+    override val dataType: GraphQLInputType by lazy {
+        fieldArgument.map { arg -> arg.type }.successIfDefined().orElseThrow()
     }
 }

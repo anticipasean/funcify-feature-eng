@@ -17,10 +17,10 @@ internal data class DefaultGraphQLSourceAttribute(
     override val dataSourceLookupKey: DataSource.Key<GraphQLSourceIndex>,
     override val sourcePath: SchematicPath,
     override val name: ConventionalName,
-    override val schemaFieldDefinition: GraphQLFieldDefinition
+    override val graphQLFieldDefinition: GraphQLFieldDefinition
 ) : GraphQLSourceAttribute {
 
     override val arguments: ImmutableList<GraphQLArgument> by lazy {
-        schemaFieldDefinition.arguments.toPersistentList()
+        graphQLFieldDefinition.arguments.toPersistentList()
     }
 }

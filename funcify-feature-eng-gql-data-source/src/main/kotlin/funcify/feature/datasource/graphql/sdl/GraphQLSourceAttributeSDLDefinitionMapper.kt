@@ -58,43 +58,43 @@ class GraphQLSourceAttributeSDLDefinitionMapper :
         graphQLSourceAttribute: GraphQLSourceAttribute
     ): FieldDefinition {
         return when (val sdlDefinition: FieldDefinition? =
-                graphQLSourceAttribute.schemaFieldDefinition.definition
+                graphQLSourceAttribute.graphQLFieldDefinition.definition
         ) {
             null -> {
-                if (graphQLSourceAttribute.schemaFieldDefinition.description?.isNotEmpty() == true
+                if (graphQLSourceAttribute.graphQLFieldDefinition.description?.isNotEmpty() == true
                 ) {
                     FieldDefinition.newFieldDefinition()
-                        .name(graphQLSourceAttribute.schemaFieldDefinition.name)
+                        .name(graphQLSourceAttribute.graphQLFieldDefinition.name)
                         .description(
                             Description(
-                                graphQLSourceAttribute.schemaFieldDefinition.description,
+                                graphQLSourceAttribute.graphQLFieldDefinition.description,
                                 SourceLocation.EMPTY,
-                                graphQLSourceAttribute.schemaFieldDefinition.description?.contains(
+                                graphQLSourceAttribute.graphQLFieldDefinition.description?.contains(
                                     '\n'
-                                )
+                                                                                                   )
                                     ?: false
                             )
                         )
                         .type(
                             recursivelyDetermineSDLTypeForGraphQLInputOrOutputType(
                                 graphQLInputOrOutputType =
-                                    graphQLSourceAttribute.schemaFieldDefinition.type
+                                    graphQLSourceAttribute.graphQLFieldDefinition.type
                             )
                         )
                         .inputValueDefinitions(
                             extractInputValueDefinitionsFromArgumentsOnFieldDefinitionSource(
                                 graphQLSourceAttribute.sourcePath,
-                                graphQLSourceAttribute.schemaFieldDefinition
+                                graphQLSourceAttribute.graphQLFieldDefinition
                             )
                         )
                         .build()
                 } else {
                     FieldDefinition.newFieldDefinition()
-                        .name(graphQLSourceAttribute.schemaFieldDefinition.name)
+                        .name(graphQLSourceAttribute.graphQLFieldDefinition.name)
                         .type(
                             recursivelyDetermineSDLTypeForGraphQLInputOrOutputType(
                                 graphQLInputOrOutputType =
-                                    graphQLSourceAttribute.schemaFieldDefinition.type
+                                    graphQLSourceAttribute.graphQLFieldDefinition.type
                             )
                         )
                         .build()

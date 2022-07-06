@@ -26,7 +26,7 @@ class GraphQLSourceContainerTypeSDLDefinitionMapper :
     ): Try<ObjectTypeDefinition> {
         logger.debug(
             """convert_source_container_type_into_graphql_object_type_sdl_definition: 
-            |[ source_container_type.name: ${sourceContainerType.containerType.name} ]
+            |[ source_container_type.name: ${sourceContainerType.graphQLFieldsContainerType.name} ]
             |""".flattenIntoOneLine()
         )
         return Try.attempt {
@@ -38,7 +38,7 @@ class GraphQLSourceContainerTypeSDLDefinitionMapper :
         graphQLSourceContainerType: GraphQLSourceContainerType
     ): ObjectTypeDefinition {
         val graphQLFieldsContainerType: GraphQLFieldsContainer =
-            Try.attempt { graphQLSourceContainerType.containerType }.orElseThrow()
+            Try.attempt { graphQLSourceContainerType.graphQLFieldsContainerType }.orElseThrow()
         return when (val fieldsContainerDefinition: Node<Node<*>>? =
                 graphQLFieldsContainerType.definition
         ) { //

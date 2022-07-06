@@ -1,21 +1,50 @@
 package funcify.feature.datasource.graphql.metadata
 
+import arrow.core.filterIsInstance
+import arrow.core.getOrNone
 import arrow.core.identity
+import arrow.core.some
+import arrow.core.toOption
 import funcify.feature.datasource.graphql.error.GQLDataSourceErrorResponse
 import funcify.feature.datasource.graphql.error.GQLDataSourceException
+import funcify.feature.datasource.graphql.metadata.GraphQLSourceIndexCreationContext.DirectiveArgumentSourceIndexCreationContext
+import funcify.feature.datasource.graphql.metadata.GraphQLSourceIndexCreationContext.DirectiveSourceIndexCreationContext
+import funcify.feature.datasource.graphql.metadata.GraphQLSourceIndexCreationContext.FieldArgumentParameterSourceIndexCreationContext
+import funcify.feature.datasource.graphql.metadata.GraphQLSourceIndexCreationContext.FieldDefinitionSourceIndexCreationContext
+import funcify.feature.datasource.graphql.metadata.GraphQLSourceIndexCreationContext.InputObjectFieldSourceIndexCreationContext
+import funcify.feature.datasource.graphql.metadata.GraphQLSourceIndexCreationContext.InputObjectTypeSourceIndexCreationContext
+import funcify.feature.datasource.graphql.metadata.GraphQLSourceIndexCreationContext.OutputObjectTypeSourceIndexCreationContext
 import funcify.feature.datasource.graphql.schema.GraphQLInputFieldsContainerTypeExtractor
 import funcify.feature.datasource.graphql.schema.GraphQLOutputFieldsContainerTypeExtractor
+import funcify.feature.datasource.graphql.schema.GraphQLParameterAttribute
+import funcify.feature.datasource.graphql.schema.GraphQLParameterContainerType
+import funcify.feature.datasource.graphql.schema.GraphQLSourceAttribute
+import funcify.feature.datasource.graphql.schema.GraphQLSourceContainerType
 import funcify.feature.datasource.graphql.schema.GraphQLSourceIndex
 import funcify.feature.datasource.graphql.schema.GraphQLSourceIndexFactory
+import funcify.feature.datasource.graphql.schema.GraphQLSourceMetamodel
 import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.datasource.SourceMetamodel
+import funcify.feature.schema.path.SchematicPath
+import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.control.RelationshipSpliterators
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
+import funcify.feature.tools.extensions.TryExtensions.failure
+import funcify.feature.tools.extensions.TryExtensions.successIfDefined
+import funcify.feature.tools.extensions.TryExtensions.successIfNonNull
 import graphql.schema.*
 import java.util.stream.Stream
 import java.util.stream.Stream.empty
 import java.util.stream.StreamSupport
+import kotlin.streams.asSequence
+import kotlinx.collections.immutable.ImmutableMap
+import kotlinx.collections.immutable.PersistentMap
+import kotlinx.collections.immutable.PersistentSet
+import kotlinx.collections.immutable.persistentMapOf
+import kotlinx.collections.immutable.persistentSetOf
+import kotlinx.collections.immutable.toPersistentMap
+import kotlinx.collections.immutable.toPersistentSet
 import org.slf4j.Logger
 
 /**
@@ -25,7 +54,8 @@ import org.slf4j.Logger
  */
 class ComprehensiveGraphQLApiSourceMetadataReader(
     private val graphQLSourceIndexFactory: GraphQLSourceIndexFactory,
-    private val graphQLSourceIndexCreationContextFactory: GraphQLSourceIndexCreationContextFactory
+    private val graphQLSourceIndexCreationContextFactory: GraphQLSourceIndexCreationContextFactory,
+    private val graphQLApiSourceMetadataFilter: GraphQLApiSourceMetadataFilter
 ) : GraphQLApiSourceMetadataReader {
 
     companion object {
@@ -54,38 +84,41 @@ class ComprehensiveGraphQLApiSourceMetadataReader(
             )
             throw GQLDataSourceException(GQLDataSourceErrorResponse.INVALID_INPUT, message)
         }
-        val rootSourceIndexContext: GraphQLSourceIndexCreationContext<GraphQLObjectType> =
-            graphQLSourceIndexCreationContextFactory
-                .createRootSourceIndexCreationContextForQueryGraphQLObjectType(input.queryType)
         return traverseAcrossSchemaElementsBreadthFirstPairingParentAndChildElements(
                 input.queryType
             )
-            .reduce(
-                rootSourceIndexContext,
-                { ctx, (parent, child) ->
-                    foldParentChildElementsIntoSourceIndexCreationContext(ctx, parent, child)
-                },
-                { sic1, _ -> sic1 }
-            )
-            .let { sourceIndexCreationContext: GraphQLSourceIndexCreationContext<*> ->
+            .asSequence()
+            .fold(createRootQueryObjectTypeSourceIndexCreationContext(dataSourceKey, input)) {
+                ctxCreationAttempt: Try<GraphQLSourceIndexCreationContext<*>>,
+                (parent: GraphQLSchemaElement, child: GraphQLSchemaElement) ->
+                ctxCreationAttempt.map { context ->
+                    foldParentChildElementsIntoSourceIndexCreationContext(context, parent, child)
+                }
+            }
+            .flatMap { sourceIndexCreationContext: GraphQLSourceIndexCreationContext<*> ->
                 createSourceMetaModelFromLastSourceIndexCreationContext(sourceIndexCreationContext)
             }
+            .orElseThrow()
     }
 
-    private fun <E : GraphQLSchemaElement> createSourceMetaModelFromLastSourceIndexCreationContext(
-        graphQLSourceIndexCreationContext: GraphQLSourceIndexCreationContext<E>
-    ): SourceMetamodel<GraphQLSourceIndex> {
-        TODO("Not yet implemented")
-    }
-
-    private fun <
-        E1 : GraphQLSchemaElement,
-        E2 : GraphQLSchemaElement> foldParentChildElementsIntoSourceIndexCreationContext(
-        graphQLSourceIndexCreationContext: GraphQLSourceIndexCreationContext<E1>,
-        parent: GraphQLSchemaElement,
-        child: GraphQLSchemaElement
-    ): GraphQLSourceIndexCreationContext<E2> {
-        TODO()
+    private fun createRootQueryObjectTypeSourceIndexCreationContext(
+        dataSourceKey: DataSource.Key<GraphQLSourceIndex>,
+        input: GraphQLSchema,
+    ): Try<GraphQLSourceIndexCreationContext<*>> {
+        val rootContext: GraphQLSourceIndexCreationContext<GraphQLObjectType> =
+            graphQLSourceIndexCreationContextFactory
+                .createRootSourceIndexCreationContextForQueryGraphQLObjectType(
+                    graphQLApiDataSourceKey = dataSourceKey,
+                    graphQLObjectType = input.queryType
+                )
+        return graphQLSourceIndexFactory
+            .createRootSourceContainerTypeForDataSourceKey(rootContext.graphQLApiDataSourceKey)
+            .forGraphQLQueryObjectType(rootContext.currentElement)
+            .map { rootSourceContainerType: GraphQLSourceContainerType ->
+                rootContext.update { builder ->
+                    builder.addOrUpdateGraphQLSourceIndex(rootSourceContainerType)
+                }
+            }
     }
 
     private fun traverseAcrossSchemaElementsBreadthFirstPairingParentAndChildElements(
@@ -100,7 +133,7 @@ class ComprehensiveGraphQLApiSourceMetadataReader(
                             parent.appliedDirectives.stream(),
                             GraphQLInputFieldsContainerTypeExtractor.invoke(parent.type)
                                 .map { graphQLInputFieldsContainer: GraphQLInputFieldsContainer ->
-                                    graphQLInputFieldsContainer.fieldDefinitions.stream()
+                                    Stream.of(graphQLInputFieldsContainer)
                                 }
                                 .fold(::empty, ::identity)
                         )
@@ -114,7 +147,7 @@ class ComprehensiveGraphQLApiSourceMetadataReader(
                     is GraphQLAppliedDirectiveArgument -> {
                         GraphQLInputFieldsContainerTypeExtractor.invoke(parent.type)
                             .map { graphQLInputFieldsContainer: GraphQLInputFieldsContainer ->
-                                graphQLInputFieldsContainer.fieldDefinitions.stream()
+                                Stream.of(graphQLInputFieldsContainer)
                             }
                             .fold(::empty, ::identity)
                     }
@@ -124,7 +157,7 @@ class ComprehensiveGraphQLApiSourceMetadataReader(
                     is GraphQLArgument -> {
                         GraphQLInputFieldsContainerTypeExtractor.invoke(parent.type)
                             .map { graphQLInputFieldsContainer: GraphQLInputFieldsContainer ->
-                                graphQLInputFieldsContainer.fieldDefinitions.stream()
+                                Stream.of(graphQLInputFieldsContainer)
                             }
                             .fold(::empty, ::identity)
                     }
@@ -136,7 +169,7 @@ class ComprehensiveGraphQLApiSourceMetadataReader(
                             ),
                             GraphQLOutputFieldsContainerTypeExtractor.invoke(parent.type)
                                 .map { graphQLFieldsContainer: GraphQLFieldsContainer ->
-                                    graphQLFieldsContainer.fieldDefinitions.stream()
+                                    Stream.of(graphQLFieldsContainer)
                                 }
                                 .fold(::empty, ::identity)
                         )
@@ -144,7 +177,9 @@ class ComprehensiveGraphQLApiSourceMetadataReader(
                     is GraphQLObjectType -> {
                         Stream.concat(
                             parent.appliedDirectives.stream(),
-                            parent.fieldDefinitions.stream()
+                            parent.fieldDefinitions.stream().filter { fd ->
+                                graphQLApiSourceMetadataFilter.includeGraphQLFieldDefinition(fd)
+                            }
                         )
                     }
                     else -> {
@@ -159,5 +194,395 @@ class ComprehensiveGraphQLApiSourceMetadataReader(
             ),
             false
         )
+    }
+    private fun <E> foldParentChildElementsIntoSourceIndexCreationContext(
+        previousContext: GraphQLSourceIndexCreationContext<E>,
+        parent: GraphQLSchemaElement,
+        child: GraphQLSchemaElement
+    ): GraphQLSourceIndexCreationContext<*> where E : GraphQLSchemaElement {
+        val nameAndTypeStringifier = nameAndTypePairStringifier()
+        val parentNameAndType: String = nameAndTypeStringifier.invoke(parent)
+        val childNameAndType: String = nameAndTypeStringifier.invoke(child)
+        logger.debug(
+            """fold_parent_child_elements_into_source_index_creation_context: 
+               |[ parent: ${parentNameAndType}, 
+               |child: $childNameAndType ]
+               |""".flattenIntoOneLine()
+        )
+        val parentPath: SchematicPath =
+            previousContext.schematicPathCreatedBySchemaElement[parent]
+                .toOption()
+                .successIfDefined {
+                    val nameAndTypeStr = nameAndTypePairStringifier().invoke(parent)
+                    GQLDataSourceException(
+                        GQLDataSourceErrorResponse.UNEXPECTED_ERROR,
+                        """parent_element must have corresponding path 
+                           |and source_index in previous_context: 
+                           |[ $nameAndTypeStr ] 
+                           |entries may be being processed out-of-order 
+                           |and behavior of source_index_creation thus 
+                           |is not guaranteed to capture all pertinent 
+                           |schema metadata
+                           |""".flattenIntoOneLine()
+                    )
+                }
+                .orElseThrow()
+
+        /**
+         * Make this only point where context is transitioned from previous child element to next
+         * child element
+         */
+        val context: GraphQLSourceIndexCreationContext<*> =
+            previousContext.update { builder -> builder.nextSchemaElement(parentPath, child) }
+        return when (context) {
+            is OutputObjectTypeSourceIndexCreationContext -> {
+                TODO("output_object_type_source_index_creation_context handling not implemented")
+            }
+            is FieldDefinitionSourceIndexCreationContext -> {
+                // Case 2: All field_definitions must have a parent path; for field_definitions
+                // whose parent is root, the parent_path is the root_path
+                val graphQLSourceAttribute: GraphQLSourceAttribute =
+                    when {
+                        // Parent is root and child does not already have source_attribute
+                        SchematicPath.getRootPath() == parentPath &&
+                            context.parentOutputObjectType.isDefined() -> {
+                            graphQLSourceIndexFactory
+                                .createSourceAttributeForDataSourceKey(
+                                    context.graphQLApiDataSourceKey
+                                )
+                                .withParentRootContainerType(
+                                    context.parentOutputObjectType.orNull()!!
+                                )
+                                .forChildAttributeDefinition(context.currentElement)
+                        }
+                        else -> {
+                            // Parent is not root but parent field_definition should be a
+                            // container_type in which this child_field_definition is present
+                            context.parentFieldDefinition
+                                .successIfDefined {
+                                    GQLDataSourceException(
+                                        GQLDataSourceErrorResponse.UNEXPECTED_ERROR,
+                                        """current_element should already have parent 
+                                           |field_definition defined if processing order is correct: 
+                                           |[ ${nameAndTypePairStringifier().invoke(child)} ]
+                                           |""".flattenIntoOneLine()
+                                    )
+                                }
+                                .flatMap { parentFieldDef ->
+                                    graphQLSourceIndexFactory
+                                        .createSourceAttributeForDataSourceKey(
+                                            context.graphQLApiDataSourceKey
+                                        )
+                                        .withParentPathAndDefinition(parentPath, parentFieldDef)
+                                        .forChildAttributeDefinition(context.currentElement)
+                                }
+                        }
+                    }.orElseThrow()
+                context.update { builder ->
+                    builder.addOrUpdateGraphQLSourceIndex(graphQLSourceAttribute)
+                }
+            }
+            is FieldArgumentParameterSourceIndexCreationContext -> {
+                val parentFieldDefinition: GraphQLFieldDefinition =
+                    context
+                        .parentFieldDefinition
+                        .successIfDefined {
+                            GQLDataSourceException(
+                                GQLDataSourceErrorResponse.UNEXPECTED_ERROR,
+                                """parent_schema_element of field_argument 
+                                   |must be a graphql_field_definition: 
+                                   |[ actual_type: ${parent::class.simpleName} ]
+                                   |""".flattenIntoOneLine()
+                            )
+                        }
+                        .orElseThrow()
+                graphQLSourceIndexFactory
+                    .createParameterAttributeForDataSourceKey(context.graphQLApiDataSourceKey)
+                    .withParentPathAndFieldDefinition(parentPath, parentFieldDefinition)
+                    .forChildArgument(context.currentElement)
+                    .map { graphQLParameterAttribute: GraphQLParameterAttribute ->
+                        context.update { builder ->
+                            builder.addOrUpdateGraphQLSourceIndex(graphQLParameterAttribute)
+                        }
+                    }
+                    .orElseThrow()
+            }
+            is DirectiveSourceIndexCreationContext -> {
+                val parentFieldDefinition: GraphQLFieldDefinition =
+                    context
+                        .parentFieldDefinition
+                        .successIfDefined {
+                            GQLDataSourceException(
+                                GQLDataSourceErrorResponse.UNEXPECTED_ERROR,
+                                """parent_schema_element of field_directive 
+                                   |must be a graphql_field_definition: 
+                                   |[ actual_type: ${parent::class.simpleName} ]
+                                   |""".flattenIntoOneLine()
+                            )
+                        }
+                        .orElseThrow()
+                graphQLSourceIndexFactory
+                    .createParameterAttributeForDataSourceKey(context.graphQLApiDataSourceKey)
+                    .withParentPathAndFieldDefinition(parentPath, parentFieldDefinition)
+                    .forChildDirective(context.currentElement)
+                    .map { graphQLParameterAttribute: GraphQLParameterAttribute ->
+                        context.update { builder ->
+                            builder.addOrUpdateGraphQLSourceIndex(graphQLParameterAttribute)
+                        }
+                    }
+                    .orElseThrow()
+            }
+            is DirectiveArgumentSourceIndexCreationContext -> {
+                val parentDirective: GraphQLAppliedDirective =
+                    context
+                        .parentDirective
+                        .successIfDefined {
+                            GQLDataSourceException(
+                                GQLDataSourceErrorResponse.UNEXPECTED_ERROR,
+                                """parent_schema_element of applied_directive_argument 
+                                   |must be a applied_directive: 
+                                   |[ actual_type: ${parent::class.simpleName} ]
+                                   |""".flattenIntoOneLine()
+                            )
+                        }
+                        .orElseThrow()
+                graphQLSourceIndexFactory
+                    .createParameterAttributeForDataSourceKey(context.graphQLApiDataSourceKey)
+                    .withParentPathAndAppliedDirective(parentPath, parentDirective)
+                    .forChildDirectiveArgument(context.currentElement)
+                    .map { graphQLParameterAttribute: GraphQLParameterAttribute ->
+                        context.update { builder ->
+                            builder.addOrUpdateGraphQLSourceIndex(graphQLParameterAttribute)
+                        }
+                    }
+                    .orElseThrow()
+            }
+            is InputObjectTypeSourceIndexCreationContext -> {
+                context
+                    .parentParameterAttribute
+                    .successIfDefined {
+                        GQLDataSourceException(
+                            GQLDataSourceErrorResponse.UNEXPECTED_ERROR,
+                            """parameter_attribute for element 
+                               |${nameAndTypePairStringifier().invoke(parent)} 
+                               |should have been processed before its 
+                               |input_object_type container_type 
+                               |index child""".flattenIntoOneLine()
+                        )
+                    }
+                    .flatMap { parentParamAttr ->
+                        graphQLSourceIndexFactory
+                            .createParameterContainerTypeForParameterAttributeWithInputObjectValue(
+                                parentParamAttr
+                            )
+                    }
+                    .map { paramContType ->
+                        context.update { builder ->
+                            builder.addOrUpdateGraphQLSourceIndex(paramContType)
+                        }
+                    }
+                    .orElseThrow()
+            }
+            is InputObjectFieldSourceIndexCreationContext -> {
+                context
+                    .parentParameterAttribute
+                    .successIfDefined()
+                    .flatMap { ppa: GraphQLParameterAttribute ->
+                        when {
+                            ppa.isArgumentOnFieldDefinition() -> {
+                                graphQLSourceIndexFactory
+                                    .createParameterAttributeForDataSourceKey(
+                                        context.graphQLApiDataSourceKey
+                                    )
+                                    .withParentPathAndFieldArgument(
+                                        ppa.sourcePath,
+                                        ppa.fieldArgument.orNull()!!
+                                    )
+                                    .forInputObjectField(context.currentElement)
+                            }
+                            ppa.isArgumentOnDirective() -> {
+                                graphQLSourceIndexFactory
+                                    .createParameterAttributeForDataSourceKey(
+                                        context.graphQLApiDataSourceKey
+                                    )
+                                    .withParentPathAndDirectiveArgument(
+                                        ppa.sourcePath,
+                                        ppa.directiveArgument.orNull()!!
+                                    )
+                                    .forInputObjectField(context.currentElement)
+                            }
+                            else -> {
+                                GQLDataSourceException(
+                                        GQLDataSourceErrorResponse.UNEXPECTED_ERROR,
+                                        """unhandled type of parent_parameter_attribute: 
+                                           |[ actual: ${ppa::class.simpleName} ]
+                                           |""".flattenIntoOneLine()
+                                    )
+                                    .failure()
+                            }
+                        }
+                    }
+                    .map { gqlpa: GraphQLParameterAttribute ->
+                        context.update { builder -> builder.addOrUpdateGraphQLSourceIndex(gqlpa) }
+                    }
+                    .orElseThrow()
+            }
+            else -> {
+                context
+            }
+        }
+    }
+
+    private fun nameAndTypePairStringifier() = { element: GraphQLSchemaElement ->
+        element
+            .some()
+            .filterIsInstance<GraphQLNamedSchemaElement>()
+            .map { e -> mapOf("name" to e.name, "type" to e::class.simpleName) }
+            .map { strMap ->
+                strMap
+                    .asSequence()
+                    .joinToString(
+                        separator = ", ",
+                        prefix = "{ ",
+                        postfix = " }",
+                        transform = { (k, v) -> "$k: $v" }
+                    )
+            }
+            .orNull()
+            ?: "<NA>"
+    }
+
+    private fun <E : GraphQLSchemaElement> createSourceMetaModelFromLastSourceIndexCreationContext(
+        graphQLSourceIndexCreationContext: GraphQLSourceIndexCreationContext<E>
+    ): Try<SourceMetamodel<GraphQLSourceIndex>> {
+        logger.debug(
+            """create_source_metamodel_from_last_source_index_creation_context: 
+            |[ creation_context.graphql_source_container_types.size: 
+            |${graphQLSourceIndexCreationContext.graphqlSourceContainerTypesBySchematicPath.size}, 
+            |creation_context.graphql_source_attributes.size: 
+            |${graphQLSourceIndexCreationContext.graphqlParameterAttributesBySchematicPath.size} 
+            |]""".flattenIntoOneLine()
+        )
+        val updatedGraphQLSourceContainerTypesByPathAttempt:
+            Try<PersistentMap<SchematicPath, GraphQLSourceContainerType>> =
+            graphQLSourceIndexCreationContext
+                .graphqlSourceAttributesBySchematicPath
+                .asSequence()
+                .flatMap { (path, sa) ->
+                    path.getParentPath().fold(::emptySequence, ::sequenceOf).map { pp -> pp to sa }
+                }
+                .groupBy({ (path, _) -> path }, { (_, sa) -> sa })
+                .asSequence()
+                .fold(
+                    graphQLSourceIndexCreationContext
+                        .graphqlSourceContainerTypesBySchematicPath
+                        .toPersistentMap()
+                        .successIfNonNull()
+                ) {
+                    sctByPathUpdateAttempt:
+                        Try<PersistentMap<SchematicPath, GraphQLSourceContainerType>>,
+                    (parentPath: SchematicPath, sourceAttrs: List<GraphQLSourceAttribute>) ->
+                    sctByPathUpdateAttempt.map { sctByPath ->
+                        sctByPath
+                            .getOrNone(parentPath)
+                            .fold(
+                                {
+                                    val sourceAttributeNamesSet: String =
+                                        sourceAttrs
+                                            .asSequence()
+                                            .map { sa -> sa.name.toString() }
+                                            .joinToString(", ", " }", " }")
+                                    throw GQLDataSourceException(
+                                        GQLDataSourceErrorResponse.UNEXPECTED_ERROR,
+                                        """graphql_source_attributes are missing a 
+                                        |missing graphql_source_container_type entry: 
+                                        |[ parent_path: ${parentPath}, 
+                                        |source_attributes.names: $sourceAttributeNamesSet ]
+                                        |""".flattenIntoOneLine()
+                                    )
+                                },
+                                { gsct: GraphQLSourceContainerType ->
+                                    graphQLSourceIndexFactory
+                                        .updateSourceContainerType(gsct)
+                                        .withChildSourceAttributes(sourceAttrs.toPersistentSet())
+                                        .map { updatedGSCT: GraphQLSourceContainerType ->
+                                            sctByPath.put(parentPath, updatedGSCT)
+                                        }
+                                        .orElseThrow()
+                                }
+                            )
+                    }
+                }
+        val updatedParameterContainerTypesByPathAttempt:
+            Try<PersistentMap<SchematicPath, GraphQLParameterContainerType>> =
+            graphQLSourceIndexCreationContext
+                .graphqlParameterAttributesBySchematicPath
+                .asSequence()
+                .flatMap { (path, attr) ->
+                    path.getParentPath().fold(::emptySequence, ::sequenceOf).map { pp ->
+                        pp to attr
+                    }
+                }
+                .groupBy({ (path, _) -> path }, { (_, attr) -> attr })
+                .asSequence()
+                .fold(
+                    graphQLSourceIndexCreationContext
+                        .graphqlParameterContainerTypesBySchematicPath
+                        .toPersistentMap()
+                        .successIfNonNull()
+                ) {
+                    pctByPathAttempt:
+                        Try<PersistentMap<SchematicPath, GraphQLParameterContainerType>>,
+                    (parentPath: SchematicPath, paramAttrs: List<GraphQLParameterAttribute>) ->
+                    pctByPathAttempt.map { pctByPath ->
+                        pctByPath
+                            .getOrNone(parentPath)
+                            .fold(
+                                {
+                                    val parameterAttributeNamesSet: String =
+                                        paramAttrs
+                                            .asSequence()
+                                            .map { sa -> sa.name.toString() }
+                                            .joinToString(", ", " }", " }")
+                                    throw GQLDataSourceException(
+                                        GQLDataSourceErrorResponse.UNEXPECTED_ERROR,
+                                        """graphql_source_attributes are missing a 
+                                        |missing graphql_parameter_container_type entry: 
+                                        |[ parent_path: ${parentPath}, 
+                                        |parameter_attributes.names: $parameterAttributeNamesSet ]
+                                        |""".flattenIntoOneLine()
+                                    )
+                                },
+                                { pct: GraphQLParameterContainerType ->
+                                    graphQLSourceIndexFactory
+                                        .updateParameterContainerType(pct)
+                                        .withChildParameterAttributes(paramAttrs.toPersistentSet())
+                                        .map { updatedGPCT ->
+                                            pctByPath.put(parentPath, updatedGPCT)
+                                        }
+                                        .orElseThrow()
+                                }
+                            )
+                    }
+                }
+        return updatedGraphQLSourceContainerTypesByPathAttempt
+            .zip(updatedParameterContainerTypesByPathAttempt)
+            .map { (updatedSourceContainers, updatedParameterContainers) ->
+                sequenceOf<ImmutableMap<SchematicPath, GraphQLSourceIndex>>(
+                        updatedSourceContainers,
+                        graphQLSourceIndexCreationContext.graphqlSourceAttributesBySchematicPath,
+                        updatedParameterContainers,
+                        graphQLSourceIndexCreationContext.graphqlParameterAttributesBySchematicPath
+                    )
+                    .flatMap { sourceIndexByPath -> sourceIndexByPath.asSequence() }
+                    .fold(persistentMapOf<SchematicPath, PersistentSet<GraphQLSourceIndex>>()) {
+                        pm,
+                        (path, sourceIndex) ->
+                        pm.put(path, pm.getOrDefault(path, persistentSetOf()).add(sourceIndex))
+                    }
+            }
+            .map { sourceIndicesByPath ->
+                GraphQLSourceMetamodel(sourceIndicesByPath = sourceIndicesByPath)
+            }
     }
 }
