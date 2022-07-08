@@ -22,7 +22,6 @@ import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionCreationContex
 import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionImplementationStrategy
 import funcify.feature.datasource.sdl.impl.DataSourceIndexTypeBasedSDLDefinitionStrategy
 import funcify.feature.schema.datasource.DataSource
-import funcify.feature.schema.index.CompositeParameterContainerType
 import funcify.feature.schema.index.CompositeSourceAttribute
 import funcify.feature.schema.index.CompositeSourceContainerType
 import funcify.feature.tools.container.attempt.Try
@@ -30,6 +29,7 @@ import funcify.feature.tools.control.TraversalFunctions
 import funcify.feature.tools.extensions.FunctionExtensions.compose
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
+import funcify.feature.tools.extensions.TryExtensions.successIfNonNull
 import graphql.language.Description
 import graphql.language.FieldDefinition
 import graphql.language.ListType
@@ -118,12 +118,19 @@ class GraphQLSourceIndexBasedSDLDefinitionImplementationStrategy :
                     }
             }
             is ParameterJunctionVertexSDLDefinitionCreationContext -> {
-
-
-                TODO("parameter_junction_vertex_sdl_definition_creation_context not yet handled")
+                logger.debug(
+                    "parameter_junction_vertex_context: [ attribute_name: ${context.compositeParameterAttribute.conventionalName.toString()}, path: ${context.path} ]"
+                )
+                logger.debug(
+                    "parameter_junction_vertex_context: [ type_name: ${context.compositeParameterContainerType.conventionalName.toString()}, path: ${context.path} ]"
+                )
+                context.successIfNonNull()
             }
             is ParameterLeafVertexSDLDefinitionCreationContext -> {
-                TODO("parameter_leaf_vertex_sdl_definition_creation_context not yet handled")
+                logger.debug(
+                    "parameter_leaf_vertex_context: [ attribute_name: ${context.compositeParameterAttribute.conventionalName.toString()}, path: ${context.path} ]"
+                )
+                context.successIfNonNull()
             }
         }
     }
@@ -332,7 +339,7 @@ class GraphQLSourceIndexBasedSDLDefinitionImplementationStrategy :
                                 SourceLocation.EMPTY,
                                 graphQLSourceAttribute.graphQLFieldDefinition.description?.contains(
                                     '\n'
-                                                                                                   )
+                                )
                                     ?: false
                             )
                         )
