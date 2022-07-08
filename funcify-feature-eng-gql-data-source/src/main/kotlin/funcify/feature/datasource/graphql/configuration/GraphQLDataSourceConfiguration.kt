@@ -6,8 +6,10 @@ import funcify.feature.datasource.graphql.factory.DefaultGraphQLApiServiceFactor
 import funcify.feature.datasource.graphql.factory.GraphQLApiDataSourceFactory
 import funcify.feature.datasource.graphql.factory.GraphQLApiServiceFactory
 import funcify.feature.datasource.graphql.metadata.CompositeGraphQLApiSourceMetadataFilter
+import funcify.feature.datasource.graphql.metadata.ComprehensiveGraphQLApiSourceMetadataReader
 import funcify.feature.datasource.graphql.metadata.DefaultGraphQLApiSourceMetadataProvider
 import funcify.feature.datasource.graphql.metadata.DefaultGraphQLApiSourceMetadataReader
+import funcify.feature.datasource.graphql.metadata.DefaultGraphQLSourceIndexCreationContextFactory
 import funcify.feature.datasource.graphql.metadata.GraphQLApiSourceMetadataFilter
 import funcify.feature.datasource.graphql.metadata.GraphQLApiSourceMetadataProvider
 import funcify.feature.datasource.graphql.metadata.GraphQLApiSourceMetadataReader
@@ -100,8 +102,10 @@ class GraphQLDataSourceConfiguration {
         graphQLSourceIndexFactory: GraphQLSourceIndexFactory,
         compositeGraphQLApiSourceMetadataFilter: CompositeGraphQLApiSourceMetadataFilter
     ): GraphQLApiSourceMetadataReader {
-        return DefaultGraphQLApiSourceMetadataReader(
+        return ComprehensiveGraphQLApiSourceMetadataReader(
             graphQLSourceIndexFactory = graphQLSourceIndexFactory,
+            graphQLSourceIndexCreationContextFactory =
+                DefaultGraphQLSourceIndexCreationContextFactory,
             graphQLApiSourceMetadataFilter = compositeGraphQLApiSourceMetadataFilter
         )
     }

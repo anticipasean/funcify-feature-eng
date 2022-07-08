@@ -22,6 +22,7 @@ import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionCreationContex
 import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionImplementationStrategy
 import funcify.feature.datasource.sdl.impl.DataSourceIndexTypeBasedSDLDefinitionStrategy
 import funcify.feature.schema.datasource.DataSource
+import funcify.feature.schema.index.CompositeParameterContainerType
 import funcify.feature.schema.index.CompositeSourceAttribute
 import funcify.feature.schema.index.CompositeSourceContainerType
 import funcify.feature.tools.container.attempt.Try
@@ -117,6 +118,8 @@ class GraphQLSourceIndexBasedSDLDefinitionImplementationStrategy :
                     }
             }
             is ParameterJunctionVertexSDLDefinitionCreationContext -> {
+
+
                 TODO("parameter_junction_vertex_sdl_definition_creation_context not yet handled")
             }
             is ParameterLeafVertexSDLDefinitionCreationContext -> {
