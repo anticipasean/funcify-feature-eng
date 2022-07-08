@@ -6,12 +6,12 @@ import arrow.core.none
 import arrow.core.some
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.node.JsonNodeFactory
+import funcify.feature.json.JacksonJsonNodeComparator
 import java.math.BigDecimal
 import java.net.URI
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.toPersistentMap
-import net.thisptr.jackson.jq.internal.misc.JsonNodeComparator
 
 /**
  * Represents a data element, derived or raw, within the schema, its arguments / parameters, and any
@@ -39,7 +39,7 @@ interface SchematicPath : Comparable<SchematicPath> {
         }
 
         private val stringKeyJsonValueMapComparator: Comparator<Map<String, JsonNode>> by lazy {
-            val jsonNodeComparator: JsonNodeComparator = JsonNodeComparator.getInstance()
+            val jsonNodeComparator: Comparator<JsonNode> = JacksonJsonNodeComparator
             Comparator<Map<String, JsonNode>> { map1, map2 -> //
                 /*
                  * Early exit approach: First non-matching pair found returns comparison value else considered equal
