@@ -1,6 +1,6 @@
 package funcify.feature.scalar
 
-import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
+import funcify.feature.util.StringExtensions.flatten
 import graphql.schema.Coercing
 import graphql.schema.GraphQLScalarType
 import java.math.BigDecimal
@@ -17,7 +17,8 @@ object Decimal16 : GraphQLDecimalScalar {
             |{ precision: 3 digits (base10), rounding_mode: HALF_EVEN } 
             |(HALF_EVEN: AKA "Banker's rounding",  
             |corresponds to IEEE 754-2019 standard's "roundTiesToEven" 
-            |rounding-direction attribute)""".flattenIntoOneLine()
+            |rounding-direction attribute)"""
+            .flatten()
 
     /**
      * Following the same logic as was done for the IEEE 754-2019 decimal32 format used in

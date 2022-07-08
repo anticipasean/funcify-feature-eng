@@ -1,6 +1,6 @@
 package funcify.feature.scalar
 
-import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
+import funcify.feature.util.StringExtensions.flatten
 import graphql.schema.Coercing
 import graphql.schema.GraphQLScalarType
 import java.math.BigDecimal
@@ -15,7 +15,7 @@ object Decimal32 : GraphQLDecimalScalar {
             |{ precision: 7 digits (base10), rounding_mode: HALF_EVEN } 
             |(HALF_EVEN: AKA "Banker's rounding",  
             |corresponds to IEEE 754-2019 standard's "roundTiesToEven" 
-            |rounding-direction attribute)""".flattenIntoOneLine()
+            |rounding-direction attribute)""".flatten()
 
     override val mathContext: MathContext = MathContext.DECIMAL32
 

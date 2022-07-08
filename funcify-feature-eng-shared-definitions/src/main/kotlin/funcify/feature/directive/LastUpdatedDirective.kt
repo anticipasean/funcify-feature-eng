@@ -7,19 +7,18 @@ import graphql.language.DirectiveDefinition
 import graphql.language.DirectiveLocation
 import graphql.language.InputValueDefinition
 import graphql.language.SourceLocation
-import kotlinx.collections.immutable.persistentListOf
 
 object LastUpdatedDirective : MaterializationDirective {
 
     override val name: String = "last_updated"
 
     override val supportedDirectiveLocations: List<DirectiveLocation> by lazy {
-        listOf(FIELD_DEFINITION, INPUT_FIELD_DEFINITION).fold(persistentListOf()) { pl, iDirLoc ->
-            pl.add(DirectiveLocation.newDirectiveLocation().name(iDirLoc.name).build())
+        listOf(FIELD_DEFINITION, INPUT_FIELD_DEFINITION).map { iDirLoc ->
+            DirectiveLocation.newDirectiveLocation().name(iDirLoc.name).build()
         }
     }
 
-    override val inputValueDefinitions: List<InputValueDefinition> by lazy { persistentListOf() }
+    override val inputValueDefinitions: List<InputValueDefinition> by lazy { listOf() }
 
     override val directiveDefinition: DirectiveDefinition by lazy {
         DirectiveDefinition.newDirectiveDefinition()

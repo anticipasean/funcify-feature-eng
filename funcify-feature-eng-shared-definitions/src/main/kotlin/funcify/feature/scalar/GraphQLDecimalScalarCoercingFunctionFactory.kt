@@ -1,6 +1,6 @@
 package funcify.feature.scalar
 
-import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
+import funcify.feature.util.StringExtensions.flatten
 import graphql.language.FloatValue
 import graphql.language.IntValue
 import graphql.language.StringValue
@@ -35,7 +35,7 @@ object GraphQLDecimalScalarCoercingFunctionFactory {
                 if (this == null) {
                     val message =
                         """[ input: null ] cannot be converted 
-                           |into ${BigDecimal::class.qualifiedName}""".flattenIntoOneLine()
+                           |into ${BigDecimal::class.qualifiedName}""".flatten()
                     throw exceptionWrapper.invoke(message, IllegalArgumentException(message))
                 }
                 return try {
@@ -54,7 +54,7 @@ object GraphQLDecimalScalarCoercingFunctionFactory {
                         """per documentation on ${BigDecimal::class.qualifiedName}, 
                            |[ math_context.rounding_mode: ${mathContext.roundingMode} ] 
                            |may need to be changed for input values like this one;
-                           |rounding result may be inexact""".flattenIntoOneLine(),
+                           |rounding result may be inexact""".flatten(),
                         ae
                     )
                 }
@@ -100,7 +100,7 @@ object GraphQLDecimalScalarCoercingFunctionFactory {
                             |${CharSequence::class.qualifiedName}, or
                             |${CharArray::class.qualifiedName} }, 
                             |actual: ${dataFetcherResult::class.qualifiedName}
-                            |""".flattenIntoOneLine()
+                            |""".flatten()
                     )
                 }
             }
@@ -145,7 +145,7 @@ object GraphQLDecimalScalarCoercingFunctionFactory {
                             |${CharSequence::class.qualifiedName}, or 
                             |${CharArray::class.qualifiedName} }, 
                             |actual: ${input::class.qualifiedName}
-                            |""".flattenIntoOneLine()
+                            |""".flatten()
                     )
                 }
             }
@@ -182,7 +182,7 @@ object GraphQLDecimalScalarCoercingFunctionFactory {
                             |${StringValue::class.qualifiedName}, or 
                             |${IntValue::class.qualifiedName} } , 
                             |actual: ${input::class.qualifiedName}
-                            |""".flattenIntoOneLine()
+                            |""".flatten()
                     )
                 }
             }
@@ -237,7 +237,7 @@ object GraphQLDecimalScalarCoercingFunctionFactory {
                                    |${CharSequence::class.qualifiedName}, or 
                                    |${CharArray::class.qualifiedName} }, 
                                    |actual: ${input::class.qualifiedName}
-                                   |""".flattenIntoOneLine()
+                                   |""".flatten()
                             )
                         }
                     }

@@ -10,7 +10,6 @@ import graphql.language.NonNullType
 import graphql.language.SourceLocation
 import graphql.language.StringValue
 import graphql.language.TypeName
-import kotlinx.collections.immutable.persistentListOf
 
 object AliasDirective : MaterializationDirective {
 
@@ -23,7 +22,7 @@ object AliasDirective : MaterializationDirective {
                 Introspection.DirectiveLocation.FIELD_DEFINITION,
                 Introspection.DirectiveLocation.INPUT_FIELD_DEFINITION
             )
-            .fold(persistentListOf()) { pl, iDirLoc -> pl.add(DirectiveLocation(iDirLoc.name)) }
+            .map { iDirLoc -> DirectiveLocation(iDirLoc.name) }
     }
 
     override val inputValueDefinitions: List<InputValueDefinition> by lazy {
@@ -47,7 +46,7 @@ object AliasDirective : MaterializationDirective {
             .repeatable(true)
             .description(
                 Description(
-                    "Indicates a different name that the field may have",
+                    "Indicates a different name that the annotated field_definition may have",
                     SourceLocation.EMPTY,
                     false
                 )

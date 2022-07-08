@@ -1,18 +1,20 @@
 package funcify.feature.directive.sdl
 
-import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
-import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
+import funcify.feature.util.StringExtensions.flatten
 import graphql.language.FieldDefinition
 import graphql.language.NamedNode
 import graphql.language.ObjectTypeDefinition
 import org.slf4j.Logger
+import org.slf4j.LoggerFactory
 
 internal class DefaultSDLDefinitionDirectiveDefinitionUpdaterFactory :
     SDLDefinitionDirectiveDefinitionUpdaterFactory {
 
     companion object {
         private val logger: Logger =
-            loggerFor<DefaultSDLDefinitionDirectiveDefinitionUpdaterFactory>()
+            LoggerFactory.getLogger(
+                DefaultSDLDefinitionDirectiveDefinitionUpdaterFactory::class.java
+            )
 
         internal data class DefaultSDLDefinitionDirectiveDefinitionUpdater(
             private val sdlFieldDefinitionDirectiveDefinitionUpdater:
@@ -28,7 +30,7 @@ internal class DefaultSDLDefinitionDirectiveDefinitionUpdaterFactory :
                     """update_with_directive_definition_if_applicable: [ 
                       |sdl_definition: [ name: ${sdlDefinition.name} 
                       |type: ${sdlDefinition::class.qualifiedName}
-                      |] ]""".flattenIntoOneLine()
+                      |] ]""".flatten()
                 )
                 return when (sdlDefinition) {
                     is FieldDefinition -> {
