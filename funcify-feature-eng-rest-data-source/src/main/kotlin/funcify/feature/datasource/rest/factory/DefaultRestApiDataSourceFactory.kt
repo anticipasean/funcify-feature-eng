@@ -4,8 +4,8 @@ import funcify.feature.datasource.rest.RestApiDataSource
 import funcify.feature.datasource.rest.RestApiService
 import funcify.feature.datasource.rest.error.RestApiDataSourceException
 import funcify.feature.datasource.rest.error.RestApiErrorResponse
-import funcify.feature.datasource.rest.metadata.RestApiFetcherMetadataProvider
-import funcify.feature.datasource.rest.reader.RestApiSourceMetadataReader
+import funcify.feature.datasource.rest.metadata.provider.RestApiMetadataProvider
+import funcify.feature.datasource.rest.metadata.reader.RestApiSourceMetadataReader
 import funcify.feature.datasource.rest.schema.RestApiSourceIndex
 import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.datasource.DataSourceType
@@ -17,8 +17,8 @@ import kotlin.reflect.KClass
 import org.slf4j.Logger
 
 internal class DefaultRestApiDataSourceFactory<MD>(
-    val restApiFetcherMetadataProvider: RestApiFetcherMetadataProvider<MD>,
-    val restApiSourceMetadataReader: RestApiSourceMetadataReader<MD>
+    private val restApiMetadataProvider: RestApiMetadataProvider<MD>,
+    private val restApiSourceMetadataReader: RestApiSourceMetadataReader<MD>
 ) : RestApiDataSourceFactory {
 
     companion object {
@@ -45,7 +45,7 @@ internal class DefaultRestApiDataSourceFactory<MD>(
                 |service.service_context_path: ${service.serviceContextPath} ]
                 |""".flattenIntoOneLine()
         )
-        return restApiFetcherMetadataProvider
+        return restApiMetadataProvider
             .provideMetadata(service)
             .map { metadata: MD ->
                 val dataSourceKey: DataSource.Key<RestApiSourceIndex> =

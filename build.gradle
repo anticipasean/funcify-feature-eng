@@ -83,12 +83,12 @@ subprojects {
         }
         arrow {
             dependencies {
-                implementation(platform("io.arrow-kt:arrow-stack:${arrowStackVersion}"))
+//                implementation(platform("io.arrow-kt:arrow-stack:${arrowStackVersion}"))
                 implementation("io.arrow-kt:arrow-core")
                 implementation("io.arrow-kt:arrow-optics")
                 implementation("io.arrow-kt:arrow-fx-coroutines")
                 implementation("io.arrow-kt:arrow-integrations-jackson-module:${arrowJacksonVersion}")
-                testImplementation(platform("io.arrow-kt:arrow-stack:${arrowStackVersion}"))
+//                testImplementation(platform("io.arrow-kt:arrow-stack:${arrowStackVersion}"))
                 testImplementation("io.arrow-kt:arrow-core")
                 testImplementation("io.arrow-kt:arrow-optics")
                 testImplementation("io.arrow-kt:arrow-fx-coroutines")
