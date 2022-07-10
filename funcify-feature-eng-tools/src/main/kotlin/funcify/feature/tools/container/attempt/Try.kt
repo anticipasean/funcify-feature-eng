@@ -19,6 +19,7 @@ import java.util.stream.Stream
 import kotlin.streams.asStream
 import kotlinx.collections.immutable.PersistentList
 import kotlinx.collections.immutable.persistentListOf
+import reactor.core.publisher.Mono
 
 /**
  *
@@ -838,6 +839,10 @@ sealed interface Try<out S> : Iterable<S> {
 
     override fun iterator(): Iterator<S> {
         return sequence().iterator()
+    }
+
+    fun toMono(): Mono<out S> {
+        return fold({ s: S -> Mono.just(s) }, { t: Throwable -> Mono.error(t) })
     }
 
     /**

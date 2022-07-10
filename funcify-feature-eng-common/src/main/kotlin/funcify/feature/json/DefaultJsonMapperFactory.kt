@@ -110,6 +110,13 @@ internal object DefaultJsonMapperFactory : JsonMapperFactory {
                     .read(jaywayJsonPath, JsonNode::class.java)
             }
         }
+
+        override fun toJsonNodeForPath(jaywayJsonPath: JsonPath): Try<JsonNode> {
+            return toJsonNode().map { jn ->
+                JsonPath.parse(jn, jaywayJsonPathConfiguration)
+                    .read(jaywayJsonPath, JsonNode::class.java)
+            }
+        }
     }
 
     internal class DefaultJsonNodeMappingTarget(
@@ -138,6 +145,10 @@ internal object DefaultJsonMapperFactory : JsonMapperFactory {
                     .read(jaywayJsonPath, JsonNode::class.java)
             }
         }
+
+        override fun toJsonNodeForPath(jaywayJsonPath: JsonPath): Try<JsonNode> {
+            return Try.attempt { jaywayJsonPath.read(jsonNode, jaywayJsonPathConfiguration) }
+        }
     }
 
     internal class DefaultJsonStringMappingTarget(
@@ -161,6 +172,13 @@ internal object DefaultJsonMapperFactory : JsonMapperFactory {
         }
 
         override fun toJsonNodeForPath(jaywayJsonPath: String): Try<JsonNode> {
+            return Try.attempt {
+                JsonPath.parse(jsonValue, jaywayJsonPathConfiguration)
+                    .read(jaywayJsonPath, JsonNode::class.java)
+            }
+        }
+
+        override fun toJsonNodeForPath(jaywayJsonPath: JsonPath): Try<JsonNode> {
             return Try.attempt {
                 JsonPath.parse(jsonValue, jaywayJsonPathConfiguration)
                     .read(jaywayJsonPath, JsonNode::class.java)

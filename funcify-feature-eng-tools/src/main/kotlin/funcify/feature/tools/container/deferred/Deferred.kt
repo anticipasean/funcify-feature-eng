@@ -10,6 +10,7 @@ import java.util.concurrent.CompletionStage
 import java.util.concurrent.Executor
 import java.util.stream.Stream
 import org.reactivestreams.Publisher
+import org.reactivestreams.Subscriber
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.core.scheduler.Scheduler
@@ -24,7 +25,7 @@ import reactor.util.concurrent.Queues
  * sought and can be retrieved through the transformer to*** methods e.g.
  * [funcify.feature.tools.container.deferred.Deferred.toFlux]
  */
-interface Deferred<out I> : Iterable<I> {
+interface Deferred<out I> : Iterable<I>, Publisher<@UnsafeVariance I> {
 
     companion object {
         @JvmStatic
@@ -255,4 +256,6 @@ interface Deferred<out I> : Iterable<I> {
     fun toMono(): Mono<out List<I>>
 
     fun toFlux(): Flux<out I>
+
+    override fun subscribe(s: Subscriber<in I>?)
 }

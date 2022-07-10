@@ -20,6 +20,7 @@ import java.util.concurrent.CompletionStage
 import java.util.concurrent.Executor
 import java.util.stream.Stream
 import org.reactivestreams.Publisher
+import org.reactivestreams.Subscriber
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.core.scheduler.Scheduler
@@ -677,6 +678,28 @@ internal interface DeferredDesign<SWT, I> : Deferred<I> {
             }
             is DeferredContainerFactory.FluxDeferredContainer -> {
                 container.flux
+            }
+            else -> {
+                throw UnsupportedOperationException(
+                    "unhandled container type: [ ${container::class.qualifiedName} ]"
+                )
+            }
+        }
+    }
+
+    override fun subscribe(s: Subscriber<in I>?) {
+        if (s == null) {
+            throw IllegalArgumentException("subscriber to ${Deferred::class.qualifiedName} is null")
+        }
+        return when (val container: DeferredContainer<SWT, I> = this.fold(template)) {
+            is DeferredContainerFactory.KFutureDeferredContainer -> {
+                container.kFuture.toMono().subscribe(s)
+            }
+            is DeferredContainerFactory.MonoDeferredContainer -> {
+                container.mono.subscribe(s)
+            }
+            is DeferredContainerFactory.FluxDeferredContainer -> {
+                container.flux.subscribe(s)
             }
             else -> {
                 throw UnsupportedOperationException(

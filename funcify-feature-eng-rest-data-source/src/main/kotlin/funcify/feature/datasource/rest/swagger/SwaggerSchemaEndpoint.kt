@@ -2,11 +2,16 @@ package funcify.feature.datasource.rest.swagger
 
 import arrow.core.identity
 import com.fasterxml.jackson.databind.JsonNode
+import com.fasterxml.jackson.databind.node.JsonNodeFactory
+import com.fasterxml.jackson.databind.node.ObjectNode
 import com.jayway.jsonpath.JsonPath
 import funcify.feature.datasource.rest.RestApiService
+import funcify.feature.tools.container.deferred.Deferred
 import io.swagger.v3.oas.models.OpenAPI
 import io.swagger.v3.parser.OpenAPIV3Parser
+import org.reactivestreams.Publisher
 import org.springframework.boot.web.reactive.function.client.WebClientCustomizer
+import org.springframework.http.HttpMethod
 import org.springframework.web.reactive.function.client.WebClient
 
 /**
@@ -19,6 +24,30 @@ interface SwaggerSchemaEndpoint {
 
     val name: String
 
+    val httpMethod: HttpMethod
+
+    /**
+     * This function is run on the [WebClient.mutate] for a given [RestApiService] before a
+     * [WebClient] call is made to fetch the response containing the OpenAPI specification for this
+     * [RestApiService]
+     *
+     * @default_value: an empty customizer that doesn't make any changes to the given
+     * [WebClient.Builder]
+     */
+    fun webClientCustomizer(): WebClientCustomizer {
+        return WebClientCustomizer {}
+    }
+
+    /**
+     * This function creates the request body for the schema endpoint if it is a [HttpMethod.POST]
+     * request
+     *
+     * @default_value: a function that creates an empty [ObjectNode] and publisher for it
+     */
+    fun requestBodyCreator(): () -> Publisher<JsonNode> {
+        return { -> Deferred.completed<JsonNode>(JsonNodeFactory.instance.objectNode()) }
+    }
+
     /**
      * Locates the part of the [JsonNode] response from the [WebClient] of the [RestApiService] that
      * should be used as the "contents" for the [OpenAPIV3Parser.readContents] invocation
@@ -27,18 +56,6 @@ interface SwaggerSchemaEndpoint {
      */
     val responseOpenApiSpecificationJsonPath: JsonPath
         get() = JsonPath.compile("$")
-
-    /**
-     * This function is run on the [WebClient.mutate] for a given [RestApiService] before a
-     * [WebClient.post] call is made to fetch the response containing the OpenAPI specification for
-     * this [RestApiService]
-     *
-     * @default_value: an empty customizer that doesn't make any changes to the given
-     * [WebClient.Builder]
-     */
-    fun webClientCustomizer(): WebClientCustomizer {
-        return WebClientCustomizer {}
-    }
 
     /**
      * This preprocessing function is run on the output [JsonNode] instance for the [JsonPath.read]

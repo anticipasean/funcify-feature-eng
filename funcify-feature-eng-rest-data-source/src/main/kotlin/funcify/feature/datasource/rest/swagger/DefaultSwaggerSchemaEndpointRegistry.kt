@@ -1,7 +1,6 @@
 package funcify.feature.datasource.rest.swagger
 
 import arrow.core.Option
-import arrow.core.none
 import arrow.core.toOption
 import funcify.feature.datasource.rest.RestApiService
 import kotlinx.collections.immutable.ImmutableCollection
@@ -9,7 +8,9 @@ import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.persistentMapOf
 
 /**
- *
+ * Assumes [SwaggerSchemaEndpoint]s and [RestApiService]s are both not "hashable" or that merely
+ * their names should be used to assess their identities rather than their other components. So,
+ * this implementation tracks each endpoint and service by their names exclusively
  * @author smccarron
  * @created 2022-07-09
  */
@@ -68,7 +69,6 @@ internal data class DefaultSwaggerSchemaEndpointRegistry(
                     )
                 }
         } else {
-
             this
         }
     }
@@ -76,19 +76,15 @@ internal data class DefaultSwaggerSchemaEndpointRegistry(
     override fun getSwaggerSchemaEndpointForRestApiService(
         restApiService: RestApiService
     ): Option<SwaggerSchemaEndpoint> {
-        return if (restApiService.serviceName in restApiServiceNameToSwaggerSchemaEndpointNameMap) {
-            restApiService
-                .serviceName
-                .toOption()
-                .flatMap { restApiServiceName ->
-                    restApiServiceNameToSwaggerSchemaEndpointNameMap[restApiServiceName].toOption()
-                }
-                .flatMap { swaggerEndpointName ->
-                    swaggerSchemaEndpointsByName[swaggerEndpointName].toOption()
-                }
-        } else {
-            none()
-        }
+        return restApiService
+            .serviceName
+            .toOption()
+            .flatMap { restApiServiceName ->
+                restApiServiceNameToSwaggerSchemaEndpointNameMap[restApiServiceName].toOption()
+            }
+            .flatMap { swaggerEndpointName ->
+                swaggerSchemaEndpointsByName[swaggerEndpointName].toOption()
+            }
     }
 
     override fun getRestApiServicesWithSwaggerSchemaEndpoints():
