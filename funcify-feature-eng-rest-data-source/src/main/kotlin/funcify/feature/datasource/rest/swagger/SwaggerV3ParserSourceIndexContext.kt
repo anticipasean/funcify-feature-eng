@@ -9,7 +9,6 @@ import funcify.feature.schema.path.SchematicPath
 import io.swagger.v3.oas.models.OpenAPI
 import io.swagger.v3.oas.models.PathItem
 import io.swagger.v3.oas.models.parameters.RequestBody
-import io.swagger.v3.oas.models.responses.ApiResponse
 import io.swagger.v3.oas.models.responses.ApiResponses
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.ImmutableSet
@@ -20,14 +19,13 @@ import org.springframework.http.HttpMethod
  * @author smccarron
  * @created 2022-07-10
  */
-interface SwaggerV3ParserSourceIndexContext :
-    SwaggerSourceIndexContextContainer<SV3PWT, OpenAPI, PathItem, RequestBody, ApiResponse> {
+interface SwaggerV3ParserSourceIndexContext : SwaggerSourceIndexContextContainer<SV3PWT> {
 
     companion object {
         /** Witness type for [SwaggerV3ParserSourceIndexContext] */
         enum class SV3PWT
 
-        fun <O, P, REQ, RES> SwaggerSourceIndexContextContainer<SV3PWT, O, P, REQ, RES>.narrowed():
+        fun <O, P, REQ, RES> SwaggerSourceIndexContextContainer<SV3PWT>.narrowed():
             SwaggerV3ParserSourceIndexContext {
             /*
              * Note: This is not an unsafe cast if the witness type (WT) parameter matches

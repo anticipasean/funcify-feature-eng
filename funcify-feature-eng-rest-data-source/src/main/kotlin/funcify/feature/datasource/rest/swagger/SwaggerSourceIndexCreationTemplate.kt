@@ -1,0 +1,46 @@
+package funcify.feature.datasource.rest.swagger
+
+import funcify.feature.schema.path.SchematicPath
+
+/**
+ *
+ * @author smccarron
+ * @created 2022-07-11
+ */
+interface SwaggerSourceIndexCreationTemplate<WT, O, P, REQ, RES, SCH> {
+
+    fun createSourceContainerTypeInContextForPathsGroup(
+        parentPath: SchematicPath,
+        pathsGroup: Map<SchematicPath, P>,
+        contextContainer: SwaggerSourceIndexContextContainer<WT>
+    ): SwaggerSourceIndexContextContainer<WT>
+
+    fun createSourceContainerTypeInContextForSuccessfulApiResponseObject(
+        sourcePath: SchematicPath,
+        successfulApiResponse: RES,
+        responseJsonSchema: SCH,
+        contextContainer: SwaggerSourceIndexContextContainer<WT>
+    ): SwaggerSourceIndexContextContainer<WT>
+
+    fun createSourceAttributeInContextForPropertyOfSuccessfulApiResponseObject(
+        sourcePath: SchematicPath,
+        successfulApiResponse: RES,
+        responseJsonSchema: SCH,
+        contextContainer: SwaggerSourceIndexContextContainer<WT>
+    ): SwaggerSourceIndexContextContainer<WT>
+
+    fun createParameterContainerTypeForPostRequestBodyObject(
+        sourcePath: SchematicPath,
+        request: REQ,
+        requestBodyJsonSchema: SCH,
+        contextContainer: SwaggerSourceIndexContextContainer<WT>
+    ): SwaggerSourceIndexContextContainer<WT>
+
+    fun createParameterAttributeForPostRequestBodyObjectProperty(
+        sourcePath: SchematicPath,
+        request: REQ,
+        requestBodyJsonSchema: SCH,
+        jsonPropertyName: String,
+        contextContainer: SwaggerSourceIndexContextContainer<WT>
+    ): SwaggerSourceIndexContextContainer<WT>
+}

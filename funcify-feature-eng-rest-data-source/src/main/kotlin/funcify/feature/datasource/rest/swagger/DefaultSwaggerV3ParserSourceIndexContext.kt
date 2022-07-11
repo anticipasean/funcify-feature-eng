@@ -13,6 +13,7 @@ import io.swagger.v3.oas.models.parameters.RequestBody
 import io.swagger.v3.oas.models.responses.ApiResponses
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.PersistentSet
+import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.persistentSetOf
 import org.springframework.http.HttpMethod
 
@@ -23,20 +24,27 @@ import org.springframework.http.HttpMethod
  */
 internal data class DefaultSwaggerV3ParserSourceIndexContext(
     override val openAPI: OpenAPI,
-    override val sourcePathParentByChildPath: PersistentMap<SchematicPath, SchematicPath>,
-    override val pathItemsBySourcePath: PersistentMap<SchematicPath, PathItem>,
+    override val sourcePathParentByChildPath: PersistentMap<SchematicPath, SchematicPath> =
+        persistentMapOf(),
+    override val pathItemsBySourcePath: PersistentMap<SchematicPath, PathItem> = persistentMapOf(),
     override val httpMethodToRequestBodyPairsForSchematicPath:
-        PersistentMap<SchematicPath, PersistentSet<Pair<HttpMethod, RequestBody>>>,
+        PersistentMap<SchematicPath, PersistentSet<Pair<HttpMethod, RequestBody>>> =
+        persistentMapOf(),
     override val httpMethodToResponseBodiesBySchematicPath:
-        PersistentMap<SchematicPath, PersistentSet<Pair<HttpMethod, ApiResponses>>>,
+        PersistentMap<SchematicPath, PersistentSet<Pair<HttpMethod, ApiResponses>>> =
+        persistentMapOf(),
     override val sourceContainerTypesBySchematicPath:
-        PersistentMap<SchematicPath, SwaggerSourceContainerType>,
+        PersistentMap<SchematicPath, SwaggerSourceContainerType> =
+        persistentMapOf(),
     override val sourceAttributesBySchematicPath:
-        PersistentMap<SchematicPath, SwaggerSourceAttribute>,
+        PersistentMap<SchematicPath, SwaggerSourceAttribute> =
+        persistentMapOf(),
     override val parameterContainerTypesBySchematicPath:
-        PersistentMap<SchematicPath, SwaggerParameterContainerType>,
+        PersistentMap<SchematicPath, SwaggerParameterContainerType> =
+        persistentMapOf(),
     override val parameterAttributesBySchematicPath:
-        PersistentMap<SchematicPath, SwaggerParameterAttribute>
+        PersistentMap<SchematicPath, SwaggerParameterAttribute> =
+        persistentMapOf()
 ) : SwaggerV3ParserSourceIndexContext {
 
     companion object {
