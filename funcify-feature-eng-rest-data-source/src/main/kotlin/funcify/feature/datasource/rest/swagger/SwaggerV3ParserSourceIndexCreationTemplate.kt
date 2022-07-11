@@ -47,6 +47,7 @@ interface SwaggerV3ParserSourceIndexCreationTemplate<WT> :
         request: RequestBody,
         requestBodyJsonSchema: Schema<*>,
         jsonPropertyName: String,
+        jsonPropertySchema: Schema<*>,
         contextContainer: SwaggerSourceIndexContextContainer<WT>,
     ): SwaggerSourceIndexContextContainer<WT>
 }

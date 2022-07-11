@@ -2,6 +2,9 @@ package funcify.feature.datasource.rest.swagger
 
 import arrow.core.identity
 import arrow.core.toOption
+import com.fasterxml.jackson.databind.jsonFormatVisitors.JsonFormatTypes
+import funcify.feature.datasource.rest.error.RestApiDataSourceException
+import funcify.feature.datasource.rest.error.RestApiErrorResponse
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.OptionExtensions.flatMapOptions
@@ -11,6 +14,7 @@ import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
 import io.swagger.v3.oas.models.OpenAPI
 import io.swagger.v3.oas.models.Operation
 import io.swagger.v3.oas.models.PathItem
+import io.swagger.v3.oas.models.media.Content
 import io.swagger.v3.oas.models.media.Schema
 import io.swagger.v3.oas.models.parameters.RequestBody
 import io.swagger.v3.oas.models.responses.ApiResponse
@@ -18,6 +22,7 @@ import io.swagger.v3.oas.models.responses.ApiResponses
 import kotlinx.collections.immutable.PersistentMap
 import org.slf4j.Logger
 import org.springframework.http.HttpStatus
+import org.springframework.http.MediaType
 
 /**
  *
@@ -150,7 +155,21 @@ interface SwaggerV3ParserSourceIndexCreationTraversalTemplate<WT> :
             |request.content.size: $requestContentSize ]
             |""".flattenIntoOneLine()
         )
-        TODO("Not yet implemented")
+        return request.content
+            .toOption()
+            .mapNotNull { content: Content ->
+                content
+                    .asSequence()
+                    .filter { (name, _) -> name == MediaType.APPLICATION_JSON_VALUE }
+                    .firstOrNull()
+            }
+            .mapNotNull { (_, mediaTypeInfo) -> mediaTypeInfo.schema }
+            .fold(
+                { contextContainer },
+                { schema: Schema<*> ->
+                    onServicePostRequestJsonSchema(sourcePath, request, schema, contextContainer)
+                }
+            )
     }
 
     override fun onServicePostRequestJsonSchema(
@@ -159,7 +178,80 @@ interface SwaggerV3ParserSourceIndexCreationTraversalTemplate<WT> :
         requestBodySchema: Schema<*>,
         contextContainer: SwaggerSourceIndexContextContainer<WT>,
     ): SwaggerSourceIndexContextContainer<WT> {
-        TODO("Not yet implemented")
+        val methodTag: String = "on_service_post_request_json_schema"
+        logger.debug(
+            """$methodTag: [ source_path: ${sourcePath}, 
+            |request_body_schema.type: ${requestBodySchema.type} 
+            |]""".flattenIntoOneLine()
+        )
+        return when (val requestBodySchemaType = JsonFormatTypes.forValue(requestBodySchema.type)) {
+            JsonFormatTypes.OBJECT -> {
+                createParameterContainerTypeForPostRequestBodyObject(
+                        sourcePath,
+                        request,
+                        requestBodySchema,
+                        contextContainer
+                    )
+                    .let { updatedContext ->
+                        requestBodySchema.properties
+                            .toOption()
+                            .mapNotNull { propertySchemaByPropName ->
+                                propertySchemaByPropName.asSequence()
+                            }
+                            .fold(::emptySequence, ::identity)
+                            .fold(updatedContext) { ctx, (propertyName, propertySchema) ->
+                                onServicePostRequestJsonSchemaProperty(
+                                    sourcePath.transform { argument(propertyName) },
+                                    request,
+                                    requestBodySchema,
+                                    propertyName,
+                                    propertySchema,
+                                    ctx
+                                )
+                            }
+                    }
+            }
+            else -> {
+                val errorMessage: String =
+                    """post_request_body.type is not an object type 
+                       |and thus requires handling 
+                       |that is not implemented: 
+                       |[ actual: ${requestBodySchemaType} ]""".flattenIntoOneLine()
+                logger.error(
+                    """$methodTag: [ status: failed ] 
+                    |${errorMessage}""".flattenIntoOneLine()
+                )
+                throw RestApiDataSourceException(
+                    RestApiErrorResponse.REST_API_DATA_SOURCE_CREATION_ERROR,
+                    errorMessage
+                )
+            }
+        }
+    }
+
+    override fun onServicePostRequestJsonSchemaProperty(
+        sourcePath: SchematicPath,
+        request: RequestBody,
+        requestBodySchema: Schema<*>,
+        requestBodyPropertyName: String,
+        requestBodyPropertySchema: Schema<*>,
+        contextContainer: SwaggerSourceIndexContextContainer<WT>,
+    ): SwaggerSourceIndexContextContainer<WT> {
+        val methodTag: String = "on_service_post_request_json_schema_property"
+        logger.debug(
+            """$methodTag: [ source_path: $sourcePath, 
+            |request_body_property_name: $requestBodyPropertyName, 
+            |request_body_property_schema.type: ${requestBodyPropertySchema.type} 
+            |]""".flattenIntoOneLine()
+        )
+        return createParameterAttributeForPostRequestBodyObjectProperty(
+            sourcePath,
+            request,
+            requestBodySchema,
+            requestBodyPropertyName,
+            requestBodyPropertySchema,
+            contextContainer
+        )
     }
 
     override fun onSuccessfulPostResponse(
@@ -167,7 +259,39 @@ interface SwaggerV3ParserSourceIndexCreationTraversalTemplate<WT> :
         response: ApiResponse,
         contextContainer: SwaggerSourceIndexContextContainer<WT>,
     ): SwaggerSourceIndexContextContainer<WT> {
-        TODO("Not yet implemented")
+        val firstMediaTypeNameInContent: String =
+            response.content
+                .toOption()
+                .filter { c: Content -> c.size > 0 }
+                .mapNotNull { c: Content -> c.asSequence().firstOrNull() }
+                .mapNotNull { (mediaTypeName, _) -> mediaTypeName }
+                .orNull()
+                ?: "<NA>"
+        logger.debug(
+            """on_successful_post_response: [ source_path: ${sourcePath}, 
+            |api_response.first.media_type_name: ${firstMediaTypeNameInContent} 
+            |]""".flattenIntoOneLine()
+        )
+        return response.content
+            .toOption()
+            .mapNotNull { c: Content ->
+                c.asSequence()
+                    .filter { (name, _) -> name == MediaType.APPLICATION_JSON_VALUE }
+                    .mapNotNull { (_, mediaTypeInfo) -> mediaTypeInfo }
+                    .firstOrNull()
+            }
+            .mapNotNull { mediaType: io.swagger.v3.oas.models.media.MediaType -> mediaType.schema }
+            .fold(
+                { contextContainer },
+                { responseJsonSchema: Schema<*> ->
+                    onPostResponseJsonSchema(
+                        sourcePath,
+                        response,
+                        responseJsonSchema,
+                        contextContainer
+                    )
+                }
+            )
     }
 
     override fun onPostResponseJsonSchema(
@@ -176,7 +300,20 @@ interface SwaggerV3ParserSourceIndexCreationTraversalTemplate<WT> :
         responseBodyJson: Schema<*>,
         contextContainer: SwaggerSourceIndexContextContainer<WT>,
     ): SwaggerSourceIndexContextContainer<WT> {
-        TODO("Not yet implemented")
+        val methodTag: String = "on_post_response_json_schema"
+        logger.debug(
+            """$methodTag: [ source_path: $sourcePath, 
+                |response_body_json_schema.type: ${responseBodyJson.type} 
+                |]""".flattenIntoOneLine()
+        )
+        when (val responseBodyJsonType = JsonFormatTypes.forValue(responseBodyJson.type)) {
+            JsonFormatTypes.OBJECT -> {
+                TODO("Not yet implemented")
+            }
+            else -> {
+                TODO("Not yet implemented")
+            }
+        }
     }
 
     override fun onPostResponseJsonSchemaProperty(

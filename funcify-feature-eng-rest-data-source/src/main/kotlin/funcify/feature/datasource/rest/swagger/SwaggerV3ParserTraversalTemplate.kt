@@ -46,6 +46,15 @@ interface SwaggerV3ParserTraversalTemplate<WT> :
         contextContainer: SwaggerSourceIndexContextContainer<WT>,
     ): SwaggerSourceIndexContextContainer<WT>
 
+    override fun onServicePostRequestJsonSchemaProperty(
+        sourcePath: SchematicPath,
+        request: RequestBody,
+        requestBodySchema: Schema<*>,
+        requestBodyPropertyName: String,
+        requestBodyPropertySchema: Schema<*>,
+        contextContainer: SwaggerSourceIndexContextContainer<WT>,
+    ): SwaggerSourceIndexContextContainer<WT>
+
     override fun onSuccessfulPostResponse(
         sourcePath: SchematicPath,
         response: ApiResponse,

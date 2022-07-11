@@ -41,6 +41,7 @@ interface SwaggerSourceIndexCreationTemplate<WT, O, P, REQ, RES, SCH> {
         request: REQ,
         requestBodyJsonSchema: SCH,
         jsonPropertyName: String,
+        jsonPropertySchema: SCH,
         contextContainer: SwaggerSourceIndexContextContainer<WT>
     ): SwaggerSourceIndexContextContainer<WT>
 }
