@@ -32,6 +32,8 @@ interface SwaggerV3ParserSourceIndexCreationTemplate<WT> :
         sourcePath: SchematicPath,
         successfulApiResponse: ApiResponse,
         responseJsonSchema: Schema<*>,
+        jsonPropertyName: String,
+        jsonPropertySchema: Schema<*>,
         contextContainer: SwaggerSourceIndexContextContainer<WT>,
     ): SwaggerSourceIndexContextContainer<WT>
 

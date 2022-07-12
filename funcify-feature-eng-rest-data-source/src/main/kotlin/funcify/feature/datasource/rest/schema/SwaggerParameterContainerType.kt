@@ -1,6 +1,7 @@
 package funcify.feature.datasource.rest.schema
 
 import funcify.feature.schema.datasource.ParameterContainerType
+import io.swagger.v3.oas.models.media.Schema
 
 /**
  *
@@ -9,4 +10,9 @@ import funcify.feature.schema.datasource.ParameterContainerType
  */
 interface SwaggerParameterContainerType :
     SwaggerRestApiSourceIndex,
-    ParameterContainerType<RestApiSourceIndex, SwaggerParameterAttribute> {}
+    ParameterContainerType<RestApiSourceIndex, SwaggerParameterAttribute> {
+
+    // TODO: Consider whether this swagger model json schema type or the one from the
+    //  jackson framework should be used
+    val jsonSchema: Schema<*>
+}

@@ -16,7 +16,7 @@ interface SwaggerOpenAPISchemaTraversalTemplate<WT, O, P, REQ, RES, SCH> {
 
     fun onServicePathsGroup(
         parentPath: SchematicPath,
-        pathInfoBySchematicPath: Map<SchematicPath, P>,
+        childPathInfoBySchematicPath: Map<SchematicPath, P>,
         contextContainer: SwaggerSourceIndexContextContainer<WT>
     ): SwaggerSourceIndexContextContainer<WT>
 
@@ -65,7 +65,8 @@ interface SwaggerOpenAPISchemaTraversalTemplate<WT, O, P, REQ, RES, SCH> {
         sourcePath: SchematicPath,
         response: RES,
         responseBodyJson: SCH,
-        responseBodyObjectPropertyName: String,
+        jsonPropertyName: String,
+        jsonPropertySchema: SCH,
         contextContainer: SwaggerSourceIndexContextContainer<WT>
     ): SwaggerSourceIndexContextContainer<WT>
 }

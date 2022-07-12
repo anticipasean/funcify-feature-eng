@@ -1,5 +1,6 @@
 package funcify.feature.datasource.rest.schema
 
+import arrow.core.Option
 import funcify.feature.naming.ConventionalName
 import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.path.SchematicPath
@@ -14,22 +15,21 @@ import kotlinx.collections.immutable.persistentSetOf
  * @author smccarron
  * @created 2022-07-10
  */
-internal data class DefaultSwaggerParameterContainerType(
+internal data class DefaultSwaggerResponseTypeSourceContainerType(
     override val dataSourceLookupKey: DataSource.Key<RestApiSourceIndex>,
     override val sourcePath: SchematicPath,
     override val name: ConventionalName,
-    override val jsonSchema: Schema<*>,
-    override val parameterAttributes: PersistentSet<SwaggerParameterAttribute> = persistentSetOf()
-) : SwaggerParameterContainerType {
+    override val responseJsonSchema: Option<Schema<*>>,
+    override val sourceAttributes: PersistentSet<SwaggerSourceAttribute> = persistentSetOf()
+) : SwaggerSourceContainerType {
 
-    private val parameterAttributesByName:
-        PersistentMap<String, SwaggerParameterAttribute> by lazy {
-        parameterAttributes.asSequence().fold(persistentMapOf()) { pm, paramAttr ->
-            pm.put(paramAttr.name.toString(), paramAttr)
+    private val sourceAttributesByName: PersistentMap<String, SwaggerSourceAttribute> by lazy {
+        sourceAttributes.asSequence().fold(persistentMapOf()) { pm, sourceAttr ->
+            pm.put(sourceAttr.name.toString(), sourceAttr)
         }
     }
 
-    override fun getParameterAttributeWithName(name: String): SwaggerParameterAttribute? {
-        return parameterAttributesByName[name]
+    override fun getSourceAttributeWithName(name: String): SwaggerSourceAttribute? {
+        return sourceAttributesByName[name]
     }
 }

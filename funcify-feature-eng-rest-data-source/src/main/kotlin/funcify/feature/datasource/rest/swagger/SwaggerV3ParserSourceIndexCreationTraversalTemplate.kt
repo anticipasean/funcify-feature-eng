@@ -1,16 +1,26 @@
 package funcify.feature.datasource.rest.swagger
 
+import arrow.core.getOrElse
 import arrow.core.identity
+import arrow.core.lastOrNone
 import arrow.core.toOption
 import com.fasterxml.jackson.databind.jsonFormatVisitors.JsonFormatTypes
 import funcify.feature.datasource.rest.error.RestApiDataSourceException
 import funcify.feature.datasource.rest.error.RestApiErrorResponse
+import funcify.feature.datasource.rest.naming.RestApiSourceNamingConventions
+import funcify.feature.datasource.rest.schema.DefaultSwaggerParameterAttribute
+import funcify.feature.datasource.rest.schema.DefaultSwaggerParameterContainerType
+import funcify.feature.datasource.rest.schema.DefaultSwaggerPathGroupSourceContainerType
+import funcify.feature.datasource.rest.schema.DefaultSwaggerResponseTypeSourceContainerType
+import funcify.feature.datasource.rest.schema.DefaultSwaggerSourceAttribute
+import funcify.feature.naming.ConventionalName
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.OptionExtensions.flatMapOptions
 import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentMap
 import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentSetValueMap
 import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
+import funcify.feature.tools.extensions.TryExtensions.successIfDefined
 import io.swagger.v3.oas.models.OpenAPI
 import io.swagger.v3.oas.models.Operation
 import io.swagger.v3.oas.models.PathItem
@@ -20,6 +30,7 @@ import io.swagger.v3.oas.models.parameters.RequestBody
 import io.swagger.v3.oas.models.responses.ApiResponse
 import io.swagger.v3.oas.models.responses.ApiResponses
 import kotlinx.collections.immutable.PersistentMap
+import kotlinx.collections.immutable.toPersistentMap
 import org.slf4j.Logger
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
@@ -75,21 +86,21 @@ interface SwaggerV3ParserSourceIndexCreationTraversalTemplate<WT> :
 
     override fun onServicePathsGroup(
         parentPath: SchematicPath,
-        pathInfoBySchematicPath: Map<SchematicPath, PathItem>,
+        childPathInfoBySchematicPath: Map<SchematicPath, PathItem>,
         contextContainer: SwaggerSourceIndexContextContainer<WT>,
     ): SwaggerSourceIndexContextContainer<WT> {
         logger.debug(
             """on_service_paths_group: [ parent_path: ${parentPath}, 
-            |path_info_by_schematic_path.size: ${pathInfoBySchematicPath.size} 
+            |path_info_by_schematic_path.size: ${childPathInfoBySchematicPath.size} 
             |]""".flattenIntoOneLine()
         )
         return createSourceContainerTypeInContextForPathsGroup(
                 parentPath,
-                pathInfoBySchematicPath,
+                childPathInfoBySchematicPath,
                 contextContainer
             )
             .let { updatedContext ->
-                pathInfoBySchematicPath.asSequence().fold(updatedContext) {
+                childPathInfoBySchematicPath.asSequence().fold(updatedContext) {
                     updCtx,
                     (childPath, pathInfo) ->
                     onServicePath(childPath, pathInfo, updCtx)
@@ -306,12 +317,45 @@ interface SwaggerV3ParserSourceIndexCreationTraversalTemplate<WT> :
                 |response_body_json_schema.type: ${responseBodyJson.type} 
                 |]""".flattenIntoOneLine()
         )
-        when (val responseBodyJsonType = JsonFormatTypes.forValue(responseBodyJson.type)) {
+        return when (val responseBodyJsonType = JsonFormatTypes.forValue(responseBodyJson.type)) {
             JsonFormatTypes.OBJECT -> {
-                TODO("Not yet implemented")
+                createSourceContainerTypeInContextForSuccessfulApiResponseObject(
+                        sourcePath,
+                        response,
+                        responseBodyJson,
+                        contextContainer
+                    )
+                    .let { updatedContext ->
+                        responseBodyJson.properties
+                            .toOption()
+                            .mapNotNull { propsByName -> propsByName.asSequence() }
+                            .fold(::emptySequence, ::identity)
+                            .fold(updatedContext) { ctx, (propertyName, propertySchema) ->
+                                createSourceAttributeInContextForPropertyOfSuccessfulApiResponseObject(
+                                    sourcePath.transform { pathSegment(propertyName) },
+                                    response,
+                                    responseBodyJson,
+                                    propertyName,
+                                    propertySchema,
+                                    ctx
+                                )
+                            }
+                    }
             }
             else -> {
-                TODO("Not yet implemented")
+                val errorMessage: String =
+                    """post_request_body.type is not an object type 
+                       |and thus requires handling 
+                       |that is not implemented: 
+                       |[ actual: ${responseBodyJson.type} ]""".flattenIntoOneLine()
+                logger.error(
+                    """$methodTag: [ status: failed ] 
+                    |${errorMessage}""".flattenIntoOneLine()
+                )
+                throw RestApiDataSourceException(
+                    RestApiErrorResponse.REST_API_DATA_SOURCE_CREATION_ERROR,
+                    errorMessage
+                )
             }
         }
     }
@@ -320,9 +364,226 @@ interface SwaggerV3ParserSourceIndexCreationTraversalTemplate<WT> :
         sourcePath: SchematicPath,
         response: ApiResponse,
         responseBodyJson: Schema<*>,
-        responseBodyObjectPropertyName: String,
+        jsonPropertyName: String,
+        jsonPropertySchema: Schema<*>,
         contextContainer: SwaggerSourceIndexContextContainer<WT>,
     ): SwaggerSourceIndexContextContainer<WT> {
-        TODO("Not yet implemented")
+        val methodTag: String = "on_post_response_json_schema_property"
+        logger.debug(
+            """$methodTag: [ source_path: $sourcePath, 
+                |json_property_name: $jsonPropertyName, 
+                |json_property_schema.type: ${jsonPropertySchema.type} 
+                |]""".flattenIntoOneLine()
+        )
+        return createSourceAttributeInContextForPropertyOfSuccessfulApiResponseObject(
+            sourcePath,
+            response,
+            responseBodyJson,
+            jsonPropertyName,
+            jsonPropertySchema,
+            contextContainer
+        )
+    }
+
+    override fun createSourceContainerTypeInContextForPathsGroup(
+        parentPath: SchematicPath,
+        pathsGroup: Map<SchematicPath, PathItem>,
+        contextContainer: SwaggerSourceIndexContextContainer<WT>,
+    ): SwaggerSourceIndexContextContainer<WT> {
+        val pathsGroupFirstPath: String =
+            pathsGroup
+                .toOption()
+                .mapNotNull { childPathItemBySchematicPath ->
+                    childPathItemBySchematicPath.asSequence().firstOrNull()
+                }
+                .mapNotNull { (path, _) -> path }
+                .mapNotNull { sp -> sp.toString() }
+                .getOrElse { "<NA>" }
+        logger.debug(
+            """create_source_container_type_in_context_for_paths_group: 
+                |[ source_path: $parentPath, 
+                |paths_group.size: ${pathsGroup.size}, 
+                |paths_group.first.path: $pathsGroupFirstPath 
+                |]""".flattenIntoOneLine()
+        )
+        val conventionalName: ConventionalName =
+            parentPath.pathSegments
+                .lastOrNone()
+                .successIfDefined {
+                    RestApiDataSourceException(
+                        RestApiErrorResponse.REST_API_DATA_SOURCE_CREATION_ERROR,
+                        """path_group.source_path.path_segments 
+                            |does not contain a name that can be 
+                            |used for this type name; information about 
+                            |the root may need to be provided
+                            |""".flattenIntoOneLine()
+                    )
+                }
+                .map { lastSegment ->
+                    RestApiSourceNamingConventions
+                        .getPathGroupTypeNamingConventionForPathGroupPathName()
+                        .deriveName(lastSegment)
+                }
+                .orElseThrow()
+        return addNewOrUpdateExistingSwaggerSourceIndexToContext(
+            DefaultSwaggerPathGroupSourceContainerType(
+                getDataSourceKeyForSwaggerSourceIndicesInContext(contextContainer),
+                parentPath,
+                conventionalName,
+                pathsGroup.toPersistentMap()
+            ),
+            contextContainer
+        )
+    }
+
+    override fun createSourceContainerTypeInContextForSuccessfulApiResponseObject(
+        sourcePath: SchematicPath,
+        successfulApiResponse: ApiResponse,
+        responseJsonSchema: Schema<*>,
+        contextContainer: SwaggerSourceIndexContextContainer<WT>,
+    ): SwaggerSourceIndexContextContainer<WT> {
+        val responseJsonSchemaPropertiesSize: Int =
+            responseJsonSchema.properties.toOption().mapNotNull { m -> m.size }.getOrElse { 0 }
+        logger.debug(
+            """create_source_container_type_in_context_for_successful_api_response_object: 
+                |[ source_path: ${sourcePath}, 
+                |response_json_schema.type: ${responseJsonSchema.type}, 
+                |response_json_schema.properties.size: $responseJsonSchemaPropertiesSize ]
+                |""".flattenIntoOneLine()
+        )
+        val conventionalName: ConventionalName =
+            sourcePath.pathSegments
+                .lastOrNone()
+                .successIfDefined {
+                    RestApiDataSourceException(
+                        RestApiErrorResponse.REST_API_DATA_SOURCE_CREATION_ERROR,
+                        """response_type.source_path.path_segments 
+                            |does not contain a name that can be 
+                            |used for this type name; information about 
+                            |the root may need to be provided
+                            |""".flattenIntoOneLine()
+                    )
+                }
+                .map { lastPathSegment ->
+                    RestApiSourceNamingConventions
+                        .getRequestOrResponseTypeNamingConventionForRequestOrResponsePathName()
+                        .deriveName(lastPathSegment)
+                }
+                .orElseThrow()
+        return addNewOrUpdateExistingSwaggerSourceIndexToContext(
+            DefaultSwaggerResponseTypeSourceContainerType(
+                getDataSourceKeyForSwaggerSourceIndicesInContext(contextContainer),
+                sourcePath,
+                conventionalName,
+                responseJsonSchema.toOption()
+            ),
+            contextContainer
+        )
+    }
+
+    override fun createSourceAttributeInContextForPropertyOfSuccessfulApiResponseObject(
+        sourcePath: SchematicPath,
+        successfulApiResponse: ApiResponse,
+        responseJsonSchema: Schema<*>,
+        jsonPropertyName: String,
+        jsonPropertySchema: Schema<*>,
+        contextContainer: SwaggerSourceIndexContextContainer<WT>,
+    ): SwaggerSourceIndexContextContainer<WT> {
+        logger.debug(
+            """create_source_attribute_in_context_for_property_of_successful_api_response_object: 
+            |[ source_path: ${sourcePath}, 
+            |json_property_name: ${jsonPropertyName}, 
+            |json_property_schema.type: ${jsonPropertySchema.type} 
+            |]""".flattenIntoOneLine()
+        )
+        val conventionalName: ConventionalName =
+            RestApiSourceNamingConventions.getFieldNamingConventionForJsonPropertyName()
+                .deriveName(jsonPropertyName)
+        return addNewOrUpdateExistingSwaggerSourceIndexToContext(
+            DefaultSwaggerSourceAttribute(
+                getDataSourceKeyForSwaggerSourceIndicesInContext(contextContainer),
+                conventionalName,
+                sourcePath,
+                jsonPropertyName,
+                jsonPropertySchema
+            ),
+            contextContainer
+        )
+    }
+
+    override fun createParameterContainerTypeForPostRequestBodyObject(
+        sourcePath: SchematicPath,
+        request: RequestBody,
+        requestBodyJsonSchema: Schema<*>,
+        contextContainer: SwaggerSourceIndexContextContainer<WT>,
+    ): SwaggerSourceIndexContextContainer<WT> {
+        val requestBodyPropertiesSize: Int =
+            requestBodyJsonSchema.properties.toOption().mapNotNull { m -> m.size }.getOrElse { 0 }
+        logger.debug(
+            """create_parameter_container_type_for_post_request_body_object: 
+                |[ source_path: ${sourcePath}, 
+                |request_body_schema.type: ${requestBodyJsonSchema.type}, 
+                |request_body_schema.size: $requestBodyPropertiesSize 
+                |]""".flattenIntoOneLine()
+        )
+        val conventionalName: ConventionalName =
+            sourcePath.pathSegments
+                .lastOrNone()
+                .successIfDefined {
+                    RestApiDataSourceException(
+                        RestApiErrorResponse.REST_API_DATA_SOURCE_CREATION_ERROR,
+                        """request_type.source_path.path_segments 
+                            |does not contain a name that can be 
+                            |used for this type name; information about 
+                            |the root may need to be provided
+                            |""".flattenIntoOneLine()
+                    )
+                }
+                .map { lastPathSegment ->
+                    RestApiSourceNamingConventions
+                        .getRequestOrResponseTypeNamingConventionForRequestOrResponsePathName()
+                        .deriveName(lastPathSegment)
+                }
+                .orElseThrow()
+
+        return addNewOrUpdateExistingSwaggerSourceIndexToContext(
+            DefaultSwaggerParameterContainerType(
+                getDataSourceKeyForSwaggerSourceIndicesInContext(contextContainer),
+                sourcePath,
+                conventionalName,
+                requestBodyJsonSchema
+            ),
+            contextContainer
+        )
+    }
+
+    override fun createParameterAttributeForPostRequestBodyObjectProperty(
+        sourcePath: SchematicPath,
+        request: RequestBody,
+        requestBodyJsonSchema: Schema<*>,
+        jsonPropertyName: String,
+        jsonPropertySchema: Schema<*>,
+        contextContainer: SwaggerSourceIndexContextContainer<WT>,
+    ): SwaggerSourceIndexContextContainer<WT> {
+        logger.debug(
+            """create_parameter_attribute_for_post_request_body_object_property: 
+            |[ source_path: ${sourcePath}, 
+            |json_property_name: ${jsonPropertyName}, 
+            |json_property_schema.type: ${jsonPropertySchema.type} 
+            |]""".flattenIntoOneLine()
+        )
+        val conventionalName: ConventionalName =
+            RestApiSourceNamingConventions.getFieldNamingConventionForJsonPropertyName()
+                .deriveName(jsonPropertyName)
+        return addNewOrUpdateExistingSwaggerSourceIndexToContext(
+            DefaultSwaggerParameterAttribute(
+                getDataSourceKeyForSwaggerSourceIndicesInContext(contextContainer),
+                sourcePath,
+                conventionalName,
+                jsonPropertyName,
+                jsonPropertySchema
+            ),
+            contextContainer
+        )
     }
 }

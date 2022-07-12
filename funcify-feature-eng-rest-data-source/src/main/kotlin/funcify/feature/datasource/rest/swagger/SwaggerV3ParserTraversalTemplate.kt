@@ -23,7 +23,7 @@ interface SwaggerV3ParserTraversalTemplate<WT> :
 
     override fun onServicePathsGroup(
         parentPath: SchematicPath,
-        pathInfoBySchematicPath: Map<SchematicPath, PathItem>,
+        childPathInfoBySchematicPath: Map<SchematicPath, PathItem>,
         contextContainer: SwaggerSourceIndexContextContainer<WT>,
     ): SwaggerSourceIndexContextContainer<WT>
 
@@ -72,7 +72,8 @@ interface SwaggerV3ParserTraversalTemplate<WT> :
         sourcePath: SchematicPath,
         response: ApiResponse,
         responseBodyJson: Schema<*>,
-        responseBodyObjectPropertyName: String,
+        jsonPropertyName: String,
+        jsonPropertySchema: Schema<*>,
         contextContainer: SwaggerSourceIndexContextContainer<WT>,
     ): SwaggerSourceIndexContextContainer<WT>
 }

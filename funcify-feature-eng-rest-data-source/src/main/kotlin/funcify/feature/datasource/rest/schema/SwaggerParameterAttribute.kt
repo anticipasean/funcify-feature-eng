@@ -1,8 +1,7 @@
 package funcify.feature.datasource.rest.schema
 
-import funcify.feature.datasource.rest.schema.RestApiSourceIndex
-import funcify.feature.datasource.rest.schema.SwaggerRestApiSourceIndex
 import funcify.feature.schema.datasource.ParameterAttribute
+import io.swagger.v3.oas.models.media.Schema
 
 /**
  *
@@ -10,4 +9,10 @@ import funcify.feature.schema.datasource.ParameterAttribute
  * @created 2022-07-10
  */
 interface SwaggerParameterAttribute :
-    SwaggerRestApiSourceIndex, ParameterAttribute<RestApiSourceIndex> {}
+    SwaggerRestApiSourceIndex, ParameterAttribute<RestApiSourceIndex> {
+
+    val jsonPropertyName: String
+    // TODO: Consider whether this swagger model json schema type or the one from the
+    //  jackson framework should be used
+    val jsonSchema: Schema<*>
+}

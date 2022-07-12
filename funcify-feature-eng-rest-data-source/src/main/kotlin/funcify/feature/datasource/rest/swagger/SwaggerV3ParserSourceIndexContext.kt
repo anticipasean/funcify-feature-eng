@@ -1,18 +1,15 @@
 package funcify.feature.datasource.rest.swagger
 
+import funcify.feature.datasource.rest.schema.RestApiSourceIndex
 import funcify.feature.datasource.rest.schema.SwaggerParameterAttribute
 import funcify.feature.datasource.rest.schema.SwaggerParameterContainerType
 import funcify.feature.datasource.rest.schema.SwaggerSourceAttribute
 import funcify.feature.datasource.rest.schema.SwaggerSourceContainerType
 import funcify.feature.datasource.rest.swagger.SwaggerV3ParserSourceIndexContext.Companion.SV3PWT
+import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.path.SchematicPath
 import io.swagger.v3.oas.models.OpenAPI
-import io.swagger.v3.oas.models.PathItem
-import io.swagger.v3.oas.models.parameters.RequestBody
-import io.swagger.v3.oas.models.responses.ApiResponses
 import kotlinx.collections.immutable.ImmutableMap
-import kotlinx.collections.immutable.ImmutableSet
-import org.springframework.http.HttpMethod
 
 /**
  *
@@ -25,7 +22,7 @@ interface SwaggerV3ParserSourceIndexContext : SwaggerSourceIndexContextContainer
         /** Witness type for [SwaggerV3ParserSourceIndexContext] */
         enum class SV3PWT
 
-        fun <O, P, REQ, RES> SwaggerSourceIndexContextContainer<SV3PWT>.narrowed():
+        fun SwaggerSourceIndexContextContainer<SV3PWT>.narrowed():
             SwaggerV3ParserSourceIndexContext {
             /*
              * Note: This is not an unsafe cast if the witness type (WT) parameter matches
@@ -34,21 +31,9 @@ interface SwaggerV3ParserSourceIndexContext : SwaggerSourceIndexContextContainer
         }
     }
 
+    val swaggerAPIDataSourceKey: DataSource.Key<RestApiSourceIndex>
+
     val openAPI: OpenAPI
-
-    val sourcePathParentByChildPath: ImmutableMap<SchematicPath, SchematicPath>
-
-    val pathItemsBySourcePath: ImmutableMap<SchematicPath, PathItem>
-
-    /**
-     * only interested in requests with a JSON "body" so definitely POSTs and potentially PUTs and
-     * DELETEs
-     */
-    val httpMethodToRequestBodyPairsForSchematicPath:
-        ImmutableMap<SchematicPath, ImmutableSet<Pair<HttpMethod, RequestBody>>>
-    /** only interested in responses with a JSON "body" */
-    val httpMethodToResponseBodiesBySchematicPath:
-        ImmutableMap<SchematicPath, ImmutableSet<Pair<HttpMethod, ApiResponses>>>
 
     val sourceContainerTypesBySchematicPath: ImmutableMap<SchematicPath, SwaggerSourceContainerType>
 
@@ -63,16 +48,9 @@ interface SwaggerV3ParserSourceIndexContext : SwaggerSourceIndexContextContainer
 
     interface Builder {
 
+        fun swaggerDataSourceKey(dataSourceKey: DataSource.Key<RestApiSourceIndex>): Builder
+
         fun openAPI(openAPI: OpenAPI): Builder
-
-        fun addChildPathForParentPath(childPath: SchematicPath, parentPath: SchematicPath): Builder
-
-        fun addPathItemForPath(sourcePath: SchematicPath, pathItem: PathItem): Builder
-
-        fun addHttpMethodRequestBodyPairsForSchematicPathForPathItem(
-            sourcePath: SchematicPath,
-            pathItem: PathItem
-        ): Builder
 
         fun addSourceContainerTypeForPath(
             sourcePath: SchematicPath,

@@ -26,6 +26,8 @@ interface SwaggerSourceIndexCreationTemplate<WT, O, P, REQ, RES, SCH> {
         sourcePath: SchematicPath,
         successfulApiResponse: RES,
         responseJsonSchema: SCH,
+        jsonPropertyName: String,
+        jsonPropertySchema: SCH,
         contextContainer: SwaggerSourceIndexContextContainer<WT>
     ): SwaggerSourceIndexContextContainer<WT>
 

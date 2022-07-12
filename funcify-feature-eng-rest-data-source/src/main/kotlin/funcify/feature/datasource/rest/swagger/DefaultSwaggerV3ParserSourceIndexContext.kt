@@ -1,21 +1,16 @@
 package funcify.feature.datasource.rest.swagger
 
-import arrow.core.toOption
+import funcify.feature.datasource.rest.schema.RestApiSourceIndex
 import funcify.feature.datasource.rest.schema.SwaggerParameterAttribute
 import funcify.feature.datasource.rest.schema.SwaggerParameterContainerType
 import funcify.feature.datasource.rest.schema.SwaggerSourceAttribute
 import funcify.feature.datasource.rest.schema.SwaggerSourceContainerType
 import funcify.feature.datasource.rest.swagger.SwaggerV3ParserSourceIndexContext.Builder
+import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.path.SchematicPath
 import io.swagger.v3.oas.models.OpenAPI
-import io.swagger.v3.oas.models.PathItem
-import io.swagger.v3.oas.models.parameters.RequestBody
-import io.swagger.v3.oas.models.responses.ApiResponses
 import kotlinx.collections.immutable.PersistentMap
-import kotlinx.collections.immutable.PersistentSet
 import kotlinx.collections.immutable.persistentMapOf
-import kotlinx.collections.immutable.persistentSetOf
-import org.springframework.http.HttpMethod
 
 /**
  *
@@ -23,16 +18,8 @@ import org.springframework.http.HttpMethod
  * @created 2022-07-10
  */
 internal data class DefaultSwaggerV3ParserSourceIndexContext(
+    override val swaggerAPIDataSourceKey: DataSource.Key<RestApiSourceIndex>,
     override val openAPI: OpenAPI,
-    override val sourcePathParentByChildPath: PersistentMap<SchematicPath, SchematicPath> =
-        persistentMapOf(),
-    override val pathItemsBySourcePath: PersistentMap<SchematicPath, PathItem> = persistentMapOf(),
-    override val httpMethodToRequestBodyPairsForSchematicPath:
-        PersistentMap<SchematicPath, PersistentSet<Pair<HttpMethod, RequestBody>>> =
-        persistentMapOf(),
-    override val httpMethodToResponseBodiesBySchematicPath:
-        PersistentMap<SchematicPath, PersistentSet<Pair<HttpMethod, ApiResponses>>> =
-        persistentMapOf(),
     override val sourceContainerTypesBySchematicPath:
         PersistentMap<SchematicPath, SwaggerSourceContainerType> =
         persistentMapOf(),
@@ -50,14 +37,8 @@ internal data class DefaultSwaggerV3ParserSourceIndexContext(
     companion object {
 
         internal data class DefaultBuilder(
+            private var swaggerAPIDataSourceKey: DataSource.Key<RestApiSourceIndex>,
             private var openAPI: OpenAPI,
-            private var sourcePathParentByChildPath:
-                PersistentMap.Builder<SchematicPath, SchematicPath>,
-            private var pathItemsBySourcePath: PersistentMap.Builder<SchematicPath, PathItem>,
-            private var httpMethodToRequestBodyPairsForSchematicPath:
-                PersistentMap.Builder<SchematicPath, PersistentSet<Pair<HttpMethod, RequestBody>>>,
-            private var httpMethodToResponseBodiesBySchematicPath:
-                PersistentMap.Builder<SchematicPath, PersistentSet<Pair<HttpMethod, ApiResponses>>>,
             private var sourceContainerTypesBySchematicPath:
                 PersistentMap.Builder<SchematicPath, SwaggerSourceContainerType>,
             private var sourceAttributesBySchematicPath:
@@ -68,59 +49,15 @@ internal data class DefaultSwaggerV3ParserSourceIndexContext(
                 PersistentMap.Builder<SchematicPath, SwaggerParameterAttribute>
         ) : Builder {
 
+            override fun swaggerDataSourceKey(
+                dataSourceKey: DataSource.Key<RestApiSourceIndex>
+            ): Builder {
+                this.swaggerAPIDataSourceKey = dataSourceKey
+                return this
+            }
+
             override fun openAPI(openAPI: OpenAPI): Builder {
                 this.openAPI = openAPI
-                return this
-            }
-
-            override fun addChildPathForParentPath(
-                childPath: SchematicPath,
-                parentPath: SchematicPath
-            ): Builder {
-                this.sourcePathParentByChildPath[childPath] = parentPath
-                return this
-            }
-
-            override fun addPathItemForPath(
-                sourcePath: SchematicPath,
-                pathItem: PathItem
-            ): Builder {
-                this.pathItemsBySourcePath[sourcePath] = pathItem
-                return this
-            }
-
-            override fun addHttpMethodRequestBodyPairsForSchematicPathForPathItem(
-                sourcePath: SchematicPath,
-                pathItem: PathItem
-            ): Builder {
-                val httpMethodRequestBodyPairsSet: PersistentSet<Pair<HttpMethod, RequestBody>> =
-                    HttpMethod.values().fold(persistentSetOf<Pair<HttpMethod, RequestBody>>()) {
-                        reqBodyPairsSet,
-                        httpMethod ->
-                        when (httpMethod) {
-                            HttpMethod.GET ->
-                                pathItem.get.toOption().mapNotNull { op -> op.requestBody }
-                            HttpMethod.HEAD ->
-                                pathItem.head.toOption().mapNotNull { op -> op.requestBody }
-                            HttpMethod.POST ->
-                                pathItem.post.toOption().mapNotNull { op -> op.requestBody }
-                            HttpMethod.PUT ->
-                                pathItem.put.toOption().mapNotNull { op -> op.requestBody }
-                            HttpMethod.PATCH ->
-                                pathItem.patch.toOption().mapNotNull { op -> op.requestBody }
-                            HttpMethod.DELETE ->
-                                pathItem.delete.toOption().mapNotNull { op -> op.requestBody }
-                            HttpMethod.OPTIONS ->
-                                pathItem.options.toOption().mapNotNull { op -> op.requestBody }
-                            HttpMethod.TRACE ->
-                                pathItem.trace.toOption().mapNotNull { op -> op.requestBody }
-                        }.fold(
-                            { reqBodyPairsSet },
-                            { reqBody -> reqBodyPairsSet.add(httpMethod to reqBody) }
-                        )
-                    }
-                this.httpMethodToRequestBodyPairsForSchematicPath[sourcePath] =
-                    httpMethodRequestBodyPairsSet
                 return this
             }
 
@@ -158,13 +95,8 @@ internal data class DefaultSwaggerV3ParserSourceIndexContext(
 
             override fun build(): SwaggerV3ParserSourceIndexContext {
                 return DefaultSwaggerV3ParserSourceIndexContext(
+                    swaggerAPIDataSourceKey = swaggerAPIDataSourceKey,
                     openAPI = openAPI,
-                    sourcePathParentByChildPath = sourcePathParentByChildPath.build(),
-                    pathItemsBySourcePath = pathItemsBySourcePath.build(),
-                    httpMethodToRequestBodyPairsForSchematicPath =
-                        httpMethodToRequestBodyPairsForSchematicPath.build(),
-                    httpMethodToResponseBodiesBySchematicPath =
-                        httpMethodToResponseBodiesBySchematicPath.build(),
                     sourceContainerTypesBySchematicPath =
                         sourceContainerTypesBySchematicPath.build(),
                     sourceAttributesBySchematicPath = sourceAttributesBySchematicPath.build(),
@@ -179,13 +111,8 @@ internal data class DefaultSwaggerV3ParserSourceIndexContext(
     override fun update(transformer: Builder.() -> Builder): SwaggerV3ParserSourceIndexContext {
         val builder =
             DefaultBuilder(
+                swaggerAPIDataSourceKey = swaggerAPIDataSourceKey,
                 openAPI = openAPI,
-                sourcePathParentByChildPath = sourcePathParentByChildPath.builder(),
-                pathItemsBySourcePath = pathItemsBySourcePath.builder(),
-                httpMethodToRequestBodyPairsForSchematicPath =
-                    httpMethodToRequestBodyPairsForSchematicPath.builder(),
-                httpMethodToResponseBodiesBySchematicPath =
-                    httpMethodToResponseBodiesBySchematicPath.builder(),
                 sourceContainerTypesBySchematicPath = sourceContainerTypesBySchematicPath.builder(),
                 sourceAttributesBySchematicPath = sourceAttributesBySchematicPath.builder(),
                 parameterContainerTypesBySchematicPath =

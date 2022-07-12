@@ -3,6 +3,7 @@ package funcify.feature.datasource.rest.schema
 import funcify.feature.naming.ConventionalName
 import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.path.SchematicPath
+import io.swagger.v3.oas.models.media.Schema
 
 /**
  *
@@ -12,5 +13,7 @@ import funcify.feature.schema.path.SchematicPath
 internal data class DefaultSwaggerSourceAttribute(
     override val dataSourceLookupKey: DataSource.Key<RestApiSourceIndex>,
     override val name: ConventionalName,
-    override val sourcePath: SchematicPath
+    override val sourcePath: SchematicPath,
+    override val jsonPropertyName: String,
+    override val jsonSchema: Schema<*>
 ) : SwaggerSourceAttribute {}

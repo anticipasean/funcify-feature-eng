@@ -1,11 +1,13 @@
 package funcify.feature.datasource.rest.swagger
 
 import arrow.core.Option
+import funcify.feature.datasource.rest.schema.RestApiSourceIndex
 import funcify.feature.datasource.rest.schema.SwaggerParameterAttribute
 import funcify.feature.datasource.rest.schema.SwaggerParameterContainerType
 import funcify.feature.datasource.rest.schema.SwaggerRestApiSourceIndex
 import funcify.feature.datasource.rest.schema.SwaggerSourceAttribute
 import funcify.feature.datasource.rest.schema.SwaggerSourceContainerType
+import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.path.SchematicPath
 import io.swagger.v3.oas.models.OpenAPI
 import io.swagger.v3.oas.models.PathItem
@@ -21,6 +23,10 @@ import io.swagger.v3.oas.models.responses.ApiResponse
 interface SwaggerV3ParserSourceIndexContextMutationTemplate<WT> :
     SwaggerSourceIndexContextMutationTemplate<
         WT, OpenAPI, PathItem, RequestBody, ApiResponse, Schema<*>> {
+
+    override fun getDataSourceKeyForSwaggerSourceIndicesInContext(
+        contextContainer: SwaggerSourceIndexContextContainer<WT>
+    ): DataSource.Key<RestApiSourceIndex>
 
     override fun addNewOrUpdateExistingSwaggerSourceIndexToContext(
         newSwaggerSourceIndex: SwaggerRestApiSourceIndex,

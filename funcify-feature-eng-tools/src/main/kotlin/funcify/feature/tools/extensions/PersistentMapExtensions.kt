@@ -141,6 +141,16 @@ object PersistentMapExtensions {
         return finalResultHolder[0]
     }
 
+    fun <K, V> Sequence<Map.Entry<K, V>>.reduceEntriesToPersistentSetValueMap(
+        startValue: PersistentMap<K, PersistentSet<V>> = persistentMapOf()
+    ): PersistentMap<K, PersistentSet<V>> {
+        return this.fold(startValue) {
+            pm: PersistentMap<K, PersistentSet<V>>,
+            entry: Map.Entry<K, V> ->
+            pm.put(entry.key, pm.getOrDefault(entry.key, persistentSetOf()).add(entry.value))
+        }
+    }
+
     fun <K, V> Sequence<Pair<K, V>>.reducePairsToPersistentSetValueMap(
         startValue: PersistentMap<K, PersistentSet<V>> = persistentMapOf()
     ): PersistentMap<K, PersistentSet<V>> {
