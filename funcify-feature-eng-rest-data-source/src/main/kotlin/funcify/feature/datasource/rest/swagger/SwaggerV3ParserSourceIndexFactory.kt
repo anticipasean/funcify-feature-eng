@@ -9,9 +9,7 @@ import io.swagger.v3.oas.models.OpenAPI
  * @created 2022-07-12
  */
 interface SwaggerV3ParserSourceIndexFactory :
-    SwaggerV3ParserSourceIndexCreationTraversalTemplate<SV3PWT>,
-    SwaggerV3ParserSourceIndexContextMutationTemplate<SV3PWT> {
-
+    SwaggerV3ParserSourceIndexCreationTraversalTemplate<SV3PWT> {
 
     override fun onOpenAPI(
         openAPIRepresentation: OpenAPI,
@@ -19,5 +17,4 @@ interface SwaggerV3ParserSourceIndexFactory :
     ): SwaggerSourceIndexContextContainer<SV3PWT> {
         return super.onOpenAPI(openAPIRepresentation, contextContainer)
     }
-
 }
