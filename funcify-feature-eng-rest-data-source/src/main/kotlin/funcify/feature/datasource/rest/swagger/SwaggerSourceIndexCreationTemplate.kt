@@ -10,7 +10,7 @@ import funcify.feature.schema.path.SchematicPath
 interface SwaggerSourceIndexCreationTemplate<WT, O, P, REQ, RES, SCH> {
 
     fun createSourceContainerTypeInContextForPathsGroup(
-        parentPath: SchematicPath,
+        sourcePath: SchematicPath,
         pathsGroup: Map<SchematicPath, P>,
         contextContainer: SwaggerSourceIndexContextContainer<WT>
     ): SwaggerSourceIndexContextContainer<WT>

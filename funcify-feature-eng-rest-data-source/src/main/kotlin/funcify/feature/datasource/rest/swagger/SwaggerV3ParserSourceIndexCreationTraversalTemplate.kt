@@ -424,7 +424,7 @@ interface SwaggerV3ParserSourceIndexCreationTraversalTemplate<WT> :
     }
 
     override fun createSourceContainerTypeInContextForPathsGroup(
-        parentPath: SchematicPath,
+        sourcePath: SchematicPath,
         pathsGroup: Map<SchematicPath, PathItem>,
         contextContainer: SwaggerSourceIndexContextContainer<WT>,
     ): SwaggerSourceIndexContextContainer<WT> {
@@ -439,20 +439,20 @@ interface SwaggerV3ParserSourceIndexCreationTraversalTemplate<WT> :
                 .getOrElse { "<NA>" }
         logger.debug(
             """create_source_container_type_in_context_for_paths_group: 
-                |[ source_path: $parentPath, 
+                |[ source_path: $sourcePath, 
                 |paths_group.size: ${pathsGroup.size}, 
                 |paths_group.first.path: $pathsGroupFirstPath 
                 |]""".flattenIntoOneLine()
         )
         val conventionalName: ConventionalName =
-            if (parentPath.isRoot()) {
+            if (sourcePath.isRoot()) {
                 RestApiSourceNamingConventions
                     .getPathGroupTypeNamingConventionForPathGroupPathName()
                     .deriveName(
                         getDataSourceKeyForSwaggerSourceIndicesInContext(contextContainer).name
                     )
             } else {
-                parentPath.pathSegments
+                sourcePath.pathSegments
                     .lastOrNone()
                     .successIfDefined {
                         RestApiDataSourceException(
@@ -474,7 +474,7 @@ interface SwaggerV3ParserSourceIndexCreationTraversalTemplate<WT> :
         return addNewOrUpdateExistingSwaggerSourceIndexToContext(
                 DefaultSwaggerPathGroupSourceContainerType(
                     getDataSourceKeyForSwaggerSourceIndicesInContext(contextContainer),
-                    parentPath,
+                    sourcePath,
                     conventionalName,
                     pathsGroup.toPersistentMap()
                 ),
@@ -482,8 +482,8 @@ interface SwaggerV3ParserSourceIndexCreationTraversalTemplate<WT> :
             )
             .let { updatedContext ->
                 if (
-                    parentPath.getParentPath().isDefined() &&
-                        !parentPath
+                    sourcePath.getParentPath().isDefined() &&
+                        !sourcePath
                             .getParentPath()
                             .flatMap { pp ->
                                 getExistingSwaggerSourceContainerTypeForSchematicPath(
@@ -493,7 +493,7 @@ interface SwaggerV3ParserSourceIndexCreationTraversalTemplate<WT> :
                             }
                             .isDefined()
                 ) {
-                    parentPath
+                    sourcePath
                         .getParentPath()
                         .fold(
                             { updatedContext },

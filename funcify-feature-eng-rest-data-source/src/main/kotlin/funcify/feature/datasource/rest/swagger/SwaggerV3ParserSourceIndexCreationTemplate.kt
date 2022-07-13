@@ -16,7 +16,7 @@ interface SwaggerV3ParserSourceIndexCreationTemplate<WT> :
     SwaggerSourceIndexCreationTemplate<WT, OpenAPI, PathItem, RequestBody, ApiResponse, Schema<*>> {
 
     override fun createSourceContainerTypeInContextForPathsGroup(
-        parentPath: SchematicPath,
+        sourcePath: SchematicPath,
         pathsGroup: Map<SchematicPath, PathItem>,
         contextContainer: SwaggerSourceIndexContextContainer<WT>,
     ): SwaggerSourceIndexContextContainer<WT>
