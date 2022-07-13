@@ -95,6 +95,7 @@ internal class DefaultSwaggerRestApiSourceMetadataReader : SwaggerRestApiSourceM
                 .flatMapOptions()
                 .groupBy({ (parentPath, _) -> parentPath }, { (_, sourceAttr) -> sourceAttr })
                 .asSequence()
+                .sortedBy { (path, _) -> path }
                 .fold(
                     swaggerSourceIndexContext.sourceContainerTypesBySchematicPath.toPersistentMap()
                 ) { sctByPath, (parentPath, sourceAttrs) ->
@@ -139,6 +140,7 @@ internal class DefaultSwaggerRestApiSourceMetadataReader : SwaggerRestApiSourceM
                 .flatMapOptions()
                 .groupBy({ (parentPath, _) -> parentPath }, { (_, paramAttr) -> paramAttr })
                 .asSequence()
+                .sortedBy { (path, _) -> path }
                 .fold(
                     swaggerSourceIndexContext.parameterContainerTypesBySchematicPath
                         .toPersistentMap()
@@ -177,6 +179,7 @@ internal class DefaultSwaggerRestApiSourceMetadataReader : SwaggerRestApiSourceM
                         swaggerSourceIndexContext.parameterAttributesBySchematicPath
                     )
                     .flatMap { m -> m.asSequence() }
+                    .sortedBy { (path, _) -> path }
                     .reduceEntriesToPersistentSetValueMap()
         )
     }

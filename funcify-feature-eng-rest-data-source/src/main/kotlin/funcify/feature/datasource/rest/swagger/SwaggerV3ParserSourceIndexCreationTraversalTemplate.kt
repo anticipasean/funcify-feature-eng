@@ -30,6 +30,7 @@ import io.swagger.v3.oas.models.parameters.RequestBody
 import io.swagger.v3.oas.models.responses.ApiResponse
 import io.swagger.v3.oas.models.responses.ApiResponses
 import kotlinx.collections.immutable.PersistentMap
+import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.toPersistentMap
 import org.slf4j.Logger
 import org.springframework.http.HttpStatus
@@ -444,33 +445,70 @@ interface SwaggerV3ParserSourceIndexCreationTraversalTemplate<WT> :
                 |]""".flattenIntoOneLine()
         )
         val conventionalName: ConventionalName =
-            parentPath.pathSegments
-                .lastOrNone()
-                .successIfDefined {
-                    RestApiDataSourceException(
-                        RestApiErrorResponse.REST_API_DATA_SOURCE_CREATION_ERROR,
-                        """path_group.source_path.path_segments 
+            if (parentPath.isRoot()) {
+                RestApiSourceNamingConventions
+                    .getPathGroupTypeNamingConventionForPathGroupPathName()
+                    .deriveName(
+                        getDataSourceKeyForSwaggerSourceIndicesInContext(contextContainer).name
+                    )
+            } else {
+                parentPath.pathSegments
+                    .lastOrNone()
+                    .successIfDefined {
+                        RestApiDataSourceException(
+                            RestApiErrorResponse.REST_API_DATA_SOURCE_CREATION_ERROR,
+                            """path_group.source_path.path_segments 
                             |does not contain a name that can be 
                             |used for this type name; information about 
                             |the root may need to be provided
                             |""".flattenIntoOneLine()
-                    )
-                }
-                .map { lastSegment ->
-                    RestApiSourceNamingConventions
-                        .getPathGroupTypeNamingConventionForPathGroupPathName()
-                        .deriveName(lastSegment)
-                }
-                .orElseThrow()
+                        )
+                    }
+                    .map { lastSegment ->
+                        RestApiSourceNamingConventions
+                            .getPathGroupTypeNamingConventionForPathGroupPathName()
+                            .deriveName(lastSegment)
+                    }
+                    .orElseThrow()
+            }
         return addNewOrUpdateExistingSwaggerSourceIndexToContext(
-            DefaultSwaggerPathGroupSourceContainerType(
-                getDataSourceKeyForSwaggerSourceIndicesInContext(contextContainer),
-                parentPath,
-                conventionalName,
-                pathsGroup.toPersistentMap()
-            ),
-            contextContainer
-        )
+                DefaultSwaggerPathGroupSourceContainerType(
+                    getDataSourceKeyForSwaggerSourceIndicesInContext(contextContainer),
+                    parentPath,
+                    conventionalName,
+                    pathsGroup.toPersistentMap()
+                ),
+                contextContainer
+            )
+            .let { updatedContext ->
+                if (
+                    parentPath.getParentPath().isDefined() &&
+                        !parentPath
+                            .getParentPath()
+                            .flatMap { pp ->
+                                getExistingSwaggerSourceContainerTypeForSchematicPath(
+                                    pp,
+                                    updatedContext
+                                )
+                            }
+                            .isDefined()
+                ) {
+                    parentPath
+                        .getParentPath()
+                        .fold(
+                            { updatedContext },
+                            { pp ->
+                                createSourceContainerTypeInContextForPathsGroup(
+                                    pp,
+                                    persistentMapOf(),
+                                    updatedContext
+                                )
+                            }
+                        )
+                } else {
+                    updatedContext
+                }
+            }
     }
 
     override fun createSourceContainerTypeInContextForSuccessfulApiResponseObject(
