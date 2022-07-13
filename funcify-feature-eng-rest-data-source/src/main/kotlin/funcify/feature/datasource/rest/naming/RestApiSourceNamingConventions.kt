@@ -18,7 +18,10 @@ object RestApiSourceNamingConventions {
         NamingConventionFactory.getDefaultFactory()
             .createConventionFrom(StandardNamingConventions.PASCAL_CASE)
             .mapping<String>(::identity)
-            .namedAndIdentifiedBy("PathGroupTypeName", PATH_GROUP_TYPE_NAMING_CONVENTION)
+            .namedAndIdentifiedBy(
+                RestApiSourceNamingConventions::class.qualifiedName!!,
+                ConventionType.PATH_GROUP_TYPE_NAMING_CONVENTION
+            )
     }
 
     private val REQUEST_RESPONSE_TYPE_NAMING_CONVENTION: NamingConvention<String> by lazy {
@@ -26,8 +29,8 @@ object RestApiSourceNamingConventions {
             .createConventionFrom(StandardNamingConventions.PASCAL_CASE)
             .mapping<String>(::identity)
             .namedAndIdentifiedBy(
-                "RequestResponseTypeName",
-                REQUEST_RESPONSE_TYPE_NAMING_CONVENTION
+                RestApiSourceNamingConventions::class.qualifiedName!!,
+                ConventionType.REQUEST_RESPONSE_TYPE_NAMING_CONVENTION
             )
     }
 
@@ -35,14 +38,20 @@ object RestApiSourceNamingConventions {
         NamingConventionFactory.getDefaultFactory()
             .createConventionFrom(StandardNamingConventions.SNAKE_CASE)
             .mapping(::identity)
-            .namedAndIdentifiedBy("PathNameFieldName", PROPERTY_NAME_FIELD_NAMING_CONVENTION)
+            .namedAndIdentifiedBy(
+                RestApiSourceNamingConventions::class.qualifiedName!!,
+                ConventionType.PATH_NAME_FIELD_NAMING_CONVENTION
+            )
     }
 
     private val PROPERTY_NAME_FIELD_NAMING_CONVENTION: NamingConvention<String> by lazy {
         NamingConventionFactory.getDefaultFactory()
             .createConventionFrom(StandardNamingConventions.SNAKE_CASE)
             .mapping(::identity)
-            .namedAndIdentifiedBy("PropertyNameFieldName", PROPERTY_NAME_FIELD_NAMING_CONVENTION)
+            .namedAndIdentifiedBy(
+                RestApiSourceNamingConventions::class.qualifiedName!!,
+                ConventionType.PROPERTY_NAME_FIELD_NAMING_CONVENTION
+            )
     }
 
     fun getPathGroupTypeNamingConventionForPathGroupPathName(): NamingConvention<String> {
