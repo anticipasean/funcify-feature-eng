@@ -11,7 +11,8 @@ object RestApiSourceNamingConventions {
         PATH_GROUP_TYPE_NAMING_CONVENTION,
         PATH_NAME_FIELD_NAMING_CONVENTION,
         PROPERTY_NAME_FIELD_NAMING_CONVENTION,
-        REQUEST_RESPONSE_TYPE_NAMING_CONVENTION
+        REQUEST_TYPE_NAMING_CONVENTION,
+        RESPONSE_TYPE_NAMING_CONVENTION
     }
 
     private val PATH_GROUP_TYPE_NAMING_CONVENTION: NamingConvention<String> by lazy {
@@ -24,13 +25,23 @@ object RestApiSourceNamingConventions {
             )
     }
 
-    private val REQUEST_RESPONSE_TYPE_NAMING_CONVENTION: NamingConvention<String> by lazy {
+    private val REQUEST_TYPE_NAMING_CONVENTION: NamingConvention<String> by lazy {
+        NamingConventionFactory.getDefaultFactory()
+            .createConventionFrom(StandardNamingConventions.PASCAL_CASE)
+            .mapping<String> { s -> s + "Input" }
+            .namedAndIdentifiedBy(
+                RestApiSourceNamingConventions::class.qualifiedName!!,
+                ConventionType.REQUEST_TYPE_NAMING_CONVENTION
+            )
+    }
+
+    private val RESPONSE_TYPE_NAMING_CONVENTION: NamingConvention<String> by lazy {
         NamingConventionFactory.getDefaultFactory()
             .createConventionFrom(StandardNamingConventions.PASCAL_CASE)
             .mapping<String>(::identity)
             .namedAndIdentifiedBy(
                 RestApiSourceNamingConventions::class.qualifiedName!!,
-                ConventionType.REQUEST_RESPONSE_TYPE_NAMING_CONVENTION
+                ConventionType.RESPONSE_TYPE_NAMING_CONVENTION
             )
     }
 
@@ -58,9 +69,12 @@ object RestApiSourceNamingConventions {
         return PATH_GROUP_TYPE_NAMING_CONVENTION
     }
 
-    fun getRequestOrResponseTypeNamingConventionForRequestOrResponsePathName():
-        NamingConvention<String> {
-        return REQUEST_RESPONSE_TYPE_NAMING_CONVENTION
+    fun getRequestTypeNamingConventionForRequestPathName(): NamingConvention<String> {
+        return REQUEST_TYPE_NAMING_CONVENTION
+    }
+
+    fun getResponseTypeNamingConventionForResponsePathName(): NamingConvention<String> {
+        return RESPONSE_TYPE_NAMING_CONVENTION
     }
 
     fun getFieldNamingConventionForPathName(): NamingConvention<String> {

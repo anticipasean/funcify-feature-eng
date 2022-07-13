@@ -1,5 +1,7 @@
 package funcify.feature.schema.path
 
+import arrow.core.getOrElse
+import arrow.core.toOption
 import com.fasterxml.jackson.databind.JsonNode
 import java.net.URI
 import kotlinx.collections.immutable.PersistentList
@@ -35,16 +37,36 @@ internal data class DefaultSchematicPath(
                 schematicPath.directives.builder()
 
             override fun scheme(scheme: String): SchematicPath.Builder {
-                inputScheme = scheme
+                inputScheme =
+                    scheme
+                        .toOption()
+                        .map { s -> s.trim() }
+                        .filter { s -> s.isNotEmpty() }
+                        .getOrElse { inputScheme }
                 return this
             }
 
             override fun prependPathSegment(vararg pathSegment: String): SchematicPath.Builder {
-                return prependPathSegments(pathSegment.toList())
+                pathSegment
+                    .asSequence()
+                    .map { s -> s.trim() }
+                    .filter { s -> s.isNotEmpty() }
+                    .fold(pathBuilder) { pb, ps ->
+                        pb.add(0, ps)
+                        pb
+                    }
+                return this
             }
 
             override fun prependPathSegments(pathSegments: List<String>): SchematicPath.Builder {
-                pathBuilder.addAll(0, pathSegments)
+                pathSegments
+                    .asSequence()
+                    .map { s -> s.trim() }
+                    .filter { s -> s.isNotEmpty() }
+                    .fold(pathBuilder) { pb, ps ->
+                        pb.add(0, ps)
+                        pb
+                    }
                 return this
             }
 
@@ -56,12 +78,26 @@ internal data class DefaultSchematicPath(
             }
 
             override fun pathSegment(vararg pathSegment: String): SchematicPath.Builder {
-                pathBuilder.addAll(pathSegment)
+                pathSegment
+                    .asSequence()
+                    .map { s -> s.trim() }
+                    .filter { s -> s.isNotEmpty() }
+                    .fold(pathBuilder) { pb, ps ->
+                        pb.add(ps)
+                        pb
+                    }
                 return this
             }
 
             override fun pathSegments(pathSegments: List<String>): SchematicPath.Builder {
-                pathBuilder.addAll(pathSegments)
+                pathSegments
+                    .asSequence()
+                    .map { s -> s.trim() }
+                    .filter { s -> s.isNotEmpty() }
+                    .fold(pathBuilder) { pb, ps ->
+                        pb.add(ps)
+                        pb
+                    }
                 return this
             }
 
@@ -71,17 +107,35 @@ internal data class DefaultSchematicPath(
             }
 
             override fun argument(key: String, value: JsonNode): SchematicPath.Builder {
-                argsBuilder[key] = value
+                key.toOption()
+                    .map { k -> k.trim() }
+                    .filter { s -> s.isNotEmpty() }
+                    .tap { k -> argsBuilder[k] = value }
                 return this
             }
 
             override fun argument(keyValuePair: Pair<String, JsonNode>): SchematicPath.Builder {
-                argsBuilder[keyValuePair.first] = keyValuePair.second
+                keyValuePair.first
+                    .toOption()
+                    .map { k -> k.trim() }
+                    .filter { k -> k.isNotEmpty() }
+                    .tap { k -> argsBuilder[k] = keyValuePair.second }
                 return this
             }
 
             override fun arguments(keyValuePairs: Map<String, JsonNode>): SchematicPath.Builder {
-                argsBuilder.putAll(keyValuePairs)
+                keyValuePairs.asSequence().fold(argsBuilder) { ab, (key, value) ->
+                    key.toOption()
+                        .map { k -> k.trim() }
+                        .filter { s -> s.isNotEmpty() }
+                        .fold(
+                            { ab },
+                            { k ->
+                                ab[k] = value
+                                ab
+                            }
+                        )
+                }
                 return this
             }
 
@@ -98,17 +152,35 @@ internal data class DefaultSchematicPath(
             }
 
             override fun directive(key: String, value: JsonNode): SchematicPath.Builder {
-                dirsBuilder[key] = value
+                key.toOption()
+                    .map { k -> k.trim() }
+                    .filter { k -> k.isNotEmpty() }
+                    .tap { k -> dirsBuilder[k] = value }
                 return this
             }
 
             override fun directive(keyValuePair: Pair<String, JsonNode>): SchematicPath.Builder {
-                dirsBuilder[keyValuePair.first] = keyValuePair.second
+                keyValuePair.first
+                    .toOption()
+                    .map { k -> k.trim() }
+                    .filter { k -> k.isNotEmpty() }
+                    .tap { k -> dirsBuilder[k] = keyValuePair.second }
                 return this
             }
 
             override fun directives(keyValuePairs: Map<String, JsonNode>): SchematicPath.Builder {
-                dirsBuilder.putAll(keyValuePairs)
+                keyValuePairs.asSequence().fold(dirsBuilder) { db, (key, value) ->
+                    key.toOption()
+                        .map { k -> k.trim() }
+                        .filter { k -> k.isNotEmpty() }
+                        .fold(
+                            { db },
+                            { k ->
+                                db[k] = value
+                                db
+                            }
+                        )
+                }
                 return this
             }
 

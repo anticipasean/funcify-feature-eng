@@ -503,7 +503,7 @@ interface SwaggerV3ParserSourceIndexCreationTraversalTemplate<WT> :
                 }
                 .map { lastPathSegment ->
                     RestApiSourceNamingConventions
-                        .getRequestOrResponseTypeNamingConventionForRequestOrResponsePathName()
+                        .getResponseTypeNamingConventionForResponsePathName()
                         .deriveName(lastPathSegment)
                 }
                 .orElseThrow()
@@ -578,7 +578,7 @@ interface SwaggerV3ParserSourceIndexCreationTraversalTemplate<WT> :
                 }
                 .map { lastPathSegment ->
                     RestApiSourceNamingConventions
-                        .getRequestOrResponseTypeNamingConventionForRequestOrResponsePathName()
+                        .getRequestTypeNamingConventionForRequestPathName()
                         .deriveName(lastPathSegment)
                 }
                 .orElseThrow()
