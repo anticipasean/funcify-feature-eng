@@ -15,6 +15,7 @@ import funcify.feature.datasource.rest.swagger.SwaggerV3ParserSourceIndexContext
 import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
+import io.swagger.v3.oas.models.OpenAPI
 
 /**
  *
@@ -27,6 +28,12 @@ internal class DefaultSwaggerV3ParserSourceIndexFactory() : SwaggerV3ParserSourc
         contextContainer: SwaggerSourceIndexContextContainer<SV3PWT>
     ): DataSource.Key<RestApiSourceIndex> {
         return contextContainer.narrowed().swaggerAPIDataSourceKey
+    }
+
+    override fun getOpenAPIRepresentationInContext(
+        contextContainer: SwaggerSourceIndexContextContainer<SV3PWT>
+    ): OpenAPI {
+        return contextContainer.narrowed().openAPI
     }
 
     override fun addNewOrUpdateExistingSwaggerSourceIndexToContext(

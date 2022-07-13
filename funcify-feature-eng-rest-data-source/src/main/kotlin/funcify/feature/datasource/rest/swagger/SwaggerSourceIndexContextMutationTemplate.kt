@@ -21,6 +21,10 @@ interface SwaggerSourceIndexContextMutationTemplate<WT, O, P, REQ, RES, SCH> {
         contextContainer: SwaggerSourceIndexContextContainer<WT>
     ): DataSource.Key<RestApiSourceIndex>
 
+    fun getOpenAPIRepresentationInContext(
+        contextContainer: SwaggerSourceIndexContextContainer<WT>
+    ): O
+
     fun addNewOrUpdateExistingSwaggerSourceIndexToContext(
         newSwaggerSourceIndex: SwaggerRestApiSourceIndex,
         contextContainer: SwaggerSourceIndexContextContainer<WT>

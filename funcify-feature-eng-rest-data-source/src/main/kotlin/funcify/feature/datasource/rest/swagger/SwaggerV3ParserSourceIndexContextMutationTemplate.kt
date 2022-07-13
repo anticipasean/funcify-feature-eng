@@ -28,6 +28,10 @@ interface SwaggerV3ParserSourceIndexContextMutationTemplate<WT> :
         contextContainer: SwaggerSourceIndexContextContainer<WT>
     ): DataSource.Key<RestApiSourceIndex>
 
+    override fun getOpenAPIRepresentationInContext(
+        contextContainer: SwaggerSourceIndexContextContainer<WT>
+    ): OpenAPI
+
     override fun addNewOrUpdateExistingSwaggerSourceIndexToContext(
         newSwaggerSourceIndex: SwaggerRestApiSourceIndex,
         contextContainer: SwaggerSourceIndexContextContainer<WT>

@@ -42,14 +42,14 @@ interface SwaggerV3ParserTraversalTemplate<WT> :
     override fun onServicePostRequestJsonSchema(
         sourcePath: SchematicPath,
         request: RequestBody,
-        requestBodySchema: Schema<*>,
+        requestBodyJsonSchema: Schema<*>,
         contextContainer: SwaggerSourceIndexContextContainer<WT>,
     ): SwaggerSourceIndexContextContainer<WT>
 
     override fun onServicePostRequestJsonSchemaProperty(
         sourcePath: SchematicPath,
         request: RequestBody,
-        requestBodySchema: Schema<*>,
+        requestBodyJsonSchema: Schema<*>,
         requestBodyPropertyName: String,
         requestBodyPropertySchema: Schema<*>,
         contextContainer: SwaggerSourceIndexContextContainer<WT>,
@@ -64,14 +64,14 @@ interface SwaggerV3ParserTraversalTemplate<WT> :
     override fun onPostResponseJsonSchema(
         sourcePath: SchematicPath,
         response: ApiResponse,
-        responseBodyJson: Schema<*>,
+        responseBodyJsonSchema: Schema<*>,
         contextContainer: SwaggerSourceIndexContextContainer<WT>,
     ): SwaggerSourceIndexContextContainer<WT>
 
     override fun onPostResponseJsonSchemaProperty(
         sourcePath: SchematicPath,
         response: ApiResponse,
-        responseBodyJson: Schema<*>,
+        responseBodyJsonSchema: Schema<*>,
         jsonPropertyName: String,
         jsonPropertySchema: Schema<*>,
         contextContainer: SwaggerSourceIndexContextContainer<WT>,

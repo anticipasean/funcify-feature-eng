@@ -35,14 +35,14 @@ interface SwaggerOpenAPISchemaTraversalTemplate<WT, O, P, REQ, RES, SCH> {
     fun onServicePostRequestJsonSchema(
         sourcePath: SchematicPath,
         request: REQ,
-        requestBodySchema: SCH,
+        requestBodyJsonSchema: SCH,
         contextContainer: SwaggerSourceIndexContextContainer<WT>
     ): SwaggerSourceIndexContextContainer<WT>
 
     fun onServicePostRequestJsonSchemaProperty(
         sourcePath: SchematicPath,
         request: REQ,
-        requestBodySchema: SCH,
+        requestBodyJsonSchema: SCH,
         requestBodyPropertyName: String,
         requestBodyPropertySchema: SCH,
         contextContainer: SwaggerSourceIndexContextContainer<WT>
@@ -57,14 +57,14 @@ interface SwaggerOpenAPISchemaTraversalTemplate<WT, O, P, REQ, RES, SCH> {
     fun onPostResponseJsonSchema(
         sourcePath: SchematicPath,
         response: RES,
-        responseBodyJson: SCH,
+        responseBodyJsonSchema: SCH,
         contextContainer: SwaggerSourceIndexContextContainer<WT>
     ): SwaggerSourceIndexContextContainer<WT>
 
     fun onPostResponseJsonSchemaProperty(
         sourcePath: SchematicPath,
         response: RES,
-        responseBodyJson: SCH,
+        responseBodyJsonSchema: SCH,
         jsonPropertyName: String,
         jsonPropertySchema: SCH,
         contextContainer: SwaggerSourceIndexContextContainer<WT>

@@ -175,6 +175,22 @@ interface SwaggerV3ParserSourceIndexCreationTraversalTemplate<WT> :
                     .firstOrNull()
             }
             .mapNotNull { (_, mediaTypeInfo) -> mediaTypeInfo.schema }
+            .flatMap { requestBodyJsonSchema: Schema<*> ->
+                if (requestBodyJsonSchema.type == null && requestBodyJsonSchema.`$ref` != null) {
+                    val openAPIRep: OpenAPI = getOpenAPIRepresentationInContext(contextContainer)
+                    requestBodyJsonSchema.`$ref`
+                        .split('/')
+                        .toOption()
+                        .filter { pathSegments -> pathSegments.size > 1 }
+                        .flatMap { pathSegments -> pathSegments.lastOrNone() }
+                        .filter { lastSegment ->
+                            lastSegment in (openAPIRep.components?.schemas ?: emptyMap())
+                        }
+                        .mapNotNull { lastSegment -> openAPIRep.components.schemas[lastSegment] }
+                } else {
+                    requestBodyJsonSchema.toOption()
+                }
+            }
             .fold(
                 { contextContainer },
                 { schema: Schema<*> ->
@@ -186,25 +202,28 @@ interface SwaggerV3ParserSourceIndexCreationTraversalTemplate<WT> :
     override fun onServicePostRequestJsonSchema(
         sourcePath: SchematicPath,
         request: RequestBody,
-        requestBodySchema: Schema<*>,
+        requestBodyJsonSchema: Schema<*>,
         contextContainer: SwaggerSourceIndexContextContainer<WT>,
     ): SwaggerSourceIndexContextContainer<WT> {
         val methodTag: String = "on_service_post_request_json_schema"
         logger.debug(
             """$methodTag: [ source_path: ${sourcePath}, 
-            |request_body_schema.type: ${requestBodySchema.type} 
+            |request_body_schema.type: ${requestBodyJsonSchema.type} 
             |]""".flattenIntoOneLine()
         )
-        return when (val requestBodySchemaType = JsonFormatTypes.forValue(requestBodySchema.type)) {
+
+        return when (
+            val requestBodySchemaType = JsonFormatTypes.forValue(requestBodyJsonSchema.type)
+        ) {
             JsonFormatTypes.OBJECT -> {
                 createParameterContainerTypeForPostRequestBodyObject(
                         sourcePath,
                         request,
-                        requestBodySchema,
+                        requestBodyJsonSchema,
                         contextContainer
                     )
                     .let { updatedContext ->
-                        requestBodySchema.properties
+                        requestBodyJsonSchema.properties
                             .toOption()
                             .mapNotNull { propertySchemaByPropName ->
                                 propertySchemaByPropName.asSequence()
@@ -214,7 +233,7 @@ interface SwaggerV3ParserSourceIndexCreationTraversalTemplate<WT> :
                                 onServicePostRequestJsonSchemaProperty(
                                     sourcePath.transform { argument(propertyName) },
                                     request,
-                                    requestBodySchema,
+                                    requestBodyJsonSchema,
                                     propertyName,
                                     propertySchema,
                                     ctx
@@ -243,7 +262,7 @@ interface SwaggerV3ParserSourceIndexCreationTraversalTemplate<WT> :
     override fun onServicePostRequestJsonSchemaProperty(
         sourcePath: SchematicPath,
         request: RequestBody,
-        requestBodySchema: Schema<*>,
+        requestBodyJsonSchema: Schema<*>,
         requestBodyPropertyName: String,
         requestBodyPropertySchema: Schema<*>,
         contextContainer: SwaggerSourceIndexContextContainer<WT>,
@@ -258,7 +277,7 @@ interface SwaggerV3ParserSourceIndexCreationTraversalTemplate<WT> :
         return createParameterAttributeForPostRequestBodyObjectProperty(
             sourcePath,
             request,
-            requestBodySchema,
+            requestBodyJsonSchema,
             requestBodyPropertyName,
             requestBodyPropertySchema,
             contextContainer
@@ -292,6 +311,22 @@ interface SwaggerV3ParserSourceIndexCreationTraversalTemplate<WT> :
                     .firstOrNull()
             }
             .mapNotNull { mediaType: io.swagger.v3.oas.models.media.MediaType -> mediaType.schema }
+            .flatMap { responseBodyJsonSchema: Schema<*> ->
+                if (responseBodyJsonSchema.type == null && responseBodyJsonSchema.`$ref` != null) {
+                    val openAPIRep: OpenAPI = getOpenAPIRepresentationInContext(contextContainer)
+                    responseBodyJsonSchema.`$ref`
+                        .split('/')
+                        .toOption()
+                        .filter { pathSegments -> pathSegments.size > 1 }
+                        .flatMap { pathSegments -> pathSegments.lastOrNone() }
+                        .filter { lastSegment ->
+                            lastSegment in (openAPIRep.components?.schemas ?: emptyMap())
+                        }
+                        .mapNotNull { lastSegment -> openAPIRep.components.schemas[lastSegment] }
+                } else {
+                    responseBodyJsonSchema.toOption()
+                }
+            }
             .fold(
                 { contextContainer },
                 { responseJsonSchema: Schema<*> ->
@@ -308,25 +343,27 @@ interface SwaggerV3ParserSourceIndexCreationTraversalTemplate<WT> :
     override fun onPostResponseJsonSchema(
         sourcePath: SchematicPath,
         response: ApiResponse,
-        responseBodyJson: Schema<*>,
+        responseBodyJsonSchema: Schema<*>,
         contextContainer: SwaggerSourceIndexContextContainer<WT>,
     ): SwaggerSourceIndexContextContainer<WT> {
         val methodTag: String = "on_post_response_json_schema"
         logger.debug(
             """$methodTag: [ source_path: $sourcePath, 
-                |response_body_json_schema.type: ${responseBodyJson.type} 
+                |response_body_json_schema.type: ${responseBodyJsonSchema.type} 
                 |]""".flattenIntoOneLine()
         )
-        return when (val responseBodyJsonType = JsonFormatTypes.forValue(responseBodyJson.type)) {
+        return when (
+            val responseBodyJsonType = JsonFormatTypes.forValue(responseBodyJsonSchema.type)
+        ) {
             JsonFormatTypes.OBJECT -> {
                 createSourceContainerTypeInContextForSuccessfulApiResponseObject(
                         sourcePath,
                         response,
-                        responseBodyJson,
+                        responseBodyJsonSchema,
                         contextContainer
                     )
                     .let { updatedContext ->
-                        responseBodyJson.properties
+                        responseBodyJsonSchema.properties
                             .toOption()
                             .mapNotNull { propsByName -> propsByName.asSequence() }
                             .fold(::emptySequence, ::identity)
@@ -334,7 +371,7 @@ interface SwaggerV3ParserSourceIndexCreationTraversalTemplate<WT> :
                                 createSourceAttributeInContextForPropertyOfSuccessfulApiResponseObject(
                                     sourcePath.transform { pathSegment(propertyName) },
                                     response,
-                                    responseBodyJson,
+                                    responseBodyJsonSchema,
                                     propertyName,
                                     propertySchema,
                                     ctx
@@ -347,7 +384,7 @@ interface SwaggerV3ParserSourceIndexCreationTraversalTemplate<WT> :
                     """post_request_body.type is not an object type 
                        |and thus requires handling 
                        |that is not implemented: 
-                       |[ actual: ${responseBodyJson.type} ]""".flattenIntoOneLine()
+                       |[ actual: ${responseBodyJsonType} ]""".flattenIntoOneLine()
                 logger.error(
                     """$methodTag: [ status: failed ] 
                     |${errorMessage}""".flattenIntoOneLine()
@@ -363,7 +400,7 @@ interface SwaggerV3ParserSourceIndexCreationTraversalTemplate<WT> :
     override fun onPostResponseJsonSchemaProperty(
         sourcePath: SchematicPath,
         response: ApiResponse,
-        responseBodyJson: Schema<*>,
+        responseBodyJsonSchema: Schema<*>,
         jsonPropertyName: String,
         jsonPropertySchema: Schema<*>,
         contextContainer: SwaggerSourceIndexContextContainer<WT>,
@@ -378,7 +415,7 @@ interface SwaggerV3ParserSourceIndexCreationTraversalTemplate<WT> :
         return createSourceAttributeInContextForPropertyOfSuccessfulApiResponseObject(
             sourcePath,
             response,
-            responseBodyJson,
+            responseBodyJsonSchema,
             jsonPropertyName,
             jsonPropertySchema,
             contextContainer
