@@ -94,9 +94,8 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
                 attributePath: SchematicPath,
                 attributeDefinition: GraphQLFieldDefinition
             ): Try<GraphQLSourceContainerType> {
-                return when (GraphQLOutputFieldsContainerTypeExtractor.invoke(
-                        attributeDefinition.type
-                    )
+                return when (
+                    GraphQLOutputFieldsContainerTypeExtractor.invoke(attributeDefinition.type)
                 ) {
                     is Some -> {
                         DefaultGraphQLSourceContainerType(
@@ -163,7 +162,8 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
                 childDefinition: GraphQLFieldDefinition
             ): Try<GraphQLSourceAttribute> {
                 if (!queryRootObjectTypeIfRoot.isDefined()) {
-                    if (!parentPathIfNotRoot.isDefined() || !parentDefinitionIfNotRoot.isDefined()
+                    if (
+                        !parentPathIfNotRoot.isDefined() || !parentDefinitionIfNotRoot.isDefined()
                     ) {
                         if (!parentPathIfNotRoot.isDefined()) {
                             return GQLDataSourceException(
@@ -186,9 +186,9 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
                     val parentDefinition: GraphQLFieldDefinition =
                         parentDefinitionIfNotRoot.orNull()!!
 
-                    if (parentPath.pathSegments.isEmpty() ||
-                            parentPath
-                                .pathSegments
+                    if (
+                        parentPath.pathSegments.isEmpty() ||
+                            parentPath.pathSegments
                                 .lastOrNone()
                                 .filter { s ->
                                     s !=
@@ -214,15 +214,15 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
                             )
                             .failure<GraphQLSourceAttribute>()
                     }
-                    if (GraphQLOutputFieldsContainerTypeExtractor.invoke(parentDefinition.type)
+                    if (
+                        GraphQLOutputFieldsContainerTypeExtractor.invoke(parentDefinition.type)
                             .filter { gqlObjType ->
                                 !gqlObjType.fieldDefinitions.contains(childDefinition)
                             }
                             .isDefined()
                     ) {
                         val parentDefinitionTypeName =
-                            parentDefinition
-                                .type
+                            parentDefinition.type
                                 .toOption()
                                 .filterIsInstance<GraphQLNamedOutputType>()
                                 .map(GraphQLNamedOutputType::getName)
@@ -320,7 +320,8 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
                         .reduce(
                             Try.success(persistentSetOf<GraphQLSourceAttribute>()),
                             { psAttempt, gsa ->
-                                if (gsa.sourcePath
+                                if (
+                                    gsa.sourcePath
                                         .getParentPath()
                                         .filter { sp ->
                                             sp != graphQLSourceContainerType.sourcePath
@@ -373,13 +374,11 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
 
             override fun withChildParameterAttributes(
                 graphQLParameterAttributes: ImmutableSet<GraphQLParameterAttribute>
-                                                     ): Try<GraphQLParameterContainerType> {
+            ): Try<GraphQLParameterContainerType> {
                 when (graphQLParameterContainerType) {
                     is DefaultGraphQLParameterDirectiveArgumentContainerType -> {
                         val directiveArgumentFieldTypesByName =
-                            graphQLParameterContainerType
-                                .inputFieldsContainerType
-                                .fieldDefinitions
+                            graphQLParameterContainerType.inputFieldsContainerType.fieldDefinitions
                                 .stream()
                                 .map { dir -> dir.name to dir.type }
                                 .reducePairsToPersistentMap()
@@ -390,28 +389,28 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
                                 gqlParmAttr ->
                                 psAttempt.flatMap { ps ->
                                     Try.attempt {
-                                        if (gqlParmAttr.name.toString() in
-                                                directiveArgumentFieldTypesByName &&
+                                            if (
+                                                gqlParmAttr.name.toString() in
+                                                    directiveArgumentFieldTypesByName &&
+                                                    gqlParmAttr.directiveArgument
+                                                        .filter { appDirArg ->
+                                                            appDirArg.type ==
+                                                                directiveArgumentFieldTypesByName[
+                                                                    gqlParmAttr.name.toString()]
+                                                        }
+                                                        .isDefined()
+                                            ) {
                                                 gqlParmAttr
-                                                    .directiveArgument
-                                                    .filter { appDirArg ->
-                                                        appDirArg.type ==
-                                                            directiveArgumentFieldTypesByName[
-                                                                gqlParmAttr.name.toString()]
-                                                    }
-                                                    .isDefined()
-                                        ) {
-                                            gqlParmAttr
-                                        } else {
-                                            throw GQLDataSourceException(
-                                                GQLDataSourceErrorResponse.INVALID_INPUT,
-                                                """graphql_parameter_attribute not matching 
+                                            } else {
+                                                throw GQLDataSourceException(
+                                                    GQLDataSourceErrorResponse.INVALID_INPUT,
+                                                    """graphql_parameter_attribute not matching 
                                                     |directive_argument.name and directive_argument.type 
                                                     |of parent: [ actual: { name: ${gqlParmAttr.name}, 
                                                     |type: ${gqlParmAttr.dataType} }""".flattenIntoOneLine()
-                                            )
+                                                )
+                                            }
                                         }
-                                    }
                                         .map { gpa -> ps.add(gpa) }
                                 }
                             }
@@ -423,9 +422,7 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
                     }
                     is DefaultGraphQLParameterInputObjectContainerType -> {
                         val inputObjFieldTypesByName =
-                            graphQLParameterContainerType
-                                .inputFieldsContainerType
-                                .fieldDefinitions
+                            graphQLParameterContainerType.inputFieldsContainerType.fieldDefinitions
                                 .stream()
                                 .map { gqlif -> gqlif.name to gqlif.type }
                                 .reducePairsToPersistentMap()
@@ -436,30 +433,30 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
                                 gqlParamAttr ->
                                 psAttempt.flatMap { ps ->
                                     Try.attempt {
-                                        if (gqlParamAttr.name.toString() in
-                                                inputObjFieldTypesByName &&
+                                            if (
+                                                gqlParamAttr.name.toString() in
+                                                    inputObjFieldTypesByName &&
+                                                    gqlParamAttr.inputObjectField
+                                                        .filter { gqlif ->
+                                                            gqlif.type ==
+                                                                inputObjFieldTypesByName[
+                                                                    gqlParamAttr.name.toString()]
+                                                        }
+                                                        .isDefined()
+                                            ) {
                                                 gqlParamAttr
-                                                    .inputObjectField
-                                                    .filter { gqlif ->
-                                                        gqlif.type ==
-                                                            inputObjFieldTypesByName[
-                                                                gqlParamAttr.name.toString()]
-                                                    }
-                                                    .isDefined()
-                                        ) {
-                                            gqlParamAttr
-                                        } else {
-                                            throw GQLDataSourceException(
-                                                GQLDataSourceErrorResponse.INVALID_INPUT,
-                                                """graphql_parameter_attribute name and/or type does 
+                                            } else {
+                                                throw GQLDataSourceException(
+                                                    GQLDataSourceErrorResponse.INVALID_INPUT,
+                                                    """graphql_parameter_attribute name and/or type does 
                                             |not match those of graphql_parameter_container_type 
                                             |input_object_field values: [ actual: 
                                             |{ name: ${gqlParamAttr.name}, 
                                             |type: ${gqlParamAttr.dataType} } ]
                                             |""".flattenIntoOneLine()
-                                            )
+                                                )
+                                            }
                                         }
-                                    }
                                         .map { gqlpa -> ps.add(gqlpa) }
                                 }
                             }
@@ -488,16 +485,15 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
                 parentPath: SchematicPath,
                 parentDefinition: GraphQLFieldDefinition
             ): ParameterAttributeSpec {
-                if (parentPath.pathSegments.isEmpty() ||
+                if (
+                    parentPath.pathSegments.isEmpty() ||
                         parentPath.arguments.isNotEmpty() ||
                         parentPath.directives.isNotEmpty() ||
-                        !parentPath
-                            .pathSegments
+                        !parentPath.pathSegments
                             .lastOrNone()
                             .filter { lastSegment ->
                                 parentDefinition.name.contains(
-                                    StandardNamingConventions.SNAKE_CASE
-                                        .deriveName(lastSegment)
+                                    StandardNamingConventions.SNAKE_CASE.deriveName(lastSegment)
                                         .toString(),
                                     ignoreCase = true
                                 )
@@ -548,6 +544,17 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
                     parentDirectiveArgument = parentDirectiveArgument.some()
                 )
             }
+
+            override fun withParentPathAndInputObjectType(
+                parentPath: SchematicPath,
+                parentInputObjectType: GraphQLInputObjectType,
+            ): ParameterAttributeInputObjectFieldSpec {
+                return DefaultParameterAttributeInputObjectFieldSpec(
+                    key = key,
+                    parentPath = parentPath,
+                    parentInputObjectType = parentInputObjectType.some()
+                )
+            }
         }
 
         internal class DefaultParameterDirectiveArgumentAttributeSpec(
@@ -571,8 +578,7 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
                 }
                 if (!parentPath.directives.containsKey(parentAppliedDirective.name)) {
                     val directiveNamesInGivenPath =
-                        parentPath
-                            .directives
+                        parentPath.directives
                             .asSequence()
                             .map { (name, _) -> name }
                             .joinToString(", ", "{ ", " }")
@@ -587,8 +593,7 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
                 }
                 if (parentAppliedDirective.getArgument(childDirectiveArgument.name) != null) {
                     val appliedDirectiveArgumentNamesSet =
-                        parentAppliedDirective
-                            .arguments
+                        parentAppliedDirective.arguments
                             .asSequence()
                             .map { arg -> arg.name }
                             .joinToString(", ", "{ ", " }")
@@ -633,8 +638,7 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
             ): Try<GraphQLParameterAttribute> {
                 if (parentDefinition.getArgument(childArgument.name) == null) {
                     val parentFieldDefinitionArgumentNames =
-                        parentDefinition
-                            .arguments
+                        parentDefinition.arguments
                             .asSequence()
                             .map { gqlArg -> gqlArg.name }
                             .joinToString(", ", "{ ", " }")
@@ -668,8 +672,7 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
             ): Try<GraphQLParameterAttribute> {
                 if (!parentDefinition.hasAppliedDirective(childDirective.name)) {
                     val appliedDirectiveNames: String =
-                        parentDefinition
-                            .appliedDirectives
+                        parentDefinition.appliedDirectives
                             .asSequence()
                             .map { gqld -> gqld.name }
                             .joinToString(", ", "{ ", " }")
@@ -724,7 +727,8 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
                 parentFieldDefinitionPath: SchematicPath,
                 parentFieldDefinition: GraphQLFieldDefinition,
             ): Try<GraphQLParameterContainerType> {
-                if (parentFieldDefinitionPath.arguments.isNotEmpty() ||
+                if (
+                    parentFieldDefinitionPath.arguments.isNotEmpty() ||
                         parentFieldDefinitionPath.directives.isNotEmpty()
                 ) {
                     return GQLDataSourceException(
@@ -738,8 +742,7 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
                 }
                 if (parentFieldDefinition.getArgument(fieldArgument.name) == null) {
                     val parentFieldDefinitionArgumentNames: String =
-                        parentFieldDefinition
-                            .arguments
+                        parentFieldDefinition.arguments
                             .asSequence()
                             .map { arg -> arg.name }
                             .joinToString(", ", "{ ", " }")
@@ -795,7 +798,8 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
                 parentDirectivePath: SchematicPath,
                 parentAppliedDirective: GraphQLAppliedDirective,
             ): Try<GraphQLParameterContainerType> {
-                if (parentDirectivePath.directives.isEmpty() ||
+                if (
+                    parentDirectivePath.directives.isEmpty() ||
                         parentDirectivePath.directives.none { (name, _) ->
                             parentAppliedDirective.name == name
                         }
@@ -810,8 +814,7 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
                 }
                 if (parentAppliedDirective.getArgument(directiveArgument.name) == null) {
                     val directiveArgumentNamesSet: String =
-                        parentAppliedDirective
-                            .arguments
+                        parentAppliedDirective.arguments
                             .asSequence()
                             .map { arg -> arg.name }
                             .joinToString(", ", "{ ", " }")
@@ -840,8 +843,7 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
                 val directiveArgumentInputObjectType: GraphQLInputFieldsContainer =
                     graphQLInputFieldContainerTypeIfPresent.orNull()!!
                 val updatedJsonValueForDirective: Option<ObjectNode> =
-                    parentDirectivePath
-                        .directives
+                    parentDirectivePath.directives
                         .asSequence()
                         .firstOrNull { (name, _) -> name == parentAppliedDirective.name }
                         .toOption()
@@ -882,7 +884,8 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
             private val key: DataSource.Key<GraphQLSourceIndex>,
             private val parentPath: SchematicPath,
             private val parentArgument: Option<GraphQLArgument> = none(),
-            private val parentDirectiveArgument: Option<GraphQLAppliedDirectiveArgument> = none()
+            private val parentDirectiveArgument: Option<GraphQLAppliedDirectiveArgument> = none(),
+            private val parentInputObjectType: Option<GraphQLInputObjectType> = none()
         ) : ParameterAttributeInputObjectFieldSpec {
 
             override fun forInputObjectField(
@@ -894,9 +897,9 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
                     StandardNamingConventions.IDENTITY.deriveName(childInputObjectField.name)
                 when {
                     parentArgument.isDefined() -> {
-                        if (parentPath.arguments.isEmpty() ||
-                                !parentPath
-                                    .arguments
+                        if (
+                            parentPath.arguments.isEmpty() ||
+                                !parentPath.arguments
                                     .asIterable()
                                     .lastOrNone()
                                     .filter { (name, _) -> name == parentArgument.orNull()!!.name }
@@ -912,7 +915,8 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
                                 )
                                 .failure()
                         }
-                        if (!parentArgument
+                        if (
+                            !parentArgument
                                 .map { gqlArg: GraphQLArgument -> gqlArg.type }
                                 .flatMap { gqlInputType: GraphQLInputType ->
                                     GraphQLInputFieldsContainerTypeExtractor.invoke(gqlInputType)
@@ -975,9 +979,9 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
                             .successIfNonNull()
                     }
                     parentDirectiveArgument.isDefined() -> {
-                        if (parentPath.directives.isEmpty() ||
-                                !parentPath
-                                    .directives
+                        if (
+                            parentPath.directives.isEmpty() ||
+                                !parentPath.directives
                                     .asIterable()
                                     .lastOrNone()
                                     .filter { (_, jsonValue) ->
@@ -996,7 +1000,8 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
                                 )
                                 .failure()
                         }
-                        if (!parentDirectiveArgument
+                        if (
+                            !parentDirectiveArgument
                                 .map { dirArg -> dirArg.type }
                                 .flatMap { graphQLInputType: GraphQLInputType ->
                                     GraphQLInputFieldsContainerTypeExtractor.invoke(
@@ -1045,8 +1050,7 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
                                 .failure()
                         }
                         val updatedDirectiveNameJsonValuePair =
-                            parentPath
-                                .directives
+                            parentPath.directives
                                 .asIterable()
                                 .lastOrNone()
                                 .filter { (_, jsonValue) ->
@@ -1092,6 +1096,68 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
                                 sourcePath = childInputObjectFieldPath,
                                 name = childInputObjectFieldConventionalName,
                                 inputObjectField = childInputObjectField.some()
+                            )
+                            .successIfNonNull()
+                    }
+                    parentInputObjectType.isDefined() -> {
+                        if (
+                            parentInputObjectType.orNull()!!.fields.none { iof ->
+                                iof.name == childInputObjectField.name
+                            }
+                        ) {
+                            val parentInputFieldNamesSet =
+                                parentInputObjectType
+                                    .orNull()!!
+                                    .fields
+                                    .joinToString(
+                                        separator = ", ",
+                                        prefix = "{ ",
+                                        postfix = " }",
+                                        transform = { it.name }
+                                    )
+                            return GQLDataSourceException(
+                                    GQLDataSourceErrorResponse.INVALID_INPUT,
+                                    """input_object_type must contain child_field 
+                                    |with same name as that of the 
+                                    |provided child_field: 
+                                    |[ actual: 
+                                    |${childInputObjectField.name}, 
+                                    |expected: one of $parentInputFieldNamesSet 
+                                    |]""".flattenIntoOneLine()
+                                )
+                                .failure()
+                        }
+                        if (parentPath.arguments.isEmpty() && parentPath.directives.isEmpty()) {
+                            return GQLDataSourceException(
+                                    GQLDataSourceErrorResponse.INVALID_INPUT,
+                                    """parent_path must have at least one argument 
+                                        |or directive and represent a parameter container: 
+                                        |[ actual: ${parentPath} ]
+                                        |""".flattenIntoOneLine()
+                                )
+                                .failure()
+                        }
+                        val newNode: ObjectNode =
+                            JsonNodeFactory.instance
+                                .objectNode()
+                                .putNull(childInputObjectField.name)
+                        // TODO: The following path creation is too simplistic and doesn't cover case
+                        //  where the parent is a nested object type entry
+                        //  Solving for this case would require some recursive or nuanced traversal
+                        //  logic
+                        val childPath: SchematicPath =
+                            if (parentPath.directives.isNotEmpty()) {
+                                val (parentName, node) = parentPath.directives.asSequence().last()
+                                parentPath.transform { directive(parentName, newNode) }
+                            } else {
+                                val (parentName, node) = parentPath.arguments.asSequence().last()
+                                parentPath.transform { argument(parentName, newNode) }
+                            }
+                        return DefaultGraphQLParameterInputObjectFieldAttribute(
+                                childPath,
+                                childInputObjectFieldConventionalName,
+                                key,
+                                childInputObjectField.some()
                             )
                             .successIfNonNull()
                     }
@@ -1155,7 +1221,8 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
     override fun createParameterContainerTypeForParameterAttributeWithInputObjectValue(
         parameterAttribute: GraphQLParameterAttribute
     ): Try<GraphQLParameterContainerType> {
-        return when (val inputObjectFieldsContainerType: GraphQLInputFieldsContainer? =
+        return when (
+            val inputObjectFieldsContainerType: GraphQLInputFieldsContainer? =
                 GraphQLInputFieldsContainerTypeExtractor.invoke(parameterAttribute.dataType)
                     .orNull()
         ) {

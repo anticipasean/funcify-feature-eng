@@ -4,9 +4,9 @@ import arrow.core.firstOrNone
 import arrow.core.getOrElse
 import arrow.core.lastOrNone
 import com.fasterxml.jackson.databind.ObjectMapper
-import funcify.feature.datasource.graphql.factory.DefaultGraphQLApiDataSourceFactory
 import funcify.feature.datasource.graphql.factory.DefaultGraphQLApiDataSourceFactory.Companion.DefaultGraphQLApiDataSourceKey
-import funcify.feature.datasource.graphql.metadata.DefaultGraphQLApiSourceMetadataReader
+import funcify.feature.datasource.graphql.metadata.ComprehensiveGraphQLApiSourceMetadataReader
+import funcify.feature.datasource.graphql.metadata.DefaultGraphQLSourceIndexCreationContextFactory
 import funcify.feature.datasource.graphql.metadata.InternalServiceTypesExcludingSourceMetadataFilter
 import funcify.feature.datasource.graphql.metadata.MockGraphQLApiSourceMetadataProvider
 import funcify.feature.datasource.graphql.metadata.MockGraphQLApiSourceMetadataProvider.Companion.fakeService
@@ -37,38 +37,35 @@ internal class GraphQLApiSourceMetadataReaderTest {
                 .blockForFirst()
                 .fold({ gqls: GraphQLSchema -> gqls }, { t: Throwable -> Assertions.fail(t) })
         val sourceMetamodel =
-            DefaultGraphQLApiSourceMetadataReader(
+            ComprehensiveGraphQLApiSourceMetadataReader(
                     DefaultGraphQLSourceIndexFactory(),
+                    DefaultGraphQLSourceIndexCreationContextFactory,
                     InternalServiceTypesExcludingSourceMetadataFilter()
                 )
                 .readSourceMetamodelFromMetadata(
-                    DefaultGraphQLApiDataSourceKey(
-                        name = "mock-service"
-                    ),
+                    DefaultGraphQLApiDataSourceKey(name = "mock-service"),
                     graphQLSchema
                 )
-        /**
-         * println(sourceMetamodel.sourceIndicesByPath.asSequence()
-         * ```
-         *                 .joinToString(separator = ",\n",
-         *                               prefix = "{ ",
-         *                               postfix = " }",
-         *                               transform = { entry: Map.Entry<SchematicPath, ImmutableSet<GraphQLSourceIndex>> ->
-         *                                   "path: ${entry.key.toURI()}, indices: ${
-         *                                       entry.value.joinToString(",\n",
-         *                                                                "{ ",
-         *                                                                " }")
-         *                                   }"
-         *                               }))
-         * ```
+
+        /*
+         *println(sourceMetamodel.sourceIndicesByPath.asSequence()
+         *                .joinToString(separator = ",\n",
+         *                              prefix = "{ ",
+         *                              postfix = " }",
+         *                              transform = { entry: Map.Entry<SchematicPath, ImmutableSet<GraphQLSourceIndex>> ->
+         *                                  "path: ${entry.key.toURI()}, indices: ${
+         *                                      entry.value.joinToString(",\n",
+         *                                                               "{ ",
+         *                                                               " }")
+         *                                  }"
+         *                              }))
          */
-        Assertions.assertEquals(11, sourceMetamodel.sourceIndicesByPath.size)
+
+        Assertions.assertEquals(14, sourceMetamodel.sourceIndicesByPath.size)
 
         Assertions.assertEquals(
             "shows",
-            sourceMetamodel
-                .sourceIndicesByPath
-                .entries
+            sourceMetamodel.sourceIndicesByPath.entries
                 .asIterable()
                 .filter { entry ->
                     entry.key.pathSegments.lastOrNone().filter { s -> s == "shows" }.isDefined()
@@ -81,9 +78,7 @@ internal class GraphQLApiSourceMetadataReaderTest {
 
         Assertions.assertEquals(
             5,
-            sourceMetamodel
-                .sourceIndicesByPath
-                .entries
+            sourceMetamodel.sourceIndicesByPath.entries
                 .asIterable()
                 .filter { entry ->
                     entry.key.pathSegments.lastOrNone().filter { s -> s == "shows" }.isDefined()

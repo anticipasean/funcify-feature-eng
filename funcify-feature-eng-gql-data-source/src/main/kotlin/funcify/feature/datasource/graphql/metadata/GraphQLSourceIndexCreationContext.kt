@@ -4,6 +4,7 @@ import arrow.core.Option
 import arrow.core.firstOrNone
 import arrow.core.identity
 import arrow.core.toOption
+import funcify.feature.datasource.graphql.schema.GraphQLOutputFieldsContainerTypeExtractor
 import funcify.feature.datasource.graphql.schema.GraphQLParameterAttribute
 import funcify.feature.datasource.graphql.schema.GraphQLParameterContainerType
 import funcify.feature.datasource.graphql.schema.GraphQLSourceAttribute
@@ -102,6 +103,24 @@ sealed interface GraphQLSourceIndexCreationContext<E : GraphQLSchemaElement> {
         val parentSourceAttribute: Option<GraphQLSourceAttribute>
             get() =
                 parentPath.flatMap { pp -> graphqlSourceAttributesBySchematicPath[pp].toOption() }
+
+        val sourceAttributeWithSameOutputObjectTypeAndPath: Option<GraphQLSourceAttribute>
+            get() {
+                return parentPath.mapNotNull { pp ->
+                    graphqlSourceAttributesBySchematicPath
+                        .asSequence()
+                        .filter { (attrPath: SchematicPath, srcAttr: GraphQLSourceAttribute) ->
+                            attrPath == pp &&
+                                GraphQLOutputFieldsContainerTypeExtractor.invoke(
+                                        srcAttr.graphQLFieldDefinition.type
+                                    )
+                                    .filter { gfc -> gfc.name == currentElement.name }
+                                    .isDefined()
+                        }
+                        .map { (_, srcAttr) -> srcAttr }
+                        .firstOrNull()
+                }
+            }
     }
 
     interface FieldDefinitionSourceIndexCreationContext :

@@ -8,6 +8,7 @@ import graphql.schema.GraphQLAppliedDirectiveArgument
 import graphql.schema.GraphQLArgument
 import graphql.schema.GraphQLFieldDefinition
 import graphql.schema.GraphQLInputObjectField
+import graphql.schema.GraphQLInputObjectType
 import graphql.schema.GraphQLObjectType
 import kotlinx.collections.immutable.ImmutableSet
 
@@ -115,6 +116,11 @@ interface GraphQLSourceIndexFactory {
         fun withParentPathAndDirectiveArgument(
             parentPath: SchematicPath,
             parentDirectiveArgument: GraphQLAppliedDirectiveArgument
+        ): ParameterAttributeInputObjectFieldSpec
+
+        fun withParentPathAndInputObjectType(
+            parentPath: SchematicPath,
+            parentInputObjectType: GraphQLInputObjectType
         ): ParameterAttributeInputObjectFieldSpec
     }
 

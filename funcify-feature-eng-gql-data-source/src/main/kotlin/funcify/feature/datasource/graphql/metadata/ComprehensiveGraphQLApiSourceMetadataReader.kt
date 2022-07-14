@@ -236,7 +236,37 @@ class ComprehensiveGraphQLApiSourceMetadataReader(
             previousContext.update { builder -> builder.nextSchemaElement(parentPath, child) }
         return when (context) {
             is OutputObjectTypeSourceIndexCreationContext -> {
-                TODO("output_object_type_source_index_creation_context handling not implemented")
+                // Case 1: The root container type, typically Query, has already been created;
+                // for source container types not corresponding to root, this output_object_type
+                // must belong to the type (possibly nested e.g.
+                // (if something like [MyContainerType!]! => non-null( list( non-null(
+                // MyContainerType ) ) ) )
+                // on an existing graphql_field_definition on an existing
+                // graphql_source_attribute
+                val correspondingSourceAttribute: GraphQLSourceAttribute =
+                    context.sourceAttributeWithSameOutputObjectTypeAndPath
+                        .successIfDefined {
+                            GQLDataSourceException(
+                                GQLDataSourceErrorResponse.UNEXPECTED_ERROR,
+                                """current_element should already have  
+                                   |field_definition with same (possibly nested) output 
+                                   |object type and parent path defined 
+                                   |if processing order is correct: 
+                                   |[ ${nameAndTypePairStringifier().invoke(child)} ]
+                                   |""".flattenIntoOneLine()
+                            )
+                        }
+                        .orElseThrow()
+                graphQLSourceIndexFactory
+                    .createSourceContainerTypeForDataSourceKey(context.graphQLApiDataSourceKey)
+                    .forAttributePathAndDefinition(
+                        correspondingSourceAttribute.sourcePath,
+                        correspondingSourceAttribute.graphQLFieldDefinition
+                    )
+                    .map { gqlsct ->
+                        context.update { builder -> builder.addOrUpdateGraphQLSourceIndex(gqlsct) }
+                    }
+                    .orElseThrow()
             }
             is FieldDefinitionSourceIndexCreationContext -> {
                 // Case 2: All field_definitions must have a parent path; for field_definitions
@@ -284,8 +314,7 @@ class ComprehensiveGraphQLApiSourceMetadataReader(
             }
             is FieldArgumentParameterSourceIndexCreationContext -> {
                 val parentFieldDefinition: GraphQLFieldDefinition =
-                    context
-                        .parentFieldDefinition
+                    context.parentFieldDefinition
                         .successIfDefined {
                             GQLDataSourceException(
                                 GQLDataSourceErrorResponse.UNEXPECTED_ERROR,
@@ -309,8 +338,7 @@ class ComprehensiveGraphQLApiSourceMetadataReader(
             }
             is DirectiveSourceIndexCreationContext -> {
                 val parentFieldDefinition: GraphQLFieldDefinition =
-                    context
-                        .parentFieldDefinition
+                    context.parentFieldDefinition
                         .successIfDefined {
                             GQLDataSourceException(
                                 GQLDataSourceErrorResponse.UNEXPECTED_ERROR,
@@ -334,8 +362,7 @@ class ComprehensiveGraphQLApiSourceMetadataReader(
             }
             is DirectiveArgumentSourceIndexCreationContext -> {
                 val parentDirective: GraphQLAppliedDirective =
-                    context
-                        .parentDirective
+                    context.parentDirective
                         .successIfDefined {
                             GQLDataSourceException(
                                 GQLDataSourceErrorResponse.UNEXPECTED_ERROR,
@@ -358,8 +385,7 @@ class ComprehensiveGraphQLApiSourceMetadataReader(
                     .orElseThrow()
             }
             is InputObjectTypeSourceIndexCreationContext -> {
-                context
-                    .parentParameterAttribute
+                context.parentParameterAttribute
                     .successIfDefined {
                         GQLDataSourceException(
                             GQLDataSourceErrorResponse.UNEXPECTED_ERROR,
@@ -384,8 +410,7 @@ class ComprehensiveGraphQLApiSourceMetadataReader(
                     .orElseThrow()
             }
             is InputObjectFieldSourceIndexCreationContext -> {
-                context
-                    .parentParameterAttribute
+                context.parentParameterAttribute
                     .successIfDefined()
                     .flatMap { ppa: GraphQLParameterAttribute ->
                         when {
@@ -408,6 +433,17 @@ class ComprehensiveGraphQLApiSourceMetadataReader(
                                     .withParentPathAndDirectiveArgument(
                                         ppa.sourcePath,
                                         ppa.directiveArgument.orNull()!!
+                                    )
+                                    .forInputObjectField(context.currentElement)
+                            }
+                            ppa.isFieldOnInputObject() -> {
+                                graphQLSourceIndexFactory
+                                    .createParameterAttributeForDataSourceKey(
+                                        context.graphQLApiDataSourceKey
+                                    )
+                                    .withParentPathAndInputObjectType(
+                                        ppa.sourcePath,
+                                        context.parentInputObjectType.orNull()!!
                                     )
                                     .forInputObjectField(context.currentElement)
                             }
@@ -465,8 +501,7 @@ class ComprehensiveGraphQLApiSourceMetadataReader(
         )
         val updatedGraphQLSourceContainerTypesByPathAttempt:
             Try<PersistentMap<SchematicPath, GraphQLSourceContainerType>> =
-            graphQLSourceIndexCreationContext
-                .graphqlSourceAttributesBySchematicPath
+            graphQLSourceIndexCreationContext.graphqlSourceAttributesBySchematicPath
                 .asSequence()
                 .flatMap { (path, sa) ->
                     path.getParentPath().fold(::emptySequence, ::sequenceOf).map { pp -> pp to sa }
@@ -474,8 +509,7 @@ class ComprehensiveGraphQLApiSourceMetadataReader(
                 .groupBy({ (path, _) -> path }, { (_, sa) -> sa })
                 .asSequence()
                 .fold(
-                    graphQLSourceIndexCreationContext
-                        .graphqlSourceContainerTypesBySchematicPath
+                    graphQLSourceIndexCreationContext.graphqlSourceContainerTypesBySchematicPath
                         .toPersistentMap()
                         .successIfNonNull()
                 ) {
@@ -515,8 +549,7 @@ class ComprehensiveGraphQLApiSourceMetadataReader(
                 }
         val updatedParameterContainerTypesByPathAttempt:
             Try<PersistentMap<SchematicPath, GraphQLParameterContainerType>> =
-            graphQLSourceIndexCreationContext
-                .graphqlParameterAttributesBySchematicPath
+            graphQLSourceIndexCreationContext.graphqlParameterAttributesBySchematicPath
                 .asSequence()
                 .flatMap { (path, attr) ->
                     path.getParentPath().fold(::emptySequence, ::sequenceOf).map { pp ->
@@ -526,8 +559,7 @@ class ComprehensiveGraphQLApiSourceMetadataReader(
                 .groupBy({ (path, _) -> path }, { (_, attr) -> attr })
                 .asSequence()
                 .fold(
-                    graphQLSourceIndexCreationContext
-                        .graphqlParameterContainerTypesBySchematicPath
+                    graphQLSourceIndexCreationContext.graphqlParameterContainerTypesBySchematicPath
                         .toPersistentMap()
                         .successIfNonNull()
                 ) {
@@ -538,21 +570,7 @@ class ComprehensiveGraphQLApiSourceMetadataReader(
                         pctByPath
                             .getOrNone(parentPath)
                             .fold(
-                                {
-                                    val parameterAttributeNamesSet: String =
-                                        paramAttrs
-                                            .asSequence()
-                                            .map { sa -> sa.name.toString() }
-                                            .joinToString(", ", " }", " }")
-                                    throw GQLDataSourceException(
-                                        GQLDataSourceErrorResponse.UNEXPECTED_ERROR,
-                                        """graphql_source_attributes are missing a 
-                                        |missing graphql_parameter_container_type entry: 
-                                        |[ parent_path: ${parentPath}, 
-                                        |parameter_attributes.names: $parameterAttributeNamesSet ]
-                                        |""".flattenIntoOneLine()
-                                    )
-                                },
+                                { pctByPath },
                                 { pct: GraphQLParameterContainerType ->
                                     graphQLSourceIndexFactory
                                         .updateParameterContainerType(pct)

@@ -125,29 +125,19 @@ internal object DefaultGraphQLSourceIndexCreationContextFactory :
                             parameterContainerPath,
                             graphQLSourceIndex
                         )
-                    when (val schemaElement: GraphQLSchemaElement? =
-                            graphQLSourceIndex
-                                .fieldArgument
-                                .or(graphQLSourceIndex.directiveArgument)
-                                .or(graphQLSourceIndex.inputObjectField)
-                                .or(graphQLSourceIndex.directive)
-                                .orNull()
-                    ) {
-                        null -> {}
-                        else -> {
-                            schematicPathCreatedBySchemaElement.put(
-                                schemaElement,
-                                parameterContainerPath
-                            )
-                            schemaElementsBySchematicPath =
-                                schemaElementsBySchematicPath.put(
-                                    parameterContainerPath,
-                                    schemaElementsBySchematicPath
-                                        .getOrDefault(parameterContainerPath, persistentSetOf())
-                                        .add(schemaElement)
-                                )
-                        }
-                    }
+
+                    schematicPathCreatedBySchemaElement =
+                        schematicPathCreatedBySchemaElement.put(
+                            graphQLSourceIndex.inputFieldsContainerType,
+                            parameterContainerPath
+                        )
+                    schemaElementsBySchematicPath =
+                        schemaElementsBySchematicPath.put(
+                            parameterContainerPath,
+                            schemaElementsBySchematicPath
+                                .getOrDefault(parameterContainerPath, persistentSetOf())
+                                .add(graphQLSourceIndex.inputFieldsContainerType)
+                        )
                 }
                 is GraphQLParameterAttribute -> {
                     val parameterAttributePath: SchematicPath = graphQLSourceIndex.sourcePath
@@ -156,9 +146,9 @@ internal object DefaultGraphQLSourceIndexCreationContextFactory :
                             parameterAttributePath,
                             graphQLSourceIndex
                         )
-                    when (val schemaElement: GraphQLSchemaElement? =
-                            graphQLSourceIndex
-                                .fieldArgument
+                    when (
+                        val schemaElement: GraphQLSchemaElement? =
+                            graphQLSourceIndex.fieldArgument
                                 .or(graphQLSourceIndex.directiveArgument)
                                 .or(graphQLSourceIndex.inputObjectField)
                                 .or(graphQLSourceIndex.directive)
@@ -166,10 +156,11 @@ internal object DefaultGraphQLSourceIndexCreationContextFactory :
                     ) {
                         null -> {}
                         else -> {
-                            schematicPathCreatedBySchemaElement.put(
-                                schemaElement,
-                                parameterAttributePath
-                            )
+                            schematicPathCreatedBySchemaElement =
+                                schematicPathCreatedBySchemaElement.put(
+                                    schemaElement,
+                                    parameterAttributePath
+                                )
                             schemaElementsBySchematicPath =
                                 schemaElementsBySchematicPath.put(
                                     parameterAttributePath,
@@ -323,6 +314,23 @@ internal object DefaultGraphQLSourceIndexCreationContextFactory :
                         currentElement = nextElement
                     )
                 }
+                is GraphQLInputObjectType -> {
+                    DefaultInputObjectTypeSourceIndexCreationContext(
+                        schematicPathCreatedBySchemaElement = schematicPathCreatedBySchemaElement,
+                        schemaElementsBySchematicPath = schemaElementsBySchematicPath,
+                        graphqlSourceContainerTypesBySchematicPath =
+                            graphqlSourceContainerTypesBySchematicPath,
+                        graphqlSourceAttributesBySchematicPath =
+                            graphqlSourceAttributesBySchematicPath,
+                        graphqlParameterContainerTypesBySchematicPath =
+                            graphqlParameterContainerTypesBySchematicPath,
+                        graphqlParameterAttributesBySchematicPath =
+                            graphqlParameterAttributesBySchematicPath,
+                        graphQLApiDataSourceKey = graphQLApiDataSourceKey,
+                        parentPath = parentPath,
+                        currentElement = nextElement,
+                    )
+                }
                 else -> {
                     throw GQLDataSourceException(
                         GQLDataSourceErrorResponse.UNEXPECTED_ERROR,
@@ -333,8 +341,8 @@ internal object DefaultGraphQLSourceIndexCreationContextFactory :
                             |before adding""".flattenIntoOneLine()
                     )
                 }
-            } as
-                GraphQLSourceIndexCreationContext<E>
+            }
+                as GraphQLSourceIndexCreationContext<E>
         }
     }
 
