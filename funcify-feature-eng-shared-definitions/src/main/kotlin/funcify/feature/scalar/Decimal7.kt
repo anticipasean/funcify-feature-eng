@@ -6,18 +6,18 @@ import graphql.schema.GraphQLScalarType
 import java.math.BigDecimal
 import java.math.MathContext
 
-object Decimal64 : GraphQLDecimalScalar {
+object Decimal7 : GraphQLDecimalScalar {
 
-    override val name: String = "Decimal64"
+    override val name: String = "Decimal7"
 
     override val description: String =
-        """A java.math.BigDecimal in IEEE 754-2019 "decimal64" format: 
-            |{ precision: 16 digits (base10), rounding_mode: HALF_EVEN } 
+        """A java.math.BigDecimal in IEEE 754-2019 "decimal32" format: 
+            |{ precision: 7 digits (base10), rounding_mode: HALF_EVEN } 
             |(HALF_EVEN: AKA "Banker's rounding",  
             |corresponds to IEEE 754-2019 standard's "roundTiesToEven" 
             |rounding-direction attribute)""".flatten()
 
-    override val mathContext: MathContext = MathContext.DECIMAL64
+    override val mathContext: MathContext = MathContext.DECIMAL32
 
     override val coercingFunction: Coercing<BigDecimal, BigDecimal> by lazy {
         GraphQLDecimalScalarCoercingFunctionFactory.createDecimalCoercingFunctionWithMathContext(
