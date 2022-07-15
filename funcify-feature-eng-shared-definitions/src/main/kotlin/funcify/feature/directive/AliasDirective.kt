@@ -15,7 +15,8 @@ object AliasDirective : MaterializationDirective {
 
     override val name: String = "alias"
 
-    const val INPUT_ARGUMENT_NAME: String = "name"
+    override val description: String =
+        "Indicates a different name that the corresponding field_definition may have"
 
     override val supportedDirectiveLocations: List<DirectiveLocation> by lazy {
         listOf(
@@ -28,7 +29,7 @@ object AliasDirective : MaterializationDirective {
     override val inputValueDefinitions: List<InputValueDefinition> by lazy {
         listOf<InputValueDefinition>(
             InputValueDefinition.newInputValueDefinition()
-                .name(INPUT_ARGUMENT_NAME)
+                .name("name")
                 .type(
                     NonNullType.newNonNullType(
                             TypeName.newTypeName().name(Scalars.GraphQLString.name).build()
@@ -46,9 +47,9 @@ object AliasDirective : MaterializationDirective {
             .repeatable(true)
             .description(
                 Description(
-                    "Indicates a different name that the annotated field_definition may have",
+                    description,
                     SourceLocation.EMPTY,
-                    false
+                    description.contains(System.lineSeparator())
                 )
             )
             .directiveLocations(supportedDirectiveLocations)

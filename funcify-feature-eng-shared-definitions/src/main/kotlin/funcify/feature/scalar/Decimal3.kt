@@ -1,6 +1,9 @@
 package funcify.feature.scalar
 
 import funcify.feature.util.StringExtensions.flatten
+import graphql.language.Description
+import graphql.language.ScalarTypeDefinition
+import graphql.language.SourceLocation
 import graphql.schema.Coercing
 import graphql.schema.GraphQLScalarType
 import java.math.BigDecimal
@@ -17,8 +20,7 @@ object Decimal3 : GraphQLDecimalScalar {
             |{ precision: 3 digits (base10), rounding_mode: HALF_EVEN } 
             |(HALF_EVEN: AKA "Banker's rounding",  
             |corresponds to IEEE 754-2019 standard's "roundTiesToEven" 
-            |rounding-direction attribute)"""
-            .flatten()
+            |rounding-direction attribute)""".flatten()
 
     /**
      * Following the same logic as was done for the IEEE 754-2019 decimal32 format used in
@@ -45,11 +47,25 @@ object Decimal3 : GraphQLDecimalScalar {
         )
     }
 
+    override val graphQLScalarTypeDefinition: ScalarTypeDefinition by lazy {
+        ScalarTypeDefinition.newScalarTypeDefinition()
+            .name(name)
+            .description(
+                Description(
+                    description,
+                    SourceLocation.EMPTY,
+                    description.contains(System.lineSeparator())
+                )
+            )
+            .build()
+    }
+
     override val graphQLScalarType: GraphQLScalarType by lazy {
         GraphQLScalarType.newScalar()
             .name(name)
             .description(description)
             .coercing(coercingFunction)
+            .definition(graphQLScalarTypeDefinition)
             .build()
     }
 }

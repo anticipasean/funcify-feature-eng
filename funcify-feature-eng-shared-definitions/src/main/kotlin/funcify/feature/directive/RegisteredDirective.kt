@@ -14,6 +14,16 @@ object RegisteredDirective : MaterializationDirective {
 
     override val name: String = "registered"
 
+    override val description: String =
+        """Indicates a field has a corresponding entry in the
+           |feature registry\\ 
+           |Provides information regarding what implementation status 
+           |the feature definition has and whether a default value should 
+           |be provided
+           |"""
+            .trimMargin()
+            .replace("\\\\", System.lineSeparator())
+
     override val supportedDirectiveLocations: List<DirectiveLocation> by lazy {
         listOf(Introspection.DirectiveLocation.FIELD_DEFINITION).map { iDirLoc ->
             DirectiveLocation.newDirectiveLocation().name(iDirLoc.name).build()
@@ -45,15 +55,9 @@ object RegisteredDirective : MaterializationDirective {
             .repeatable(false)
             .description(
                 Description(
-                    """Indicates a field has a corresponding entry in the
-                       |feature registry wired at the startup of this application 
-                       |and provides information regarding what implementation status 
-                       |it has
-                       |"""
-                        .trimMargin()
-                        .replace("\\\\", "\n"),
+                    description,
                     SourceLocation.EMPTY,
-                    true
+                    description.contains(System.lineSeparator())
                 )
             )
             .build()

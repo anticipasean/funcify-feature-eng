@@ -12,6 +12,16 @@ object LastUpdatedDirective : MaterializationDirective {
 
     override val name: String = "last_updated"
 
+    override val description: String =
+        """Indicates temporal field represents latest datetime 
+           |at which the given object type instance is considered "current".\\
+           |There should at most be one field within a given 
+           |object type definition that represents 
+           |the latest timestamp
+           |"""
+            .trimMargin()
+            .replace("\\\\", System.lineSeparator())
+
     override val supportedDirectiveLocations: List<DirectiveLocation> by lazy {
         listOf(FIELD_DEFINITION, INPUT_FIELD_DEFINITION).map { iDirLoc ->
             DirectiveLocation.newDirectiveLocation().name(iDirLoc.name).build()
@@ -28,16 +38,9 @@ object LastUpdatedDirective : MaterializationDirective {
             .repeatable(false)
             .description(
                 Description(
-                    """Indicates temporal field represents latest datetime \\
-                       |at which the given object type instance is current. \\
-                       |There should at most be one field within a given \\
-                       |object type definition that represents \\
-                       |the latest timestamp
-                       |"""
-                        .trimMargin()
-                        .replace("\\\\", "\n"),
+                    description,
                     SourceLocation.EMPTY,
-                    true
+                    description.contains(System.lineSeparator())
                 )
             )
             .build()

@@ -1,6 +1,9 @@
 package funcify.feature.scalar
 
 import funcify.feature.util.StringExtensions.flatten
+import graphql.language.Description
+import graphql.language.ScalarTypeDefinition
+import graphql.language.SourceLocation
 import graphql.schema.Coercing
 import graphql.schema.GraphQLScalarType
 import java.math.BigDecimal
@@ -25,11 +28,25 @@ object Decimal7 : GraphQLDecimalScalar {
         )
     }
 
+    override val graphQLScalarTypeDefinition: ScalarTypeDefinition by lazy {
+        ScalarTypeDefinition.newScalarTypeDefinition()
+            .name(name)
+            .description(
+                Description(
+                    description,
+                    SourceLocation.EMPTY,
+                    description.contains(System.lineSeparator())
+                )
+            )
+            .build()
+    }
+
     override val graphQLScalarType: GraphQLScalarType by lazy {
         GraphQLScalarType.newScalar()
             .name(name)
             .description(description)
             .coercing(coercingFunction)
+            .definition(graphQLScalarTypeDefinition)
             .build()
     }
 }

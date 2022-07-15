@@ -22,7 +22,46 @@ allprojects {
     }
 }
 
-subprojects {
+ext.sharedGraphQLDefinitionKotlinProjects = subprojects.findAll { Project p ->
+    p.name.endsWith("-shared-definitions")
+}
+ext.mainKotlinSubProjects = subprojects.findAll { Project p ->
+    !p.name.endsWith("-shared-definitions")
+}
+
+configure(sharedGraphQLDefinitionKotlinProjects) {
+    apply plugin: 'idea'
+    apply plugin: 'org.jetbrains.kotlin.jvm'
+    apply plugin: 'org.jetbrains.kotlin.plugin.spring'
+    sourceCompatibility = sourceCompatibility
+    targetCompatibility = targetCompatibility
+    configurations {
+        kotlinDeps {
+            dependencies {
+                implementation("org.jetbrains.kotlin:kotlin-stdlib:${kotlinVersion}")
+                implementation("org.jetbrains.kotlin:kotlin-reflect:${kotlinVersion}")
+                implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8:${kotlinVersion}")
+                implementation("org.jetbrains.kotlin:kotlin-noarg:${kotlinVersion}")
+            }
+        }
+        graphql {
+            dependencies {
+                implementation("com.graphql-java:graphql-java:${graphQLJavaVersion}")
+                implementation("com.graphql-java:graphql-java-extended-scalars:${graphQLJavaExtScalarsVersion}")
+                /**
+                 * graphql-java has guava dependency
+                 */
+                implementation("com.google.guava:guava:${guavaVersion}")
+            }
+        }
+    }
+
+    test {
+        useJUnitPlatform()
+    }
+}
+
+configure(mainKotlinSubProjects) {
     apply plugin: 'idea'
     apply plugin: 'org.jetbrains.kotlin.jvm'
     apply plugin: 'org.jetbrains.kotlin.plugin.spring'
@@ -128,4 +167,6 @@ subprojects {
         useJUnitPlatform()
     }
 }
+
+
 

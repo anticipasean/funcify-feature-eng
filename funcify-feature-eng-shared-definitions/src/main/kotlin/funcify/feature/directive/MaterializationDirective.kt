@@ -10,6 +10,8 @@ interface MaterializationDirective {
 
     val name: String
 
+    val description: String
+
     val supportedDirectiveLocations: List<DirectiveLocation>
 
     val inputValueDefinitions: List<InputValueDefinition>
@@ -25,7 +27,7 @@ interface MaterializationDirective {
     /**
      * Any [EnumTypeDefinition]s referenced in one or more of the [InputValueDefinition]s for this
      * directive that must be present when creating the SDL [DirectiveDefinition]
-     * @default_value: an empty list if no input_object_definitions are needed
+     * @default_value: an empty list if no enum_type_definitions are needed
      */
     val referencedEnumTypeDefinition: List<EnumTypeDefinition>
         get() = emptyList()

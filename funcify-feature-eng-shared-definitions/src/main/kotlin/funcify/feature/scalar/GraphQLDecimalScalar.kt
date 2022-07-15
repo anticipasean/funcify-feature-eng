@@ -1,5 +1,8 @@
 package funcify.feature.scalar
 
+import graphql.language.Description
+import graphql.language.ScalarTypeDefinition
+import graphql.language.SourceLocation
 import graphql.schema.Coercing
 import graphql.schema.GraphQLScalarType
 import java.math.BigDecimal
@@ -28,5 +31,8 @@ interface GraphQLDecimalScalar {
 
     val coercingFunction: Coercing<BigDecimal, BigDecimal>
 
+    val graphQLScalarTypeDefinition: ScalarTypeDefinition
+
     val graphQLScalarType: GraphQLScalarType
+
 }
