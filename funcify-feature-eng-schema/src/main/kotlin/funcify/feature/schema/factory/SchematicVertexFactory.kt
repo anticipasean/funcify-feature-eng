@@ -2,6 +2,8 @@ package funcify.feature.schema.factory
 
 import funcify.feature.schema.SchematicVertex
 import funcify.feature.schema.datasource.DataSource
+import funcify.feature.schema.datasource.ParameterAttribute
+import funcify.feature.schema.datasource.ParameterContainerType
 import funcify.feature.schema.datasource.SourceAttribute
 import funcify.feature.schema.datasource.SourceContainerType
 import funcify.feature.schema.datasource.SourceIndex
@@ -26,6 +28,14 @@ interface SchematicVertexFactory {
                     @Suppress("UNCHECKED_CAST") //
                     forSourceAttribute(sourceIndex as SourceAttribute<SI>)
                 }
+                is ParameterContainerType<*, *> -> {
+                    @Suppress("UNCHECKED_CAST") //
+                    forParameterContainerType(sourceIndex as ParameterContainerType<SI, *>)
+                }
+                is ParameterAttribute<*> -> {
+                    @Suppress("UNCHECKED_CAST") //
+                    forParameterAttribute(sourceIndex as ParameterAttribute<SI>)
+                }
                 else ->
                     throw SchemaException(
                         SchemaErrorResponse.UNEXPECTED_ERROR,
@@ -40,6 +50,14 @@ interface SchematicVertexFactory {
 
         fun <SI : SourceIndex<SI>, A : SourceAttribute<SI>> forSourceContainerType(
             sourceContainerType: SourceContainerType<SI, A>
+        ): DataSourceSpec<SI>
+
+        fun <SI : SourceIndex<SI>> forParameterAttribute(
+            parameterAttribute: ParameterAttribute<SI>
+        ): DataSourceSpec<SI>
+
+        fun <SI : SourceIndex<SI>, A : ParameterAttribute<SI>> forParameterContainerType(
+            parameterContainerType: ParameterContainerType<SI, A>
         ): DataSourceSpec<SI>
 
         fun fromExistingVertex(
@@ -59,6 +77,14 @@ interface SchematicVertexFactory {
                     @Suppress("UNCHECKED_CAST") //
                     forSourceAttribute(sourceIndex as SourceAttribute<SI>)
                 }
+                is ParameterContainerType<*, *> -> {
+                    @Suppress("UNCHECKED_CAST") //
+                    forParameterContainerType(sourceIndex as ParameterContainerType<SI, *>)
+                }
+                is ParameterAttribute<*> -> {
+                    @Suppress("UNCHECKED_CAST") //
+                    forParameterAttribute(sourceIndex as ParameterAttribute<SI>)
+                }
                 else ->
                     throw SchemaException(
                         SchemaErrorResponse.UNEXPECTED_ERROR,
@@ -73,6 +99,14 @@ interface SchematicVertexFactory {
 
         fun <SI : SourceIndex<SI>, A : SourceAttribute<SI>> forSourceContainerType(
             sourceContainerType: SourceContainerType<SI, A>
+        ): DataSourceSpec<SI>
+
+        fun <SI : SourceIndex<SI>> forParameterAttribute(
+            parameterAttribute: ParameterAttribute<SI>
+        ): DataSourceSpec<SI>
+
+        fun <SI : SourceIndex<SI>, A : ParameterAttribute<SI>> forParameterContainerType(
+            parameterContainerType: ParameterContainerType<SI, A>
         ): DataSourceSpec<SI>
     }
 

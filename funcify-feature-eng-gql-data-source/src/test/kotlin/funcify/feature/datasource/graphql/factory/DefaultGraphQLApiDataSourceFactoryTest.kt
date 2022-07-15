@@ -6,7 +6,8 @@ import arrow.core.or
 import arrow.core.toOption
 import com.fasterxml.jackson.databind.ObjectMapper
 import funcify.feature.datasource.graphql.GraphQLApiDataSource
-import funcify.feature.datasource.graphql.metadata.DefaultGraphQLApiSourceMetadataReader
+import funcify.feature.datasource.graphql.metadata.ComprehensiveGraphQLApiSourceMetadataReader
+import funcify.feature.datasource.graphql.metadata.DefaultGraphQLSourceIndexCreationContextFactory
 import funcify.feature.datasource.graphql.metadata.InternalServiceTypesExcludingSourceMetadataFilter
 import funcify.feature.datasource.graphql.metadata.MockGraphQLApiSourceMetadataProvider
 import funcify.feature.datasource.graphql.schema.DefaultGraphQLSourceAttribute
@@ -35,8 +36,10 @@ internal class DefaultGraphQLApiDataSourceFactoryTest {
             graphQLApiSourceMetadataProvider =
                 MockGraphQLApiSourceMetadataProvider(objectMapper = objectMapper),
             graphQLApiSourceMetadataReader =
-                DefaultGraphQLApiSourceMetadataReader(
+                ComprehensiveGraphQLApiSourceMetadataReader(
                     graphQLSourceIndexFactory = DefaultGraphQLSourceIndexFactory(),
+                    graphQLSourceIndexCreationContextFactory =
+                        DefaultGraphQLSourceIndexCreationContextFactory,
                     graphQLApiSourceMetadataFilter =
                         InternalServiceTypesExcludingSourceMetadataFilter()
                 )
@@ -165,11 +168,11 @@ internal class DefaultGraphQLApiDataSourceFactoryTest {
                 .toOption()
                 .filterIsInstance<SourceJunctionVertex>()
                 .filter { jv ->
-                    jv.compositeAttribute.getSourceAttributeByDataSource()[
-                        graphQLApiDataSource.key] is
+                    jv.compositeAttribute
+                        .getSourceAttributeByDataSource()[graphQLApiDataSource.key] is
                         DefaultGraphQLSourceAttribute &&
-                        jv.compositeContainerType.getSourceContainerTypeByDataSource()[
-                            graphQLApiDataSource.key] is
+                        jv.compositeContainerType
+                            .getSourceContainerTypeByDataSource()[graphQLApiDataSource.key] is
                             DefaultGraphQLSourceContainerType
                 }
                 .isDefined(),
