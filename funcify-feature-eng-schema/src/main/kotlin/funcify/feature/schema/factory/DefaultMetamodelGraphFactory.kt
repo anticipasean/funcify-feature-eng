@@ -1,13 +1,10 @@
 package funcify.feature.schema.factory
 
 import arrow.core.getOrNone
-import arrow.core.left
-import arrow.core.right
 import funcify.feature.schema.MetamodelGraph
 import funcify.feature.schema.SchematicEdge
 import funcify.feature.schema.SchematicVertex
 import funcify.feature.schema.datasource.DataSource
-import funcify.feature.schema.datasource.SourceContainerType
 import funcify.feature.schema.datasource.SourceIndex
 import funcify.feature.schema.datasource.SourcePathTransformer
 import funcify.feature.schema.error.SchemaErrorResponse
@@ -15,12 +12,9 @@ import funcify.feature.schema.error.SchemaException
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.container.graph.PathBasedGraph
-import funcify.feature.tools.control.TraversalFunctions
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.PersistentMapExtensions.streamEntries
 import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
-import java.util.stream.Stream
-import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.persistentMapOf
 import org.slf4j.Logger
@@ -105,11 +99,12 @@ internal class DefaultMetamodelGraphFactory(
                                 },
                             schematicVerticesByPathAttempt =
                                 schematicVerticesByPathAttempt.flatMap { schematicVerticesByPath ->
-                                    dataSource
-                                        .sourceMetamodel
-                                        .sourceIndicesByPath
+                                    dataSource.sourceMetamodel.sourceIndicesByPath
                                         .streamEntries()
-                                        .flatMap(::expandAndIncludeChildSourceIndicesRecursively)
+                                        .flatMap { (_, sourceIndexSet) -> sourceIndexSet.stream() }
+                                        .sorted { si1, si2 ->
+                                            si1.sourcePath.compareTo(si2.sourcePath)
+                                        }
                                         .reduce(
                                             Try.success(schematicVerticesByPath),
                                             { svpAttempt, sourceIndex ->
@@ -128,8 +123,8 @@ internal class DefaultMetamodelGraphFactory(
                                                     .peekIfFailure { thr: Throwable ->
                                                         logger.error(
                                                             """add_data_source: [ status: failed ] 
-                                                           |[ error: { type: ${thr::class.qualifiedName}, 
-                                                           |message: "${thr.message}" } ]""".flattenIntoOneLine()
+                                                               |[ error: { type: ${thr::class.qualifiedName}, 
+                                                               |message: "${thr.message}" } ]""".flattenIntoOneLine()
                                                         )
                                                     }
                                             },
@@ -144,38 +139,6 @@ internal class DefaultMetamodelGraphFactory(
                 }
             }
 
-            private fun <SI : SourceIndex<SI>> expandAndIncludeChildSourceIndicesRecursively(
-                entry: Map.Entry<SchematicPath, ImmutableSet<SI>>
-            ): Stream<SI> {
-                return entry
-                    .value
-                    .stream()
-                    .flatMap { si: SI ->
-                        TraversalFunctions.recurseWithStream(si) { inputSI: SI ->
-                            if (inputSI is SourceContainerType<*, *>) {
-                                Stream.concat(
-                                    inputSI
-                                        .sourceAttributes
-                                        .stream()
-                                        .map { sa ->
-                                            /**
-                                             * All source attrs must be subtypes of SI in this
-                                             * context
-                                             */
-                                            @Suppress("UNCHECKED_CAST") //
-                                            sa as SI
-                                        }
-                                        .map { saSI: SI -> saSI.left() },
-                                    Stream.of(inputSI.right())
-                                )
-                            } else {
-                                Stream.of(inputSI.right())
-                            }
-                        }
-                    }
-                    .sorted(Comparator.comparing { si: SI -> si.sourcePath.pathSegments.size })
-            }
-
             private fun <SI : SourceIndex<SI>> createNewOrUpdateExistingSchematicVertex(
                 dataSource: DataSource<SI>,
                 existingSchematicVerticesByPath: PersistentMap<SchematicPath, SchematicVertex>,
@@ -186,7 +149,8 @@ internal class DefaultMetamodelGraphFactory(
                         sourcePath = sourceIndex.sourcePath,
                         dataSource = dataSource
                     )
-                return when (val existingVertex: SchematicVertex? =
+                return when (
+                    val existingVertex: SchematicVertex? =
                         existingSchematicVerticesByPath[transformedSourcePath]
                 ) {
                     null -> {
