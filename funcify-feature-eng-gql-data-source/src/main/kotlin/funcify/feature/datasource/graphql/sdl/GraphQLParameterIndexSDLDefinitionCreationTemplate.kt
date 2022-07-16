@@ -11,6 +11,7 @@ import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionCreationContex
 import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionCreationContext.ParameterLeafVertexSDLDefinitionCreationContext
 import funcify.feature.schema.vertex.ParameterJunctionVertex
 import funcify.feature.tools.container.attempt.Try
+import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
 import funcify.feature.tools.extensions.TryExtensions.failure
 import funcify.feature.tools.extensions.TryExtensions.successIfNonNull
@@ -21,6 +22,7 @@ import graphql.language.Value
 import graphql.schema.GraphQLAppliedDirectiveArgument
 import graphql.schema.GraphQLArgument
 import graphql.schema.GraphQLInputObjectField
+import org.slf4j.Logger
 
 /**
  *
@@ -29,9 +31,16 @@ import graphql.schema.GraphQLInputObjectField
  */
 interface GraphQLParameterIndexSDLDefinitionCreationTemplate {
 
+    companion object {
+        private val logger: Logger = loggerFor<GraphQLParameterIndexSDLDefinitionCreationTemplate>()
+    }
+
     fun createParameterSDLDefinitionForParameterJunctionVertexInContext(
         parameterJunctionVertexContext: ParameterJunctionVertexSDLDefinitionCreationContext
     ): Try<SchematicVertexSDLDefinitionCreationContext<*>> {
+        logger.debug(
+            "create_parameter_sdl_definition_for_parameter_junction_vertex_in_context: [ path: ${parameterJunctionVertexContext.path} ]"
+        )
         return parameterJunctionVertexContext.compositeParameterContainerType
             .getParameterContainerTypeByDataSource()
             .values
@@ -84,6 +93,9 @@ interface GraphQLParameterIndexSDLDefinitionCreationTemplate {
     fun createParameterSDLDefinitionForParameterLeafVertexInContext(
         parameterLeafVertexContext: ParameterLeafVertexSDLDefinitionCreationContext
     ): Try<SchematicVertexSDLDefinitionCreationContext<*>> {
+        logger.debug(
+            "create_parameter_sdl_definition_for_parameter_leaf_vertex_in_context: [ path: ${parameterLeafVertexContext.path} ]"
+        )
         return parameterLeafVertexContext.compositeParameterAttribute
             .getParameterAttributesByDataSource()
             .values

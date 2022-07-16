@@ -4,7 +4,6 @@ import funcify.feature.datasource.error.DataSourceErrorResponse
 import funcify.feature.datasource.error.DataSourceException
 import funcify.feature.datasource.graphql.error.GQLDataSourceErrorResponse
 import funcify.feature.datasource.graphql.error.GQLDataSourceException
-import funcify.feature.datasource.graphql.schema.GraphQLParameterContainerType
 import funcify.feature.datasource.graphql.schema.GraphQLSourceAttribute
 import funcify.feature.datasource.graphql.schema.GraphQLSourceContainerType
 import funcify.feature.datasource.graphql.schema.GraphQLSourceIndex
@@ -17,13 +16,11 @@ import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionCreationContex
 import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionImplementationStrategy
 import funcify.feature.datasource.sdl.impl.DataSourceIndexTypeBasedSDLDefinitionStrategy
 import funcify.feature.schema.datasource.DataSource
-import funcify.feature.schema.index.CompositeParameterContainerType
 import funcify.feature.schema.index.CompositeSourceAttribute
 import funcify.feature.schema.index.CompositeSourceContainerType
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
-import funcify.feature.tools.extensions.TryExtensions.successIfNonNull
 import graphql.language.Description
 import graphql.language.FieldDefinition
 import graphql.language.Node
@@ -48,6 +45,9 @@ class GraphQLSourceIndexBasedSDLDefinitionImplementationStrategy :
     companion object {
         private val logger: Logger =
             loggerFor<GraphQLSourceIndexBasedSDLDefinitionImplementationStrategy>()
+
+        private object DefaultGraphQLParameterIndexSDLDefinitionCreationFactory :
+            GraphQLParameterIndexSDLDefinitionCreationTemplate {}
     }
 
     override fun applyToContext(
@@ -102,33 +102,12 @@ class GraphQLSourceIndexBasedSDLDefinitionImplementationStrategy :
                     }
             }
             is ParameterJunctionVertexSDLDefinitionCreationContext -> {
-                logger.debug(
-                    "parameter_junction_vertex_context: [ attribute_name: ${context.compositeParameterAttribute.conventionalName.toString()}, path: ${context.path} ]"
-                )
-                logger.debug(
-                    "parameter_junction_vertex_context: [ type_name: ${context.compositeParameterContainerType.conventionalName.toString()}, path: ${context.path} ]"
-                )
-                val compositeParameterContainerType: CompositeParameterContainerType =
-                    context.compositeParameterContainerType
-                compositeParameterContainerType
-                    .getParameterContainerTypeByDataSource()
-                    .asSequence()
-                    .filter { (dsKey, _) ->
-                        dsKey.sourceIndexType.isSubclassOf(GraphQLSourceIndex::class)
-                    }
-                    .map { (_, pct) -> pct }
-                    .filterIsInstance<GraphQLParameterContainerType>()
-                    .firstOrNull()
-                    .successIfNonNull()
-                    .map { pct: GraphQLParameterContainerType -> }
-
-                context.successIfNonNull()
+                DefaultGraphQLParameterIndexSDLDefinitionCreationFactory
+                    .createParameterSDLDefinitionForParameterJunctionVertexInContext(context)
             }
             is ParameterLeafVertexSDLDefinitionCreationContext -> {
-                logger.debug(
-                    "parameter_leaf_vertex_context: [ attribute_name: ${context.compositeParameterAttribute.conventionalName.toString()}, path: ${context.path} ]"
-                )
-                context.successIfNonNull()
+                DefaultGraphQLParameterIndexSDLDefinitionCreationFactory
+                    .createParameterSDLDefinitionForParameterLeafVertexInContext(context)
             }
         }
     }
