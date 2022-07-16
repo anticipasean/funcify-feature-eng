@@ -337,28 +337,98 @@ class ComprehensiveGraphQLApiSourceMetadataReader(
                     .orElseThrow()
             }
             is DirectiveSourceIndexCreationContext -> {
-                val parentFieldDefinition: GraphQLFieldDefinition =
-                    context.parentFieldDefinition
-                        .successIfDefined {
-                            GQLDataSourceException(
-                                GQLDataSourceErrorResponse.UNEXPECTED_ERROR,
-                                """parent_schema_element of field_directive 
-                                   |must be a graphql_field_definition: 
-                                   |[ actual_type: ${parent::class.simpleName} ]
-                                   |""".flattenIntoOneLine()
-                            )
+                when {
+                        context.parentFieldDefinition.isDefined() -> {
+                            graphQLSourceIndexFactory
+                                .createParameterAttributeForDataSourceKey(
+                                    context.graphQLApiDataSourceKey
+                                )
+                                .forAppliedDirective(context.currentElement)
+                                .onParentDefinition(
+                                    parentPath,
+                                    context.parentFieldDefinition.orNull()!!
+                                )
+                                .zip(
+                                    graphQLSourceIndexFactory
+                                        .createParameterContainerTypeForDataSourceKey(
+                                            context.graphQLApiDataSourceKey
+                                        )
+                                        .forAppliedDirective(context.currentElement)
+                                        .onParentDefinition(
+                                            parentPath,
+                                            context.parentFieldDefinition.orNull()!!
+                                        )
+                                )
                         }
-                        .orElseThrow()
-                graphQLSourceIndexFactory
-                    .createParameterAttributeForDataSourceKey(context.graphQLApiDataSourceKey)
-                    .withParentPathAndFieldDefinition(parentPath, parentFieldDefinition)
-                    .forChildDirective(context.currentElement)
-                    .map { graphQLParameterAttribute: GraphQLParameterAttribute ->
-                        context.update { builder ->
-                            builder.addOrUpdateGraphQLSourceIndex(graphQLParameterAttribute)
+                        context.parentArgument.isDefined() -> {
+                            graphQLSourceIndexFactory
+                                .createParameterAttributeForDataSourceKey(
+                                    context.graphQLApiDataSourceKey
+                                )
+                                .forAppliedDirective(context.currentElement)
+                                .onParentDefinition(parentPath, context.parentArgument.orNull()!!)
+                                .zip(
+                                    graphQLSourceIndexFactory
+                                        .createParameterContainerTypeForDataSourceKey(
+                                            context.graphQLApiDataSourceKey
+                                        )
+                                        .forAppliedDirective(context.currentElement)
+                                        .onParentDefinition(
+                                            parentPath,
+                                            context.parentArgument.orNull()!!
+                                        )
+                                )
+                        }
+                        context.parentInputObjectField.isDefined() -> {
+                            graphQLSourceIndexFactory
+                                .createParameterAttributeForDataSourceKey(
+                                    context.graphQLApiDataSourceKey
+                                )
+                                .forAppliedDirective(context.currentElement)
+                                .onParentDefinition(
+                                    parentPath,
+                                    context.parentInputObjectField.orNull()!!
+                                )
+                                .zip(
+                                    graphQLSourceIndexFactory
+                                        .createParameterContainerTypeForDataSourceKey(
+                                            context.graphQLApiDataSourceKey
+                                        )
+                                        .forAppliedDirective(context.currentElement)
+                                        .onParentDefinition(
+                                            parentPath,
+                                            context.parentInputObjectField.orNull()!!
+                                        )
+                                )
+                        }
+                        else -> {
+                            GQLDataSourceException(
+                                    GQLDataSourceErrorResponse.GRAPHQL_DATA_SOURCE_CREATION_ERROR,
+                                    """unhandled_applied_directive_case: 
+                                       |[ parent_element.type: ${parent::class.simpleName}, 
+                                       |child_directive.name: ${context.currentElement.name} 
+                                       |]""".flattenIntoOneLine()
+                                )
+                                .failure()
                         }
                     }
-                    .orElseThrow()
+                    .map { (paramAttr, paramContType) ->
+                        context.update { builder ->
+                            builder
+                                .addOrUpdateGraphQLSourceIndex(paramAttr)
+                                .addOrUpdateGraphQLSourceIndex(paramContType)
+                        }
+                    }
+                    .peekIfFailure { t: Throwable ->
+                        logger.warn(
+                            """directive_source_index_creation_context: 
+                            |[ status: failed but ignoring error ] 
+                            |[ type: ${t::class.simpleName}, message: ${t.message} ]
+                            |""".flattenIntoOneLine(),
+                            t
+                        )
+                    }
+                    .orElse(context)
             }
             is DirectiveArgumentSourceIndexCreationContext -> {
                 val parentDirective: GraphQLAppliedDirective =

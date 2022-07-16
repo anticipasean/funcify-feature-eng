@@ -160,8 +160,8 @@ sealed interface GraphQLSourceIndexCreationContext<E : GraphQLSchemaElement> {
         val parentArgument: Option<GraphQLArgument>
             get() = parentElements.filterIsInstance<GraphQLArgument>().firstOrNone()
 
-        val parentInputObjectType: Option<GraphQLInputObjectType>
-            get() = parentElements.filterIsInstance<GraphQLInputObjectType>().firstOrNone()
+        val parentInputObjectField: Option<GraphQLInputObjectField>
+            get() = parentElements.filterIsInstance<GraphQLInputObjectField>().firstOrNone()
     }
 
     interface DirectiveArgumentSourceIndexCreationContext :

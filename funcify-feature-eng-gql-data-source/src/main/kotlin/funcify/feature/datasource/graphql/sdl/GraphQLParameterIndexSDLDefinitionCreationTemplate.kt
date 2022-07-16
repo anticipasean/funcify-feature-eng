@@ -13,6 +13,7 @@ import funcify.feature.schema.vertex.ParameterJunctionVertex
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
 import funcify.feature.tools.extensions.TryExtensions.failure
+import funcify.feature.tools.extensions.TryExtensions.successIfNonNull
 import graphql.execution.ValuesResolver
 import graphql.language.InputObjectTypeDefinition
 import graphql.language.InputValueDefinition
@@ -152,6 +153,10 @@ interface GraphQLParameterIndexSDLDefinitionCreationTemplate {
                     graphQLParameterContainer,
                     graphQLParameterAttribute.inputObjectField.orNull()!!
                 )
+            }
+            graphQLParameterAttribute.isDirective() -> {
+                // Ignore for now and let materialization directives be added separately
+                parameterJunctionVertexContext.successIfNonNull()
             }
             else -> {
                 GQLDataSourceException(
@@ -371,6 +376,10 @@ interface GraphQLParameterIndexSDLDefinitionCreationTemplate {
         parameterLeafVertexContext: ParameterLeafVertexSDLDefinitionCreationContext,
         graphQLParameterAttribute: GraphQLParameterAttribute
     ): Try<SchematicVertexSDLDefinitionCreationContext<*>> {
+        if (graphQLParameterAttribute.isDirective()) {
+            // Ignore for now, let materialization directives be configured elsewhere
+            return parameterLeafVertexContext.successIfNonNull()
+        }
         return when {
             graphQLParameterAttribute.isArgumentOnFieldDefinition() -> {
                 createInputValueDefinitionForFieldArgumentOnParameterAttribute(

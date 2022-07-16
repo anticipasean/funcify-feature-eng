@@ -481,6 +481,12 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
             private val key: DataSource.Key<GraphQLSourceIndex>
         ) : ParameterParentDefinitionBase {
 
+            override fun forAppliedDirective(
+                appliedDirective: GraphQLAppliedDirective
+            ): AppliedDirectiveAttributeSpec {
+                return DefaultAppliedDirectiveAttributeSpec(key = key, directive = appliedDirective)
+            }
+
             override fun withParentPathAndFieldDefinition(
                 parentPath: SchematicPath,
                 parentDefinition: GraphQLFieldDefinition
@@ -666,37 +672,6 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
                     )
                     .successIfNonNull()
             }
-
-            override fun forChildDirective(
-                childDirective: GraphQLAppliedDirective
-            ): Try<GraphQLParameterAttribute> {
-                if (!parentDefinition.hasAppliedDirective(childDirective.name)) {
-                    val appliedDirectiveNames: String =
-                        parentDefinition.appliedDirectives
-                            .asSequence()
-                            .map { gqld -> gqld.name }
-                            .joinToString(", ", "{ ", " }")
-                    return GQLDataSourceException(
-                            GQLDataSourceErrorResponse.INVALID_INPUT,
-                            """child_directive must be present on 
-                               |parent_field_definition: 
-                               |[ expected: one of ${appliedDirectiveNames}, 
-                               |actual: ${childDirective.name} ]
-                               |""".flattenIntoOneLine()
-                        )
-                        .failure()
-                }
-                val directiveConventionalName: ConventionalName =
-                    StandardNamingConventions.IDENTITY.deriveName(childDirective.name)
-                val directivePath: SchematicPath =
-                    parentPath.transform { directive(directiveConventionalName.toString()) }
-                return DefaultGraphQLParameterDirectiveAttribute(
-                        sourcePath = directivePath,
-                        dataSourceLookupKey = key,
-                        directive = childDirective.some()
-                    )
-                    .successIfNonNull()
-            }
         }
         internal class DefaultParameterContainerTypeBase(
             private val key: DataSource.Key<GraphQLSourceIndex>
@@ -706,6 +681,12 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
                 fieldArgument: GraphQLArgument
             ): InputObjectTypeContainerSpec {
                 return DefaultInputObjectTypeContainerSpec(key = key, fieldArgument = fieldArgument)
+            }
+
+            override fun forAppliedDirective(
+                directive: GraphQLAppliedDirective
+            ): AppliedDirectiveContainerSpec {
+                return DefaultAppliedDirectiveContainerSpec(key = key, directive = directive)
             }
 
             override fun forDirectiveArgument(
@@ -1141,7 +1122,8 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
                             JsonNodeFactory.instance
                                 .objectNode()
                                 .putNull(childInputObjectField.name)
-                        // TODO: The following path creation is too simplistic and doesn't cover case
+                        // TODO: The following path creation is too simplistic and doesn't cover
+                        // case
                         //  where the parent is a nested object type entry
                         //  Solving for this case would require some recursive or nuanced traversal
                         //  logic
@@ -1168,6 +1150,158 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
                                 |must be defined in order to create a 
                                 |parameter_attribute for an input_object_field 
                                 |on one of them""".flattenIntoOneLine()
+                            )
+                            .failure()
+                    }
+                }
+            }
+        }
+
+        internal class DefaultAppliedDirectiveContainerSpec(
+            private val key: DataSource.Key<GraphQLSourceIndex>,
+            private val directive: GraphQLAppliedDirective
+        ) : AppliedDirectiveContainerSpec {
+
+            override fun onParentDefinition(
+                parentPath: SchematicPath,
+                parentSchemaElement: GraphQLNamedSchemaElement,
+            ): Try<GraphQLParameterContainerType> {
+                return when {
+                    parentPath.arguments.isNotEmpty() &&
+                        parentPath.directives.isEmpty() &&
+                        parentSchemaElement is GraphQLArgument &&
+                        parentSchemaElement.hasAppliedDirective(directive.name) -> {
+                        val directivePath: SchematicPath =
+                            parentPath.transform { directive(parentSchemaElement.name) }
+                        DefaultGraphQLParameterDirectiveContainerType(
+                                sourcePath = directivePath,
+                                dataSourceLookupKey = key,
+                                directive = directive.some()
+                            )
+                            .successIfNonNull()
+                    }
+                    parentPath.arguments.isEmpty() &&
+                        parentPath.directives.isEmpty() &&
+                        parentSchemaElement is GraphQLFieldDefinition &&
+                        parentSchemaElement.hasAppliedDirective(directive.name) -> {
+                        val directivePath: SchematicPath =
+                            parentPath.transform { directive(parentSchemaElement.name) }
+                        DefaultGraphQLParameterDirectiveContainerType(
+                                sourcePath = directivePath,
+                                dataSourceLookupKey = key,
+                                directive = directive.some()
+                            )
+                            .successIfNonNull()
+                    }
+                    (parentPath.arguments.isNotEmpty() || parentPath.directives.isNotEmpty()) &&
+                        parentSchemaElement is GraphQLInputObjectField &&
+                        parentSchemaElement.hasAppliedDirective(directive.name) -> {
+                        val directivePath: SchematicPath =
+                            parentPath.transform { directive(parentSchemaElement.name) }
+                        DefaultGraphQLParameterDirectiveContainerType(
+                                sourcePath = directivePath,
+                                dataSourceLookupKey = key,
+                                directive = directive.some()
+                            )
+                            .successIfNonNull()
+                    }
+                    else -> {
+                        val directiveParentPathAndElement: String =
+                            mapOf(
+                                    "directive.name" to directive.name,
+                                    "parent.path" to parentPath.toString(),
+                                    "parent.element_type" to
+                                        (parentSchemaElement::class.qualifiedName ?: "<NA>")
+                                )
+                                .asSequence()
+                                .joinToString(
+                                    separator = ", ",
+                                    prefix = "{ ",
+                                    postfix = " }",
+                                    transform = { (k, v) -> "$k: $v" }
+                                )
+                        GQLDataSourceException(
+                                GQLDataSourceErrorResponse.INVALID_INPUT,
+                                """directive does not meet one of 
+                                |the expected parent definition cases: 
+                                |[ actual: $directiveParentPathAndElement 
+                                |]""".flattenIntoOneLine()
+                            )
+                            .failure()
+                    }
+                }
+            }
+        }
+
+        internal class DefaultAppliedDirectiveAttributeSpec(
+            private val key: DataSource.Key<GraphQLSourceIndex>,
+            private val directive: GraphQLAppliedDirective
+        ) : AppliedDirectiveAttributeSpec {
+
+            override fun onParentDefinition(
+                parentPath: SchematicPath,
+                parentSchemaElement: GraphQLNamedSchemaElement,
+            ): Try<GraphQLParameterAttribute> {
+                return when {
+                    parentPath.arguments.isNotEmpty() &&
+                        parentPath.directives.isEmpty() &&
+                        parentSchemaElement is GraphQLArgument &&
+                        parentSchemaElement.hasAppliedDirective(directive.name) -> {
+                        val directivePath: SchematicPath =
+                            parentPath.transform { directive(parentSchemaElement.name) }
+                        DefaultGraphQLParameterDirectiveAttribute(
+                                sourcePath = directivePath,
+                                dataSourceLookupKey = key,
+                                directive = directive.some()
+                            )
+                            .successIfNonNull()
+                    }
+                    parentPath.arguments.isEmpty() &&
+                        parentPath.directives.isEmpty() &&
+                        parentSchemaElement is GraphQLFieldDefinition &&
+                        parentSchemaElement.hasAppliedDirective(directive.name) -> {
+                        val directivePath: SchematicPath =
+                            parentPath.transform { directive(parentSchemaElement.name) }
+                        DefaultGraphQLParameterDirectiveAttribute(
+                                sourcePath = directivePath,
+                                dataSourceLookupKey = key,
+                                directive = directive.some()
+                            )
+                            .successIfNonNull()
+                    }
+                    (parentPath.arguments.isNotEmpty() || parentPath.directives.isNotEmpty()) &&
+                        parentSchemaElement is GraphQLInputObjectField &&
+                        parentSchemaElement.hasAppliedDirective(directive.name) -> {
+                        val directivePath: SchematicPath =
+                            parentPath.transform { directive(parentSchemaElement.name) }
+                        DefaultGraphQLParameterDirectiveAttribute(
+                                sourcePath = directivePath,
+                                dataSourceLookupKey = key,
+                                directive = directive.some()
+                            )
+                            .successIfNonNull()
+                    }
+                    else -> {
+                        val directiveParentPathAndElement: String =
+                            mapOf(
+                                    "directive.name" to directive.name,
+                                    "parent.path" to parentPath.toString(),
+                                    "parent.element_type" to
+                                        (parentSchemaElement::class.qualifiedName ?: "<NA>")
+                                )
+                                .asSequence()
+                                .joinToString(
+                                    separator = ", ",
+                                    prefix = "{ ",
+                                    postfix = " }",
+                                    transform = { (k, v) -> "$k: $v" }
+                                )
+                        GQLDataSourceException(
+                                GQLDataSourceErrorResponse.INVALID_INPUT,
+                                """directive does not meet one of 
+                                   |the expected parent definition cases: 
+                                   |[ actual: $directiveParentPathAndElement 
+                                   |]""".flattenIntoOneLine()
                             )
                             .failure()
                     }

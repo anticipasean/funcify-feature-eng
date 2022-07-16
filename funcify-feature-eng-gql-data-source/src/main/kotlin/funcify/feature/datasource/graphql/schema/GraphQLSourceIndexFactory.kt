@@ -9,6 +9,7 @@ import graphql.schema.GraphQLArgument
 import graphql.schema.GraphQLFieldDefinition
 import graphql.schema.GraphQLInputObjectField
 import graphql.schema.GraphQLInputObjectType
+import graphql.schema.GraphQLNamedSchemaElement
 import graphql.schema.GraphQLObjectType
 import kotlinx.collections.immutable.ImmutableSet
 
@@ -98,6 +99,10 @@ interface GraphQLSourceIndexFactory {
 
     interface ParameterParentDefinitionBase {
 
+        fun forAppliedDirective(
+            appliedDirective: GraphQLAppliedDirective
+        ): AppliedDirectiveAttributeSpec
+
         fun withParentPathAndFieldDefinition(
             parentPath: SchematicPath,
             parentDefinition: GraphQLFieldDefinition
@@ -127,10 +132,6 @@ interface GraphQLSourceIndexFactory {
     interface ParameterAttributeSpec {
 
         fun forChildArgument(childArgument: GraphQLArgument): Try<GraphQLParameterAttribute>
-
-        fun forChildDirective(
-            childDirective: GraphQLAppliedDirective
-        ): Try<GraphQLParameterAttribute>
     }
 
     interface ParameterDirectiveArgumentAttributeSpec {
@@ -151,6 +152,8 @@ interface GraphQLSourceIndexFactory {
 
         fun forFieldArgument(fieldArgument: GraphQLArgument): InputObjectTypeContainerSpec
 
+        fun forAppliedDirective(directive: GraphQLAppliedDirective): AppliedDirectiveContainerSpec
+
         fun forDirectiveArgument(
             directiveArgument: GraphQLAppliedDirectiveArgument
         ): DirectiveContainerTypeSpec
@@ -170,5 +173,21 @@ interface GraphQLSourceIndexFactory {
             parentDirectivePath: SchematicPath,
             parentAppliedDirective: GraphQLAppliedDirective
         ): Try<GraphQLParameterContainerType>
+    }
+
+    interface AppliedDirectiveContainerSpec {
+
+        fun onParentDefinition(
+            parentPath: SchematicPath,
+            parentSchemaElement: GraphQLNamedSchemaElement
+        ): Try<GraphQLParameterContainerType>
+    }
+
+    interface AppliedDirectiveAttributeSpec {
+
+        fun onParentDefinition(
+            parentPath: SchematicPath,
+            parentSchemaElement: GraphQLNamedSchemaElement
+        ): Try<GraphQLParameterAttribute>
     }
 }
