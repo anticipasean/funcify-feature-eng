@@ -33,33 +33,4 @@ class RestApiDataSourceConfiguration {
     fun swaggerSchemaEndpointRegistry(): SwaggerSchemaEndpointRegistry {
         return DefaultSwaggerSchemaEndpointRegistry()
     }
-
-    //    @ConditionalOnMissingBean(value = [RestApiDataSourceFactory::class])
-    //    @ConditionalOnBean(value = [ObjectMapper::class])
-    //    @Bean
-    //    fun RestApiDataSourceFactory(
-    //        objectMapper: ObjectMapper,
-    //        restFetcherMetadataProvider: RestApiFetcherMetadataProvider<*>,
-    //        restMetadataReaderProvider: RestApiSourceMetadataReader<*>
-    //    ): RestApiDataSourceFactory {
-    //        return DefaultRestApiDataSourceFactory<Any>(
-    //            restApiFetcherMetadataProvider = restFetcherMetadataProvider,
-    //            restApiSourceMetadataReader = restMetadataReaderProvider
-    //        )
-    //    }
-
-    //    @ConditionalOnMissingBean(value = [RestApiFetcherMetadataProvider::class])
-    //    @ConditionalOnBean(value = [ObjectMapper::class])
-    //    @Bean
-    //    fun restFetcherMetadataProvider(objectMapper: ObjectMapper):
-    // RestApiFetcherMetadataProvider<*> {
-    //
-    //    }
-
-    //    @ConditionalOnMissingBean(value = [RestApiSourceMetadataReader::class])
-    //    @Bean
-    //    fun restApiSourceMetadataReader(
-    //    ): RestApiSourceMetadataReader<*> {
-    //
-    //    }
 }

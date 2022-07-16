@@ -28,7 +28,7 @@ import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 
 @Configuration
-open class MaterializerConfiguration {
+class MaterializerConfiguration {
 
     companion object {
         private val logger: Logger = loggerFor<MaterializerConfiguration>()
