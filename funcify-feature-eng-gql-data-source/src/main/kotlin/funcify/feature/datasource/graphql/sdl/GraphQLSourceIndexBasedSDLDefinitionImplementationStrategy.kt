@@ -1,15 +1,10 @@
 package funcify.feature.datasource.graphql.sdl
 
-import arrow.core.Either
-import arrow.core.Option
-import arrow.core.left
-import arrow.core.none
-import arrow.core.right
-import arrow.core.some
 import funcify.feature.datasource.error.DataSourceErrorResponse
 import funcify.feature.datasource.error.DataSourceException
 import funcify.feature.datasource.graphql.error.GQLDataSourceErrorResponse
 import funcify.feature.datasource.graphql.error.GQLDataSourceException
+import funcify.feature.datasource.graphql.schema.GraphQLParameterContainerType
 import funcify.feature.datasource.graphql.schema.GraphQLSourceAttribute
 import funcify.feature.datasource.graphql.schema.GraphQLSourceContainerType
 import funcify.feature.datasource.graphql.schema.GraphQLSourceIndex
@@ -22,30 +17,19 @@ import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionCreationContex
 import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionImplementationStrategy
 import funcify.feature.datasource.sdl.impl.DataSourceIndexTypeBasedSDLDefinitionStrategy
 import funcify.feature.schema.datasource.DataSource
+import funcify.feature.schema.index.CompositeParameterContainerType
 import funcify.feature.schema.index.CompositeSourceAttribute
 import funcify.feature.schema.index.CompositeSourceContainerType
 import funcify.feature.tools.container.attempt.Try
-import funcify.feature.tools.control.TraversalFunctions
-import funcify.feature.tools.extensions.FunctionExtensions.compose
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
 import funcify.feature.tools.extensions.TryExtensions.successIfNonNull
 import graphql.language.Description
 import graphql.language.FieldDefinition
-import graphql.language.ListType
 import graphql.language.Node
-import graphql.language.NonNullType
 import graphql.language.ObjectTypeDefinition
 import graphql.language.SourceLocation
-import graphql.language.Type
-import graphql.language.TypeName
 import graphql.schema.GraphQLFieldsContainer
-import graphql.schema.GraphQLInputType
-import graphql.schema.GraphQLList
-import graphql.schema.GraphQLNamedType
-import graphql.schema.GraphQLNonNull
-import graphql.schema.GraphQLOutputType
-import graphql.schema.GraphQLType
 import kotlin.reflect.full.isSubclassOf
 import org.slf4j.Logger
 
@@ -124,6 +108,20 @@ class GraphQLSourceIndexBasedSDLDefinitionImplementationStrategy :
                 logger.debug(
                     "parameter_junction_vertex_context: [ type_name: ${context.compositeParameterContainerType.conventionalName.toString()}, path: ${context.path} ]"
                 )
+                val compositeParameterContainerType: CompositeParameterContainerType =
+                    context.compositeParameterContainerType
+                compositeParameterContainerType
+                    .getParameterContainerTypeByDataSource()
+                    .asSequence()
+                    .filter { (dsKey, _) ->
+                        dsKey.sourceIndexType.isSubclassOf(GraphQLSourceIndex::class)
+                    }
+                    .map { (_, pct) -> pct }
+                    .filterIsInstance<GraphQLParameterContainerType>()
+                    .firstOrNull()
+                    .successIfNonNull()
+                    .map { pct: GraphQLParameterContainerType -> }
+
                 context.successIfNonNull()
             }
             is ParameterLeafVertexSDLDefinitionCreationContext -> {
@@ -258,8 +256,8 @@ class GraphQLSourceIndexBasedSDLDefinitionImplementationStrategy :
     ): ObjectTypeDefinition {
         val graphQLFieldsContainerType: GraphQLFieldsContainer =
             Try.attempt { graphQLSourceContainerType.graphQLFieldsContainerType }.orElseThrow()
-        return when (val fieldsContainerDefinition: Node<Node<*>>? =
-                graphQLFieldsContainerType.definition
+        return when (
+            val fieldsContainerDefinition: Node<Node<*>>? = graphQLFieldsContainerType.definition
         ) { //
             // null if fieldsContainerType was not based on an SDL definition
             null -> {
@@ -325,11 +323,13 @@ class GraphQLSourceIndexBasedSDLDefinitionImplementationStrategy :
     private fun deriveFieldDefinitionFromGraphQLSourceAttribute(
         graphQLSourceAttribute: GraphQLSourceAttribute
     ): FieldDefinition {
-        return when (val sdlDefinition: FieldDefinition? =
+        return when (
+            val sdlDefinition: FieldDefinition? =
                 graphQLSourceAttribute.graphQLFieldDefinition.definition
         ) {
             null -> {
-                if (graphQLSourceAttribute.graphQLFieldDefinition.description?.isNotEmpty() == true
+                if (
+                    graphQLSourceAttribute.graphQLFieldDefinition.description?.isNotEmpty() == true
                 ) {
                     FieldDefinition.newFieldDefinition()
                         .name(graphQLSourceAttribute.graphQLFieldDefinition.name)
@@ -344,7 +344,7 @@ class GraphQLSourceIndexBasedSDLDefinitionImplementationStrategy :
                             )
                         )
                         .type(
-                            recursivelyDetermineSDLTypeForGraphQLInputOrOutputType(
+                            GraphQLSDLTypeComposer.invoke(
                                 graphQLInputOrOutputType =
                                     graphQLSourceAttribute.graphQLFieldDefinition.type
                             )
@@ -354,7 +354,7 @@ class GraphQLSourceIndexBasedSDLDefinitionImplementationStrategy :
                     FieldDefinition.newFieldDefinition()
                         .name(graphQLSourceAttribute.graphQLFieldDefinition.name)
                         .type(
-                            recursivelyDetermineSDLTypeForGraphQLInputOrOutputType(
+                            GraphQLSDLTypeComposer.invoke(
                                 graphQLInputOrOutputType =
                                     graphQLSourceAttribute.graphQLFieldDefinition.type
                             )
@@ -366,76 +366,5 @@ class GraphQLSourceIndexBasedSDLDefinitionImplementationStrategy :
                 sdlDefinition
             }
         }
-    }
-
-    private fun recursivelyDetermineSDLTypeForGraphQLInputOrOutputType(
-        graphQLInputOrOutputType: GraphQLType
-    ): Type<*> {
-        if (graphQLInputOrOutputType !is GraphQLOutputType &&
-                graphQLInputOrOutputType !is GraphQLInputType
-        ) {
-            val message =
-                """the graphql_type passed in as input is 
-                   |neither an input or output type 
-                   |so an SDL Type<*> instance cannot be determined: 
-                   |[ actual: ${graphQLInputOrOutputType::class.qualifiedName} 
-                   |]""".flattenIntoOneLine()
-            throw GQLDataSourceException(GQLDataSourceErrorResponse.SCHEMA_CREATION_ERROR, message)
-        }
-        val traversalFunction:
-            (Pair<(Type<*>) -> Type<*>, GraphQLType>) -> Option<
-                    Either<Pair<(Type<*>) -> Type<*>, GraphQLType>, Type<*>>> =
-            { pair: Pair<(Type<*>) -> Type<*>, GraphQLType> ->
-                when (val graphQLType: GraphQLType = pair.second) {
-                    is GraphQLNonNull ->
-                        (pair.first.compose<Type<*>, Type<*>, Type<*>> { t: Type<*> ->
-                                NonNullType.newNonNullType().type(t).build()
-                            } to graphQLType.wrappedType)
-                            .left()
-                            .some()
-                    is GraphQLList ->
-                        (pair.first.compose<Type<*>, Type<*>, Type<*>> { t: Type<*> ->
-                                ListType.newListType().type(t).build()
-                            } to graphQLType.wrappedType)
-                            .left()
-                            .some()
-                    is GraphQLNamedType ->
-                        pair.first
-                            .invoke(TypeName.newTypeName(graphQLType.name).build())
-                            .right()
-                            .some()
-                    else -> none()
-                }
-            }
-        return TraversalFunctions.recurseWithOption(
-                ({ t: Type<*> -> t } to graphQLInputOrOutputType),
-                traversalFunction
-            )
-            .fold(
-                { ->
-                    throw unnamedGraphQLInputOrOutputTypeGraphQLSchemaCreationError(
-                        graphQLInputOrOutputType
-                    )
-                },
-                { t: Type<*> -> t }
-            )
-    }
-
-    private fun unnamedGraphQLInputOrOutputTypeGraphQLSchemaCreationError(
-        graphQLInputOrOutputType: GraphQLType
-    ): GQLDataSourceException {
-        val inputOrOutputType: String =
-            if (graphQLInputOrOutputType is GraphQLInputType) {
-                "input_type"
-            } else {
-                "output_type"
-            }
-        return GQLDataSourceException(
-            GQLDataSourceErrorResponse.SCHEMA_CREATION_ERROR,
-            """graphql_field_definition.${inputOrOutputType} [ type.to_string: 
-                |$graphQLInputOrOutputType ] 
-                |does not have name for use in SDL type creation
-                |""".flattenIntoOneLine()
-        )
     }
 }
