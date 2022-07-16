@@ -8,11 +8,11 @@ import funcify.feature.datasource.graphql.factory.GraphQLApiServiceFactory
 import funcify.feature.datasource.graphql.metadata.CompositeGraphQLApiSourceMetadataFilter
 import funcify.feature.datasource.graphql.metadata.ComprehensiveGraphQLApiSourceMetadataReader
 import funcify.feature.datasource.graphql.metadata.DefaultGraphQLApiSourceMetadataProvider
-import funcify.feature.datasource.graphql.metadata.DefaultGraphQLApiSourceMetadataReader
 import funcify.feature.datasource.graphql.metadata.DefaultGraphQLSourceIndexCreationContextFactory
 import funcify.feature.datasource.graphql.metadata.GraphQLApiSourceMetadataFilter
 import funcify.feature.datasource.graphql.metadata.GraphQLApiSourceMetadataProvider
 import funcify.feature.datasource.graphql.metadata.GraphQLApiSourceMetadataReader
+import funcify.feature.datasource.graphql.metadata.GraphQLSourceIndexCreationContextFactory
 import funcify.feature.datasource.graphql.schema.DefaultGraphQLSourceIndexFactory
 import funcify.feature.datasource.graphql.schema.GraphQLSourceIndexFactory
 import funcify.feature.datasource.graphql.sdl.GraphQLSourceIndexBasedSDLDefinitionImplementationStrategy
@@ -53,6 +53,8 @@ class GraphQLDataSourceConfiguration {
         objectMapper: ObjectMapper,
         graphQLApiSourceMetadataProvider: ObjectProvider<GraphQLApiSourceMetadataProvider>,
         graphQLMetadataReaderProvider: ObjectProvider<GraphQLApiSourceMetadataReader>,
+        graphQLSourceIndexCreationContextFactoryProvider:
+            ObjectProvider<GraphQLSourceIndexCreationContextFactory>,
         graphQLSourceIndexFactoryProvider: ObjectProvider<GraphQLSourceIndexFactory>,
         graphQLApiSourceMetadataFilter: CompositeGraphQLApiSourceMetadataFilter
     ): GraphQLApiDataSourceFactory {
@@ -63,9 +65,12 @@ class GraphQLDataSourceConfiguration {
                 },
             graphQLApiSourceMetadataReader =
                 graphQLMetadataReaderProvider.getIfAvailable {
-                    DefaultGraphQLApiSourceMetadataReader(
+                    ComprehensiveGraphQLApiSourceMetadataReader(
                         graphQLSourceIndexFactoryProvider.getIfAvailable {
                             DefaultGraphQLSourceIndexFactory()
+                        },
+                        graphQLSourceIndexCreationContextFactoryProvider.getIfAvailable {
+                            DefaultGraphQLSourceIndexCreationContextFactory
                         },
                         graphQLApiSourceMetadataFilter
                     )
