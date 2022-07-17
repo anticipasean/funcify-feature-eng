@@ -48,7 +48,8 @@ class DefaultSwaggerRestApiMetadataProvider(
             |""".flattenIntoOneLine()
         )
         return Deferred.fromAttempt(
-                swaggerSchemaEndpointRegistry.getSwaggerSchemaEndpointForRestApiService(service)
+                swaggerSchemaEndpointRegistry
+                    .getSwaggerSchemaEndpointForRestApiService(service)
                     .successIfDefined {
                         RestApiDataSourceException(
                             RestApiErrorResponse.REST_API_DATA_SOURCE_CREATION_ERROR,
@@ -80,6 +81,7 @@ class DefaultSwaggerRestApiMetadataProvider(
                 HttpMethod.GET -> {
                     updatedWebClient
                         .get()
+                        .uri(swaggerSchemaEndpoint.uriCustomizer())
                         .accept(MediaType.APPLICATION_JSON)
                         .acceptCharset(StandardCharsets.UTF_8)
                         .retrieve()
@@ -87,6 +89,7 @@ class DefaultSwaggerRestApiMetadataProvider(
                 HttpMethod.POST -> {
                     updatedWebClient
                         .post()
+                        .uri(swaggerSchemaEndpoint.uriCustomizer())
                         .contentType(MediaType.APPLICATION_JSON)
                         .accept(MediaType.APPLICATION_JSON)
                         .acceptCharset(StandardCharsets.UTF_8)
@@ -100,10 +103,10 @@ class DefaultSwaggerRestApiMetadataProvider(
                     throw RestApiDataSourceException(
                         RestApiErrorResponse.REST_API_DATA_SOURCE_CREATION_ERROR,
                         """unsupported http_method specified for use in calling 
-                                    |swagger_schema_endpoint: [ http_method: 
-                                    |${swaggerSchemaEndpoint.httpMethod}, 
-                                    |swagger_schema_endpoint.name: ${swaggerSchemaEndpoint.name} 
-                                    |]""".flattenIntoOneLine()
+                           |swagger_schema_endpoint: [ http_method: 
+                           |${swaggerSchemaEndpoint.httpMethod}, 
+                           |swagger_schema_endpoint.name: ${swaggerSchemaEndpoint.name} 
+                           |]""".flattenIntoOneLine()
                     )
                 }
             }

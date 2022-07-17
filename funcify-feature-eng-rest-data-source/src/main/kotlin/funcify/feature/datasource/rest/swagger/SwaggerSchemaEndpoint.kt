@@ -9,10 +9,12 @@ import funcify.feature.datasource.rest.RestApiService
 import funcify.feature.tools.container.deferred.Deferred
 import io.swagger.v3.oas.models.OpenAPI
 import io.swagger.v3.parser.OpenAPIV3Parser
+import java.net.URI
 import org.reactivestreams.Publisher
 import org.springframework.boot.web.reactive.function.client.WebClientCustomizer
 import org.springframework.http.HttpMethod
 import org.springframework.web.reactive.function.client.WebClient
+import org.springframework.web.util.UriBuilder
 
 /**
  * Represents an endpoint specification for [RestApiService]s that support [OpenAPI] models of their
@@ -22,9 +24,14 @@ import org.springframework.web.reactive.function.client.WebClient
  */
 interface SwaggerSchemaEndpoint {
 
-    val name: String
+    companion object {
 
-    val httpMethod: HttpMethod
+        fun builder(): Builder {
+            return DefaultSwaggerSchemaEndpoint.Companion.DefaultBuilder()
+        }
+    }
+
+    val name: String
 
     /**
      * This function is run on the [WebClient.mutate] for a given [RestApiService] before a
@@ -36,6 +43,16 @@ interface SwaggerSchemaEndpoint {
      */
     fun webClientCustomizer(): WebClientCustomizer {
         return WebClientCustomizer {}
+    }
+
+    val httpMethod: HttpMethod
+
+    /**
+     * This function is run on the [WebClient.RequestBodyUriSpec] after
+     * [SwaggerSchemaEndpoint.webClientCustomizer] has been applied and the http method chosen
+     */
+    fun uriCustomizer(): (UriBuilder) -> URI {
+        return { uriBuilder: UriBuilder -> uriBuilder.build() }
     }
 
     /**
@@ -65,5 +82,28 @@ interface SwaggerSchemaEndpoint {
      */
     fun responseOpenApiSpecificationJsonNodeContentPreprocessor(): (JsonNode) -> (JsonNode) {
         return ::identity
+    }
+
+    interface Builder {
+
+        fun name(name: String): Builder
+
+        fun webClientCustomizer(webClientCustomizer: WebClientCustomizer): Builder
+
+        fun httpMethod(httpMethod: HttpMethod): Builder
+
+        fun uriCustomizer(uriCustomizer: (UriBuilder) -> URI): Builder
+
+        fun requestBodyCreator(requestBodyCreator: () -> Publisher<JsonNode>): Builder
+
+        fun responseOpenApiSpecificationJsonPath(
+            responseOpenApiSpecificationJsonPath: JsonPath
+        ): Builder
+
+        fun responseJsonNodePreprocessor(
+            responseJsonNodePreprocessor: (JsonNode) -> JsonNode
+        ): Builder
+
+        fun build(): SwaggerSchemaEndpoint
     }
 }
