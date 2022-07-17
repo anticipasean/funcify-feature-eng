@@ -499,7 +499,7 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
                             .lastOrNone()
                             .filter { lastSegment ->
                                 parentDefinition.name.contains(
-                                    StandardNamingConventions.SNAKE_CASE.deriveName(lastSegment)
+                                    StandardNamingConventions.CAMEL_CASE.deriveName(lastSegment)
                                         .toString(),
                                     ignoreCase = true
                                 )

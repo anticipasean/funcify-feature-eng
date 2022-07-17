@@ -12,6 +12,14 @@ import kotlinx.collections.immutable.ImmutableCollection
  */
 interface SwaggerSchemaEndpointRegistry {
 
+    companion object {
+
+        fun newRegistry(): SwaggerSchemaEndpointRegistry {
+            return DefaultSwaggerSchemaEndpointRegistry()
+        }
+
+    }
+
     fun addOrUpdateSwaggerSchemaEndpointForRestApiService(
         swaggerSchemaEndpoint: SwaggerSchemaEndpoint,
         restApiService: RestApiService

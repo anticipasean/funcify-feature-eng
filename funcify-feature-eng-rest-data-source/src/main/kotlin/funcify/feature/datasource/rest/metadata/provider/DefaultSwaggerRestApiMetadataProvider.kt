@@ -30,7 +30,7 @@ import reactor.core.publisher.Mono
  * @author smccarron
  * @created 2022-07-09
  */
-class DefaultSwaggerRestApiMetadataProvider(
+internal class DefaultSwaggerRestApiMetadataProvider(
     private val jsonMapper: JsonMapper,
     private val swaggerSchemaEndpointRegistry: SwaggerSchemaEndpointRegistry
 ) : SwaggerRestApiMetadataProvider {
@@ -94,8 +94,11 @@ class DefaultSwaggerRestApiMetadataProvider(
                         .accept(MediaType.APPLICATION_JSON)
                         .acceptCharset(StandardCharsets.UTF_8)
                         .body(
-                            swaggerSchemaEndpoint.requestBodyCreator().invoke(),
-                            JsonNode::class.java
+                            Mono.from(swaggerSchemaEndpoint.requestBodyCreator().invoke())
+                                .flatMap { jn: JsonNode ->
+                                    jsonMapper.fromJsonNode(jn).toJsonString().toMono()
+                                },
+                            String::class.java
                         )
                         .retrieve()
                 }
@@ -119,9 +122,9 @@ class DefaultSwaggerRestApiMetadataProvider(
                         RestApiDataSourceException(
                             RestApiErrorResponse.REST_API_DATA_SOURCE_CREATION_ERROR,
                             """swagger_schema_endpoint on service [ name: ${service.serviceName} ] 
-                                           |did not successfully return a swagger_schema because: 
-                                           |[ response_code: ${cr.statusCode()}, message: ${errorMessage} ]
-                                           |""".flattenIntoOneLine()
+                              |did not successfully return a swagger_schema because: 
+                              |[ response_code: ${cr.statusCode()}, message: ${errorMessage} ]
+                              |""".flattenIntoOneLine()
                         )
                     }
                 }
@@ -157,20 +160,19 @@ class DefaultSwaggerRestApiMetadataProvider(
         return Try.attempt {
                 OpenAPIV3Parser().parseJsonNode(null, swaggerJsonNode, ParseOptions())
             }
-            .filter(
-                { swaggerParseResult: SwaggerParseResult -> swaggerParseResult.messages.isEmpty() },
-                { swaggerParseResult: SwaggerParseResult ->
-                    val messagesAsSet: String =
+            .peekIfSuccess { swaggerParseResult: SwaggerParseResult ->
+                if (!swaggerParseResult.messages.isNullOrEmpty()) {
+                    val errorMessageSet: String =
                         swaggerParseResult.messages.joinToString("\n", "[ ", " ]")
-                    RestApiDataSourceException(
-                        RestApiErrorResponse.REST_API_DATA_SOURCE_CREATION_ERROR,
-                        """swagger_parse_result contains some error messages 
+                    val logMessage =
+                        """extract_openapi_schema_from_json_node_response_body: 
+                           |[ warning: swagger_parse_result contains some error messages 
                            |for parsing swagger schema of [ service.name: ${service.serviceName} ]
-                           |[ messages: $messagesAsSet
-                           |""".flattenIntoOneLine()
-                    )
+                           |[ messages: $errorMessageSet ] 
+                           |]""".flattenIntoOneLine()
+                    logger.warn(logMessage)
                 }
-            )
+            }
             .map { swaggerParseResult: SwaggerParseResult -> swaggerParseResult.openAPI }
             .toMono()
     }
