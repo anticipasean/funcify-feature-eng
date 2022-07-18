@@ -17,5 +17,11 @@ enum class RestApiErrorResponse : ErrorResponse {
             get() = HttpStatus.INTERNAL_SERVER_ERROR.some()
         override val errorMessageIfHttp: Option<String>
             get() = "unexpected error occurred".some()
+    },
+    INVALID_INPUT {
+        override val responseStatusIfHttp: Option<HttpStatus>
+            get() = HttpStatus.BAD_REQUEST.some()
+        override val errorMessageIfHttp: Option<String>
+            get() = "invalid input provided to method".some()
     }
 }

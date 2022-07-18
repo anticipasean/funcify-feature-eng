@@ -5,12 +5,15 @@ import arrow.core.Predicate
 import arrow.core.filterIsInstance
 import arrow.core.toOption
 import funcify.feature.schema.datasource.DataSource
+import funcify.feature.schema.datasource.DataSourceType
+import funcify.feature.schema.datasource.SourceIndex
 import funcify.feature.schema.vertex.ParameterJunctionVertex
 import funcify.feature.schema.vertex.ParameterLeafVertex
 import funcify.feature.schema.vertex.SchematicGraphVertexType
 import funcify.feature.schema.vertex.SourceJunctionVertex
 import funcify.feature.schema.vertex.SourceLeafVertex
 import funcify.feature.schema.vertex.SourceRootVertex
+import kotlin.reflect.KClass
 import kotlinx.collections.immutable.ImmutableSet
 
 /**
@@ -24,6 +27,43 @@ interface DataSourceBasedSDLDefinitionStrategy<T : Any> : SchematicVertexSDLDefi
         val name: String
         val valueExtractor: (DataSource.Key<*>) -> T
         val expectedValue: T
+    }
+
+    companion object {
+
+        internal data class DefaultDataSourceAttribute<out T : Any>(
+            override val name: String,
+            override val valueExtractor: (DataSource.Key<*>) -> T,
+            override val expectedValue: T
+        ) : DataSourceAttribute<T>
+
+        fun dataSourceNameAttribute(expectedName: String): DataSourceAttribute<String> {
+            return DefaultDataSourceAttribute(
+                name = "name",
+                valueExtractor = DataSource.Key<*>::name,
+                expectedValue = expectedName
+            )
+        }
+
+        fun <SI : SourceIndex<SI>> sourceIndexTypeAttribute(
+            expectedSourceIndexType: KClass<out SI>
+        ): DataSourceAttribute<KClass<out SourceIndex<*>>> {
+            return DefaultDataSourceAttribute(
+                "sourceIndexType",
+                valueExtractor = DataSource.Key<*>::sourceIndexType,
+                expectedValue = expectedSourceIndexType
+            )
+        }
+
+        fun <DST : DataSourceType> dataSourceTypeAttribute(
+            expectedDataSourceType: DST
+        ): DataSourceAttribute<DataSourceType> {
+            return DefaultDataSourceAttribute(
+                "dataSourceType",
+                valueExtractor = DataSource.Key<*>::dataSourceType,
+                expectedValue = expectedDataSourceType
+            )
+        }
     }
 
     val expectedDataSourceAttributeValues: ImmutableSet<DataSourceAttribute<*>>
@@ -63,8 +103,7 @@ interface DataSourceBasedSDLDefinitionStrategy<T : Any> : SchematicVertexSDLDefi
         }
         return when (schematicGraphTypeOption.orNull()!!) {
             SchematicGraphVertexType.SOURCE_ROOT_VERTEX -> {
-                context
-                    .currentVertex
+                context.currentVertex
                     .toOption()
                     .filterIsInstance<SourceRootVertex>()
                     .map { srt ->
@@ -74,8 +113,7 @@ interface DataSourceBasedSDLDefinitionStrategy<T : Any> : SchematicVertexSDLDefi
                     .isDefined()
             }
             SchematicGraphVertexType.SOURCE_JUNCTION_VERTEX -> {
-                context
-                    .currentVertex
+                context.currentVertex
                     .toOption()
                     .filterIsInstance<SourceJunctionVertex>()
                     .map { sjt ->
@@ -85,8 +123,7 @@ interface DataSourceBasedSDLDefinitionStrategy<T : Any> : SchematicVertexSDLDefi
                     .isDefined()
             }
             SchematicGraphVertexType.SOURCE_LEAF_VERTEX -> {
-                context
-                    .currentVertex
+                context.currentVertex
                     .toOption()
                     .filterIsInstance<SourceLeafVertex>()
                     .map { sjt -> sjt.compositeAttribute.getSourceAttributeByDataSource().keys }
@@ -94,20 +131,19 @@ interface DataSourceBasedSDLDefinitionStrategy<T : Any> : SchematicVertexSDLDefi
                     .isDefined()
             }
             SchematicGraphVertexType.PARAMETER_JUNCTION_VERTEX -> {
-                context
-                    .currentVertex
+                context.currentVertex
                     .toOption()
                     .filterIsInstance<ParameterJunctionVertex>()
                     .map { sjt ->
-                        sjt.compositeParameterContainerType.getParameterContainerTypeByDataSource()
+                        sjt.compositeParameterContainerType
+                            .getParameterContainerTypeByDataSource()
                             .keys
                     }
                     .filter(dataSourceKeysCondition)
                     .isDefined()
             }
             SchematicGraphVertexType.PARAMETER_LEAF_VERTEX -> {
-                context
-                    .currentVertex
+                context.currentVertex
                     .toOption()
                     .filterIsInstance<ParameterLeafVertex>()
                     .map { sjt ->
