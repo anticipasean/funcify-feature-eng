@@ -6,10 +6,12 @@ import funcify.feature.schema.SchematicEdge
 import funcify.feature.schema.SchematicVertex
 import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.datasource.SourceIndex
-import funcify.feature.schema.datasource.SourcePathTransformer
 import funcify.feature.schema.error.SchemaErrorResponse
 import funcify.feature.schema.error.SchemaException
 import funcify.feature.schema.path.SchematicPath
+import funcify.feature.schema.strategy.DefaultSchematicVertexGraphRemappingContext
+import funcify.feature.schema.strategy.SchematicVertexGraphRemappingContext
+import funcify.feature.schema.strategy.SchematicVertexGraphRemappingStrategy
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.container.graph.PathBasedGraph
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
@@ -21,7 +23,7 @@ import org.slf4j.Logger
 
 internal class DefaultMetamodelGraphFactory(
     val schematicVertexFactory: SchematicVertexFactory,
-    val sourcePathTransformer: SourcePathTransformer
+    val schematicVertexGraphRemappingStrategy: SchematicVertexGraphRemappingStrategy
 ) : MetamodelGraphFactory {
 
     companion object {
@@ -30,11 +32,11 @@ internal class DefaultMetamodelGraphFactory(
 
         internal data class DefaultDataSourceSpec(
             val schematicVertexFactory: SchematicVertexFactory,
-            val sourcePathTransformer: SourcePathTransformer,
+            val schematicVertexGraphRemappingStrategy: SchematicVertexGraphRemappingStrategy,
             val dataSourcesByNameAttempt: Try<PersistentMap<String, DataSource<*>>> =
                 Try.success(persistentMapOf()),
             val schematicVerticesByPathAttempt: Try<PersistentMap<SchematicPath, SchematicVertex>> =
-                Try.success(persistentMapOf())
+                Try.success(persistentMapOf()),
         ) : MetamodelGraph.Builder {
 
             override fun <SI : SourceIndex<SI>> addDataSource(
@@ -65,7 +67,8 @@ internal class DefaultMetamodelGraphFactory(
                             |""".flattenIntoOneLine()
                         DefaultDataSourceSpec(
                             schematicVertexFactory = schematicVertexFactory,
-                            sourcePathTransformer = sourcePathTransformer,
+                            schematicVertexGraphRemappingStrategy =
+                                schematicVertexGraphRemappingStrategy,
                             dataSourcesByNameAttempt =
                                 dataSourcesByNameAttempt
                                     .flatMap<PersistentMap<String, DataSource<*>>> { _ ->
@@ -92,7 +95,8 @@ internal class DefaultMetamodelGraphFactory(
                     else -> {
                         DefaultDataSourceSpec(
                             schematicVertexFactory = schematicVertexFactory,
-                            sourcePathTransformer = sourcePathTransformer,
+                            schematicVertexGraphRemappingStrategy =
+                                schematicVertexGraphRemappingStrategy,
                             dataSourcesByNameAttempt =
                                 dataSourcesByNameAttempt.map { dsMap ->
                                     dsMap.put(dataSource.name, dataSource)
@@ -123,8 +127,8 @@ internal class DefaultMetamodelGraphFactory(
                                                     .peekIfFailure { thr: Throwable ->
                                                         logger.error(
                                                             """add_data_source: [ status: failed ] 
-                                                               |[ error: { type: ${thr::class.qualifiedName}, 
-                                                               |message: "${thr.message}" } ]""".flattenIntoOneLine()
+                                                                                 |[ error: { type: ${thr::class.qualifiedName}, 
+                                                                                 |message: "${thr.message}" } ]""".flattenIntoOneLine()
                                                         )
                                                     }
                                             },
@@ -144,27 +148,23 @@ internal class DefaultMetamodelGraphFactory(
                 existingSchematicVerticesByPath: PersistentMap<SchematicPath, SchematicVertex>,
                 sourceIndex: SI
             ): Pair<SchematicPath, SchematicVertex> {
-                val transformedSourcePath: SchematicPath =
-                    sourcePathTransformer.transformSourcePathToSchematicPathForDataSource(
-                        sourcePath = sourceIndex.sourcePath,
-                        dataSource = dataSource
-                    )
+                val sourcePath: SchematicPath = sourceIndex.sourcePath
                 return when (
                     val existingVertex: SchematicVertex? =
-                        existingSchematicVerticesByPath[transformedSourcePath]
+                        existingSchematicVerticesByPath[sourcePath]
                 ) {
                     null -> {
-                        transformedSourcePath to
+                        sourcePath to
                             schematicVertexFactory
-                                .createVertexForPath(transformedSourcePath)
+                                .createVertexForPath(sourcePath)
                                 .forSourceIndex<SI>(sourceIndex)
                                 .onDataSource(dataSource)
                                 .orElseThrow()
                     }
                     else -> {
-                        transformedSourcePath to
+                        sourcePath to
                             schematicVertexFactory
-                                .createVertexForPath(transformedSourcePath)
+                                .createVertexForPath(sourcePath)
                                 .fromExistingVertex(existingVertex)
                                 .forSourceIndex<SI>(sourceIndex)
                                 .onDataSource(dataSource)
@@ -202,10 +202,46 @@ internal class DefaultMetamodelGraphFactory(
                     .peekIfFailure { thr: Throwable ->
                         logger.error(
                             """build: [ status: failed ] 
-                        |[ error: { type: ${thr::class.qualifiedName}, 
-                        |message: ${thr.message} } ]
-                    """.flattenIntoOneLine()
+                               |[ error: { type: ${thr::class.qualifiedName}, 
+                               |message: ${thr.message} } ]
+                            """.flattenIntoOneLine()
                         )
+                    }
+                    .map { metaModelGraph ->
+                        logger.debug(
+                            """apply_remapping_strategy_to_metamodel_graph: 
+                            |[ vertices.size: ${metaModelGraph.pathBasedGraph.vertices.size} 
+                            |]""".flattenIntoOneLine()
+                        )
+                        metaModelGraph.pathBasedGraph.vertices
+                            .asSequence()
+                            .sortedBy { sv -> sv.path }
+                            .fold(
+                                (DefaultSchematicVertexGraphRemappingContext(
+                                    metaModelGraph.dataSourcesByKey,
+                                    schematicVertexFactory,
+                                    metaModelGraph.pathBasedGraph
+                                )
+                                    as SchematicVertexGraphRemappingContext)
+                            ) { ctx, schematicVertex ->
+                                if (
+                                    schematicVertexGraphRemappingStrategy.canBeAppliedTo(
+                                        ctx,
+                                        schematicVertex
+                                    )
+                                ) {
+                                    schematicVertexGraphRemappingStrategy
+                                        .applyToVertexInContext(ctx, schematicVertex)
+                                        .orElseThrow()
+                                } else {
+                                    ctx
+                                }
+                            }
+                            .let { remappingContext ->
+                                metaModelGraph.copy(
+                                    pathBasedGraph = remappingContext.pathBasedGraph
+                                )
+                            }
                     }
             }
         }
@@ -214,7 +250,7 @@ internal class DefaultMetamodelGraphFactory(
     override fun builder(): MetamodelGraph.Builder {
         return DefaultDataSourceSpec(
             schematicVertexFactory = schematicVertexFactory,
-            sourcePathTransformer = sourcePathTransformer
+            schematicVertexGraphRemappingStrategy = schematicVertexGraphRemappingStrategy
         )
     }
 }

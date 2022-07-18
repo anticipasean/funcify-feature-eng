@@ -12,9 +12,11 @@ import kotlinx.collections.immutable.ImmutableMap
  * @author smccarron
  * @created 2/20/22
  */
-interface MetamodelGraph : PathBasedGraph<SchematicPath, SchematicVertex, SchematicEdge> {
+interface MetamodelGraph {
 
     val dataSourcesByKey: ImmutableMap<DataSource.Key<*>, DataSource<*>>
+
+    val pathBasedGraph: PathBasedGraph<SchematicPath, SchematicVertex, SchematicEdge>
 
     interface Builder {
 

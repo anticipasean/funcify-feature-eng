@@ -15,10 +15,8 @@ import kotlinx.collections.immutable.PersistentMap
  */
 internal data class DefaultMetamodelGraph(
     override val dataSourcesByKey: PersistentMap<DataSource.Key<*>, DataSource<*>>,
-    private val pathBasedGraph: PathBasedGraph<SchematicPath, SchematicVertex, SchematicEdge> =
+    override val pathBasedGraph: PathBasedGraph<SchematicPath, SchematicVertex, SchematicEdge> =
         PathBasedGraph.emptyTwoToOnePathsToEdgeGraph(),
-) :
-    PathBasedGraph<SchematicPath, SchematicVertex, SchematicEdge> by pathBasedGraph,
-    MetamodelGraph {
+) : MetamodelGraph {
     companion object {}
 }

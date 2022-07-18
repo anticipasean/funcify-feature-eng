@@ -94,8 +94,7 @@ internal class DefaultMaterializationGraphQLSchemaFactory(
         metamodelGraph: MetamodelGraph
     ): Try<GraphQLSchema> {
         val firstVertexPathSupplier: () -> SchematicPath? = { ->
-            metamodelGraph
-                .vertices
+            metamodelGraph.pathBasedGraph.vertices
                 .toOption()
                 .filter { v -> v.size > 0 }
                 .map { v -> v[0].path }
@@ -103,19 +102,18 @@ internal class DefaultMaterializationGraphQLSchemaFactory(
         }
         logger.info(
             """create_graphql_schema_from_metamodel_graph: [ 
-                |metamodel_graph: [ vertices.size: ${metamodelGraph.vertices.size}, 
+                |metamodel_graph: [ vertices.size: ${metamodelGraph.pathBasedGraph.vertices.size}, 
                 |vertices[0].path: ${firstVertexPathSupplier.invoke()} 
                 |] ]""".flattenIntoOneLine()
         )
         var counter: Int = 0
         if (logger.isDebugEnabled) {
-            metamodelGraph.verticesByPath.streamPairs().forEach {
+            metamodelGraph.pathBasedGraph.verticesByPath.streamPairs().forEach {
                 pair: Pair<SchematicPath, SchematicVertex> ->
                 logger.debug("[${++counter}]: [ path: ${pair.first}, vertex: [ ${pair.second}]")
             }
         }
-        return metamodelGraph
-            .vertices
+        return metamodelGraph.pathBasedGraph.vertices
             .stream()
             .sorted { sv1, sv2 -> sv1.path.compareTo(sv2.path) }
             .reduce(
@@ -253,8 +251,10 @@ internal class DefaultMaterializationGraphQLSchemaFactory(
     private fun createQueryOperationDefinitionFromSourceRootVertex(
         metamodelGraph: MetamodelGraph
     ): OperationTypeDefinition {
-        return when (val sourceRootVertex: SourceRootVertex? =
-                metamodelGraph.verticesByPath[SchematicPath.getRootPath()] as? SourceRootVertex
+        return when (
+            val sourceRootVertex: SourceRootVertex? =
+                metamodelGraph.pathBasedGraph.verticesByPath[SchematicPath.getRootPath()]
+                    as? SourceRootVertex
         ) {
             null -> {
                 throw MaterializerException(
@@ -266,16 +266,14 @@ internal class DefaultMaterializationGraphQLSchemaFactory(
             else -> {
                 OperationTypeDefinition.newOperationTypeDefinition()
                     .name(
-                        StandardNamingConventions.CAMEL_CASE
-                            .deriveName(
+                        StandardNamingConventions.CAMEL_CASE.deriveName(
                                 sourceRootVertex.compositeContainerType.conventionalName.toString()
                             )
                             .toString()
                     )
                     .typeName(
                         TypeName(
-                            StandardNamingConventions.PASCAL_CASE
-                                .deriveName(
+                            StandardNamingConventions.PASCAL_CASE.deriveName(
                                     sourceRootVertex.compositeContainerType.conventionalName
                                         .toString()
                                 )
