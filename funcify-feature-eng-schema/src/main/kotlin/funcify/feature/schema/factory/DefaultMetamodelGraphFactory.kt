@@ -158,7 +158,7 @@ internal class DefaultMetamodelGraphFactory(
                             schematicVertexFactory
                                 .createVertexForPath(sourcePath)
                                 .forSourceIndex<SI>(sourceIndex)
-                                .onDataSource(dataSource)
+                                .onDataSource(dataSource.key)
                                 .orElseThrow()
                     }
                     else -> {
@@ -167,7 +167,7 @@ internal class DefaultMetamodelGraphFactory(
                                 .createVertexForPath(sourcePath)
                                 .fromExistingVertex(existingVertex)
                                 .forSourceIndex<SI>(sourceIndex)
-                                .onDataSource(dataSource)
+                                .onDataSource(dataSource.key)
                                 .orElseThrow()
                     }
                 }

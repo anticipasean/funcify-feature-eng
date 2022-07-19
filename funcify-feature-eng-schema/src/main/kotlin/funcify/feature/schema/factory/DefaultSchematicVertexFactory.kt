@@ -185,10 +185,10 @@ internal class DefaultSchematicVertexFactory : SchematicVertexFactory {
             val mappedSourceIndexAttempt: Try<SI>,
             val existingSchematicVertexOpt: Option<SchematicVertex> = none()
         ) : SchematicVertexFactory.DataSourceSpec<SI> {
-            override fun onDataSource(dataSource: DataSource<SI>): Try<SchematicVertex> {
+            override fun onDataSource(dataSourceKey: DataSource.Key<SI>): Try<SchematicVertex> {
                 logger.debug(
-                    """on_data_source: [ source_type: ${dataSource.dataSourceType}, 
-                       |name: ${dataSource.name} ]""".flattenIntoOneLine()
+                    """on_data_source: [ source_type: ${dataSourceKey.dataSourceType}, 
+                       |name: ${dataSourceKey.name} ]""".flattenIntoOneLine()
                 )
                 if (mappedSourceIndexAttempt.isFailure()) {
                     mappedSourceIndexAttempt.ifFailed { throwable: Throwable ->
@@ -208,7 +208,7 @@ internal class DefaultSchematicVertexFactory : SchematicVertexFactory {
                         factory.createNewSchematicVertexForSourceIndexOnDataSource(
                             schematicPath = schematicPath,
                             sourceIndex = mappedSourceIndexAttempt.orNull()!!,
-                            dataSource = dataSource
+                            dataSourceKey = dataSourceKey
                         )
                     }
                     else -> {
@@ -216,7 +216,7 @@ internal class DefaultSchematicVertexFactory : SchematicVertexFactory {
                             schematicPath = schematicPath,
                             existingSchematicVertex = existingSchematicVertexOpt.orNull()!!,
                             sourceIndex = mappedSourceIndexAttempt.orNull()!!,
-                            dataSource = dataSource
+                            dataSourceKey = dataSourceKey
                         )
                     }
                 }

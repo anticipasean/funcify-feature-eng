@@ -34,7 +34,7 @@ internal interface SchematicVertexCreationTemplate<SI : SourceIndex<SI>> {
     fun createNewSchematicVertexForSourceIndexOnDataSource(
         schematicPath: SchematicPath,
         sourceIndex: SI,
-        dataSource: DataSource<SI>
+        dataSourceKey: DataSource.Key<SI>
     ): Try<SchematicVertex> {
         return when (sourceIndex) {
             is SourceContainerType<*, *> -> {
@@ -44,7 +44,7 @@ internal interface SchematicVertexCreationTemplate<SI : SourceIndex<SI>> {
                 createNewSchematicVertexForSourceContainerTypeOnDataSource(
                     schematicPath,
                     targetTypeIndex,
-                    dataSource
+                    dataSourceKey
                 )
             }
             is SourceAttribute<*> -> {
@@ -53,7 +53,7 @@ internal interface SchematicVertexCreationTemplate<SI : SourceIndex<SI>> {
                 createNewSchematicVertexForSourceAttributeOnDataSource(
                     schematicPath,
                     targetTypeIndex,
-                    dataSource
+                    dataSourceKey
                 )
             }
             is ParameterContainerType<*, *> -> {
@@ -63,7 +63,7 @@ internal interface SchematicVertexCreationTemplate<SI : SourceIndex<SI>> {
                 createNewSchematicVertexForParameterContainerTypeOnDataSource(
                     schematicPath,
                     targetTypeIndex,
-                    dataSource
+                    dataSourceKey
                 )
             }
             is ParameterAttribute<*> -> {
@@ -72,7 +72,7 @@ internal interface SchematicVertexCreationTemplate<SI : SourceIndex<SI>> {
                 createNewSchematicVertexForParameterAttributeOnDataSource(
                     schematicPath,
                     targetTypeIndex,
-                    dataSource
+                    dataSourceKey
                 )
             }
             else -> {
@@ -100,7 +100,7 @@ internal interface SchematicVertexCreationTemplate<SI : SourceIndex<SI>> {
         schematicPath: SchematicPath,
         existingSchematicVertex: SchematicVertex,
         sourceIndex: SI,
-        dataSource: DataSource<SI>
+        dataSourceKey: DataSource.Key<SI>
     ): Try<SchematicVertex> {
         return when (sourceIndex) {
             is SourceContainerType<*, *> -> {
@@ -111,7 +111,7 @@ internal interface SchematicVertexCreationTemplate<SI : SourceIndex<SI>> {
                     schematicPath,
                     existingSchematicVertex,
                     targetType,
-                    dataSource
+                    dataSourceKey
                 )
             }
             is SourceAttribute<*> -> {
@@ -121,7 +121,7 @@ internal interface SchematicVertexCreationTemplate<SI : SourceIndex<SI>> {
                     schematicPath,
                     existingSchematicVertex,
                     targetType,
-                    dataSource
+                    dataSourceKey
                 )
             }
             is ParameterContainerType<*, *> -> {
@@ -132,7 +132,7 @@ internal interface SchematicVertexCreationTemplate<SI : SourceIndex<SI>> {
                     schematicPath,
                     existingSchematicVertex,
                     targetType,
-                    dataSource
+                    dataSourceKey
                 )
             }
             is ParameterAttribute<*> -> {
@@ -142,7 +142,7 @@ internal interface SchematicVertexCreationTemplate<SI : SourceIndex<SI>> {
                     schematicPath,
                     existingSchematicVertex,
                     targetType,
-                    dataSource
+                    dataSourceKey
                 )
             }
             else -> {
@@ -169,7 +169,7 @@ internal interface SchematicVertexCreationTemplate<SI : SourceIndex<SI>> {
     fun <SA : SourceAttribute<SI>> createNewSchematicVertexForSourceContainerTypeOnDataSource(
         schematicPath: SchematicPath,
         sourceContainerType: SourceContainerType<SI, SA>,
-        dataSource: DataSource<SI>
+        dataSourceKey: DataSource.Key<SI>
     ): Try<SchematicVertex> {
         return if (schematicPath.isRoot()) {
             DefaultSourceRootVertex(
@@ -177,7 +177,7 @@ internal interface SchematicVertexCreationTemplate<SI : SourceIndex<SI>> {
                     compositeContainerType =
                         DefaultCompositeSourceContainerType(
                             sourceContainerType.name,
-                            persistentMapOf(dataSource.key to sourceContainerType)
+                            persistentMapOf(dataSourceKey to sourceContainerType)
                         )
                 )
                 .successIfNonNull()
@@ -192,7 +192,7 @@ internal interface SchematicVertexCreationTemplate<SI : SourceIndex<SI>> {
                              */
                             conventionalName = sourceContainerType.name,
                             sourceContainerTypesByDataSource =
-                                persistentMapOf(dataSource.key to sourceContainerType)
+                                persistentMapOf(dataSourceKey to sourceContainerType)
                         ),
                     compositeAttribute =
                         DefaultCompositeSourceAttribute(
@@ -214,7 +214,7 @@ internal interface SchematicVertexCreationTemplate<SI : SourceIndex<SI>> {
     fun createNewSchematicVertexForSourceAttributeOnDataSource(
         schematicPath: SchematicPath,
         sourceAttribute: SourceAttribute<SI>,
-        dataSource: DataSource<SI>
+        dataSourceKey: DataSource.Key<SI>
     ): Try<SchematicVertex> {
         return DefaultSourceLeafVertex(
                 path = schematicPath,
@@ -226,7 +226,7 @@ internal interface SchematicVertexCreationTemplate<SI : SourceIndex<SI>> {
                          */
                         conventionalName = sourceAttribute.name,
                         sourceAttributesByDataSource =
-                            persistentMapOf(dataSource.key to sourceAttribute)
+                            persistentMapOf(dataSourceKey to sourceAttribute)
                     )
             )
             .successIfNonNull()
@@ -235,7 +235,7 @@ internal interface SchematicVertexCreationTemplate<SI : SourceIndex<SI>> {
     fun <PA : ParameterAttribute<SI>> createNewSchematicVertexForParameterContainerTypeOnDataSource(
         schematicPath: SchematicPath,
         parameterContainerType: ParameterContainerType<SI, PA>,
-        dataSource: DataSource<SI>
+        dataSourceKey: DataSource.Key<SI>
     ): Try<SchematicVertex> {
         return DefaultParameterJunctionVertex(
                 path = schematicPath,
@@ -243,7 +243,7 @@ internal interface SchematicVertexCreationTemplate<SI : SourceIndex<SI>> {
                     DefaultCompositeParameterContainerType(
                         conventionalName = parameterContainerType.name,
                         parameterContainerTypeByDataSource =
-                            persistentMapOf(dataSource.key to parameterContainerType)
+                            persistentMapOf(dataSourceKey to parameterContainerType)
                     ),
                 compositeParameterAttribute =
                     DefaultCompositeParameterAttribute(
@@ -260,7 +260,7 @@ internal interface SchematicVertexCreationTemplate<SI : SourceIndex<SI>> {
     fun createNewSchematicVertexForParameterAttributeOnDataSource(
         schematicPath: SchematicPath,
         parameterAttribute: ParameterAttribute<SI>,
-        dataSource: DataSource<SI>
+        dataSourceKey: DataSource.Key<SI>
     ): Try<SchematicVertex> {
         return DefaultParameterLeafVertex(
                 path = schematicPath,
@@ -268,7 +268,7 @@ internal interface SchematicVertexCreationTemplate<SI : SourceIndex<SI>> {
                     DefaultCompositeParameterAttribute(
                         conventionalName = parameterAttribute.name,
                         parameterAttributeByDataSource =
-                            persistentMapOf(dataSource.key to parameterAttribute)
+                            persistentMapOf(dataSourceKey to parameterAttribute)
                     )
             )
             .successIfNonNull()
@@ -278,7 +278,7 @@ internal interface SchematicVertexCreationTemplate<SI : SourceIndex<SI>> {
         schematicPath: SchematicPath,
         existingSchematicVertex: SchematicVertex,
         sourceContainerType: SourceContainerType<SI, SA>,
-        dataSource: DataSource<SI>
+        dataSourceKey: DataSource.Key<SI>
     ): Try<SchematicVertex> {
         return when (val existingVertex = existingSchematicVertex) {
             is SourceRootVertex ->
@@ -292,7 +292,7 @@ internal interface SchematicVertexCreationTemplate<SI : SourceIndex<SI>> {
                                     existingVertex.compositeContainerType
                                         .getSourceContainerTypeByDataSource()
                                         .toPersistentMap()
-                                        .put(dataSource.key, sourceContainerType)
+                                        .put(dataSourceKey, sourceContainerType)
                             )
                     )
                     .successIfNonNull()
@@ -304,7 +304,7 @@ internal interface SchematicVertexCreationTemplate<SI : SourceIndex<SI>> {
                                 conventionalName =
                                     existingVertex.compositeAttribute.conventionalName,
                                 sourceContainerTypesByDataSource =
-                                    persistentMapOf(dataSource.key to sourceContainerType)
+                                    persistentMapOf(dataSourceKey to sourceContainerType)
                             ),
                         compositeAttribute = existingVertex.compositeAttribute
                     )
@@ -320,7 +320,7 @@ internal interface SchematicVertexCreationTemplate<SI : SourceIndex<SI>> {
                                     existingVertex.compositeContainerType
                                         .getSourceContainerTypeByDataSource()
                                         .toPersistentMap()
-                                        .put(dataSource.key, sourceContainerType)
+                                        .put(dataSourceKey, sourceContainerType)
                             ),
                         compositeAttribute = existingVertex.compositeAttribute
                     )
@@ -339,7 +339,7 @@ internal interface SchematicVertexCreationTemplate<SI : SourceIndex<SI>> {
         schematicPath: SchematicPath,
         existingSchematicVertex: SchematicVertex,
         sourceAttribute: SourceAttribute<SI>,
-        dataSource: DataSource<SI>
+        dataSourceKey: DataSource.Key<SI>
     ): Try<SchematicVertex> {
         return when (val existingVertex = existingSchematicVertex) {
             is SourceLeafVertex ->
@@ -352,7 +352,7 @@ internal interface SchematicVertexCreationTemplate<SI : SourceIndex<SI>> {
                                 existingVertex.compositeAttribute
                                     .getSourceAttributeByDataSource()
                                     .toPersistentMap()
-                                    .put(dataSource.key, sourceAttribute)
+                                    .put(dataSourceKey, sourceAttribute)
                             )
                     )
                     .successIfNonNull()
@@ -367,7 +367,7 @@ internal interface SchematicVertexCreationTemplate<SI : SourceIndex<SI>> {
                                     existingVertex.compositeAttribute
                                         .getSourceAttributeByDataSource()
                                         .toPersistentMap()
-                                        .put(dataSource.key, sourceAttribute)
+                                        .put(dataSourceKey, sourceAttribute)
                             ),
                         compositeContainerType = existingVertex.compositeContainerType
                     )
@@ -388,7 +388,7 @@ internal interface SchematicVertexCreationTemplate<SI : SourceIndex<SI>> {
         schematicPath: SchematicPath,
         existingSchematicVertex: SchematicVertex,
         parameterContainerType: ParameterContainerType<SI, PA>,
-        dataSource: DataSource<SI>
+        dataSourceKey: DataSource.Key<SI>
     ): Try<SchematicVertex> {
         return when (val existingVertex = existingSchematicVertex) {
             is ParameterJunctionVertex -> {
@@ -402,7 +402,7 @@ internal interface SchematicVertexCreationTemplate<SI : SourceIndex<SI>> {
                                     existingVertex.compositeParameterContainerType
                                         .getParameterContainerTypeByDataSource()
                                         .toPersistentMap()
-                                        .put(dataSource.key, parameterContainerType)
+                                        .put(dataSourceKey, parameterContainerType)
                             ),
                         compositeParameterAttribute = existingVertex.compositeParameterAttribute
                     )
@@ -415,7 +415,7 @@ internal interface SchematicVertexCreationTemplate<SI : SourceIndex<SI>> {
                             DefaultCompositeParameterContainerType(
                                 conventionalName = parameterContainerType.name,
                                 parameterContainerTypeByDataSource =
-                                    persistentMapOf(dataSource.key to parameterContainerType)
+                                    persistentMapOf(dataSourceKey to parameterContainerType)
                             ),
                         compositeParameterAttribute = existingVertex.compositeParameterAttribute
                     )
@@ -435,7 +435,7 @@ internal interface SchematicVertexCreationTemplate<SI : SourceIndex<SI>> {
         schematicPath: SchematicPath,
         existingSchematicVertex: SchematicVertex,
         parameterAttribute: ParameterAttribute<SI>,
-        dataSource: DataSource<SI>
+        dataSourceKey: DataSource.Key<SI>
     ): Try<SchematicVertex> {
         return when (val existingVertex = existingSchematicVertex) {
             is ParameterJunctionVertex -> {
@@ -451,7 +451,7 @@ internal interface SchematicVertexCreationTemplate<SI : SourceIndex<SI>> {
                                     existingVertex.compositeParameterAttribute
                                         .getParameterAttributesByDataSource()
                                         .toPersistentMap()
-                                        .put(dataSource.key, parameterAttribute)
+                                        .put(dataSourceKey, parameterAttribute)
                             )
                     )
                     .successIfNonNull()
@@ -467,7 +467,7 @@ internal interface SchematicVertexCreationTemplate<SI : SourceIndex<SI>> {
                                     existingVertex.compositeParameterAttribute
                                         .getParameterAttributesByDataSource()
                                         .toPersistentMap()
-                                        .put(dataSource.key, parameterAttribute)
+                                        .put(dataSourceKey, parameterAttribute)
                             )
                     )
                     .successIfNonNull()

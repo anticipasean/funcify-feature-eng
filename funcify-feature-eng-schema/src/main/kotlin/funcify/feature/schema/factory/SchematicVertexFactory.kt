@@ -111,6 +111,6 @@ interface SchematicVertexFactory {
     }
 
     interface DataSourceSpec<SI : SourceIndex<SI>> {
-        fun onDataSource(dataSource: DataSource<SI>): Try<SchematicVertex>
+        fun onDataSource(dataSourceKey: DataSource.Key<SI>): Try<SchematicVertex>
     }
 }
