@@ -71,4 +71,11 @@ internal interface DeferredTemplate<WT> {
         combiner: (I, I1, I2, I3) -> O,
         container: DeferredContainer<WT, I>
     ): DeferredContainer<WT, O>
+
+    fun <I> peek(
+        ifSuccess: (I) -> Unit,
+        ifFailure: (Throwable) -> Unit,
+        container: DeferredContainer<WT, I>
+    ): DeferredContainer<WT, I>
+
 }

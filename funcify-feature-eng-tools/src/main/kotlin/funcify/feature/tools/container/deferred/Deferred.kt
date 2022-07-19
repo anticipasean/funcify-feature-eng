@@ -220,6 +220,8 @@ interface Deferred<out I> : Iterable<I>, Publisher<@UnsafeVariance I> {
         return filter(condition.negate<I>(), ifConditionMet)
     }
 
+    fun peek(ifSuccess: (I) -> Unit, ifFailure: (Throwable) -> Unit): Deferred<I>
+
     fun <O> ap(other: Deferred<(I) -> O>): Deferred<O> {
         return flatMap { i: I -> other.map { func: (I) -> O -> func.invoke(i) } }
     }

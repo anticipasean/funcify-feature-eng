@@ -157,4 +157,18 @@ internal interface MonoDeferredTemplate : DeferredTemplate<MonoDeferredContainer
                 .map { t -> combiner.invoke(t.t1.t1.t1, t.t1.t1.t2, t.t1.t2, t.t2) }
         )
     }
+
+    override fun <I> peek(
+        ifSuccess: (I) -> Unit,
+        ifFailure: (Throwable) -> Unit,
+        container: DeferredContainer<MonoDeferredContainerWT, I>,
+    ): DeferredContainer<MonoDeferredContainerWT, I> {
+        return DeferredContainerFactory.MonoDeferredContainer(
+            container
+                .narrowed()
+                .mono
+                .doOnNext { i: I -> ifSuccess.invoke(i) }
+                .doOnError { thr: Throwable -> ifFailure.invoke(thr) }
+        )
+    }
 }

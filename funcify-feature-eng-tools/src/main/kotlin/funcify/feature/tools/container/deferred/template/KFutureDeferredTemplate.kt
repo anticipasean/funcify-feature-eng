@@ -143,4 +143,14 @@ internal interface KFutureDeferredTemplate : DeferredTemplate<KFutureDeferredCon
                 )
         )
     }
+
+    override fun <I> peek(
+        ifSuccess: (I) -> Unit,
+        ifFailure: (Throwable) -> Unit,
+        container: DeferredContainer<KFutureDeferredContainerWT, I>,
+    ): DeferredContainer<KFutureDeferredContainerWT, I> {
+        return DeferredContainerFactory.KFutureDeferredContainer(
+            container.narrowed().kFuture.peek(ifSuccess, ifFailure)
+        )
+    }
 }

@@ -592,6 +592,16 @@ interface KFuture<out T> {
         }
     }
 
+    fun peek(ifSuccess: (T) -> Unit, ifFailure: (Throwable) -> Unit): KFuture<T> {
+        return onComplete { t: T?, throwable: Throwable? ->
+            when {
+                t != null && throwable == null -> ifSuccess.invoke(t)
+                t == null && throwable != null -> ifFailure.invoke(throwable)
+                else -> {}
+            }
+        }
+    }
+
     fun getWithin(amount: Long, timeunit: TimeUnit): Try<T> {
         return Try.attempt {
             fold { cs: CompletionStage<out T>, _: Option<Executor> ->

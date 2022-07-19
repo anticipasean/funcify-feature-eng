@@ -147,4 +147,18 @@ internal interface FluxDeferredTemplate : DeferredTemplate<FluxDeferredContainer
                 .map { t -> combiner.invoke(t.t1.t1.t1, t.t1.t1.t2, t.t1.t2, t.t2) }
         )
     }
+
+    override fun <I> peek(
+        ifSuccess: (I) -> Unit,
+        ifFailure: (Throwable) -> Unit,
+        container: DeferredContainer<FluxDeferredContainerWT, I>,
+    ): DeferredContainer<FluxDeferredContainerWT, I> {
+        return DeferredContainerFactory.FluxDeferredContainer(
+            container
+                .narrowed()
+                .flux
+                .doOnNext { i: I -> ifSuccess.invoke(i) }
+                .doOnError { thr: Throwable -> ifFailure.invoke(thr) }
+        )
+    }
 }

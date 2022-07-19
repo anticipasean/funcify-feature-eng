@@ -450,6 +450,15 @@ internal interface DeferredDesign<SWT, I> : Deferred<I> {
         )
     }
 
+    override fun peek(ifSuccess: (I) -> Unit, ifFailure: (Throwable) -> Unit): Deferred<I> {
+        return PeekDesign<SWT, I>(
+            template = template,
+            currentDesign = this,
+            ifSuccessFunction = ifSuccess,
+            ifFailureFunction = ifFailure
+        )
+    }
+
     override fun iterator(): Iterator<I> {
         return when (val container: DeferredContainer<SWT, I> = this.fold(template)) {
             is DeferredContainerFactory.KFutureDeferredContainer -> {
@@ -609,10 +618,10 @@ internal interface DeferredDesign<SWT, I> : Deferred<I> {
             }
             is DeferredContainerFactory.MonoDeferredContainer -> {
                 Try.attemptNullable({ container.mono.block() }) {
-                    NoSuchElementException(
-                        "no non-null output was received from ${Mono::class.qualifiedName}"
-                    )
-                }
+                        NoSuchElementException(
+                            "no non-null output was received from ${Mono::class.qualifiedName}"
+                        )
+                    }
                     .map { i: I -> listOf(i) }
             }
             is DeferredContainerFactory.FluxDeferredContainer -> {
