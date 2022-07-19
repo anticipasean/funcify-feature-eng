@@ -20,6 +20,7 @@ import funcify.feature.schema.configuration.SchemaConfiguration
 import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.datasource.RawDataSourceType
 import funcify.feature.schema.path.SchematicPath
+import funcify.feature.schema.strategy.SchematicVertexGraphRemappingStrategy
 import funcify.feature.schema.vertex.SourceJunctionVertex
 import funcify.feature.schema.vertex.SourceLeafVertex
 import funcify.feature.schema.vertex.SourceRootVertex
@@ -27,6 +28,7 @@ import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
+import org.springframework.beans.factory.support.StaticListableBeanFactory
 
 internal class DefaultGraphQLApiDataSourceFactoryTest {
 
@@ -79,8 +81,10 @@ internal class DefaultGraphQLApiDataSourceFactoryTest {
         val defaultMetamodelGraphFactory =
             schemaConfiguration.metamodelGraphFactory(
                 schemaConfiguration.schematicVertexFactory(),
-                schemaConfiguration.sourcePathTransformer()
+                StaticListableBeanFactory()
+                    .getBeanProvider(SchematicVertexGraphRemappingStrategy::class.java)
             )
+
         val metamodelGraphBuildAttempt: Try<MetamodelGraph> =
             try {
                 defaultMetamodelGraphFactory.builder().addDataSource(graphQLApiDataSource).build()
@@ -98,11 +102,11 @@ internal class DefaultGraphQLApiDataSourceFactoryTest {
         }
         val metamodelGraph = metamodelGraphBuildAttempt.orNull()!!
         Assertions.assertTrue(
-            metamodelGraph.verticesByPath.isNotEmpty(),
+            metamodelGraph.pathBasedGraph.verticesByPath.isNotEmpty(),
             "graph should have at least one vertex"
         )
         val firstVertexOpt: Option<SchematicVertex> =
-            metamodelGraph.verticesByPath.asIterable().first().value.toOption()
+            metamodelGraph.pathBasedGraph.verticesByPath.asIterable().first().value.toOption()
         val gqlDatasource: DataSource.Key<*>? =
             firstVertexOpt
                 .filterIsInstance<SourceRootVertex>()
@@ -150,21 +154,21 @@ internal class DefaultGraphQLApiDataSourceFactoryTest {
                 )
             }
         Assertions.assertNotNull(
-            metamodelGraph.verticesByPath[artworkUrlPath],
+            metamodelGraph.pathBasedGraph.verticesByPath[artworkUrlPath],
             """expected vertex for path fes:/{data_source_name in snake_case}/shows/artwork/url
                 |; if failed, creation of schematic vertices likely failed to recurse into
                 |source attributes of source container types
             """.trimMargin()
         )
         Assertions.assertTrue(
-            metamodelGraph.verticesByPath[artworkUrlPath] is SourceLeafVertex,
+            metamodelGraph.pathBasedGraph.verticesByPath[artworkUrlPath] is SourceLeafVertex,
             """expected artwork url to be leaf vertex within metamodel graph
                 |; if failed, composite attributes are likely not being 
                 |mapped properly to their graph positions 
             """.trimMargin()
         )
         Assertions.assertTrue(
-            metamodelGraph.verticesByPath[artworkUrlPath.getParentPath().orNull()!!]
+            metamodelGraph.pathBasedGraph.verticesByPath[artworkUrlPath.getParentPath().orNull()!!]
                 .toOption()
                 .filterIsInstance<SourceJunctionVertex>()
                 .filter { jv ->

@@ -130,7 +130,8 @@ internal class DefaultSchematicVertexSDLDefinitionCreationContextFactory :
                             inputValueDefinitionsBySchematicPath.put(schematicPath, sdlDefinition)
                     }
                 }
-                if (sdlDefinition !is ImplementingTypeDefinition<*> &&
+                if (
+                    sdlDefinition !is ImplementingTypeDefinition<*> &&
                         sdlDefinition !is InputObjectTypeDefinition
                 ) {
                     updateParentNodeAfterAddition(schematicPath, sdlDefinition)
@@ -142,7 +143,8 @@ internal class DefaultSchematicVertexSDLDefinitionCreationContextFactory :
                 childPath: SchematicPath,
                 childDefinition: Node<*>
             ) {
-                when (val definedParentNode: Node<*>? =
+                when (
+                    val definedParentNode: Node<*>? =
                         childPath
                             .getParentPath()
                             .filter { parentPath -> parentPath in sdlDefinitionsBySchematicPath }
@@ -294,7 +296,8 @@ internal class DefaultSchematicVertexSDLDefinitionCreationContextFactory :
                     }
                     is FieldDefinition -> {
                         if (childDefinition is InputValueDefinition) {
-                            if (definedParentNode.inputValueDefinitions.any { ivd ->
+                            if (
+                                definedParentNode.inputValueDefinitions.any { ivd ->
                                     ivd.name == childDefinition.name
                                 }
                             ) {
@@ -348,7 +351,8 @@ internal class DefaultSchematicVertexSDLDefinitionCreationContextFactory :
                     }
                     is InputObjectTypeDefinition -> {
                         if (childDefinition is InputValueDefinition) {
-                            if (definedParentNode.inputValueDefinitions.any { ivd ->
+                            if (
+                                definedParentNode.inputValueDefinitions.any { ivd ->
                                     ivd.name == childDefinition.name
                                 }
                             ) {
@@ -441,7 +445,8 @@ internal class DefaultSchematicVertexSDLDefinitionCreationContextFactory :
                        |${sdlDefinition::class.simpleName} 
                        |]""".flattenIntoOneLine()
                 )
-                if (schematicPath in sdlDefinitionsBySchematicPath &&
+                if (
+                    schematicPath in sdlDefinitionsBySchematicPath &&
                         sdlDefinition in
                             (sdlDefinitionsBySchematicPath[schematicPath] ?: persistentSetOf())
                 ) {
@@ -487,7 +492,8 @@ internal class DefaultSchematicVertexSDLDefinitionCreationContextFactory :
                         }
                     }
                 }
-                if (sdlDefinition !is ImplementingTypeDefinition<*> &&
+                if (
+                    sdlDefinition !is ImplementingTypeDefinition<*> &&
                         sdlDefinition !is InputObjectTypeDefinition
                 ) {
                     updateParentNodeAfterRemoval(schematicPath, sdlDefinition)
@@ -499,7 +505,8 @@ internal class DefaultSchematicVertexSDLDefinitionCreationContextFactory :
                 childPath: SchematicPath,
                 childDefinition: Node<*>
             ) {
-                when (val definedParentNode: Node<*>? =
+                when (
+                    val definedParentNode: Node<*>? =
                         childPath
                             .getParentPath()
                             .filter { parentPath -> parentPath in sdlDefinitionsBySchematicPath }
@@ -522,7 +529,8 @@ internal class DefaultSchematicVertexSDLDefinitionCreationContextFactory :
                             .orNull()
                 ) {
                     is ObjectTypeDefinition -> {
-                        if (childDefinition is FieldDefinition &&
+                        if (
+                            childDefinition is FieldDefinition &&
                                 childDefinition.name in definedParentNode.namedChildren.children
                         ) {
                             /*
@@ -540,7 +548,8 @@ internal class DefaultSchematicVertexSDLDefinitionCreationContextFactory :
                                     )
                                 }
                             )
-                        } else if (childDefinition is Directive &&
+                        } else if (
+                            childDefinition is Directive &&
                                 definedParentNode.hasDirective(childDefinition.name)
                         ) {
                             addSDLDefinitionForSchematicPath(
@@ -556,7 +565,8 @@ internal class DefaultSchematicVertexSDLDefinitionCreationContextFactory :
                         }
                     }
                     is InterfaceTypeDefinition -> {
-                        if (childDefinition is FieldDefinition &&
+                        if (
+                            childDefinition is FieldDefinition &&
                                 childDefinition.name in definedParentNode.namedChildren.children
                         ) {
                             /*
@@ -574,7 +584,8 @@ internal class DefaultSchematicVertexSDLDefinitionCreationContextFactory :
                                     )
                                 }
                             )
-                        } else if (childDefinition is Directive &&
+                        } else if (
+                            childDefinition is Directive &&
                                 definedParentNode.hasDirective(childDefinition.name)
                         ) {
                             addSDLDefinitionForSchematicPath(
@@ -590,7 +601,8 @@ internal class DefaultSchematicVertexSDLDefinitionCreationContextFactory :
                         }
                     }
                     is FieldDefinition -> {
-                        if (childDefinition is InputValueDefinition &&
+                        if (
+                            childDefinition is InputValueDefinition &&
                                 definedParentNode.inputValueDefinitions.any { ivd ->
                                     ivd.name == childDefinition.name
                                 }
@@ -605,7 +617,8 @@ internal class DefaultSchematicVertexSDLDefinitionCreationContextFactory :
                                     )
                                 }
                             )
-                        } else if (childDefinition is Directive &&
+                        } else if (
+                            childDefinition is Directive &&
                                 definedParentNode.hasDirective(childDefinition.name)
                         ) {
                             addSDLDefinitionForSchematicPath(
@@ -621,7 +634,8 @@ internal class DefaultSchematicVertexSDLDefinitionCreationContextFactory :
                         }
                     }
                     is InputObjectTypeDefinition -> {
-                        if (childDefinition is InputValueDefinition &&
+                        if (
+                            childDefinition is InputValueDefinition &&
                                 definedParentNode.inputValueDefinitions.any { ivd ->
                                     ivd.name == childDefinition.name
                                 }
@@ -636,7 +650,8 @@ internal class DefaultSchematicVertexSDLDefinitionCreationContextFactory :
                                     )
                                 }
                             )
-                        } else if (childDefinition is Directive &&
+                        } else if (
+                            childDefinition is Directive &&
                                 definedParentNode.hasDirective(childDefinition.name)
                         ) {
                             addSDLDefinitionForSchematicPath(
@@ -652,7 +667,8 @@ internal class DefaultSchematicVertexSDLDefinitionCreationContextFactory :
                         }
                     }
                     is InputValueDefinition -> {
-                        if (childDefinition is Directive &&
+                        if (
+                            childDefinition is Directive &&
                                 definedParentNode.hasDirective(childDefinition.name)
                         ) {
                             addSDLDefinitionForSchematicPath(
@@ -800,8 +816,8 @@ internal class DefaultSchematicVertexSDLDefinitionCreationContextFactory :
                         logger.error("build: [ status: failed ] [ message: {} ]", message)
                         throw SchemaException(SchemaErrorResponse.INVALID_INPUT, message)
                     }
-                } as
-                    SchematicVertexSDLDefinitionCreationContext<V>
+                }
+                    as SchematicVertexSDLDefinitionCreationContext<V>
             }
         }
 
@@ -1069,11 +1085,12 @@ internal class DefaultSchematicVertexSDLDefinitionCreationContextFactory :
         logger.debug(
             """create_initial_context_for_root_schematic_vertex_sdl_definition: 
                |[ metamodel_graph.vertices_by_path.size: 
-               |${metamodelGraph.verticesByPath.size} ]
+               |${metamodelGraph.pathBasedGraph.verticesByPath.size} ]
                |""".flattenIntoOneLine()
         )
-        return when (val rootVertex: SchematicVertex? =
-                metamodelGraph.verticesByPath[SchematicPath.getRootPath()]
+        return when (
+            val rootVertex: SchematicVertex? =
+                metamodelGraph.pathBasedGraph.verticesByPath[SchematicPath.getRootPath()]
         ) {
             is SourceRootVertex -> {
                 DefaultSourceRootVertexSDLDefinitionCreationContext(

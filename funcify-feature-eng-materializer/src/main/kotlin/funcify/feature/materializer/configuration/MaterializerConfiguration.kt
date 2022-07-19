@@ -48,12 +48,12 @@ class MaterializerConfiguration {
                 { mmg: MetamodelGraph ->
                     val firstVertexPath: String =
                         mmg.toOption()
-                            .filter { m -> m.vertices.size > 0 }
-                            .map { m -> m.vertices[0].path.toString() }
+                            .filter { m -> m.pathBasedGraph.vertices.size > 0 }
+                            .map { m -> m.pathBasedGraph.vertices[0].path.toString() }
                             .getOrElse { "<NA>" }
                     logger.info(
                         """metamodel_graph: [ status: success ] 
-                            |[ metamodel_graph [ vertices.size: ${mmg.vertices.size}, 
+                            |[ metamodel_graph [ vertices.size: ${mmg.pathBasedGraph.vertices.size}, 
                             |vertices[0].path: $firstVertexPath ] ]
                             |""".flattenIntoOneLine()
                     )

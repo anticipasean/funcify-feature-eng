@@ -68,7 +68,7 @@ sealed interface SchematicVertexSDLDefinitionCreationContext<V : SchematicVertex
         get() = currentVertex.path.getParentPath()
 
     val parentVertex: Option<SchematicVertex>
-        get() = parentPath.flatMap { pp -> metamodelGraph.getVertex(pp) }
+        get() = parentPath.flatMap { pp -> metamodelGraph.pathBasedGraph.getVertex(pp) }
 
     val parentContext: Option<SchematicVertexSDLDefinitionCreationContext<*>>
         get() = parentVertex.map { pv -> update { nextVertex(pv) } }
