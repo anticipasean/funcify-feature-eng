@@ -4,8 +4,8 @@ import funcify.feature.datasource.graphql.GraphQLApiDataSource
 import funcify.feature.datasource.graphql.GraphQLApiService
 import funcify.feature.datasource.graphql.error.GQLDataSourceErrorResponse
 import funcify.feature.datasource.graphql.error.GQLDataSourceException
-import funcify.feature.datasource.graphql.metadata.GraphQLApiSourceMetadataProvider
-import funcify.feature.datasource.graphql.metadata.GraphQLApiSourceMetadataReader
+import funcify.feature.datasource.graphql.metadata.provider.GraphQLApiSourceMetadataProvider
+import funcify.feature.datasource.graphql.metadata.reader.GraphQLApiSourceMetadataReader
 import funcify.feature.datasource.graphql.schema.GraphQLSourceIndex
 import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.datasource.DataSourceType

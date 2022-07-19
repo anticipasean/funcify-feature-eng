@@ -1,4 +1,4 @@
-package funcify.feature.datasource.graphql.metadata
+package funcify.feature.datasource.graphql.metadata.reader
 
 import arrow.core.Option
 import arrow.core.firstOrNone
@@ -91,8 +91,7 @@ sealed interface GraphQLSourceIndexCreationContext<E : GraphQLSchemaElement> {
         fun build(): GraphQLSourceIndexCreationContext<E>
     }
 
-    interface OutputObjectTypeSourceIndexCreationContext :
-        GraphQLSourceIndexCreationContext<GraphQLObjectType> {
+    interface OutputObjectTypeSourceIndexCreationContext : GraphQLSourceIndexCreationContext<GraphQLObjectType> {
 
         val parentSourceContainerType: Option<GraphQLSourceContainerType>
             get() =
@@ -123,8 +122,7 @@ sealed interface GraphQLSourceIndexCreationContext<E : GraphQLSchemaElement> {
             }
     }
 
-    interface FieldDefinitionSourceIndexCreationContext :
-        GraphQLSourceIndexCreationContext<GraphQLFieldDefinition> {
+    interface FieldDefinitionSourceIndexCreationContext : GraphQLSourceIndexCreationContext<GraphQLFieldDefinition> {
 
         val parentSourceContainerType: Option<GraphQLSourceContainerType>
             get() =
@@ -139,8 +137,7 @@ sealed interface GraphQLSourceIndexCreationContext<E : GraphQLSchemaElement> {
             get() = parentElements.filterIsInstance<GraphQLFieldDefinition>().firstOrNone()
     }
 
-    interface FieldArgumentParameterSourceIndexCreationContext :
-        GraphQLSourceIndexCreationContext<GraphQLArgument> {
+    interface FieldArgumentParameterSourceIndexCreationContext : GraphQLSourceIndexCreationContext<GraphQLArgument> {
 
         val parentSourceAttribute: Option<GraphQLSourceAttribute>
             get() =
@@ -151,8 +148,7 @@ sealed interface GraphQLSourceIndexCreationContext<E : GraphQLSchemaElement> {
     }
 
     /** Can have different types of parent elements */
-    interface DirectiveSourceIndexCreationContext :
-        GraphQLSourceIndexCreationContext<GraphQLAppliedDirective> {
+    interface DirectiveSourceIndexCreationContext : GraphQLSourceIndexCreationContext<GraphQLAppliedDirective> {
 
         val parentFieldDefinition: Option<GraphQLFieldDefinition>
             get() = parentElements.filterIsInstance<GraphQLFieldDefinition>().firstOrNone()
@@ -164,8 +160,7 @@ sealed interface GraphQLSourceIndexCreationContext<E : GraphQLSchemaElement> {
             get() = parentElements.filterIsInstance<GraphQLInputObjectField>().firstOrNone()
     }
 
-    interface DirectiveArgumentSourceIndexCreationContext :
-        GraphQLSourceIndexCreationContext<GraphQLAppliedDirectiveArgument> {
+    interface DirectiveArgumentSourceIndexCreationContext : GraphQLSourceIndexCreationContext<GraphQLAppliedDirectiveArgument> {
 
         val parentParameterContainerType: Option<GraphQLParameterContainerType>
             get() =
@@ -177,8 +172,7 @@ sealed interface GraphQLSourceIndexCreationContext<E : GraphQLSchemaElement> {
             get() = parentElements.filterIsInstance<GraphQLAppliedDirective>().firstOrNone()
     }
 
-    interface InputObjectTypeSourceIndexCreationContext :
-        GraphQLSourceIndexCreationContext<GraphQLInputObjectType> {
+    interface InputObjectTypeSourceIndexCreationContext : GraphQLSourceIndexCreationContext<GraphQLInputObjectType> {
 
         val parentParameterAttribute: Option<GraphQLParameterAttribute>
             get() =
@@ -196,8 +190,7 @@ sealed interface GraphQLSourceIndexCreationContext<E : GraphQLSchemaElement> {
             get() = parentElements.filterIsInstance<GraphQLInputObjectField>().firstOrNone()
     }
 
-    interface InputObjectFieldSourceIndexCreationContext :
-        GraphQLSourceIndexCreationContext<GraphQLInputObjectField> {
+    interface InputObjectFieldSourceIndexCreationContext : GraphQLSourceIndexCreationContext<GraphQLInputObjectField> {
 
         val parentParameterAttribute: Option<GraphQLParameterAttribute>
             get() =

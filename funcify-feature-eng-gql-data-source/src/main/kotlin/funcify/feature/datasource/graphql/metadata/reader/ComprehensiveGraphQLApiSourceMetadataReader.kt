@@ -1,4 +1,4 @@
-package funcify.feature.datasource.graphql.metadata
+package funcify.feature.datasource.graphql.metadata.reader
 
 import arrow.core.filterIsInstance
 import arrow.core.getOrNone
@@ -7,13 +7,14 @@ import arrow.core.some
 import arrow.core.toOption
 import funcify.feature.datasource.graphql.error.GQLDataSourceErrorResponse
 import funcify.feature.datasource.graphql.error.GQLDataSourceException
-import funcify.feature.datasource.graphql.metadata.GraphQLSourceIndexCreationContext.DirectiveArgumentSourceIndexCreationContext
-import funcify.feature.datasource.graphql.metadata.GraphQLSourceIndexCreationContext.DirectiveSourceIndexCreationContext
-import funcify.feature.datasource.graphql.metadata.GraphQLSourceIndexCreationContext.FieldArgumentParameterSourceIndexCreationContext
-import funcify.feature.datasource.graphql.metadata.GraphQLSourceIndexCreationContext.FieldDefinitionSourceIndexCreationContext
-import funcify.feature.datasource.graphql.metadata.GraphQLSourceIndexCreationContext.InputObjectFieldSourceIndexCreationContext
-import funcify.feature.datasource.graphql.metadata.GraphQLSourceIndexCreationContext.InputObjectTypeSourceIndexCreationContext
-import funcify.feature.datasource.graphql.metadata.GraphQLSourceIndexCreationContext.OutputObjectTypeSourceIndexCreationContext
+import funcify.feature.datasource.graphql.metadata.reader.GraphQLSourceIndexCreationContext.DirectiveArgumentSourceIndexCreationContext
+import funcify.feature.datasource.graphql.metadata.reader.GraphQLSourceIndexCreationContext.DirectiveSourceIndexCreationContext
+import funcify.feature.datasource.graphql.metadata.reader.GraphQLSourceIndexCreationContext.FieldArgumentParameterSourceIndexCreationContext
+import funcify.feature.datasource.graphql.metadata.reader.GraphQLSourceIndexCreationContext.FieldDefinitionSourceIndexCreationContext
+import funcify.feature.datasource.graphql.metadata.reader.GraphQLSourceIndexCreationContext.InputObjectFieldSourceIndexCreationContext
+import funcify.feature.datasource.graphql.metadata.reader.GraphQLSourceIndexCreationContext.InputObjectTypeSourceIndexCreationContext
+import funcify.feature.datasource.graphql.metadata.reader.GraphQLSourceIndexCreationContext.OutputObjectTypeSourceIndexCreationContext
+import funcify.feature.datasource.graphql.metadata.filter.GraphQLApiSourceMetadataFilter
 import funcify.feature.datasource.graphql.schema.GraphQLInputFieldsContainerTypeExtractor
 import funcify.feature.datasource.graphql.schema.GraphQLOutputFieldsContainerTypeExtractor
 import funcify.feature.datasource.graphql.schema.GraphQLParameterAttribute
@@ -71,7 +72,7 @@ class ComprehensiveGraphQLApiSourceMetadataReader(
                 |[ input.query_type.name: ${input.queryType.name}, 
                 | query_type.field_definitions.size: ${input.queryType.fieldDefinitions.size} ]
                 |""".flattenIntoOneLine()
-        )
+                    )
         if (input.queryType.fieldDefinitions.isEmpty()) {
             val message =
                 """graphql_schema input for metadata on graphql 
@@ -81,7 +82,7 @@ class ComprehensiveGraphQLApiSourceMetadataReader(
                 """read_source_container_types_from_metadata: 
                 |[ error: ${message} ]
                 |""".flattenIntoOneLine()
-            )
+                        )
             throw GQLDataSourceException(GQLDataSourceErrorResponse.INVALID_INPUT, message)
         }
         return traverseAcrossSchemaElementsBreadthFirstPairingParentAndChildElements(
@@ -89,8 +90,8 @@ class ComprehensiveGraphQLApiSourceMetadataReader(
             )
             .asSequence()
             .fold(createRootQueryObjectTypeSourceIndexCreationContext(dataSourceKey, input)) {
-                ctxCreationAttempt: Try<GraphQLSourceIndexCreationContext<*>>,
-                (parent: GraphQLSchemaElement, child: GraphQLSchemaElement) ->
+                    ctxCreationAttempt: Try<GraphQLSourceIndexCreationContext<*>>,
+                    (parent: GraphQLSchemaElement, child: GraphQLSchemaElement) ->
                 ctxCreationAttempt.map { context ->
                     foldParentChildElementsIntoSourceIndexCreationContext(context, parent, child)
                 }
@@ -208,7 +209,7 @@ class ComprehensiveGraphQLApiSourceMetadataReader(
                |[ parent: ${parentNameAndType}, 
                |child: $childNameAndType ]
                |""".flattenIntoOneLine()
-        )
+                    )
         val parentPath: SchematicPath =
             previousContext.schematicPathCreatedBySchemaElement[parent]
                 .toOption()
@@ -426,7 +427,7 @@ class ComprehensiveGraphQLApiSourceMetadataReader(
                             |[ type: ${t::class.simpleName}, message: ${t.message} ]
                             |""".flattenIntoOneLine(),
                             t
-                        )
+                                   )
                     }
                     .orElse(context)
             }
@@ -568,7 +569,7 @@ class ComprehensiveGraphQLApiSourceMetadataReader(
             |creation_context.graphql_source_attributes.size: 
             |${graphQLSourceIndexCreationContext.graphqlParameterAttributesBySchematicPath.size} 
             |]""".flattenIntoOneLine()
-        )
+                    )
         val updatedGraphQLSourceContainerTypesByPathAttempt:
             Try<PersistentMap<SchematicPath, GraphQLSourceContainerType>> =
             graphQLSourceIndexCreationContext.graphqlSourceAttributesBySchematicPath

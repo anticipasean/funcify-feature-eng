@@ -1,4 +1,4 @@
-package funcify.feature.datasource.graphql.metadata
+package funcify.feature.datasource.graphql.metadata.provider
 
 import funcify.feature.datasource.graphql.GraphQLApiService
 import funcify.feature.datasource.metadata.provider.DataSourceMetadataProvider

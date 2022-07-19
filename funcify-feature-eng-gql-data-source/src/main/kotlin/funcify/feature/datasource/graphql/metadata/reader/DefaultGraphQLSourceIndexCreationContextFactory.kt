@@ -1,4 +1,4 @@
-package funcify.feature.datasource.graphql.metadata
+package funcify.feature.datasource.graphql.metadata.reader
 
 import arrow.core.Option
 import arrow.core.none
@@ -6,14 +6,14 @@ import arrow.core.or
 import arrow.core.some
 import funcify.feature.datasource.graphql.error.GQLDataSourceErrorResponse
 import funcify.feature.datasource.graphql.error.GQLDataSourceException
-import funcify.feature.datasource.graphql.metadata.GraphQLSourceIndexCreationContext.Builder
-import funcify.feature.datasource.graphql.metadata.GraphQLSourceIndexCreationContext.DirectiveArgumentSourceIndexCreationContext
-import funcify.feature.datasource.graphql.metadata.GraphQLSourceIndexCreationContext.DirectiveSourceIndexCreationContext
-import funcify.feature.datasource.graphql.metadata.GraphQLSourceIndexCreationContext.FieldArgumentParameterSourceIndexCreationContext
-import funcify.feature.datasource.graphql.metadata.GraphQLSourceIndexCreationContext.FieldDefinitionSourceIndexCreationContext
-import funcify.feature.datasource.graphql.metadata.GraphQLSourceIndexCreationContext.InputObjectFieldSourceIndexCreationContext
-import funcify.feature.datasource.graphql.metadata.GraphQLSourceIndexCreationContext.InputObjectTypeSourceIndexCreationContext
-import funcify.feature.datasource.graphql.metadata.GraphQLSourceIndexCreationContext.OutputObjectTypeSourceIndexCreationContext
+import funcify.feature.datasource.graphql.metadata.reader.GraphQLSourceIndexCreationContext.Builder
+import funcify.feature.datasource.graphql.metadata.reader.GraphQLSourceIndexCreationContext.DirectiveArgumentSourceIndexCreationContext
+import funcify.feature.datasource.graphql.metadata.reader.GraphQLSourceIndexCreationContext.DirectiveSourceIndexCreationContext
+import funcify.feature.datasource.graphql.metadata.reader.GraphQLSourceIndexCreationContext.FieldArgumentParameterSourceIndexCreationContext
+import funcify.feature.datasource.graphql.metadata.reader.GraphQLSourceIndexCreationContext.FieldDefinitionSourceIndexCreationContext
+import funcify.feature.datasource.graphql.metadata.reader.GraphQLSourceIndexCreationContext.InputObjectFieldSourceIndexCreationContext
+import funcify.feature.datasource.graphql.metadata.reader.GraphQLSourceIndexCreationContext.InputObjectTypeSourceIndexCreationContext
+import funcify.feature.datasource.graphql.metadata.reader.GraphQLSourceIndexCreationContext.OutputObjectTypeSourceIndexCreationContext
 import funcify.feature.datasource.graphql.schema.GraphQLParameterAttribute
 import funcify.feature.datasource.graphql.schema.GraphQLParameterContainerType
 import funcify.feature.datasource.graphql.schema.GraphQLSourceAttribute
@@ -37,8 +37,7 @@ import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.persistentSetOf
 import org.slf4j.Logger
 
-internal object DefaultGraphQLSourceIndexCreationContextFactory :
-    GraphQLSourceIndexCreationContextFactory {
+internal object DefaultGraphQLSourceIndexCreationContextFactory : GraphQLSourceIndexCreationContextFactory {
 
     internal class DefaultBuilder<E : GraphQLSchemaElement>(
         private var schematicPathCreatedBySchemaElement:
@@ -76,7 +75,7 @@ internal object DefaultGraphQLSourceIndexCreationContextFactory :
                    |[ graphql_source_index: { path: ${graphQLSourceIndex.sourcePath}, 
                    |name: ${graphQLSourceIndex.name} } ]
                    |""".flattenIntoOneLine()
-            )
+                        )
             when (graphQLSourceIndex) {
                 is GraphQLSourceContainerType -> {
                     val containerTypePath = graphQLSourceIndex.sourcePath
@@ -192,7 +191,7 @@ internal object DefaultGraphQLSourceIndexCreationContextFactory :
                 """next_schema_element: [ parent_path: ${parentPath}, 
                   |next_element.type: ${nextElement::class.simpleName} 
                   |]""".flattenIntoOneLine()
-            )
+                        )
             return DefaultBuilder(
                 schematicPathCreatedBySchemaElement = schematicPathCreatedBySchemaElement,
                 schemaElementsBySchematicPath = schemaElementsBySchematicPath,
@@ -680,7 +679,7 @@ internal object DefaultGraphQLSourceIndexCreationContextFactory :
                |{ name: ${graphQLObjectType.name}, 
                |field_definitions.size: ${graphQLObjectType.fieldDefinitions.size} 
                |} ]""".flattenIntoOneLine()
-        )
+                    )
         return DefaultOutputObjectTypeSourceIndexCreationContext(
             graphQLApiDataSourceKey = graphQLApiDataSourceKey,
             parentPath = none(),

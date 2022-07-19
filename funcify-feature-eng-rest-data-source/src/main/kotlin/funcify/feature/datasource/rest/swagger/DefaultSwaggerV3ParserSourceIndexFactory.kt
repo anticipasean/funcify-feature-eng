@@ -16,6 +16,7 @@ import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
 import io.swagger.v3.oas.models.OpenAPI
+import io.swagger.v3.oas.models.PathItem
 
 /**
  *
@@ -117,5 +118,16 @@ internal class DefaultSwaggerV3ParserSourceIndexFactory() : SwaggerV3ParserSourc
         contextContainer: SwaggerSourceIndexContextContainer<SV3PWT>,
     ): Option<SwaggerParameterAttribute> {
         return contextContainer.narrowed().parameterAttributesBySchematicPath[sourcePath].toOption()
+    }
+
+    override fun shouldIncludeSourcePathAndPathInfo(
+        sourcePath: SchematicPath,
+        pathInfo: PathItem,
+        contextContainer: SwaggerSourceIndexContextContainer<SV3PWT>,
+    ): Boolean {
+        return contextContainer
+            .narrowed()
+            .swaggerRestApiSourceMetadataFilter
+            .includeServicePath(sourcePath, pathInfo)
     }
 }

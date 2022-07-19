@@ -8,6 +8,7 @@ import com.fasterxml.jackson.module.kotlin.treeToValue
 import funcify.feature.datasource.graphql.GraphQLApiService
 import funcify.feature.datasource.graphql.error.GQLDataSourceErrorResponse
 import funcify.feature.datasource.graphql.error.GQLDataSourceException
+import funcify.feature.datasource.graphql.metadata.provider.GraphQLApiSourceMetadataProvider
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.container.deferred.Deferred
 import funcify.feature.tools.extensions.OptionExtensions.flatMapOptions
@@ -32,8 +33,7 @@ import kotlinx.collections.immutable.PersistentList
  * @author smccarron
  * @created 4/4/22
  */
-class MockGraphQLApiSourceMetadataProvider(val objectMapper: ObjectMapper) :
-    GraphQLApiSourceMetadataProvider {
+class MockGraphQLApiSourceMetadataProvider(val objectMapper: ObjectMapper) : GraphQLApiSourceMetadataProvider {
 
     companion object {
         /**

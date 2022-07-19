@@ -1,4 +1,4 @@
-package funcify.feature.datasource.graphql.metadata
+package funcify.feature.datasource.graphql.metadata.provider
 
 import arrow.core.filterIsInstance
 import arrow.core.toOption
@@ -26,8 +26,7 @@ import kotlinx.collections.immutable.PersistentList
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
-internal class DefaultGraphQLApiSourceMetadataProvider(private val objectMapper: ObjectMapper) :
-    GraphQLApiSourceMetadataProvider {
+internal class DefaultGraphQLApiSourceMetadataProvider(private val objectMapper: ObjectMapper) : GraphQLApiSourceMetadataProvider {
 
     companion object {
         private const val GRAPHQL_RESPONSE_DATA_KEY = "data"
@@ -44,7 +43,7 @@ internal class DefaultGraphQLApiSourceMetadataProvider(private val objectMapper:
                 |port: ${service.port}, 
                 |context_path: ${service.serviceContextPath} } ]
                 |""".flattenIntoOneLine()
-        )
+                    )
         return Deferred.fromAttempt(
             service
                 .executeSingleQuery(service.metadataQuery)

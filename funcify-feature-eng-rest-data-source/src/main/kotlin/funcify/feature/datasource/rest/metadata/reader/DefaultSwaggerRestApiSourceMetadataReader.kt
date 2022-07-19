@@ -4,6 +4,7 @@ import arrow.core.getOrElse
 import arrow.core.toOption
 import funcify.feature.datasource.rest.error.RestApiDataSourceException
 import funcify.feature.datasource.rest.error.RestApiErrorResponse
+import funcify.feature.datasource.rest.metadata.filter.SwaggerRestApiSourceMetadataFilter
 import funcify.feature.datasource.rest.schema.DefaultSwaggerParameterContainerType
 import funcify.feature.datasource.rest.schema.DefaultSwaggerPathGroupSourceContainerType
 import funcify.feature.datasource.rest.schema.DefaultSwaggerResponseTypeSourceContainerType
@@ -31,7 +32,9 @@ import org.slf4j.Logger
  * @author smccarron
  * @created 2022-07-10
  */
-internal class DefaultSwaggerRestApiSourceMetadataReader : SwaggerRestApiSourceMetadataReader {
+internal class DefaultSwaggerRestApiSourceMetadataReader(
+    private val swaggerRestApiSourceMetadataFilter: SwaggerRestApiSourceMetadataFilter
+) : SwaggerRestApiSourceMetadataReader {
 
     companion object {
         private val logger: Logger = loggerFor<DefaultSwaggerRestApiSourceMetadataReader>()
@@ -70,7 +73,8 @@ internal class DefaultSwaggerRestApiSourceMetadataReader : SwaggerRestApiSourceM
         val sourceIndicesCreationContext: SwaggerV3ParserSourceIndexContext =
             DefaultSwaggerV3ParserSourceIndexContext(
                 swaggerAPIDataSourceKey = dataSourceKey,
-                openAPI = input
+                openAPI = input,
+                swaggerRestApiSourceMetadataFilter = swaggerRestApiSourceMetadataFilter
             )
         val sourceIndexFactory: SwaggerV3ParserSourceIndexFactory =
             DefaultSwaggerV3ParserSourceIndexFactory()

@@ -21,6 +21,12 @@ interface SwaggerSourceIndexContextMutationTemplate<WT, O, P, REQ, RES, SCH> {
         contextContainer: SwaggerSourceIndexContextContainer<WT>
     ): DataSource.Key<RestApiSourceIndex>
 
+    fun shouldIncludeSourcePathAndPathInfo(
+        sourcePath: SchematicPath,
+        pathInfo: P,
+        contextContainer: SwaggerSourceIndexContextContainer<WT>
+    ): Boolean
+
     fun getOpenAPIRepresentationInContext(
         contextContainer: SwaggerSourceIndexContextContainer<WT>
     ): O

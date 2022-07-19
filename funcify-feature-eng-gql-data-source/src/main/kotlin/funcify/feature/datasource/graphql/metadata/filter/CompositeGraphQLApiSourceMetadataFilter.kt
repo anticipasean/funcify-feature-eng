@@ -1,4 +1,4 @@
-package funcify.feature.datasource.graphql.metadata
+package funcify.feature.datasource.graphql.metadata.filter
 
 import graphql.schema.GraphQLFieldDefinition
 import kotlinx.collections.immutable.persistentListOf

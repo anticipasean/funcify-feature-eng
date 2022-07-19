@@ -6,9 +6,9 @@ import arrow.core.or
 import arrow.core.toOption
 import com.fasterxml.jackson.databind.ObjectMapper
 import funcify.feature.datasource.graphql.GraphQLApiDataSource
-import funcify.feature.datasource.graphql.metadata.ComprehensiveGraphQLApiSourceMetadataReader
-import funcify.feature.datasource.graphql.metadata.DefaultGraphQLSourceIndexCreationContextFactory
-import funcify.feature.datasource.graphql.metadata.InternalServiceTypesExcludingSourceMetadataFilter
+import funcify.feature.datasource.graphql.metadata.reader.ComprehensiveGraphQLApiSourceMetadataReader
+import funcify.feature.datasource.graphql.metadata.reader.DefaultGraphQLSourceIndexCreationContextFactory
+import funcify.feature.datasource.graphql.metadata.filter.InternalServiceTypesExcludingSourceMetadataFilter
 import funcify.feature.datasource.graphql.metadata.MockGraphQLApiSourceMetadataProvider
 import funcify.feature.datasource.graphql.schema.DefaultGraphQLSourceAttribute
 import funcify.feature.datasource.graphql.schema.DefaultGraphQLSourceContainerType

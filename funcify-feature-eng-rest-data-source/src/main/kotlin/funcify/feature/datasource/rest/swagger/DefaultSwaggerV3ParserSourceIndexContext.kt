@@ -1,5 +1,6 @@
 package funcify.feature.datasource.rest.swagger
 
+import funcify.feature.datasource.rest.metadata.filter.SwaggerRestApiSourceMetadataFilter
 import funcify.feature.datasource.rest.schema.RestApiSourceIndex
 import funcify.feature.datasource.rest.schema.SwaggerParameterAttribute
 import funcify.feature.datasource.rest.schema.SwaggerParameterContainerType
@@ -20,6 +21,8 @@ import kotlinx.collections.immutable.persistentMapOf
 internal data class DefaultSwaggerV3ParserSourceIndexContext(
     override val swaggerAPIDataSourceKey: DataSource.Key<RestApiSourceIndex>,
     override val openAPI: OpenAPI,
+    override val swaggerRestApiSourceMetadataFilter: SwaggerRestApiSourceMetadataFilter =
+        SwaggerRestApiSourceMetadataFilter.INCLUDE_ALL_FILTER,
     override val sourceContainerTypesBySchematicPath:
         PersistentMap<SchematicPath, SwaggerSourceContainerType> =
         persistentMapOf(),
@@ -31,7 +34,7 @@ internal data class DefaultSwaggerV3ParserSourceIndexContext(
         persistentMapOf(),
     override val parameterAttributesBySchematicPath:
         PersistentMap<SchematicPath, SwaggerParameterAttribute> =
-        persistentMapOf()
+        persistentMapOf(),
 ) : SwaggerV3ParserSourceIndexContext {
 
     companion object {
@@ -39,6 +42,7 @@ internal data class DefaultSwaggerV3ParserSourceIndexContext(
         internal data class DefaultBuilder(
             private var swaggerAPIDataSourceKey: DataSource.Key<RestApiSourceIndex>,
             private var openAPI: OpenAPI,
+            private var swaggerRestApiSourceMetadataFilter: SwaggerRestApiSourceMetadataFilter,
             private var sourceContainerTypesBySchematicPath:
                 PersistentMap.Builder<SchematicPath, SwaggerSourceContainerType>,
             private var sourceAttributesBySchematicPath:
@@ -58,6 +62,13 @@ internal data class DefaultSwaggerV3ParserSourceIndexContext(
 
             override fun openAPI(openAPI: OpenAPI): Builder {
                 this.openAPI = openAPI
+                return this
+            }
+
+            override fun swaggerRestApiSourceMetadataFilter(
+                swaggerRestApiSourceMetadataFilter: SwaggerRestApiSourceMetadataFilter
+            ): Builder {
+                this.swaggerRestApiSourceMetadataFilter = swaggerRestApiSourceMetadataFilter
                 return this
             }
 
@@ -97,6 +108,7 @@ internal data class DefaultSwaggerV3ParserSourceIndexContext(
                 return DefaultSwaggerV3ParserSourceIndexContext(
                     swaggerAPIDataSourceKey = swaggerAPIDataSourceKey,
                     openAPI = openAPI,
+                    swaggerRestApiSourceMetadataFilter = swaggerRestApiSourceMetadataFilter,
                     sourceContainerTypesBySchematicPath =
                         sourceContainerTypesBySchematicPath.build(),
                     sourceAttributesBySchematicPath = sourceAttributesBySchematicPath.build(),
@@ -113,6 +125,7 @@ internal data class DefaultSwaggerV3ParserSourceIndexContext(
             DefaultBuilder(
                 swaggerAPIDataSourceKey = swaggerAPIDataSourceKey,
                 openAPI = openAPI,
+                swaggerRestApiSourceMetadataFilter = swaggerRestApiSourceMetadataFilter,
                 sourceContainerTypesBySchematicPath = sourceContainerTypesBySchematicPath.builder(),
                 sourceAttributesBySchematicPath = sourceAttributesBySchematicPath.builder(),
                 parameterContainerTypesBySchematicPath =

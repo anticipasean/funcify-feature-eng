@@ -1,5 +1,6 @@
 package funcify.feature.datasource.rest.swagger
 
+import funcify.feature.datasource.rest.metadata.filter.SwaggerRestApiSourceMetadataFilter
 import funcify.feature.datasource.rest.schema.RestApiSourceIndex
 import funcify.feature.datasource.rest.schema.SwaggerParameterAttribute
 import funcify.feature.datasource.rest.schema.SwaggerParameterContainerType
@@ -35,6 +36,8 @@ interface SwaggerV3ParserSourceIndexContext : SwaggerSourceIndexContextContainer
 
     val openAPI: OpenAPI
 
+    val swaggerRestApiSourceMetadataFilter: SwaggerRestApiSourceMetadataFilter
+
     val sourceContainerTypesBySchematicPath: ImmutableMap<SchematicPath, SwaggerSourceContainerType>
 
     val sourceAttributesBySchematicPath: ImmutableMap<SchematicPath, SwaggerSourceAttribute>
@@ -51,6 +54,10 @@ interface SwaggerV3ParserSourceIndexContext : SwaggerSourceIndexContextContainer
         fun swaggerDataSourceKey(dataSourceKey: DataSource.Key<RestApiSourceIndex>): Builder
 
         fun openAPI(openAPI: OpenAPI): Builder
+
+        fun swaggerRestApiSourceMetadataFilter(
+            swaggerRestApiSourceMetadataFilter: SwaggerRestApiSourceMetadataFilter
+        ): Builder
 
         fun addSourceContainerTypeForPath(
             sourcePath: SchematicPath,

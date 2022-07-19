@@ -117,6 +117,10 @@ interface SwaggerV3ParserSourceIndexCreationTraversalTemplate<WT> :
         logger.debug(
             "on_service_path: [ source_path: ${sourcePath}, path_info: ${pathInfo.description} ]"
         )
+        if (!shouldIncludeSourcePathAndPathInfo(sourcePath, pathInfo, contextContainer)) {
+            logger.debug("on_service_path: [ excluding source_path: $sourcePath ]")
+            return contextContainer
+        }
         return when (val postOperation: Operation? = pathInfo.post) {
             null -> {
                 contextContainer

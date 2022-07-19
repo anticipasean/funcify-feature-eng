@@ -1,4 +1,4 @@
-package funcify.feature.datasource.graphql.metadata
+package funcify.feature.datasource.graphql.metadata.filter
 
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import graphql.schema.GraphQLFieldDefinition
