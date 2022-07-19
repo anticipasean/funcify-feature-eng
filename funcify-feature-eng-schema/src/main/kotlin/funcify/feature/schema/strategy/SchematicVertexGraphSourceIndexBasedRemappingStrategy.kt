@@ -8,15 +8,20 @@ import funcify.feature.tools.container.attempt.Try
  * @author smccarron
  * @created 2022-07-18
  */
-interface SchematicVertexGraphRemappingStrategy {
+interface SchematicVertexGraphSourceIndexBasedRemappingStrategy :
+    SchematicVertexGraphRemappingStrategy {
 
-    fun canBeAppliedTo(
+    val remappingHandler: SchematicVertexSourceIndexBasedRemappingHandler
+
+    override fun canBeAppliedTo(
         remappingContext: SchematicVertexGraphRemappingContext,
         schematicVertex: SchematicVertex
     ): Boolean
 
-    fun applyToVertexInContext(
+    override fun applyToVertexInContext(
         remappingContext: SchematicVertexGraphRemappingContext,
         schematicVertex: SchematicVertex,
-    ): Try<SchematicVertexGraphRemappingContext>
+    ): Try<SchematicVertexGraphRemappingContext> {
+        return Try.attempt { remappingHandler.onSchematicVertex(schematicVertex, remappingContext) }
+    }
 }
