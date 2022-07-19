@@ -119,6 +119,10 @@ interface PathBasedGraph<P, V, E> : PersistentGraph<V, E>, Iterable<Tuple5<V, P,
         return putVertex(pathExtractor.invoke(vertex), vertex)
     }
 
+    fun removeVertex(path: P): PathBasedGraph<P, V, E>
+
+    fun <S : Set<P>> removeAllVertices(paths: S): PathBasedGraph<P, V, E>
+
     fun <M : Map<out P, @UnsafeVariance V>> putAllVertices(vertices: M): PathBasedGraph<P, V, E>
 
     fun putEdge(path1: P, path2: P, edge: E): PathBasedGraph<P, V, E>
