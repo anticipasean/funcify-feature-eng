@@ -21,6 +21,12 @@ interface SwaggerV3ParserSourceIndexCreationTemplate<WT> :
         contextContainer: SwaggerSourceIndexContextContainer<WT>,
     ): SwaggerSourceIndexContextContainer<WT>
 
+    override fun createSourceAttributeInContextForPathInfoRepresentation(
+        sourcePath: SchematicPath,
+        pathInfo: PathItem,
+        contextContainer: SwaggerSourceIndexContextContainer<WT>,
+    ): SwaggerSourceIndexContextContainer<WT>
+
     override fun createSourceContainerTypeInContextForSuccessfulApiResponseObject(
         sourcePath: SchematicPath,
         successfulApiResponse: ApiResponse,
@@ -47,7 +53,7 @@ interface SwaggerV3ParserSourceIndexCreationTemplate<WT> :
     override fun createParameterAttributeForPostRequestBodyObjectProperty(
         sourcePath: SchematicPath,
         request: RequestBody,
-        requestBodyJsonSchema: Schema<*>,
+        requestBodyParentSchema: Schema<*>,
         jsonPropertyName: String,
         jsonPropertySchema: Schema<*>,
         contextContainer: SwaggerSourceIndexContextContainer<WT>,

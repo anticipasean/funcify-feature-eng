@@ -3,6 +3,7 @@ package funcify.feature.tools.control
 import arrow.core.Either
 import arrow.core.Option
 import arrow.core.left
+import arrow.core.none
 import arrow.core.right
 import arrow.core.some
 import java.util.*
@@ -16,6 +17,9 @@ import java.util.stream.Stream
 object TraversalFunctions {
 
     fun <T, R> recurseWithOption(startValue: T, function: (T) -> Option<Either<T, R>>): Option<R> {
+        if (startValue == null) {
+            return none()
+        }
         val nextOptionHolder: Array<Option<Either<T, R>>> = arrayOf(startValue.left().some())
         var continueLoop: Boolean
         do {
@@ -48,24 +52,39 @@ object TraversalFunctions {
                     .stream()
                     .flatMap { either: Either<T, R> ->
                         either.fold(
-                            { t: T ->
-                                continueLoopFlagHolder[0] = true
-                                function.invoke(t)
-                            },
+                            { t: T -> function.invoke(t) },
                             { r: R ->
-                                continueLoopFlagHolder[0] = false
-                                Stream.of(r.right())
+                                when (r) {
+                                    null -> Stream.empty()
+                                    else -> Stream.of(r.right())
+                                }
                             }
                         )
                     }
                     .collect(
-                        { LinkedList<Either<T, R>>() },
-                        { q, e -> q.apply { offerLast(e) } },
-                        { _, q2 -> q2 }
+                        {
+                            continueLoopFlagHolder[0] = false
+                            LinkedList<Either<T, R>>()
+                        },
+                        { q, e ->
+                            if (e.isLeft() && !continueLoopFlagHolder[0]) {
+                                continueLoopFlagHolder[0] = true
+                            }
+                            q.apply { offerLast(e) }
+                        },
+                        { q1, q2 -> q1.addAll(q2) }
                     )
         } while (continueLoopFlagHolder[0])
         return queue.stream().flatMap { either: Either<T, R> ->
-            either.fold({ _: T -> Stream.empty() }, { r: R -> Stream.of(r) })
+            either.fold(
+                { _: T -> Stream.empty() },
+                { r: R ->
+                    when (r) {
+                        null -> Stream.empty()
+                        else -> Stream.of(r)
+                    }
+                }
+            )
         }
     }
 }

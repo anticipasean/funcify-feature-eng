@@ -15,6 +15,12 @@ interface SwaggerSourceIndexCreationTemplate<WT, O, P, REQ, RES, SCH> {
         contextContainer: SwaggerSourceIndexContextContainer<WT>
     ): SwaggerSourceIndexContextContainer<WT>
 
+    fun createSourceAttributeInContextForPathInfoRepresentation(
+        sourcePath: SchematicPath,
+        pathInfo: P,
+        contextContainer: SwaggerSourceIndexContextContainer<WT>
+    ): SwaggerSourceIndexContextContainer<WT>
+
     fun createSourceContainerTypeInContextForSuccessfulApiResponseObject(
         sourcePath: SchematicPath,
         successfulApiResponse: RES,
@@ -41,7 +47,7 @@ interface SwaggerSourceIndexCreationTemplate<WT, O, P, REQ, RES, SCH> {
     fun createParameterAttributeForPostRequestBodyObjectProperty(
         sourcePath: SchematicPath,
         request: REQ,
-        requestBodyJsonSchema: SCH,
+        requestBodyParentSchema: SCH,
         jsonPropertyName: String,
         jsonPropertySchema: SCH,
         contextContainer: SwaggerSourceIndexContextContainer<WT>
