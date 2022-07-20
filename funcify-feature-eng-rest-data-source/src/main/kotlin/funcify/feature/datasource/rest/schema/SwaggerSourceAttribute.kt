@@ -31,4 +31,10 @@ interface SwaggerSourceAttribute : SwaggerRestApiSourceIndex, SourceAttribute<Re
         return responseBodyJsonPropertyName.isDefined() &&
             responseBodyPropertyJsonSchema.isDefined()
     }
+
+    fun representsPathItemGroup(): Boolean {
+        return !pathItem.isDefined() &&
+            !(responseBodyJsonPropertyName.isDefined() &&
+                responseBodyPropertyJsonSchema.isDefined())
+    }
 }

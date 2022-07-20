@@ -15,9 +15,9 @@ import funcify.feature.datasource.rest.schema.DefaultSwaggerParameterContainerTy
 import funcify.feature.datasource.rest.schema.DefaultSwaggerPathGroupSourceContainerType
 import funcify.feature.datasource.rest.schema.DefaultSwaggerResponseTypeSourceContainerType
 import funcify.feature.datasource.rest.schema.DefaultSwaggerSourcePathItemAttribute
+import funcify.feature.datasource.rest.schema.DefaultSwaggerSourcePathItemGroupAttribute
 import funcify.feature.datasource.rest.schema.DefaultSwaggerSourceResponseBodyPropertyAttribute
 import funcify.feature.naming.ConventionalName
-import funcify.feature.naming.StandardNamingConventions
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.tools.extensions.JsonNodeExtensions.addChildFieldAndValuePairToRightmostTreeNode
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
@@ -100,7 +100,7 @@ interface SwaggerV3ParserSourceIndexCreationTraversalTemplate<WT> :
             |path_info_by_schematic_path.size: ${childPathInfoBySchematicPath.size} 
             |]""".flattenIntoOneLine()
         )
-        return createSourceContainerTypeInContextForPathsGroup(
+        return createSourceIndicesInContextForPathsGroup(
                 parentPath,
                 childPathInfoBySchematicPath,
                 contextContainer
@@ -446,7 +446,7 @@ interface SwaggerV3ParserSourceIndexCreationTraversalTemplate<WT> :
                             .mapNotNull { propsByName -> propsByName.asSequence() }
                             .fold(::emptySequence, ::identity)
                             .fold(updatedContext) { ctx, (propertyName, propertySchema) ->
-                                createSourceAttributeInContextForPropertyOfSuccessfulApiResponseObject(
+                                onPostResponseJsonSchemaProperty(
                                     sourcePath.transform { pathSegment(propertyName) },
                                     response,
                                     responseBodyJsonSchema,
@@ -490,17 +490,53 @@ interface SwaggerV3ParserSourceIndexCreationTraversalTemplate<WT> :
                 |json_property_schema.type: ${jsonPropertySchema.type} 
                 |]""".flattenIntoOneLine()
         )
-        return createSourceAttributeInContextForPropertyOfSuccessfulApiResponseObject(
-            sourcePath,
-            response,
-            responseBodyJsonSchema,
-            jsonPropertyName,
-            jsonPropertySchema,
-            contextContainer
-        )
+        return when (JsonFormatTypes.forValue(jsonPropertySchema?.type)) {
+            JsonFormatTypes.OBJECT -> {
+                createSourceAttributeInContextForPropertyOfSuccessfulApiResponseObject(
+                        sourcePath,
+                        response,
+                        responseBodyJsonSchema,
+                        jsonPropertyName,
+                        jsonPropertySchema,
+                        createSourceContainerTypeInContextForSuccessfulApiResponseObject(
+                            sourcePath,
+                            response,
+                            jsonPropertySchema,
+                            contextContainer
+                        )
+                    )
+                    .let { updatedContext ->
+                        jsonPropertySchema
+                            .toOption()
+                            .mapNotNull { s: Schema<*> -> s.properties }
+                            .mapNotNull { props -> props.asSequence() }
+                            .fold(::emptySequence, ::identity)
+                            .fold(updatedContext) { ctx, (propertyName, propertySchema) ->
+                                onPostResponseJsonSchemaProperty(
+                                    sourcePath.transform { pathSegment(propertyName) },
+                                    response,
+                                    responseBodyJsonSchema,
+                                    propertyName,
+                                    propertySchema,
+                                    ctx
+                                )
+                            }
+                    }
+            }
+            else -> {
+                createSourceAttributeInContextForPropertyOfSuccessfulApiResponseObject(
+                    sourcePath,
+                    response,
+                    responseBodyJsonSchema,
+                    jsonPropertyName,
+                    jsonPropertySchema,
+                    contextContainer
+                )
+            }
+        }
     }
 
-    override fun createSourceContainerTypeInContextForPathsGroup(
+    override fun createSourceIndicesInContextForPathsGroup(
         sourcePath: SchematicPath,
         pathsGroup: Map<SchematicPath, PathItem>,
         contextContainer: SwaggerSourceIndexContextContainer<WT>,
@@ -515,7 +551,7 @@ interface SwaggerV3ParserSourceIndexCreationTraversalTemplate<WT> :
                 .mapNotNull { sp -> sp.toString() }
                 .getOrElse { "<NA>" }
         logger.debug(
-            """create_source_container_type_in_context_for_paths_group: 
+            """create_source_indices_in_in_context_for_paths_group: 
                 |[ source_path: $sourcePath, 
                 |paths_group.size: ${pathsGroup.size}, 
                 |paths_group.first.path: $pathsGroupFirstPath 
@@ -558,6 +594,38 @@ interface SwaggerV3ParserSourceIndexCreationTraversalTemplate<WT> :
                 contextContainer
             )
             .let { updatedContext ->
+                if (!sourcePath.isRoot()) {
+                    val attributeConventionalName =
+                        sourcePath.pathSegments
+                            .lastOrNone()
+                            .successIfDefined {
+                                RestApiDataSourceException(
+                                    RestApiErrorResponse.REST_API_DATA_SOURCE_CREATION_ERROR,
+                                    """path_group.source_path.path_segments 
+                                       |does not contain a name that can be 
+                                       |used for this type name; information about 
+                                       |the root may need to be provided
+                                       |""".flattenIntoOneLine()
+                                )
+                            }
+                            .map { lastSegment ->
+                                RestApiSourceNamingConventions.getFieldNamingConventionForPathName()
+                                    .deriveName(lastSegment)
+                            }
+                            .orElseThrow()
+                    addNewOrUpdateExistingSwaggerSourceIndexToContext(
+                        DefaultSwaggerSourcePathItemGroupAttribute(
+                            sourcePath,
+                            getDataSourceKeyForSwaggerSourceIndicesInContext(updatedContext),
+                            attributeConventionalName
+                        ),
+                        updatedContext
+                    )
+                } else {
+                    updatedContext
+                }
+            }
+            .let { updatedContext ->
                 if (
                     sourcePath.getParentPath().isDefined() &&
                         !sourcePath
@@ -575,7 +643,7 @@ interface SwaggerV3ParserSourceIndexCreationTraversalTemplate<WT> :
                         .fold(
                             { updatedContext },
                             { pp ->
-                                createSourceContainerTypeInContextForPathsGroup(
+                                createSourceIndicesInContextForPathsGroup(
                                     pp,
                                     persistentMapOf(),
                                     updatedContext
@@ -641,7 +709,7 @@ interface SwaggerV3ParserSourceIndexCreationTraversalTemplate<WT> :
         logger.debug(
             """create_source_attribute_in_context_for_path_info_representation: [ 
             |source_path: ${sourcePath}, 
-            |path_info.post.response.size: ${pathInfo?.post?.responses?.size}
+            |path_info.post.response.size: ${pathInfo?.post?.responses?.size} 
             |]""".flattenIntoOneLine()
         )
         val lastPathSegment: String =
@@ -658,7 +726,8 @@ interface SwaggerV3ParserSourceIndexCreationTraversalTemplate<WT> :
                 }
                 .orElseThrow()
         val pathInfoAttributeName: ConventionalName =
-            StandardNamingConventions.CAMEL_CASE.deriveName(lastPathSegment)
+            RestApiSourceNamingConventions.getFieldNamingConventionForPathName()
+                .deriveName(lastPathSegment)
         return addNewOrUpdateExistingSwaggerSourceIndexToContext(
             DefaultSwaggerSourcePathItemAttribute(
                 sourcePath,

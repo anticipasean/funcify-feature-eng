@@ -15,7 +15,7 @@ import io.swagger.v3.oas.models.responses.ApiResponse
 interface SwaggerV3ParserSourceIndexCreationTemplate<WT> :
     SwaggerSourceIndexCreationTemplate<WT, OpenAPI, PathItem, RequestBody, ApiResponse, Schema<*>> {
 
-    override fun createSourceContainerTypeInContextForPathsGroup(
+    override fun createSourceIndicesInContextForPathsGroup(
         sourcePath: SchematicPath,
         pathsGroup: Map<SchematicPath, PathItem>,
         contextContainer: SwaggerSourceIndexContextContainer<WT>,

@@ -9,7 +9,7 @@ import funcify.feature.schema.path.SchematicPath
  */
 interface SwaggerSourceIndexCreationTemplate<WT, O, P, REQ, RES, SCH> {
 
-    fun createSourceContainerTypeInContextForPathsGroup(
+    fun createSourceIndicesInContextForPathsGroup(
         sourcePath: SchematicPath,
         pathsGroup: Map<SchematicPath, P>,
         contextContainer: SwaggerSourceIndexContextContainer<WT>
