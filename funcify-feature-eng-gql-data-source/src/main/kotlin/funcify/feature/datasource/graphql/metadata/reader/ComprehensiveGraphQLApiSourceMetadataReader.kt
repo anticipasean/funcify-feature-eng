@@ -7,6 +7,7 @@ import arrow.core.some
 import arrow.core.toOption
 import funcify.feature.datasource.graphql.error.GQLDataSourceErrorResponse
 import funcify.feature.datasource.graphql.error.GQLDataSourceException
+import funcify.feature.datasource.graphql.metadata.filter.GraphQLApiSourceMetadataFilter
 import funcify.feature.datasource.graphql.metadata.reader.GraphQLSourceIndexCreationContext.DirectiveArgumentSourceIndexCreationContext
 import funcify.feature.datasource.graphql.metadata.reader.GraphQLSourceIndexCreationContext.DirectiveSourceIndexCreationContext
 import funcify.feature.datasource.graphql.metadata.reader.GraphQLSourceIndexCreationContext.FieldArgumentParameterSourceIndexCreationContext
@@ -14,7 +15,6 @@ import funcify.feature.datasource.graphql.metadata.reader.GraphQLSourceIndexCrea
 import funcify.feature.datasource.graphql.metadata.reader.GraphQLSourceIndexCreationContext.InputObjectFieldSourceIndexCreationContext
 import funcify.feature.datasource.graphql.metadata.reader.GraphQLSourceIndexCreationContext.InputObjectTypeSourceIndexCreationContext
 import funcify.feature.datasource.graphql.metadata.reader.GraphQLSourceIndexCreationContext.OutputObjectTypeSourceIndexCreationContext
-import funcify.feature.datasource.graphql.metadata.filter.GraphQLApiSourceMetadataFilter
 import funcify.feature.datasource.graphql.schema.GraphQLInputFieldsContainerTypeExtractor
 import funcify.feature.datasource.graphql.schema.GraphQLOutputFieldsContainerTypeExtractor
 import funcify.feature.datasource.graphql.schema.GraphQLParameterAttribute
@@ -53,7 +53,7 @@ import org.slf4j.Logger
  * @author smccarron
  * @created 2022-07-05
  */
-class ComprehensiveGraphQLApiSourceMetadataReader(
+internal class ComprehensiveGraphQLApiSourceMetadataReader(
     private val graphQLSourceIndexFactory: GraphQLSourceIndexFactory,
     private val graphQLSourceIndexCreationContextFactory: GraphQLSourceIndexCreationContextFactory,
     private val graphQLApiSourceMetadataFilter: GraphQLApiSourceMetadataFilter
@@ -72,7 +72,7 @@ class ComprehensiveGraphQLApiSourceMetadataReader(
                 |[ input.query_type.name: ${input.queryType.name}, 
                 | query_type.field_definitions.size: ${input.queryType.fieldDefinitions.size} ]
                 |""".flattenIntoOneLine()
-                    )
+        )
         if (input.queryType.fieldDefinitions.isEmpty()) {
             val message =
                 """graphql_schema input for metadata on graphql 
@@ -82,7 +82,7 @@ class ComprehensiveGraphQLApiSourceMetadataReader(
                 """read_source_container_types_from_metadata: 
                 |[ error: ${message} ]
                 |""".flattenIntoOneLine()
-                        )
+            )
             throw GQLDataSourceException(GQLDataSourceErrorResponse.INVALID_INPUT, message)
         }
         return traverseAcrossSchemaElementsBreadthFirstPairingParentAndChildElements(
@@ -90,8 +90,8 @@ class ComprehensiveGraphQLApiSourceMetadataReader(
             )
             .asSequence()
             .fold(createRootQueryObjectTypeSourceIndexCreationContext(dataSourceKey, input)) {
-                    ctxCreationAttempt: Try<GraphQLSourceIndexCreationContext<*>>,
-                    (parent: GraphQLSchemaElement, child: GraphQLSchemaElement) ->
+                ctxCreationAttempt: Try<GraphQLSourceIndexCreationContext<*>>,
+                (parent: GraphQLSchemaElement, child: GraphQLSchemaElement) ->
                 ctxCreationAttempt.map { context ->
                     foldParentChildElementsIntoSourceIndexCreationContext(context, parent, child)
                 }
@@ -209,7 +209,7 @@ class ComprehensiveGraphQLApiSourceMetadataReader(
                |[ parent: ${parentNameAndType}, 
                |child: $childNameAndType ]
                |""".flattenIntoOneLine()
-                    )
+        )
         val parentPath: SchematicPath =
             previousContext.schematicPathCreatedBySchemaElement[parent]
                 .toOption()
@@ -427,7 +427,7 @@ class ComprehensiveGraphQLApiSourceMetadataReader(
                             |[ type: ${t::class.simpleName}, message: ${t.message} ]
                             |""".flattenIntoOneLine(),
                             t
-                                   )
+                        )
                     }
                     .orElse(context)
             }
@@ -569,7 +569,7 @@ class ComprehensiveGraphQLApiSourceMetadataReader(
             |creation_context.graphql_source_attributes.size: 
             |${graphQLSourceIndexCreationContext.graphqlParameterAttributesBySchematicPath.size} 
             |]""".flattenIntoOneLine()
-                    )
+        )
         val updatedGraphQLSourceContainerTypesByPathAttempt:
             Try<PersistentMap<SchematicPath, GraphQLSourceContainerType>> =
             graphQLSourceIndexCreationContext.graphqlSourceAttributesBySchematicPath

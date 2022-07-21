@@ -24,5 +24,4 @@ interface MetamodelGraph {
 
         fun build(): Try<MetamodelGraph>
     }
-
 }

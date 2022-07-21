@@ -161,6 +161,11 @@ configure(mainKotlinSubProjects) {
                 implementation("io.swagger.parser.v3:swagger-parser:${swaggerParserVersion}")
             }
         }
+        apache {
+            dependencies {
+                implementation("org.apache.commons:commons-text:${apacheCommonsTextVersion}")
+            }
+        }
     }
 
     test {
