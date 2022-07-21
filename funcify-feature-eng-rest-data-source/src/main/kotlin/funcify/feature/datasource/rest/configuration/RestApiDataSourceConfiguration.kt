@@ -1,6 +1,7 @@
 package funcify.feature.datasource.rest.configuration
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import funcify.feature.datasource.rest.RestApiDataSource
 import funcify.feature.datasource.rest.error.RestApiDataSourceException
 import funcify.feature.datasource.rest.error.RestApiErrorResponse
 import funcify.feature.datasource.rest.factory.DefaultRestApiDataSourceFactory
@@ -13,8 +14,12 @@ import funcify.feature.datasource.rest.metadata.provider.DefaultSwaggerRestApiMe
 import funcify.feature.datasource.rest.metadata.provider.SwaggerRestApiMetadataProvider
 import funcify.feature.datasource.rest.metadata.reader.DefaultSwaggerRestApiSourceMetadataReader
 import funcify.feature.datasource.rest.metadata.reader.SwaggerRestApiSourceMetadataReader
+import funcify.feature.datasource.rest.schema.SwaggerRestApiSourceMetamodel
+import funcify.feature.datasource.rest.sdl.SwaggerRestApiDataSourceIndexSDLDefinitionImplementationStrategy
 import funcify.feature.datasource.rest.swagger.SwaggerSchemaEndpointRegistry
+import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionImplementationStrategy
 import funcify.feature.json.JsonMapper
+import funcify.feature.tools.extensions.PersistentListExtensions.toPersistentList
 import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
 import io.swagger.v3.oas.models.OpenAPI
 import org.springframework.beans.factory.ObjectProvider
@@ -94,5 +99,16 @@ class RestApiDataSourceConfiguration {
             swaggerRestApiMetadataProvider,
             swaggerRestApiSourceMetadataReader
         )
+    }
+
+    @Bean
+    fun swaggerRestApiDataSourceSDLDefinitionImplementationStrategies(
+        restApiDataSourceProvider: ObjectProvider<RestApiDataSource>
+    ): List<SchematicVertexSDLDefinitionImplementationStrategy> {
+        return restApiDataSourceProvider
+            .stream()
+            .filter { rds -> rds.sourceMetamodel is SwaggerRestApiSourceMetamodel }
+            .map { rds -> SwaggerRestApiDataSourceIndexSDLDefinitionImplementationStrategy(rds) }
+            .toPersistentList()
     }
 }

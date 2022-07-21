@@ -66,6 +66,6 @@ internal class SwaggerRestApiDataSourceIndexSDLDefinitionImplementationStrategy(
     override fun applyToContext(
         context: SchematicVertexSDLDefinitionCreationContext<*>
     ): Try<SchematicVertexSDLDefinitionCreationContext<*>> {
-        TODO()
+        return Try.success(context)
     }
 }
