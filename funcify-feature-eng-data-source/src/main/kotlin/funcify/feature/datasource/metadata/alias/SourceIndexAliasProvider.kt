@@ -1,9 +1,12 @@
 package funcify.feature.datasource.metadata.alias
 
+import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.datasource.SourceIndex
 import funcify.feature.schema.datasource.SourceMetamodel
 import funcify.feature.schema.path.SchematicPath
+import funcify.feature.tools.container.deferred.Deferred
 import kotlinx.collections.immutable.ImmutableMap
+import kotlinx.collections.immutable.ImmutableSet
 
 /**
  * Provide alternate names for the source indices referenced by specific paths in the
@@ -14,7 +17,8 @@ import kotlinx.collections.immutable.ImmutableMap
  */
 interface SourceIndexAliasProvider<SI : SourceIndex<SI>> {
 
-    fun getAliasesForAttributePaths(
-        sourceMetamodel: SourceMetamodel<SI>
-    ): ImmutableMap<SchematicPath, String>
+    fun provideAnyAliasesForAttributePathsInDataSource(
+        dataSource: DataSource<SI>
+    ): Deferred<ImmutableMap<SchematicPath, ImmutableSet<String>>>
+
 }
