@@ -10,12 +10,12 @@ import java.util.concurrent.ConcurrentMap
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.persistentMapOf
 
-internal data class DefaultAliasRegistry(
+internal data class DefaultAttributeAliasRegistry(
     private val sourceAttributeVerticesByStandardAndAliasQualifiedNames:
         PersistentMap<String, SourceAttributeVertex> =
         persistentMapOf(),
     private val memoizingAliasMapper: MemoizingAliasMapperFunction = MemoizingAliasMapperFunction()
-) : AliasRegistry {
+) : AttributeAliasRegistry {
 
     companion object {
 
@@ -69,7 +69,7 @@ internal data class DefaultAliasRegistry(
     override fun registerSourceAttributeVertexWithAlias(
         sourceAttributeVertex: SourceAttributeVertex,
         alias: String
-    ): AliasRegistry {
+    ): AttributeAliasRegistry {
         val sourceAttributeVertexQualifiedName: String =
             StandardNamingConventions.SNAKE_CASE.deriveName(
                     sourceAttributeVertex.compositeAttribute.conventionalName.qualifiedForm

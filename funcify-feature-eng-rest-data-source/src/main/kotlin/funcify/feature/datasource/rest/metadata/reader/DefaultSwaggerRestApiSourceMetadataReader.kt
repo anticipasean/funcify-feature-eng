@@ -42,7 +42,7 @@ internal class DefaultSwaggerRestApiSourceMetadataReader(
 
     override fun readSourceMetamodelFromMetadata(
         dataSourceKey: DataSource.Key<RestApiSourceIndex>,
-        input: OpenAPI,
+        metadataInput: OpenAPI,
     ): SourceMetamodel<RestApiSourceIndex> {
         val dataSourceNameAndType: String =
             dataSourceKey.name
@@ -52,7 +52,7 @@ internal class DefaultSwaggerRestApiSourceMetadataReader(
                 .orNull()
                 ?: "<NA>"
         val openAPIPathsCountAndFirst: String =
-            input
+            metadataInput
                 .toOption()
                 .mapNotNull { o -> o.paths }
                 .flatMap { ps ->
@@ -73,13 +73,13 @@ internal class DefaultSwaggerRestApiSourceMetadataReader(
         val sourceIndicesCreationContext: SwaggerV3ParserSourceIndexContext =
             DefaultSwaggerV3ParserSourceIndexContext(
                 swaggerAPIDataSourceKey = dataSourceKey,
-                openAPI = input,
+                openAPI = metadataInput,
                 swaggerRestApiSourceMetadataFilter = swaggerRestApiSourceMetadataFilter
             )
         val sourceIndexFactory: SwaggerV3ParserSourceIndexFactory =
             DefaultSwaggerV3ParserSourceIndexFactory()
         return Try.attempt {
-                sourceIndexFactory.onOpenAPI(input, sourceIndicesCreationContext).narrowed()
+                sourceIndexFactory.onOpenAPI(metadataInput, sourceIndicesCreationContext).narrowed()
             }
             .map { swaggerSourceIndexContext ->
                 addChildAttributesToTheirParentIndices(swaggerSourceIndexContext)

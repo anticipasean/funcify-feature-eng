@@ -120,4 +120,5 @@ class GraphQLDataSourceConfiguration {
         SchematicVertexSDLDefinitionImplementationStrategy {
         return GraphQLSourceIndexBasedSDLDefinitionImplementationStrategy()
     }
+
 }

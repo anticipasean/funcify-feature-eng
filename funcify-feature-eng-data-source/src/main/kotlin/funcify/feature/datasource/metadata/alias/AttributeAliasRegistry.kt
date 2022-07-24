@@ -9,19 +9,19 @@ import funcify.feature.schema.vertex.SourceAttributeVertex
  * @author smccarron
  * @created 2022-07-21
  */
-interface AliasRegistry {
+interface AttributeAliasRegistry {
 
     companion object {
 
-        fun newRegistry(): AliasRegistry {
-            return DefaultAliasRegistry()
+        fun newRegistry(): AttributeAliasRegistry {
+            return DefaultAttributeAliasRegistry()
         }
     }
 
     fun registerSourceAttributeVertexWithAlias(
         sourceAttributeVertex: SourceAttributeVertex,
         alias: String
-    ): AliasRegistry
+    ): AttributeAliasRegistry
 
     fun containsSimilarNameOrAlias(name: String): Boolean {
         return getSourceAttributeVertexWithSimilarNameOrAlias(name).isDefined()

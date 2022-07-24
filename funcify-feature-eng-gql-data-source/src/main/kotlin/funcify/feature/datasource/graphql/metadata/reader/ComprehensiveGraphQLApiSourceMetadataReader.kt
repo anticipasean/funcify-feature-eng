@@ -65,15 +65,15 @@ internal class ComprehensiveGraphQLApiSourceMetadataReader(
 
     override fun readSourceMetamodelFromMetadata(
         dataSourceKey: DataSource.Key<GraphQLSourceIndex>,
-        input: GraphQLSchema,
+        metadataInput: GraphQLSchema,
     ): SourceMetamodel<GraphQLSourceIndex> {
         logger.debug(
             """read_source_container_types_from_metadata: 
-                |[ input.query_type.name: ${input.queryType.name}, 
-                | query_type.field_definitions.size: ${input.queryType.fieldDefinitions.size} ]
+                |[ metadata_input.query_type.name: ${metadataInput.queryType.name}, 
+                | query_type.field_definitions.size: ${metadataInput.queryType.fieldDefinitions.size} ]
                 |""".flattenIntoOneLine()
         )
-        if (input.queryType.fieldDefinitions.isEmpty()) {
+        if (metadataInput.queryType.fieldDefinitions.isEmpty()) {
             val message =
                 """graphql_schema input for metadata on graphql 
                 |source does not have any query type 
@@ -86,10 +86,10 @@ internal class ComprehensiveGraphQLApiSourceMetadataReader(
             throw GQLDataSourceException(GQLDataSourceErrorResponse.INVALID_INPUT, message)
         }
         return traverseAcrossSchemaElementsBreadthFirstPairingParentAndChildElements(
-                input.queryType
+            metadataInput.queryType
             )
             .asSequence()
-            .fold(createRootQueryObjectTypeSourceIndexCreationContext(dataSourceKey, input)) {
+            .fold(createRootQueryObjectTypeSourceIndexCreationContext(dataSourceKey, metadataInput)) {
                 ctxCreationAttempt: Try<GraphQLSourceIndexCreationContext<*>>,
                 (parent: GraphQLSchemaElement, child: GraphQLSchemaElement) ->
                 ctxCreationAttempt.map { context ->

@@ -15,10 +15,9 @@ import kotlinx.collections.immutable.ImmutableSet
  * @author smccarron
  * @created 2022-07-21
  */
-interface SourceIndexAliasProvider<SI : SourceIndex<SI>> {
+fun interface DataSourceAttributeAliasProvider<SI : SourceIndex<SI>> {
 
     fun provideAnyAliasesForAttributePathsInDataSource(
         dataSource: DataSource<SI>
     ): Deferred<ImmutableMap<SchematicPath, ImmutableSet<String>>>
-
 }
