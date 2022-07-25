@@ -17,7 +17,7 @@ import kotlinx.collections.immutable.ImmutableMap
  * @author smccarron
  * @created 2022-07-25
  */
-internal interface MetamodelGraphCreationContext {
+interface MetamodelGraphCreationContext {
 
     val schematicVertexFactory: SchematicVertexFactory
 

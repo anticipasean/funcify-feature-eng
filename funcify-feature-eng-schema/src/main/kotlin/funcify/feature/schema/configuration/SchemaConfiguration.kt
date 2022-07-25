@@ -2,6 +2,7 @@ package funcify.feature.schema.configuration
 
 import funcify.feature.schema.factory.DefaultMetamodelGraphFactory
 import funcify.feature.schema.factory.DefaultSchematicVertexFactory
+import funcify.feature.schema.factory.MetamodelGraphCreationContext
 import funcify.feature.schema.factory.MetamodelGraphFactory
 import funcify.feature.schema.factory.SchematicVertexFactory
 import funcify.feature.schema.strategy.CompositeSchematicVertexGraphRemappingStrategy
@@ -25,7 +26,7 @@ class SchemaConfiguration {
     fun metamodelGraphFactory(
         schematicVertexFactory: SchematicVertexFactory,
         schematicVertexGraphRemappingStrategyProvider:
-            ObjectProvider<SchematicVertexGraphRemappingStrategy>
+            ObjectProvider<SchematicVertexGraphRemappingStrategy<MetamodelGraphCreationContext>>
     ): MetamodelGraphFactory {
         return DefaultMetamodelGraphFactory(
             schematicVertexFactory = schematicVertexFactory,

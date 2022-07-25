@@ -8,15 +8,12 @@ import funcify.feature.tools.container.attempt.Try
  * @author smccarron
  * @created 2022-07-18
  */
-interface SchematicVertexGraphRemappingStrategy {
+interface SchematicVertexGraphRemappingStrategy<C> {
 
-    fun canBeAppliedTo(
-        remappingContext: SchematicVertexGraphRemappingContext,
-        schematicVertex: SchematicVertex
-    ): Boolean
+    fun canBeAppliedTo(context: C, schematicVertex: SchematicVertex): Boolean
 
     fun applyToVertexInContext(
-        remappingContext: SchematicVertexGraphRemappingContext,
+        context: C,
         schematicVertex: SchematicVertex,
-    ): Try<SchematicVertexGraphRemappingContext>
+    ): Try<C>
 }

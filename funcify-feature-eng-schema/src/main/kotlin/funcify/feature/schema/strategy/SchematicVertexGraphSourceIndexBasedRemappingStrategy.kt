@@ -1,6 +1,7 @@
 package funcify.feature.schema.strategy
 
 import funcify.feature.schema.SchematicVertex
+import funcify.feature.schema.factory.MetamodelGraphCreationContext
 import funcify.feature.tools.container.attempt.Try
 
 /**
@@ -9,19 +10,19 @@ import funcify.feature.tools.container.attempt.Try
  * @created 2022-07-18
  */
 interface SchematicVertexGraphSourceIndexBasedRemappingStrategy :
-    SchematicVertexGraphRemappingStrategy {
+    SchematicVertexGraphRemappingStrategy<MetamodelGraphCreationContext> {
 
     val remappingHandler: SchematicVertexSourceIndexBasedRemappingHandler
 
     override fun canBeAppliedTo(
-        remappingContext: SchematicVertexGraphRemappingContext,
+        context: MetamodelGraphCreationContext,
         schematicVertex: SchematicVertex
     ): Boolean
 
     override fun applyToVertexInContext(
-        remappingContext: SchematicVertexGraphRemappingContext,
+        context: MetamodelGraphCreationContext,
         schematicVertex: SchematicVertex,
-    ): Try<SchematicVertexGraphRemappingContext> {
-        return Try.attempt { remappingHandler.onSchematicVertex(schematicVertex, remappingContext) }
+    ): Try<MetamodelGraphCreationContext> {
+        return Try.attempt { remappingHandler.onSchematicVertex(schematicVertex, context) }
     }
 }

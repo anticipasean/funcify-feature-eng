@@ -50,7 +50,7 @@ interface SchematicVertexSourceIndexBasedMappingTemplate<C> :
             .fold(::emptyMap, ::identity)
             .asSequence()
             .fold(context) { ctx, (dataSourceKey, srcContTypeAttrPair) ->
-                onSourceIndicesOnDataSourceOnJunctionVertex(
+                onSourceIndicesOnDataSourceOnSourceJunctionVertex(
                     dataSourceKey,
                     srcContTypeAttrPair.first,
                     srcContTypeAttrPair.second,
@@ -118,7 +118,7 @@ interface SchematicVertexSourceIndexBasedMappingTemplate<C> :
         context: C
     ): C
 
-    fun onSourceIndicesOnDataSourceOnJunctionVertex(
+    fun onSourceIndicesOnDataSourceOnSourceJunctionVertex(
         dataSourceKey: DataSource.Key<*>,
         sourceContainerType: SourceContainerType<*, *>,
         sourceAttribute: SourceAttribute<*>,
