@@ -2,6 +2,7 @@ package funcify.feature.datasource.metadata.alias
 
 import arrow.core.Option
 import funcify.feature.naming.ConventionalName
+import funcify.feature.schema.vertex.ParameterAttributeVertex
 import funcify.feature.schema.vertex.SourceAttributeVertex
 
 /**
@@ -23,12 +24,25 @@ interface AttributeAliasRegistry {
         alias: String
     ): AttributeAliasRegistry
 
-    fun containsSimilarNameOrAlias(name: String): Boolean {
+    fun registerParameterAttributeVertexWithAlias(
+        parameterAttributeVertex: ParameterAttributeVertex,
+        alias: String
+    ): AttributeAliasRegistry
+
+    fun containsSimilarSourceAttributeNameOrAlias(name: String): Boolean {
         return getSourceAttributeVertexWithSimilarNameOrAlias(name).isDefined()
     }
 
-    fun containsSimilarNameOrAlias(conventionalName: ConventionalName): Boolean {
+    fun containsSimilarSourceAttributeNameOrAlias(conventionalName: ConventionalName): Boolean {
         return getSourceAttributeVertexWithSimilarNameOrAlias(conventionalName).isDefined()
+    }
+
+    fun containsSimilarParameterAttributeNameOrAlias(name: String): Boolean {
+        return getParameterAttributeVertexWithSimilarNameOrAlias(name).isDefined()
+    }
+
+    fun containsSimilarParameterAttributeNameOrAlias(conventionalName: ConventionalName): Boolean {
+        return getParameterAttributeVertexWithSimilarNameOrAlias(conventionalName).isDefined()
     }
 
     fun getSourceAttributeVertexWithSimilarNameOrAlias(name: String): Option<SourceAttributeVertex>
@@ -36,4 +50,12 @@ interface AttributeAliasRegistry {
     fun getSourceAttributeVertexWithSimilarNameOrAlias(
         conventionalName: ConventionalName
     ): Option<SourceAttributeVertex>
+
+    fun getParameterAttributeVertexWithSimilarNameOrAlias(
+        name: String
+    ): Option<ParameterAttributeVertex>
+
+    fun getParameterAttributeVertexWithSimilarNameOrAlias(
+        conventionalName: ConventionalName
+    ): Option<ParameterAttributeVertex>
 }
