@@ -1,4 +1,4 @@
-package funcify.feature.datasource.metadata.alias
+package funcify.feature.schema.directive.alias
 
 import arrow.core.Option
 import funcify.feature.naming.ConventionalName

@@ -1,4 +1,4 @@
-package funcify.feature.datasource.metadata.temporal
+package funcify.feature.schema.directive.temporal
 
 import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.datasource.SourceIndex

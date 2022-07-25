@@ -6,6 +6,10 @@ import funcify.feature.schema.SchematicEdge
 import funcify.feature.schema.SchematicVertex
 import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.datasource.SourceIndex
+import funcify.feature.schema.directive.alias.AttributeAliasRegistry
+import funcify.feature.schema.directive.alias.DataSourceAttributeAliasProvider
+import funcify.feature.schema.directive.temporal.DataSourceAttributeLastUpdatedProvider
+import funcify.feature.schema.directive.temporal.LastUpdatedTemporalAttributePathRegistry
 import funcify.feature.schema.error.SchemaErrorResponse
 import funcify.feature.schema.error.SchemaException
 import funcify.feature.schema.path.SchematicPath
@@ -13,6 +17,7 @@ import funcify.feature.schema.strategy.DefaultSchematicVertexGraphRemappingConte
 import funcify.feature.schema.strategy.SchematicVertexGraphRemappingContext
 import funcify.feature.schema.strategy.SchematicVertexGraphRemappingStrategy
 import funcify.feature.tools.container.attempt.Try
+import funcify.feature.tools.container.deferred.Deferred
 import funcify.feature.tools.container.graph.PathBasedGraph
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.PersistentMapExtensions.streamEntries
@@ -143,6 +148,20 @@ internal class DefaultMetamodelGraphFactory(
                 }
             }
 
+            override fun <SI : SourceIndex<SI>> addAttributeAliasProviderForDataSource(
+                attributeAliasProvider: DataSourceAttributeAliasProvider<SI>,
+                dataSource: DataSource<SI>,
+            ): MetamodelGraph.Builder {
+                TODO("Not yet implemented")
+            }
+
+            override fun <SI : SourceIndex<SI>> addLastUpdatedAttributeProviderForDataSource(
+                lastUpdatedAttributeProvider: DataSourceAttributeLastUpdatedProvider<SI>,
+                dataSource: DataSource<SI>,
+            ): MetamodelGraph.Builder {
+                TODO("Not yet implemented")
+            }
+
             private fun <SI : SourceIndex<SI>> createNewOrUpdateExistingSchematicVertex(
                 dataSource: DataSource<SI>,
                 existingSchematicVerticesByPath: PersistentMap<SchematicPath, SchematicVertex>,
@@ -173,7 +192,7 @@ internal class DefaultMetamodelGraphFactory(
                 }
             }
 
-            override fun build(): Try<MetamodelGraph> {
+            override fun build(): Deferred<MetamodelGraph> {
                 return dataSourcesByNameAttempt
                     .zip(schematicVerticesByPathAttempt) {
                         dsByName: PersistentMap<String, DataSource<*>>,
@@ -196,7 +215,10 @@ internal class DefaultMetamodelGraphFactory(
                             pathBasedGraph =
                                 PathBasedGraph.emptyTwoToOnePathsToEdgeGraph<
                                         SchematicPath, SchematicVertex, SchematicEdge>()
-                                    .putAllVertices(schematicVerticesByPath)
+                                    .putAllVertices(schematicVerticesByPath),
+                            attributeAliasRegistry = AttributeAliasRegistry.newRegistry(),
+                            lastUpdatedTemporalAttributePathRegistry =
+                                LastUpdatedTemporalAttributePathRegistry.newRegistry()
                         )
                     }
                     .peekIfFailure { thr: Throwable ->
@@ -242,6 +264,9 @@ internal class DefaultMetamodelGraphFactory(
                                     pathBasedGraph = remappingContext.pathBasedGraph
                                 )
                             }
+                    }
+                    .let { metaModelGraphAttempt: Try<MetamodelGraph> ->
+                        Deferred.fromAttempt(metaModelGraphAttempt)
                     }
             }
         }

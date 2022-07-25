@@ -1,7 +1,7 @@
 package funcify.feature.datasource.graphql.metadata.alias
 
 import funcify.feature.datasource.graphql.schema.GraphQLSourceIndex
-import funcify.feature.datasource.metadata.alias.DataSourceAttributeAliasProvider
+import funcify.feature.schema.directive.alias.DataSourceAttributeAliasProvider
 
 /**
  *

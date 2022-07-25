@@ -140,6 +140,10 @@ interface Deferred<out I> : Iterable<I>, Publisher<@UnsafeVariance I> {
 
     fun <O> map(scheduler: Scheduler, mapper: (I) -> O): Deferred<O>
 
+    fun mapFailure(mapper: (Throwable) -> Throwable): Deferred<I> {
+        return flatMapFailure { thr -> Deferred.failed(mapper.invoke(thr)) }
+    }
+
     fun <O> flatMap(mapper: (I) -> Deferred<O>): Deferred<O>
 
     fun <O> flatMap(executor: Executor, mapper: (I) -> Deferred<O>): Deferred<O>

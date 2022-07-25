@@ -1,4 +1,4 @@
-package funcify.feature.datasource.metadata.alias
+package funcify.feature.schema.directive.alias
 
 import arrow.core.Option
 import arrow.core.toOption
@@ -18,11 +18,9 @@ internal data class DefaultAttributeAliasRegistry(
     private val parameterAttributeVerticesByStandardAndAliasQualifiedNames:
         PersistentMap<String, ParameterAttributeVertex> =
         persistentMapOf(),
-    private val memoizingSourceAttributeVertexAliasMapper:
-        MemoizingAliasMapperFunction<SourceAttributeVertex> =
+    private val memoizingSourceAttributeVertexAliasMapper: MemoizingAliasMapperFunction<SourceAttributeVertex> =
         MemoizingAliasMapperFunction(),
-    private val memoizingParameterAttributeVertexAliasMapper:
-        MemoizingAliasMapperFunction<ParameterAttributeVertex> =
+    private val memoizingParameterAttributeVertexAliasMapper: MemoizingAliasMapperFunction<ParameterAttributeVertex> =
         MemoizingAliasMapperFunction()
 ) : AttributeAliasRegistry {
 

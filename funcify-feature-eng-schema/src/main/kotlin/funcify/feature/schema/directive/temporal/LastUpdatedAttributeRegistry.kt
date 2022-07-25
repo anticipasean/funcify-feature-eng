@@ -1,4 +1,4 @@
-package funcify.feature.datasource.metadata.temporal
+package funcify.feature.schema.directive.temporal
 
 import arrow.core.Option
 import funcify.feature.schema.SchematicVertex

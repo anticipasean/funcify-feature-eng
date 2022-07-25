@@ -1,4 +1,4 @@
-package funcify.feature.datasource.metadata.temporal
+package funcify.feature.schema.directive.temporal
 
 import funcify.feature.schema.path.SchematicPath
 import kotlinx.collections.immutable.ImmutableSet

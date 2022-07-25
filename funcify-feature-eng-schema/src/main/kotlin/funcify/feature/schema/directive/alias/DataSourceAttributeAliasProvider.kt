@@ -1,4 +1,4 @@
-package funcify.feature.datasource.metadata.alias
+package funcify.feature.schema.directive.alias
 
 import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.datasource.SourceIndex
