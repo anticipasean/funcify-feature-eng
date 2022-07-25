@@ -6,6 +6,12 @@ import funcify.feature.error.ErrorResponse
 import org.springframework.http.HttpStatus
 
 enum class SchemaErrorResponse : ErrorResponse {
+    METAMODEL_CREATION_ERROR {
+        override val responseStatusIfHttp: Option<HttpStatus>
+            get() = HttpStatus.INTERNAL_SERVER_ERROR.some()
+        override val errorMessageIfHttp: Option<String>
+            get() = "error occurred during metamodel_graph creation".some()
+    },
     UNEXPECTED_ERROR {
         override val responseStatusIfHttp: Option<HttpStatus>
             get() = HttpStatus.INTERNAL_SERVER_ERROR.some()
