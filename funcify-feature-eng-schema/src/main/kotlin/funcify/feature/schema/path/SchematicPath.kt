@@ -7,6 +7,7 @@ import arrow.core.some
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.node.JsonNodeFactory
 import funcify.feature.json.JacksonJsonNodeComparator
+import funcify.feature.tools.extensions.JsonNodeExtensions.removeLastChildKeyValuePairFromRightmostObjectNode
 import java.math.BigDecimal
 import java.net.URI
 import kotlinx.collections.immutable.ImmutableList
@@ -46,7 +47,8 @@ interface SchematicPath : Comparable<SchematicPath> {
                  */
                 when (val mapSizeComparison: Int = map1.size.compareTo(map2.size)) {
                     0 -> {
-                        map1.asSequence()
+                        map1
+                            .asSequence()
                             .zip(map2.asSequence())
                             .map { (e1, e2) ->
                                 e1.key.compareTo(e2.key).let { keyComp ->
@@ -386,6 +388,10 @@ interface SchematicPath : Comparable<SchematicPath> {
                     .zip(other.pathSegments.asSequence()) { t, o -> t == o }
                     .all { matched -> matched }
             }
+            /**
+             * if this path represents a parameter index--has arguments and/or directives--on the
+             * other and the other represents a source index
+             */
             this.pathSegments.size == other.pathSegments.size &&
                 (this.arguments.isNotEmpty() || this.directives.isNotEmpty()) &&
                 other.arguments.isEmpty() &&
@@ -395,6 +401,10 @@ interface SchematicPath : Comparable<SchematicPath> {
                     .zip(other.pathSegments.asSequence()) { t, o -> t == o }
                     .all { matched -> matched }
             }
+            /** both represent parameter indices */
+            // TODO: Revisit this ancestry logic and handle recursive comparison cases in a more
+            // nuanced manner
+            // Use with caution in the meantime
             this.pathSegments.size == other.pathSegments.size &&
                 (this.arguments.isNotEmpty() || this.directives.isNotEmpty()) &&
                 (other.arguments.isNotEmpty() || other.directives.isNotEmpty()) -> {
@@ -458,6 +468,8 @@ interface SchematicPath : Comparable<SchematicPath> {
                     .zip(other.pathSegments.asSequence()) { t, o -> t == o }
                     .all { matched -> matched }
             }
+            // TODO: Revisit this ancestry logic and handle recursive comparison cases in a more
+            // nuanced manner
             this.pathSegments.size == other.pathSegments.size &&
                 (arguments.isNotEmpty() || directives.isNotEmpty()) &&
                 (other.arguments.isNotEmpty() || other.directives.isNotEmpty()) -> {
@@ -505,15 +517,13 @@ interface SchematicPath : Comparable<SchematicPath> {
             arguments.isNotEmpty() &&
                 directives.isEmpty() &&
                 arguments.size == 1 &&
-                arguments.firstNotNullOf { entry -> entry.value.isNull || entry.value.isEmpty } -> {
+                arguments.firstNotNullOf { (_, value) -> value.isNull || value.isEmpty } -> {
                 transform { clearArguments() }.some()
             }
             arguments.isEmpty() &&
                 directives.isNotEmpty() &&
                 directives.size == 1 &&
-                directives.firstNotNullOf { entry ->
-                    entry.value.isNull || entry.value.isEmpty
-                } -> {
+                directives.firstNotNullOf { (_, value) -> value.isNull || value.isEmpty } -> {
                 transform { clearDirectives() }.some()
             }
             else -> {
@@ -524,18 +534,23 @@ interface SchematicPath : Comparable<SchematicPath> {
                 if (directives.isNotEmpty()) {
                     val lastKey = directives.keys.last()
                     directives[lastKey]?.let { jn ->
-                        if (jn.isNull || jn.isEmpty) {
+                        // represents a scalar value, array, or null so remove entry with last_key
+                        if (jn.isEmpty || !jn.isObject) {
                             transform {
                                     clearDirectives()
-                                        .directives(
-                                            this@SchematicPath.directives
-                                                .toPersistentMap()
-                                                .remove(lastKey)
-                                        )
+                                        .directives(directives.toPersistentMap().remove(lastKey))
                                 }
                                 .some()
                         } else {
-                            transform { directive(lastKey) }.some()
+                            // represents an object so remove rightmost child keyvalue pair,
+                            // potentially nested
+                            transform {
+                                    directive(
+                                        lastKey,
+                                        jn.removeLastChildKeyValuePairFromRightmostObjectNode()
+                                    )
+                                }
+                                .some()
                         }
                     }
                         ?: none<SchematicPath>()
@@ -546,18 +561,23 @@ interface SchematicPath : Comparable<SchematicPath> {
                 } else if (arguments.isNotEmpty()) {
                     val lastKey = arguments.keys.last()
                     arguments[lastKey]?.let { jn ->
-                        if (jn.isNull || jn.isEmpty) {
+                        // represents a scalar value, array, or null so remove entry with last_key
+                        if (jn.isEmpty || !jn.isObject) {
                             transform {
                                     clearArguments()
-                                        .arguments(
-                                            this@SchematicPath.arguments
-                                                .toPersistentMap()
-                                                .remove(lastKey)
-                                        )
+                                        .arguments(arguments.toPersistentMap().remove(lastKey))
                                 }
                                 .some()
                         } else {
-                            transform { argument(lastKey) }.some()
+                            // represents an object so remove rightmost child keyvalue pair,
+                            // potentially nested
+                            transform {
+                                    argument(
+                                        lastKey,
+                                        jn.removeLastChildKeyValuePairFromRightmostObjectNode()
+                                    )
+                                }
+                                .some()
                         }
                     }
                         ?: none<SchematicPath>()

@@ -1,5 +1,6 @@
 package funcify.feature.schema.path
 
+import arrow.core.Option
 import arrow.core.getOrElse
 import arrow.core.toOption
 import com.fasterxml.jackson.databind.JsonNode
@@ -207,10 +208,8 @@ internal data class DefaultSchematicPath(
         }
     }
 
-    private val uri: URI by lazy { createUriFromProperties() }
-
-    private fun createUriFromProperties(): URI {
-        return directives
+    private val uri: URI by lazy {
+        directives
             .asSequence()
             .fold(
                 arguments
@@ -219,19 +218,19 @@ internal data class DefaultSchematicPath(
                         UriComponentsBuilder.newInstance()
                             .scheme(scheme)
                             .path(pathSegments.joinToString(separator = "/", prefix = "/")),
-                        { ucb: UriComponentsBuilder, entry: Map.Entry<String, JsonNode> ->
-                            if (entry.value.isNull) {
-                                ucb.queryParam(entry.key)
+                        { ucb: UriComponentsBuilder, (key: String, value: JsonNode) ->
+                            if (value.isNull) {
+                                ucb.queryParam(key)
                             } else {
-                                ucb.queryParam(entry.key, entry.value)
+                                ucb.queryParam(key, value)
                             }
                         }
                     ),
-                { ucb: UriComponentsBuilder, entry: Map.Entry<String, JsonNode> ->
-                    if (entry.value.isEmpty()) {
-                        ucb.fragment(entry.key)
+                { ucb: UriComponentsBuilder, (key: String, value: JsonNode) ->
+                    if (value.isEmpty()) {
+                        ucb.fragment(key)
                     } else {
-                        ucb.fragment("${entry.key}=${entry.value}")
+                        ucb.fragment("${key}=${value}")
                     }
                 }
             )
@@ -239,8 +238,14 @@ internal data class DefaultSchematicPath(
             .toUri()
     }
 
+    private val internedParentPath: Option<SchematicPath> by lazy { super.getParentPath() }
+
     override fun toURI(): URI {
         return uri
+    }
+
+    override fun getParentPath(): Option<SchematicPath> {
+        return internedParentPath
     }
 
     override fun transform(

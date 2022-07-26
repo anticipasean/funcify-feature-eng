@@ -5,7 +5,8 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.node.JsonNodeFactory
 import com.fasterxml.jackson.databind.node.ObjectNode
 import funcify.feature.tools.container.attempt.Try
-import funcify.feature.tools.extensions.JsonNodeExtensions.addChildFieldAndValuePairToRightmostTreeNode
+import funcify.feature.tools.extensions.JsonNodeExtensions.addChildKeyValuePairToRightmostObjectOrNullNode
+import funcify.feature.tools.extensions.JsonNodeExtensions.removeLastChildKeyValuePairFromRightmostObjectNode
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
 
@@ -113,7 +114,7 @@ class JsonNodeExtensionsTest {
                 JsonNodeFactory.instance.textNode("My input_field_3 description has been updated")
         val updatedJsonNodeResult: JsonNode =
             jsonNode
-                .addChildFieldAndValuePairToRightmostTreeNode(
+                .addChildKeyValuePairToRightmostObjectOrNullNode(
                     childNodePair.first,
                     childNodePair.second
                 )
@@ -152,7 +153,7 @@ class JsonNodeExtensionsTest {
         val attributeDescription = "My latest attribute description"
         val updatedNode =
             jsonNode
-                .addChildFieldAndValuePairToRightmostTreeNode(
+                .addChildKeyValuePairToRightmostObjectOrNullNode(
                     "description",
                     JsonNodeFactory.instance.textNode(attributeDescription)
                 )
@@ -162,5 +163,75 @@ class JsonNodeExtensionsTest {
             attributeDescription,
             "expected and actual new child 'description' nodes do not match"
         )
+    }
+
+    @Test
+    fun removeRightmostKeyValuePairTest() {
+        val jsonNodeAttempt: Try<JsonNode> = Try.attempt { ObjectMapper().readTree(JSON_SNIPPET) }
+        if (jsonNodeAttempt.isFailure()) {
+            Assertions.fail<Unit>(jsonNodeAttempt.getFailure().orNull()!!)
+        }
+        val jsonNode: JsonNode = jsonNodeAttempt.orElseThrow()
+        val updatedJsonNodeResult: JsonNode =
+            jsonNode.removeLastChildKeyValuePairFromRightmostObjectNode()
+        val lineageKeyList: List<String> =
+            listOf(
+                "paths",
+                "/some_path/some_calculated_attribute",
+                "post",
+                "requestBody",
+                "content",
+                "application/json",
+                "schema",
+                "properties",
+                "input_field_3",
+                "type"
+            )
+        val inputField3ParentNode =
+            lineageKeyList.subList(0, lineageKeyList.size - 1).fold(updatedJsonNodeResult) {
+                node,
+                key ->
+                node.path(key)
+            }
+        Assertions.assertInstanceOf(
+            ObjectNode::class.java,
+            inputField3ParentNode,
+            "input_field_3_parent_node not found or not object_node"
+        )
+        Assertions.assertEquals(
+            1,
+            inputField3ParentNode.size(),
+            "input_field_3_parent_node should only have one child left"
+        )
+        Assertions.assertTrue(
+            inputField3ParentNode.has("description"),
+            "remaining child expected to be \"description\""
+        )
+    }
+
+    @Test
+    fun removeRightmostKeyValuePairNoNestedEntriesTest() {
+        val exampleObjectNode =
+            mapOf<String, String>(
+                    "type" to "number",
+                    "name" to "input_field_3",
+                    "description" to "my_description"
+                )
+                .asSequence()
+                .fold(JsonNodeFactory.instance.objectNode()) { on, (k, v) -> on.put(k, v) }
+
+        val updatedJsonNodeResult: JsonNode =
+            exampleObjectNode.removeLastChildKeyValuePairFromRightmostObjectNode()
+        Assertions.assertNotEquals(
+            exampleObjectNode,
+            updatedJsonNodeResult,
+            "updated_node should not be equal to input_example_node"
+        )
+        exampleObjectNode.fields().asSequence().take(2).fold(updatedJsonNodeResult) {
+            resultNode,
+            (k, _) ->
+            Assertions.assertTrue(resultNode.has(k), "result_node is missing expected key: ${k}")
+            resultNode
+        }
     }
 }

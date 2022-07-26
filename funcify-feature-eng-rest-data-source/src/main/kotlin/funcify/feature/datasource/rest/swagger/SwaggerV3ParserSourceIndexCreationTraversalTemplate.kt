@@ -19,7 +19,7 @@ import funcify.feature.datasource.rest.schema.DefaultSwaggerSourcePathItemGroupA
 import funcify.feature.datasource.rest.schema.DefaultSwaggerSourceResponseBodyPropertyAttribute
 import funcify.feature.naming.ConventionalName
 import funcify.feature.schema.path.SchematicPath
-import funcify.feature.tools.extensions.JsonNodeExtensions.addChildFieldAndValuePairToRightmostTreeNode
+import funcify.feature.tools.extensions.JsonNodeExtensions.addChildKeyValuePairToRightmostObjectOrNullNode
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.OptionExtensions.flatMapOptions
 import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentMap
@@ -323,7 +323,7 @@ interface SwaggerV3ParserSourceIndexCreationTraversalTemplate<WT> :
                                     .toOption()
                                     .flatMap { (lastArgKey, lastArgNode) ->
                                         lastArgNode
-                                            .addChildFieldAndValuePairToRightmostTreeNode(
+                                            .addChildKeyValuePairToRightmostObjectOrNullNode(
                                                 propertyName,
                                                 JsonNodeFactory.instance.nullNode()
                                             )
