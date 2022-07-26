@@ -21,7 +21,8 @@ interface MetamodelGraphCreationContext {
 
     val schematicVertexFactory: SchematicVertexFactory
 
-    val schematicVertexGraphRemappingStrategy: SchematicVertexGraphRemappingStrategy
+    val schematicVertexGraphRemappingStrategy:
+        SchematicVertexGraphRemappingStrategy<MetamodelGraphCreationContext>
 
     val dataSourcesByName: ImmutableMap<String, DataSource<*>>
 
@@ -45,7 +46,8 @@ interface MetamodelGraphCreationContext {
         fun schematicVertexFactory(schematicVertexFactory: SchematicVertexFactory): Builder
 
         fun schematicVertexGraphRemappingStrategy(
-            schematicVertexGraphRemappingStrategy: SchematicVertexGraphRemappingStrategy
+            schematicVertexGraphRemappingStrategy:
+                SchematicVertexGraphRemappingStrategy<MetamodelGraphCreationContext>
         ): Builder
 
         fun aliasRegistry(aliasRegistry: AttributeAliasRegistry): Builder

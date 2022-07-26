@@ -67,6 +67,7 @@ class MaterializerConfiguration {
                     )
                 }
             )
+            .blockForFirst()
             .orElseThrow { t: Throwable ->
                 when (t) {
                     is FeatureEngCommonException -> t

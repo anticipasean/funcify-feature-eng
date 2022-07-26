@@ -5,13 +5,14 @@ import funcify.feature.schema.datasource.SourceIndex
 import funcify.feature.schema.directive.alias.DataSourceAttributeAliasProvider
 import funcify.feature.schema.directive.temporal.DataSourceAttributeLastUpdatedProvider
 import funcify.feature.schema.path.SchematicPath
+import funcify.feature.schema.strategy.SchematicVertexGraphRemappingStrategy
 
 /**
  *
  * @author smccarron
  * @created 2022-07-25
  */
-internal interface MetamodelGraphCreationTemplate<CTX> {
+internal interface MetamodelGraphCreationStrategyTemplate<CTX> {
 
     fun <SI : SourceIndex<SI>> addDataSource(dataSource: DataSource<SI>, contextContainer: CTX): CTX
 
@@ -43,6 +44,12 @@ internal interface MetamodelGraphCreationTemplate<CTX> {
     fun <SI : SourceIndex<SI>> fetchLastUpdatedTemporalAttributesForDataSourceFromProvider(
         dataSource: DataSource<SI>,
         lastUpdatedProvider: DataSourceAttributeLastUpdatedProvider<SI>,
+        contextContainer: CTX
+    ): CTX
+
+    fun applySchematicVertexGraphRemappingStrategy(
+        schematicVertexGraphRemappingStrategy:
+            SchematicVertexGraphRemappingStrategy<MetamodelGraphCreationContext>,
         contextContainer: CTX
     ): CTX
 }

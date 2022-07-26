@@ -21,7 +21,8 @@ import org.slf4j.Logger
 
 internal class DefaultMetamodelGraphFactory(
     val schematicVertexFactory: SchematicVertexFactory,
-    val schematicVertexGraphRemappingStrategy: SchematicVertexGraphRemappingStrategy
+    val schematicVertexGraphRemappingStrategy:
+        SchematicVertexGraphRemappingStrategy<MetamodelGraphCreationContext>
 ) : MetamodelGraphFactory {
 
     companion object {
@@ -30,8 +31,8 @@ internal class DefaultMetamodelGraphFactory(
 
         internal data class DefaultBuilder(
             var deferredMetamodelGraphCreationContext: Deferred<MetamodelGraphCreationContext>,
-            val creationFactory: DefaultMetamodelGraphCreationFactory =
-                DefaultMetamodelGraphCreationFactory()
+            val creationFactory: DefaultMetamodelGraphCreationStrategy =
+                DefaultMetamodelGraphCreationStrategy()
         ) : MetamodelGraph.Builder {
 
             override fun <SI : SourceIndex<SI>> addDataSource(
@@ -69,39 +70,47 @@ internal class DefaultMetamodelGraphFactory(
             }
 
             override fun build(): Deferred<MetamodelGraph> {
-                return deferredMetamodelGraphCreationContext.flatMap { context ->
-                    if (context.errors.isNotEmpty()) {
-                        val errorsListAsStr =
-                            context.errors.joinToString(
-                                separator = ",\n",
-                                prefix = "{ ",
-                                postfix = " }",
-                                transform = { thr ->
-                                    "[ type: ${thr::class.simpleName}, message: ${thr.message} ]"
-                                }
-                            )
-                        Deferred.failed(
-                            SchemaException(
-                                SchemaErrorResponse.METAMODEL_CREATION_ERROR,
-                                "one or more errors occurred during metamodel_graph creation: $errorsListAsStr"
-                            )
-                        )
-                    } else {
-                        Deferred.completed(
-                            DefaultMetamodelGraph(
-                                context.dataSourcesByName.values.fold(persistentMapOf()) { dsMap, ds
-                                    ->
-                                    dsMap.put(ds.key, ds)
-                                },
-                                PathBasedGraph.emptyTwoToOnePathsToEdgeGraph<
-                                        SchematicPath, SchematicVertex, SchematicEdge>()
-                                    .putAllVertices(context.schematicVerticesByPath),
-                                context.aliasRegistry,
-                                context.lastUpdatedTemporalAttributePathRegistry
-                            )
+                return deferredMetamodelGraphCreationContext
+                    .flatMap { context: MetamodelGraphCreationContext ->
+                        creationFactory.applySchematicVertexGraphRemappingStrategy(
+                            context.schematicVertexGraphRemappingStrategy,
+                            Deferred.completed(context)
                         )
                     }
-                }
+                    .flatMap { context: MetamodelGraphCreationContext ->
+                        if (context.errors.isNotEmpty()) {
+                            val errorsListAsStr =
+                                context.errors.joinToString(
+                                    separator = ",\n",
+                                    prefix = "{ ",
+                                    postfix = " }",
+                                    transform = { thr ->
+                                        "[ type: ${thr::class.simpleName}, message: ${thr.message} ]"
+                                    }
+                                )
+                            Deferred.failed(
+                                SchemaException(
+                                    SchemaErrorResponse.METAMODEL_CREATION_ERROR,
+                                    "one or more errors occurred during metamodel_graph creation: $errorsListAsStr"
+                                )
+                            )
+                        } else {
+                            Deferred.completed(
+                                DefaultMetamodelGraph(
+                                    context.dataSourcesByName.values.fold(persistentMapOf()) {
+                                        dsMap,
+                                        ds ->
+                                        dsMap.put(ds.key, ds)
+                                    },
+                                    PathBasedGraph.emptyTwoToOnePathsToEdgeGraph<
+                                            SchematicPath, SchematicVertex, SchematicEdge>()
+                                        .putAllVertices(context.schematicVerticesByPath),
+                                    context.aliasRegistry,
+                                    context.lastUpdatedTemporalAttributePathRegistry
+                                )
+                            )
+                        }
+                    }
             }
         }
     }

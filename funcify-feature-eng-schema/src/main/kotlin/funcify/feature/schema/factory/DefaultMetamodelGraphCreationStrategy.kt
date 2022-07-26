@@ -14,11 +14,15 @@ import funcify.feature.schema.directive.temporal.DataSourceAttributeLastUpdatedP
 import funcify.feature.schema.error.SchemaErrorResponse
 import funcify.feature.schema.error.SchemaException
 import funcify.feature.schema.path.SchematicPath
+import funcify.feature.schema.strategy.SchematicVertexGraphRemappingStrategy
 import funcify.feature.schema.vertex.ParameterAttributeVertex
 import funcify.feature.schema.vertex.SourceAttributeVertex
+import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.container.deferred.Deferred
+import funcify.feature.tools.extensions.DeferredExtensions.deferred
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
+import funcify.feature.tools.extensions.TryExtensions.successIfNonNull
 import org.slf4j.Logger
 
 /**
@@ -26,11 +30,11 @@ import org.slf4j.Logger
  * @author smccarron
  * @created 2022-07-25
  */
-internal class DefaultMetamodelGraphCreationFactory :
-    MetamodelGraphCreationTemplate<Deferred<MetamodelGraphCreationContext>> {
+internal class DefaultMetamodelGraphCreationStrategy :
+    MetamodelGraphCreationStrategyTemplate<Deferred<MetamodelGraphCreationContext>> {
 
     companion object {
-        private val logger: Logger = loggerFor<DefaultMetamodelGraphCreationFactory>()
+        private val logger: Logger = loggerFor<DefaultMetamodelGraphCreationStrategy>()
     }
 
     override fun <SI : SourceIndex<SI>> addDataSource(
@@ -245,6 +249,41 @@ internal class DefaultMetamodelGraphCreationFactory :
                     context.update { lastUpdatedTemporalAttributePathRegistry(lastUpdReg) }
                 }
                 .flatMapFailure { thr -> Deferred.completed(context.update { addError(thr) }) }
+        }
+    }
+
+    override fun applySchematicVertexGraphRemappingStrategy(
+        schematicVertexGraphRemappingStrategy:
+            SchematicVertexGraphRemappingStrategy<MetamodelGraphCreationContext>,
+        contextContainer: Deferred<MetamodelGraphCreationContext>,
+    ): Deferred<MetamodelGraphCreationContext> {
+        val methodTag: String = "apply_schematic_vertex_graph_remapping_strategy"
+        logger.debug(
+            """${methodTag}: [ schematic_vertex_graph_remapping_strategy.type: 
+               |${schematicVertexGraphRemappingStrategy::class.qualifiedName} 
+               |]""".flattenIntoOneLine()
+        )
+        return contextContainer.flatMap { context ->
+            val remappingStrategy = context.schematicVertexGraphRemappingStrategy
+            context.schematicVerticesByPath.keys
+                .fold(Try.success(context)) { ctxAttempt, path ->
+                    ctxAttempt.flatMap { ctx ->
+                        if (path in ctx.schematicVerticesByPath) {
+                            val vertex = ctx.schematicVerticesByPath[path]!!
+                            if (remappingStrategy.canBeAppliedTo(ctx, vertex)) {
+                                remappingStrategy.applyToVertexInContext(ctx, vertex)
+                            } else {
+                                ctx.successIfNonNull()
+                            }
+                        } else {
+                            ctx.successIfNonNull()
+                        }
+                    }
+                }
+                .deferred()
+                .flatMapFailure { t: Throwable ->
+                    Deferred.completed(context.update { addError(t) })
+                }
         }
     }
 }

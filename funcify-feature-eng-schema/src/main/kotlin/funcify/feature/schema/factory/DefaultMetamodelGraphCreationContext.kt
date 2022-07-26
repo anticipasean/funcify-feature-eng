@@ -17,7 +17,7 @@ import kotlinx.collections.immutable.persistentMapOf
 
 internal data class DefaultMetamodelGraphCreationContext(
     override val schematicVertexFactory: SchematicVertexFactory,
-    override val schematicVertexGraphRemappingStrategy: SchematicVertexGraphRemappingStrategy,
+    override val schematicVertexGraphRemappingStrategy: SchematicVertexGraphRemappingStrategy<MetamodelGraphCreationContext>,
     override val aliasRegistry: AttributeAliasRegistry,
     override val lastUpdatedTemporalAttributePathRegistry: LastUpdatedTemporalAttributePathRegistry,
     override val dataSourcesByName: PersistentMap<String, DataSource<*>> = persistentMapOf(),
@@ -36,7 +36,7 @@ internal data class DefaultMetamodelGraphCreationContext(
         internal class DefaultBuilder(
             private var schematicVertexFactory: SchematicVertexFactory,
             private var schematicVertexGraphRemappingStrategy:
-                SchematicVertexGraphRemappingStrategy,
+                SchematicVertexGraphRemappingStrategy<MetamodelGraphCreationContext>,
             private var aliasRegistry: AttributeAliasRegistry,
             private var lastUpdatedTemporalAttributePathRegistry:
                 LastUpdatedTemporalAttributePathRegistry,
@@ -58,7 +58,7 @@ internal data class DefaultMetamodelGraphCreationContext(
             }
 
             override fun schematicVertexGraphRemappingStrategy(
-                schematicVertexGraphRemappingStrategy: SchematicVertexGraphRemappingStrategy
+                schematicVertexGraphRemappingStrategy: SchematicVertexGraphRemappingStrategy<MetamodelGraphCreationContext>
             ): Builder {
                 this.schematicVertexGraphRemappingStrategy = schematicVertexGraphRemappingStrategy
                 return this

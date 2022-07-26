@@ -6,10 +6,10 @@ import arrow.core.or
 import arrow.core.toOption
 import com.fasterxml.jackson.databind.ObjectMapper
 import funcify.feature.datasource.graphql.GraphQLApiDataSource
+import funcify.feature.datasource.graphql.metadata.MockGraphQLApiSourceMetadataProvider
+import funcify.feature.datasource.graphql.metadata.filter.InternalServiceTypesExcludingSourceMetadataFilter
 import funcify.feature.datasource.graphql.metadata.reader.ComprehensiveGraphQLApiSourceMetadataReader
 import funcify.feature.datasource.graphql.metadata.reader.DefaultGraphQLSourceIndexCreationContextFactory
-import funcify.feature.datasource.graphql.metadata.filter.InternalServiceTypesExcludingSourceMetadataFilter
-import funcify.feature.datasource.graphql.metadata.MockGraphQLApiSourceMetadataProvider
 import funcify.feature.datasource.graphql.schema.DefaultGraphQLSourceAttribute
 import funcify.feature.datasource.graphql.schema.DefaultGraphQLSourceContainerType
 import funcify.feature.datasource.graphql.schema.DefaultGraphQLSourceIndexFactory
@@ -20,7 +20,7 @@ import funcify.feature.schema.configuration.SchemaConfiguration
 import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.datasource.RawDataSourceType
 import funcify.feature.schema.path.SchematicPath
-import funcify.feature.schema.strategy.SchematicVertexGraphRemappingStrategy
+import funcify.feature.schema.strategy.SchematicVertexGraphSourceIndexBasedRemappingStrategy
 import funcify.feature.schema.vertex.SourceJunctionVertex
 import funcify.feature.schema.vertex.SourceLeafVertex
 import funcify.feature.schema.vertex.SourceRootVertex
@@ -82,12 +82,18 @@ internal class DefaultGraphQLApiDataSourceFactoryTest {
             schemaConfiguration.metamodelGraphFactory(
                 schemaConfiguration.schematicVertexFactory(),
                 StaticListableBeanFactory()
-                    .getBeanProvider(SchematicVertexGraphRemappingStrategy::class.java)
+                    .getBeanProvider(
+                        SchematicVertexGraphSourceIndexBasedRemappingStrategy::class.java
+                    )
             )
 
         val metamodelGraphBuildAttempt: Try<MetamodelGraph> =
             try {
-                defaultMetamodelGraphFactory.builder().addDataSource(graphQLApiDataSource).build()
+                defaultMetamodelGraphFactory
+                    .builder()
+                    .addDataSource(graphQLApiDataSource)
+                    .build()
+                    .blockForFirst()
             } catch (t: Throwable) {
                 Assertions.fail<Try<MetamodelGraph>>(
                     "throwable was not caught in creation of metamodel graph",
