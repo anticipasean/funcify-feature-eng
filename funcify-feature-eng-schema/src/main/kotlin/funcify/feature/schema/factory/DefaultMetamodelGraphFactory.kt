@@ -12,18 +12,18 @@ import funcify.feature.schema.directive.temporal.LastUpdatedTemporalAttributePat
 import funcify.feature.schema.error.SchemaErrorResponse
 import funcify.feature.schema.error.SchemaException
 import funcify.feature.schema.path.SchematicPath
+import funcify.feature.schema.strategy.CompositeSchematicVertexGraphRemappingStrategy
 import funcify.feature.schema.strategy.SchematicVertexGraphRemappingStrategy
 import funcify.feature.tools.container.deferred.Deferred
 import funcify.feature.tools.container.graph.PathBasedGraph
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
+import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
+import funcify.feature.tools.extensions.ThrowableExtensions.possiblyNestedHeadStackTraceElement
 import kotlinx.collections.immutable.persistentMapOf
 import org.slf4j.Logger
 
-internal class DefaultMetamodelGraphFactory(
-    val schematicVertexFactory: SchematicVertexFactory,
-    val schematicVertexGraphRemappingStrategy:
-        SchematicVertexGraphRemappingStrategy<MetamodelGraphCreationContext>
-) : MetamodelGraphFactory {
+internal class DefaultMetamodelGraphFactory(val schematicVertexFactory: SchematicVertexFactory) :
+    MetamodelGraphFactory {
 
     companion object {
 
@@ -31,7 +31,8 @@ internal class DefaultMetamodelGraphFactory(
 
         internal data class DefaultBuilder(
             var deferredMetamodelGraphCreationContext: Deferred<MetamodelGraphCreationContext>,
-            val creationFactory: DefaultMetamodelGraphCreationStrategy =
+            val creationFactory:
+                MetamodelGraphCreationStrategyTemplate<Deferred<MetamodelGraphCreationContext>> =
                 DefaultMetamodelGraphCreationStrategy()
         ) : MetamodelGraph.Builder {
 
@@ -69,6 +70,17 @@ internal class DefaultMetamodelGraphFactory(
                 return this
             }
 
+            override fun addRemappingStrategyForPostProcessingSchematicVertices(
+                strategy: SchematicVertexGraphRemappingStrategy<MetamodelGraphCreationContext>
+            ): MetamodelGraph.Builder {
+                deferredMetamodelGraphCreationContext =
+                    creationFactory.addSchematicVertexGraphRemappingStrategy(
+                        strategy,
+                        deferredMetamodelGraphCreationContext
+                    )
+                return this
+            }
+
             override fun build(): Deferred<MetamodelGraph> {
                 return deferredMetamodelGraphCreationContext
                     .flatMap { context: MetamodelGraphCreationContext ->
@@ -81,11 +93,14 @@ internal class DefaultMetamodelGraphFactory(
                         if (context.errors.isNotEmpty()) {
                             val errorsListAsStr =
                                 context.errors.joinToString(
-                                    separator = ",\n",
-                                    prefix = "{ ",
+                                    separator = ",\n  ",
+                                    prefix = "\n{ ",
                                     postfix = " }",
                                     transform = { thr ->
-                                        "[ type: ${thr::class.simpleName}, message: ${thr.message} ]"
+                                        """[ type: ${thr::class.simpleName}, 
+                                           |message: ${thr.message}, 
+                                           |stacktrace[0]: "${thr.possiblyNestedHeadStackTraceElement()}" 
+                                           |]""".flattenIntoOneLine()
                                     }
                                 )
                             Deferred.failed(
@@ -120,7 +135,8 @@ internal class DefaultMetamodelGraphFactory(
             Deferred.completed(
                 DefaultMetamodelGraphCreationContext(
                     schematicVertexFactory = schematicVertexFactory,
-                    schematicVertexGraphRemappingStrategy = schematicVertexGraphRemappingStrategy,
+                    schematicVertexGraphRemappingStrategy =
+                        CompositeSchematicVertexGraphRemappingStrategy(),
                     aliasRegistry = AttributeAliasRegistry.newRegistry(),
                     lastUpdatedTemporalAttributePathRegistry =
                         LastUpdatedTemporalAttributePathRegistry.newRegistry()

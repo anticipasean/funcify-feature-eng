@@ -4,6 +4,8 @@ import funcify.feature.schema.SchematicVertex
 import funcify.feature.schema.factory.MetamodelGraphCreationContext
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.TryExtensions.successIfNonNull
+import kotlinx.collections.immutable.PersistentList
+import kotlinx.collections.immutable.persistentListOf
 
 /**
  *
@@ -12,8 +14,17 @@ import funcify.feature.tools.extensions.TryExtensions.successIfNonNull
  */
 internal class CompositeSchematicVertexGraphRemappingStrategy(
     private val remappingStrategies:
-        List<SchematicVertexGraphRemappingStrategy<MetamodelGraphCreationContext>>
+        PersistentList<SchematicVertexGraphRemappingStrategy<MetamodelGraphCreationContext>> =
+        persistentListOf()
 ) : SchematicVertexGraphRemappingStrategy<MetamodelGraphCreationContext> {
+
+    fun addStrategy(
+        remappingStrategy: SchematicVertexGraphRemappingStrategy<MetamodelGraphCreationContext>
+    ): CompositeSchematicVertexGraphRemappingStrategy {
+        return CompositeSchematicVertexGraphRemappingStrategy(
+            remappingStrategies = remappingStrategies.add(remappingStrategy)
+        )
+    }
 
     override fun canBeAppliedTo(
         context: MetamodelGraphCreationContext,

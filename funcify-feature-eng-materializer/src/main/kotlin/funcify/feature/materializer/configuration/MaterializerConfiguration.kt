@@ -4,6 +4,8 @@ import arrow.core.getOrElse
 import arrow.core.toOption
 import com.fasterxml.jackson.databind.ObjectMapper
 import funcify.feature.datasource.graphql.GraphQLApiDataSource
+import funcify.feature.datasource.graphql.metadata.alias.GraphQLApiDataSourceAliasProvider
+import funcify.feature.datasource.graphql.metadata.temporal.GraphQLApiDataSourceLastUpdatedAttributeProvider
 import funcify.feature.datasource.rest.RestApiDataSource
 import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionCreationContextFactory
 import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionImplementationStrategy
@@ -17,7 +19,9 @@ import funcify.feature.materializer.schema.DefaultMaterializationGraphQLSchemaFa
 import funcify.feature.materializer.schema.MaterializationGraphQLSchemaBroker
 import funcify.feature.materializer.schema.MaterializationGraphQLSchemaFactory
 import funcify.feature.schema.MetamodelGraph
+import funcify.feature.schema.factory.MetamodelGraphCreationContext
 import funcify.feature.schema.factory.MetamodelGraphFactory
+import funcify.feature.schema.strategy.SchematicVertexGraphRemappingStrategy
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
 import graphql.schema.GraphQLSchema
@@ -38,11 +42,44 @@ class MaterializerConfiguration {
     fun metamodelGraph(
         metamodelGraphFactory: MetamodelGraphFactory,
         graphQLApiDataSources: ObjectProvider<GraphQLApiDataSource>,
-        restApiDataSources: ObjectProvider<RestApiDataSource>
+        graphQLApiDataSourceAliasProviders: ObjectProvider<GraphQLApiDataSourceAliasProvider>,
+        graphQLApiDataSourceLastUpdatedAttributeProviders:
+            ObjectProvider<GraphQLApiDataSourceLastUpdatedAttributeProvider>,
+        restApiDataSources: ObjectProvider<RestApiDataSource>,
+        schematicVertexGraphRemappingStrategyProvider:
+            ObjectProvider<SchematicVertexGraphRemappingStrategy<MetamodelGraphCreationContext>>
     ): MetamodelGraph {
         return sequenceOf(graphQLApiDataSources, restApiDataSources)
             .flatMap { dsProvider -> dsProvider }
-            .fold(metamodelGraphFactory.builder()) { bldr, ds -> bldr.addDataSource(ds) }
+            .fold(metamodelGraphFactory.builder()) { builder, ds ->
+                when (ds) {
+                    is GraphQLApiDataSource -> {
+                        // first, add datasource
+                        // then, any alias providers
+                        // last, any last_updated temporal attribute providers
+                        graphQLApiDataSourceLastUpdatedAttributeProviders.fold(
+                            graphQLApiDataSourceAliasProviders.fold(builder.addDataSource(ds)) {
+                                bldr,
+                                prov ->
+                                bldr.addAttributeAliasProviderForDataSource(prov, ds)
+                            }
+                        ) { bldr, prov ->
+                            bldr.addLastUpdatedAttributeProviderForDataSource(prov, ds)
+                        }
+                    }
+                    // break out any other datasource specific providers into separate cases or
+                    // create generic function to add the other providers when support for them
+                    // starts
+                    else -> {
+                        builder.addDataSource(ds)
+                    }
+                }
+            }
+            .let { builder: MetamodelGraph.Builder ->
+                schematicVertexGraphRemappingStrategyProvider.fold(builder) { bldr, strategy ->
+                    builder.addRemappingStrategyForPostProcessingSchematicVertices(strategy)
+                }
+            }
             .build()
             .peek(
                 { mmg: MetamodelGraph ->
@@ -61,9 +98,9 @@ class MaterializerConfiguration {
                 { t: Throwable ->
                     logger.error(
                         """metamodel_graph: [ status: failed ] 
-                            |[ type: ${t::class.simpleName}, 
-                            |message: ${t.message} ]
-                            |""".flattenIntoOneLine()
+                           |[ message: ${t.message} ]
+                           |""".flattenIntoOneLine(),
+                        t
                     )
                 }
             )

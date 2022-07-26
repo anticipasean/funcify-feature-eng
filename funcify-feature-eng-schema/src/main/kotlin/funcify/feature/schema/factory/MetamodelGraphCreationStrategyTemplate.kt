@@ -47,6 +47,11 @@ internal interface MetamodelGraphCreationStrategyTemplate<CTX> {
         contextContainer: CTX
     ): CTX
 
+    fun addSchematicVertexGraphRemappingStrategy(
+        strategy: SchematicVertexGraphRemappingStrategy<MetamodelGraphCreationContext>,
+        contextContainer: CTX
+    ): CTX
+
     fun applySchematicVertexGraphRemappingStrategy(
         schematicVertexGraphRemappingStrategy:
             SchematicVertexGraphRemappingStrategy<MetamodelGraphCreationContext>,

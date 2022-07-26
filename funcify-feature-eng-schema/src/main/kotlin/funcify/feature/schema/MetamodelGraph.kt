@@ -6,7 +6,9 @@ import funcify.feature.schema.directive.alias.AttributeAliasRegistry
 import funcify.feature.schema.directive.alias.DataSourceAttributeAliasProvider
 import funcify.feature.schema.directive.temporal.DataSourceAttributeLastUpdatedProvider
 import funcify.feature.schema.directive.temporal.LastUpdatedTemporalAttributePathRegistry
+import funcify.feature.schema.factory.MetamodelGraphCreationContext
 import funcify.feature.schema.path.SchematicPath
+import funcify.feature.schema.strategy.SchematicVertexGraphRemappingStrategy
 import funcify.feature.tools.container.deferred.Deferred
 import funcify.feature.tools.container.graph.PathBasedGraph
 import kotlinx.collections.immutable.ImmutableMap
@@ -38,6 +40,10 @@ interface MetamodelGraph {
         fun <SI : SourceIndex<SI>> addLastUpdatedAttributeProviderForDataSource(
             lastUpdatedAttributeProvider: DataSourceAttributeLastUpdatedProvider<SI>,
             dataSource: DataSource<SI>
+        ): Builder
+
+        fun addRemappingStrategyForPostProcessingSchematicVertices(
+            strategy: SchematicVertexGraphRemappingStrategy<MetamodelGraphCreationContext>
         ): Builder
 
         fun build(): Deferred<MetamodelGraph>

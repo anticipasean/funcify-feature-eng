@@ -20,7 +20,6 @@ import funcify.feature.schema.configuration.SchemaConfiguration
 import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.datasource.RawDataSourceType
 import funcify.feature.schema.path.SchematicPath
-import funcify.feature.schema.strategy.SchematicVertexGraphSourceIndexBasedRemappingStrategy
 import funcify.feature.schema.vertex.SourceJunctionVertex
 import funcify.feature.schema.vertex.SourceLeafVertex
 import funcify.feature.schema.vertex.SourceRootVertex
@@ -28,7 +27,6 @@ import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
-import org.springframework.beans.factory.support.StaticListableBeanFactory
 
 internal class DefaultGraphQLApiDataSourceFactoryTest {
 
@@ -79,13 +77,7 @@ internal class DefaultGraphQLApiDataSourceFactoryTest {
             )
         val schemaConfiguration = SchemaConfiguration()
         val defaultMetamodelGraphFactory =
-            schemaConfiguration.metamodelGraphFactory(
-                schemaConfiguration.schematicVertexFactory(),
-                StaticListableBeanFactory()
-                    .getBeanProvider(
-                        SchematicVertexGraphSourceIndexBasedRemappingStrategy::class.java
-                    )
-            )
+            schemaConfiguration.metamodelGraphFactory(schemaConfiguration.schematicVertexFactory())
 
         val metamodelGraphBuildAttempt: Try<MetamodelGraph> =
             try {

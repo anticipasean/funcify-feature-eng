@@ -14,6 +14,7 @@ import funcify.feature.schema.directive.temporal.DataSourceAttributeLastUpdatedP
 import funcify.feature.schema.error.SchemaErrorResponse
 import funcify.feature.schema.error.SchemaException
 import funcify.feature.schema.path.SchematicPath
+import funcify.feature.schema.strategy.CompositeSchematicVertexGraphRemappingStrategy
 import funcify.feature.schema.strategy.SchematicVertexGraphRemappingStrategy
 import funcify.feature.schema.vertex.ParameterAttributeVertex
 import funcify.feature.schema.vertex.SourceAttributeVertex
@@ -23,6 +24,7 @@ import funcify.feature.tools.extensions.DeferredExtensions.deferred
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
 import funcify.feature.tools.extensions.TryExtensions.successIfNonNull
+import kotlinx.collections.immutable.persistentListOf
 import org.slf4j.Logger
 
 /**
@@ -30,7 +32,7 @@ import org.slf4j.Logger
  * @author smccarron
  * @created 2022-07-25
  */
-internal class DefaultMetamodelGraphCreationStrategy :
+internal class DefaultMetamodelGraphCreationStrategy() :
     MetamodelGraphCreationStrategyTemplate<Deferred<MetamodelGraphCreationContext>> {
 
     companion object {
@@ -249,6 +251,26 @@ internal class DefaultMetamodelGraphCreationStrategy :
                     context.update { lastUpdatedTemporalAttributePathRegistry(lastUpdReg) }
                 }
                 .flatMapFailure { thr -> Deferred.completed(context.update { addError(thr) }) }
+        }
+    }
+
+    override fun addSchematicVertexGraphRemappingStrategy(
+        strategy: SchematicVertexGraphRemappingStrategy<MetamodelGraphCreationContext>,
+        contextContainer: Deferred<MetamodelGraphCreationContext>,
+    ): Deferred<MetamodelGraphCreationContext> {
+        val methodTag: String = "add_schematic_vertex_graph_remapping_strategy"
+        logger.debug("${methodTag}: [ strategy.type: ${strategy::class.qualifiedName} ]")
+        return contextContainer.map { context ->
+            val updatedStrategy =
+                when (val currentStrategy = context.schematicVertexGraphRemappingStrategy) {
+                    is CompositeSchematicVertexGraphRemappingStrategy ->
+                        currentStrategy.addStrategy(strategy)
+                    else ->
+                        CompositeSchematicVertexGraphRemappingStrategy(
+                            persistentListOf(currentStrategy, strategy)
+                        )
+                }
+            context.update { schematicVertexGraphRemappingStrategy(updatedStrategy) }
         }
     }
 
