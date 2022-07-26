@@ -258,4 +258,16 @@ internal data class DefaultSchematicPath(
     override fun toString(): String {
         return uri.toASCIIString()
     }
+
+    override fun toDecodedURIString(): String {
+        val builder = StringBuilder(uri.scheme).append(':').append(uri.path)
+        return when {
+            arguments.isNotEmpty() && directives.isEmpty() -> builder.append('?').append(uri.query)
+            arguments.isEmpty() && directives.isNotEmpty() ->
+                builder.append('#').append(uri.fragment)
+            arguments.isNotEmpty() && directives.isNotEmpty() ->
+                builder.append('?').append(uri.query).append('#').append(uri.fragment)
+            else -> builder
+        }.toString()
+    }
 }

@@ -7,7 +7,7 @@ import arrow.core.some
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.node.JsonNodeFactory
 import funcify.feature.json.JacksonJsonNodeComparator
-import funcify.feature.tools.extensions.JsonNodeExtensions.removeLastChildKeyValuePairFromRightmostObjectNode
+import funcify.feature.tools.extensions.JsonNodeExtensions.removeAllChildKeyValuePairsFromRightmostObjectNode
 import java.math.BigDecimal
 import java.net.URI
 import kotlinx.collections.immutable.ImmutableList
@@ -547,7 +547,7 @@ interface SchematicPath : Comparable<SchematicPath> {
                             transform {
                                     directive(
                                         lastKey,
-                                        jn.removeLastChildKeyValuePairFromRightmostObjectNode()
+                                        jn.removeAllChildKeyValuePairsFromRightmostObjectNode()
                                     )
                                 }
                                 .some()
@@ -574,7 +574,7 @@ interface SchematicPath : Comparable<SchematicPath> {
                             transform {
                                     argument(
                                         lastKey,
-                                        jn.removeLastChildKeyValuePairFromRightmostObjectNode()
+                                        jn.removeAllChildKeyValuePairsFromRightmostObjectNode()
                                     )
                                 }
                                 .some()
@@ -587,6 +587,8 @@ interface SchematicPath : Comparable<SchematicPath> {
             }
         }
     }
+
+    fun toDecodedURIString(): String
 
     override fun compareTo(other: SchematicPath): Int {
         return comparator().compare(this, other)

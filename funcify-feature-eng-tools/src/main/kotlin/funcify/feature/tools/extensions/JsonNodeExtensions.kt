@@ -55,8 +55,8 @@ object JsonNodeExtensions {
                                     { Stream.of((fName to jn).right()) },
                                     { (lastPropName, lastPropVal) ->
                                         Stream.of(
-                                            (fName to jn).right(),
-                                            (lastPropName to lastPropVal).left()
+                                            (lastPropName to lastPropVal).left(),
+                                            (fName to jn).right()
                                         )
                                     }
                                 )
@@ -72,7 +72,7 @@ object JsonNodeExtensions {
                 }
                 .toImmutableList()
         return sequenceOf(childKey to childJsonValue)
-            .plus(keyValueLineageList.asReversed())
+            .plus(keyValueLineageList)
             .reduceOrNull { childPair, parentPair ->
                 parentPair.first to
                     (when (val parentValue = parentPair.second) {
@@ -107,8 +107,8 @@ object JsonNodeExtensions {
                                     { Stream.of((fName to jn).right()) },
                                     { (lastPropName, lastPropVal) ->
                                         Stream.of(
-                                            (fName to jn).right(),
-                                            (lastPropName to lastPropVal).left()
+                                            (lastPropName to lastPropVal).left(),
+                                            (fName to jn).right()
                                         )
                                     }
                                 )
@@ -122,7 +122,7 @@ object JsonNodeExtensions {
         return when {
             keyValueLineageList.size >= 1 -> {
                 keyValueLineageList
-                    .lastOrNull()
+                    .firstOrNull()
                     .toOption()
                     .map { lastParentKeyValue ->
                         lastParentKeyValue.first to
@@ -142,7 +142,67 @@ object JsonNodeExtensions {
                     }
                     .mapNotNull { updatedParentKeyValue ->
                         sequenceOf(updatedParentKeyValue)
-                            .plus(keyValueLineageList.asReversed().drop(1))
+                            .plus(keyValueLineageList.drop(1))
+                            .reduceOrNull {
+                                childPair: Pair<String, JsonNode>,
+                                parentPair: Pair<String, JsonNode> ->
+                                parentPair.first to
+                                    (when (val parentJsonValue = parentPair.second) {
+                                        is ObjectNode ->
+                                            parentJsonValue.set<ObjectNode>(
+                                                childPair.first,
+                                                childPair.second
+                                            )
+                                        else -> parentJsonValue
+                                    })
+                            }
+                            ?: updatedParentKeyValue
+                    }
+                    .map { (_, jn) -> jn }
+                    .orNull()
+                    ?: this
+            }
+            else -> this
+        }
+    }
+
+    fun JsonNode.removeAllChildKeyValuePairsFromRightmostObjectNode(): JsonNode {
+        val root: String = "/"
+        val keyValueLineageList: ImmutableList<Pair<String, JsonNode>> =
+            TraversalFunctions.recurseWithStream(root to this) { (fName: String, jn: JsonNode) ->
+                    when (jn.nodeType) {
+                        JsonNodeType.OBJECT -> {
+                            jn.fields()
+                                .asSequence()
+                                .lastOrNull()
+                                .toOption()
+                                .fold(
+                                    { Stream.of((fName to jn).right()) },
+                                    { (lastPropName, lastPropVal) ->
+                                        Stream.of(
+                                            (lastPropName to lastPropVal).left(),
+                                            (fName to jn).right(),
+                                        )
+                                    }
+                                )
+                        }
+                        else -> {
+                            Stream.empty()
+                        }
+                    }
+                }
+                .toImmutableList()
+        return when {
+            keyValueLineageList.size >= 1 -> {
+                keyValueLineageList
+                    .firstOrNull()
+                    .toOption()
+                    .map { lastParentKeyValue ->
+                        lastParentKeyValue.first to JsonNodeFactory.instance.objectNode()
+                    }
+                    .mapNotNull { updatedParentKeyValue ->
+                        sequenceOf(updatedParentKeyValue)
+                            .plus(keyValueLineageList.drop(1))
                             .reduceOrNull {
                                 childPair: Pair<String, JsonNode>,
                                 parentPair: Pair<String, JsonNode> ->
