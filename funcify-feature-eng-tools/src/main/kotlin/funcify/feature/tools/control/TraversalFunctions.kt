@@ -87,4 +87,50 @@ object TraversalFunctions {
             )
         }
     }
+
+    fun <T, R> recurseWithSequence(
+        startValue: T,
+        function: (T) -> Sequence<Either<T, R>>
+    ): Sequence<R> {
+        if (startValue == null) {
+            return emptySequence()
+        }
+        var queue: Deque<Either<T, R>> = LinkedList<Either<T, R>>().apply { add(startValue.left()) }
+        val continueLoopFlagHolder: Array<Boolean> = arrayOf(true)
+        do {
+            queue =
+                queue
+                    .asSequence()
+                    .flatMap { either: Either<T, R> ->
+                        either.fold(
+                            { t: T -> function.invoke(t) },
+                            { r: R ->
+                                when (r) {
+                                    null -> emptySequence()
+                                    else -> sequenceOf(r.right())
+                                }
+                            }
+                        )
+                    }
+                    .fold(LinkedList<Either<T, R>>().apply { continueLoopFlagHolder[0] = false }) {
+                        q,
+                        e ->
+                        if (e.isLeft() && !continueLoopFlagHolder[0]) {
+                            continueLoopFlagHolder[0] = true
+                        }
+                        q.apply { offerLast(e) }
+                    }
+        } while (continueLoopFlagHolder[0])
+        return queue.asSequence().flatMap { either: Either<T, R> ->
+            either.fold(
+                { _: T -> emptySequence() },
+                { r: R ->
+                    when (r) {
+                        null -> emptySequence()
+                        else -> sequenceOf(r)
+                    }
+                }
+            )
+        }
+    }
 }
