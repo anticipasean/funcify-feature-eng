@@ -73,6 +73,8 @@ interface MetamodelGraphCreationContext {
             schematicVertex: SchematicVertex
         ): Builder
 
+        fun removeSchematicVertexAtPath(schematicPath: SchematicPath): Builder
+
         fun addError(error: Throwable): Builder
 
         fun build(): MetamodelGraphCreationContext
