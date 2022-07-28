@@ -213,19 +213,27 @@ interface SchematicPath : Comparable<SchematicPath> {
                     .asSequence()
                     .zip(other.pathSegments.asSequence()) { t, o -> t == o }
                     .all { matched -> matched } &&
-                    other
-                        .getParentPath()
-                        .map { otherParentPath ->
-                            stringKeyJsonValueMapComparator.compare(
-                                this.arguments,
-                                otherParentPath.arguments
-                            ) == 0 &&
-                                stringKeyJsonValueMapComparator.compare(
+                    (when (
+                        val argumentsRelationshipType =
+                            JsonObjectHierarchyAssessor
+                                .findRelationshipTypeBetweenTwoJsonObjectMaps(
+                                    this.arguments,
+                                    other.arguments
+                                )
+                    ) {
+                        JsonObjectHierarchyAssessor.RelationshipType.IDENTITY -> {
+                            JsonObjectHierarchyAssessor
+                                .findRelationshipTypeBetweenTwoJsonObjectMaps(
                                     this.directives,
-                                    otherParentPath.directives
-                                ) == 0
+                                    other.directives
+                                ) == JsonObjectHierarchyAssessor.RelationshipType.PARENT_CHILD
                         }
-                        .getOrElse { false }
+                        else -> {
+                            argumentsRelationshipType ==
+                                JsonObjectHierarchyAssessor.RelationshipType.PARENT_CHILD &&
+                                (this.directives.isEmpty() && other.directives.isEmpty())
+                        }
+                    })
             }
             else -> {
                 false
@@ -305,18 +313,28 @@ interface SchematicPath : Comparable<SchematicPath> {
                     .asSequence()
                     .zip(other.pathSegments.asSequence()) { t, o -> t == o }
                     .all { matched -> matched } &&
-                    this.getParentPath()
-                        .map { thisParentPath ->
-                            stringKeyJsonValueMapComparator.compare(
-                                thisParentPath.arguments,
-                                other.arguments
-                            ) == 0 &&
-                                stringKeyJsonValueMapComparator.compare(
-                                    thisParentPath.directives,
+                    (when (
+                        val argumentsRelationshipType =
+                            JsonObjectHierarchyAssessor
+                                .findRelationshipTypeBetweenTwoJsonObjectMaps(
+                                    this.arguments,
+                                    other.arguments
+                                )
+                    ) {
+                        JsonObjectHierarchyAssessor.RelationshipType.IDENTITY -> {
+                            JsonObjectHierarchyAssessor
+                                .findRelationshipTypeBetweenTwoJsonObjectMaps(
+                                    this.directives,
                                     other.directives
-                                ) == 0
+                                ) == JsonObjectHierarchyAssessor.RelationshipType.CHILD_PARENT
                         }
-                        .getOrElse { false }
+                        else -> {
+                            argumentsRelationshipType ==
+                                JsonObjectHierarchyAssessor.RelationshipType.CHILD_PARENT &&
+                                this.directives.isEmpty() &&
+                                other.directives.isEmpty()
+                        }
+                    })
             }
             else -> {
                 false
@@ -402,9 +420,6 @@ interface SchematicPath : Comparable<SchematicPath> {
                     .all { matched -> matched }
             }
             /** both represent parameter indices */
-            // TODO: Revisit this ancestry logic and handle recursive comparison cases in a more
-            // nuanced manner
-            // Use with caution in the meantime
             this.pathSegments.size == other.pathSegments.size &&
                 (this.arguments.isNotEmpty() || this.directives.isNotEmpty()) &&
                 (other.arguments.isNotEmpty() || other.directives.isNotEmpty()) -> {
@@ -412,17 +427,35 @@ interface SchematicPath : Comparable<SchematicPath> {
                     .asSequence()
                     .zip(other.pathSegments.asSequence()) { t, o -> t == o }
                     .all { matched -> matched } &&
-                    stringKeyJsonValueMapComparator.compare(this.arguments, other.arguments).let {
-                        argComp ->
-                        if (argComp == 0) {
-                            stringKeyJsonValueMapComparator.compare(
-                                this.directives,
-                                other.directives
-                            )
-                        } else {
-                            argComp
+                    (when (
+                        val argumentsRelationshipType =
+                            JsonObjectHierarchyAssessor
+                                .findRelationshipTypeBetweenTwoJsonObjectMaps(
+                                    this.arguments,
+                                    other.arguments
+                                )
+                    ) {
+                        JsonObjectHierarchyAssessor.RelationshipType.IDENTITY -> {
+                            JsonObjectHierarchyAssessor
+                                .findRelationshipTypeBetweenTwoJsonObjectMaps(
+                                    this.directives,
+                                    other.directives
+                                ) in
+                                setOf(
+                                    JsonObjectHierarchyAssessor.RelationshipType
+                                        .DESCENDENT_ANCESTOR,
+                                    JsonObjectHierarchyAssessor.RelationshipType.CHILD_PARENT
+                                )
                         }
-                    } > 0
+                        else -> {
+                            argumentsRelationshipType in
+                                setOf(
+                                    JsonObjectHierarchyAssessor.RelationshipType
+                                        .DESCENDENT_ANCESTOR,
+                                    JsonObjectHierarchyAssessor.RelationshipType.CHILD_PARENT
+                                ) && this.directives.isEmpty() && other.directives.isEmpty()
+                        }
+                    })
             }
             else -> {
                 false
@@ -468,8 +501,6 @@ interface SchematicPath : Comparable<SchematicPath> {
                     .zip(other.pathSegments.asSequence()) { t, o -> t == o }
                     .all { matched -> matched }
             }
-            // TODO: Revisit this ancestry logic and handle recursive comparison cases in a more
-            // nuanced manner
             this.pathSegments.size == other.pathSegments.size &&
                 (arguments.isNotEmpty() || directives.isNotEmpty()) &&
                 (other.arguments.isNotEmpty() || other.directives.isNotEmpty()) -> {
@@ -477,17 +508,35 @@ interface SchematicPath : Comparable<SchematicPath> {
                     .asSequence()
                     .zip(other.pathSegments.asSequence()) { t, o -> t == o }
                     .all { matched -> matched } &&
-                    stringKeyJsonValueMapComparator.compare(this.arguments, other.arguments).let {
-                        argComp ->
-                        if (argComp == 0) {
-                            stringKeyJsonValueMapComparator.compare(
-                                this.directives,
-                                other.directives
-                            )
-                        } else {
-                            argComp
+                    (when (
+                        val argumentsRelationship =
+                            JsonObjectHierarchyAssessor
+                                .findRelationshipTypeBetweenTwoJsonObjectMaps(
+                                    this.arguments,
+                                    other.arguments
+                                )
+                    ) {
+                        JsonObjectHierarchyAssessor.RelationshipType.IDENTITY -> {
+                            JsonObjectHierarchyAssessor
+                                .findRelationshipTypeBetweenTwoJsonObjectMaps(
+                                    this.directives,
+                                    other.directives
+                                ) in
+                                setOf(
+                                    JsonObjectHierarchyAssessor.RelationshipType
+                                        .ANCESTOR_DESCENDENT,
+                                    JsonObjectHierarchyAssessor.RelationshipType.PARENT_CHILD
+                                )
                         }
-                    } < 0
+                        else -> {
+                            argumentsRelationship in
+                                setOf(
+                                    JsonObjectHierarchyAssessor.RelationshipType
+                                        .ANCESTOR_DESCENDENT,
+                                    JsonObjectHierarchyAssessor.RelationshipType.PARENT_CHILD
+                                ) && this.directives.isEmpty() && other.directives.isEmpty()
+                        }
+                    })
             }
             else -> {
                 false
