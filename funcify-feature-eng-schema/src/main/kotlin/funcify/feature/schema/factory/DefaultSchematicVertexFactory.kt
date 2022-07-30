@@ -66,7 +66,7 @@ internal class DefaultSchematicVertexFactory : SchematicVertexFactory {
                     """for_parameter_attribute: [ parameter_attribute.name: ${parameterAttribute.name} ]"""
                 )
                 return DefaultDataSourceSpec<SI>(
-                    schematicPath = parameterAttribute.sourcePath,
+                    schematicPath = schematicPath,
                     mappedSourceIndexAttempt =
                         @Suppress("UNCHECKED_CAST") //
                         (parameterAttribute as? SI).successIfNonNull()
