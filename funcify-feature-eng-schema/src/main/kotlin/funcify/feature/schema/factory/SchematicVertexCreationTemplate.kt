@@ -328,7 +328,10 @@ internal interface SchematicVertexCreationTemplate<SI : SourceIndex<SI>> {
             else -> {
                 SchemaException(
                         SchemaErrorResponse.UNEXPECTED_ERROR,
-                        "unhandled graph index type on existing vertex: ${existingVertex::class.qualifiedName}"
+                        """unhandled graph index type on existing vertex: [ 
+                           |existing_parameter_vertex: { path: ${existingVertex.path}, type: ${existingVertex::class.qualifiedName} }, 
+                           |input_source_container_type: { source_path: ${sourceContainerType.sourcePath}, name: ${sourceContainerType.name} }  
+                           |]""".flattenIntoOneLine()
                     )
                     .failure()
             }
@@ -375,7 +378,10 @@ internal interface SchematicVertexCreationTemplate<SI : SourceIndex<SI>> {
             else -> {
                 SchemaException(
                         SchemaErrorResponse.UNEXPECTED_ERROR,
-                        "unhandled graph index type on existing vertex: ${existingVertex::class.qualifiedName}"
+                        """unhandled graph index type on existing vertex: [ 
+                           |existing_parameter_vertex: { path: ${existingVertex.path}, type: ${existingVertex::class.qualifiedName} }, 
+                           |input_source_attribute: { source_path: ${sourceAttribute.sourcePath}, name: ${sourceAttribute.name} } 
+                           |]""".flattenIntoOneLine()
                     )
                     .failure()
             }
@@ -424,7 +430,10 @@ internal interface SchematicVertexCreationTemplate<SI : SourceIndex<SI>> {
             else -> {
                 SchemaException(
                         SchemaErrorResponse.UNEXPECTED_ERROR,
-                        "unhandled graph index type on existing vertex: ${existingVertex::class.qualifiedName}"
+                        """unhandled graph index type on existing vertex: [ 
+                           |existing_parameter_vertex: { path: ${existingVertex.path}, type: ${existingVertex::class.qualifiedName} }, 
+                           |input_parameter_container_type: { source_path: ${parameterContainerType.sourcePath}, name: ${parameterContainerType.name} } 
+                           |]""".flattenIntoOneLine()
                     )
                     .failure()
             }
@@ -475,7 +484,10 @@ internal interface SchematicVertexCreationTemplate<SI : SourceIndex<SI>> {
             else -> {
                 SchemaException(
                         SchemaErrorResponse.UNEXPECTED_ERROR,
-                        "unhandled graph index type on existing vertex: ${existingVertex::class.qualifiedName}"
+                        """unhandled graph index type on existing vertex: [ 
+                           |existing_parameter_vertex: { path: ${existingVertex.path}, type: ${existingVertex::class.qualifiedName} }, 
+                           |input_parameter_attribute: { source_path: ${parameterAttribute.sourcePath}, name: ${parameterAttribute.name} } 
+                           |]""".flattenIntoOneLine()
                     )
                     .failure()
             }
