@@ -23,6 +23,7 @@ import funcify.feature.tools.container.deferred.Deferred
 import funcify.feature.tools.extensions.DeferredExtensions.deferred
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
+import funcify.feature.tools.extensions.ThrowableExtensions.possiblyNestedHeadStackTraceElement
 import funcify.feature.tools.extensions.TryExtensions.successIfNonNull
 import kotlinx.collections.immutable.persistentListOf
 import org.slf4j.Logger
@@ -80,6 +81,32 @@ internal class DefaultMetamodelGraphCreationStrategy() :
                             sourceIndex,
                             ctxDef
                         )
+                    }
+                    .flatMap { updatedContext ->
+                        if (updatedContext.errors.isNotEmpty()) {
+                            val errorsListAsStr =
+                                updatedContext.errors.joinToString(
+                                    separator = ",\n  ",
+                                    prefix = "\n{ ",
+                                    postfix = " }",
+                                    transform = { thr ->
+                                        """[ type: ${thr::class.simpleName}, 
+                                           |message: ${thr.message}, 
+                                           |stacktrace[0]: "${thr.possiblyNestedHeadStackTraceElement()}" 
+                                           |]""".flattenIntoOneLine()
+                                    }
+                                )
+                            Deferred.failed(
+                                SchemaException(
+                                    SchemaErrorResponse.METAMODEL_CREATION_ERROR,
+                                    """one or more errors occurred during metamodel_graph creation 
+                                        |when adding data_source [ name: ${dataSource.name} ]: 
+                                        |$errorsListAsStr""".flattenIntoOneLine()
+                                )
+                            )
+                        } else {
+                            Deferred.completed(updatedContext)
+                        }
                     }
             }
         }
@@ -157,7 +184,6 @@ internal class DefaultMetamodelGraphCreationStrategy() :
                         .onDataSource(dataSource.key)
                 }
                 else -> {
-
                     context.schematicVertexFactory
                         .createVertexForPath(sourcePath)
                         .fromExistingVertex(existingVertex)

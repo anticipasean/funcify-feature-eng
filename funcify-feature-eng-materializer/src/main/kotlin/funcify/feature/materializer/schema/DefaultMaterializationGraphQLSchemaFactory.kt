@@ -13,6 +13,10 @@ import funcify.feature.naming.StandardNamingConventions
 import funcify.feature.schema.MetamodelGraph
 import funcify.feature.schema.SchematicVertex
 import funcify.feature.schema.path.SchematicPath
+import funcify.feature.schema.vertex.ParameterJunctionVertex
+import funcify.feature.schema.vertex.ParameterLeafVertex
+import funcify.feature.schema.vertex.SourceJunctionVertex
+import funcify.feature.schema.vertex.SourceLeafVertex
 import funcify.feature.schema.vertex.SourceRootVertex
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
@@ -110,7 +114,22 @@ internal class DefaultMaterializationGraphQLSchemaFactory(
         if (logger.isDebugEnabled) {
             metamodelGraph.pathBasedGraph.verticesByPath.streamPairs().forEach {
                 pair: Pair<SchematicPath, SchematicVertex> ->
-                logger.debug("[${++counter}]: [ path: ${pair.first}, vertex: [ ${pair.second}]")
+                val vertexName =
+                    when (val vertex = pair.second) {
+                        is SourceRootVertex ->
+                            vertex.compositeContainerType.conventionalName.toString()
+                        is SourceJunctionVertex ->
+                            vertex.compositeAttribute.conventionalName.toString()
+                        is SourceLeafVertex -> vertex.compositeAttribute.conventionalName.toString()
+                        is ParameterJunctionVertex ->
+                            vertex.compositeParameterAttribute.conventionalName.toString()
+                        is ParameterLeafVertex ->
+                            vertex.compositeParameterAttribute.conventionalName.toString()
+                        else -> "<NA>"
+                    }
+                logger.debug(
+                    "[${++counter}]: [ path: ${pair.first}, vertex: [ type: ${pair.second::class.simpleName}, name: ${vertexName} ]"
+                )
             }
         }
         return metamodelGraph.pathBasedGraph.vertices

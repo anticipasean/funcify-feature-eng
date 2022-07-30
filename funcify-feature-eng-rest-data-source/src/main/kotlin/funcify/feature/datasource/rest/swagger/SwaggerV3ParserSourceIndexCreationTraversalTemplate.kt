@@ -234,29 +234,21 @@ interface SwaggerV3ParserSourceIndexCreationTraversalTemplate<WT> :
             val requestBodySchemaType = JsonFormatTypes.forValue(requestBodyJsonSchema.type)
         ) {
             JsonFormatTypes.OBJECT -> {
-                createParameterContainerTypeForPostRequestBodyObject(
-                        sourcePath,
-                        request,
-                        requestBodyJsonSchema,
-                        contextContainer
-                    )
-                    .let { updatedContext ->
-                        requestBodyJsonSchema.properties
-                            .toOption()
-                            .mapNotNull { propertySchemaByPropName ->
-                                propertySchemaByPropName.asSequence()
-                            }
-                            .fold(::emptySequence, ::identity)
-                            .fold(updatedContext) { ctx, (propertyName, propertySchema) ->
-                                onServicePostRequestJsonSchemaProperty(
-                                    sourcePath.transform { argument(propertyName) },
-                                    request,
-                                    requestBodyJsonSchema,
-                                    propertyName,
-                                    propertySchema,
-                                    ctx
-                                )
-                            }
+                requestBodyJsonSchema.properties
+                    .toOption()
+                    .mapNotNull { propertySchemaByPropName ->
+                        propertySchemaByPropName.asSequence()
+                    }
+                    .fold(::emptySequence, ::identity)
+                    .fold(contextContainer) { ctx, (propertyName, propertySchema) ->
+                        onServicePostRequestJsonSchemaProperty(
+                            sourcePath.transform { argument(propertyName) },
+                            request,
+                            requestBodyJsonSchema,
+                            propertyName,
+                            propertySchema,
+                            ctx
+                        )
                     }
             }
             else -> {
