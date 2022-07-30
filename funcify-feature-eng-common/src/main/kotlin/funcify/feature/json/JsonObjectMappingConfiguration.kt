@@ -9,8 +9,11 @@ import com.fasterxml.jackson.databind.DeserializationFeature
 import com.fasterxml.jackson.databind.MapperFeature
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.SerializationFeature
-import com.fasterxml.jackson.module.kotlin.KotlinModule
-import com.fasterxml.jackson.module.kotlin.registerKotlinModule
+import com.fasterxml.jackson.datatype.jdk8.Jdk8Module
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
+import com.fasterxml.jackson.module.kotlin.KotlinFeature
+import com.fasterxml.jackson.module.kotlin.kotlinModule
+import com.fasterxml.jackson.module.paramnames.ParameterNamesModule
 import com.jayway.jsonpath.Option
 import com.jayway.jsonpath.spi.json.JacksonJsonNodeJsonProvider
 import com.jayway.jsonpath.spi.json.JsonProvider
@@ -84,7 +87,16 @@ class JsonObjectMappingConfiguration {
                     .featuresToDisable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
                     .featuresToEnable(MapperFeature.ACCEPT_CASE_INSENSITIVE_ENUMS)
                     .featuresToEnable(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS)
-                    .findModulesViaServiceLoader(true)
+                    .modulesToInstall(
+                        JavaTimeModule(),
+                        ParameterNamesModule(),
+                        Jdk8Module(),
+                        kotlinModule {
+                            configure(KotlinFeature.NullIsSameAsDefault, true)
+                            configure(KotlinFeature.NullToEmptyMap, true)
+                            configure(KotlinFeature.NullToEmptyCollection, true)
+                        },
+                    )
             }
 
         /**
@@ -96,17 +108,14 @@ class JsonObjectMappingConfiguration {
          */
         @JvmStatic
         private fun postBuildObjectMapperEnhancer(objectMapper: ObjectMapper): ObjectMapper {
-            objectMapper
-                .configOverride(List::class.java)
-                .setSetterInfo(JsonSetter.Value.forValueNulls(Nulls.AS_EMPTY, Nulls.AS_EMPTY))
-            objectMapper
-                .configOverride(Map::class.java)
-                .setSetterInfo(JsonSetter.Value.forValueNulls(Nulls.AS_EMPTY, Nulls.AS_EMPTY))
-            if (KotlinModule::class.java.name !in objectMapper.registeredModuleIds) {
-                logger.debug("registering ${KotlinModule::class.qualifiedName}")
-                objectMapper.registerKotlinModule()
-            }
-            if (objectMapper.registeredModuleIds.stream().noneMatch { id ->
+            objectMapper.configOverride(List::class.java).setterInfo =
+                JsonSetter.Value.forValueNulls(Nulls.AS_EMPTY, Nulls.AS_EMPTY)
+            objectMapper.configOverride(Set::class.java).setterInfo =
+                JsonSetter.Value.forValueNulls(Nulls.AS_EMPTY, Nulls.AS_EMPTY)
+            objectMapper.configOverride(Map::class.java).setterInfo =
+                JsonSetter.Value.forValueNulls(Nulls.AS_EMPTY, Nulls.AS_EMPTY)
+            if (
+                objectMapper.registeredModuleIds.stream().noneMatch { id ->
                     id.toOption()
                         .map { i -> i.toString() }
                         .map { s ->
