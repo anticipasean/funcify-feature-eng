@@ -57,7 +57,7 @@ object RestApiSourceNamingConventions {
 
     private val PROPERTY_NAME_FIELD_NAMING_CONVENTION: NamingConvention<String> by lazy {
         NamingConventionFactory.getDefaultFactory()
-            .createConventionFrom(StandardNamingConventions.SNAKE_CASE)
+            .createConventionFrom(StandardNamingConventions.CAMEL_CASE)
             .mapping(::identity)
             .namedAndIdentifiedBy(
                 RestApiSourceNamingConventions::class.qualifiedName!!,
