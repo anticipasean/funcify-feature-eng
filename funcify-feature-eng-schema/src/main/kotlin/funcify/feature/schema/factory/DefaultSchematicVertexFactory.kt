@@ -1,10 +1,11 @@
 package funcify.feature.schema.factory
 
 import arrow.core.Option
+import arrow.core.getOrElse
 import arrow.core.none
 import arrow.core.some
+import funcify.feature.naming.ConventionalName
 import funcify.feature.schema.SchematicVertex
-import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.datasource.ParameterAttribute
 import funcify.feature.schema.datasource.ParameterContainerType
 import funcify.feature.schema.datasource.SourceAttribute
@@ -13,6 +14,10 @@ import funcify.feature.schema.datasource.SourceIndex
 import funcify.feature.schema.error.SchemaErrorResponse
 import funcify.feature.schema.error.SchemaException
 import funcify.feature.schema.path.SchematicPath
+import funcify.feature.schema.vertex.ParameterAttributeVertex
+import funcify.feature.schema.vertex.ParameterContainerTypeVertex
+import funcify.feature.schema.vertex.SourceAttributeVertex
+import funcify.feature.schema.vertex.SourceContainerTypeVertex
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
@@ -25,67 +30,104 @@ internal class DefaultSchematicVertexFactory : SchematicVertexFactory {
 
         private val logger: Logger = loggerFor<DefaultSchematicVertexFactory>()
 
-        private data class DefaultSourceIndexSpec(val schematicPath: SchematicPath) :
-            SchematicVertexFactory.SourceIndexSpec {
+        private data class DefaultNameSpec(val schematicPath: SchematicPath) :
+            SchematicVertexFactory.NameSpec {
+
+            override fun withName(
+                conventionalName: ConventionalName
+            ): SchematicVertexFactory.SourceIndexSpec {
+                logger.debug("with_name: [ conventional_name: $conventionalName ]")
+                return DefaultSourceIndexSpec(
+                    schematicPath = schematicPath,
+                    suppliedConventionalName = conventionalName.some()
+                )
+            }
+
+            override fun extractingName(): SchematicVertexFactory.SourceIndexSpec {
+                logger.debug("using_source_index_name: [ ]")
+                return DefaultSourceIndexSpec(
+                    schematicPath = schematicPath,
+                    suppliedConventionalName = none()
+                )
+            }
+        }
+
+        private data class DefaultSourceIndexSpec(
+            val schematicPath: SchematicPath,
+            val suppliedConventionalName: Option<ConventionalName>
+        ) : SchematicVertexFactory.SourceIndexSpec {
+
             override fun <SI : SourceIndex<SI>> forSourceAttribute(
                 sourceAttribute: SourceAttribute<SI>
-            ): SchematicVertexFactory.DataSourceSpec<SI> {
+            ): Try<SchematicVertex> {
                 logger.debug(
                     """for_source_attribute: [ source_attribute.
                         |conventional_name: ${sourceAttribute.name} 
                         |]""".flattenIntoOneLine()
                 )
-                return DefaultDataSourceSpec<SI>(
-                    schematicPath = schematicPath,
-                    mappedSourceIndexAttempt =
-                        @Suppress("UNCHECKED_CAST") //
-                        (sourceAttribute as? SI).successIfNonNull()
-                )
+                return DefaultSchematicVertexSpec<SI>(
+                        schematicPath = schematicPath,
+                        conventionalName =
+                            suppliedConventionalName.getOrElse { sourceAttribute.name },
+                        mappedSourceIndexAttempt =
+                            @Suppress("UNCHECKED_CAST") //
+                            (sourceAttribute as? SI).successIfNonNull()
+                    )
+                    .createSchematicVertex()
             }
 
             override fun <SI : SourceIndex<SI>, A : SourceAttribute<SI>> forSourceContainerType(
                 sourceContainerType: SourceContainerType<SI, A>
-            ): SchematicVertexFactory.DataSourceSpec<SI> {
+            ): Try<SchematicVertex> {
                 logger.debug(
                     """for_source_container_type: [ source_container_type.
                         |conventional_name: ${sourceContainerType.name} ]
                         |""".flattenIntoOneLine()
                 )
-                return DefaultDataSourceSpec<SI>(
-                    schematicPath = schematicPath,
-                    mappedSourceIndexAttempt =
-                        @Suppress("UNCHECKED_CAST") //
-                        (sourceContainerType as? SI).successIfNonNull()
-                )
+                return DefaultSchematicVertexSpec<SI>(
+                        schematicPath = schematicPath,
+                        conventionalName =
+                            suppliedConventionalName.getOrElse { sourceContainerType.name },
+                        mappedSourceIndexAttempt =
+                            @Suppress("UNCHECKED_CAST") //
+                            (sourceContainerType as? SI).successIfNonNull()
+                    )
+                    .createSchematicVertex()
             }
 
             override fun <SI : SourceIndex<SI>> forParameterAttribute(
                 parameterAttribute: ParameterAttribute<SI>
-            ): SchematicVertexFactory.DataSourceSpec<SI> {
+            ): Try<SchematicVertex> {
                 logger.debug(
                     """for_parameter_attribute: [ parameter_attribute.name: ${parameterAttribute.name} ]"""
                 )
-                return DefaultDataSourceSpec<SI>(
-                    schematicPath = schematicPath,
-                    mappedSourceIndexAttempt =
-                        @Suppress("UNCHECKED_CAST") //
-                        (parameterAttribute as? SI).successIfNonNull()
-                )
+                return DefaultSchematicVertexSpec<SI>(
+                        schematicPath = schematicPath,
+                        conventionalName =
+                            suppliedConventionalName.getOrElse { parameterAttribute.name },
+                        mappedSourceIndexAttempt =
+                            @Suppress("UNCHECKED_CAST") //
+                            (parameterAttribute as? SI).successIfNonNull()
+                    )
+                    .createSchematicVertex()
             }
 
             override fun <
                 SI : SourceIndex<SI>, A : ParameterAttribute<SI>> forParameterContainerType(
                 parameterContainerType: ParameterContainerType<SI, A>
-            ): SchematicVertexFactory.DataSourceSpec<SI> {
+            ): Try<SchematicVertex> {
                 logger.debug(
                     "for_parameter_container_type: [ parameter_container_type.name: ${parameterContainerType.name} ]"
                 )
-                return DefaultDataSourceSpec<SI>(
-                    schematicPath = schematicPath,
-                    mappedSourceIndexAttempt =
-                        @Suppress("UNCHECKED_CAST") //
-                        (parameterContainerType as? SI).successIfNonNull()
-                )
+                return DefaultSchematicVertexSpec<SI>(
+                        schematicPath = schematicPath,
+                        conventionalName =
+                            suppliedConventionalName.getOrElse { parameterContainerType.name },
+                        mappedSourceIndexAttempt =
+                            @Suppress("UNCHECKED_CAST") //
+                            (parameterContainerType as? SI).successIfNonNull()
+                    )
+                    .createSchematicVertex()
             }
 
             override fun fromExistingVertex(
@@ -105,6 +147,7 @@ internal class DefaultSchematicVertexFactory : SchematicVertexFactory {
                 }
                 return DefaultExistingSchematicVertexSpec(
                     schematicPath = schematicPath,
+                    suppliedConventionalName = suppliedConventionalName,
                     existingSchematicVertex = existingSchematicVertex
                 )
             }
@@ -112,84 +155,115 @@ internal class DefaultSchematicVertexFactory : SchematicVertexFactory {
 
         private data class DefaultExistingSchematicVertexSpec(
             val schematicPath: SchematicPath,
-            val existingSchematicVertex: SchematicVertex
+            val existingSchematicVertex: SchematicVertex,
+            val suppliedConventionalName: Option<ConventionalName>
         ) : SchematicVertexFactory.ExistingSchematicVertexSpec {
+
+            companion object {
+                private fun SchematicVertex.name(): ConventionalName {
+                    return when (this) {
+                        is SourceAttributeVertex -> this.compositeAttribute.conventionalName
+                        is ParameterAttributeVertex ->
+                            this.compositeParameterAttribute.conventionalName
+                        is SourceContainerTypeVertex -> this.compositeContainerType.conventionalName
+                        is ParameterContainerTypeVertex ->
+                            this.compositeParameterContainerType.conventionalName
+                        else -> {
+                            throw SchemaException(
+                                SchemaErrorResponse.UNEXPECTED_ERROR,
+                                "unsupported source index type: ${this::class.qualifiedName}"
+                            )
+                        }
+                    }
+                }
+            }
+
             override fun <SI : SourceIndex<SI>> forSourceAttribute(
                 sourceAttribute: SourceAttribute<SI>
-            ): SchematicVertexFactory.DataSourceSpec<SI> {
+            ): Try<SchematicVertex> {
                 logger.debug(
                     """for_source_attribute: [ source_attribute.
                         |conventional_name: ${sourceAttribute.name} ]
                         |""".flattenIntoOneLine()
                 )
-                return DefaultDataSourceSpec<SI>(
-                    schematicPath = schematicPath,
-                    mappedSourceIndexAttempt =
-                        @Suppress("UNCHECKED_CAST") //
-                        (sourceAttribute as? SI).successIfNonNull(),
-                    existingSchematicVertexOpt = existingSchematicVertex.some()
-                )
+                return DefaultSchematicVertexSpec<SI>(
+                        schematicPath = schematicPath,
+                        conventionalName =
+                            suppliedConventionalName.getOrElse { existingSchematicVertex.name() },
+                        mappedSourceIndexAttempt =
+                            @Suppress("UNCHECKED_CAST") //
+                            (sourceAttribute as? SI).successIfNonNull(),
+                        existingSchematicVertexOpt = existingSchematicVertex.some()
+                    )
+                    .createSchematicVertex()
             }
 
             override fun <SI : SourceIndex<SI>, A : SourceAttribute<SI>> forSourceContainerType(
                 sourceContainerType: SourceContainerType<SI, A>
-            ): SchematicVertexFactory.DataSourceSpec<SI> {
+            ): Try<SchematicVertex> {
                 logger.debug(
                     """for_source_container_type: 
                         |[ source_container_type.conventional_name: 
                         |${sourceContainerType.name} ]""".flattenIntoOneLine()
                 )
-                return DefaultDataSourceSpec<SI>(
-                    schematicPath = schematicPath,
-                    mappedSourceIndexAttempt =
-                        @Suppress("UNCHECKED_CAST") //
-                        (sourceContainerType as? SI).successIfNonNull(),
-                    existingSchematicVertexOpt = existingSchematicVertex.some()
-                )
+                return DefaultSchematicVertexSpec<SI>(
+                        schematicPath = schematicPath,
+                        conventionalName =
+                            suppliedConventionalName.getOrElse { existingSchematicVertex.name() },
+                        mappedSourceIndexAttempt =
+                            @Suppress("UNCHECKED_CAST") //
+                            (sourceContainerType as? SI).successIfNonNull(),
+                        existingSchematicVertexOpt = existingSchematicVertex.some()
+                    )
+                    .createSchematicVertex()
             }
 
             override fun <SI : SourceIndex<SI>> forParameterAttribute(
                 parameterAttribute: ParameterAttribute<SI>
-            ): SchematicVertexFactory.DataSourceSpec<SI> {
+            ): Try<SchematicVertex> {
                 logger.debug(
                     """for_parameter_attribute: [ parameter_attribute.name: ${parameterAttribute.name} ]"""
                 )
-                return DefaultDataSourceSpec<SI>(
-                    schematicPath = schematicPath,
-                    mappedSourceIndexAttempt =
-                        @Suppress("UNCHECKED_CAST") //
-                        (parameterAttribute as? SI).successIfNonNull(),
-                    existingSchematicVertexOpt = existingSchematicVertex.some()
-                )
+                return DefaultSchematicVertexSpec<SI>(
+                        schematicPath = schematicPath,
+                        conventionalName =
+                            suppliedConventionalName.getOrElse { existingSchematicVertex.name() },
+                        mappedSourceIndexAttempt =
+                            @Suppress("UNCHECKED_CAST") //
+                            (parameterAttribute as? SI).successIfNonNull(),
+                        existingSchematicVertexOpt = existingSchematicVertex.some()
+                    )
+                    .createSchematicVertex()
             }
 
             override fun <
                 SI : SourceIndex<SI>, A : ParameterAttribute<SI>> forParameterContainerType(
                 parameterContainerType: ParameterContainerType<SI, A>
-            ): SchematicVertexFactory.DataSourceSpec<SI> {
+            ): Try<SchematicVertex> {
                 logger.debug(
                     "for_parameter_container_type: [ parameter_container_type.name: ${parameterContainerType.name} ]"
                 )
-                return DefaultDataSourceSpec<SI>(
-                    schematicPath = schematicPath,
-                    mappedSourceIndexAttempt =
-                        @Suppress("UNCHECKED_CAST") //
-                        (parameterContainerType as? SI).successIfNonNull(),
-                    existingSchematicVertexOpt = existingSchematicVertex.some()
-                )
+                return DefaultSchematicVertexSpec<SI>(
+                        schematicPath = schematicPath,
+                        conventionalName =
+                            suppliedConventionalName.getOrElse { existingSchematicVertex.name() },
+                        mappedSourceIndexAttempt =
+                            @Suppress("UNCHECKED_CAST") //
+                            (parameterContainerType as? SI).successIfNonNull(),
+                        existingSchematicVertexOpt = existingSchematicVertex.some()
+                    )
+                    .createSchematicVertex()
             }
         }
 
-        private data class DefaultDataSourceSpec<SI : SourceIndex<SI>>(
+        private data class DefaultSchematicVertexSpec<SI : SourceIndex<SI>>(
             val schematicPath: SchematicPath,
+            val conventionalName: ConventionalName,
             val mappedSourceIndexAttempt: Try<SI>,
             val existingSchematicVertexOpt: Option<SchematicVertex> = none()
-        ) : SchematicVertexFactory.DataSourceSpec<SI> {
-            override fun onDataSource(dataSourceKey: DataSource.Key<SI>): Try<SchematicVertex> {
-                logger.debug(
-                    """on_data_source: [ source_type: ${dataSourceKey.dataSourceType}, 
-                       |name: ${dataSourceKey.name} ]""".flattenIntoOneLine()
-                )
+        ) {
+
+            fun createSchematicVertex(): Try<SchematicVertex> {
                 if (mappedSourceIndexAttempt.isFailure()) {
                     mappedSourceIndexAttempt.ifFailed { throwable: Throwable ->
                         logger.error(
@@ -205,18 +279,18 @@ internal class DefaultSchematicVertexFactory : SchematicVertexFactory {
                 val factory = DefaultSchematicVertexCreationFactory<SI>()
                 return when (existingSchematicVertexOpt.orNull()) {
                     null -> {
-                        factory.createNewSchematicVertexForSourceIndexOnDataSource(
+                        factory.createNewSchematicVertexForSourceIndexWithName(
                             schematicPath = schematicPath,
                             sourceIndex = mappedSourceIndexAttempt.orNull()!!,
-                            dataSourceKey = dataSourceKey
+                            conventionalName = conventionalName
                         )
                     }
                     else -> {
-                        factory.updateExistingSchematicVertexWithSourceIndexOnDataSource(
+                        factory.updateExistingSchematicVertexWithSourceIndexWithName(
                             schematicPath = schematicPath,
                             existingSchematicVertex = existingSchematicVertexOpt.orNull()!!,
                             sourceIndex = mappedSourceIndexAttempt.orNull()!!,
-                            dataSourceKey = dataSourceKey
+                            conventionalName = conventionalName
                         )
                     }
                 }
@@ -229,8 +303,8 @@ internal class DefaultSchematicVertexFactory : SchematicVertexFactory {
 
     override fun createVertexForPath(
         schematicPath: SchematicPath
-    ): SchematicVertexFactory.SourceIndexSpec {
+    ): SchematicVertexFactory.NameSpec {
         logger.debug("create_vertex_for_path: [ path: $schematicPath ]")
-        return DefaultSourceIndexSpec(schematicPath = schematicPath)
+        return DefaultNameSpec(schematicPath = schematicPath)
     }
 }

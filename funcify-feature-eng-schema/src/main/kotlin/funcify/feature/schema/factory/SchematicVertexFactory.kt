@@ -1,7 +1,7 @@
 package funcify.feature.schema.factory
 
+import funcify.feature.naming.ConventionalName
 import funcify.feature.schema.SchematicVertex
-import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.datasource.ParameterAttribute
 import funcify.feature.schema.datasource.ParameterContainerType
 import funcify.feature.schema.datasource.SourceAttribute
@@ -14,11 +14,18 @@ import funcify.feature.tools.container.attempt.Try
 
 interface SchematicVertexFactory {
 
-    fun createVertexForPath(schematicPath: SchematicPath): SourceIndexSpec
+    fun createVertexForPath(schematicPath: SchematicPath): NameSpec
+
+    interface NameSpec {
+
+        fun withName(conventionalName: ConventionalName): SourceIndexSpec
+
+        fun extractingName(): SourceIndexSpec
+    }
 
     interface SourceIndexSpec {
 
-        fun <SI : SourceIndex<SI>> forSourceIndex(sourceIndex: SI): DataSourceSpec<SI> {
+        fun <SI : SourceIndex<SI>> forSourceIndex(sourceIndex: SI): Try<SchematicVertex> {
             return when (sourceIndex) {
                 is SourceContainerType<*, *> -> {
                     @Suppress("UNCHECKED_CAST") //
@@ -46,19 +53,19 @@ interface SchematicVertexFactory {
 
         fun <SI : SourceIndex<SI>> forSourceAttribute(
             sourceAttribute: SourceAttribute<SI>
-        ): DataSourceSpec<SI>
+        ): Try<SchematicVertex>
 
         fun <SI : SourceIndex<SI>, A : SourceAttribute<SI>> forSourceContainerType(
             sourceContainerType: SourceContainerType<SI, A>
-        ): DataSourceSpec<SI>
+        ): Try<SchematicVertex>
 
         fun <SI : SourceIndex<SI>> forParameterAttribute(
             parameterAttribute: ParameterAttribute<SI>
-        ): DataSourceSpec<SI>
+        ): Try<SchematicVertex>
 
         fun <SI : SourceIndex<SI>, A : ParameterAttribute<SI>> forParameterContainerType(
             parameterContainerType: ParameterContainerType<SI, A>
-        ): DataSourceSpec<SI>
+        ): Try<SchematicVertex>
 
         fun fromExistingVertex(
             existingSchematicVertex: SchematicVertex
@@ -67,7 +74,7 @@ interface SchematicVertexFactory {
 
     interface ExistingSchematicVertexSpec {
 
-        fun <SI : SourceIndex<SI>> forSourceIndex(sourceIndex: SI): DataSourceSpec<SI> {
+        fun <SI : SourceIndex<SI>> forSourceIndex(sourceIndex: SI): Try<SchematicVertex> {
             return when (sourceIndex) {
                 is SourceContainerType<*, *> -> {
                     @Suppress("UNCHECKED_CAST") //
@@ -95,22 +102,18 @@ interface SchematicVertexFactory {
 
         fun <SI : SourceIndex<SI>> forSourceAttribute(
             sourceAttribute: SourceAttribute<SI>
-        ): DataSourceSpec<SI>
+        ): Try<SchematicVertex>
 
         fun <SI : SourceIndex<SI>, A : SourceAttribute<SI>> forSourceContainerType(
             sourceContainerType: SourceContainerType<SI, A>
-        ): DataSourceSpec<SI>
+        ): Try<SchematicVertex>
 
         fun <SI : SourceIndex<SI>> forParameterAttribute(
             parameterAttribute: ParameterAttribute<SI>
-        ): DataSourceSpec<SI>
+        ): Try<SchematicVertex>
 
         fun <SI : SourceIndex<SI>, A : ParameterAttribute<SI>> forParameterContainerType(
             parameterContainerType: ParameterContainerType<SI, A>
-        ): DataSourceSpec<SI>
-    }
-
-    interface DataSourceSpec<SI : SourceIndex<SI>> {
-        fun onDataSource(dataSourceKey: DataSource.Key<SI>): Try<SchematicVertex>
+        ): Try<SchematicVertex>
     }
 }

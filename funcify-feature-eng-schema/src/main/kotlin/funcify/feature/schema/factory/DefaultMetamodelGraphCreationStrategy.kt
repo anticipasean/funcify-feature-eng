@@ -180,15 +180,15 @@ internal class DefaultMetamodelGraphCreationStrategy() :
                 null -> {
                     context.schematicVertexFactory
                         .createVertexForPath(sourcePath)
+                        .extractingName()
                         .forSourceIndex<SI>(sourceIndex)
-                        .onDataSource(dataSource.key)
                 }
                 else -> {
                     context.schematicVertexFactory
                         .createVertexForPath(sourcePath)
+                        .extractingName()
                         .fromExistingVertex(existingVertex)
                         .forSourceIndex<SI>(sourceIndex)
-                        .onDataSource(dataSource.key)
                 }
             }.fold(
                 { v -> context.update { addOrUpdateSchematicVertexAtPath(sourcePath, v) } },

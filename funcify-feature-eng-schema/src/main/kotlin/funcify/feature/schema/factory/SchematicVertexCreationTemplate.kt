@@ -1,8 +1,8 @@
 package funcify.feature.schema.factory
 
+import funcify.feature.naming.ConventionalName
 import funcify.feature.naming.StandardNamingConventions
 import funcify.feature.schema.SchematicVertex
-import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.datasource.ParameterAttribute
 import funcify.feature.schema.datasource.ParameterContainerType
 import funcify.feature.schema.datasource.SourceAttribute
@@ -31,48 +31,48 @@ import kotlinx.collections.immutable.toPersistentMap
  */
 internal interface SchematicVertexCreationTemplate<SI : SourceIndex<SI>> {
 
-    fun createNewSchematicVertexForSourceIndexOnDataSource(
+    fun createNewSchematicVertexForSourceIndexWithName(
         schematicPath: SchematicPath,
         sourceIndex: SI,
-        dataSourceKey: DataSource.Key<SI>
+        conventionalName: ConventionalName
     ): Try<SchematicVertex> {
         return when (sourceIndex) {
             is SourceContainerType<*, *> -> {
                 @Suppress("UNCHECKED_CAST") //
                 val targetTypeIndex: SourceContainerType<SI, *> =
                     sourceIndex as SourceContainerType<SI, *>
-                createNewSchematicVertexForSourceContainerTypeOnDataSource(
+                createNewSchematicVertexForSourceContainerTypeWithName(
                     schematicPath,
                     targetTypeIndex,
-                    dataSourceKey
+                    conventionalName
                 )
             }
             is SourceAttribute<*> -> {
                 @Suppress("UNCHECKED_CAST") //
                 val targetTypeIndex: SourceAttribute<SI> = sourceIndex as SourceAttribute<SI>
-                createNewSchematicVertexForSourceAttributeOnDataSource(
+                createNewSchematicVertexForSourceAttributeWithName(
                     schematicPath,
                     targetTypeIndex,
-                    dataSourceKey
+                    conventionalName
                 )
             }
             is ParameterContainerType<*, *> -> {
                 @Suppress("UNCHECKED_CAST") //
                 val targetTypeIndex: ParameterContainerType<SI, *> =
                     sourceIndex as ParameterContainerType<SI, *>
-                createNewSchematicVertexForParameterContainerTypeOnDataSource(
+                createNewSchematicVertexForParameterContainerTypeWithName(
                     schematicPath,
                     targetTypeIndex,
-                    dataSourceKey
+                    conventionalName
                 )
             }
             is ParameterAttribute<*> -> {
                 @Suppress("UNCHECKED_CAST") //
                 val targetTypeIndex: ParameterAttribute<SI> = sourceIndex as ParameterAttribute<SI>
-                createNewSchematicVertexForParameterAttributeOnDataSource(
+                createNewSchematicVertexForParameterAttributeWithName(
                     schematicPath,
                     targetTypeIndex,
-                    dataSourceKey
+                    conventionalName
                 )
             }
             else -> {
@@ -96,53 +96,53 @@ internal interface SchematicVertexCreationTemplate<SI : SourceIndex<SI>> {
         }
     }
 
-    fun updateExistingSchematicVertexWithSourceIndexOnDataSource(
+    fun updateExistingSchematicVertexWithSourceIndexWithName(
         schematicPath: SchematicPath,
         existingSchematicVertex: SchematicVertex,
         sourceIndex: SI,
-        dataSourceKey: DataSource.Key<SI>
+        conventionalName: ConventionalName
     ): Try<SchematicVertex> {
         return when (sourceIndex) {
             is SourceContainerType<*, *> -> {
                 @Suppress("UNCHECKED_CAST") //
                 val targetType: SourceContainerType<SI, *> =
                     sourceIndex as SourceContainerType<SI, *>
-                updateExistingSchematicVertexForSourceContainerTypeOnDataSource(
+                updateExistingSchematicVertexForSourceContainerTypeWithName(
                     schematicPath,
                     existingSchematicVertex,
                     targetType,
-                    dataSourceKey
+                    conventionalName
                 )
             }
             is SourceAttribute<*> -> {
                 @Suppress("UNCHECKED_CAST") //
                 val targetType: SourceAttribute<SI> = sourceIndex as SourceAttribute<SI>
-                updateExistingSchematicVertexForSourceAttributeOnDataSource(
+                updateExistingSchematicVertexForSourceAttributeWithName(
                     schematicPath,
                     existingSchematicVertex,
                     targetType,
-                    dataSourceKey
+                    conventionalName
                 )
             }
             is ParameterContainerType<*, *> -> {
                 @Suppress("UNCHECKED_CAST") //
                 val targetType: ParameterContainerType<SI, *> =
                     sourceIndex as ParameterContainerType<SI, *>
-                updateExistingSchematicVertexForParameterContainerTypeOnDataSource(
+                updateExistingSchematicVertexForParameterContainerTypeWithName(
                     schematicPath,
                     existingSchematicVertex,
                     targetType,
-                    dataSourceKey
+                    conventionalName
                 )
             }
             is ParameterAttribute<*> -> {
                 @Suppress("UNCHECKED_CAST") //
                 val targetType: ParameterAttribute<SI> = sourceIndex as ParameterAttribute<SI>
-                updateExistingSchematicVertexForParameterAttributeOnDataSource(
+                updateExistingSchematicVertexForParameterAttributeWithName(
                     schematicPath,
                     existingSchematicVertex,
                     targetType,
-                    dataSourceKey
+                    conventionalName
                 )
             }
             else -> {
@@ -166,18 +166,20 @@ internal interface SchematicVertexCreationTemplate<SI : SourceIndex<SI>> {
         }
     }
 
-    fun <SA : SourceAttribute<SI>> createNewSchematicVertexForSourceContainerTypeOnDataSource(
+    fun <SA : SourceAttribute<SI>> createNewSchematicVertexForSourceContainerTypeWithName(
         schematicPath: SchematicPath,
         sourceContainerType: SourceContainerType<SI, SA>,
-        dataSourceKey: DataSource.Key<SI>
+        conventionalName: ConventionalName
     ): Try<SchematicVertex> {
         return if (schematicPath.isRoot()) {
             DefaultSourceRootVertex(
                     path = schematicPath,
                     compositeContainerType =
                         DefaultCompositeSourceContainerType(
-                            sourceContainerType.name,
-                            persistentMapOf(dataSourceKey to sourceContainerType)
+                            conventionalName,
+                            persistentMapOf(
+                                sourceContainerType.dataSourceLookupKey to sourceContainerType
+                            )
                         )
                 )
                 .successIfNonNull()
@@ -190,9 +192,11 @@ internal interface SchematicVertexCreationTemplate<SI : SourceIndex<SI>> {
                              * Another location where entity resolution and application of naming
                              * conventions can be done in the future
                              */
-                            conventionalName = sourceContainerType.name,
+                            conventionalName = conventionalName,
                             sourceContainerTypesByDataSource =
-                                persistentMapOf(dataSourceKey to sourceContainerType)
+                                persistentMapOf(
+                                    sourceContainerType.dataSourceLookupKey to sourceContainerType
+                                )
                         ),
                     compositeAttribute =
                         DefaultCompositeSourceAttribute(
@@ -200,10 +204,7 @@ internal interface SchematicVertexCreationTemplate<SI : SourceIndex<SI>> {
                              * Another location where entity resolution and application of naming
                              * conventions can be done in the future
                              */
-                            conventionalName =
-                                StandardNamingConventions.CAMEL_CASE.deriveName(
-                                    sourceContainerType.name.toString()
-                                ),
+                            conventionalName = conventionalName,
                             sourceAttributesByDataSource = persistentMapOf()
                         )
                 )
@@ -211,10 +212,10 @@ internal interface SchematicVertexCreationTemplate<SI : SourceIndex<SI>> {
         }
     }
 
-    fun createNewSchematicVertexForSourceAttributeOnDataSource(
+    fun createNewSchematicVertexForSourceAttributeWithName(
         schematicPath: SchematicPath,
         sourceAttribute: SourceAttribute<SI>,
-        dataSourceKey: DataSource.Key<SI>
+        conventionalName: ConventionalName
     ): Try<SchematicVertex> {
         return DefaultSourceLeafVertex(
                 path = schematicPath,
@@ -224,26 +225,28 @@ internal interface SchematicVertexCreationTemplate<SI : SourceIndex<SI>> {
                          * Location where entity resolution and application of naming conventions
                          * can be done in the future
                          */
-                        conventionalName = sourceAttribute.name,
+                        conventionalName = conventionalName,
                         sourceAttributesByDataSource =
-                            persistentMapOf(dataSourceKey to sourceAttribute)
+                            persistentMapOf(sourceAttribute.dataSourceLookupKey to sourceAttribute)
                     )
             )
             .successIfNonNull()
     }
 
-    fun <PA : ParameterAttribute<SI>> createNewSchematicVertexForParameterContainerTypeOnDataSource(
+    fun <PA : ParameterAttribute<SI>> createNewSchematicVertexForParameterContainerTypeWithName(
         schematicPath: SchematicPath,
         parameterContainerType: ParameterContainerType<SI, PA>,
-        dataSourceKey: DataSource.Key<SI>
+        conventionalName: ConventionalName
     ): Try<SchematicVertex> {
         return DefaultParameterJunctionVertex(
                 path = schematicPath,
                 compositeParameterContainerType =
                     DefaultCompositeParameterContainerType(
-                        conventionalName = parameterContainerType.name,
+                        conventionalName = conventionalName,
                         parameterContainerTypeByDataSource =
-                            persistentMapOf(dataSourceKey to parameterContainerType)
+                            persistentMapOf(
+                                parameterContainerType.dataSourceLookupKey to parameterContainerType
+                            )
                     ),
                 compositeParameterAttribute =
                     DefaultCompositeParameterAttribute(
@@ -257,28 +260,30 @@ internal interface SchematicVertexCreationTemplate<SI : SourceIndex<SI>> {
             .successIfNonNull()
     }
 
-    fun createNewSchematicVertexForParameterAttributeOnDataSource(
+    fun createNewSchematicVertexForParameterAttributeWithName(
         schematicPath: SchematicPath,
         parameterAttribute: ParameterAttribute<SI>,
-        dataSourceKey: DataSource.Key<SI>
+        conventionalName: ConventionalName
     ): Try<SchematicVertex> {
         return DefaultParameterLeafVertex(
                 path = schematicPath,
                 compositeParameterAttribute =
                     DefaultCompositeParameterAttribute(
-                        conventionalName = parameterAttribute.name,
+                        conventionalName = conventionalName,
                         parameterAttributeByDataSource =
-                            persistentMapOf(dataSourceKey to parameterAttribute)
+                            persistentMapOf(
+                                parameterAttribute.dataSourceLookupKey to parameterAttribute
+                            )
                     )
             )
             .successIfNonNull()
     }
 
-    fun <SA : SourceAttribute<SI>> updateExistingSchematicVertexForSourceContainerTypeOnDataSource(
+    fun <SA : SourceAttribute<SI>> updateExistingSchematicVertexForSourceContainerTypeWithName(
         schematicPath: SchematicPath,
         existingSchematicVertex: SchematicVertex,
         sourceContainerType: SourceContainerType<SI, SA>,
-        dataSourceKey: DataSource.Key<SI>
+        conventionalName: ConventionalName
     ): Try<SchematicVertex> {
         return when (val existingVertex = existingSchematicVertex) {
             is SourceRootVertex ->
@@ -286,13 +291,15 @@ internal interface SchematicVertexCreationTemplate<SI : SourceIndex<SI>> {
                         path = schematicPath,
                         compositeContainerType =
                             DefaultCompositeSourceContainerType(
-                                conventionalName =
-                                    existingVertex.compositeContainerType.conventionalName,
+                                conventionalName = conventionalName,
                                 sourceContainerTypesByDataSource =
                                     existingVertex.compositeContainerType
                                         .getSourceContainerTypeByDataSource()
                                         .toPersistentMap()
-                                        .put(dataSourceKey, sourceContainerType)
+                                        .put(
+                                            sourceContainerType.dataSourceLookupKey,
+                                            sourceContainerType
+                                        )
                             )
                     )
                     .successIfNonNull()
@@ -301,10 +308,12 @@ internal interface SchematicVertexCreationTemplate<SI : SourceIndex<SI>> {
                         path = schematicPath,
                         compositeContainerType =
                             DefaultCompositeSourceContainerType(
-                                conventionalName =
-                                    existingVertex.compositeAttribute.conventionalName,
+                                conventionalName = conventionalName,
                                 sourceContainerTypesByDataSource =
-                                    persistentMapOf(dataSourceKey to sourceContainerType)
+                                    persistentMapOf(
+                                        sourceContainerType.dataSourceLookupKey to
+                                            sourceContainerType
+                                    )
                             ),
                         compositeAttribute = existingVertex.compositeAttribute
                     )
@@ -314,13 +323,15 @@ internal interface SchematicVertexCreationTemplate<SI : SourceIndex<SI>> {
                         path = schematicPath,
                         compositeContainerType =
                             DefaultCompositeSourceContainerType(
-                                conventionalName =
-                                    existingVertex.compositeContainerType.conventionalName,
+                                conventionalName = conventionalName,
                                 sourceContainerTypesByDataSource =
                                     existingVertex.compositeContainerType
                                         .getSourceContainerTypeByDataSource()
                                         .toPersistentMap()
-                                        .put(dataSourceKey, sourceContainerType)
+                                        .put(
+                                            sourceContainerType.dataSourceLookupKey,
+                                            sourceContainerType
+                                        )
                             ),
                         compositeAttribute = existingVertex.compositeAttribute
                     )
@@ -338,11 +349,11 @@ internal interface SchematicVertexCreationTemplate<SI : SourceIndex<SI>> {
         }
     }
 
-    fun updateExistingSchematicVertexForSourceAttributeOnDataSource(
+    fun updateExistingSchematicVertexForSourceAttributeWithName(
         schematicPath: SchematicPath,
         existingSchematicVertex: SchematicVertex,
         sourceAttribute: SourceAttribute<SI>,
-        dataSourceKey: DataSource.Key<SI>
+        conventionalName: ConventionalName
     ): Try<SchematicVertex> {
         return when (val existingVertex = existingSchematicVertex) {
             is SourceLeafVertex ->
@@ -350,12 +361,11 @@ internal interface SchematicVertexCreationTemplate<SI : SourceIndex<SI>> {
                         path = schematicPath,
                         compositeAttribute =
                             DefaultCompositeSourceAttribute(
-                                conventionalName =
-                                    existingVertex.compositeAttribute.conventionalName,
+                                conventionalName = conventionalName,
                                 existingVertex.compositeAttribute
                                     .getSourceAttributeByDataSource()
                                     .toPersistentMap()
-                                    .put(dataSourceKey, sourceAttribute)
+                                    .put(sourceAttribute.dataSourceLookupKey, sourceAttribute)
                             )
                     )
                     .successIfNonNull()
@@ -364,13 +374,12 @@ internal interface SchematicVertexCreationTemplate<SI : SourceIndex<SI>> {
                         path = schematicPath,
                         compositeAttribute =
                             DefaultCompositeSourceAttribute(
-                                conventionalName =
-                                    existingVertex.compositeAttribute.conventionalName,
+                                conventionalName = conventionalName,
                                 sourceAttributesByDataSource =
                                     existingVertex.compositeAttribute
                                         .getSourceAttributeByDataSource()
                                         .toPersistentMap()
-                                        .put(dataSourceKey, sourceAttribute)
+                                        .put(sourceAttribute.dataSourceLookupKey, sourceAttribute)
                             ),
                         compositeContainerType = existingVertex.compositeContainerType
                     )
@@ -389,12 +398,11 @@ internal interface SchematicVertexCreationTemplate<SI : SourceIndex<SI>> {
     }
 
     fun <
-        PA : ParameterAttribute<SI>
-    > updateExistingSchematicVertexForParameterContainerTypeOnDataSource(
+        PA : ParameterAttribute<SI>> updateExistingSchematicVertexForParameterContainerTypeWithName(
         schematicPath: SchematicPath,
         existingSchematicVertex: SchematicVertex,
         parameterContainerType: ParameterContainerType<SI, PA>,
-        dataSourceKey: DataSource.Key<SI>
+        conventionalName: ConventionalName
     ): Try<SchematicVertex> {
         return when (val existingVertex = existingSchematicVertex) {
             is ParameterJunctionVertex -> {
@@ -402,13 +410,15 @@ internal interface SchematicVertexCreationTemplate<SI : SourceIndex<SI>> {
                         existingVertex.path,
                         compositeParameterContainerType =
                             DefaultCompositeParameterContainerType(
-                                conventionalName =
-                                    existingVertex.compositeParameterContainerType.conventionalName,
+                                conventionalName = conventionalName,
                                 parameterContainerTypeByDataSource =
                                     existingVertex.compositeParameterContainerType
                                         .getParameterContainerTypeByDataSource()
                                         .toPersistentMap()
-                                        .put(dataSourceKey, parameterContainerType)
+                                        .put(
+                                            parameterContainerType.dataSourceLookupKey,
+                                            parameterContainerType
+                                        )
                             ),
                         compositeParameterAttribute = existingVertex.compositeParameterAttribute
                     )
@@ -419,9 +429,12 @@ internal interface SchematicVertexCreationTemplate<SI : SourceIndex<SI>> {
                         existingVertex.path,
                         compositeParameterContainerType =
                             DefaultCompositeParameterContainerType(
-                                conventionalName = parameterContainerType.name,
+                                conventionalName = conventionalName,
                                 parameterContainerTypeByDataSource =
-                                    persistentMapOf(dataSourceKey to parameterContainerType)
+                                    persistentMapOf(
+                                        parameterContainerType.dataSourceLookupKey to
+                                            parameterContainerType
+                                    )
                             ),
                         compositeParameterAttribute = existingVertex.compositeParameterAttribute
                     )
@@ -440,11 +453,11 @@ internal interface SchematicVertexCreationTemplate<SI : SourceIndex<SI>> {
         }
     }
 
-    fun updateExistingSchematicVertexForParameterAttributeOnDataSource(
+    fun updateExistingSchematicVertexForParameterAttributeWithName(
         schematicPath: SchematicPath,
         existingSchematicVertex: SchematicVertex,
         parameterAttribute: ParameterAttribute<SI>,
-        dataSourceKey: DataSource.Key<SI>
+        conventionalName: ConventionalName
     ): Try<SchematicVertex> {
         return when (val existingVertex = existingSchematicVertex) {
             is ParameterJunctionVertex -> {
@@ -454,13 +467,15 @@ internal interface SchematicVertexCreationTemplate<SI : SourceIndex<SI>> {
                             existingVertex.compositeParameterContainerType,
                         compositeParameterAttribute =
                             DefaultCompositeParameterAttribute(
-                                conventionalName =
-                                    existingVertex.compositeParameterAttribute.conventionalName,
+                                conventionalName = conventionalName,
                                 parameterAttributeByDataSource =
                                     existingVertex.compositeParameterAttribute
                                         .getParameterAttributesByDataSource()
                                         .toPersistentMap()
-                                        .put(dataSourceKey, parameterAttribute)
+                                        .put(
+                                            parameterAttribute.dataSourceLookupKey,
+                                            parameterAttribute
+                                        )
                             )
                     )
                     .successIfNonNull()
@@ -470,13 +485,15 @@ internal interface SchematicVertexCreationTemplate<SI : SourceIndex<SI>> {
                         existingVertex.path,
                         compositeParameterAttribute =
                             DefaultCompositeParameterAttribute(
-                                conventionalName =
-                                    existingVertex.compositeParameterAttribute.conventionalName,
+                                conventionalName = conventionalName,
                                 parameterAttributeByDataSource =
                                     existingVertex.compositeParameterAttribute
                                         .getParameterAttributesByDataSource()
                                         .toPersistentMap()
-                                        .put(dataSourceKey, parameterAttribute)
+                                        .put(
+                                            parameterAttribute.dataSourceLookupKey,
+                                            parameterAttribute
+                                        )
                             )
                     )
                     .successIfNonNull()
