@@ -23,8 +23,11 @@ import kotlinx.collections.immutable.persistentSetOf
  * @author smccarron
  * @created 2022-07-17
  */
-internal class SwaggerRestApiDataSourceIndexSDLDefinitionImplementationStrategy(
-    private val restApiDataSource: RestApiDataSource
+internal class DefaultSwaggerRestApiDataSourceIndexSDLDefinitionImplementationStrategy(
+    private val restApiDataSource: RestApiDataSource,
+    private val swaggerSourceIndexSDLDefinitionImplementationTemplate:
+        SwaggerSourceIndexSDLDefinitionImplementationTemplate<
+            Try<SchematicVertexSDLDefinitionCreationContext<*>>>
 ) :
     DataSourceBasedSDLDefinitionStrategy<SchematicVertexSDLDefinitionCreationContext<*>>,
     SchematicVertexSDLDefinitionImplementationStrategy {
@@ -66,6 +69,7 @@ internal class SwaggerRestApiDataSourceIndexSDLDefinitionImplementationStrategy(
     override fun applyToContext(
         context: SchematicVertexSDLDefinitionCreationContext<*>
     ): Try<SchematicVertexSDLDefinitionCreationContext<*>> {
-        return Try.success(context)
+        return swaggerSourceIndexSDLDefinitionImplementationTemplate
+            .onSchematicVertexSDLDefinitionCreationContext(context)
     }
 }

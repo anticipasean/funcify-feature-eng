@@ -22,8 +22,8 @@ import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
 import funcify.feature.tools.extensions.TryExtensions.failure
 import funcify.feature.tools.extensions.TryExtensions.successIfDefined
 import funcify.feature.tools.extensions.TryExtensions.successIfNonNull
-import graphql.language.Argument
 import graphql.language.FieldDefinition
+import graphql.language.InputObjectTypeDefinition
 import graphql.language.InputValueDefinition
 import graphql.language.ObjectTypeDefinition
 import org.slf4j.Logger
@@ -186,13 +186,35 @@ internal class DefaultSwaggerSourceIndexSDLDefinitionFactory :
         return when {
             parameterJunctionVertexContext.parentVertex
                 .filterIsInstance<SourceAttributeVertex>()
-                .isDefined() &&
-                !parameterJunctionVertexContext.existingArgumentDefinition.isDefined() -> {
-                InputValueDefinition.newInputValueDefinition()
-                    .name(
-                        parameterJunctionVertexContext.compositeParameterAttribute.conventionalName
-                            .qualifiedForm
-                    ).type()
+                .isDefined() -> {
+                if (parameterJunctionVertexContext.existingArgumentDefinition.isDefined()) {
+                    parameterJunctionVertexContext.successIfNonNull()
+                } else {
+                    InputObjectTypeDefinition.newInputObjectDefinition()
+                        .name(swaggerParameterContainerType.name.qualifiedForm)
+                        .build()
+                        .successIfNonNull()
+                        .zip(
+                            createFieldArgumentInputValueDefinitionForSwaggerParameterAttribute(
+                                parameterJunctionVertexContext.path,
+                                parameterJunctionVertexContext.compositeParameterAttribute
+                                    .conventionalName,
+                                swaggerParameterAttribute
+                            )
+                        )
+                        .map { (inputObjectTypeDef, inputValueDef) ->
+                            parameterJunctionVertexContext.update {
+                                addSDLDefinitionForSchematicPath(
+                                    parameterJunctionVertexContext.path,
+                                    inputObjectTypeDef
+                                )
+                                addSDLDefinitionForSchematicPath(
+                                    parameterJunctionVertexContext.path,
+                                    inputValueDef
+                                )
+                            }
+                        }
+                }
             }
             else -> {
                 RestApiDataSourceException(
@@ -207,6 +229,30 @@ internal class DefaultSwaggerSourceIndexSDLDefinitionFactory :
         }
     }
 
+    private fun createFieldArgumentInputValueDefinitionForSwaggerParameterAttribute(
+        schematicPath: SchematicPath,
+        parameterAttributeVertexName: ConventionalName,
+        swaggerParameterAttribute: SwaggerParameterAttribute,
+    ): Try<InputValueDefinition> {
+        return SwaggerParameterAttributeSDLTypeResolver.invoke(swaggerParameterAttribute)
+            .successIfDefined {
+                RestApiDataSourceException(
+                    RestApiErrorResponse.UNEXPECTED_ERROR,
+                    """swagger_parameter_attribute on vertex [ 
+                       |path: ${schematicPath} ] 
+                       |could not be mapped to a GraphQL SDL type: [ 
+                       |swagger_parameter_attribute.source_path: ${swaggerParameterAttribute.sourcePath} 
+                       ]""".flattenIntoOneLine()
+                )
+            }
+            .map { sdlType ->
+                InputValueDefinition.newInputValueDefinition()
+                    .name(parameterAttributeVertexName.qualifiedForm)
+                    .type(sdlType)
+                    .build()
+            }
+    }
+
     override fun onParameterLeafSwaggerAttribute(
         parameterLeafVertexContext: ParameterLeafVertexSDLDefinitionCreationContext,
         swaggerParameterAttribute: SwaggerParameterAttribute,
@@ -214,6 +260,38 @@ internal class DefaultSwaggerSourceIndexSDLDefinitionFactory :
         logger.debug(
             "on_parameter_leaf_swagger_attribute: [ path: ${parameterLeafVertexContext.path} ]"
         )
-        TODO("Not yet implemented")
+        return when {
+            parameterLeafVertexContext.parentVertex
+                .filterIsInstance<SourceAttributeVertex>()
+                .isDefined() -> {
+                if (parameterLeafVertexContext.existingInputValueDefinition.isDefined()) {
+                    parameterLeafVertexContext.successIfNonNull()
+                } else {
+                    createFieldArgumentInputValueDefinitionForSwaggerParameterAttribute(
+                            parameterLeafVertexContext.path,
+                            parameterLeafVertexContext.compositeParameterAttribute.conventionalName,
+                            swaggerParameterAttribute
+                        )
+                        .map { inputValueDef ->
+                            parameterLeafVertexContext.update {
+                                addSDLDefinitionForSchematicPath(
+                                    parameterLeafVertexContext.path,
+                                    inputValueDef
+                                )
+                            }
+                        }
+                }
+            }
+            else -> {
+                RestApiDataSourceException(
+                        RestApiErrorResponse.UNEXPECTED_ERROR,
+                        """unhandled parameter_leaf_vertex  
+                        |sdl_definition_creation for [ path: ${parameterLeafVertexContext.path}, 
+                        |swagger_parameter_attribute.name: ${swaggerParameterAttribute.name} 
+                        |]""".flattenIntoOneLine()
+                    )
+                    .failure()
+            }
+        }
     }
 }

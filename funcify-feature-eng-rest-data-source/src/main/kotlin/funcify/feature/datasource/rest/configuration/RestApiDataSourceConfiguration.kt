@@ -15,7 +15,8 @@ import funcify.feature.datasource.rest.metadata.provider.SwaggerRestApiMetadataP
 import funcify.feature.datasource.rest.metadata.reader.DefaultSwaggerRestApiSourceMetadataReader
 import funcify.feature.datasource.rest.metadata.reader.SwaggerRestApiSourceMetadataReader
 import funcify.feature.datasource.rest.schema.SwaggerRestApiSourceMetamodel
-import funcify.feature.datasource.rest.sdl.SwaggerRestApiDataSourceIndexSDLDefinitionImplementationStrategy
+import funcify.feature.datasource.rest.sdl.DefaultSwaggerRestApiDataSourceIndexSDLDefinitionImplementationStrategy
+import funcify.feature.datasource.rest.sdl.DefaultSwaggerSourceIndexSDLDefinitionFactory
 import funcify.feature.datasource.rest.swagger.SwaggerSchemaEndpointRegistry
 import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionImplementationStrategy
 import funcify.feature.json.JsonMapper
@@ -108,7 +109,12 @@ class RestApiDataSourceConfiguration {
         return restApiDataSourceProvider
             .stream()
             .filter { rds -> rds.sourceMetamodel is SwaggerRestApiSourceMetamodel }
-            .map { rds -> SwaggerRestApiDataSourceIndexSDLDefinitionImplementationStrategy(rds) }
+            .map { rds ->
+                DefaultSwaggerRestApiDataSourceIndexSDLDefinitionImplementationStrategy(
+                    rds,
+                    DefaultSwaggerSourceIndexSDLDefinitionFactory()
+                )
+            }
             .toPersistentList()
     }
 }
