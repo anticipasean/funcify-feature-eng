@@ -1,5 +1,8 @@
 package funcify.feature.datasource.rest.sdl
 
+import arrow.core.filterIsInstance
+import funcify.feature.datasource.rest.error.RestApiDataSourceException
+import funcify.feature.datasource.rest.error.RestApiErrorResponse
 import funcify.feature.datasource.rest.schema.SwaggerParameterAttribute
 import funcify.feature.datasource.rest.schema.SwaggerParameterContainerType
 import funcify.feature.datasource.rest.schema.SwaggerSourceAttribute
@@ -10,8 +13,19 @@ import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionCreationContex
 import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionCreationContext.SourceJunctionVertexSDLDefinitionCreationContext
 import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionCreationContext.SourceLeafVertexSDLDefinitionCreationContext
 import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionCreationContext.SourceRootVertexSDLDefinitionCreationContext
+import funcify.feature.naming.ConventionalName
+import funcify.feature.schema.path.SchematicPath
+import funcify.feature.schema.vertex.SourceAttributeVertex
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
+import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
+import funcify.feature.tools.extensions.TryExtensions.failure
+import funcify.feature.tools.extensions.TryExtensions.successIfDefined
+import funcify.feature.tools.extensions.TryExtensions.successIfNonNull
+import graphql.language.Argument
+import graphql.language.FieldDefinition
+import graphql.language.InputValueDefinition
+import graphql.language.ObjectTypeDefinition
 import org.slf4j.Logger
 
 /**
@@ -34,7 +48,24 @@ internal class DefaultSwaggerSourceIndexSDLDefinitionFactory :
         logger.debug(
             "on_source_root_swagger_source_container_type: [ path: ${sourceRootVertexContext.path} ]"
         )
-        TODO("Not yet implemented")
+        return if (sourceRootVertexContext.existingObjectTypeDefinition.isDefined()) {
+            sourceRootVertexContext.successIfNonNull()
+        } else {
+            sourceRootVertexContext
+                .update {
+                    addSDLDefinitionForSchematicPath(
+                        sourceRootVertexContext.path,
+                        ObjectTypeDefinition.newObjectTypeDefinition()
+                            .name(
+                                sourceRootVertexContext.currentVertex.compositeContainerType
+                                    .conventionalName
+                                    .qualifiedForm
+                            )
+                            .build()
+                    )
+                }
+                .successIfNonNull()
+        }
     }
 
     override fun onSourceJunctionSwaggerContainerTypeAndAttribute(
@@ -45,7 +76,83 @@ internal class DefaultSwaggerSourceIndexSDLDefinitionFactory :
         logger.debug(
             "on_source_junction_swagger_source_container_type_and_attribute: [ path: ${sourceJunctionVertexContext.path} ]"
         )
-        TODO("Not yet implemented")
+        return when {
+            sourceJunctionVertexContext.existingObjectTypeDefinition.isDefined() &&
+                sourceJunctionVertexContext.existingFieldDefinition.isDefined() -> {
+                sourceJunctionVertexContext.successIfNonNull()
+            }
+            sourceJunctionVertexContext.existingObjectTypeDefinition.isDefined() -> {
+                createFieldDefinitionForSwaggerSourceAttribute(
+                        sourceJunctionVertexContext.path,
+                        sourceJunctionVertexContext.compositeSourceAttribute.conventionalName,
+                        swaggerSourceAttribute
+                    )
+                    .map { fieldDef ->
+                        sourceJunctionVertexContext.update {
+                            addSDLDefinitionForSchematicPath(
+                                sourceJunctionVertexContext.path,
+                                fieldDef
+                            )
+                        }
+                    }
+            }
+            else -> {
+                ObjectTypeDefinition.newObjectTypeDefinition()
+                    .name(
+                        sourceJunctionVertexContext.currentVertex.compositeContainerType
+                            .conventionalName
+                            .qualifiedForm
+                    )
+                    .build()
+                    .successIfNonNull()
+                    .zip(
+                        createFieldDefinitionForSwaggerSourceAttribute(
+                            sourceJunctionVertexContext.path,
+                            sourceJunctionVertexContext.compositeSourceAttribute.conventionalName,
+                            swaggerSourceAttribute
+                        )
+                    )
+                    .map { (objTypeDef, fieldDef) ->
+                        sourceJunctionVertexContext.update {
+                            addSDLDefinitionForSchematicPath(
+                                sourceJunctionVertexContext.path,
+                                objTypeDef
+                            )
+                            addSDLDefinitionForSchematicPath(
+                                sourceJunctionVertexContext.path,
+                                fieldDef
+                            )
+                        }
+                    }
+            }
+        }
+    }
+
+    private fun createFieldDefinitionForSwaggerSourceAttribute(
+        currentSchematicPath: SchematicPath,
+        currentVertexName: ConventionalName,
+        swaggerSourceAttribute: SwaggerSourceAttribute
+    ): Try<FieldDefinition> {
+        return SwaggerSourceAttributeSDLTypeResolver.invoke(swaggerSourceAttribute)
+            .successIfDefined {
+                RestApiDataSourceException(
+                    RestApiErrorResponse.UNEXPECTED_ERROR,
+                    """swagger_source_attribute on vertex [ 
+                       |path: ${currentSchematicPath} ] 
+                       |could not be mapped to a GraphQL SDL type: [ 
+                       |source_attribute.source_path: ${swaggerSourceAttribute.sourcePath} 
+                       ]""".flattenIntoOneLine()
+                )
+            }
+            .map { sdlType ->
+                FieldDefinition.newFieldDefinition()
+                    .name( // Use name on current_vertex in case it was intentionally changed
+                        // during remapping strategies to fit the camel_case convention
+                        currentVertexName.qualifiedForm
+                    )
+                    .type(sdlType)
+                    .build()
+            }
     }
 
     override fun onSourceLeafSwaggerAttribute(
@@ -53,7 +160,19 @@ internal class DefaultSwaggerSourceIndexSDLDefinitionFactory :
         swaggerSourceAttribute: SwaggerSourceAttribute,
     ): Try<SchematicVertexSDLDefinitionCreationContext<*>> {
         logger.debug("on_source_leaf_swagger_attribute: [ path: ${sourceLeafVertexContext.path} ]")
-        TODO("Not yet implemented")
+        if (sourceLeafVertexContext.existingFieldDefinition.isDefined()) {
+            return sourceLeafVertexContext.successIfNonNull()
+        }
+        return createFieldDefinitionForSwaggerSourceAttribute(
+                sourceLeafVertexContext.path,
+                sourceLeafVertexContext.compositeSourceAttribute.conventionalName,
+                swaggerSourceAttribute
+            )
+            .map { fieldDef ->
+                sourceLeafVertexContext.update {
+                    addSDLDefinitionForSchematicPath(sourceLeafVertexContext.path, fieldDef)
+                }
+            }
     }
 
     override fun onParameterJunctionContainerTypeAndAttribute(
@@ -64,7 +183,28 @@ internal class DefaultSwaggerSourceIndexSDLDefinitionFactory :
         logger.debug(
             "on_parameter_junction_container_type_and_attribute: [ path: ${parameterJunctionVertexContext.path} ]"
         )
-        TODO("Not yet implemented")
+        return when {
+            parameterJunctionVertexContext.parentVertex
+                .filterIsInstance<SourceAttributeVertex>()
+                .isDefined() &&
+                !parameterJunctionVertexContext.existingArgumentDefinition.isDefined() -> {
+                InputValueDefinition.newInputValueDefinition()
+                    .name(
+                        parameterJunctionVertexContext.compositeParameterAttribute.conventionalName
+                            .qualifiedForm
+                    ).type()
+            }
+            else -> {
+                RestApiDataSourceException(
+                        RestApiErrorResponse.UNEXPECTED_ERROR,
+                        """unhandled parameter_junction_vertex 
+                        |sdl_definition_creation for [ path: ${parameterJunctionVertexContext.path}, 
+                        |swagger_parameter_attribute.name: ${swaggerParameterAttribute.name} 
+                        |]""".flattenIntoOneLine()
+                    )
+                    .failure()
+            }
+        }
     }
 
     override fun onParameterLeafSwaggerAttribute(
