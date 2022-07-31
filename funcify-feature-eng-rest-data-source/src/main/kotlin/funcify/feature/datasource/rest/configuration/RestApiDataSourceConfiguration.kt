@@ -15,6 +15,7 @@ import funcify.feature.datasource.rest.metadata.provider.SwaggerRestApiMetadataP
 import funcify.feature.datasource.rest.metadata.reader.DefaultSwaggerRestApiSourceMetadataReader
 import funcify.feature.datasource.rest.metadata.reader.SwaggerRestApiSourceMetadataReader
 import funcify.feature.datasource.rest.schema.SwaggerRestApiSourceMetamodel
+import funcify.feature.datasource.rest.sdl.CompositeSwaggerSourceIndexSDLDefinitionImplementationStrategy
 import funcify.feature.datasource.rest.sdl.DefaultSwaggerRestApiDataSourceIndexSDLDefinitionImplementationStrategy
 import funcify.feature.datasource.rest.sdl.DefaultSwaggerSourceIndexSDLDefinitionFactory
 import funcify.feature.datasource.rest.swagger.SwaggerSchemaEndpointRegistry
@@ -103,18 +104,20 @@ class RestApiDataSourceConfiguration {
     }
 
     @Bean
-    fun swaggerRestApiDataSourceSDLDefinitionImplementationStrategies(
+    fun swaggerRestApiDataSourceSDLDefinitionImplementationStrategy(
         restApiDataSourceProvider: ObjectProvider<RestApiDataSource>
-    ): List<SchematicVertexSDLDefinitionImplementationStrategy> {
-        return restApiDataSourceProvider
-            .stream()
-            .filter { rds -> rds.sourceMetamodel is SwaggerRestApiSourceMetamodel }
-            .map { rds ->
-                DefaultSwaggerRestApiDataSourceIndexSDLDefinitionImplementationStrategy(
-                    rds,
-                    DefaultSwaggerSourceIndexSDLDefinitionFactory()
-                )
-            }
-            .toPersistentList()
+    ): SchematicVertexSDLDefinitionImplementationStrategy {
+        val strategies =
+            restApiDataSourceProvider
+                .stream()
+                .filter { rds -> rds.sourceMetamodel is SwaggerRestApiSourceMetamodel }
+                .map { rds ->
+                    DefaultSwaggerRestApiDataSourceIndexSDLDefinitionImplementationStrategy(
+                        rds,
+                        DefaultSwaggerSourceIndexSDLDefinitionFactory()
+                    )
+                }
+                .toPersistentList()
+        return CompositeSwaggerSourceIndexSDLDefinitionImplementationStrategy(strategies)
     }
 }
