@@ -35,6 +35,7 @@ internal class DefaultSwaggerRestApiDataSourceIndexSDLDefinitionImplementationSt
     init {
         restApiDataSource
             .toOption()
+            .map(RestApiDataSource::sourceMetamodel)
             .filterIsInstance<SwaggerRestApiSourceMetamodel>()
             .successIfDefined {
                 RestApiDataSourceException(

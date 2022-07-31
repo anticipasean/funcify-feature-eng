@@ -42,13 +42,12 @@ import kotlinx.collections.immutable.PersistentList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toPersistentList
 import org.slf4j.Logger
-import org.springframework.beans.factory.ObjectProvider
 
 internal class DefaultMaterializationGraphQLSchemaFactory(
     val objectMapper: ObjectMapper,
     val sdlDefinitionCreationContextFactory: SchematicVertexSDLDefinitionCreationContextFactory,
-    val sdlDefinitionImplementationStrategyProvider:
-        ObjectProvider<SchematicVertexSDLDefinitionImplementationStrategy>
+    val sdlDefinitionImplementationStrategies:
+        List<SchematicVertexSDLDefinitionImplementationStrategy>
 ) : MaterializationGraphQLSchemaFactory {
 
     companion object {
@@ -89,8 +88,7 @@ internal class DefaultMaterializationGraphQLSchemaFactory(
     private val compositeSDLDefinitionImplementationStrategy:
         CompositeSDLDefinitionImplementationStrategy by lazy {
         CompositeSDLDefinitionImplementationStrategy(
-            sdlDefinitionImplementationStrategies =
-                sdlDefinitionImplementationStrategyProvider.toList()
+            sdlDefinitionImplementationStrategies = sdlDefinitionImplementationStrategies
         )
     }
 

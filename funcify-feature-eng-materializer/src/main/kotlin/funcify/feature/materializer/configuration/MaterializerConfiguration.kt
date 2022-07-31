@@ -18,6 +18,7 @@ import funcify.feature.materializer.schema.DefaultMaterializationGraphQLSchemaBr
 import funcify.feature.materializer.schema.DefaultMaterializationGraphQLSchemaFactory
 import funcify.feature.materializer.schema.MaterializationGraphQLSchemaBroker
 import funcify.feature.materializer.schema.MaterializationGraphQLSchemaFactory
+import funcify.feature.materializer.schema.MaterializationGraphQLSchemaSourceRootVertexImplementationStrategy
 import funcify.feature.schema.MetamodelGraph
 import funcify.feature.schema.factory.MetamodelGraphCreationContext
 import funcify.feature.schema.factory.MetamodelGraphFactory
@@ -135,8 +136,10 @@ class MaterializerConfiguration {
         return DefaultMaterializationGraphQLSchemaFactory(
             objectMapper = objectMapper,
             sdlDefinitionCreationContextFactory = sdlDefinitionCreationContextFactory,
-            sdlDefinitionImplementationStrategyProvider =
-                sdlDefinitionImplementationStrategyProvider
+            sdlDefinitionImplementationStrategies =
+                sequenceOf(MaterializationGraphQLSchemaSourceRootVertexImplementationStrategy())
+                    .plus(sdlDefinitionImplementationStrategyProvider)
+                    .toList()
         )
     }
 
