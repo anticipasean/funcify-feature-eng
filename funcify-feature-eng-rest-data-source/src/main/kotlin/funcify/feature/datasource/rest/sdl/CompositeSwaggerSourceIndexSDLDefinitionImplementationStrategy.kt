@@ -13,7 +13,7 @@ import funcify.feature.tools.extensions.TryExtensions.successIfNonNull
  */
 internal class CompositeSwaggerSourceIndexSDLDefinitionImplementationStrategy(
     private val restApiDataSourceSpecificImplementationStrategies:
-        List<DefaultSwaggerRestApiDataSourceIndexSDLDefinitionImplementationStrategy>
+        List<SwaggerRestApiDataSourceIndexBasedSDLDefinitionImplementationStrategy>
 ) : SchematicVertexSDLDefinitionImplementationStrategy {
 
     override fun canBeAppliedToContext(

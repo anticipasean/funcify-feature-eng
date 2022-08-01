@@ -16,8 +16,10 @@ import funcify.feature.datasource.rest.metadata.reader.DefaultSwaggerRestApiSour
 import funcify.feature.datasource.rest.metadata.reader.SwaggerRestApiSourceMetadataReader
 import funcify.feature.datasource.rest.schema.SwaggerRestApiSourceMetamodel
 import funcify.feature.datasource.rest.sdl.CompositeSwaggerSourceIndexSDLDefinitionImplementationStrategy
-import funcify.feature.datasource.rest.sdl.DefaultSwaggerRestApiDataSourceIndexSDLDefinitionImplementationStrategy
 import funcify.feature.datasource.rest.sdl.DefaultSwaggerSourceIndexSDLDefinitionFactory
+import funcify.feature.datasource.rest.sdl.DefaultSwaggerSourceIndexSDLTypeResolutionStrategy
+import funcify.feature.datasource.rest.sdl.SwaggerRestApiDataSourceIndexBasedSDLDefinitionImplementationStrategy
+import funcify.feature.datasource.rest.sdl.SwaggerSourceIndexSDLTypeResolutionStrategyTemplate
 import funcify.feature.datasource.rest.swagger.SwaggerSchemaEndpointRegistry
 import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionImplementationStrategy
 import funcify.feature.json.JsonMapper
@@ -105,19 +107,27 @@ class RestApiDataSourceConfiguration {
 
     @Bean
     fun swaggerRestApiDataSourceSDLDefinitionImplementationStrategy(
-        restApiDataSourceProvider: ObjectProvider<RestApiDataSource>
+        restApiDataSourceProvider: ObjectProvider<RestApiDataSource>,
+        swaggerSourceIndexSDLTypeResolutionTemplateProvider:
+            ObjectProvider<SwaggerSourceIndexSDLTypeResolutionStrategyTemplate>
     ): SchematicVertexSDLDefinitionImplementationStrategy {
-        val strategies =
+        val typeResolutionStrategy: SwaggerSourceIndexSDLTypeResolutionStrategyTemplate =
+            swaggerSourceIndexSDLTypeResolutionTemplateProvider.getIfAvailable {
+                DefaultSwaggerSourceIndexSDLTypeResolutionStrategy()
+            }
+        val sdlDefinitionImplementationStrategies =
             restApiDataSourceProvider
                 .stream()
                 .filter { rds -> rds.sourceMetamodel is SwaggerRestApiSourceMetamodel }
                 .map { rds ->
-                    DefaultSwaggerRestApiDataSourceIndexSDLDefinitionImplementationStrategy(
+                    SwaggerRestApiDataSourceIndexBasedSDLDefinitionImplementationStrategy(
                         rds,
-                        DefaultSwaggerSourceIndexSDLDefinitionFactory()
+                        DefaultSwaggerSourceIndexSDLDefinitionFactory(typeResolutionStrategy)
                     )
                 }
                 .toPersistentList()
-        return CompositeSwaggerSourceIndexSDLDefinitionImplementationStrategy(strategies)
+        return CompositeSwaggerSourceIndexSDLDefinitionImplementationStrategy(
+            sdlDefinitionImplementationStrategies
+        )
     }
 }

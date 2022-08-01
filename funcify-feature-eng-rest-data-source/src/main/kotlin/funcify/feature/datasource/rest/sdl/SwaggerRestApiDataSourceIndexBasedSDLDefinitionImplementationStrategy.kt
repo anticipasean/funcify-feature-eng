@@ -23,7 +23,7 @@ import kotlinx.collections.immutable.persistentSetOf
  * @author smccarron
  * @created 2022-07-17
  */
-internal class DefaultSwaggerRestApiDataSourceIndexSDLDefinitionImplementationStrategy(
+internal class SwaggerRestApiDataSourceIndexBasedSDLDefinitionImplementationStrategy(
     private val restApiDataSource: RestApiDataSource,
     private val swaggerSourceIndexSDLDefinitionImplementationTemplate:
         SwaggerSourceIndexSDLDefinitionImplementationTemplate<

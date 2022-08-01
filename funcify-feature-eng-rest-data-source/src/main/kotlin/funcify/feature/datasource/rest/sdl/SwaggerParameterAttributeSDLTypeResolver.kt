@@ -11,7 +11,7 @@ import graphql.language.ListType
 import graphql.language.Type
 import graphql.language.TypeName
 
-object SwaggerParameterAttributeSDLTypeResolver : (SwaggerParameterAttribute) -> Option<Type<*>> {
+internal object SwaggerParameterAttributeSDLTypeResolver : (SwaggerParameterAttribute) -> Option<Type<*>> {
 
     override fun invoke(parameterAttribute: SwaggerParameterAttribute): Option<Type<*>> {
         return when (JsonFormatTypes.forValue(parameterAttribute.jsonSchema?.type)) {

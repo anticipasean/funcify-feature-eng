@@ -20,12 +20,12 @@ import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
 import funcify.feature.tools.extensions.TryExtensions.failure
-import funcify.feature.tools.extensions.TryExtensions.successIfDefined
 import funcify.feature.tools.extensions.TryExtensions.successIfNonNull
 import graphql.language.FieldDefinition
 import graphql.language.InputObjectTypeDefinition
 import graphql.language.InputValueDefinition
 import graphql.language.ObjectTypeDefinition
+import graphql.language.Type
 import org.slf4j.Logger
 
 /**
@@ -33,7 +33,10 @@ import org.slf4j.Logger
  * @author smccarron
  * @created 2022-07-18
  */
-internal class DefaultSwaggerSourceIndexSDLDefinitionFactory :
+internal class DefaultSwaggerSourceIndexSDLDefinitionFactory(
+    private val swaggerSourceIndexSDLTypeResolutionStrategy:
+        SwaggerSourceIndexSDLTypeResolutionStrategyTemplate
+) :
     SwaggerSourceIndexSDLDefinitionImplementationTemplate<
         Try<SchematicVertexSDLDefinitionCreationContext<*>>> {
 
@@ -83,6 +86,12 @@ internal class DefaultSwaggerSourceIndexSDLDefinitionFactory :
             }
             sourceJunctionVertexContext.existingObjectTypeDefinition.isDefined() -> {
                 createFieldDefinitionForSwaggerSourceAttribute(
+                        swaggerSourceIndexSDLTypeResolutionStrategy
+                            .onSourceJunctionSwaggerContainerTypeAndAttribute(
+                                sourceJunctionVertexContext,
+                                swaggerSourceContainerType,
+                                swaggerSourceAttribute
+                            ),
                         sourceJunctionVertexContext.path,
                         sourceJunctionVertexContext.compositeSourceAttribute.conventionalName,
                         swaggerSourceAttribute
@@ -107,6 +116,12 @@ internal class DefaultSwaggerSourceIndexSDLDefinitionFactory :
                     .successIfNonNull()
                     .zip(
                         createFieldDefinitionForSwaggerSourceAttribute(
+                            swaggerSourceIndexSDLTypeResolutionStrategy
+                                .onSourceJunctionSwaggerContainerTypeAndAttribute(
+                                    sourceJunctionVertexContext,
+                                    swaggerSourceContainerType,
+                                    swaggerSourceAttribute
+                                ),
                             sourceJunctionVertexContext.path,
                             sourceJunctionVertexContext.compositeSourceAttribute.conventionalName,
                             swaggerSourceAttribute
@@ -129,30 +144,20 @@ internal class DefaultSwaggerSourceIndexSDLDefinitionFactory :
     }
 
     private fun createFieldDefinitionForSwaggerSourceAttribute(
+        resolvedSDLType: Try<Type<*>>,
         currentSchematicPath: SchematicPath,
         currentVertexName: ConventionalName,
         swaggerSourceAttribute: SwaggerSourceAttribute
     ): Try<FieldDefinition> {
-        return SwaggerSourceAttributeSDLTypeResolver.invoke(swaggerSourceAttribute)
-            .successIfDefined {
-                RestApiDataSourceException(
-                    RestApiErrorResponse.UNEXPECTED_ERROR,
-                    """swagger_source_attribute on vertex [ 
-                       |path: ${currentSchematicPath} ] 
-                       |could not be mapped to a GraphQL SDL type: [ 
-                       |source_attribute.source_path: ${swaggerSourceAttribute.sourcePath} 
-                       ]""".flattenIntoOneLine()
+        return resolvedSDLType.map { sdlType ->
+            FieldDefinition.newFieldDefinition()
+                .name( // Use name on current_vertex in case it was intentionally changed
+                    // during remapping strategies to fit the camel_case convention
+                    currentVertexName.qualifiedForm
                 )
-            }
-            .map { sdlType ->
-                FieldDefinition.newFieldDefinition()
-                    .name( // Use name on current_vertex in case it was intentionally changed
-                        // during remapping strategies to fit the camel_case convention
-                        currentVertexName.qualifiedForm
-                    )
-                    .type(sdlType)
-                    .build()
-            }
+                .type(sdlType)
+                .build()
+        }
     }
 
     override fun onSourceLeafSwaggerAttribute(
@@ -164,6 +169,10 @@ internal class DefaultSwaggerSourceIndexSDLDefinitionFactory :
             return sourceLeafVertexContext.successIfNonNull()
         }
         return createFieldDefinitionForSwaggerSourceAttribute(
+                swaggerSourceIndexSDLTypeResolutionStrategy.onSourceLeafSwaggerAttribute(
+                    sourceLeafVertexContext,
+                    swaggerSourceAttribute
+                ),
                 sourceLeafVertexContext.path,
                 sourceLeafVertexContext.compositeSourceAttribute.conventionalName,
                 swaggerSourceAttribute
@@ -196,6 +205,12 @@ internal class DefaultSwaggerSourceIndexSDLDefinitionFactory :
                         .successIfNonNull()
                         .zip(
                             createFieldArgumentInputValueDefinitionForSwaggerParameterAttribute(
+                                swaggerSourceIndexSDLTypeResolutionStrategy
+                                    .onParameterJunctionContainerTypeAndAttribute(
+                                        parameterJunctionVertexContext,
+                                        swaggerParameterContainerType,
+                                        swaggerParameterAttribute
+                                    ),
                                 parameterJunctionVertexContext.path,
                                 parameterJunctionVertexContext.compositeParameterAttribute
                                     .conventionalName,
@@ -230,27 +245,17 @@ internal class DefaultSwaggerSourceIndexSDLDefinitionFactory :
     }
 
     private fun createFieldArgumentInputValueDefinitionForSwaggerParameterAttribute(
+        resolvedSDLType: Try<Type<*>>,
         schematicPath: SchematicPath,
         parameterAttributeVertexName: ConventionalName,
         swaggerParameterAttribute: SwaggerParameterAttribute,
     ): Try<InputValueDefinition> {
-        return SwaggerParameterAttributeSDLTypeResolver.invoke(swaggerParameterAttribute)
-            .successIfDefined {
-                RestApiDataSourceException(
-                    RestApiErrorResponse.UNEXPECTED_ERROR,
-                    """swagger_parameter_attribute on vertex [ 
-                       |path: ${schematicPath} ] 
-                       |could not be mapped to a GraphQL SDL type: [ 
-                       |swagger_parameter_attribute.source_path: ${swaggerParameterAttribute.sourcePath} 
-                       ]""".flattenIntoOneLine()
-                )
-            }
-            .map { sdlType ->
-                InputValueDefinition.newInputValueDefinition()
-                    .name(parameterAttributeVertexName.qualifiedForm)
-                    .type(sdlType)
-                    .build()
-            }
+        return resolvedSDLType.map { sdlType ->
+            InputValueDefinition.newInputValueDefinition()
+                .name(parameterAttributeVertexName.qualifiedForm)
+                .type(sdlType)
+                .build()
+        }
     }
 
     override fun onParameterLeafSwaggerAttribute(
@@ -268,6 +273,11 @@ internal class DefaultSwaggerSourceIndexSDLDefinitionFactory :
                     parameterLeafVertexContext.successIfNonNull()
                 } else {
                     createFieldArgumentInputValueDefinitionForSwaggerParameterAttribute(
+                            swaggerSourceIndexSDLTypeResolutionStrategy
+                                .onParameterLeafSwaggerAttribute(
+                                    parameterLeafVertexContext,
+                                    swaggerParameterAttribute
+                                ),
                             parameterLeafVertexContext.path,
                             parameterLeafVertexContext.compositeParameterAttribute.conventionalName,
                             swaggerParameterAttribute

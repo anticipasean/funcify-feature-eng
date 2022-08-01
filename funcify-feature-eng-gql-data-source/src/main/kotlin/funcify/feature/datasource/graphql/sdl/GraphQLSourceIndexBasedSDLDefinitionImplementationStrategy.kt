@@ -35,7 +35,7 @@ import org.slf4j.Logger
  * @author smccarron
  * @created 2022-07-02
  */
-class GraphQLSourceIndexBasedSDLDefinitionImplementationStrategy :
+internal class GraphQLSourceIndexBasedSDLDefinitionImplementationStrategy :
     DataSourceIndexTypeBasedSDLDefinitionStrategy<
         GraphQLSourceIndex, SchematicVertexSDLDefinitionCreationContext<*>>(
         GraphQLSourceIndex::class
