@@ -28,9 +28,10 @@ enum class StandardNamingConventions(private val namingConvention: NamingConvent
                             }
                         }
                         transformCharactersByWindow {
-                            anyDigit().precededByALowercaseLetter().transformInto { c: Char ->
-                                "_$c"
-                            }
+                            anyDigit().precededByALetter().transformInto { c: Char -> "_$c" }
+                        }
+                        transformCharactersByWindow {
+                            anyDigit().followedByALetter().transformInto { c: Char -> "${c}_" }
                         }
                         makeAllLowercase()
                     }

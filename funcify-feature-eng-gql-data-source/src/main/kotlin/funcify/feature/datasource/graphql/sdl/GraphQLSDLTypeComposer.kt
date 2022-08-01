@@ -74,6 +74,17 @@ object GraphQLSDLTypeComposer : (GraphQLType) -> Type<*> {
                         }
                         .some()
                 }
+                context.compositionLevel == 0 && innerGraphQLType is GraphQLNamedType -> {
+                    context.compositionFunction
+                        .invoke(
+                            NonNullType.newNonNullType(
+                                    TypeName.newTypeName(innerGraphQLType.name).build()
+                                )
+                                .build()
+                        )
+                        .right()
+                        .some()
+                }
                 context.compositionLevel > 0 && innerGraphQLType is GraphQLList -> {
                     context.compositionFunction
                         .compose<Type<*>, Type<*>, Type<*>> { t: Type<*> ->
