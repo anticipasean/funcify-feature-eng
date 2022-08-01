@@ -18,9 +18,11 @@ internal data class DefaultAttributeAliasRegistry(
     private val parameterAttributeVerticesByStandardAndAliasQualifiedNames:
         PersistentMap<String, ParameterAttributeVertex> =
         persistentMapOf(),
-    private val memoizingSourceAttributeVertexAliasMapper: MemoizingAliasMapperFunction<SourceAttributeVertex> =
+    private val memoizingSourceAttributeVertexAliasMapper:
+        MemoizingAliasMapperFunction<SourceAttributeVertex> =
         MemoizingAliasMapperFunction(),
-    private val memoizingParameterAttributeVertexAliasMapper: MemoizingAliasMapperFunction<ParameterAttributeVertex> =
+    private val memoizingParameterAttributeVertexAliasMapper:
+        MemoizingAliasMapperFunction<ParameterAttributeVertex> =
         MemoizingAliasMapperFunction()
 ) : AttributeAliasRegistry {
 
@@ -79,9 +81,17 @@ internal data class DefaultAttributeAliasRegistry(
             StandardNamingConventions.SNAKE_CASE.deriveName(alias).qualifiedForm
         val updatedSourceAttributeVerticesByQualifiedNames:
             PersistentMap<String, SourceAttributeVertex> =
-            sourceAttributeVerticesByStandardAndAliasQualifiedNames
-                .put(sourceAttributeVertexQualifiedName, sourceAttributeVertex)
-                .put(aliasQualifiedName, sourceAttributeVertex)
+            sequenceOf(sourceAttributeVertexQualifiedName, aliasQualifiedName)
+                .flatMap { s ->
+                    if (s.indexOf('_') >= 0) {
+                        sequenceOf(s.replace("_", ""), s)
+                    } else {
+                        sequenceOf(s)
+                    }
+                }
+                .fold(sourceAttributeVerticesByStandardAndAliasQualifiedNames) { pm, name ->
+                    pm.put(name, sourceAttributeVertex)
+                }
         return copy(
             sourceAttributeVerticesByStandardAndAliasQualifiedNames =
                 updatedSourceAttributeVerticesByQualifiedNames,
@@ -109,9 +119,18 @@ internal data class DefaultAttributeAliasRegistry(
             StandardNamingConventions.SNAKE_CASE.deriveName(alias).qualifiedForm
         val updatedParameterAttributeVerticesByQualifiedNames:
             PersistentMap<String, ParameterAttributeVertex> =
-            parameterAttributeVerticesByStandardAndAliasQualifiedNames
-                .put(parameterAttributeVertexQualifiedName, parameterAttributeVertex)
-                .put(aliasQualifiedName, parameterAttributeVertex)
+            sequenceOf(parameterAttributeVertexQualifiedName, aliasQualifiedName)
+                .flatMap { s ->
+                    if (s.indexOf('_') >= 0) {
+                        sequenceOf(s.replace("_", ""), s)
+                    } else {
+                        sequenceOf(s)
+                    }
+                }
+                .fold(parameterAttributeVerticesByStandardAndAliasQualifiedNames) { pm, name ->
+                    pm.put(name, parameterAttributeVertex)
+                }
+
         return copy(
             parameterAttributeVerticesByStandardAndAliasQualifiedNames =
                 updatedParameterAttributeVerticesByQualifiedNames,
