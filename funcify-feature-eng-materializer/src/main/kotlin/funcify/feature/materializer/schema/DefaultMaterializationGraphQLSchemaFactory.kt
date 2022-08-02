@@ -10,6 +10,9 @@ import funcify.feature.datasource.sdl.impl.CompositeSDLDefinitionImplementationS
 import funcify.feature.materializer.error.MaterializerErrorResponse.GRAPHQL_SCHEMA_CREATION_ERROR
 import funcify.feature.materializer.error.MaterializerException
 import funcify.feature.naming.StandardNamingConventions
+import funcify.feature.scalar.Decimal16
+import funcify.feature.scalar.Decimal3
+import funcify.feature.scalar.Decimal7
 import funcify.feature.schema.MetamodelGraph
 import funcify.feature.schema.SchematicVertex
 import funcify.feature.schema.path.SchematicPath
@@ -65,6 +68,9 @@ internal class DefaultMaterializationGraphQLSchemaFactory(
 
         private val extendedGraphQLScalarTypesToSupport: ImmutableList<GraphQLScalarType> by lazy {
             persistentListOf(
+                Decimal3.graphQLScalarType,
+                Decimal7.graphQLScalarType,
+                Decimal16.graphQLScalarType,
                 ExtendedScalars.GraphQLBigDecimal,
                 ExtendedScalars.GraphQLBigInteger,
                 ExtendedScalars.GraphQLByte,
