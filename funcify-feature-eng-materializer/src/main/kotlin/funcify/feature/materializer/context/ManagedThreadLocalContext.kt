@@ -12,6 +12,7 @@ import reactor.util.context.ContextView
 interface ManagedThreadLocalContext {
 
     companion object {
+
         private val REACTOR_CONTEXT_VIEW_KEY: ThreadLocalContextKey<ContextView> =
             ThreadLocalContextKey.of(
                 ManagedThreadLocalContext::class.qualifiedName + ".REACTOR_CONTEXT_VIEW"
@@ -22,7 +23,7 @@ interface ManagedThreadLocalContext {
 
         private val THREAD_LOCAL_VALUES_KEY: ThreadLocalContextKey<Map<String, Any>> =
             ThreadLocalContextKey.of(
-                ManagedThreadLocalContext::class.qualifiedName + ".THREAD_VALUES_ACCESSOR"
+                ManagedThreadLocalContext::class.qualifiedName + ".THREAD_LOCAL_VALUES"
             )
     }
 

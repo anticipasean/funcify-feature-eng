@@ -38,7 +38,7 @@ class SpringGraphQLSingleRequestSessionFactory(
             DefaultSpringGraphQLSingleRequestSession(
                 materializationSchema = gqlSchema,
                 rawGraphQLRequest = rawGraphQLRequest
-                                                    )
+            )
         }
     }
 }

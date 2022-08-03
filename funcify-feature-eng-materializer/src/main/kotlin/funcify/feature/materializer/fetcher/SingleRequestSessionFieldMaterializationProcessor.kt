@@ -1,5 +1,6 @@
 package funcify.feature.materializer.fetcher
 
+import arrow.core.Option
 import funcify.feature.tools.container.async.KFuture
 
 /**
@@ -10,7 +11,7 @@ import funcify.feature.tools.container.async.KFuture
 interface SingleRequestSessionFieldMaterializationProcessor {
 
     fun materializeFieldValueInContext(
-        singleRequestFieldMaterializationContext: SingleRequestFieldMaterializationContext
-    ): KFuture<Any?>
+        context: SingleRequestFieldMaterializationContext
+    ): KFuture<Option<Any>>
 
 }

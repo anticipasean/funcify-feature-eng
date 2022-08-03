@@ -9,6 +9,7 @@ import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionImplementation
 import funcify.feature.datasource.sdl.impl.CompositeSDLDefinitionImplementationStrategy
 import funcify.feature.materializer.error.MaterializerErrorResponse.GRAPHQL_SCHEMA_CREATION_ERROR
 import funcify.feature.materializer.error.MaterializerException
+import funcify.feature.materializer.service.MaterializationGraphQLWiringFactory
 import funcify.feature.naming.StandardNamingConventions
 import funcify.feature.scalar.Decimal16
 import funcify.feature.scalar.Decimal3
@@ -50,7 +51,8 @@ internal class DefaultMaterializationGraphQLSchemaFactory(
     val objectMapper: ObjectMapper,
     val sdlDefinitionCreationContextFactory: SchematicVertexSDLDefinitionCreationContextFactory,
     val sdlDefinitionImplementationStrategies:
-        List<SchematicVertexSDLDefinitionImplementationStrategy>
+        List<SchematicVertexSDLDefinitionImplementationStrategy>,
+    val materializationGraphQLWiringFactory: MaterializationGraphQLWiringFactory
 ) : MaterializationGraphQLSchemaFactory {
 
     companion object {
@@ -334,12 +336,11 @@ internal class DefaultMaterializationGraphQLSchemaFactory(
                 |""".flattenIntoOneLine()
         )
         val runtimeWiringBuilder: RuntimeWiring.Builder =
-            extendedGraphQLScalarTypesToSupport.fold(buildContext.runtimeWiringBuilder) {
-                rwBuilder: RuntimeWiring.Builder,
-                scalarType: GraphQLScalarType ->
+            extendedGraphQLScalarTypesToSupport.fold(
+                buildContext.runtimeWiringBuilder.wiringFactory(materializationGraphQLWiringFactory)
+            ) { rwBuilder: RuntimeWiring.Builder, scalarType: GraphQLScalarType ->
                 rwBuilder.scalar(scalarType)
             }
-        // TODO: Insert wiring factory here
         return buildContext.copy(runtimeWiringBuilder = runtimeWiringBuilder)
     }
 }

@@ -12,13 +12,16 @@ import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionImplementation
 import funcify.feature.error.FeatureEngCommonException
 import funcify.feature.materializer.error.MaterializerErrorResponse
 import funcify.feature.materializer.error.MaterializerException
+import funcify.feature.materializer.fetcher.DefaultSingleRequestFieldMaterializationDataFetcherFactory
+import funcify.feature.materializer.fetcher.SingleRequestFieldMaterializationDataFetcherFactory
 import funcify.feature.materializer.request.DefaultRawGraphQLRequestFactory
 import funcify.feature.materializer.request.RawGraphQLRequestFactory
 import funcify.feature.materializer.schema.DefaultMaterializationGraphQLSchemaBroker
 import funcify.feature.materializer.schema.DefaultMaterializationGraphQLSchemaFactory
 import funcify.feature.materializer.schema.MaterializationGraphQLSchemaBroker
 import funcify.feature.materializer.schema.MaterializationGraphQLSchemaFactory
-import funcify.feature.materializer.schema.MaterializationGraphQLSchemaSourceRootVertexImplementationStrategy
+import funcify.feature.materializer.service.DefaultMaterializationGraphQLWiringFactory
+import funcify.feature.materializer.service.MaterializationGraphQLWiringFactory
 import funcify.feature.schema.MetamodelGraph
 import funcify.feature.schema.factory.MetamodelGraphCreationContext
 import funcify.feature.schema.factory.MetamodelGraphFactory
@@ -131,15 +134,29 @@ class MaterializerConfiguration {
         objectMapper: ObjectMapper,
         sdlDefinitionCreationContextFactory: SchematicVertexSDLDefinitionCreationContextFactory,
         sdlDefinitionImplementationStrategyProvider:
-            ObjectProvider<SchematicVertexSDLDefinitionImplementationStrategy>
+            ObjectProvider<SchematicVertexSDLDefinitionImplementationStrategy>,
+        materializationGraphQLWiringFactory: MaterializationGraphQLWiringFactory
     ): MaterializationGraphQLSchemaFactory {
         return DefaultMaterializationGraphQLSchemaFactory(
             objectMapper = objectMapper,
             sdlDefinitionCreationContextFactory = sdlDefinitionCreationContextFactory,
             sdlDefinitionImplementationStrategies =
-                sequenceOf(MaterializationGraphQLSchemaSourceRootVertexImplementationStrategy())
-                    .plus(sdlDefinitionImplementationStrategyProvider)
-                    .toList()
+                sdlDefinitionImplementationStrategyProvider.toList(),
+            materializationGraphQLWiringFactory = materializationGraphQLWiringFactory
+        )
+    }
+
+    @ConditionalOnMissingBean(value = [MaterializationGraphQLWiringFactory::class])
+    @Bean
+    fun materializationGraphQLWiringFactory(
+        singleRequestFieldMaterializationDataFetcherFactoryProvider:
+            ObjectProvider<SingleRequestFieldMaterializationDataFetcherFactory>
+    ): MaterializationGraphQLWiringFactory {
+        return DefaultMaterializationGraphQLWiringFactory(
+            singleRequestFieldMaterializationDataFetcherFactory =
+                singleRequestFieldMaterializationDataFetcherFactoryProvider.getIfAvailable {
+                    DefaultSingleRequestFieldMaterializationDataFetcherFactory()
+                }
         )
     }
 
