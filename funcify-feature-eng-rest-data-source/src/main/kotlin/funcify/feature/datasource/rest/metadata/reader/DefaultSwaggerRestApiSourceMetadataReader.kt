@@ -19,8 +19,9 @@ import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.datasource.SourceMetamodel
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
-import funcify.feature.tools.extensions.OptionExtensions.flatMapOptions
+import funcify.feature.tools.extensions.StreamExtensions.flatMapOptions
 import funcify.feature.tools.extensions.PersistentMapExtensions.reduceEntriesToPersistentSetValueMap
+import funcify.feature.tools.extensions.SequenceExtensions.flatMapOptions
 import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
 import io.swagger.v3.oas.models.OpenAPI
 import kotlinx.collections.immutable.toPersistentMap

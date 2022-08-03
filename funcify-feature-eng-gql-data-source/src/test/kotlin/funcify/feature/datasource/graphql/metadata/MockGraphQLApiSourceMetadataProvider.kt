@@ -11,7 +11,7 @@ import funcify.feature.datasource.graphql.error.GQLDataSourceException
 import funcify.feature.datasource.graphql.metadata.provider.GraphQLApiSourceMetadataProvider
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.container.deferred.Deferred
-import funcify.feature.tools.extensions.OptionExtensions.flatMapOptions
+import funcify.feature.tools.extensions.StreamExtensions.flatMapOptions
 import funcify.feature.tools.extensions.PersistentListExtensions.reduceToPersistentList
 import graphql.ExecutionResult
 import graphql.GraphQL

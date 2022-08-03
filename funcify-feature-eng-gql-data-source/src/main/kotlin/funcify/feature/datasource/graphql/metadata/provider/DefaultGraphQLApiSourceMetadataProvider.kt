@@ -10,7 +10,7 @@ import funcify.feature.datasource.graphql.error.GQLDataSourceErrorResponse
 import funcify.feature.datasource.graphql.error.GQLDataSourceException
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.container.deferred.Deferred
-import funcify.feature.tools.extensions.OptionExtensions.flatMapOptions
+import funcify.feature.tools.extensions.StreamExtensions.flatMapOptions
 import funcify.feature.tools.extensions.PersistentListExtensions.reduceToPersistentList
 import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
 import graphql.GraphQLError

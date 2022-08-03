@@ -6,7 +6,7 @@ import arrow.core.getOrElse
 import arrow.core.some
 import arrow.core.toOption
 import funcify.feature.tools.container.tree.UnionFindTree
-import funcify.feature.tools.extensions.OptionExtensions.flatMapOptions
+import funcify.feature.tools.extensions.StreamExtensions.flatMapOptions
 import funcify.feature.tools.extensions.OptionExtensions.stream
 import funcify.feature.tools.extensions.PersistentListExtensions.reduceToPersistentList
 import funcify.feature.tools.extensions.PersistentMapExtensions.reduceEntriesToPersistentMap

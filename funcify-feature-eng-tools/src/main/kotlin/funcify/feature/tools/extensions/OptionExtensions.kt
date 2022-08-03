@@ -1,6 +1,9 @@
 package funcify.feature.tools.extensions
 
+import arrow.core.Either
 import arrow.core.Option
+import arrow.core.none
+import funcify.feature.tools.control.TraversalFunctions
 import java.util.stream.Stream
 import kotlinx.collections.immutable.PersistentSet
 import kotlinx.collections.immutable.persistentSetOf
@@ -16,14 +19,8 @@ object OptionExtensions {
         return this.fold({ Stream.empty() }, { t -> Stream.ofNullable(t) })
     }
 
-    fun <T, O : Option<T>> Stream<O>.flatMapOptions(): Stream<T> {
-        return this.flatMap { opt: Option<T> ->
-            opt.fold({ Stream.empty() }, { t: T -> Stream.ofNullable(t) })
-        }
-    }
-
-    fun <T, O : Option<T>> Sequence<O>.flatMapOptions(): Sequence<T> {
-        return this.flatMap { opt: Option<T> -> opt.fold(::emptySequence, ::sequenceOf) }
+    fun <L, R> Option<L>.recurse(function: (L) -> Option<Either<L, R>>): Option<R> {
+        return this.fold({ none() }, { l: L -> TraversalFunctions.recurseWithOption(l, function) })
     }
 
     fun <T> Option<T>.toPersistentSet(): PersistentSet<T> {

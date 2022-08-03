@@ -223,7 +223,7 @@ internal class DefaultMaterializationGraphQLSchemaFactory(
     ): GraphQLSchemaBuildContext {
         logger.debug(
             """create_build_context_from_sdl_definition_creation_context: 
-                [ sdl_definition_creation_context.
+               |[ sdl_definition_creation_context.
                |sdl_definitions_by_schematic_path.size: 
                |${sdlDefinitionCreationContext.sdlDefinitionsBySchematicPath.size} ]
                |""".flattenIntoOneLine()
