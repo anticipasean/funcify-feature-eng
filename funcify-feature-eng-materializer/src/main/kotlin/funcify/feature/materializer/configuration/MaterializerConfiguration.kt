@@ -2,7 +2,6 @@ package funcify.feature.materializer.configuration
 
 import arrow.core.getOrElse
 import arrow.core.toOption
-import com.fasterxml.jackson.databind.ObjectMapper
 import funcify.feature.datasource.graphql.GraphQLApiDataSource
 import funcify.feature.datasource.graphql.metadata.alias.GraphQLApiDataSourceAliasProvider
 import funcify.feature.datasource.graphql.metadata.temporal.GraphQLApiDataSourceLastUpdatedAttributeProvider
@@ -10,16 +9,18 @@ import funcify.feature.datasource.rest.RestApiDataSource
 import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionCreationContextFactory
 import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionImplementationStrategy
 import funcify.feature.error.FeatureEngCommonException
+import funcify.feature.json.JsonMapper
 import funcify.feature.materializer.error.MaterializerErrorResponse
 import funcify.feature.materializer.error.MaterializerException
 import funcify.feature.materializer.fetcher.DefaultSingleRequestFieldMaterializationDataFetcherFactory
 import funcify.feature.materializer.fetcher.SingleRequestFieldMaterializationDataFetcherFactory
 import funcify.feature.materializer.request.DefaultRawGraphQLRequestFactory
 import funcify.feature.materializer.request.RawGraphQLRequestFactory
-import funcify.feature.materializer.schema.DefaultMaterializationGraphQLSchemaBroker
 import funcify.feature.materializer.schema.DefaultMaterializationGraphQLSchemaFactory
-import funcify.feature.materializer.schema.MaterializationGraphQLSchemaBroker
+import funcify.feature.materializer.schema.DefaultMaterializationMetamodel
+import funcify.feature.materializer.schema.DefaultMaterializationMetamodelBroker
 import funcify.feature.materializer.schema.MaterializationGraphQLSchemaFactory
+import funcify.feature.materializer.schema.MaterializationMetamodelBroker
 import funcify.feature.materializer.service.DefaultMaterializationGraphQLWiringFactory
 import funcify.feature.materializer.service.MaterializationGraphQLWiringFactory
 import funcify.feature.scalar.registry.ScalarTypeRegistry
@@ -132,7 +133,7 @@ class MaterializerConfiguration {
     @ConditionalOnMissingBean(value = [MaterializationGraphQLSchemaFactory::class])
     @Bean
     fun materializationGraphQLSchemaFactory(
-        objectMapper: ObjectMapper,
+        jsonMapper: JsonMapper,
         scalarTypeRegistryProvider: ObjectProvider<ScalarTypeRegistry>,
         sdlDefinitionCreationContextFactory: SchematicVertexSDLDefinitionCreationContextFactory,
         sdlDefinitionImplementationStrategyProvider:
@@ -140,7 +141,7 @@ class MaterializerConfiguration {
         materializationGraphQLWiringFactory: MaterializationGraphQLWiringFactory
     ): MaterializationGraphQLSchemaFactory {
         return DefaultMaterializationGraphQLSchemaFactory(
-            objectMapper = objectMapper,
+            jsonMapper = jsonMapper,
             scalarTypeRegistry =
                 scalarTypeRegistryProvider.getIfAvailable {
                     ScalarTypeRegistry.materializationRegistry()
@@ -155,6 +156,7 @@ class MaterializerConfiguration {
     @ConditionalOnMissingBean(value = [MaterializationGraphQLWiringFactory::class])
     @Bean
     fun materializationGraphQLWiringFactory(
+        metamodelGraph: MetamodelGraph,
         scalarTypeRegistryProvider: ObjectProvider<ScalarTypeRegistry>,
         singleRequestFieldMaterializationDataFetcherFactoryProvider:
             ObjectProvider<SingleRequestFieldMaterializationDataFetcherFactory>
@@ -195,13 +197,16 @@ class MaterializerConfiguration {
             .orElseThrow()
     }
 
-    @ConditionalOnMissingBean(value = [MaterializationGraphQLSchemaBroker::class])
+    @ConditionalOnMissingBean(value = [MaterializationMetamodelBroker::class])
     @Bean
-    fun materializationGraphQLSchemaBroker(
+    fun materializationMetamodelBroker(
+        metamodelGraph: MetamodelGraph,
         materializationGraphQLSchema: GraphQLSchema
-    ): MaterializationGraphQLSchemaBroker {
-        val broker: MaterializationGraphQLSchemaBroker = DefaultMaterializationGraphQLSchemaBroker()
-        broker.pushNewMaterializationSchema(materializationSchema = materializationGraphQLSchema)
+    ): MaterializationMetamodelBroker {
+        val broker: MaterializationMetamodelBroker = DefaultMaterializationMetamodelBroker()
+        broker.pushNewMaterializationMetamodel(
+            DefaultMaterializationMetamodel(metamodelGraph, materializationGraphQLSchema)
+        )
         return broker
     }
 }

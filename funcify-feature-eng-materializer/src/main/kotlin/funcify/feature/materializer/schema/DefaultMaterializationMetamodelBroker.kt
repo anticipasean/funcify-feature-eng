@@ -6,50 +6,55 @@ import funcify.feature.materializer.error.MaterializerException
 import funcify.feature.tools.container.deferred.Deferred
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
-import graphql.schema.GraphQLSchema
 import org.slf4j.Logger
 import reactor.core.publisher.Mono
 
-internal class DefaultMaterializationGraphQLSchemaBroker() : MaterializationGraphQLSchemaBroker {
+internal class DefaultMaterializationMetamodelBroker() : MaterializationMetamodelBroker {
 
     companion object {
-        private val logger: Logger = loggerFor<DefaultMaterializationGraphQLSchemaBroker>()
+        private val logger: Logger = loggerFor<DefaultMaterializationMetamodelBroker>()
     }
 
-    private val schemaAtTimestampHolder: AtomicRef<Pair<Long, GraphQLSchema>?> = AtomicRef()
+    private val schemaAtTimestampHolder: AtomicRef<Pair<Long, MaterializationMetamodel>?> =
+        AtomicRef()
 
-    override fun pushNewMaterializationSchema(materializationSchema: GraphQLSchema) {
+    override fun pushNewMaterializationMetamodel(
+        materializationMetamodel: MaterializationMetamodel
+    ) {
         logger.info(
-            """push_new_materialization_schema: [ 
-                |materialization_schema.query_type.field_definitions.size: 
-                |${materializationSchema.queryType.fieldDefinitions.size} 
+            """push_new_materialization_metamodel: [ 
+                |materialization_metamodel.graphql_schema.query_type.field_definitions.size: 
+                |${materializationMetamodel.materializationGraphQLSchema.queryType.fieldDefinitions.size} 
                 |]""".flattenIntoOneLine()
         )
         val pushTime = System.currentTimeMillis()
         schemaAtTimestampHolder.getAndUpdate { storedTimestampAndSchema ->
             if (storedTimestampAndSchema == null) {
-                pushTime to materializationSchema
+                pushTime to materializationMetamodel
             } else if (storedTimestampAndSchema.first < pushTime) {
-                pushTime to materializationSchema
+                pushTime to materializationMetamodel
             } else {
                 storedTimestampAndSchema
             }
         }
     }
 
-    override fun fetchLatestMaterializationSchema(): Deferred<GraphQLSchema> {
+    override fun fetchLatestMaterializationMetamodel(): Deferred<MaterializationMetamodel> {
         logger.info("fetch_latest_materialization_schema: []")
         return Deferred.fromMono(
             Mono.fromSupplier { ->
-                when (val schema: GraphQLSchema? = schemaAtTimestampHolder.get()?.second) {
+                when (
+                    val materializationMetamodel: MaterializationMetamodel? =
+                        schemaAtTimestampHolder.get()?.second
+                ) {
                     null -> {
                         throw MaterializerException(
                             MaterializerErrorResponse.GRAPHQL_SCHEMA_CREATION_ERROR,
-                            "no graphql schema has been provided to this broker instance"
+                            "no materialization_metamodel has been provided to this broker instance"
                         )
                     }
                     else -> {
-                        schema
+                        materializationMetamodel
                     }
                 }
             }

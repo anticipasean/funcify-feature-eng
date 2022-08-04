@@ -1,12 +1,11 @@
 package funcify.feature.materializer.schema
 
 import arrow.core.toOption
-import com.fasterxml.jackson.databind.JsonNode
-import com.fasterxml.jackson.databind.ObjectMapper
 import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionCreationContext
 import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionCreationContextFactory
 import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionImplementationStrategy
 import funcify.feature.datasource.sdl.impl.CompositeSDLDefinitionImplementationStrategy
+import funcify.feature.json.JsonMapper
 import funcify.feature.materializer.error.MaterializerErrorResponse.GRAPHQL_SCHEMA_CREATION_ERROR
 import funcify.feature.materializer.error.MaterializerException
 import funcify.feature.materializer.service.MaterializationGraphQLWiringFactory
@@ -31,7 +30,6 @@ import graphql.language.OperationTypeDefinition
 import graphql.language.ScalarTypeDefinition
 import graphql.language.SchemaDefinition
 import graphql.language.TypeName
-import graphql.schema.GraphQLScalarType
 import graphql.schema.GraphQLSchema
 import graphql.schema.idl.RuntimeWiring
 import graphql.schema.idl.SchemaGenerator
@@ -42,7 +40,7 @@ import kotlinx.collections.immutable.toPersistentList
 import org.slf4j.Logger
 
 internal class DefaultMaterializationGraphQLSchemaFactory(
-    private val objectMapper: ObjectMapper,
+    private val jsonMapper: JsonMapper,
     private val scalarTypeRegistry: ScalarTypeRegistry,
     private val sdlDefinitionCreationContextFactory:
         SchematicVertexSDLDefinitionCreationContextFactory,
@@ -265,37 +263,42 @@ internal class DefaultMaterializationGraphQLSchemaFactory(
         }
     }
 
-    private fun typeRegistryUpdateGraphQLErrorHandler(definitionTypeBeingAdded: String) =
-        { gqlError: GraphQLError ->
-            val graphQLErrorMessage: String =
-                objectMapper
-                    .writerWithDefaultPrettyPrinter()
-                    .writeValueAsString(
-                        objectMapper.valueToTree<JsonNode>(gqlError.toSpecification())
-                    )
+    private fun typeRegistryUpdateGraphQLErrorHandler(
+        definitionTypeBeingAdded: String
+    ): (GraphQLError) -> Unit {
+        return { gqlError: GraphQLError ->
+            val graphQLErrorMessageAttempt: Try<String> =
+                jsonMapper.fromKotlinObject(gqlError.toSpecification()).toJsonString()
+            if (graphQLErrorMessageAttempt.isFailure()) {
+                val message = graphQLErrorMessageAttempt.getFailure().orNull()!!.message
+                logger.error(
+                    """type_registry_update_graphql_error_handler: [ status: failed ] 
+                    |unable to serialize graphql_error into json: [ message: $message 
+                    |]""".flattenIntoOneLine()
+                )
+                throw MaterializerException(GRAPHQL_SCHEMA_CREATION_ERROR, gqlError.message)
+            }
             throw MaterializerException(
                 GRAPHQL_SCHEMA_CREATION_ERROR,
-                """error reported when add $definitionTypeBeingAdded 
-               |to type_definition_registry: [ error_spec: 
-               |$graphQLErrorMessage ]""".flattenIntoOneLine()
+                """error reported when adding $definitionTypeBeingAdded 
+                   |to type_definition_registry: [ error_spec: 
+                   |${graphQLErrorMessageAttempt.orElseThrow()} ]""".flattenIntoOneLine()
             )
         }
+    }
 
     private fun updateRuntimeWiringBuilderInBuildContext(
         buildContext: GraphQLSchemaBuildContext
     ): GraphQLSchemaBuildContext {
         logger.debug(
             """update_runtime_wiring_builder_in_build_context: 
-                |[ scalars.size: 
-                |${buildContext.scalarTypeDefinitions.size} ]
-                |""".flattenIntoOneLine()
+                |[ scalars.size: ${buildContext.scalarTypeDefinitions.size}, 
+                |wiring_factory.type: ${materializationGraphQLWiringFactory::class.qualifiedName} 
+                |]""".flattenIntoOneLine()
         )
-        val runtimeWiringBuilder: RuntimeWiring.Builder =
-            scalarTypeRegistry.getAllGraphQLScalarTypes().fold(
+        return buildContext.copy(
+            runtimeWiringBuilder =
                 buildContext.runtimeWiringBuilder.wiringFactory(materializationGraphQLWiringFactory)
-            ) { rwBuilder: RuntimeWiring.Builder, scalarType: GraphQLScalarType ->
-                rwBuilder.scalar(scalarType)
-            }
-        return buildContext.copy(runtimeWiringBuilder = runtimeWiringBuilder)
+        )
     }
 }
