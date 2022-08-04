@@ -86,7 +86,7 @@ interface MaterializationGraphQLWiringFactory : WiringFactory {
         return notExpectingAnyCallErrorHandler("get_data_fetcher")
     }
 
-    override fun getDefaultDataFetcher(environment: FieldWiringEnvironment): DataFetcher<*> {
-        return notExpectingAnyCallErrorHandler("get_default_data_fetcher")
+    override fun getDefaultDataFetcher(environment: FieldWiringEnvironment): DataFetcher<*>? {
+        return null
     }
 }
