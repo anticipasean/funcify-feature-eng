@@ -16,7 +16,7 @@ import org.springframework.stereotype.Component
  * @created 2/20/22
  */
 @Component
-class SpringGraphQLSingleRequestSessionFactory(
+internal class SpringGraphQLSingleRequestSessionFactory(
     private val materializationMetamodelBroker: MaterializationMetamodelBroker
 ) : GraphQLSingleRequestSessionFactory {
 

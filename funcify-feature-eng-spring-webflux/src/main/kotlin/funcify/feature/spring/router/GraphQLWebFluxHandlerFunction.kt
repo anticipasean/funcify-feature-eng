@@ -3,6 +3,8 @@ package funcify.feature.spring.router
 import arrow.core.getOrElse
 import arrow.core.toOption
 import com.fasterxml.jackson.databind.JsonNode
+import funcify.feature.error.FeatureEngCommonException
+import funcify.feature.json.JsonMapper
 import funcify.feature.materializer.request.GraphQLExecutionInputCustomizer
 import funcify.feature.materializer.request.RawGraphQLRequest
 import funcify.feature.materializer.request.RawGraphQLRequestFactory
@@ -10,10 +12,11 @@ import funcify.feature.materializer.response.SerializedGraphQLResponse
 import funcify.feature.spring.service.GraphQLSingleRequestExecutor
 import funcify.feature.tools.container.deferred.Deferred
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
-import funcify.feature.tools.extensions.StreamExtensions.flatMapOptions
 import funcify.feature.tools.extensions.PersistentMapExtensions.reduceEntriesToPersistentMap
 import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentMap
+import funcify.feature.tools.extensions.StreamExtensions.flatMapOptions
 import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
+import graphql.GraphQLError
 import java.util.*
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.PersistentMap
@@ -23,7 +26,6 @@ import org.springframework.core.ParameterizedTypeReference
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
-import org.springframework.stereotype.Component
 import org.springframework.web.reactive.function.server.HandlerFunction
 import org.springframework.web.reactive.function.server.ServerRequest
 import org.springframework.web.reactive.function.server.ServerResponse
@@ -35,11 +37,11 @@ import reactor.core.publisher.Mono
  * @author smccarron
  * @created 2/19/22
  */
-@Component
-class GraphQLWebFluxHandlerFunction(
-    val graphQLSingleRequestExecutor: GraphQLSingleRequestExecutor,
-    val rawGraphQLRequestFactory: RawGraphQLRequestFactory,
-    val graphQLExecutionInputCustomizers: List<GraphQLExecutionInputCustomizer>
+internal class GraphQLWebFluxHandlerFunction(
+    private val jsonMapper: JsonMapper,
+    private val graphQLSingleRequestExecutor: GraphQLSingleRequestExecutor,
+    private val rawGraphQLRequestFactory: RawGraphQLRequestFactory,
+    private val graphQLExecutionInputCustomizers: List<GraphQLExecutionInputCustomizer>
 ) : HandlerFunction<ServerResponse> {
 
     companion object {
@@ -61,13 +63,15 @@ class GraphQLWebFluxHandlerFunction(
         }
 
         private fun <T> T?.toMono(nullableParameterName: String): Mono<T> {
-            return this.toOption().map { t -> Mono.just(t) }.getOrElse {
-                val message =
-                    """[ parameter: $nullableParameterName ] is null but 
+            return this.toOption()
+                .map { t -> Mono.just(t) }
+                .getOrElse {
+                    val message =
+                        """[ parameter: $nullableParameterName ] is null but 
                        |is required for processing this request successfully
                        |""".flattenIntoOneLine()
-                Mono.error(IllegalArgumentException(message))
-            }
+                    Mono.error(IllegalArgumentException(message))
+                }
         }
     }
 
@@ -89,10 +93,43 @@ class GraphQLWebFluxHandlerFunction(
             )
             .flatMap { pm: ImmutableMap<String, Any?> -> ServerResponse.ok().bodyValue(pm) }
             .single()
-            .onErrorResume({ err ->
+            .onErrorResume(
+                FeatureEngCommonException::class.java,
+                convertCommonExceptionTypeIntoServerResponse()
+            )
+            .onErrorResume { err ->
                 ServerResponse.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Mono.just(err.message.toOption().getOrElse { "error_message empty" }))
-            })
+            }
+    }
+
+    // TODO: Currently has two different output formats: direct message and graphql_error_map_string
+    // Should be made into one
+    private fun convertCommonExceptionTypeIntoServerResponse():
+        (FeatureEngCommonException) -> Mono<out ServerResponse> {
+        return { commonException: FeatureEngCommonException ->
+            when {
+                commonException.errorResponse.responseIfGraphQL.isDefined() -> {
+                    val graphQLError: GraphQLError =
+                        commonException.errorResponse.responseIfGraphQL.orNull()!!
+                    commonException.errorResponse.responseStatusIfHttp
+                        .map { httpStatus: HttpStatus -> ServerResponse.status(httpStatus) }
+                        .getOrElse { ServerResponse.status(HttpStatus.INTERNAL_SERVER_ERROR) }
+                        .bodyValue(
+                            jsonMapper
+                                .fromKotlinObject(graphQLError.toSpecification())
+                                .toJsonString()
+                                .orElse(commonException.inputMessage)
+                        )
+                }
+                else -> {
+                    commonException.errorResponse.responseStatusIfHttp
+                        .map { httpStatus: HttpStatus -> ServerResponse.status(httpStatus) }
+                        .getOrElse { ServerResponse.status(HttpStatus.INTERNAL_SERVER_ERROR) }
+                        .bodyValue(commonException.inputMessage)
+                }
+            }
+        }
     }
 
     private fun convertServerRequestIntoRawGraphQLRequest(

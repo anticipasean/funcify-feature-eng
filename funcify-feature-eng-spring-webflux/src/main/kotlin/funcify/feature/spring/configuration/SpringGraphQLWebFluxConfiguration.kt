@@ -1,6 +1,11 @@
 package funcify.feature.spring.configuration
 
+import funcify.feature.json.JsonMapper
+import funcify.feature.materializer.request.GraphQLExecutionInputCustomizer
+import funcify.feature.materializer.request.RawGraphQLRequestFactory
 import funcify.feature.spring.router.GraphQLWebFluxHandlerFunction
+import funcify.feature.spring.service.GraphQLSingleRequestExecutor
+import org.springframework.beans.factory.ObjectProvider
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -25,7 +30,10 @@ open class SpringGraphQLWebFluxConfiguration {
     @Bean
     open fun graphQLWebFluxRouterFunction(
         @Value("\${feature-eng-service.graphql.path:/graphql}") graphQLPath: String,
-        graphQLWebFluxHandlerFunction: GraphQLWebFluxHandlerFunction
+        jsonMapper: JsonMapper,
+        graphQLSingleRequestExecutor: GraphQLSingleRequestExecutor,
+        rawGraphQLRequestFactory: RawGraphQLRequestFactory,
+        graphQLExecutionInputCustomizerProvider: ObjectProvider<GraphQLExecutionInputCustomizer>
     ): RouterFunction<ServerResponse> {
         return RouterFunctions.route()
             .POST(
@@ -34,7 +42,13 @@ open class SpringGraphQLWebFluxConfiguration {
                     MediaType.APPLICATION_JSON,
                     MediaType.valueOf(MEDIA_TYPE_APPLICATION_GRAPHQL_VALUE)
                 ),
-                graphQLWebFluxHandlerFunction::handle
+                GraphQLWebFluxHandlerFunction(
+                    jsonMapper = jsonMapper,
+                    graphQLSingleRequestExecutor = graphQLSingleRequestExecutor,
+                    rawGraphQLRequestFactory = rawGraphQLRequestFactory,
+                    graphQLExecutionInputCustomizers =
+                        graphQLExecutionInputCustomizerProvider.toList()
+                )
             )
             .build()
     }

@@ -20,7 +20,7 @@ import org.springframework.stereotype.Component
  * @created 2/19/22
  */
 @Component
-class SpringGraphQLSingleRequestSessionCoordinator(private val asyncExecutor: Executor) :
+internal class SpringGraphQLSingleRequestSessionCoordinator(private val asyncExecutor: Executor) :
     GraphQLSingleRequestSessionCoordinator {
 
     companion object {
