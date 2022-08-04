@@ -11,9 +11,9 @@ import funcify.feature.materializer.error.MaterializerErrorResponse.GRAPHQL_SCHE
 import funcify.feature.materializer.error.MaterializerException
 import funcify.feature.materializer.service.MaterializationGraphQLWiringFactory
 import funcify.feature.naming.StandardNamingConventions
-import funcify.feature.scalar.Decimal16
-import funcify.feature.scalar.Decimal3
-import funcify.feature.scalar.Decimal7
+import funcify.feature.scalar.decimal.Decimal16
+import funcify.feature.scalar.decimal.Decimal3
+import funcify.feature.scalar.decimal.Decimal7
 import funcify.feature.schema.MetamodelGraph
 import funcify.feature.schema.SchematicVertex
 import funcify.feature.schema.path.SchematicPath

@@ -4,7 +4,9 @@ import funcify.feature.materializer.fetcher.SingleRequestFieldMaterializationDat
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
 import graphql.schema.DataFetcherFactory
+import graphql.schema.GraphQLScalarType
 import graphql.schema.idl.FieldWiringEnvironment
+import graphql.schema.idl.ScalarWiringEnvironment
 import org.slf4j.Logger
 
 internal class DefaultMaterializationGraphQLWiringFactory(
@@ -16,9 +18,17 @@ internal class DefaultMaterializationGraphQLWiringFactory(
         private val logger: Logger = loggerFor<DefaultMaterializationGraphQLWiringFactory>()
     }
 
+    override fun providesScalar(environment: ScalarWiringEnvironment): Boolean {
+        return super.providesScalar(environment)
+    }
+
+    override fun getScalar(environment: ScalarWiringEnvironment): GraphQLScalarType {
+        return super.getScalar(environment)
+    }
+
     override fun <T> getDataFetcherFactory(
         environment: FieldWiringEnvironment
-    ): DataFetcherFactory<T> {
+                                          ): DataFetcherFactory<T> {
         logger.debug(
             """get_data_fetcher_factory: [ environment: 
             |{ field_definition.name: ${environment.fieldDefinition?.name}, 

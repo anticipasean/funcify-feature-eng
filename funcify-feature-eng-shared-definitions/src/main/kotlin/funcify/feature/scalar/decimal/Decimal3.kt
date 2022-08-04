@@ -1,4 +1,4 @@
-package funcify.feature.scalar
+package funcify.feature.scalar.decimal
 
 import funcify.feature.util.StringExtensions.flatten
 import graphql.language.Description
@@ -42,9 +42,7 @@ object Decimal3 : GraphQLDecimalScalar {
     override val mathContext: MathContext = MathContext(3, RoundingMode.HALF_EVEN)
 
     override val coercingFunction: Coercing<BigDecimal, BigDecimal> by lazy {
-        GraphQLDecimalScalarCoercingFunctionFactory.createDecimalCoercingFunctionWithMathContext(
-            mathContext
-        )
+        GraphQLDecimalScalarCoercingFunctionFactory.createDecimalCoercingFunctionWithMathContext(mathContext)
     }
 
     override val graphQLScalarTypeDefinition: ScalarTypeDefinition by lazy {

@@ -1,4 +1,4 @@
-package funcify.feature.scalar
+package funcify.feature.scalar.decimal
 
 import graphql.language.Description
 import graphql.language.ScalarTypeDefinition

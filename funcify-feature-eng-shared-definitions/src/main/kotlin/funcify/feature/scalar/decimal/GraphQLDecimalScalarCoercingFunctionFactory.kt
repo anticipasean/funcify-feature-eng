@@ -1,4 +1,4 @@
-package funcify.feature.scalar
+package funcify.feature.scalar.decimal
 
 import funcify.feature.util.StringExtensions.flatten
 import graphql.language.FloatValue
@@ -13,7 +13,7 @@ import java.math.BigDecimal
 import java.math.BigInteger
 import java.math.MathContext
 
-object GraphQLDecimalScalarCoercingFunctionFactory {
+internal object GraphQLDecimalScalarCoercingFunctionFactory {
 
     fun createDecimalCoercingFunctionWithMathContext(
         mathContext: MathContext
