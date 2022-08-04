@@ -1,8 +1,13 @@
 package funcify.feature.materializer.service
 
+import arrow.core.toOption
+import funcify.feature.materializer.error.MaterializerErrorResponse
+import funcify.feature.materializer.error.MaterializerException
 import funcify.feature.materializer.fetcher.SingleRequestFieldMaterializationDataFetcherFactory
+import funcify.feature.scalar.registry.ScalarTypeRegistry
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
+import funcify.feature.tools.extensions.TryExtensions.successIfDefined
 import graphql.schema.DataFetcherFactory
 import graphql.schema.GraphQLScalarType
 import graphql.schema.idl.FieldWiringEnvironment
@@ -10,6 +15,7 @@ import graphql.schema.idl.ScalarWiringEnvironment
 import org.slf4j.Logger
 
 internal class DefaultMaterializationGraphQLWiringFactory(
+    private val scalarTypeRegistry: ScalarTypeRegistry,
     private val singleRequestFieldMaterializationDataFetcherFactory:
         SingleRequestFieldMaterializationDataFetcherFactory
 ) : MaterializationGraphQLWiringFactory {
@@ -19,16 +25,36 @@ internal class DefaultMaterializationGraphQLWiringFactory(
     }
 
     override fun providesScalar(environment: ScalarWiringEnvironment): Boolean {
-        return super.providesScalar(environment)
+        logger.debug(
+            """provides_scalar: [ 
+            |environment.scalar_type_definition.name: ${environment.scalarTypeDefinition.name} 
+            |]""".flattenIntoOneLine()
+        )
+        return environment.scalarTypeDefinition
+            .toOption()
+            .mapNotNull { def -> scalarTypeRegistry.getScalarTypeDefinitionWithName(def.name) }
+            .isDefined()
     }
 
     override fun getScalar(environment: ScalarWiringEnvironment): GraphQLScalarType {
-        return super.getScalar(environment)
+        return environment.scalarTypeDefinition
+            .toOption()
+            .mapNotNull { def -> scalarTypeRegistry.getGraphQLScalarTypeWithName(def.name) }
+            .successIfDefined {
+                MaterializerException(
+                    MaterializerErrorResponse.UNEXPECTED_ERROR,
+                    """scalar_type expected for 
+                        |[ scalar_type_definition.name: ${environment.scalarTypeDefinition.name} ] 
+                        |but graphql_scalar_type not found 
+                        |with that name""".flattenIntoOneLine()
+                )
+            }
+            .orElseThrow()
     }
 
     override fun <T> getDataFetcherFactory(
         environment: FieldWiringEnvironment
-                                          ): DataFetcherFactory<T> {
+    ): DataFetcherFactory<T> {
         logger.debug(
             """get_data_fetcher_factory: [ environment: 
             |{ field_definition.name: ${environment.fieldDefinition?.name}, 

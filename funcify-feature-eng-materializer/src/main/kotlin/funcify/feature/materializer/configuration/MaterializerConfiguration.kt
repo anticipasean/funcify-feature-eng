@@ -22,6 +22,7 @@ import funcify.feature.materializer.schema.MaterializationGraphQLSchemaBroker
 import funcify.feature.materializer.schema.MaterializationGraphQLSchemaFactory
 import funcify.feature.materializer.service.DefaultMaterializationGraphQLWiringFactory
 import funcify.feature.materializer.service.MaterializationGraphQLWiringFactory
+import funcify.feature.scalar.registry.ScalarTypeRegistry
 import funcify.feature.schema.MetamodelGraph
 import funcify.feature.schema.factory.MetamodelGraphCreationContext
 import funcify.feature.schema.factory.MetamodelGraphFactory
@@ -132,6 +133,7 @@ class MaterializerConfiguration {
     @Bean
     fun materializationGraphQLSchemaFactory(
         objectMapper: ObjectMapper,
+        scalarTypeRegistryProvider: ObjectProvider<ScalarTypeRegistry>,
         sdlDefinitionCreationContextFactory: SchematicVertexSDLDefinitionCreationContextFactory,
         sdlDefinitionImplementationStrategyProvider:
             ObjectProvider<SchematicVertexSDLDefinitionImplementationStrategy>,
@@ -139,6 +141,10 @@ class MaterializerConfiguration {
     ): MaterializationGraphQLSchemaFactory {
         return DefaultMaterializationGraphQLSchemaFactory(
             objectMapper = objectMapper,
+            scalarTypeRegistry =
+                scalarTypeRegistryProvider.getIfAvailable {
+                    ScalarTypeRegistry.materializationRegistry()
+                },
             sdlDefinitionCreationContextFactory = sdlDefinitionCreationContextFactory,
             sdlDefinitionImplementationStrategies =
                 sdlDefinitionImplementationStrategyProvider.toList(),
@@ -149,10 +155,15 @@ class MaterializerConfiguration {
     @ConditionalOnMissingBean(value = [MaterializationGraphQLWiringFactory::class])
     @Bean
     fun materializationGraphQLWiringFactory(
+        scalarTypeRegistryProvider: ObjectProvider<ScalarTypeRegistry>,
         singleRequestFieldMaterializationDataFetcherFactoryProvider:
             ObjectProvider<SingleRequestFieldMaterializationDataFetcherFactory>
     ): MaterializationGraphQLWiringFactory {
         return DefaultMaterializationGraphQLWiringFactory(
+            scalarTypeRegistry =
+                scalarTypeRegistryProvider.getIfAvailable {
+                    ScalarTypeRegistry.materializationRegistry()
+                },
             singleRequestFieldMaterializationDataFetcherFactory =
                 singleRequestFieldMaterializationDataFetcherFactoryProvider.getIfAvailable {
                     DefaultSingleRequestFieldMaterializationDataFetcherFactory()

@@ -11,9 +11,7 @@ import funcify.feature.materializer.error.MaterializerErrorResponse.GRAPHQL_SCHE
 import funcify.feature.materializer.error.MaterializerException
 import funcify.feature.materializer.service.MaterializationGraphQLWiringFactory
 import funcify.feature.naming.StandardNamingConventions
-import funcify.feature.scalar.decimal.Decimal16
-import funcify.feature.scalar.decimal.Decimal3
-import funcify.feature.scalar.decimal.Decimal7
+import funcify.feature.scalar.registry.ScalarTypeRegistry
 import funcify.feature.schema.MetamodelGraph
 import funcify.feature.schema.SchematicVertex
 import funcify.feature.schema.path.SchematicPath
@@ -27,32 +25,30 @@ import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.PersistentMapExtensions.streamPairs
 import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
 import graphql.GraphQLError
-import graphql.language.Description
 import graphql.language.DirectiveDefinition
 import graphql.language.ImplementingTypeDefinition
 import graphql.language.OperationTypeDefinition
 import graphql.language.ScalarTypeDefinition
 import graphql.language.SchemaDefinition
-import graphql.language.SourceLocation
 import graphql.language.TypeName
-import graphql.scalars.ExtendedScalars
 import graphql.schema.GraphQLScalarType
 import graphql.schema.GraphQLSchema
 import graphql.schema.idl.RuntimeWiring
 import graphql.schema.idl.SchemaGenerator
 import graphql.schema.idl.TypeDefinitionRegistry
-import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.PersistentList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toPersistentList
 import org.slf4j.Logger
 
 internal class DefaultMaterializationGraphQLSchemaFactory(
-    val objectMapper: ObjectMapper,
-    val sdlDefinitionCreationContextFactory: SchematicVertexSDLDefinitionCreationContextFactory,
-    val sdlDefinitionImplementationStrategies:
+    private val objectMapper: ObjectMapper,
+    private val scalarTypeRegistry: ScalarTypeRegistry,
+    private val sdlDefinitionCreationContextFactory:
+        SchematicVertexSDLDefinitionCreationContextFactory,
+    private val sdlDefinitionImplementationStrategies:
         List<SchematicVertexSDLDefinitionImplementationStrategy>,
-    val materializationGraphQLWiringFactory: MaterializationGraphQLWiringFactory
+    private val materializationGraphQLWiringFactory: MaterializationGraphQLWiringFactory
 ) : MaterializationGraphQLSchemaFactory {
 
     companion object {
@@ -67,30 +63,6 @@ internal class DefaultMaterializationGraphQLSchemaFactory(
             val runtimeWiringBuilder: RuntimeWiring.Builder = RuntimeWiring.newRuntimeWiring(),
             val typeDefinitionRegistry: TypeDefinitionRegistry = TypeDefinitionRegistry()
         )
-
-        private val extendedGraphQLScalarTypesToSupport: ImmutableList<GraphQLScalarType> by lazy {
-            persistentListOf(
-                Decimal3.graphQLScalarType,
-                Decimal7.graphQLScalarType,
-                Decimal16.graphQLScalarType,
-                ExtendedScalars.GraphQLBigDecimal,
-                ExtendedScalars.GraphQLBigInteger,
-                ExtendedScalars.GraphQLByte,
-                ExtendedScalars.GraphQLChar,
-                ExtendedScalars.GraphQLLong,
-                ExtendedScalars.GraphQLShort,
-                ExtendedScalars.Date,
-                ExtendedScalars.DateTime,
-                ExtendedScalars.Time,
-                ExtendedScalars.Json,
-                ExtendedScalars.Locale,
-                ExtendedScalars.PositiveFloat,
-                ExtendedScalars.PositiveInt,
-                ExtendedScalars.NegativeFloat,
-                ExtendedScalars.NegativeInt,
-                ExtendedScalars.Url
-            )
-        }
     }
 
     private val compositeSDLDefinitionImplementationStrategy:
@@ -196,27 +168,10 @@ internal class DefaultMaterializationGraphQLSchemaFactory(
     private fun createInitialContextWithExtendedScalars(
         metamodelGraph: MetamodelGraph
     ): SchematicVertexSDLDefinitionCreationContext<*> {
-        val scalarTypeDefinitions: ImmutableList<ScalarTypeDefinition> =
-            extendedGraphQLScalarTypesToSupport.fold(persistentListOf<ScalarTypeDefinition>()) {
-                pl: PersistentList<ScalarTypeDefinition>,
-                gqlScalarType: GraphQLScalarType ->
-                val description: Description =
-                    Description(
-                        gqlScalarType.description,
-                        SourceLocation.EMPTY,
-                        gqlScalarType.description?.contains('\n') ?: false
-                    )
-                pl.add(
-                    ScalarTypeDefinition.newScalarTypeDefinition()
-                        .name(gqlScalarType.name)
-                        .description(description)
-                        .build()
-                )
-            }
         return sdlDefinitionCreationContextFactory
             .createInitialContextForRootSchematicVertexSDLDefinition(
                 metamodelGraph = metamodelGraph,
-                scalarTypeDefinitions = scalarTypeDefinitions
+                scalarTypeDefinitions = scalarTypeRegistry.getAllScalarDefinitions()
             )
     }
 
@@ -331,12 +286,12 @@ internal class DefaultMaterializationGraphQLSchemaFactory(
     ): GraphQLSchemaBuildContext {
         logger.debug(
             """update_runtime_wiring_builder_in_build_context: 
-                |[ extended_graphql_scalar_types_to_support.size: 
-                |${extendedGraphQLScalarTypesToSupport.size} ]
+                |[ scalars.size: 
+                |${buildContext.scalarTypeDefinitions.size} ]
                 |""".flattenIntoOneLine()
         )
         val runtimeWiringBuilder: RuntimeWiring.Builder =
-            extendedGraphQLScalarTypesToSupport.fold(
+            scalarTypeRegistry.getAllGraphQLScalarTypes().fold(
                 buildContext.runtimeWiringBuilder.wiringFactory(materializationGraphQLWiringFactory)
             ) { rwBuilder: RuntimeWiring.Builder, scalarType: GraphQLScalarType ->
                 rwBuilder.scalar(scalarType)
