@@ -1,6 +1,8 @@
 package funcify.feature.spring.session
 
 import funcify.feature.materializer.request.GraphQLExecutionInputCustomizer
+import funcify.feature.materializer.response.SerializedGraphQLResponse
+import funcify.feature.materializer.response.SerializedGraphQLResponseFactory
 import funcify.feature.materializer.session.GraphQLSingleRequestSession
 import funcify.feature.materializer.session.GraphQLSingleRequestSessionCoordinator
 import funcify.feature.tools.container.async.KFuture
@@ -20,8 +22,10 @@ import org.springframework.stereotype.Component
  * @created 2/19/22
  */
 @Component
-internal class SpringGraphQLSingleRequestSessionCoordinator(private val asyncExecutor: Executor) :
-    GraphQLSingleRequestSessionCoordinator {
+internal class SpringGraphQLSingleRequestSessionCoordinator(
+    private val asyncExecutor: Executor,
+    private val serializedGraphQLResponseFactory: SerializedGraphQLResponseFactory
+) : GraphQLSingleRequestSessionCoordinator {
 
     companion object {
         private val logger: Logger = loggerFor<SpringGraphQLSingleRequestSessionCoordinator>()
@@ -45,9 +49,9 @@ internal class SpringGraphQLSingleRequestSessionCoordinator(private val asyncExe
                 )
             )
             .map { er: ExecutionResult ->
-                // TODO: Replace with logic for handling execution_result and updating
-                // session
-                session
+                serializedGraphQLResponseFactory.builder().executionResult(er).build()
+            }.map { sgqlr: SerializedGraphQLResponse ->
+                session.transform { serializedGraphQLResponse(sgqlr) }
             }
     }
 

@@ -12,4 +12,12 @@ interface SerializedGraphQLResponse {
 
     val executionResult: ExecutionResult
 
+    interface Builder {
+
+        fun executionResult(executionResult: ExecutionResult): Builder
+
+        fun build(): SerializedGraphQLResponse
+
+    }
+
 }

@@ -16,6 +16,8 @@ import funcify.feature.materializer.fetcher.DefaultSingleRequestFieldMaterializa
 import funcify.feature.materializer.fetcher.SingleRequestFieldMaterializationDataFetcherFactory
 import funcify.feature.materializer.request.DefaultRawGraphQLRequestFactory
 import funcify.feature.materializer.request.RawGraphQLRequestFactory
+import funcify.feature.materializer.response.DefaultSerializedGraphQLResponseFactory
+import funcify.feature.materializer.response.SerializedGraphQLResponseFactory
 import funcify.feature.materializer.schema.DefaultMaterializationGraphQLSchemaFactory
 import funcify.feature.materializer.schema.DefaultMaterializationMetamodel
 import funcify.feature.materializer.schema.DefaultMaterializationMetamodelBroker
@@ -128,6 +130,12 @@ class MaterializerConfiguration {
     @Bean
     fun rawGraphQLRequestFactory(): RawGraphQLRequestFactory {
         return DefaultRawGraphQLRequestFactory()
+    }
+
+    @ConditionalOnMissingBean(value = [SerializedGraphQLResponseFactory::class])
+    @Bean
+    fun serializedGraphQLResponseFactory(): SerializedGraphQLResponseFactory {
+        return DefaultSerializedGraphQLResponseFactory()
     }
 
     @ConditionalOnMissingBean(value = [MaterializationGraphQLSchemaFactory::class])
