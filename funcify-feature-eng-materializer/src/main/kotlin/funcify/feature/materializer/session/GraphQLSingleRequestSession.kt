@@ -3,6 +3,7 @@ package funcify.feature.materializer.session
 import arrow.core.Option
 import funcify.feature.materializer.request.RawGraphQLRequest
 import funcify.feature.materializer.response.SerializedGraphQLResponse
+import funcify.feature.schema.MetamodelGraph
 import graphql.schema.GraphQLSchema
 import java.util.*
 
@@ -17,6 +18,8 @@ interface GraphQLSingleRequestSession : MaterializationSession {
         get() = rawGraphQLRequest.requestId
 
     override val materializationSchema: GraphQLSchema
+
+    override val metamodelGraph: MetamodelGraph
 
     val rawGraphQLRequest: RawGraphQLRequest
 

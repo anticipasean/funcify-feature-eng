@@ -5,6 +5,8 @@ import funcify.feature.materializer.response.SerializedGraphQLResponse
 import funcify.feature.materializer.session.GraphQLSingleRequestSession
 import funcify.feature.materializer.session.GraphQLSingleRequestSessionCoordinator
 import funcify.feature.materializer.session.GraphQLSingleRequestSessionFactory
+import funcify.feature.spring.error.FeatureEngSpringWebFluxException
+import funcify.feature.spring.error.SpringWebFluxErrorResponse
 import funcify.feature.tools.container.deferred.Deferred
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
@@ -47,7 +49,12 @@ internal class SpringGraphQLSingleRequestExecutor(
                             """session was not updated such that 
                               |a serialized_graphql_response was added to it
                               |""".flattenIntoOneLine()
-                        Deferred.failed(IllegalStateException(message))
+                        Deferred.failed(
+                            FeatureEngSpringWebFluxException(
+                                SpringWebFluxErrorResponse.NO_RESPONSE_PROVIDED,
+                                message
+                            )
+                        )
                     },
                     { sr -> Deferred.completed(sr) }
                 )

@@ -1,5 +1,6 @@
 package funcify.feature.materializer.session
 
+import funcify.feature.schema.MetamodelGraph
 import graphql.schema.GraphQLSchema
 import java.util.*
 
@@ -25,4 +26,11 @@ interface MaterializationSession {
      * requiring changes be made to it
      */
     val materializationSchema: GraphQLSchema
+
+    /**
+     * Instance of the metamodel graph associated with the schema to be used during the course of
+     * request processing for the given session. This instance may be different from session to
+     * session if there has been an update requiring changes be made to it
+     */
+    val metamodelGraph: MetamodelGraph
 }

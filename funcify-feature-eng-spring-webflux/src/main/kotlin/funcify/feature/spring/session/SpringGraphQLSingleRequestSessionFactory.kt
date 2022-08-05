@@ -36,6 +36,7 @@ internal class SpringGraphQLSingleRequestSessionFactory(
             materializationMetamodel ->
             DefaultSpringGraphQLSingleRequestSession(
                 materializationSchema = materializationMetamodel.materializationGraphQLSchema,
+                metamodelGraph = materializationMetamodel.metamodelGraph,
                 rawGraphQLRequest = rawGraphQLRequest
             )
         }

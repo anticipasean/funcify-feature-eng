@@ -6,6 +6,7 @@ import arrow.core.some
 import funcify.feature.materializer.request.RawGraphQLRequest
 import funcify.feature.materializer.response.SerializedGraphQLResponse
 import funcify.feature.materializer.session.GraphQLSingleRequestSession
+import funcify.feature.schema.MetamodelGraph
 import graphql.schema.GraphQLSchema
 
 /**
@@ -15,6 +16,7 @@ import graphql.schema.GraphQLSchema
  */
 internal data class DefaultSpringGraphQLSingleRequestSession(
     override val materializationSchema: GraphQLSchema,
+    override val metamodelGraph: MetamodelGraph,
     override val rawGraphQLRequest: RawGraphQLRequest,
     override val serializedGraphQLResponse: Option<SerializedGraphQLResponse> =
         none<SerializedGraphQLResponse>()
