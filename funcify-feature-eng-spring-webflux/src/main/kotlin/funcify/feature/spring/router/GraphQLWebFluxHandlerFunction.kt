@@ -9,6 +9,8 @@ import funcify.feature.materializer.request.GraphQLExecutionInputCustomizer
 import funcify.feature.materializer.request.RawGraphQLRequest
 import funcify.feature.materializer.request.RawGraphQLRequestFactory
 import funcify.feature.materializer.response.SerializedGraphQLResponse
+import funcify.feature.spring.error.FeatureEngSpringWebFluxException
+import funcify.feature.spring.error.SpringWebFluxErrorResponse
 import funcify.feature.spring.service.GraphQLSingleRequestExecutor
 import funcify.feature.tools.container.deferred.Deferred
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
@@ -18,8 +20,6 @@ import funcify.feature.tools.extensions.StreamExtensions.flatMapOptions
 import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
 import graphql.GraphQLError
 import java.util.*
-import kotlinx.collections.immutable.ImmutableMap
-import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.persistentMapOf
 import org.slf4j.Logger
 import org.springframework.core.ParameterizedTypeReference
@@ -70,37 +70,69 @@ internal class GraphQLWebFluxHandlerFunction(
                         """[ parameter: $nullableParameterName ] is null but 
                        |is required for processing this request successfully
                        |""".flattenIntoOneLine()
-                    Mono.error(IllegalArgumentException(message))
+                    Mono.error(
+                        FeatureEngSpringWebFluxException(
+                            SpringWebFluxErrorResponse.INVALID_INPUT,
+                            message
+                        )
+                    )
                 }
         }
     }
 
     override fun handle(request: ServerRequest): Mono<ServerResponse> {
         logger.info("handle: [ request.path: ${request.path()} ]")
-        val rawGraphQLRequestMono: Mono<RawGraphQLRequest> =
-            convertServerRequestIntoRawGraphQLRequest(request)
-        return Deferred.fromMono(rawGraphQLRequestMono)
+        return Deferred.fromMono(convertServerRequestIntoRawGraphQLRequest(request))
             .flatMap { rawReq: RawGraphQLRequest ->
                 graphQLSingleRequestExecutor.executeSingleRequest(rawReq)
             }
-            .map { serRes: SerializedGraphQLResponse -> serRes.executionResult.toSpecification() }
-            .toFlux()
-            .reduceWith(
-                { -> persistentMapOf<String, Any?>() },
-                { pm: PersistentMap<String, Any?>, resultMap: MutableMap<String, Any?> ->
-                    pm.putAll(resultMap)
-                }
-            )
-            .flatMap { pm: ImmutableMap<String, Any?> -> ServerResponse.ok().bodyValue(pm) }
-            .single()
+            .toMono()
+            .flatMap(convertAggregateSerializedGraphQLResponseIntoServerResponse())
             .onErrorResume(
                 FeatureEngCommonException::class.java,
                 convertCommonExceptionTypeIntoServerResponse()
             )
             .onErrorResume { err ->
+                logger.error(
+                    """handle: [ request.path: ${request.path()} ]: 
+                    |uncaught non-platform exception thrown: 
+                    |[ type: ${err::class.qualifiedName}, 
+                    |message: ${err.message} 
+                    |]""".flattenIntoOneLine(),
+                    err
+                )
                 ServerResponse.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Mono.just(err.message.toOption().getOrElse { "error_message empty" }))
             }
+    }
+
+    private fun convertAggregateSerializedGraphQLResponseIntoServerResponse():
+        (List<SerializedGraphQLResponse>) -> Mono<out ServerResponse> {
+        return { aggregatedResponses ->
+            when (aggregatedResponses.size) {
+                0 -> {
+                    Mono.error(
+                        FeatureEngSpringWebFluxException(
+                            SpringWebFluxErrorResponse.NO_RESPONSE_PROVIDED,
+                            "response for request not provided"
+                        )
+                    )
+                }
+                1 -> {
+                    Mono.just(aggregatedResponses[0])
+                        .map { response -> response.executionResult.toSpecification() }
+                        .flatMap { specResponse -> ServerResponse.ok().bodyValue(specResponse) }
+                }
+                else -> {
+                    Mono.error(
+                        FeatureEngSpringWebFluxException(
+                            SpringWebFluxErrorResponse.TOO_MANY_RESPONSES_PROVIDED,
+                            "number of responses given: [ actual: ${aggregatedResponses.size}, expected: 1 ]"
+                        )
+                    )
+                }
+            }
+        }
     }
 
     // TODO: Currently has two different output formats: direct message and graphql_error_map_string
@@ -153,19 +185,26 @@ internal class GraphQLWebFluxHandlerFunction(
     ): Mono<RawGraphQLRequest> {
         return request
             .bodyToMono(STR_KEY_MAP_PARAMETERIZED_TYPE_REF)
-            .flatMap { map -> map.toMono("string_key_map") }
-            .map { map ->
+            .flatMap { nullableStrKeyMap -> nullableStrKeyMap.toMono("string_key_map") }
+            .zipWith(request.principal()) { strKeyMap, principal ->
+                strKeyMap to principal.toOption()
+            }
+            .map { (strKeyMap, principalOpt) ->
                 rawGraphQLRequestFactory
                     .builder()
                     .uri(request.uri())
                     .headers(extractReadOnlyHttpHeadersFromRequest(request))
+                    .principal(principalOpt.orNull())
                     .operationName(
-                        map[OPERATION_NAME_KEY].toOption().map { o -> o as String }.getOrElse { "" }
+                        strKeyMap[OPERATION_NAME_KEY]
+                            .toOption()
+                            .map { o -> o as String }
+                            .getOrElse { "" }
                     )
                     .rawGraphQLQueryText(
-                        map[QUERY_KEY].toOption().map { o -> o as String }.getOrElse { "" }
+                        strKeyMap[QUERY_KEY].toOption().map { o -> o as String }.getOrElse { "" }
                     )
-                    .variables(extractGraphQLVariablesFromStringKeyValueMap(map))
+                    .variables(extractGraphQLVariablesFromStringKeyValueMap(strKeyMap))
                     .locale(extractLocaleFromRequest(request))
                     .executionInputCustomizers(graphQLExecutionInputCustomizers)
                     .build()
@@ -177,15 +216,19 @@ internal class GraphQLWebFluxHandlerFunction(
     ): Mono<RawGraphQLRequest> {
         return request
             .bodyToMono(JsonNode::class.java)
-            .flatMap { jn -> jn.toMono("json_node_form_of_input") }
-            .map { jn ->
+            .flatMap { nullableQueryJson -> nullableQueryJson.toMono("json_node_form_of_input") }
+            .zipWith(request.principal()) { queryJson, principal ->
+                queryJson to principal.toOption()
+            }
+            .map { (queryJson, principalOpt) ->
                 rawGraphQLRequestFactory
                     .builder()
                     .uri(request.uri())
                     .headers(extractReadOnlyHttpHeadersFromRequest(request))
-                    .operationName(jn.findPath(OPERATION_NAME_KEY).asText(""))
-                    .rawGraphQLQueryText(jn.findPath(QUERY_KEY).asText(""))
-                    .variables(extractGraphQLVariablesFromJson(jn))
+                    .operationName(queryJson.findPath(OPERATION_NAME_KEY).asText(""))
+                    .principal(principalOpt.orNull())
+                    .rawGraphQLQueryText(queryJson.findPath(QUERY_KEY).asText(""))
+                    .variables(extractGraphQLVariablesFromJson(queryJson))
                     .locale(extractLocaleFromRequest(request))
                     .executionInputCustomizers(graphQLExecutionInputCustomizers)
                     .build()
@@ -197,13 +240,17 @@ internal class GraphQLWebFluxHandlerFunction(
     ): Mono<RawGraphQLRequest> {
         return request
             .bodyToMono(String::class.java)
-            .flatMap { gqlText -> gqlText.toMono("raw_graphql_text_input") }
-            .map { txt ->
+            .flatMap { nullableQueryText -> nullableQueryText.toMono("raw_graphql_text_input") }
+            .zipWith(request.principal()) { queryText, principal ->
+                queryText to principal.toOption()
+            }
+            .map { (queryText, principalOpt) ->
                 rawGraphQLRequestFactory
                     .builder()
                     .uri(request.uri())
                     .headers(extractReadOnlyHttpHeadersFromRequest(request))
-                    .rawGraphQLQueryText(txt)
+                    .principal(principalOpt.orNull())
+                    .rawGraphQLQueryText(queryText)
                     .locale(extractLocaleFromRequest(request))
                     .executionInputCustomizers(graphQLExecutionInputCustomizers)
                     .build()

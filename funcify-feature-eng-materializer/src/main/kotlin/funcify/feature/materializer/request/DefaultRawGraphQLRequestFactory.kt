@@ -1,10 +1,14 @@
 package funcify.feature.materializer.request
 
+import arrow.core.Option
+import arrow.core.none
+import arrow.core.toOption
 import funcify.feature.materializer.error.MaterializerErrorResponse
 import funcify.feature.materializer.error.MaterializerException
 import funcify.feature.schema.path.SchematicPath
 import graphql.execution.ExecutionId
 import java.net.URI
+import java.security.Principal
 import java.util.*
 import kotlinx.collections.immutable.PersistentList
 import kotlinx.collections.immutable.PersistentMap
@@ -29,6 +33,7 @@ internal class DefaultRawGraphQLRequestFactory : RawGraphQLRequestFactory {
             var executionId: ExecutionId = UNSET_EXECUTION_ID,
             var uri: URI = UNSET_URI,
             var headers: HttpHeaders = HttpHeaders(),
+            var principal: Option<Principal> = none(),
             var rawGraphQLQueryText: String = UNSET_RAW_GRAPHQL_QUERY_TEXT,
             var operationName: String = UNSET_OPERATION_NAME,
             var variables: MutableMap<String, Any?> = mutableMapOf(),
@@ -54,6 +59,11 @@ internal class DefaultRawGraphQLRequestFactory : RawGraphQLRequestFactory {
 
             override fun headers(headers: HttpHeaders): RawGraphQLRequest.Builder {
                 this.headers = headers
+                return this
+            }
+
+            override fun principal(principal: Principal?): RawGraphQLRequest.Builder {
+                this.principal = principal.toOption()
                 return this
             }
 
@@ -130,6 +140,7 @@ internal class DefaultRawGraphQLRequestFactory : RawGraphQLRequestFactory {
                             executionId = validatedExecutionId,
                             uri = uri,
                             headers = headers,
+                            principal = principal,
                             rawGraphQLQueryText = rawGraphQLQueryText,
                             operationName = operationName,
                             variables = variables.toPersistentMap(),
@@ -146,6 +157,7 @@ internal class DefaultRawGraphQLRequestFactory : RawGraphQLRequestFactory {
             override val executionId: ExecutionId,
             override val uri: URI,
             override val headers: HttpHeaders,
+            override val principal: Option<Principal> = none(),
             override val rawGraphQLQueryText: String = "",
             override val operationName: String = "",
             override val variables: PersistentMap<String, Any?> = persistentMapOf(),

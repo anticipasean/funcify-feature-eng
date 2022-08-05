@@ -1,6 +1,7 @@
 package funcify.feature.materializer.fetcher
 
 import arrow.core.Option
+import arrow.core.none
 import funcify.feature.tools.container.async.KFuture
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import org.slf4j.Logger
@@ -27,6 +28,6 @@ internal class DefaultSingleRequestSessionFieldMaterializationProcessor :
             |field.type: ${context.currentFieldOutputType} }
             |]""".trimMargin()
         )
-        TODO("Not yet implemented")
+        return KFuture.completed(none())
     }
 }
