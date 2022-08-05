@@ -1,6 +1,7 @@
 package funcify.feature.materializer.session
 
 import arrow.core.Option
+import funcify.feature.materializer.context.ThreadLocalContextKey
 import funcify.feature.materializer.request.RawGraphQLRequest
 import funcify.feature.materializer.response.SerializedGraphQLResponse
 import funcify.feature.schema.MetamodelGraph
@@ -14,6 +15,11 @@ import java.util.*
  */
 interface GraphQLSingleRequestSession : MaterializationSession {
 
+    companion object {
+        val GRAPHQL_SINGLE_REQUEST_SESSION_KEY: ThreadLocalContextKey<GraphQLSingleRequestSession> =
+            ThreadLocalContextKey.of(GraphQLSingleRequestSession::class.qualifiedName + ".SESSION")
+    }
+
     override val sessionId: UUID
         get() = rawGraphQLRequest.requestId
 
@@ -25,7 +31,7 @@ interface GraphQLSingleRequestSession : MaterializationSession {
 
     val serializedGraphQLResponse: Option<SerializedGraphQLResponse>
 
-    fun transform(updater: Builder.() -> Builder): GraphQLSingleRequestSession
+    fun update(transformer: Builder.() -> Builder): GraphQLSingleRequestSession
 
     interface Builder {
 

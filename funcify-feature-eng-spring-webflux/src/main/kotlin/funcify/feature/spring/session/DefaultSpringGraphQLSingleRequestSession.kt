@@ -45,10 +45,10 @@ internal data class DefaultSpringGraphQLSingleRequestSession(
         }
     }
 
-    override fun transform(
-        updater: GraphQLSingleRequestSession.Builder.() -> GraphQLSingleRequestSession.Builder
+    override fun update(
+        transformer: GraphQLSingleRequestSession.Builder.() -> GraphQLSingleRequestSession.Builder
     ): GraphQLSingleRequestSession {
         val builder: GraphQLSingleRequestSession.Builder = DefaultBuilder(this)
-        return updater.invoke(builder).build()
+        return transformer.invoke(builder).build()
     }
 }

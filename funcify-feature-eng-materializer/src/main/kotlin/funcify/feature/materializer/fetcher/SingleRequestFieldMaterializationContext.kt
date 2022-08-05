@@ -1,5 +1,6 @@
 package funcify.feature.materializer.fetcher
 
+import funcify.feature.materializer.session.GraphQLSingleRequestSession
 import graphql.GraphQLContext
 import graphql.language.Field
 import graphql.schema.DataFetchingEnvironment
@@ -14,6 +15,8 @@ import graphql.schema.GraphQLOutputType
 interface SingleRequestFieldMaterializationContext {
 
     val dataFetchingEnvironment: DataFetchingEnvironment
+
+    val singleRequestSession: GraphQLSingleRequestSession
 
     val currentGraphQLContext: GraphQLContext
         get() = dataFetchingEnvironment.graphQlContext

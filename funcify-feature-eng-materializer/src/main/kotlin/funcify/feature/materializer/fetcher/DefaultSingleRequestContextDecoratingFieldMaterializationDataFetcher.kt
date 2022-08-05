@@ -3,6 +3,7 @@ package funcify.feature.materializer.fetcher
 import arrow.core.Option
 import funcify.feature.materializer.error.MaterializerErrorResponse
 import funcify.feature.materializer.error.MaterializerException
+import funcify.feature.materializer.session.GraphQLSingleRequestSession
 import funcify.feature.tools.container.async.KFuture
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
@@ -37,21 +38,48 @@ internal class DefaultSingleRequestContextDecoratingFieldMaterializationDataFetc
                |environment.field.name: ${environment?.field?.name} 
                |]""".flattenIntoOneLine()
         )
-        return if (environment == null) {
-            val message = "graphql.schema.data_fetching_environment context input is null"
-            logger.error("get: [ status: failed ] [ message: $message ]")
-            CompletableFuture.failedFuture(
-                MaterializerException(MaterializerErrorResponse.UNEXPECTED_ERROR, message)
-            )
-        } else {
-            unwrapCompletionStageAndFoldMaterializedValueOptionIntoDataFetcherResult(
-                environment,
-                singleRequestSessionFieldMaterializationProcessor.materializeFieldValueInContext(
-                    DefaultSingleRequestFieldMaterializationContext(
-                        dataFetchingEnvironment = environment
-                    )
+        return when {
+            environment == null -> {
+                val message = "graphql.schema.data_fetching_environment context input is null"
+                logger.error("get: [ status: failed ] [ message: $message ]")
+                CompletableFuture.failedFuture(
+                    MaterializerException(MaterializerErrorResponse.UNEXPECTED_ERROR, message)
                 )
-            )
+            }
+            !environment.graphQlContext.hasKey(
+                GraphQLSingleRequestSession.GRAPHQL_SINGLE_REQUEST_SESSION_KEY
+            ) ||
+                environment.graphQlContext
+                    .getOrEmpty<GraphQLSingleRequestSession>(
+                        GraphQLSingleRequestSession.GRAPHQL_SINGLE_REQUEST_SESSION_KEY
+                    )
+                    .isEmpty -> {
+                val message =
+                    """data_fetching_environment.graphql_context is missing entry for key
+                        |[ name: ${GraphQLSingleRequestSession.GRAPHQL_SINGLE_REQUEST_SESSION_KEY.name}, 
+                        |type: ${GraphQLSingleRequestSession.GRAPHQL_SINGLE_REQUEST_SESSION_KEY.valueResolvableType} 
+                        |]""".flattenIntoOneLine()
+                logger.error("get: [ status: failed ] [ message: $message ]")
+                CompletableFuture.failedFuture(
+                    MaterializerException(MaterializerErrorResponse.UNEXPECTED_ERROR, message)
+                )
+            }
+            else -> {
+                unwrapCompletionStageAndFoldMaterializedValueOptionIntoDataFetcherResult(
+                    environment,
+                    singleRequestSessionFieldMaterializationProcessor
+                        .materializeFieldValueInContext(
+                            DefaultSingleRequestFieldMaterializationContext(
+                                dataFetchingEnvironment = environment,
+                                singleRequestSession =
+                                    environment.graphQlContext.get<GraphQLSingleRequestSession>(
+                                        GraphQLSingleRequestSession
+                                            .GRAPHQL_SINGLE_REQUEST_SESSION_KEY
+                                    )
+                            )
+                        )
+                )
+            }
         }
     }
 

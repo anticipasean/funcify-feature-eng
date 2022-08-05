@@ -50,8 +50,9 @@ internal class SpringGraphQLSingleRequestSessionCoordinator(
             )
             .map { er: ExecutionResult ->
                 serializedGraphQLResponseFactory.builder().executionResult(er).build()
-            }.map { sgqlr: SerializedGraphQLResponse ->
-                session.transform { serializedGraphQLResponse(sgqlr) }
+            }
+            .map { sgqlr: SerializedGraphQLResponse ->
+                session.update { serializedGraphQLResponse(sgqlr) }
             }
     }
 
@@ -66,6 +67,12 @@ internal class SpringGraphQLSingleRequestSessionCoordinator(
                     .operationName(session.rawGraphQLRequest.operationName)
                     .query(session.rawGraphQLRequest.rawGraphQLQueryText)
                     .variables(session.rawGraphQLRequest.variables)
+                    .graphQLContext { ctxBuilder ->
+                        ctxBuilder.put(
+                            GraphQLSingleRequestSession.GRAPHQL_SINGLE_REQUEST_SESSION_KEY,
+                            session
+                        )
+                    }
             ) { bldr: ExecutionInput.Builder, customizer: GraphQLExecutionInputCustomizer ->
                 customizer.invoke(bldr)
             }
