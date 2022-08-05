@@ -20,6 +20,7 @@ import funcify.feature.schema.vertex.SourceJunctionVertex
 import funcify.feature.schema.vertex.SourceLeafVertex
 import funcify.feature.schema.vertex.SourceRootVertex
 import funcify.feature.tools.container.attempt.Try
+import funcify.feature.tools.container.attempt.Try.Companion.flatMapFailure
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.PersistentMapExtensions.streamPairs
 import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
@@ -268,7 +269,29 @@ internal class DefaultMaterializationGraphQLSchemaFactory(
     ): (GraphQLError) -> Unit {
         return { gqlError: GraphQLError ->
             val graphQLErrorMessageAttempt: Try<String> =
-                jsonMapper.fromKotlinObject(gqlError.toSpecification()).toJsonString()
+                Try.attempt { gqlError.toSpecification() }
+                    .flatMap { specMap -> jsonMapper.fromKotlinObject(specMap).toJsonString() }
+                    .flatMapFailure { t: Throwable ->
+                        if (
+                            gqlError.locations
+                                .toOption()
+                                .filter { locs -> locs.any { srcLoc -> srcLoc == null } }
+                                .isDefined()
+                        ) {
+                            jsonMapper
+                                .fromKotlinObject(
+                                    mapOf(
+                                        "errorType" to gqlError.errorType,
+                                        "message" to gqlError.message,
+                                        "path" to gqlError.path,
+                                        "extensions" to gqlError.extensions
+                                    )
+                                )
+                                .toJsonString()
+                        } else {
+                            Try.failure(t)
+                        }
+                    }
             if (graphQLErrorMessageAttempt.isFailure()) {
                 val message = graphQLErrorMessageAttempt.getFailure().orNull()!!.message
                 logger.error(
