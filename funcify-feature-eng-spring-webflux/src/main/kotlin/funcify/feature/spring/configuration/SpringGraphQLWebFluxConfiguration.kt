@@ -1,6 +1,9 @@
 package funcify.feature.spring.configuration
 
+import arrow.core.toOption
 import funcify.feature.json.JsonMapper
+import funcify.feature.materializer.context.ThreadLocalContextOperation
+import funcify.feature.materializer.context.ThreadLocalContextOperationFactory
 import funcify.feature.materializer.request.GraphQLExecutionInputCustomizer
 import funcify.feature.materializer.request.RawGraphQLRequestFactory
 import funcify.feature.spring.router.GraphQLWebFluxHandlerFunction
@@ -10,6 +13,7 @@ import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.http.MediaType
+import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.web.reactive.function.server.RequestPredicates
 import org.springframework.web.reactive.function.server.RouterFunction
 import org.springframework.web.reactive.function.server.RouterFunctions
@@ -21,14 +25,25 @@ import org.springframework.web.reactive.function.server.ServerResponse
  * @created 2/19/22
  */
 @Configuration
-open class SpringGraphQLWebFluxConfiguration {
+class SpringGraphQLWebFluxConfiguration {
 
     companion object {
         private const val MEDIA_TYPE_APPLICATION_GRAPHQL_VALUE = "application/graphql"
     }
 
     @Bean
-    open fun graphQLWebFluxRouterFunction(
+    fun securityContextThreadLocalContextOperation(): ThreadLocalContextOperation {
+        return ThreadLocalContextOperationFactory.defaultFactory()
+            .builder()
+            .extractInParentContext { SecurityContextHolder.getContext().toOption() }
+            .setInChildContext { securityContext ->
+                SecurityContextHolder.setContext(securityContext)
+            }
+            .build()
+    }
+
+    @Bean
+    fun graphQLWebFluxRouterFunction(
         @Value("\${feature-eng-service.graphql.path:/graphql}") graphQLPath: String,
         jsonMapper: JsonMapper,
         graphQLSingleRequestExecutor: GraphQLSingleRequestExecutor,

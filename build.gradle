@@ -120,6 +120,7 @@ configure(mainKotlinSubProjects) {
         spring {
             dependencies {
                 implementation("org.springframework.boot:spring-boot-starter-webflux:${springBootPluginVersion}")
+                implementation("org.springframework.boot:spring-boot-starter-security:${springBootPluginVersion}")
                 testImplementation("org.springframework.boot:spring-boot-starter-test:${springBootPluginVersion}")
             }
         }
