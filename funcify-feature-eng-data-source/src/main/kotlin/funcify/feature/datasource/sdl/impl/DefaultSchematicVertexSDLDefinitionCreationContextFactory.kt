@@ -28,6 +28,7 @@ import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.PersistentSet
 import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.persistentSetOf
+import kotlinx.collections.immutable.toPersistentSet
 import org.slf4j.Logger
 
 /**
@@ -84,9 +85,13 @@ internal class DefaultSchematicVertexSDLDefinitionCreationContextFactory :
                 sdlDefinitionsBySchematicPath =
                     sdlDefinitionsBySchematicPath.put(
                         schematicPath,
-                        sdlDefinitionsBySchematicPath
-                            .getOrDefault(schematicPath, persistentSetOf())
-                            .add(sdlDefinition)
+                        addOrReplaceExistingNodeTypeIfPresent(
+                            sdlDefinition,
+                            sdlDefinitionsBySchematicPath.getOrDefault(
+                                schematicPath,
+                                persistentSetOf()
+                            )
+                        )
                     )
                 when (sdlDefinition) {
                     is ImplementingTypeDefinition<*> -> {
@@ -97,19 +102,44 @@ internal class DefaultSchematicVertexSDLDefinitionCreationContextFactory :
                                     TypeName.newTypeName(sdlDefinition.name).build()
                                 )
                         }
-                        implementingTypeDefinitionsBySchematicPath =
-                            implementingTypeDefinitionsBySchematicPath.put(
-                                schematicPath,
-                                sdlDefinition
-                            )
+                        // Only add if an implementing_type_definition is not already associated
+                        // with another path
+                        // There can be only one implementing_type_definition for a given type_name
+                        if (
+                            implementingTypeDefinitionsBySchematicPath.asSequence().none {
+                                (path, itd) ->
+                                itd.name == sdlDefinition.name && path != schematicPath
+                            }
+                        ) {
+                            implementingTypeDefinitionsBySchematicPath =
+                                implementingTypeDefinitionsBySchematicPath.put(
+                                    schematicPath,
+                                    sdlDefinition
+                                )
+                        }
                     }
                     is FieldDefinition -> {
-                        fieldDefinitionsBySchematicPath =
-                            fieldDefinitionsBySchematicPath.put(schematicPath, sdlDefinition)
+                        schematicPath
+                            .getParentPath()
+                            .flatMap { pp ->
+                                implementingTypeDefinitionsBySchematicPath[pp].toOption()
+                            }
+                            .fold(
+                                {},
+                                {
+                                    fieldDefinitionsBySchematicPath =
+                                        fieldDefinitionsBySchematicPath.put(
+                                            schematicPath,
+                                            sdlDefinition
+                                        )
+                                    updateParentNodeAfterAddition(schematicPath, sdlDefinition)
+                                }
+                            )
                     }
                     is Directive -> {
                         directivesBySchematicPath =
                             directivesBySchematicPath.put(schematicPath, sdlDefinition)
+                        updateParentNodeAfterAddition(schematicPath, sdlDefinition)
                     }
                     is InputObjectTypeDefinition -> {
                         if (sdlDefinition.name !in sdlTypeDefinitionsByName) {
@@ -119,24 +149,87 @@ internal class DefaultSchematicVertexSDLDefinitionCreationContextFactory :
                                     TypeName.newTypeName(sdlDefinition.name).build()
                                 )
                         }
-                        inputObjectTypeDefinitionsBySchematicPath =
-                            inputObjectTypeDefinitionsBySchematicPath.put(
-                                schematicPath,
-                                sdlDefinition
-                            )
+                        // Only add if there is input_object_type_definition not already associated
+                        // with a path
+                        // There can be only one input_object_type_definition for a given type_name
+                        if (
+                            inputObjectTypeDefinitionsBySchematicPath.none { (path, iotd) ->
+                                iotd.name == sdlDefinition.name && path != schematicPath
+                            }
+                        ) {
+                            inputObjectTypeDefinitionsBySchematicPath =
+                                inputObjectTypeDefinitionsBySchematicPath.put(
+                                    schematicPath,
+                                    sdlDefinition
+                                )
+                        }
                     }
                     is InputValueDefinition -> {
-                        inputValueDefinitionsBySchematicPath =
-                            inputValueDefinitionsBySchematicPath.put(schematicPath, sdlDefinition)
+                        schematicPath
+                            .getParentPath()
+                            .flatMap { pp ->
+                                inputObjectTypeDefinitionsBySchematicPath[pp].toOption()
+                            }
+                            .fold(
+                                {},
+                                {
+                                    inputValueDefinitionsBySchematicPath =
+                                        inputValueDefinitionsBySchematicPath.put(
+                                            schematicPath,
+                                            sdlDefinition
+                                        )
+                                    updateParentNodeAfterAddition(schematicPath, sdlDefinition)
+                                }
+                            )
                     }
                 }
-                if (
-                    sdlDefinition !is ImplementingTypeDefinition<*> &&
-                        sdlDefinition !is InputObjectTypeDefinition
-                ) {
-                    updateParentNodeAfterAddition(schematicPath, sdlDefinition)
-                }
                 return this
+            }
+
+            private fun addOrReplaceExistingNodeTypeIfPresent(
+                newNode: Node<*>,
+                nodeSet: PersistentSet<Node<*>>
+            ): PersistentSet<Node<*>> {
+                val addedFlagHolder: BooleanArray = booleanArrayOf(false)
+                return nodeSet
+                    .asSequence()
+                    .map { n: Node<*> ->
+                        when {
+                            n is ImplementingTypeDefinition<*> &&
+                                newNode is ImplementingTypeDefinition<*> -> {
+                                addedFlagHolder[0] = true
+                                newNode
+                            }
+                            n is FieldDefinition && newNode is FieldDefinition -> {
+                                addedFlagHolder[0] = true
+                                newNode
+                            }
+                            n is Directive && newNode is Directive -> {
+                                addedFlagHolder[0] = true
+                                newNode
+                            }
+                            n is InputObjectTypeDefinition &&
+                                newNode is InputObjectTypeDefinition -> {
+                                addedFlagHolder[0] = true
+                                newNode
+                            }
+                            n is InputValueDefinition && newNode is InputValueDefinition -> {
+                                addedFlagHolder[0] = true
+                                newNode
+                            }
+                            else -> {
+                                n
+                            }
+                        }
+                    }
+                    .toPersistentSet()
+                    .let { set ->
+                        if (!addedFlagHolder[0]) {
+                            set.add(newNode)
+                        } else {
+                            set
+                        }
+                    }
             }
 
             private fun updateParentNodeAfterAddition(
@@ -147,7 +240,6 @@ internal class DefaultSchematicVertexSDLDefinitionCreationContextFactory :
                     val definedParentNode: Node<*>? =
                         childPath
                             .getParentPath()
-                            .filter { parentPath -> parentPath in sdlDefinitionsBySchematicPath }
                             .flatMap { parentPath ->
                                 sdlDefinitionsBySchematicPath[parentPath].toOption()
                             }
@@ -155,12 +247,13 @@ internal class DefaultSchematicVertexSDLDefinitionCreationContextFactory :
                                 parentNodes
                                     .asIterable()
                                     .filter { node: Node<*> ->
-                                        (childDefinition is FieldDefinition &&
-                                            node is ImplementingTypeDefinition<*>) ||
-                                            (childDefinition is Argument &&
-                                                node is FieldDefinition) ||
+                                        (node is ImplementingTypeDefinition<*> &&
+                                            childDefinition is FieldDefinition) ||
+                                            (node is FieldDefinition &&
+                                                childDefinition is InputValueDefinition) ||
                                             childDefinition is Directive ||
-                                            childDefinition is InputValueDefinition
+                                            (node is InputObjectTypeDefinition &&
+                                                childDefinition is InputValueDefinition)
                                     }
                                     .firstOrNone()
                             }
@@ -171,7 +264,11 @@ internal class DefaultSchematicVertexSDLDefinitionCreationContextFactory :
                             /*
                              * entry for field_definition already exists -> replace it
                              */
-                            if (childDefinition.name in definedParentNode.namedChildren.children) {
+                            if (
+                                definedParentNode.fieldDefinitions.any { fd ->
+                                    fd.name == childDefinition.name
+                                }
+                            ) {
                                 /*
                                  * Recursive: Call own method on parent
                                  */
@@ -235,7 +332,11 @@ internal class DefaultSchematicVertexSDLDefinitionCreationContextFactory :
                             /*
                              * entry for field_definition already exists -> replace it
                              */
-                            if (childDefinition.name in definedParentNode.namedChildren.children) {
+                            if (
+                                definedParentNode.fieldDefinitions.any { fd ->
+                                    fd.name == childDefinition.name
+                                }
+                            ) {
                                 /*
                                  * Recursive: Call own method on parent
                                  */
