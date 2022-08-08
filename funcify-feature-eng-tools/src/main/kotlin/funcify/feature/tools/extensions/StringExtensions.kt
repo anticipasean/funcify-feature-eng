@@ -1,6 +1,5 @@
 package funcify.feature.tools.extensions
 
-
 /**
  *
  * @author smccarron
@@ -8,17 +7,14 @@ package funcify.feature.tools.extensions
  */
 object StringExtensions {
 
-    fun String.flattenIntoOneLine(marginPrefix: String = "|"): String {
+    fun String.flatten(marginPrefix: String = "|"): String {
         return when {
             this.isEmpty() -> {
                 this
             }
             else -> {
-                this.trimMargin(marginPrefix)
-                        .replace(System.lineSeparator(),
-                                 "")
+                this.trimMargin(marginPrefix).replace(System.lineSeparator(), "")
             }
         }
     }
-
 }

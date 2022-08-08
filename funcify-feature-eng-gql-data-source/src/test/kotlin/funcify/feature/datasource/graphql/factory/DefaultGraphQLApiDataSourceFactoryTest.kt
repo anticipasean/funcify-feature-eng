@@ -24,7 +24,7 @@ import funcify.feature.schema.vertex.SourceJunctionVertex
 import funcify.feature.schema.vertex.SourceLeafVertex
 import funcify.feature.schema.vertex.SourceRootVertex
 import funcify.feature.tools.container.attempt.Try
-import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
+import funcify.feature.tools.extensions.StringExtensions.flatten
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
 
@@ -182,7 +182,7 @@ internal class DefaultGraphQLApiDataSourceFactoryTest {
                 |having a representation as both container type 
                 |and attribute for the given source;
                 |if failed, parallelizing might have caused the 
-                |composite attribute or container type entry to be overwritten""".flattenIntoOneLine()
+                |composite attribute or container type entry to be overwritten""".flatten()
         )
         /*
          *val compositeAttributeShowFunc: (CompositeAttribute) -> String = { ca ->

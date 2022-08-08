@@ -11,7 +11,7 @@ import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionNamingStrategy
 import funcify.feature.naming.StandardNamingConventions
 import funcify.feature.schema.vertex.SchematicGraphVertexType
 import funcify.feature.tools.container.attempt.Try
-import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
+import funcify.feature.tools.extensions.StringExtensions.flatten
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentSetOf
 
@@ -50,7 +50,7 @@ class FirstSourceContainerTypeFoundNamingStrategy :
                                |least one datasource defined: [ name: 
                                |${context.compositeSourceContainerType.conventionalName} 
                                |]
-                               |""".flattenIntoOneLine()
+                               |""".flatten()
                         )
                     }
                     .map { (_, sourceContTyp) ->
@@ -73,7 +73,7 @@ class FirstSourceContainerTypeFoundNamingStrategy :
                                |least one datasource defined: [ name: 
                                |${context.compositeSourceContainerType.conventionalName} 
                                |]
-                               |""".flattenIntoOneLine()
+                               |""".flatten()
                         )
                     }
                     .map { (_, sourceContTyp) ->

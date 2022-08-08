@@ -22,7 +22,7 @@ import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.PersistentMapExtensions.reduceEntriesToPersistentMap
 import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentMap
 import funcify.feature.tools.extensions.StreamExtensions.flatMapOptions
-import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
+import funcify.feature.tools.extensions.StringExtensions.flatten
 import graphql.GraphQLError
 import java.util.*
 import kotlinx.collections.immutable.persistentMapOf
@@ -74,7 +74,7 @@ internal class GraphQLWebFluxHandlerFunction(
                     val message =
                         """[ parameter: $nullableParameterName ] is null but 
                        |is required for processing this request successfully
-                       |""".flattenIntoOneLine()
+                       |""".flatten()
                     Mono.error(
                         FeatureEngSpringWebFluxException(
                             SpringWebFluxErrorResponse.INVALID_INPUT,
@@ -257,7 +257,7 @@ internal class GraphQLWebFluxHandlerFunction(
                                             |into specification for api_response 
                                             |[ type: Map<String, Any?> ] given cause: 
                                             |[ type: ${t::class.qualifiedName}, 
-                                            |message: ${t.message} ]""".flattenIntoOneLine()
+                                            |message: ${t.message} ]""".flatten()
                                     FeatureEngSpringWebFluxException(
                                         SpringWebFluxErrorResponse.EXECUTION_RESULT_ISSUE,
                                         message,
@@ -358,7 +358,7 @@ internal class GraphQLWebFluxHandlerFunction(
                    |uncaught non-platform exception thrown: 
                    |[ type: ${err::class.qualifiedName}, 
                    |message: ${err.message} 
-                   |]""".flattenIntoOneLine(),
+                   |]""".flatten(),
                 err
             )
             ServerResponse.status(HttpStatus.INTERNAL_SERVER_ERROR)

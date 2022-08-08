@@ -7,7 +7,7 @@ import funcify.feature.datasource.db.schema.JooqCodeGenXMLBasedDatabaseConfigure
 import funcify.feature.datasource.db.schema.JooqMetadataGatheringDatabaseConfigurer
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.container.attempt.Try.Companion.flatMapFailure
-import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
+import funcify.feature.tools.extensions.StringExtensions.flatten
 import io.r2dbc.spi.ConnectionFactory
 import java.sql.Connection
 import javax.sql.DataSource
@@ -63,7 +63,7 @@ class DatabaseDatasourcesConfiguration {
                                           |multiple_bean_exceptions: 
                                           |[ message_1: "${thr.message}", 
                                           |message_2: "${otherThr.message}" ]
-                                      """.flattenIntoOneLine()
+                                      """.flatten()
                                 Try.failure(BeanCreationException(message))
                             }
                     }
@@ -111,7 +111,7 @@ class DatabaseDatasourcesConfiguration {
                                 |[ code-gen-xml-resource: "${n}" ] 
                                 |cannot create jooqCodeGenXmlBasedDatabaseConfigurer 
                                 |instance
-                            """.flattenIntoOneLine()
+                            """.flatten()
                     BeanCreationException(message)
                 }
             )
@@ -125,7 +125,7 @@ class DatabaseDatasourcesConfiguration {
                                 |[ code-gen-xml-resource path: "${cpr.path}" ] 
                                 |cannot create jooqCodeGenXmlBasedDatabaseConfigurer 
                                 |instance
-                            """.flattenIntoOneLine()
+                            """.flatten()
                     BeanCreationException(message)
                 }
             )
@@ -158,7 +158,7 @@ class DatabaseDatasourcesConfiguration {
                               |[ type: ${Database::class.qualifiedName} ] 
                               |for gathering metadata and code generation 
                               |due to error [ type: ${thr::class.qualifiedName} ]
-                          """.flattenIntoOneLine()
+                          """.flatten()
                     throw BeanCreationException(message, thr)
                 }
             )

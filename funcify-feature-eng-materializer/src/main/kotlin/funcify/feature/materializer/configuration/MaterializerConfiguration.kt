@@ -31,7 +31,7 @@ import funcify.feature.schema.factory.MetamodelGraphCreationContext
 import funcify.feature.schema.factory.MetamodelGraphFactory
 import funcify.feature.schema.strategy.SchematicVertexGraphRemappingStrategy
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
-import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
+import funcify.feature.tools.extensions.StringExtensions.flatten
 import graphql.schema.GraphQLSchema
 import org.slf4j.Logger
 import org.springframework.beans.factory.ObjectProvider
@@ -100,14 +100,14 @@ class MaterializerConfiguration {
                         """metamodel_graph: [ status: success ] 
                             |[ metamodel_graph [ vertices.size: ${mmg.pathBasedGraph.vertices.size}, 
                             |vertices[0].path: $firstVertexPath ] ]
-                            |""".flattenIntoOneLine()
+                            |""".flatten()
                     )
                 },
                 { t: Throwable ->
                     logger.error(
                         """metamodel_graph: [ status: failed ] 
                            |[ message: ${t.message} ]
-                           |""".flattenIntoOneLine(),
+                           |""".flatten(),
                         t
                     )
                 }
@@ -195,7 +195,7 @@ class MaterializerConfiguration {
                         """materialization_graphql_schema: [ status: success ] 
                             |[ graphql_schema.query_type.field_definitions.size: 
                             |${gs.queryType.fieldDefinitions.size} ]
-                            |""".flattenIntoOneLine()
+                            |""".flatten()
                     )
                 },
                 { t: Throwable ->

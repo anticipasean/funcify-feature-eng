@@ -5,7 +5,7 @@ import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.tools.container.deferred.Deferred
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
-import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
+import funcify.feature.tools.extensions.StringExtensions.flatten
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentSetOf
@@ -31,7 +31,7 @@ internal class CompositeGraphQLApiDataSourceLastUpdatedProvider(
         logger.info(
             """provide_temporal_attribute_paths_in_datasource_for_use_in_last_updated_calculations: 
             |[ datasource.name: ${dataSource.name} 
-            |]""".flattenIntoOneLine()
+            |]""".flatten()
         )
         return Deferred.deferredIterable(
                 lastUpdatedAttributeProviders.fold(

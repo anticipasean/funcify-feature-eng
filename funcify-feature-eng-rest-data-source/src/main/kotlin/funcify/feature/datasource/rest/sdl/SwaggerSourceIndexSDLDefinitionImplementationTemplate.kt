@@ -20,7 +20,7 @@ import funcify.feature.schema.vertex.SourceJunctionVertex
 import funcify.feature.schema.vertex.SourceLeafVertex
 import funcify.feature.schema.vertex.SourceRootVertex
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
-import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
+import funcify.feature.tools.extensions.StringExtensions.flatten
 import kotlin.reflect.KClass
 import kotlin.reflect.cast
 import org.slf4j.Logger
@@ -44,7 +44,7 @@ interface SwaggerSourceIndexSDLDefinitionImplementationTemplate<E> {
             """on_schematic_vertex_sdl_definition_creation_context: [ 
                |path: ${sdlDefinitionCreationContext.path}, 
                |current_vertex.type: ${sdlDefinitionCreationContext.currentVertex::class.simpleName} 
-               |]""".flattenIntoOneLine()
+               |]""".flatten()
         )
         return when (sdlDefinitionCreationContext) {
             is SourceRootVertexSDLDefinitionCreationContext ->
@@ -103,7 +103,7 @@ interface SwaggerSourceIndexSDLDefinitionImplementationTemplate<E> {
                         |in ${vertexContext.currentVertex::class.simpleName}: 
                         |[ actual: $sourceIndexTypesAvailable, 
                         |expected: ${swaggerSourceIndexType.qualifiedName} 
-                        |]""".flattenIntoOneLine()
+                        |]""".flatten()
                 )
             }
             else -> swaggerSourceIndex

@@ -30,7 +30,7 @@ import funcify.feature.schema.path.SchematicPath
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.control.RelationshipSpliterators
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
-import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
+import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.extensions.TryExtensions.failure
 import funcify.feature.tools.extensions.TryExtensions.successIfDefined
 import funcify.feature.tools.extensions.TryExtensions.successIfNonNull
@@ -71,17 +71,17 @@ internal class ComprehensiveGraphQLApiSourceMetadataReader(
             """read_source_container_types_from_metadata: 
                 |[ metadata_input.query_type.name: ${metadataInput.queryType.name}, 
                 | query_type.field_definitions.size: ${metadataInput.queryType.fieldDefinitions.size} ]
-                |""".flattenIntoOneLine()
+                |""".flatten()
         )
         if (metadataInput.queryType.fieldDefinitions.isEmpty()) {
             val message =
                 """graphql_schema input for metadata on graphql 
                 |source does not have any query type 
-                |field definitions""".flattenIntoOneLine()
+                |field definitions""".flatten()
             logger.error(
                 """read_source_container_types_from_metadata: 
                 |[ error: ${message} ]
-                |""".flattenIntoOneLine()
+                |""".flatten()
             )
             throw GQLDataSourceException(GQLDataSourceErrorResponse.INVALID_INPUT, message)
         }
@@ -208,7 +208,7 @@ internal class ComprehensiveGraphQLApiSourceMetadataReader(
             """fold_parent_child_elements_into_source_index_creation_context: 
                |[ parent: ${parentNameAndType}, 
                |child: $childNameAndType ]
-               |""".flattenIntoOneLine()
+               |""".flatten()
         )
         val parentPath: SchematicPath =
             previousContext.schematicPathCreatedBySchemaElement[parent]
@@ -224,7 +224,7 @@ internal class ComprehensiveGraphQLApiSourceMetadataReader(
                            |and behavior of source_index_creation thus 
                            |is not guaranteed to capture all pertinent 
                            |schema metadata
-                           |""".flattenIntoOneLine()
+                           |""".flatten()
                     )
                 }
                 .orElseThrow()
@@ -254,7 +254,7 @@ internal class ComprehensiveGraphQLApiSourceMetadataReader(
                                    |object type and parent path defined 
                                    |if processing order is correct: 
                                    |[ ${nameAndTypePairStringifier().invoke(child)} ]
-                                   |""".flattenIntoOneLine()
+                                   |""".flatten()
                             )
                         }
                         .orElseThrow()
@@ -296,7 +296,7 @@ internal class ComprehensiveGraphQLApiSourceMetadataReader(
                                         """current_element should already have parent 
                                            |field_definition defined if processing order is correct: 
                                            |[ ${nameAndTypePairStringifier().invoke(child)} ]
-                                           |""".flattenIntoOneLine()
+                                           |""".flatten()
                                     )
                                 }
                                 .flatMap { parentFieldDef ->
@@ -322,7 +322,7 @@ internal class ComprehensiveGraphQLApiSourceMetadataReader(
                                 """parent_schema_element of field_argument 
                                    |must be a graphql_field_definition: 
                                    |[ actual_type: ${parent::class.simpleName} ]
-                                   |""".flattenIntoOneLine()
+                                   |""".flatten()
                             )
                         }
                         .orElseThrow()
@@ -408,7 +408,7 @@ internal class ComprehensiveGraphQLApiSourceMetadataReader(
                                     """unhandled_applied_directive_case: 
                                        |[ parent_element.type: ${parent::class.simpleName}, 
                                        |child_directive.name: ${context.currentElement.name} 
-                                       |]""".flattenIntoOneLine()
+                                       |]""".flatten()
                                 )
                                 .failure()
                         }
@@ -425,7 +425,7 @@ internal class ComprehensiveGraphQLApiSourceMetadataReader(
                             """directive_source_index_creation_context: 
                             |[ status: failed but ignoring error ] 
                             |[ type: ${t::class.simpleName}, message: ${t.message} ]
-                            |""".flattenIntoOneLine(),
+                            |""".flatten(),
                             t
                         )
                     }
@@ -440,7 +440,7 @@ internal class ComprehensiveGraphQLApiSourceMetadataReader(
                                 """parent_schema_element of applied_directive_argument 
                                    |must be a applied_directive: 
                                    |[ actual_type: ${parent::class.simpleName} ]
-                                   |""".flattenIntoOneLine()
+                                   |""".flatten()
                             )
                         }
                         .orElseThrow()
@@ -464,7 +464,7 @@ internal class ComprehensiveGraphQLApiSourceMetadataReader(
                                |${nameAndTypePairStringifier().invoke(parent)} 
                                |should have been processed before its 
                                |input_object_type container_type 
-                               |index child""".flattenIntoOneLine()
+                               |index child""".flatten()
                         )
                     }
                     .flatMap { parentParamAttr ->
@@ -523,7 +523,7 @@ internal class ComprehensiveGraphQLApiSourceMetadataReader(
                                         GQLDataSourceErrorResponse.UNEXPECTED_ERROR,
                                         """unhandled type of parent_parameter_attribute: 
                                            |[ actual: ${ppa::class.simpleName} ]
-                                           |""".flattenIntoOneLine()
+                                           |""".flatten()
                                     )
                                     .failure()
                             }
@@ -568,7 +568,7 @@ internal class ComprehensiveGraphQLApiSourceMetadataReader(
             |${graphQLSourceIndexCreationContext.graphqlSourceContainerTypesBySchematicPath.size}, 
             |creation_context.graphql_source_attributes.size: 
             |${graphQLSourceIndexCreationContext.graphqlParameterAttributesBySchematicPath.size} 
-            |]""".flattenIntoOneLine()
+            |]""".flatten()
         )
         val updatedGraphQLSourceContainerTypesByPathAttempt:
             Try<PersistentMap<SchematicPath, GraphQLSourceContainerType>> =
@@ -603,7 +603,7 @@ internal class ComprehensiveGraphQLApiSourceMetadataReader(
                                         |missing graphql_source_container_type entry: 
                                         |[ parent_path: ${parentPath}, 
                                         |source_attributes.names: $sourceAttributeNamesSet ]
-                                        |""".flattenIntoOneLine()
+                                        |""".flatten()
                                     )
                                 },
                                 { gsct: GraphQLSourceContainerType ->

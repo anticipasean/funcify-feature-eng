@@ -9,7 +9,7 @@ import arrow.core.right
 import arrow.core.some
 import arrow.core.toOption
 import arrow.typeclasses.Monoid
-import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
+import funcify.feature.tools.extensions.StringExtensions.flatten
 import java.util.*
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CompletionException
@@ -167,7 +167,7 @@ sealed interface Try<out S> : Iterable<S> {
                     |inputs [ i1.type: ${i1?.let { it::class.qualifiedName }}, 
                     |i2.type: ${i2?.let { it::class.qualifiedName }} ] 
                     |resulted in null value for function",
-                """.flattenIntoOneLine()
+                """.flatten()
                 IllegalArgumentException(message)
             }
         }
@@ -236,7 +236,7 @@ sealed interface Try<out S> : Iterable<S> {
                     """
                     |number_of_retries must be greater 
                     |than or equal to 0: [ actual: $numberOfRetries ]
-                    |""".flattenIntoOneLine()
+                    |""".flatten()
                 return failure<S>(IllegalArgumentException(message))
             }
             var attempt: Try<S> = attempt(function)
@@ -262,7 +262,7 @@ sealed interface Try<out S> : Iterable<S> {
                     """
                     |number_of_retries must be greater 
                     |than or equal to 0: [ actual: $numberOfRetries ]
-                    |""".flattenIntoOneLine()
+                    |""".flatten()
                 return failure<S>(IllegalArgumentException(message))
             }
             var attempt: Try<S> = attempt(function)

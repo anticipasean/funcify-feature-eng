@@ -22,7 +22,7 @@ import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.container.deferred.Deferred
 import funcify.feature.tools.extensions.DeferredExtensions.deferred
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
-import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
+import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.extensions.ThrowableExtensions.possiblyNestedHeadStackTraceElement
 import funcify.feature.tools.extensions.TryExtensions.successIfNonNull
 import kotlinx.collections.immutable.persistentListOf
@@ -51,7 +51,7 @@ internal class DefaultMetamodelGraphCreationStrategy() :
                 val message =
                     """data_source already added by same name: 
                        |[ name: ${dataSource.name} ]
-                       |""".flattenIntoOneLine()
+                       |""".flatten()
                 Deferred.completed(
                     context.update {
                         addError(
@@ -93,7 +93,7 @@ internal class DefaultMetamodelGraphCreationStrategy() :
                                         """[ type: ${thr::class.simpleName}, 
                                            |message: ${thr.message}, 
                                            |stacktrace[0]: "${thr.possiblyNestedHeadStackTraceElement()}" 
-                                           |]""".flattenIntoOneLine()
+                                           |]""".flatten()
                                     }
                                 )
                             Deferred.failed(
@@ -101,7 +101,7 @@ internal class DefaultMetamodelGraphCreationStrategy() :
                                     SchemaErrorResponse.METAMODEL_CREATION_ERROR,
                                     """one or more errors occurred during metamodel_graph creation 
                                         |when adding data_source [ name: ${dataSource.name} ]: 
-                                        |$errorsListAsStr""".flattenIntoOneLine()
+                                        |$errorsListAsStr""".flatten()
                                 )
                             )
                         } else {
@@ -309,7 +309,7 @@ internal class DefaultMetamodelGraphCreationStrategy() :
         logger.debug(
             """${methodTag}: [ schematic_vertex_graph_remapping_strategy.type: 
                |${schematicVertexGraphRemappingStrategy::class.qualifiedName} 
-               |]""".flattenIntoOneLine()
+               |]""".flatten()
         )
         return contextContainer.flatMap { context ->
             val remappingStrategy = context.schematicVertexGraphRemappingStrategy

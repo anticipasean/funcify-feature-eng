@@ -22,7 +22,7 @@ import funcify.feature.datasource.graphql.schema.GraphQLSourceIndex
 import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
-import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
+import funcify.feature.tools.extensions.StringExtensions.flatten
 import graphql.schema.GraphQLAppliedDirective
 import graphql.schema.GraphQLAppliedDirectiveArgument
 import graphql.schema.GraphQLArgument
@@ -74,7 +74,7 @@ internal object DefaultGraphQLSourceIndexCreationContextFactory : GraphQLSourceI
                 """add_or_update_graphql_source_index: 
                    |[ graphql_source_index: { path: ${graphQLSourceIndex.sourcePath}, 
                    |name: ${graphQLSourceIndex.name} } ]
-                   |""".flattenIntoOneLine()
+                   |""".flatten()
                         )
             when (graphQLSourceIndex) {
                 is GraphQLSourceContainerType -> {
@@ -176,7 +176,7 @@ internal object DefaultGraphQLSourceIndexCreationContextFactory : GraphQLSourceI
                         """unhandled graphql_source_index type: 
                            |[ graphql_source_index.type: 
                            |${graphQLSourceIndex::class.qualifiedName} ]
-                           |""".flattenIntoOneLine()
+                           |""".flatten()
                     )
                 }
             }
@@ -190,7 +190,7 @@ internal object DefaultGraphQLSourceIndexCreationContextFactory : GraphQLSourceI
             logger.debug(
                 """next_schema_element: [ parent_path: ${parentPath}, 
                   |next_element.type: ${nextElement::class.simpleName} 
-                  |]""".flattenIntoOneLine()
+                  |]""".flatten()
                         )
             return DefaultBuilder(
                 schematicPathCreatedBySchemaElement = schematicPathCreatedBySchemaElement,
@@ -337,7 +337,7 @@ internal object DefaultGraphQLSourceIndexCreationContextFactory : GraphQLSourceI
                             |[ actual: ${nextElement::class.qualifiedName} 
                             |]; check whether this schema_element type 
                             |requires an accompany source_index_type 
-                            |before adding""".flattenIntoOneLine()
+                            |before adding""".flatten()
                     )
                 }
             }
@@ -678,7 +678,7 @@ internal object DefaultGraphQLSourceIndexCreationContextFactory : GraphQLSourceI
                |_for_query_graphql_object_type: [ graphql_object_type: 
                |{ name: ${graphQLObjectType.name}, 
                |field_definitions.size: ${graphQLObjectType.fieldDefinitions.size} 
-               |} ]""".flattenIntoOneLine()
+               |} ]""".flatten()
                     )
         return DefaultOutputObjectTypeSourceIndexCreationContext(
             graphQLApiDataSourceKey = graphQLApiDataSourceKey,

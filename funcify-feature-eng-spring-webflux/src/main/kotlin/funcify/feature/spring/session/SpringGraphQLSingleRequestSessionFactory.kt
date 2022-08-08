@@ -6,7 +6,7 @@ import funcify.feature.materializer.session.GraphQLSingleRequestSession
 import funcify.feature.materializer.session.GraphQLSingleRequestSessionFactory
 import funcify.feature.tools.container.deferred.Deferred
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
-import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
+import funcify.feature.tools.extensions.StringExtensions.flatten
 import org.slf4j.Logger
 import org.springframework.stereotype.Component
 
@@ -30,7 +30,7 @@ internal class SpringGraphQLSingleRequestSessionFactory(
         logger.info(
             """create_session_for_single_request: 
                 |[ raw_graphql_request.request_id: ${rawGraphQLRequest.requestId} ]
-                |""".flattenIntoOneLine()
+                |""".flatten()
         )
         return materializationMetamodelBroker.fetchLatestMaterializationMetamodel().map {
             materializationMetamodel ->

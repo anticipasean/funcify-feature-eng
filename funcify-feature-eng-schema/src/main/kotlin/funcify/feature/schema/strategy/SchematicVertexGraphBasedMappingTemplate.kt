@@ -9,7 +9,7 @@ import funcify.feature.schema.vertex.SchematicGraphVertexType
 import funcify.feature.schema.vertex.SourceJunctionVertex
 import funcify.feature.schema.vertex.SourceLeafVertex
 import funcify.feature.schema.vertex.SourceRootVertex
-import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
+import funcify.feature.tools.extensions.StringExtensions.flatten
 
 /**
  *
@@ -33,7 +33,7 @@ interface SchematicVertexGraphBasedMappingTemplate<C> {
                 val message =
                     """unhandled schematic_vertex type: [ actual: { ${schematicVertex::class.qualifiedName}, 
                         |$schematicGraphTypeForVertexSubtype 
-                        |]""".flattenIntoOneLine()
+                        |]""".flatten()
                 throw SchemaException(SchemaErrorResponse.UNEXPECTED_ERROR, message)
             }
         }

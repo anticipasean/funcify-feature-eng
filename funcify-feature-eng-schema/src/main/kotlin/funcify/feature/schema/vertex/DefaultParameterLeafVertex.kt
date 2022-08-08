@@ -4,7 +4,7 @@ import funcify.feature.schema.error.SchemaErrorResponse
 import funcify.feature.schema.error.SchemaException
 import funcify.feature.schema.index.CompositeParameterAttribute
 import funcify.feature.schema.path.SchematicPath
-import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
+import funcify.feature.tools.extensions.StringExtensions.flatten
 
 /**
  *
@@ -22,7 +22,7 @@ internal data class DefaultParameterLeafVertex(
                 SchemaErrorResponse.SCHEMATIC_INTEGRITY_VIOLATION,
                 """the path for a parameter vertex must contain 
                    |at least one argument or directive 
-                   |[ provided_path: $path ]""".flattenIntoOneLine()
+                   |[ provided_path: $path ]""".flatten()
             )
         }
     }

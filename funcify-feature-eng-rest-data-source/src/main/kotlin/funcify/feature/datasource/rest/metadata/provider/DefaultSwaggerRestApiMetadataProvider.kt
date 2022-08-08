@@ -10,7 +10,7 @@ import funcify.feature.json.JsonMapper
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.container.deferred.Deferred
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
-import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
+import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.extensions.TryExtensions.successIfDefined
 import io.swagger.v3.oas.models.OpenAPI
 import io.swagger.v3.parser.OpenAPIV3Parser
@@ -45,7 +45,7 @@ internal class DefaultSwaggerRestApiMetadataProvider(
             |{ name: ${service.serviceName}, 
             |host: ${service.hostName}, 
             |port: ${service.port} } ]
-            |""".flattenIntoOneLine()
+            |""".flatten()
         )
         return Deferred.fromAttempt(
                 swaggerSchemaEndpointRegistry
@@ -55,7 +55,7 @@ internal class DefaultSwaggerRestApiMetadataProvider(
                             RestApiErrorResponse.REST_API_DATA_SOURCE_CREATION_ERROR,
                             """${SwaggerSchemaEndpoint::class.qualifiedName} not found  
                             |for rest_api_service: [ name: ${service.serviceName} ]
-                            |""".flattenIntoOneLine()
+                            |""".flatten()
                         )
                     }
             )
@@ -109,7 +109,7 @@ internal class DefaultSwaggerRestApiMetadataProvider(
                            |swagger_schema_endpoint: [ http_method: 
                            |${swaggerSchemaEndpoint.httpMethod}, 
                            |swagger_schema_endpoint.name: ${swaggerSchemaEndpoint.name} 
-                           |]""".flattenIntoOneLine()
+                           |]""".flatten()
                     )
                 }
             }
@@ -124,7 +124,7 @@ internal class DefaultSwaggerRestApiMetadataProvider(
                             """swagger_schema_endpoint on service [ name: ${service.serviceName} ] 
                               |did not successfully return a swagger_schema because: 
                               |[ response_code: ${cr.statusCode()}, message: ${errorMessage} ]
-                              |""".flattenIntoOneLine()
+                              |""".flatten()
                         )
                     }
                 }
@@ -169,7 +169,7 @@ internal class DefaultSwaggerRestApiMetadataProvider(
                            |[ warning: swagger_parse_result contains some error messages 
                            |for parsing swagger schema of [ service.name: ${service.serviceName} ]
                            |[ messages: $errorMessageSet ] 
-                           |]""".flattenIntoOneLine()
+                           |]""".flatten()
                     logger.warn(logMessage)
                 }
             }

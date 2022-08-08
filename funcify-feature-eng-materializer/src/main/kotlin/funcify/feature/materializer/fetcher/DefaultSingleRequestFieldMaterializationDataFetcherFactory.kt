@@ -3,7 +3,7 @@ package funcify.feature.materializer.fetcher
 import arrow.core.filterIsInstance
 import arrow.core.toOption
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
-import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
+import funcify.feature.tools.extensions.StringExtensions.flatten
 import graphql.execution.DataFetcherResult
 import graphql.schema.DataFetcher
 import graphql.schema.DataFetcherFactoryEnvironment
@@ -35,7 +35,7 @@ internal class DefaultSingleRequestFieldMaterializationDataFetcherFactory :
             |[ graphql_field_definition: 
             |{ name: ${environment?.fieldDefinition?.name}, 
             |type: $fieldTypeName 
-            |} ] ]""".flattenIntoOneLine()
+            |} ] ]""".flatten()
         )
         return DefaultSingleRequestContextDecoratingFieldMaterializationDataFetcher<Any?>(
             DefaultSingleRequestSessionFieldMaterializationProcessor()

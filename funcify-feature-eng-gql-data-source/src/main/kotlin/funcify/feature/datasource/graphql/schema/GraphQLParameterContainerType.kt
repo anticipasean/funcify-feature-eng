@@ -6,7 +6,7 @@ import arrow.core.or
 import funcify.feature.datasource.graphql.error.GQLDataSourceErrorResponse
 import funcify.feature.datasource.graphql.error.GQLDataSourceException
 import funcify.feature.schema.datasource.ParameterContainerType
-import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
+import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.extensions.TryExtensions.successIfDefined
 import graphql.schema.GraphQLAppliedDirective
 import graphql.schema.GraphQLAppliedDirectiveArgument
@@ -49,7 +49,7 @@ interface GraphQLParameterContainerType :
                             |graphql_applied_directive_argument must be defined 
                             |for a parameter_container_type 
                             |(or this property must be overridden and supplied some
-                            |other way)""".flattenIntoOneLine()
+                            |other way)""".flatten()
                     )
                 }
                 .orElseThrow()

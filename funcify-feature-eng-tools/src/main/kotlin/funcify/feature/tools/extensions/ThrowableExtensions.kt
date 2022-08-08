@@ -1,6 +1,6 @@
 package funcify.feature.tools.extensions
 
-import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
+import funcify.feature.tools.extensions.StringExtensions.flatten
 
 object ThrowableExtensions {
 
@@ -16,7 +16,7 @@ object ThrowableExtensions {
                 throw IllegalArgumentException(
                     """throwable: [ type: ${outerCause::class.qualifiedName} ] 
                        |is missing a stacktrace from which to 
-                       |extract a first element""".flattenIntoOneLine()
+                       |extract a first element""".flatten()
                 )
             }
             else -> {

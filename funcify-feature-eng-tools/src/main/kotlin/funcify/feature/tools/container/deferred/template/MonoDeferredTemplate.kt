@@ -8,7 +8,7 @@ import funcify.feature.tools.container.deferred.container.DeferredContainer
 import funcify.feature.tools.container.deferred.container.DeferredContainerFactory
 import funcify.feature.tools.container.deferred.container.DeferredContainerFactory.MonoDeferredContainer.Companion.MonoDeferredContainerWT
 import funcify.feature.tools.container.deferred.container.DeferredContainerFactory.narrowed
-import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
+import funcify.feature.tools.extensions.StringExtensions.flatten
 import java.util.concurrent.CompletionStage
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
@@ -79,7 +79,7 @@ internal interface MonoDeferredTemplate : DeferredTemplate<MonoDeferredContainer
         throw UnsupportedOperationException(
             """use of this method [ name: flatMapFlux ] on a 
                 |Mono container would potentially result in 
-                |a loss of information and so is not supported""".flattenIntoOneLine()
+                |a loss of information and so is not supported""".flatten()
         )
     }
 

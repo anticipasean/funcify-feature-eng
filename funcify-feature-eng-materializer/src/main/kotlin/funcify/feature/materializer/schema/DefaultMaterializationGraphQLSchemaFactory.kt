@@ -23,7 +23,7 @@ import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.container.attempt.Try.Companion.flatMapFailure
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.PersistentMapExtensions.streamPairs
-import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
+import funcify.feature.tools.extensions.StringExtensions.flatten
 import graphql.GraphQLError
 import graphql.language.DirectiveDefinition
 import graphql.language.ImplementingTypeDefinition
@@ -85,7 +85,7 @@ internal class DefaultMaterializationGraphQLSchemaFactory(
             """create_graphql_schema_from_metamodel_graph: [ 
                 |metamodel_graph: [ vertices.size: ${metamodelGraph.pathBasedGraph.vertices.size}, 
                 |vertices[0].path: ${firstVertexPathSupplier.invoke()} 
-                |] ]""".flattenIntoOneLine()
+                |] ]""".flatten()
         )
         var counter: Int = 0
         if (logger.isDebugEnabled) {
@@ -137,7 +137,7 @@ internal class DefaultMaterializationGraphQLSchemaFactory(
                             GRAPHQL_SCHEMA_CREATION_ERROR,
                             """error occurred when creating executable schema: 
                                 |[ type: ${t::class.qualifiedName} ]
-                                |""".flattenIntoOneLine(),
+                                |""".flatten(),
                             t
                         )
                     }
@@ -182,7 +182,7 @@ internal class DefaultMaterializationGraphQLSchemaFactory(
                |[ sdl_definition_creation_context.
                |sdl_definitions_by_schematic_path.size: 
                |${sdlDefinitionCreationContext.sdlDefinitionsBySchematicPath.size} ]
-               |""".flattenIntoOneLine()
+               |""".flatten()
         )
         return GraphQLSchemaBuildContext(
             metamodelGraph = sdlDefinitionCreationContext.metamodelGraph,
@@ -203,7 +203,7 @@ internal class DefaultMaterializationGraphQLSchemaFactory(
             """create_type_definition_registry_in_build_context: 
                 |[ build_context.implementing_type_definitions.size: 
                 |${buildContext.implementingTypeDefinitions.size} 
-                |]""".flattenIntoOneLine()
+                |]""".flatten()
         )
         val queryOperationDefinition: OperationTypeDefinition =
             createQueryOperationDefinitionFromSourceRootVertex(buildContext.metamodelGraph)
@@ -239,7 +239,7 @@ internal class DefaultMaterializationGraphQLSchemaFactory(
                 throw MaterializerException(
                     GRAPHQL_SCHEMA_CREATION_ERROR,
                     """root_source_vertex not found in metamodel_graph; 
-                       |cannot create operation definition""".flattenIntoOneLine()
+                       |cannot create operation definition""".flatten()
                 )
             }
             else -> {
@@ -297,7 +297,7 @@ internal class DefaultMaterializationGraphQLSchemaFactory(
                 logger.error(
                     """type_registry_update_graphql_error_handler: [ status: failed ] 
                     |unable to serialize graphql_error into json: [ message: $message 
-                    |]""".flattenIntoOneLine()
+                    |]""".flatten()
                 )
                 throw MaterializerException(GRAPHQL_SCHEMA_CREATION_ERROR, gqlError.message)
             }
@@ -305,7 +305,7 @@ internal class DefaultMaterializationGraphQLSchemaFactory(
                 GRAPHQL_SCHEMA_CREATION_ERROR,
                 """error reported when adding $definitionTypeBeingAdded 
                    |to type_definition_registry: [ error_spec: 
-                   |${graphQLErrorMessageAttempt.orElseThrow()} ]""".flattenIntoOneLine()
+                   |${graphQLErrorMessageAttempt.orElseThrow()} ]""".flatten()
             )
         }
     }
@@ -317,7 +317,7 @@ internal class DefaultMaterializationGraphQLSchemaFactory(
             """update_runtime_wiring_builder_in_build_context: 
                 |[ scalars.size: ${buildContext.scalarTypeDefinitions.size}, 
                 |wiring_factory.type: ${materializationGraphQLWiringFactory::class.qualifiedName} 
-                |]""".flattenIntoOneLine()
+                |]""".flatten()
         )
         return buildContext.copy(
             runtimeWiringBuilder =

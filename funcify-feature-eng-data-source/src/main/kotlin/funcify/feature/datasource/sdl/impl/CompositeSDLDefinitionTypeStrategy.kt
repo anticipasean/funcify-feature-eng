@@ -7,7 +7,7 @@ import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionCreationContex
 import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionTypeStrategy
 import funcify.feature.schema.vertex.SchematicGraphVertexType
 import funcify.feature.tools.container.attempt.Try
-import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
+import funcify.feature.tools.extensions.StringExtensions.flatten
 import graphql.language.Type
 import kotlinx.collections.immutable.toPersistentSet
 
@@ -98,7 +98,7 @@ class CompositeSDLDefinitionTypeStrategy(
                |expected_strategy_supporting: { ${context.currentGraphVertexType} }, 
                |actual_strategies_supporting: $supportedGraphVertexTypesSetString 
                |]
-               |""".flattenIntoOneLine()
+               |""".flatten()
         }
     }
 

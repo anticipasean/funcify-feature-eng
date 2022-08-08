@@ -17,7 +17,7 @@ import funcify.feature.schema.index.DefaultCompositeSourceContainerType
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.schema.vertex.*
 import funcify.feature.tools.container.attempt.Try
-import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
+import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.extensions.TryExtensions.failure
 import funcify.feature.tools.extensions.TryExtensions.successIfNonNull
 import kotlin.reflect.KClass
@@ -89,7 +89,7 @@ internal interface SchematicVertexCreationTemplate<SI : SourceIndex<SI>> {
                         """unhandled source_index type: [ 
                             |expected: one of $sourceIndexTypesSet, 
                             |actual: ${sourceIndex::class.qualifiedName} 
-                            |]""".flattenIntoOneLine()
+                            |]""".flatten()
                     )
                     .failure()
             }
@@ -159,7 +159,7 @@ internal interface SchematicVertexCreationTemplate<SI : SourceIndex<SI>> {
                         """unhandled source_index type: [ 
                             |expected: one of $sourceIndexTypesSet, 
                             |actual: ${sourceIndex::class.qualifiedName} 
-                            |]""".flattenIntoOneLine()
+                            |]""".flatten()
                     )
                     .failure()
             }
@@ -342,7 +342,7 @@ internal interface SchematicVertexCreationTemplate<SI : SourceIndex<SI>> {
                         """unhandled graph index type on existing vertex: [ 
                            |existing_parameter_vertex: { path: ${existingVertex.path}, type: ${existingVertex::class.qualifiedName} }, 
                            |input_source_container_type: { source_path: ${sourceContainerType.sourcePath}, name: ${sourceContainerType.name} }  
-                           |]""".flattenIntoOneLine()
+                           |]""".flatten()
                     )
                     .failure()
             }
@@ -390,7 +390,7 @@ internal interface SchematicVertexCreationTemplate<SI : SourceIndex<SI>> {
                         """unhandled graph index type on existing vertex: [ 
                            |existing_parameter_vertex: { path: ${existingVertex.path}, type: ${existingVertex::class.qualifiedName} }, 
                            |input_source_attribute: { source_path: ${sourceAttribute.sourcePath}, name: ${sourceAttribute.name} } 
-                           |]""".flattenIntoOneLine()
+                           |]""".flatten()
                     )
                     .failure()
             }
@@ -446,7 +446,7 @@ internal interface SchematicVertexCreationTemplate<SI : SourceIndex<SI>> {
                         """unhandled graph index type on existing vertex: [ 
                            |existing_parameter_vertex: { path: ${existingVertex.path}, type: ${existingVertex::class.qualifiedName} }, 
                            |input_parameter_container_type: { source_path: ${parameterContainerType.sourcePath}, name: ${parameterContainerType.name} } 
-                           |]""".flattenIntoOneLine()
+                           |]""".flatten()
                     )
                     .failure()
             }
@@ -504,7 +504,7 @@ internal interface SchematicVertexCreationTemplate<SI : SourceIndex<SI>> {
                         """unhandled graph index type on existing vertex: [ 
                            |existing_parameter_vertex: { path: ${existingVertex.path}, type: ${existingVertex::class.qualifiedName} }, 
                            |input_parameter_attribute: { source_path: ${parameterAttribute.sourcePath}, name: ${parameterAttribute.name} } 
-                           |]""".flattenIntoOneLine()
+                           |]""".flatten()
                     )
                     .failure()
             }

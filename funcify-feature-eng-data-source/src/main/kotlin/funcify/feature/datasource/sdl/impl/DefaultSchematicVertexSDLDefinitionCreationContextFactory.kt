@@ -23,7 +23,7 @@ import funcify.feature.schema.vertex.SourceLeafVertex
 import funcify.feature.schema.vertex.SourceRootVertex
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentMap
-import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
+import funcify.feature.tools.extensions.StringExtensions.flatten
 import graphql.language.*
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.PersistentSet
@@ -81,7 +81,7 @@ internal class DefaultSchematicVertexSDLDefinitionCreationContextFactory :
                     """add_sdl_definition_for_schematic_path: 
                        |[ path: ${schematicPath}, 
                        |sdl_definition.type: ${sdlDefinition::class.simpleName} 
-                       |]""".flattenIntoOneLine()
+                       |]""".flatten()
                 )
                 sdlDefinitionsBySchematicPath =
                     sdlDefinitionsBySchematicPath.put(
@@ -547,7 +547,7 @@ internal class DefaultSchematicVertexSDLDefinitionCreationContextFactory :
                        |[ path: ${schematicPath}, 
                        |sdl_definition.type: 
                        |${sdlDefinition::class.simpleName} 
-                       |]""".flattenIntoOneLine()
+                       |]""".flatten()
                 )
                 if (
                     schematicPath in sdlDefinitionsBySchematicPath &&
@@ -916,7 +916,7 @@ internal class DefaultSchematicVertexSDLDefinitionCreationContextFactory :
                                |graph vertex type: [ expected: 
                                |one of ${expectedGraphVertexTypeNamesSet}, 
                                |actual: ${currentVertex::class.qualifiedName} ]
-                               |""".flattenIntoOneLine()
+                               |""".flatten()
                         logger.error("build: [ status: failed ] [ message: {} ]", message)
                         throw SchemaException(SchemaErrorResponse.INVALID_INPUT, message)
                     }
@@ -1190,7 +1190,7 @@ internal class DefaultSchematicVertexSDLDefinitionCreationContextFactory :
             """create_initial_context_for_root_schematic_vertex_sdl_definition: 
                |[ metamodel_graph.vertices_by_path.size: 
                |${metamodelGraph.pathBasedGraph.verticesByPath.size} ]
-               |""".flattenIntoOneLine()
+               |""".flatten()
         )
         return when (
             val rootVertex: SchematicVertex? =
@@ -1218,7 +1218,7 @@ internal class DefaultSchematicVertexSDLDefinitionCreationContextFactory :
                     """create_initial_context_for_root_schematic_vertex_sdl_definition: 
                     |[ status: failed ] 
                     |[ message: $message ]
-                    |""".flattenIntoOneLine()
+                    |""".flatten()
                 )
                 throw SchemaException(SchemaErrorResponse.SCHEMATIC_INTEGRITY_VIOLATION, message)
             }

@@ -11,7 +11,7 @@ import funcify.feature.datasource.graphql.error.GQLDataSourceErrorResponse
 import funcify.feature.datasource.graphql.error.GQLDataSourceErrorResponse.GRAPHQL_DATA_SOURCE_CREATION_ERROR
 import funcify.feature.datasource.graphql.error.GQLDataSourceException
 import funcify.feature.tools.container.deferred.Deferred
-import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
+import funcify.feature.tools.extensions.StringExtensions.flatten
 import io.netty.handler.codec.http.HttpScheme
 import java.util.stream.Collectors
 import org.slf4j.Logger
@@ -192,7 +192,7 @@ internal class DefaultGraphQLApiServiceFactory(
                     |[ query.length: ${query.length}, 
                     |variables.size: ${variables.size}, 
                     |operation_name: $operationName ]
-                    |""".flattenIntoOneLine()
+                    |""".flatten()
             )
             val queryBodySupplierMono: Mono<ObjectNode> =
                 Mono.fromSupplier {
@@ -247,7 +247,7 @@ internal class DefaultGraphQLApiServiceFactory(
                                         |[ code: ${cr.statusCode().value()}, 
                                         |reason: ${cr.statusCode().reasonPhrase} ] 
                                         |[ body: "$responseBody" ]
-                                    """.flattenIntoOneLine()
+                                    """.flatten()
                                     )
                                 )
                             }

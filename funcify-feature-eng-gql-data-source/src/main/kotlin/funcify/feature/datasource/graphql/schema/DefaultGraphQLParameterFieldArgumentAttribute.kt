@@ -6,11 +6,10 @@ import funcify.feature.datasource.graphql.error.GQLDataSourceException
 import funcify.feature.naming.ConventionalName
 import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.path.SchematicPath
-import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
+import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.extensions.TryExtensions.successIfDefined
 import graphql.schema.GraphQLArgument
 import graphql.schema.GraphQLInputType
-import graphql.schema.GraphQLType
 
 /**
  *
@@ -39,7 +38,7 @@ internal data class DefaultGraphQLParameterFieldArgumentAttribute(
                 """source_path must represent an argument parameter on a 
                    |source_index i.e. have at least one argument 
                    |declared: [ actual: ${sourcePath} ]
-                   |""".flattenIntoOneLine()
+                   |""".flatten()
             )
         }
     }

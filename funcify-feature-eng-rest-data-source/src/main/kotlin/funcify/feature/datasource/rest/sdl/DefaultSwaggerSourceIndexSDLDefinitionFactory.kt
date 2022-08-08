@@ -18,7 +18,7 @@ import funcify.feature.schema.path.SchematicPath
 import funcify.feature.schema.vertex.SourceAttributeVertex
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
-import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
+import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.extensions.TryExtensions.failure
 import funcify.feature.tools.extensions.TryExtensions.successIfNonNull
 import graphql.language.FieldDefinition
@@ -237,7 +237,7 @@ internal class DefaultSwaggerSourceIndexSDLDefinitionFactory(
                         """unhandled parameter_junction_vertex 
                         |sdl_definition_creation for [ path: ${parameterJunctionVertexContext.path}, 
                         |swagger_parameter_attribute.name: ${swaggerParameterAttribute.name} 
-                        |]""".flattenIntoOneLine()
+                        |]""".flatten()
                     )
                     .failure()
             }
@@ -298,7 +298,7 @@ internal class DefaultSwaggerSourceIndexSDLDefinitionFactory(
                         """unhandled parameter_leaf_vertex  
                         |sdl_definition_creation for [ path: ${parameterLeafVertexContext.path}, 
                         |swagger_parameter_attribute.name: ${swaggerParameterAttribute.name} 
-                        |]""".flattenIntoOneLine()
+                        |]""".flatten()
                     )
                     .failure()
             }

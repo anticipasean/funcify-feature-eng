@@ -10,7 +10,7 @@ import funcify.feature.json.container.KJsonNodeFactory.KJsonNullNode
 import funcify.feature.json.container.KJsonNodeFactory.KJsonNumericNode
 import funcify.feature.json.container.KJsonNodeFactory.KJsonObjectNode
 import funcify.feature.json.container.KJsonNodeFactory.KJsonStringNode
-import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
+import funcify.feature.tools.extensions.StringExtensions.flatten
 import java.math.BigDecimal
 import java.math.BigInteger
 
@@ -42,7 +42,7 @@ internal interface KJsonTemplate<WT> {
                     throw IllegalStateException(
                         """unsupported numeric value type: 
                             |[ type: ${numericValue::class.qualifiedName}, 
-                            |value: $numericValue ]""".flattenIntoOneLine()
+                            |value: $numericValue ]""".flatten()
                     )
             } as
                 NumericNode

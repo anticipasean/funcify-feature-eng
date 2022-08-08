@@ -4,7 +4,7 @@ import funcify.feature.schema.error.SchemaErrorResponse
 import funcify.feature.schema.error.SchemaException
 import funcify.feature.schema.index.CompositeSourceAttribute
 import funcify.feature.schema.path.SchematicPath
-import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
+import funcify.feature.tools.extensions.StringExtensions.flatten
 
 internal data class DefaultSourceLeafVertex(
     override val path: SchematicPath,
@@ -18,7 +18,7 @@ internal data class DefaultSourceLeafVertex(
                 """the path for a source leaf vertex cannot be root 
                    |i.e. must have at least one path segment
                    |and cannot have any arguments or directives 
-                   |[ provided_path: $path ]""".flattenIntoOneLine()
+                   |[ provided_path: $path ]""".flatten()
             )
         }
     }

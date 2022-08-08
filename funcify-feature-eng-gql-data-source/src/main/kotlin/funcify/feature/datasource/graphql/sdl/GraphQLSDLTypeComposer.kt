@@ -11,7 +11,7 @@ import funcify.feature.datasource.graphql.error.GQLDataSourceErrorResponse
 import funcify.feature.datasource.graphql.error.GQLDataSourceException
 import funcify.feature.tools.control.TraversalFunctions
 import funcify.feature.tools.extensions.FunctionExtensions.compose
-import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
+import funcify.feature.tools.extensions.StringExtensions.flatten
 import graphql.language.ListType
 import graphql.language.NonNullType
 import graphql.language.Type
@@ -142,7 +142,7 @@ object GraphQLSDLTypeComposer : (GraphQLType) -> Type<*> {
                    |neither an input or output type 
                    |so an SDL Type<*> instance cannot be determined: 
                    |[ actual: ${graphQLInputOrOutputType::class.qualifiedName} 
-                   |]""".flattenIntoOneLine()
+                   |]""".flatten()
             throw GQLDataSourceException(GQLDataSourceErrorResponse.SCHEMA_CREATION_ERROR, message)
         }
         return TraversalFunctions.recurseWithOption(
@@ -173,7 +173,7 @@ object GraphQLSDLTypeComposer : (GraphQLType) -> Type<*> {
             """graphql_field_definition.${inputOrOutputType} [ type.to_string: 
                 |$graphQLInputOrOutputType ] 
                 |does not have name for use in SDL type creation
-                |""".flattenIntoOneLine()
+                |""".flatten()
         )
     }
 }

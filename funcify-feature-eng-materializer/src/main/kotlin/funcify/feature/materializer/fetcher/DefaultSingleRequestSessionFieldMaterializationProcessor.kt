@@ -6,6 +6,7 @@ import arrow.core.none
 import arrow.core.toOption
 import funcify.feature.tools.container.async.KFuture
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
+import funcify.feature.tools.extensions.StringExtensions.flatten
 import graphql.schema.GraphQLNamedOutputType
 import org.slf4j.Logger
 
@@ -35,7 +36,7 @@ internal class DefaultSingleRequestSessionFieldMaterializationProcessor :
             """materialize_field_value_in_context: [ 
             |context: { field.name: ${context.currentField.name}, 
             |field.type: $fieldTypeName }
-            |]""".trimMargin()
+            |]""".flatten()
         )
         return KFuture.completed(none())
     }

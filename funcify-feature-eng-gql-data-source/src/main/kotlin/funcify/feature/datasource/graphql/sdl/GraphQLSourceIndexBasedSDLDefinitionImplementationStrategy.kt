@@ -20,7 +20,7 @@ import funcify.feature.schema.index.CompositeSourceAttribute
 import funcify.feature.schema.index.CompositeSourceContainerType
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
-import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
+import funcify.feature.tools.extensions.StringExtensions.flatten
 import graphql.language.Description
 import graphql.language.FieldDefinition
 import graphql.language.Node
@@ -141,7 +141,7 @@ internal class GraphQLSourceIndexBasedSDLDefinitionImplementationStrategy :
                            |for vertex in context [ vertex.path: ${context.path}, 
                            |vertex.composite_container_type
                            |.data_source_keys: $sourceContainerTypeDataSourceKeysSet 
-                           |]""".flattenIntoOneLine()
+                           |]""".flatten()
                     )
                 )
             }
@@ -161,7 +161,7 @@ internal class GraphQLSourceIndexBasedSDLDefinitionImplementationStrategy :
                            |${graphQLSourceContainerTypes.first().sourcePath}, 
                            |gql_data_sources: $graphQLSourceContainerTypesFoundSet ] 
                            |handling for multiple sources for same container_type 
-                           |undefined""".flattenIntoOneLine()
+                           |undefined""".flatten()
                     )
                 )
             }
@@ -201,7 +201,7 @@ internal class GraphQLSourceIndexBasedSDLDefinitionImplementationStrategy :
                            |for vertex in context [ vertex.path: ${context.path}, 
                            |vertex.composite_attribute
                            |.data_source_keys: $sourceAttributeDataSourceKetSet 
-                           |]""".flattenIntoOneLine()
+                           |]""".flatten()
                     )
                 )
             }
@@ -221,7 +221,7 @@ internal class GraphQLSourceIndexBasedSDLDefinitionImplementationStrategy :
                            |${graphQLSourceAttributes.first().sourcePath}, 
                            |gql_data_sources: $graphQLSourceContainerTypesFoundSet ] 
                            |handling for multiple sources for same container_type 
-                           |undefined""".flattenIntoOneLine()
+                           |undefined""".flatten()
                     )
                 )
             }
@@ -293,7 +293,7 @@ internal class GraphQLSourceIndexBasedSDLDefinitionImplementationStrategy :
                     """graphql_fields_container_type does not conform to expected 
                       |contract for get_definition: [ graphql_field_container_type.definition.type: 
                       |${fieldsContainerDefinition::class.qualifiedName} 
-                      |]""".flattenIntoOneLine()
+                      |]""".flatten()
                 )
             }
         }

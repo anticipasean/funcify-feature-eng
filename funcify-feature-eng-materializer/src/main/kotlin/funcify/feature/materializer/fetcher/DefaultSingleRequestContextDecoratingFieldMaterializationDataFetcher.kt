@@ -6,7 +6,7 @@ import funcify.feature.materializer.error.MaterializerException
 import funcify.feature.materializer.session.GraphQLSingleRequestSession
 import funcify.feature.tools.container.async.KFuture
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
-import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
+import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.extensions.ThrowableExtensions.possiblyNestedHeadStackTraceElement
 import graphql.ErrorType
 import graphql.GraphQLError
@@ -36,7 +36,7 @@ internal class DefaultSingleRequestContextDecoratingFieldMaterializationDataFetc
             """get: [ 
                |environment.parent.type.name: ${(environment?.parentType as? GraphQLNamedOutputType)?.name}, 
                |environment.field.name: ${environment?.field?.name} 
-               |]""".flattenIntoOneLine()
+               |]""".flatten()
         )
         return when {
             environment == null -> {
@@ -58,7 +58,7 @@ internal class DefaultSingleRequestContextDecoratingFieldMaterializationDataFetc
                     """data_fetching_environment.graphql_context is missing entry for key
                         |[ name: ${GraphQLSingleRequestSession.GRAPHQL_SINGLE_REQUEST_SESSION_KEY.name}, 
                         |type: ${GraphQLSingleRequestSession.GRAPHQL_SINGLE_REQUEST_SESSION_KEY.valueResolvableType} 
-                        |]""".flattenIntoOneLine()
+                        |]""".flatten()
                 logger.error("get: [ status: failed ] [ message: $message ]")
                 CompletableFuture.failedFuture(
                     MaterializerException(MaterializerErrorResponse.UNEXPECTED_ERROR, message)
@@ -149,7 +149,7 @@ internal class DefaultSingleRequestContextDecoratingFieldMaterializationDataFetc
                 """unable to convert materialized_value: 
                     |[ actual: result.type $materializedValueType ] 
                     |[ class_cast_exception.message: ${cce.message} ]
-                    |""".flattenIntoOneLine()
+                    |""".flatten()
             DataFetcherResult.newResult<R>()
                 .error(
                     GraphqlErrorBuilder.newError(environment)
@@ -178,7 +178,7 @@ internal class DefaultSingleRequestContextDecoratingFieldMaterializationDataFetc
                     """[ type: ${rootCause::class.simpleName}, 
                        |message: ${rootCause.message}, 
                        |head_stack_trace_element: ${rootCause.possiblyNestedHeadStackTraceElement()} 
-                       |]""".flattenIntoOneLine()
+                       |]""".flatten()
                 return DataFetcherResult.newResult<R>()
                     .error(
                         GraphqlErrorBuilder.newError(environment)

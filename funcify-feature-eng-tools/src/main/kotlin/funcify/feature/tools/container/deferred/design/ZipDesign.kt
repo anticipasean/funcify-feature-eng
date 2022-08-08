@@ -5,7 +5,7 @@ import arrow.core.None
 import arrow.core.Option
 import funcify.feature.tools.container.deferred.container.DeferredContainer
 import funcify.feature.tools.container.deferred.template.DeferredTemplate
-import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
+import funcify.feature.tools.extensions.StringExtensions.flatten
 import java.util.concurrent.Executor
 import reactor.core.scheduler.Scheduler
 
@@ -49,7 +49,7 @@ internal class ZipDesign<SWT, I, I1, I2, I3, O>(
                         |and thus cannot be invoked 
                         |[ other2: ${other2}, other3: ${other3}, 
                         |combiner1: ${combiner1}, combiner2: ${combiner2}, 
-                        |combiner3: ${combiner3} ]""".flattenIntoOneLine()
+                        |combiner3: ${combiner3} ]""".flatten()
                 )
             }
         }

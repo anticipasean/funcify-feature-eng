@@ -17,7 +17,7 @@ import funcify.feature.schema.strategy.SchematicVertexGraphRemappingStrategy
 import funcify.feature.tools.container.deferred.Deferred
 import funcify.feature.tools.container.graph.PathBasedGraph
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
-import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
+import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.extensions.ThrowableExtensions.possiblyNestedHeadStackTraceElement
 import kotlinx.collections.immutable.persistentMapOf
 import org.slf4j.Logger
@@ -100,7 +100,7 @@ internal class DefaultMetamodelGraphFactory(val schematicVertexFactory: Schemati
                                         """[ type: ${thr::class.simpleName}, 
                                            |message: ${thr.message}, 
                                            |stacktrace[0]: "${thr.possiblyNestedHeadStackTraceElement()}" 
-                                           |]""".flattenIntoOneLine()
+                                           |]""".flatten()
                                     }
                                 )
                             Deferred.failed(

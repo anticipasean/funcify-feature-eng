@@ -21,11 +21,10 @@ import funcify.feature.naming.ConventionalName
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.tools.extensions.JsonNodeExtensions.addChildKeyValuePairToRightmostObjectOrNullNode
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
-import funcify.feature.tools.extensions.StreamExtensions.flatMapOptions
 import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentMap
 import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentSetValueMap
 import funcify.feature.tools.extensions.SequenceExtensions.flatMapOptions
-import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
+import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.extensions.TryExtensions.successIfDefined
 import io.swagger.v3.oas.models.OpenAPI
 import io.swagger.v3.oas.models.Operation
@@ -99,7 +98,7 @@ interface SwaggerV3ParserSourceIndexCreationTraversalTemplate<WT> :
         logger.debug(
             """on_service_paths_group: [ parent_path: ${parentPath}, 
             |path_info_by_schematic_path.size: ${childPathInfoBySchematicPath.size} 
-            |]""".flattenIntoOneLine()
+            |]""".flatten()
         )
         return createSourceIndicesInContextForPathsGroup(
                 parentPath,
@@ -183,7 +182,7 @@ interface SwaggerV3ParserSourceIndexCreationTraversalTemplate<WT> :
         logger.debug(
             """on_service_post_request: [ source_path: ${sourcePath}, 
             |request.content.size: $requestContentSize ]
-            |""".flattenIntoOneLine()
+            |""".flatten()
         )
         return request.content
             .toOption()
@@ -228,7 +227,7 @@ interface SwaggerV3ParserSourceIndexCreationTraversalTemplate<WT> :
         logger.debug(
             """$methodTag: [ source_path: ${sourcePath}, 
             |request_body_schema.type: ${requestBodyJsonSchema.type} 
-            |]""".flattenIntoOneLine()
+            |]""".flatten()
         )
 
         return when (
@@ -257,10 +256,10 @@ interface SwaggerV3ParserSourceIndexCreationTraversalTemplate<WT> :
                     """post_request_body.type is not an object type 
                        |and thus requires handling 
                        |that is not implemented: 
-                       |[ actual: ${requestBodySchemaType} ]""".flattenIntoOneLine()
+                       |[ actual: ${requestBodySchemaType} ]""".flatten()
                 logger.error(
                     """$methodTag: [ status: failed ] 
-                    |${errorMessage}""".flattenIntoOneLine()
+                    |${errorMessage}""".flatten()
                 )
                 throw RestApiDataSourceException(
                     RestApiErrorResponse.REST_API_DATA_SOURCE_CREATION_ERROR,
@@ -283,7 +282,7 @@ interface SwaggerV3ParserSourceIndexCreationTraversalTemplate<WT> :
             """$methodTag: [ source_path: $sourcePath, 
             |request_body_property_name: $requestBodyPropertyName, 
             |request_body_property_schema.type: ${requestBodyPropertySchema.type} 
-            |]""".flattenIntoOneLine()
+            |]""".flatten()
         )
         return when (JsonFormatTypes.forValue(requestBodyPropertySchema?.type)) {
             JsonFormatTypes.OBJECT -> {
@@ -371,7 +370,7 @@ interface SwaggerV3ParserSourceIndexCreationTraversalTemplate<WT> :
         logger.debug(
             """on_successful_post_response: [ source_path: ${sourcePath}, 
             |api_response.first.media_type_name: ${firstMediaTypeNameInContent} 
-            |]""".flattenIntoOneLine()
+            |]""".flatten()
         )
         return response.content
             .toOption()
@@ -421,7 +420,7 @@ interface SwaggerV3ParserSourceIndexCreationTraversalTemplate<WT> :
         logger.debug(
             """$methodTag: [ source_path: $sourcePath, 
                 |response_body_json_schema.type: ${responseBodyJsonSchema.type} 
-                |]""".flattenIntoOneLine()
+                |]""".flatten()
         )
         return when (
             val responseBodyJsonType = JsonFormatTypes.forValue(responseBodyJsonSchema.type)
@@ -455,10 +454,10 @@ interface SwaggerV3ParserSourceIndexCreationTraversalTemplate<WT> :
                     """post_request_body.type is not an object type 
                        |and thus requires handling 
                        |that is not implemented: 
-                       |[ actual: ${responseBodyJsonType} ]""".flattenIntoOneLine()
+                       |[ actual: ${responseBodyJsonType} ]""".flatten()
                 logger.error(
                     """$methodTag: [ status: failed ] 
-                    |${errorMessage}""".flattenIntoOneLine()
+                    |${errorMessage}""".flatten()
                 )
                 throw RestApiDataSourceException(
                     RestApiErrorResponse.REST_API_DATA_SOURCE_CREATION_ERROR,
@@ -481,7 +480,7 @@ interface SwaggerV3ParserSourceIndexCreationTraversalTemplate<WT> :
             """$methodTag: [ source_path: $sourcePath, 
                 |json_property_name: $jsonPropertyName, 
                 |json_property_schema.type: ${jsonPropertySchema.type} 
-                |]""".flattenIntoOneLine()
+                |]""".flatten()
         )
         return when (JsonFormatTypes.forValue(jsonPropertySchema?.type)) {
             JsonFormatTypes.OBJECT -> {
@@ -548,7 +547,7 @@ interface SwaggerV3ParserSourceIndexCreationTraversalTemplate<WT> :
                 |[ source_path: $sourcePath, 
                 |paths_group.size: ${pathsGroup.size}, 
                 |paths_group.first.path: $pathsGroupFirstPath 
-                |]""".flattenIntoOneLine()
+                |]""".flatten()
         )
         val conventionalName: ConventionalName =
             if (sourcePath.isRoot()) {
@@ -567,7 +566,7 @@ interface SwaggerV3ParserSourceIndexCreationTraversalTemplate<WT> :
                             |does not contain a name that can be 
                             |used for this type name; information about 
                             |the root may need to be provided
-                            |""".flattenIntoOneLine()
+                            |""".flatten()
                         )
                     }
                     .map { lastSegment ->
@@ -598,7 +597,7 @@ interface SwaggerV3ParserSourceIndexCreationTraversalTemplate<WT> :
                                        |does not contain a name that can be 
                                        |used for this type name; information about 
                                        |the root may need to be provided
-                                       |""".flattenIntoOneLine()
+                                       |""".flatten()
                                 )
                             }
                             .map { lastSegment ->
@@ -662,7 +661,7 @@ interface SwaggerV3ParserSourceIndexCreationTraversalTemplate<WT> :
                 |[ source_path: ${sourcePath}, 
                 |response_json_schema.type: ${responseJsonSchema.type}, 
                 |response_json_schema.properties.size: $responseJsonSchemaPropertiesSize ]
-                |""".flattenIntoOneLine()
+                |""".flatten()
         )
         val conventionalName: ConventionalName =
             sourcePath.pathSegments
@@ -674,7 +673,7 @@ interface SwaggerV3ParserSourceIndexCreationTraversalTemplate<WT> :
                             |does not contain a name that can be 
                             |used for this type name; information about 
                             |the root may need to be provided
-                            |""".flattenIntoOneLine()
+                            |""".flatten()
                     )
                 }
                 .map { lastPathSegment ->
@@ -703,7 +702,7 @@ interface SwaggerV3ParserSourceIndexCreationTraversalTemplate<WT> :
             """create_source_attribute_in_context_for_path_info_representation: [ 
             |source_path: ${sourcePath}, 
             |path_info.post.response.size: ${pathInfo?.post?.responses?.size} 
-            |]""".flattenIntoOneLine()
+            |]""".flatten()
         )
         val lastPathSegment: String =
             sourcePath.pathSegments
@@ -714,7 +713,7 @@ interface SwaggerV3ParserSourceIndexCreationTraversalTemplate<WT> :
                         """path_item.source_path.path_segments 
                        |does not contain a name that can be 
                        |used for this type name: [ source_path: ${sourcePath}
-                       |]""".flattenIntoOneLine()
+                       |]""".flatten()
                     )
                 }
                 .orElseThrow()
@@ -745,7 +744,7 @@ interface SwaggerV3ParserSourceIndexCreationTraversalTemplate<WT> :
             |[ source_path: ${sourcePath}, 
             |json_property_name: ${jsonPropertyName}, 
             |json_property_schema.type: ${jsonPropertySchema.type} 
-            |]""".flattenIntoOneLine()
+            |]""".flatten()
         )
         val conventionalName: ConventionalName =
             RestApiSourceNamingConventions.getFieldNamingConventionForJsonPropertyName()
@@ -775,7 +774,7 @@ interface SwaggerV3ParserSourceIndexCreationTraversalTemplate<WT> :
                 |[ source_path: ${sourcePath}, 
                 |request_body_schema.type: ${requestBodyJsonSchema.type}, 
                 |request_body_schema.size: $requestBodyPropertiesSize 
-                |]""".flattenIntoOneLine()
+                |]""".flatten()
         )
         val conventionalName: ConventionalName =
             sourcePath.pathSegments
@@ -787,7 +786,7 @@ interface SwaggerV3ParserSourceIndexCreationTraversalTemplate<WT> :
                             |does not contain a name that can be 
                             |used for this type name; information about 
                             |the root may need to be provided
-                            |""".flattenIntoOneLine()
+                            |""".flatten()
                     )
                 }
                 .map { lastPathSegment ->
@@ -821,7 +820,7 @@ interface SwaggerV3ParserSourceIndexCreationTraversalTemplate<WT> :
             |[ source_path: ${sourcePath}, 
             |json_property_name: ${jsonPropertyName}, 
             |json_property_schema.type: ${jsonPropertySchema.type} 
-            |]""".flattenIntoOneLine()
+            |]""".flatten()
         )
         val conventionalName: ConventionalName =
             RestApiSourceNamingConventions.getFieldNamingConventionForJsonPropertyName()

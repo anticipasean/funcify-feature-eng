@@ -5,7 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.jayway.jsonpath.Configuration
 import com.jayway.jsonpath.JsonPath
 import funcify.feature.tools.container.attempt.Try
-import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
+import funcify.feature.tools.extensions.StringExtensions.flatten
 import kotlin.reflect.KClass
 import kotlin.reflect.cast
 
@@ -41,7 +41,7 @@ internal object DefaultJsonMapperFactory : JsonMapperFactory {
                     """one of the following was not set in the builder: 
                         |[ jacksonObjectMapper: ${jacksonObjectMapper ?: "UNSET"}, 
                         |jaywayJsonPathConfiguration: ${jaywayJsonPathConfiguration ?: "UNSET"}
-                        |""".flattenIntoOneLine()
+                        |""".flatten()
                 throw IllegalArgumentException(message)
             }
         }

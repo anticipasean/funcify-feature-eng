@@ -5,7 +5,7 @@ import funcify.feature.naming.impl.DefaultConventionalName
 import funcify.feature.naming.impl.DefaultNameSegment
 import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.path.SchematicPath
-import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
+import funcify.feature.tools.extensions.StringExtensions.flatten
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.persistentListOf
@@ -45,7 +45,7 @@ data class JooqSourceContainerType(val jooqRelTable: JooqRelTable) :
                 ?: throw IllegalArgumentException(
                     """cannot create data_source.key for absent 
                     |catalog name for relational_database_index
-                    |""".flattenIntoOneLine()
+                    |""".flatten()
                 )
         )
     }

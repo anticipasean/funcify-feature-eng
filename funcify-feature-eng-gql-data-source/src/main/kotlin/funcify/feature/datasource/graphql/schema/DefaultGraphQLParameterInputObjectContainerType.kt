@@ -6,7 +6,7 @@ import funcify.feature.naming.ConventionalName
 import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentMap
-import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
+import funcify.feature.tools.extensions.StringExtensions.flatten
 import graphql.schema.GraphQLInputFieldsContainer
 import graphql.schema.GraphQLInputObjectType
 import kotlinx.collections.immutable.PersistentMap
@@ -33,7 +33,7 @@ internal data class DefaultGraphQLParameterInputObjectContainerType(
                 """source_path must have at least one argument or directive 
                    |in order to represent a container_type value 
                    |on an argument or directive: [ actual: $sourcePath ]
-                   |""".flattenIntoOneLine()
+                   |""".flatten()
             )
         }
     }

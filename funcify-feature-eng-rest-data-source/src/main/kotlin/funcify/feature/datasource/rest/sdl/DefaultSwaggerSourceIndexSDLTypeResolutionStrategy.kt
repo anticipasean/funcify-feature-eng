@@ -13,7 +13,7 @@ import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionCreationContex
 import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionCreationContext.SourceRootVertexSDLDefinitionCreationContext
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
-import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
+import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.extensions.TryExtensions.successIfDefined
 import funcify.feature.tools.extensions.TryExtensions.successIfNonNull
 import graphql.language.Type
@@ -54,7 +54,7 @@ internal class DefaultSwaggerSourceIndexSDLTypeResolutionStrategy :
                        |path: ${sourceJunctionVertexContext.path} ] 
                        |could not be mapped to a GraphQL SDL type: [ 
                        |source_attribute.source_path: ${swaggerSourceAttribute.sourcePath} 
-                       ]""".flattenIntoOneLine()
+                       ]""".flatten()
                 )
             }
     }
@@ -71,7 +71,7 @@ internal class DefaultSwaggerSourceIndexSDLTypeResolutionStrategy :
                        |path: ${sourceLeafVertexContext.path} ] 
                        |could not be mapped to a GraphQL SDL type: [ 
                        |source_attribute.source_path: ${swaggerSourceAttribute.sourcePath} 
-                       ]""".flattenIntoOneLine()
+                       ]""".flatten()
                 )
             }
     }
@@ -89,7 +89,7 @@ internal class DefaultSwaggerSourceIndexSDLTypeResolutionStrategy :
                        |path: ${parameterJunctionVertexContext.path} ] 
                        |could not be mapped to a GraphQL SDL type: [ 
                        |source_attribute.source_path: ${swaggerParameterAttribute.sourcePath} 
-                       ]""".flattenIntoOneLine()
+                       ]""".flatten()
                 )
             }
     }
@@ -106,7 +106,7 @@ internal class DefaultSwaggerSourceIndexSDLTypeResolutionStrategy :
                        |path: ${parameterLeafVertexContext.path} ] 
                        |could not be mapped to a GraphQL SDL type: [ 
                        |source_attribute.source_path: ${swaggerParameterAttribute.sourcePath} 
-                       ]""".flattenIntoOneLine()
+                       ]""".flatten()
                 )
             }
     }

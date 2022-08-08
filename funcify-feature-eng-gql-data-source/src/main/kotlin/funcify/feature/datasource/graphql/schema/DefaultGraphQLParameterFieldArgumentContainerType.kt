@@ -7,7 +7,7 @@ import funcify.feature.naming.ConventionalName
 import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentMap
-import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
+import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.extensions.TryExtensions.successIfDefined
 import graphql.schema.GraphQLArgument
 import graphql.schema.GraphQLInputFieldsContainer
@@ -49,7 +49,7 @@ internal data class DefaultGraphQLParameterFieldArgumentContainerType(
                     """field_argument.type must be a 
                        |graphql_input_fields_container type: 
                        |[ actual: $actualInputType}
-                       |]""".flattenIntoOneLine()
+                       |]""".flatten()
                 )
             }
             .orElseThrow()

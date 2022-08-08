@@ -12,7 +12,7 @@ import funcify.feature.schema.datasource.DataSourceType
 import funcify.feature.schema.datasource.RawDataSourceType
 import funcify.feature.schema.datasource.SourceMetamodel
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
-import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
+import funcify.feature.tools.extensions.StringExtensions.flatten
 import graphql.schema.GraphQLSchema
 import org.slf4j.Logger
 import kotlin.reflect.KClass
@@ -64,7 +64,7 @@ internal class DefaultGraphQLApiDataSourceFactory(
                 GQLDataSourceException(
                     GQLDataSourceErrorResponse.UNEXPECTED_ERROR,
                     """error occurred when retrieving or processing metadata 
-                        |from graphql_api_data_source""".flattenIntoOneLine(),
+                        |from graphql_api_data_source""".flatten(),
                     t
                 )
             }

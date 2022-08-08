@@ -12,7 +12,7 @@ import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.container.deferred.Deferred
 import funcify.feature.tools.extensions.StreamExtensions.flatMapOptions
 import funcify.feature.tools.extensions.PersistentListExtensions.reduceToPersistentList
-import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
+import funcify.feature.tools.extensions.StringExtensions.flatten
 import graphql.GraphQLError
 import graphql.introspection.IntrospectionResultToSchema
 import graphql.language.Definition
@@ -42,7 +42,7 @@ internal class DefaultGraphQLApiSourceMetadataProvider(private val objectMapper:
                 |host: ${service.hostName}, 
                 |port: ${service.port}, 
                 |context_path: ${service.serviceContextPath} } ]
-                |""".flattenIntoOneLine()
+                |""".flatten()
                     )
         return Deferred.fromAttempt(
             service

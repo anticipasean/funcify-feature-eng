@@ -1,6 +1,6 @@
 package funcify.feature.materializer.service
 
-import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
+import funcify.feature.tools.extensions.StringExtensions.flatten
 import graphql.ErrorType
 import graphql.GraphqlErrorException
 import graphql.schema.DataFetcher
@@ -26,7 +26,7 @@ interface MaterializationGraphQLWiringFactory : WiringFactory {
                     """materialization_graphql_wiring_factory: 
                       |method [ name: ${methodName} ] called 
                       |but has not been or will not be implemented
-                      |""".flattenIntoOneLine()
+                      |""".flatten()
                 )
                 .build()
         }

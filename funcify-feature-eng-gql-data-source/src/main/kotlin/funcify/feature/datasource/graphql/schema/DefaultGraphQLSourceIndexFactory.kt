@@ -22,7 +22,7 @@ import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentMap
-import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
+import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.extensions.TryExtensions.failure
 import funcify.feature.tools.extensions.TryExtensions.successIfDefined
 import funcify.feature.tools.extensions.TryExtensions.successIfNonNull
@@ -115,7 +115,7 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
                                 """field_definition.type is not a graphql_fields_container_type 
                                    |and cannot represent a graphql_source_container_type: 
                                    |[ actual: ${attributeDefinition.type::class.qualifiedName} 
-                                   |]""".flattenIntoOneLine()
+                                   |]""".flatten()
                             )
                             .failure()
                     }
@@ -170,14 +170,14 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
                                     GQLDataSourceErrorResponse.INVALID_INPUT,
                                     """parent_path must be provided if parent 
                                |is field_definition and not 
-                               |root_query_object_type""".flattenIntoOneLine()
+                               |root_query_object_type""".flatten()
                                 )
                                 .failure()
                         } else {
                             return GQLDataSourceException(
                                     GQLDataSourceErrorResponse.INVALID_INPUT,
                                     """parent_field_definition must be provided if parent 
-                                   |is not root_query_object_type""".flattenIntoOneLine()
+                                   |is not root_query_object_type""".flatten()
                                 )
                                 .failure()
                         }
@@ -207,7 +207,7 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
                         val message =
                             """parent_path [ path: ${parentPath.toURI()} ] does not match expected requirements 
                                |for parent_definition input [ qualified_name: $parentDefinitionPathNameSegment
-                               |""".flattenIntoOneLine()
+                               |""".flatten()
                         return GQLDataSourceException(
                                 GQLDataSourceErrorResponse.INVALID_INPUT,
                                 message
@@ -232,7 +232,7 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
                            |is not found in child_field_definitions 
                            |of parent_definition object_type or wrapped object_type 
                            |[ name: $parentDefinitionTypeName ]
-                           |""".flattenIntoOneLine()
+                           |""".flatten()
                         return GQLDataSourceException(
                                 GQLDataSourceErrorResponse.INVALID_INPUT,
                                 message
@@ -261,7 +261,7 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
                         return GQLDataSourceException(
                                 GQLDataSourceErrorResponse.INVALID_INPUT,
                                 """query_root_object_type must be provided if parent 
-                                   |is not field_definition""".flattenIntoOneLine()
+                                   |is not field_definition""".flatten()
                             )
                             .failure()
                     }
@@ -284,7 +284,7 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
                                 |${queryRootObjectTypeFieldDefinitionNames}, 
                                 |actual: { name: ${childDefinition.name}, 
                                 |type: ${childDefinition.type} } ]
-                                |""".flattenIntoOneLine()
+                                |""".flatten()
                             )
                             .failure()
                     }
@@ -333,7 +333,7 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
                                             """source path for attribute [ source_path: ${gsa.sourcePath} ] 
                                                |is not child path of source_container_type 
                                                |source_path [ source_path: ${graphQLSourceContainerType.sourcePath} ]
-                                               |""".flattenIntoOneLine()
+                                               |""".flatten()
                                         )
                                         .failure<PersistentSet<GraphQLSourceAttribute>>()
                                 } else {
@@ -359,7 +359,7 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
                                     ?: throw GQLDataSourceException(
                                         GQLDataSourceErrorResponse.SCHEMA_CREATION_ERROR,
                                         """source_container_type must have graphql_output_type, 
-                                           |not an input or other kind of type""".flattenIntoOneLine()
+                                           |not an input or other kind of type""".flatten()
                                     ),
                             name = graphQLSourceContainerType.name,
                             sourceAttributes = validatedAttributeSet.orNull()!!
@@ -407,7 +407,7 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
                                                     """graphql_parameter_attribute not matching 
                                                     |directive_argument.name and directive_argument.type 
                                                     |of parent: [ actual: { name: ${gqlParmAttr.name}, 
-                                                    |type: ${gqlParmAttr.dataType} }""".flattenIntoOneLine()
+                                                    |type: ${gqlParmAttr.dataType} }""".flatten()
                                                 )
                                             }
                                         }
@@ -453,7 +453,7 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
                                             |input_object_field values: [ actual: 
                                             |{ name: ${gqlParamAttr.name}, 
                                             |type: ${gqlParamAttr.dataType} } ]
-                                            |""".flattenIntoOneLine()
+                                            |""".flatten()
                                                 )
                                             }
                                         }
@@ -470,7 +470,7 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
                                 """a graphql_parameter_source_container_type 
                                 |is not handled: [ container_type: 
                                 |${graphQLParameterContainerType::class.qualifiedName} ]
-                                |""".flattenIntoOneLine()
+                                |""".flatten()
                             )
                             .failure()
                     }
@@ -512,7 +512,7 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
                            |graphql_field_definition: [
                            |parent_path: ${parentPath}, 
                            |graphql_field_definition: ${parentDefinition.name}
-                           |]""".flattenIntoOneLine()
+                           |]""".flatten()
                     )
                 }
                 return DefaultParameterAttributeSpec(key, parentPath, parentDefinition)
@@ -578,7 +578,7 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
                             """source_path for graphql_applied_directive must 
                                |have at least one directive: 
                                |[ actual: ${parentPath} ]
-                               |""".flattenIntoOneLine()
+                               |""".flatten()
                         )
                         .failure()
                 }
@@ -593,7 +593,7 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
                             """source_path for graphql_applied_directive must 
                                |have the directive_name specified: 
                                |[ actual: $directiveNamesInGivenPath ]
-                               |""".flattenIntoOneLine()
+                               |""".flatten()
                         )
                         .failure()
                 }
@@ -608,7 +608,7 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
                             """child_directive_argument.name must be present in 
                                |the given applied_directive's directive_arguments: 
                                |[ expected: one of ${appliedDirectiveArgumentNamesSet}, 
-                               |actual: ${childDirectiveArgument.name} ]""".flattenIntoOneLine()
+                               |actual: ${childDirectiveArgument.name} ]""".flatten()
                         )
                         .failure()
                 }
@@ -656,7 +656,7 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
                                |${childArgument.name}, 
                                |parent_field_definition.arguments.names: 
                                |${parentFieldDefinitionArgumentNames} 
-                               |]""".flattenIntoOneLine()
+                               |]""".flatten()
                         )
                         .failure<GraphQLParameterAttribute>()
                 }
@@ -717,7 +717,7 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
                             """path for graphql_field_definition 
                                |cannot have any arguments or directives: 
                                |[ actual: ${parentFieldDefinitionPath} ]
-                               |""".flattenIntoOneLine()
+                               |""".flatten()
                         )
                         .failure()
                 }
@@ -733,7 +733,7 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
                                 |contain argument with expected 
                                 |argument name: [ expected: 
                                 |one of ${parentFieldDefinitionArgumentNames}, 
-                                |actual: ${fieldArgument.name} ]""".flattenIntoOneLine()
+                                |actual: ${fieldArgument.name} ]""".flatten()
                         )
                         .failure()
                 }
@@ -746,7 +746,7 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
                             """graphql_field_argument does not have 
                                |graphql_input_fields_container_type: 
                                |[ actual: ${fieldArgument.type::class.simpleName} ]
-                               |""".flattenIntoOneLine()
+                               |""".flatten()
                         )
                         .failure()
                 }
@@ -789,7 +789,7 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
                             GQLDataSourceErrorResponse.INVALID_INPUT,
                             """parent_directive_path must have a directive 
                                |with name: [ name: ${parentAppliedDirective.name} ]
-                               |""".flattenIntoOneLine()
+                               |""".flatten()
                         )
                         .failure()
                 }
@@ -817,7 +817,7 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
                             """child_directive_argument.type 
                                |is not an input_fields_container_type: 
                                |[ actual.type: ${directiveArgument.type::class.qualifiedName} ]
-                               |""".flattenIntoOneLine()
+                               |""".flatten()
                         )
                         .failure()
                 }
@@ -892,7 +892,7 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
                                        |parent_field_argument: [ actual: ${parentPath}, 
                                        |expected: path with argument with 
                                        |[ name: ${parentArgument.orNull()!!.name} ] ]
-                                       |""".flattenIntoOneLine()
+                                       |""".flatten()
                                 )
                                 .failure()
                         }
@@ -938,7 +938,7 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
                                        |actual: { parent_argument.type: $parentArgumentTypeName, 
                                        |parent_argument.
                                        |input_field_names_set $parentArgumentInputFieldsSet } ]
-                                       |""".flattenIntoOneLine()
+                                       |""".flatten()
                                 )
                                 .failure()
                         }
@@ -977,7 +977,7 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
                                        |expected: path with directive with 
                                        |parent_directive_argument_name 
                                        |[ name: ${parentDirectiveArgument.orNull()!!.name} ] ]
-                                       |""".flattenIntoOneLine()
+                                       |""".flatten()
                                 )
                                 .failure()
                         }
@@ -1026,7 +1026,7 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
                                        |actual: { 
                                        |child_input_object_field.name: ${childInputObjectField.name} 
                                        |} ]
-                                       |""".flattenIntoOneLine()
+                                       |""".flatten()
                                 )
                                 .failure()
                         }
@@ -1104,7 +1104,7 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
                                     |[ actual: 
                                     |${childInputObjectField.name}, 
                                     |expected: one of $parentInputFieldNamesSet 
-                                    |]""".flattenIntoOneLine()
+                                    |]""".flatten()
                                 )
                                 .failure()
                         }
@@ -1114,7 +1114,7 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
                                     """parent_path must have at least one argument 
                                         |or directive and represent a parameter container: 
                                         |[ actual: ${parentPath} ]
-                                        |""".flattenIntoOneLine()
+                                        |""".flatten()
                                 )
                                 .failure()
                         }
@@ -1149,7 +1149,7 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
                                 """graphql_field_argument or graphql_directive_argument 
                                 |must be defined in order to create a 
                                 |parameter_attribute for an input_object_field 
-                                |on one of them""".flattenIntoOneLine()
+                                |on one of them""".flatten()
                             )
                             .failure()
                     }
@@ -1225,7 +1225,7 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
                                 """directive does not meet one of 
                                 |the expected parent definition cases: 
                                 |[ actual: $directiveParentPathAndElement 
-                                |]""".flattenIntoOneLine()
+                                |]""".flatten()
                             )
                             .failure()
                     }
@@ -1301,7 +1301,7 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
                                 """directive does not meet one of 
                                    |the expected parent definition cases: 
                                    |[ actual: $directiveParentPathAndElement 
-                                   |]""".flattenIntoOneLine()
+                                   |]""".flatten()
                             )
                             .failure()
                     }
@@ -1368,7 +1368,7 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
                         |or must unwrap to such a type to be considered 
                         |as a graphql_parameter_container_type: 
                         |[ actual: ${parameterAttribute.dataType} ]
-                        |""".flattenIntoOneLine()
+                        |""".flatten()
                     )
                     .failure()
             }
@@ -1426,7 +1426,7 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
                                 |graphql_parameter_container_type representation: 
                                 |[ graphql_parameter_attribute.type: 
                                 |${parameterAttribute::class.qualifiedName} ]
-                                |""".flattenIntoOneLine()
+                                |""".flatten()
                             )
                             .failure()
                     }

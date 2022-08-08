@@ -3,7 +3,7 @@ package funcify.feature.tools.container.attempt
 import arrow.core.filterIsInstance
 import arrow.core.getOrElse
 import funcify.feature.tools.container.attempt.Try.Companion.filterInstanceOf
-import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
+import funcify.feature.tools.extensions.StringExtensions.flatten
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
 
@@ -45,7 +45,7 @@ internal class TryTest {
                 .getOrElse { false },
             """is not of expected default null output 
                     |throwable type and does not assert result 
-                    |of map function is null""".flattenIntoOneLine()
+                    |of map function is null""".flatten()
         )
     }
 }

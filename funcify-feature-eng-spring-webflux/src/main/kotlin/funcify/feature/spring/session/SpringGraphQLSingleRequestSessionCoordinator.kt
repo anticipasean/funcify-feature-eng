@@ -8,7 +8,7 @@ import funcify.feature.materializer.session.GraphQLSingleRequestSessionCoordinat
 import funcify.feature.tools.container.async.KFuture
 import funcify.feature.tools.container.deferred.Deferred
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
-import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
+import funcify.feature.tools.extensions.StringExtensions.flatten
 import graphql.ExecutionInput
 import graphql.ExecutionResult
 import graphql.GraphQL
@@ -37,7 +37,7 @@ internal class SpringGraphQLSingleRequestSessionCoordinator(
         logger.info(
             """conduct_single_request_session: [ 
                 |session.session_id: ${session.sessionId} ]
-                |""".flattenIntoOneLine()
+                |""".flatten()
         )
         return Deferred.fromKFuture(
                 KFuture.of(

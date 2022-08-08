@@ -24,7 +24,7 @@ import funcify.feature.datasource.rest.swagger.SwaggerSchemaEndpointRegistry
 import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionImplementationStrategy
 import funcify.feature.json.JsonMapper
 import funcify.feature.tools.extensions.PersistentListExtensions.toPersistentList
-import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
+import funcify.feature.tools.extensions.StringExtensions.flatten
 import io.swagger.v3.oas.models.OpenAPI
 import org.springframework.beans.factory.ObjectProvider
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
@@ -62,7 +62,7 @@ class RestApiDataSourceConfiguration {
                     RestApiErrorResponse.UNEXPECTED_ERROR,
                     """no swagger_schema_endpoint_registry bean has been 
                     |declared so no swagger_metadata can be provided 
-                    |from any rest_api_services""".flattenIntoOneLine()
+                    |from any rest_api_services""".flatten()
                 )
             }
         return DefaultSwaggerRestApiMetadataProvider(

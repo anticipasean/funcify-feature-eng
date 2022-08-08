@@ -14,7 +14,7 @@ import funcify.feature.naming.StandardNamingConventions
 import funcify.feature.schema.vertex.SchematicGraphVertexType
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
-import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
+import funcify.feature.tools.extensions.StringExtensions.flatten
 import graphql.language.FieldDefinition
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentSetOf
@@ -62,7 +62,7 @@ class AllSourceAttributesToFieldDefinitionsStrategy(
             """determine_sdl_implementation_definition_for_
                |schematic_vertex_in_context: [ 
                |current_vertex.path: ${context.currentVertex.path} 
-               |]""".flattenIntoOneLine()
+               |]""".flatten()
         )
         return when (context) {
             is SourceJunctionVertexSDLDefinitionCreationContext -> {

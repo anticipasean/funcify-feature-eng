@@ -14,7 +14,7 @@ import funcify.feature.datasource.rest.swagger.SwaggerV3ParserSourceIndexContext
 import funcify.feature.datasource.rest.swagger.SwaggerV3ParserSourceIndexContext.Companion.narrowed
 import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.path.SchematicPath
-import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
+import funcify.feature.tools.extensions.StringExtensions.flatten
 import io.swagger.v3.oas.models.OpenAPI
 import io.swagger.v3.oas.models.PathItem
 
@@ -80,7 +80,7 @@ internal class DefaultSwaggerV3ParserSourceIndexFactory() : SwaggerV3ParserSourc
                     """unhandled swagger_rest_api_index type submitted to be 
                         |added to context: [ 
                         |actual: ${newSwaggerSourceIndex::class.qualifiedName} 
-                        |]""".flattenIntoOneLine()
+                        |]""".flatten()
                 )
             }
         }

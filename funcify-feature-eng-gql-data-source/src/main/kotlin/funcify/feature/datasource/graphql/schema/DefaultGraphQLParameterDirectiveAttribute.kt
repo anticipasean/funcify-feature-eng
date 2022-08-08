@@ -7,7 +7,7 @@ import funcify.feature.naming.ConventionalName
 import funcify.feature.naming.StandardNamingConventions
 import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.path.SchematicPath
-import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
+import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.extensions.TryExtensions.successIfDefined
 import graphql.schema.GraphQLAppliedDirective
 import graphql.schema.GraphQLInputObjectType
@@ -39,7 +39,7 @@ internal data class DefaultGraphQLParameterDirectiveAttribute(
                 """source_path must represent a parameter on a 
                    |source_index i.e. have at least one 
                    |directive declared: [ actual: ${sourcePath} ]
-                   |""".flattenIntoOneLine()
+                   |""".flatten()
             )
         }
     }

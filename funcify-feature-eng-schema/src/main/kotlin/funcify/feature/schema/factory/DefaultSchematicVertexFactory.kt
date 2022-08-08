@@ -20,7 +20,7 @@ import funcify.feature.schema.vertex.SourceAttributeVertex
 import funcify.feature.schema.vertex.SourceContainerTypeVertex
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
-import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
+import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.extensions.TryExtensions.successIfNonNull
 import org.slf4j.Logger
 
@@ -63,7 +63,7 @@ internal class DefaultSchematicVertexFactory : SchematicVertexFactory {
                 logger.debug(
                     """for_source_attribute: [ source_attribute.
                         |conventional_name: ${sourceAttribute.name} 
-                        |]""".flattenIntoOneLine()
+                        |]""".flatten()
                 )
                 return DefaultSchematicVertexSpec<SI>(
                         schematicPath = schematicPath,
@@ -82,7 +82,7 @@ internal class DefaultSchematicVertexFactory : SchematicVertexFactory {
                 logger.debug(
                     """for_source_container_type: [ source_container_type.
                         |conventional_name: ${sourceContainerType.name} ]
-                        |""".flattenIntoOneLine()
+                        |""".flatten()
                 )
                 return DefaultSchematicVertexSpec<SI>(
                         schematicPath = schematicPath,
@@ -141,7 +141,7 @@ internal class DefaultSchematicVertexFactory : SchematicVertexFactory {
                         """schematic_path of existing vertex does 
                            |not match input schematic vertex: [ expected: "$schematicPath" 
                            |vs. actual: "${existingSchematicVertex.path}" ]
-                           |""".flattenIntoOneLine()
+                           |""".flatten()
                     logger.error("from_existing_vertex: [ status: failed ]: $message")
                     throw SchemaException(SchemaErrorResponse.INVALID_INPUT, message)
                 }
@@ -184,7 +184,7 @@ internal class DefaultSchematicVertexFactory : SchematicVertexFactory {
                 logger.debug(
                     """for_source_attribute: [ source_attribute.
                         |conventional_name: ${sourceAttribute.name} ]
-                        |""".flattenIntoOneLine()
+                        |""".flatten()
                 )
                 return DefaultSchematicVertexSpec<SI>(
                         schematicPath = schematicPath,
@@ -204,7 +204,7 @@ internal class DefaultSchematicVertexFactory : SchematicVertexFactory {
                 logger.debug(
                     """for_source_container_type: 
                         |[ source_container_type.conventional_name: 
-                        |${sourceContainerType.name} ]""".flattenIntoOneLine()
+                        |${sourceContainerType.name} ]""".flatten()
                 )
                 return DefaultSchematicVertexSpec<SI>(
                         schematicPath = schematicPath,
@@ -269,7 +269,7 @@ internal class DefaultSchematicVertexFactory : SchematicVertexFactory {
                         logger.error(
                             """|on_data_source: [ error: [ type: ${throwable::class.qualifiedName}, 
                                |message: "${throwable.message}
-                               |] ]""".flattenIntoOneLine()
+                               |] ]""".flatten()
                         )
                     }
                     return Try.failure<SchematicVertex>(

@@ -13,7 +13,7 @@ import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionCreationContex
 import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionImplementationStrategy
 import funcify.feature.schema.datasource.RawDataSourceType
 import funcify.feature.tools.container.attempt.Try
-import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
+import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.extensions.TryExtensions.successIfDefined
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentSetOf
@@ -47,7 +47,7 @@ internal class SwaggerRestApiDataSourceIndexBasedSDLDefinitionImplementationStra
                         |actual: data_source.source_metamodel.type: 
                         |${restApiDataSource.sourceMetamodel::class.qualifiedName}, 
                         |expected: ${SwaggerRestApiSourceMetamodel::class.qualifiedName} 
-                        |]""".flattenIntoOneLine()
+                        |]""".flatten()
                 )
             }
             .orElseThrow()

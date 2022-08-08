@@ -12,7 +12,7 @@ import funcify.feature.schema.datasource.DataSourceType
 import funcify.feature.schema.datasource.RawDataSourceType
 import funcify.feature.schema.datasource.SourceMetamodel
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
-import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
+import funcify.feature.tools.extensions.StringExtensions.flatten
 import kotlin.reflect.KClass
 import org.slf4j.Logger
 
@@ -43,7 +43,7 @@ internal class DefaultRestApiDataSourceFactory<MD>(
         logger.info(
             """create_rest_api_data_source: [ name: $name, 
                 |service.service_context_path: ${service.serviceContextPath} ]
-                |""".flattenIntoOneLine()
+                |""".flatten()
         )
         return restApiMetadataProvider
             .provideMetadata(service)
@@ -71,7 +71,7 @@ internal class DefaultRestApiDataSourceFactory<MD>(
                 RestApiDataSourceException(
                     RestApiErrorResponse.UNEXPECTED_ERROR,
                     """error when retrieving or processing metadata 
-                        |for rest_api_data_source [ name: $name ]""".flattenIntoOneLine(),
+                        |for rest_api_data_source [ name: $name ]""".flatten(),
                     t
                 )
             }

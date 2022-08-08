@@ -12,7 +12,7 @@ import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionCreationContex
 import funcify.feature.schema.vertex.ParameterJunctionVertex
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
-import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
+import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.extensions.TryExtensions.failure
 import funcify.feature.tools.extensions.TryExtensions.successIfNonNull
 import graphql.execution.ValuesResolver
@@ -82,7 +82,7 @@ interface GraphQLParameterIndexSDLDefinitionCreationTemplate {
                                 |expected to contain graphql_source_indices 
                                 |for this path: ${parameterJunctionVertexContext.path} 
                                 |[ actual: $parameterContainerSourceIndexTypesAvailableSet ]
-                                |""".flattenIntoOneLine()
+                                |""".flatten()
                         )
                         .failure()
                 },
@@ -123,7 +123,7 @@ interface GraphQLParameterIndexSDLDefinitionCreationTemplate {
                             |${parameterLeafVertexContext.path} 
                             |[ expected: ${GraphQLParameterAttribute::class.qualifiedName}, 
                             |actual: ${parameterAttributeSourceIndicesAvailable} 
-                            |]""".flattenIntoOneLine()
+                            |]""".flatten()
                         )
                         .failure()
                 },
@@ -179,7 +179,7 @@ interface GraphQLParameterIndexSDLDefinitionCreationTemplate {
                            |vertex in parameter_junction_vertex_context 
                            |[ actual: { parameter_attribute.type: 
                            |${graphQLParameterAttribute::class.qualifiedName} } ]
-                           |""".flattenIntoOneLine()
+                           |""".flatten()
                     )
                     .failure()
             }
@@ -419,7 +419,7 @@ interface GraphQLParameterIndexSDLDefinitionCreationTemplate {
                            |for vertex in parameter_junction_vertex_context 
                            |[ actual: { parameter_attribute.type: 
                            |${graphQLParameterAttribute::class.qualifiedName} } ]
-                           |""".flattenIntoOneLine()
+                           |""".flatten()
                     )
                     .failure()
             }

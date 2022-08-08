@@ -9,7 +9,7 @@ import funcify.feature.spring.error.FeatureEngSpringWebFluxException
 import funcify.feature.spring.error.SpringWebFluxErrorResponse
 import funcify.feature.tools.container.deferred.Deferred
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
-import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
+import funcify.feature.tools.extensions.StringExtensions.flatten
 import org.slf4j.Logger
 import org.springframework.stereotype.Component
 
@@ -35,7 +35,7 @@ internal class SpringGraphQLSingleRequestExecutor(
             """execute_single_request: 
                 |[ raw_graphql_request.request_id: 
                 |${rawGraphQLRequest.requestId} ]
-                |""".flattenIntoOneLine()
+                |""".flatten()
         )
         return graphQLSingleRequestSessionFactory
             .createSessionForSingleRequest(rawGraphQLRequest)
@@ -48,7 +48,7 @@ internal class SpringGraphQLSingleRequestExecutor(
                         val message =
                             """session was not updated such that 
                               |a serialized_graphql_response was added to it
-                              |""".flattenIntoOneLine()
+                              |""".flatten()
                         Deferred.failed(
                             FeatureEngSpringWebFluxException(
                                 SpringWebFluxErrorResponse.NO_RESPONSE_PROVIDED,

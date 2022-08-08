@@ -5,7 +5,7 @@ import funcify.feature.materializer.error.MaterializerErrorResponse
 import funcify.feature.materializer.error.MaterializerException
 import funcify.feature.tools.container.deferred.Deferred
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
-import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
+import funcify.feature.tools.extensions.StringExtensions.flatten
 import org.slf4j.Logger
 import reactor.core.publisher.Mono
 
@@ -25,7 +25,7 @@ internal class DefaultMaterializationMetamodelBroker() : MaterializationMetamode
             """push_new_materialization_metamodel: [ 
                 |materialization_metamodel.graphql_schema.query_type.field_definitions.size: 
                 |${materializationMetamodel.materializationGraphQLSchema.queryType.fieldDefinitions.size} 
-                |]""".flattenIntoOneLine()
+                |]""".flatten()
         )
         val pushTime = System.currentTimeMillis()
         schemaAtTimestampHolder.getAndUpdate { storedTimestampAndSchema ->

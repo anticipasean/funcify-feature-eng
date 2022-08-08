@@ -8,7 +8,7 @@ import funcify.feature.naming.impl.DefaultConventionalName
 import funcify.feature.naming.impl.DefaultNameSegment
 import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.path.SchematicPath
-import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
+import funcify.feature.tools.extensions.StringExtensions.flatten
 import kotlinx.collections.immutable.persistentListOf
 import org.jooq.Record
 import org.jooq.TableField
@@ -50,7 +50,7 @@ data class JooqSourceAttribute(val jooqTableField: TableField<Record, *>) :
                 ?: throw IllegalArgumentException(
                     """cannot create data_source.key for absent 
                     |catalog name for relational_database_index
-                    |""".flattenIntoOneLine()
+                    |""".flatten()
                 )
         )
     }

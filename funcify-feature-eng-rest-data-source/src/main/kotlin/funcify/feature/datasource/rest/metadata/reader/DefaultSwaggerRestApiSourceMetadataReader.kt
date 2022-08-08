@@ -19,10 +19,9 @@ import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.datasource.SourceMetamodel
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
-import funcify.feature.tools.extensions.StreamExtensions.flatMapOptions
 import funcify.feature.tools.extensions.PersistentMapExtensions.reduceEntriesToPersistentSetValueMap
 import funcify.feature.tools.extensions.SequenceExtensions.flatMapOptions
-import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
+import funcify.feature.tools.extensions.StringExtensions.flatten
 import io.swagger.v3.oas.models.OpenAPI
 import kotlinx.collections.immutable.toPersistentMap
 import kotlinx.collections.immutable.toPersistentSet
@@ -69,7 +68,7 @@ internal class DefaultSwaggerRestApiSourceMetadataReader(
             """read_source_metamodel_from_metadata: 
             |[ datasource.key: ${dataSourceNameAndType}, 
             |openapi: ${openAPIPathsCountAndFirst} 
-            |]""".flattenIntoOneLine()
+            |]""".flatten()
         )
         val sourceIndicesCreationContext: SwaggerV3ParserSourceIndexContext =
             DefaultSwaggerV3ParserSourceIndexContext(
