@@ -7,5 +7,6 @@ dependencies {
     implementation(project(":funcify-feature-eng-data-source"))
     implementation(project(":funcify-feature-eng-naming"))
     implementation(project(":funcify-feature-eng-schema"))
+    implementation(project(":funcify-feature-eng-shared-definitions"))
     implementation(project(":funcify-feature-eng-tools"))
 }

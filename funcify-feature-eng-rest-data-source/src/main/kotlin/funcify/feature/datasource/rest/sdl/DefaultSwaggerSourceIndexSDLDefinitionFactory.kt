@@ -26,6 +26,7 @@ import graphql.language.InputObjectTypeDefinition
 import graphql.language.InputValueDefinition
 import graphql.language.ObjectTypeDefinition
 import graphql.language.Type
+import graphql.language.Value
 import org.slf4j.Logger
 
 /**
@@ -251,10 +252,24 @@ internal class DefaultSwaggerSourceIndexSDLDefinitionFactory(
         swaggerParameterAttribute: SwaggerParameterAttribute,
     ): Try<InputValueDefinition> {
         return resolvedSDLType.map { sdlType ->
-            InputValueDefinition.newInputValueDefinition()
-                .name(parameterAttributeVertexName.qualifiedForm)
-                .type(sdlType)
-                .build()
+            when (
+                val defaultValue: Value<*>? =
+                    SDLDefinitionDefaultValueResolver.invoke(sdlType).orNull()
+            ) {
+                null -> {
+                    InputValueDefinition.newInputValueDefinition()
+                        .name(parameterAttributeVertexName.qualifiedForm)
+                        .type(sdlType)
+                        .build()
+                }
+                else -> {
+                    InputValueDefinition.newInputValueDefinition()
+                        .name(parameterAttributeVertexName.qualifiedForm)
+                        .type(sdlType)
+                        .defaultValue(defaultValue)
+                        .build()
+                }
+            }
         }
     }
 
