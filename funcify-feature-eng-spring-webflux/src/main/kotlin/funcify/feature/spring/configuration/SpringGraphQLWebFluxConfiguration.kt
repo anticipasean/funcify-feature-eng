@@ -2,8 +2,8 @@ package funcify.feature.spring.configuration
 
 import arrow.core.toOption
 import funcify.feature.json.JsonMapper
-import funcify.feature.materializer.context.ThreadLocalContextOperation
-import funcify.feature.materializer.context.ThreadLocalContextOperationFactory
+import funcify.feature.materializer.threadlocal.ThreadLocalContextOperation
+import funcify.feature.materializer.threadlocal.ThreadLocalContextOperationFactory
 import funcify.feature.materializer.request.GraphQLExecutionInputCustomizer
 import funcify.feature.materializer.request.RawGraphQLRequestFactory
 import funcify.feature.spring.router.GraphQLWebFluxHandlerFunction

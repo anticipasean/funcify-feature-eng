@@ -1,6 +1,8 @@
 package funcify.feature.spring.router
 
 import arrow.core.getOrElse
+import arrow.core.none
+import arrow.core.some
 import arrow.core.toOption
 import com.fasterxml.jackson.databind.JsonNode
 import funcify.feature.error.FeatureEngCommonException
@@ -268,7 +270,18 @@ internal class GraphQLWebFluxHandlerFunction(
             .map { entrySet: Set<Map.Entry<Any?, Any?>> ->
                 entrySet
                     .parallelStream()
-                    .map { e -> e.value.toOption().map { v -> e.key.toString() to v } }
+                    .map { e ->
+                        // Permit non-null key to nullable value pairs to pass
+                        when (val key = e.key) {
+                            null -> none()
+                            else -> {
+                                when (key) {
+                                    is String -> (key to e.value).some()
+                                    else -> (key.toString() to e.value).some()
+                                }
+                            }
+                        }
+                    }
                     .flatMapOptions()
                     .reducePairsToPersistentMap()
             }

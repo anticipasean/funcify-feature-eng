@@ -1,4 +1,4 @@
-package funcify.feature.materializer.context
+package funcify.feature.materializer.threadlocal
 
 import kotlin.reflect.KClass
 import org.springframework.core.ParameterizedTypeReference

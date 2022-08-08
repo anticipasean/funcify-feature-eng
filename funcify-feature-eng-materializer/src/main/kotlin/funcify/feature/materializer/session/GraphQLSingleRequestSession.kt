@@ -1,7 +1,7 @@
 package funcify.feature.materializer.session
 
 import arrow.core.Option
-import funcify.feature.materializer.context.ThreadLocalContextKey
+import funcify.feature.materializer.threadlocal.ThreadLocalContextKey
 import funcify.feature.materializer.request.RawGraphQLRequest
 import funcify.feature.materializer.response.SerializedGraphQLResponse
 import funcify.feature.schema.MetamodelGraph

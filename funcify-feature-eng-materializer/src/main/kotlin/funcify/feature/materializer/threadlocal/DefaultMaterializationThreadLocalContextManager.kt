@@ -1,7 +1,6 @@
-package funcify.feature.materializer.context
+package funcify.feature.materializer.threadlocal
 
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
-import kotlinx.collections.immutable.ImmutableMap
 import org.slf4j.Logger
 
 /**
