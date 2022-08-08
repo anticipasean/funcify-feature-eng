@@ -1,5 +1,6 @@
 package funcify.feature.materializer.service
 
+import arrow.core.filterIsInstance
 import arrow.core.toOption
 import funcify.feature.materializer.error.MaterializerErrorResponse
 import funcify.feature.materializer.error.MaterializerException
@@ -9,6 +10,7 @@ import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flattenIntoOneLine
 import funcify.feature.tools.extensions.TryExtensions.successIfDefined
 import graphql.schema.DataFetcherFactory
+import graphql.schema.GraphQLNamedOutputType
 import graphql.schema.GraphQLScalarType
 import graphql.schema.idl.FieldWiringEnvironment
 import graphql.schema.idl.ScalarWiringEnvironment
@@ -52,13 +54,36 @@ internal class DefaultMaterializationGraphQLWiringFactory(
             .orElseThrow()
     }
 
+    override fun providesDataFetcherFactory(environment: FieldWiringEnvironment): Boolean {
+        val graphQLFieldTypeName =
+            environment.fieldType
+                .toOption()
+                .filterIsInstance<GraphQLNamedOutputType>()
+                .map(GraphQLNamedOutputType::getName)
+                .orNull()
+        logger.debug(
+            """provides_data_fetcher_factory: [ environment: 
+                |{ field_definition.name: ${environment.fieldDefinition.name}, 
+                |field_type: $graphQLFieldTypeName 
+                |} ]""".flattenIntoOneLine()
+        )
+        return true
+    }
+
     override fun <T> getDataFetcherFactory(
         environment: FieldWiringEnvironment
     ): DataFetcherFactory<T> {
+        val graphQLFieldTypeName =
+            environment.fieldType
+                .toOption()
+                .filterIsInstance<GraphQLNamedOutputType>()
+                .map(GraphQLNamedOutputType::getName)
+                .orNull()
         logger.debug(
             """get_data_fetcher_factory: [ environment: 
             |{ field_definition.name: ${environment.fieldDefinition?.name}, 
-            |field_type: ${environment.fieldType} } ]""".flattenIntoOneLine()
+            |field_type: $graphQLFieldTypeName 
+            |} ]""".flattenIntoOneLine()
         )
         @Suppress("UNCHECKED_CAST") //
         val typedDataFetcherFactory: DataFetcherFactory<T> =

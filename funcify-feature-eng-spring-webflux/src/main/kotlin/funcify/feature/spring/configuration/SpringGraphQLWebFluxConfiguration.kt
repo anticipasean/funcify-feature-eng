@@ -44,6 +44,7 @@ class SpringGraphQLWebFluxConfiguration {
 
     @Bean
     fun graphQLWebFluxRouterFunction(
+        @Value("\${spring.webflux.base-path}") basePath: String,
         @Value("\${feature-eng-service.graphql.path:/graphql}") graphQLPath: String,
         jsonMapper: JsonMapper,
         graphQLSingleRequestExecutor: GraphQLSingleRequestExecutor,
@@ -52,7 +53,9 @@ class SpringGraphQLWebFluxConfiguration {
     ): RouterFunction<ServerResponse> {
         return RouterFunctions.route()
             .POST(
-                graphQLPath,
+                // Have to add the base path to the graphql path since webflux does not do this
+                // automatically; lame but necessary
+                basePath + graphQLPath,
                 RequestPredicates.accept(
                     MediaType.APPLICATION_JSON,
                     MediaType.valueOf(MEDIA_TYPE_APPLICATION_GRAPHQL_VALUE)

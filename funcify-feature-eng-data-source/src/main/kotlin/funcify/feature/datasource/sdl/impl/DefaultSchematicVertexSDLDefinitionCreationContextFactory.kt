@@ -1,6 +1,7 @@
 package funcify.feature.datasource.sdl.impl
 
 import arrow.core.firstOrNone
+import arrow.core.or
 import arrow.core.toOption
 import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionCreationContext
 import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionCreationContext.Builder
@@ -168,7 +169,9 @@ internal class DefaultSchematicVertexSDLDefinitionCreationContextFactory :
                         schematicPath
                             .getParentPath()
                             .flatMap { pp ->
-                                inputObjectTypeDefinitionsBySchematicPath[pp].toOption()
+                                fieldDefinitionsBySchematicPath[pp]
+                                    .toOption()
+                                    .or(inputObjectTypeDefinitionsBySchematicPath[pp].toOption())
                             }
                             .fold(
                                 {},
