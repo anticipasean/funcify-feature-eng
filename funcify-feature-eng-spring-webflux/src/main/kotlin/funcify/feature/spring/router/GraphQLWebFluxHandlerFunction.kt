@@ -1,6 +1,7 @@
 package funcify.feature.spring.router
 
 import arrow.core.getOrElse
+import arrow.core.identity
 import arrow.core.none
 import arrow.core.some
 import arrow.core.toOption
@@ -15,6 +16,7 @@ import funcify.feature.spring.error.FeatureEngSpringWebFluxException
 import funcify.feature.spring.error.SpringWebFluxErrorResponse
 import funcify.feature.spring.service.GraphQLSingleRequestExecutor
 import funcify.feature.tools.container.attempt.Try
+import funcify.feature.tools.container.attempt.Try.Companion.flatMapFailure
 import funcify.feature.tools.container.deferred.Deferred
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.PersistentMapExtensions.reduceEntriesToPersistentMap
@@ -95,92 +97,7 @@ internal class GraphQLWebFluxHandlerFunction(
                 FeatureEngCommonException::class.java,
                 convertCommonExceptionTypeIntoServerResponse()
             )
-            .onErrorResume { err ->
-                logger.error(
-                    """handle: [ request.path: ${request.path()} ]: 
-                    |uncaught non-platform exception thrown: 
-                    |[ type: ${err::class.qualifiedName}, 
-                    |message: ${err.message} 
-                    |]""".flattenIntoOneLine(),
-                    err
-                )
-                ServerResponse.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Mono.just(err.message.toOption().getOrElse { "error_message empty" }))
-            }
-    }
-
-    private fun convertAggregateSerializedGraphQLResponseIntoServerResponse():
-        (List<SerializedGraphQLResponse>) -> Mono<out ServerResponse> {
-        return { aggregatedResponses ->
-            when (aggregatedResponses.size) {
-                0 -> {
-                    Mono.error(
-                        FeatureEngSpringWebFluxException(
-                            SpringWebFluxErrorResponse.NO_RESPONSE_PROVIDED,
-                            "response for request not provided"
-                        )
-                    )
-                }
-                1 -> {
-                    Mono.just(aggregatedResponses[0])
-                        .flatMap { response ->
-                            Try.attempt { response.executionResult.toSpecification() }
-                                .mapFailure { t: Throwable ->
-                                    val message: String =
-                                        """unable to convert graphql execution_result 
-                                            |into specification for api_response 
-                                            |[ type: Map<String, Any?> ] given cause: 
-                                            |[ type: ${t::class.qualifiedName}, 
-                                            |message: ${t.message} ]""".flattenIntoOneLine()
-                                    FeatureEngSpringWebFluxException(
-                                        SpringWebFluxErrorResponse.EXECUTION_RESULT_ISSUE,
-                                        message,
-                                        t
-                                    )
-                                }
-                                .toMono()
-                        }
-                        .flatMap { spec -> ServerResponse.ok().bodyValue(spec) }
-                }
-                else -> {
-                    Mono.error(
-                        FeatureEngSpringWebFluxException(
-                            SpringWebFluxErrorResponse.TOO_MANY_RESPONSES_PROVIDED,
-                            "number of responses given: [ actual: ${aggregatedResponses.size}, expected: 1 ]"
-                        )
-                    )
-                }
-            }
-        }
-    }
-
-    // TODO: Currently has two different output formats: direct message and graphql_error_map_string
-    // Should be made into one
-    private fun convertCommonExceptionTypeIntoServerResponse():
-        (FeatureEngCommonException) -> Mono<out ServerResponse> {
-        return { commonException: FeatureEngCommonException ->
-            when {
-                commonException.errorResponse.responseIfGraphQL.isDefined() -> {
-                    val graphQLError: GraphQLError =
-                        commonException.errorResponse.responseIfGraphQL.orNull()!!
-                    commonException.errorResponse.responseStatusIfHttp
-                        .map { httpStatus: HttpStatus -> ServerResponse.status(httpStatus) }
-                        .getOrElse { ServerResponse.status(HttpStatus.INTERNAL_SERVER_ERROR) }
-                        .bodyValue(
-                            jsonMapper
-                                .fromKotlinObject(graphQLError.toSpecification())
-                                .toJsonString()
-                                .orElse(commonException.inputMessage)
-                        )
-                }
-                else -> {
-                    commonException.errorResponse.responseStatusIfHttp
-                        .map { httpStatus: HttpStatus -> ServerResponse.status(httpStatus) }
-                        .getOrElse { ServerResponse.status(HttpStatus.INTERNAL_SERVER_ERROR) }
-                        .bodyValue(commonException.inputMessage)
-                }
-            }
-        }
+            .onErrorResume(convertAnyUnhandledExceptionsIntoServerResponse(request))
     }
 
     private fun convertServerRequestIntoRawGraphQLRequest(
@@ -316,5 +233,136 @@ internal class GraphQLWebFluxHandlerFunction(
 
     private fun extractReadOnlyHttpHeadersFromRequest(request: ServerRequest): HttpHeaders {
         return HttpHeaders.readOnlyHttpHeaders(request.headers().asHttpHeaders())
+    }
+
+    private fun convertAggregateSerializedGraphQLResponseIntoServerResponse():
+        (List<SerializedGraphQLResponse>) -> Mono<out ServerResponse> {
+        return { aggregatedResponses ->
+            when (aggregatedResponses.size) {
+                0 -> {
+                    Mono.error(
+                        FeatureEngSpringWebFluxException(
+                            SpringWebFluxErrorResponse.NO_RESPONSE_PROVIDED,
+                            "response for request not provided"
+                        )
+                    )
+                }
+                1 -> {
+                    Mono.just(aggregatedResponses[0])
+                        .flatMap { response ->
+                            Try.attempt { response.executionResult.toSpecification() }
+                                .mapFailure { t: Throwable ->
+                                    val message: String =
+                                        """unable to convert graphql execution_result 
+                                            |into specification for api_response 
+                                            |[ type: Map<String, Any?> ] given cause: 
+                                            |[ type: ${t::class.qualifiedName}, 
+                                            |message: ${t.message} ]""".flattenIntoOneLine()
+                                    FeatureEngSpringWebFluxException(
+                                        SpringWebFluxErrorResponse.EXECUTION_RESULT_ISSUE,
+                                        message,
+                                        t
+                                    )
+                                }
+                                .toMono()
+                        }
+                        .flatMap { spec -> ServerResponse.ok().bodyValue(spec) }
+                }
+                else -> {
+                    Mono.error(
+                        FeatureEngSpringWebFluxException(
+                            SpringWebFluxErrorResponse.TOO_MANY_RESPONSES_PROVIDED,
+                            "number of responses given: [ actual: ${aggregatedResponses.size}, expected: 1 ]"
+                        )
+                    )
+                }
+            }
+        }
+    }
+
+    // TODO: Currently has two different output formats: direct message and graphql_error_map_string
+    // Should be made into one
+    private fun convertCommonExceptionTypeIntoServerResponse():
+        (FeatureEngCommonException) -> Mono<out ServerResponse> {
+        return { commonException: FeatureEngCommonException ->
+            when {
+                commonException.errorResponse.responseIfGraphQL.isDefined() -> {
+                    val graphQLError: GraphQLError =
+                        commonException.errorResponse.responseIfGraphQL.orNull()!!
+                    commonException.errorResponse.responseStatusIfHttp
+                        .map { httpStatus: HttpStatus -> ServerResponse.status(httpStatus) }
+                        .getOrElse { ServerResponse.status(HttpStatus.INTERNAL_SERVER_ERROR) }
+                        .bodyValue(
+                            convertGraphQLErrorWithinCommonExceptionIntoStringBodyValue(
+                                graphQLError,
+                                commonException
+                            )
+                        )
+                }
+                else -> {
+                    commonException.errorResponse.responseStatusIfHttp
+                        .map { httpStatus: HttpStatus -> ServerResponse.status(httpStatus) }
+                        .getOrElse { ServerResponse.status(HttpStatus.INTERNAL_SERVER_ERROR) }
+                        .bodyValue(commonException.inputMessage)
+                }
+            }
+        }
+    }
+
+    private fun convertGraphQLErrorWithinCommonExceptionIntoStringBodyValue(
+        graphQLError: GraphQLError,
+        commonException: FeatureEngCommonException,
+    ): String {
+        return Try.attempt { graphQLError.toSpecification() }
+            .flatMap { spec -> jsonMapper.fromKotlinObject(spec).toJsonString() }
+            .flatMapFailure { t: Throwable ->
+                if (
+                    graphQLError.locations
+                        .toOption()
+                        .filter { locs -> locs.any { srcLoc -> srcLoc == null } }
+                        .isDefined()
+                ) {
+                    jsonMapper
+                        .fromKotlinObject(
+                            mapOf(
+                                "errorType" to graphQLError.errorType,
+                                "message" to graphQLError.message,
+                                "path" to graphQLError.path,
+                                "extensions" to graphQLError.extensions
+                            )
+                        )
+                        .toJsonString()
+                } else {
+                    Try.failure(t)
+                }
+            }
+            .fold(::identity) { _: Throwable ->
+                jsonMapper
+                    .fromKotlinObject(
+                        mapOf(
+                            "errorType" to graphQLError.errorType,
+                            "message" to commonException.message
+                        )
+                    )
+                    .toJsonString()
+                    .orElse("<NA>")
+            }
+    }
+
+    private fun convertAnyUnhandledExceptionsIntoServerResponse(
+        request: ServerRequest
+    ): (Throwable) -> Mono<ServerResponse> {
+        return { err: Throwable ->
+            logger.error(
+                """handle: [ request.path: ${request.path()} ]: 
+                   |uncaught non-platform exception thrown: 
+                   |[ type: ${err::class.qualifiedName}, 
+                   |message: ${err.message} 
+                   |]""".flattenIntoOneLine(),
+                err
+            )
+            ServerResponse.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Mono.just(err.message.toOption().getOrElse { "error_message empty" }))
+        }
     }
 }
