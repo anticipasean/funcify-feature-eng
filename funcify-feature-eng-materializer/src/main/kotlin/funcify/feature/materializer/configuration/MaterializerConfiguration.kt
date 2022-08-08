@@ -24,7 +24,9 @@ import funcify.feature.materializer.schema.DefaultMaterializationMetamodelBroker
 import funcify.feature.materializer.schema.MaterializationGraphQLSchemaFactory
 import funcify.feature.materializer.schema.MaterializationMetamodelBroker
 import funcify.feature.materializer.service.DefaultMaterializationGraphQLWiringFactory
+import funcify.feature.materializer.service.DefaultSingleRequestFieldMaterializationGraphService
 import funcify.feature.materializer.service.MaterializationGraphQLWiringFactory
+import funcify.feature.materializer.service.SingleRequestFieldMaterializationGraphService
 import funcify.feature.scalar.registry.ScalarTypeRegistry
 import funcify.feature.schema.MetamodelGraph
 import funcify.feature.schema.factory.MetamodelGraphCreationContext
@@ -33,6 +35,7 @@ import funcify.feature.schema.strategy.SchematicVertexGraphRemappingStrategy
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import graphql.schema.GraphQLSchema
+import java.util.concurrent.Executor
 import org.slf4j.Logger
 import org.springframework.beans.factory.ObjectProvider
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
@@ -166,8 +169,8 @@ class MaterializerConfiguration {
     fun materializationGraphQLWiringFactory(
         metamodelGraph: MetamodelGraph,
         scalarTypeRegistryProvider: ObjectProvider<ScalarTypeRegistry>,
-        singleRequestFieldMaterializationDataFetcherFactoryProvider:
-            ObjectProvider<SingleRequestFieldMaterializationDataFetcherFactory>
+        singleRequestFieldMaterializationDataFetcherFactory:
+            SingleRequestFieldMaterializationDataFetcherFactory
     ): MaterializationGraphQLWiringFactory {
         return DefaultMaterializationGraphQLWiringFactory(
             scalarTypeRegistry =
@@ -175,10 +178,28 @@ class MaterializerConfiguration {
                     ScalarTypeRegistry.materializationRegistry()
                 },
             singleRequestFieldMaterializationDataFetcherFactory =
-                singleRequestFieldMaterializationDataFetcherFactoryProvider.getIfAvailable {
-                    DefaultSingleRequestFieldMaterializationDataFetcherFactory()
-                }
+                singleRequestFieldMaterializationDataFetcherFactory
         )
+    }
+
+    @ConditionalOnMissingBean(value = [SingleRequestFieldMaterializationDataFetcherFactory::class])
+    @Bean
+    fun singleRequestFieldMaterializationDataFetcherFactory(
+        asyncExecutor: Executor,
+        singleRequestFieldMaterializationGraphService: SingleRequestFieldMaterializationGraphService
+    ): SingleRequestFieldMaterializationDataFetcherFactory {
+        return DefaultSingleRequestFieldMaterializationDataFetcherFactory(
+            asyncExecutor = asyncExecutor,
+            singleRequestFieldMaterializationGraphService =
+                singleRequestFieldMaterializationGraphService
+        )
+    }
+
+    @ConditionalOnMissingBean(value = [SingleRequestFieldMaterializationGraphService::class])
+    @Bean
+    fun singleRequestFieldMaterializationGraphService():
+        SingleRequestFieldMaterializationGraphService {
+        return DefaultSingleRequestFieldMaterializationGraphService()
     }
 
     @ConditionalOnMissingBean(value = [GraphQLSchema::class])

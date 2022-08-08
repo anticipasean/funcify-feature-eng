@@ -64,12 +64,23 @@ internal class DefaultSingleRequestContextDecoratingFieldMaterializationDataFetc
                     MaterializerException(MaterializerErrorResponse.UNEXPECTED_ERROR, message)
                 )
             }
+            environment.getLocalContext<SingleRequestFieldMaterializationSession?>() != null -> {
+                unwrapCompletionStageAndFoldMaterializedValueOptionIntoDataFetcherResult(
+                    environment,
+                    singleRequestSessionFieldMaterializationProcessor
+                        .materializeFieldValueInSession(
+                            environment
+                                .getLocalContext<SingleRequestFieldMaterializationSession>()
+                                .update { dataFetchingEnvironment(environment) }
+                        )
+                )
+            }
             else -> {
                 unwrapCompletionStageAndFoldMaterializedValueOptionIntoDataFetcherResult(
                     environment,
                     singleRequestSessionFieldMaterializationProcessor
-                        .materializeFieldValueInContext(
-                            DefaultSingleRequestFieldMaterializationContext(
+                        .materializeFieldValueInSession(
+                            DefaultSingleRequestFieldMaterializationSession(
                                 dataFetchingEnvironment = environment,
                                 singleRequestSession =
                                     environment.graphQlContext.get<GraphQLSingleRequestSession>(
@@ -85,17 +96,23 @@ internal class DefaultSingleRequestContextDecoratingFieldMaterializationDataFetc
 
     private fun <R> unwrapCompletionStageAndFoldMaterializedValueOptionIntoDataFetcherResult(
         environment: DataFetchingEnvironment,
-        kFuture: KFuture<Option<Any>>
+        sessionAndMaterializedValuePairFuture:
+            KFuture<Pair<SingleRequestFieldMaterializationSession, Option<Any>>>
     ): CompletionStage<out DataFetcherResult<R>> {
         // Unwrap completion_stage and fold materialized_value_option in
         // data_fetcher_result creation to avoid use of null within kfuture
-        return kFuture.fold { stage, executorOpt ->
+        return sessionAndMaterializedValuePairFuture.fold { stage, executorOpt ->
             executorOpt.fold(
                 {
                     stage
-                        .thenApply { materializedValueOption: Option<Any> ->
+                        .thenApply {
+                            (
+                                session: SingleRequestFieldMaterializationSession,
+                                materializedValueOption: Option<Any>
+                            ) ->
                             foldUntypedMaterializedValueOptionIntoTypedDataFetcherResult<R>(
                                 environment,
+                                session,
                                 materializedValueOption
                             )
                         }
@@ -108,12 +125,16 @@ internal class DefaultSingleRequestContextDecoratingFieldMaterializationDataFetc
                 },
                 { executor: Executor ->
                     stage.handleAsync(
-                        { materializedValueOption: Option<Any>?, thr: Throwable? ->
+                        {
+                            sessionValueOptPair:
+                                Pair<SingleRequestFieldMaterializationSession, Option<Any>>?,
+                            thr: Throwable? ->
                             when {
-                                materializedValueOption != null -> {
+                                sessionValueOptPair != null -> {
                                     foldUntypedMaterializedValueOptionIntoTypedDataFetcherResult<R>(
                                         environment,
-                                        materializedValueOption
+                                        sessionValueOptPair.first,
+                                        sessionValueOptPair.second
                                     )
                                 }
                                 else -> {
@@ -136,12 +157,13 @@ internal class DefaultSingleRequestContextDecoratingFieldMaterializationDataFetc
 
     private fun <R> foldUntypedMaterializedValueOptionIntoTypedDataFetcherResult(
         environment: DataFetchingEnvironment,
+        session: SingleRequestFieldMaterializationSession,
         materializedValueOption: Option<Any>
     ): DataFetcherResult<R> {
         return try {
             @Suppress("UNCHECKED_CAST") //
             val materializedValue: R = materializedValueOption.orNull() as R
-            DataFetcherResult.newResult<R>().data(materializedValue).build()
+            DataFetcherResult.newResult<R>().data(materializedValue).localContext(session).build()
         } catch (cce: ClassCastException) {
             val materializedValueType =
                 materializedValueOption.mapNotNull { a -> a::class.qualifiedName }.orNull()
@@ -157,6 +179,7 @@ internal class DefaultSingleRequestContextDecoratingFieldMaterializationDataFetc
                         .message(message)
                         .build()
                 )
+                .localContext(session)
                 .build()
         }
     }

@@ -10,8 +10,7 @@ import funcify.feature.tools.container.async.KFuture
  */
 interface SingleRequestSessionFieldMaterializationProcessor {
 
-    fun materializeFieldValueInContext(
-        context: SingleRequestFieldMaterializationContext
-    ): KFuture<Option<Any>>
-
+    fun materializeFieldValueInSession(
+        session: SingleRequestFieldMaterializationSession
+    ): KFuture<Pair<SingleRequestFieldMaterializationSession, Option<Any>>>
 }

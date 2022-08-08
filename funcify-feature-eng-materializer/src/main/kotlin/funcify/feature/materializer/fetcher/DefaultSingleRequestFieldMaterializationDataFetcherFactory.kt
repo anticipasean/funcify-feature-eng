@@ -2,6 +2,7 @@ package funcify.feature.materializer.fetcher
 
 import arrow.core.filterIsInstance
 import arrow.core.toOption
+import funcify.feature.materializer.service.SingleRequestFieldMaterializationGraphService
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import graphql.execution.DataFetcherResult
@@ -9,10 +10,14 @@ import graphql.schema.DataFetcher
 import graphql.schema.DataFetcherFactoryEnvironment
 import graphql.schema.GraphQLNamedOutputType
 import java.util.concurrent.CompletionStage
+import java.util.concurrent.Executor
 import org.slf4j.Logger
 
-internal class DefaultSingleRequestFieldMaterializationDataFetcherFactory :
-    SingleRequestFieldMaterializationDataFetcherFactory {
+internal class DefaultSingleRequestFieldMaterializationDataFetcherFactory(
+    private val asyncExecutor: Executor,
+    private val singleRequestFieldMaterializationGraphService:
+        SingleRequestFieldMaterializationGraphService
+) : SingleRequestFieldMaterializationDataFetcherFactory {
 
     companion object {
         private val logger: Logger =
@@ -38,7 +43,11 @@ internal class DefaultSingleRequestFieldMaterializationDataFetcherFactory :
             |} ] ]""".flatten()
         )
         return DefaultSingleRequestContextDecoratingFieldMaterializationDataFetcher<Any?>(
-            DefaultSingleRequestSessionFieldMaterializationProcessor()
+            DefaultSingleRequestSessionFieldMaterializationProcessor(
+                asyncExecutor = asyncExecutor,
+                singleRequestFieldMaterializationGraphService =
+                    singleRequestFieldMaterializationGraphService
+            )
         )
     }
 }
