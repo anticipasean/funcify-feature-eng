@@ -14,6 +14,7 @@ import funcify.feature.materializer.response.SerializedGraphQLResponse
 import funcify.feature.spring.error.FeatureEngSpringWebFluxException
 import funcify.feature.spring.error.SpringWebFluxErrorResponse
 import funcify.feature.spring.service.GraphQLSingleRequestExecutor
+import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.container.deferred.Deferred
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.PersistentMapExtensions.reduceEntriesToPersistentMap
@@ -122,8 +123,24 @@ internal class GraphQLWebFluxHandlerFunction(
                 }
                 1 -> {
                     Mono.just(aggregatedResponses[0])
-                        .map { response -> response.executionResult.toSpecification() }
-                        .flatMap { specResponse -> ServerResponse.ok().bodyValue(specResponse) }
+                        .flatMap { response ->
+                            Try.attempt { response.executionResult.toSpecification() }
+                                .mapFailure { t: Throwable ->
+                                    val message: String =
+                                        """unable to convert graphql execution_result 
+                                            |into specification for api_response 
+                                            |[ type: Map<String, Any?> ] given cause: 
+                                            |[ type: ${t::class.qualifiedName}, 
+                                            |message: ${t.message} ]""".flattenIntoOneLine()
+                                    FeatureEngSpringWebFluxException(
+                                        SpringWebFluxErrorResponse.EXECUTION_RESULT_ISSUE,
+                                        message,
+                                        t
+                                    )
+                                }
+                                .toMono()
+                        }
+                        .flatMap { spec -> ServerResponse.ok().bodyValue(spec) }
                 }
                 else -> {
                     Mono.error(

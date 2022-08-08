@@ -12,6 +12,12 @@ enum class SpringWebFluxErrorResponse : ErrorResponse {
         override val errorMessageIfHttp: Option<String>
             get() = "invalid input".some()
     },
+    EXECUTION_RESULT_ISSUE {
+        override val responseStatusIfHttp: Option<HttpStatus>
+            get() = HttpStatus.INTERNAL_SERVER_ERROR.some()
+        override val errorMessageIfHttp: Option<String>
+            get() = "issue with graphql_execution_result".some()
+    },
     NO_RESPONSE_PROVIDED {
         override val responseStatusIfHttp: Option<HttpStatus>
             get() = HttpStatus.INTERNAL_SERVER_ERROR.some()
