@@ -24,8 +24,10 @@ import funcify.feature.materializer.schema.DefaultMaterializationMetamodelBroker
 import funcify.feature.materializer.schema.MaterializationGraphQLSchemaFactory
 import funcify.feature.materializer.schema.MaterializationMetamodelBroker
 import funcify.feature.materializer.service.DefaultMaterializationGraphQLWiringFactory
+import funcify.feature.materializer.service.DefaultMaterializationPreparsedDocumentProvider
 import funcify.feature.materializer.service.DefaultSingleRequestFieldMaterializationGraphService
 import funcify.feature.materializer.service.MaterializationGraphQLWiringFactory
+import funcify.feature.materializer.service.MaterializationPreparsedDocumentProvider
 import funcify.feature.materializer.service.SingleRequestFieldMaterializationGraphService
 import funcify.feature.scalar.registry.ScalarTypeRegistry
 import funcify.feature.schema.MetamodelGraph
@@ -200,6 +202,14 @@ class MaterializerConfiguration {
     fun singleRequestFieldMaterializationGraphService():
         SingleRequestFieldMaterializationGraphService {
         return DefaultSingleRequestFieldMaterializationGraphService()
+    }
+
+    @ConditionalOnMissingBean(value = [MaterializationPreparsedDocumentProvider::class])
+    @Bean
+    fun materializationPreparsedDocumentProvider(
+        jsonMapper: JsonMapper
+    ): MaterializationPreparsedDocumentProvider {
+        return DefaultMaterializationPreparsedDocumentProvider(jsonMapper)
     }
 
     @ConditionalOnMissingBean(value = [GraphQLSchema::class])

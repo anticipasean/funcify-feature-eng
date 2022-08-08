@@ -24,6 +24,7 @@ internal class DefaultSingleRequestFieldMaterializationGraphService :
         logger.debug(
             "create_materialization_graph_for_session: [ session.session_id: ${session.sessionId} ]"
         )
+        logger.debug("field.selection_set: [ session.field.selection_set: ${session.field.selectionSet} ]")
         return Deferred.completed(session)
     }
 }

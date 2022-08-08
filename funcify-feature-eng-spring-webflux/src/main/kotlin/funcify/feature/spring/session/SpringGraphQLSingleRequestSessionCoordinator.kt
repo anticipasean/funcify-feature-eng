@@ -3,6 +3,7 @@ package funcify.feature.spring.session
 import funcify.feature.materializer.request.GraphQLExecutionInputCustomizer
 import funcify.feature.materializer.response.SerializedGraphQLResponse
 import funcify.feature.materializer.response.SerializedGraphQLResponseFactory
+import funcify.feature.materializer.service.MaterializationPreparsedDocumentProvider
 import funcify.feature.materializer.session.GraphQLSingleRequestSession
 import funcify.feature.materializer.session.GraphQLSingleRequestSessionCoordinator
 import funcify.feature.tools.container.async.KFuture
@@ -24,7 +25,8 @@ import org.springframework.stereotype.Component
 @Component
 internal class SpringGraphQLSingleRequestSessionCoordinator(
     private val asyncExecutor: Executor,
-    private val serializedGraphQLResponseFactory: SerializedGraphQLResponseFactory
+    private val serializedGraphQLResponseFactory: SerializedGraphQLResponseFactory,
+    private val materializationPreparsedDocumentProvider: MaterializationPreparsedDocumentProvider
 ) : GraphQLSingleRequestSessionCoordinator {
 
     companion object {
@@ -43,6 +45,7 @@ internal class SpringGraphQLSingleRequestSessionCoordinator(
                 KFuture.of(
                     completionStage =
                         GraphQL.newGraphQL(session.materializationSchema)
+                            .preparsedDocumentProvider(materializationPreparsedDocumentProvider)
                             .build()
                             .executeAsync(executionInputBuilderUpdater(session)),
                     executor = asyncExecutor
