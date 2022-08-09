@@ -238,7 +238,7 @@ interface GraphQLParameterIndexSDLDefinitionCreationTemplate {
                     )
                 InputValueDefinition.newInputValueDefinition()
                     .name(graphQLParameterAttribute.name.toString())
-                    .type(GraphQLSDLTypeComposer.invoke(inputObjectField.type))
+                    .type(GraphQLNonNullableSDLTypeComposer.invoke(inputObjectField.type))
                     .defaultValue(literalValue)
                     .build()
             }
@@ -246,7 +246,7 @@ interface GraphQLParameterIndexSDLDefinitionCreationTemplate {
             Try.attempt {
                 InputValueDefinition.newInputValueDefinition()
                     .name(graphQLParameterAttribute.name.toString())
-                    .type(GraphQLSDLTypeComposer.invoke(inputObjectField.type))
+                    .type(GraphQLNonNullableSDLTypeComposer.invoke(inputObjectField.type))
                     .build()
             }
         }
@@ -304,7 +304,7 @@ interface GraphQLParameterIndexSDLDefinitionCreationTemplate {
                     )
                 InputValueDefinition.newInputValueDefinition()
                     .name(graphQLParameterAttribute.name.toString())
-                    .type(GraphQLSDLTypeComposer.invoke(directiveArgument.type))
+                    .type(GraphQLNonNullableSDLTypeComposer.invoke(directiveArgument.type))
                     .defaultValue(literalValue)
                     .build()
             }
@@ -312,7 +312,7 @@ interface GraphQLParameterIndexSDLDefinitionCreationTemplate {
             Try.attempt {
                 InputValueDefinition.newInputValueDefinition()
                     .name(graphQLParameterAttribute.name.toString())
-                    .type(GraphQLSDLTypeComposer.invoke(directiveArgument.type))
+                    .type(GraphQLNonNullableSDLTypeComposer.invoke(directiveArgument.type))
                     .build()
             }
         }
@@ -370,7 +370,7 @@ interface GraphQLParameterIndexSDLDefinitionCreationTemplate {
                     )
                 InputValueDefinition.newInputValueDefinition()
                     .name(graphQLParameterAttribute.name.toString())
-                    .type(GraphQLSDLTypeComposer.invoke(fieldArgument.type))
+                    .type(GraphQLNonNullableSDLTypeComposer.invoke(fieldArgument.type))
                     .defaultValue(literalValue)
                     .build()
             }
@@ -378,7 +378,7 @@ interface GraphQLParameterIndexSDLDefinitionCreationTemplate {
             Try.attempt {
                 InputValueDefinition.newInputValueDefinition()
                     .name(graphQLParameterAttribute.name.toString())
-                    .type(GraphQLSDLTypeComposer.invoke(fieldArgument.type))
+                    .type(GraphQLNonNullableSDLTypeComposer.invoke(fieldArgument.type))
                     .build()
             }
         }

@@ -23,7 +23,8 @@ import graphql.schema.GraphQLNonNull
 import graphql.schema.GraphQLOutputType
 import graphql.schema.GraphQLType
 
-object GraphQLSDLTypeComposer : (GraphQLType) -> Type<*> {
+// TODO: Create tests for composing nullable sdl_types
+object GraphQLNullableSDLTypeComposer : (GraphQLType) -> Type<*> {
 
     private data class TypeCompositionContext(
         val outerGraphQLType: GraphQLType,
@@ -41,9 +42,7 @@ object GraphQLSDLTypeComposer : (GraphQLType) -> Type<*> {
                 /** Make base type non-nullable if source has it specified as such */
                 context.compositionLevel == 0 && innerGraphQLType is GraphQLNonNull -> {
                     context.compositionFunction
-                        .compose<Type<*>, Type<*>, Type<*>> { t: Type<*> ->
-                            NonNullType.newNonNullType().type(t).build()
-                        }
+                        .compose<Type<*>, Type<*>, Type<*>> { t: Type<*> -> t }
                         .left()
                         .mapLeft { compFunc ->
                             context.copy(
@@ -76,12 +75,7 @@ object GraphQLSDLTypeComposer : (GraphQLType) -> Type<*> {
                 }
                 context.compositionLevel == 0 && innerGraphQLType is GraphQLNamedType -> {
                     context.compositionFunction
-                        .invoke(
-                            NonNullType.newNonNullType(
-                                    TypeName.newTypeName(innerGraphQLType.name).build()
-                                )
-                                .build()
-                        )
+                        .invoke(TypeName.newTypeName(innerGraphQLType.name).build())
                         .right()
                         .some()
                 }

@@ -1,6 +1,5 @@
 package funcify.feature.scalar
 
-import com.google.common.collect.ImmutableSet
 import funcify.feature.scalar.decimal.Decimal16
 import funcify.feature.scalar.decimal.Decimal3
 import funcify.feature.scalar.decimal.Decimal7
@@ -34,7 +33,10 @@ enum class MaterializationScalarType(
     DECIMAL3(Decimal3.graphQLScalarType, FloatValue.newFloatValue(BigDecimal.ZERO).build()),
     DECIMAL7(Decimal7.graphQLScalarType, FloatValue.newFloatValue(BigDecimal.ZERO).build()),
     DECIMAL16(Decimal16.graphQLScalarType, FloatValue.newFloatValue(BigDecimal.ZERO).build()),
-    BIGDECIMAL(ExtendedScalars.GraphQLBigDecimal, FloatValue.newFloatValue(BigDecimal.ZERO).build()),
+    BIGDECIMAL(
+        ExtendedScalars.GraphQLBigDecimal,
+        FloatValue.newFloatValue(BigDecimal.ZERO).build()
+    ),
     BIGINTEGER(ExtendedScalars.GraphQLBigInteger, IntValue.of(0)),
     BYTE(ExtendedScalars.GraphQLByte, IntValue.of(0)),
     CHAR(ExtendedScalars.GraphQLChar, StringValue.of(" ")),
@@ -43,15 +45,12 @@ enum class MaterializationScalarType(
     DATETIME(ExtendedScalars.DateTime, NullValue.of());
 
     companion object {
-        private val numericScalarTypes: ImmutableSet<MaterializationScalarType> by lazy {
+        private val numericScalarTypes: Set<MaterializationScalarType> by lazy {
             sequenceOf(INT, FLOAT, DECIMAL3, DECIMAL7, DECIMAL16, BIGDECIMAL, BIGINTEGER, LONG)
-                .fold(ImmutableSet.builder<MaterializationScalarType>()) { sb, nst -> sb.add(nst) }
-                .build()
+                .toSet()
         }
-        private val temporalScalarTypes: ImmutableSet<MaterializationScalarType> by lazy {
-            sequenceOf(DATE, DATETIME)
-                .fold(ImmutableSet.builder<MaterializationScalarType>()) { sb, tst -> sb.add(tst) }
-                .build()
+        private val temporalScalarTypes: Set<MaterializationScalarType> by lazy {
+            sequenceOf(DATE, DATETIME).toSet()
         }
     }
 }

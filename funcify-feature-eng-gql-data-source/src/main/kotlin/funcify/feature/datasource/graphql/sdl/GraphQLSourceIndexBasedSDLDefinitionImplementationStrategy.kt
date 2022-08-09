@@ -323,20 +323,20 @@ internal class GraphQLSourceIndexBasedSDLDefinitionImplementationStrategy :
                             )
                         )
                         .type(
-                            GraphQLSDLTypeComposer.invoke(
+                            GraphQLNonNullableSDLTypeComposer.invoke(
                                 graphQLInputOrOutputType =
                                     graphQLSourceAttribute.graphQLFieldDefinition.type
-                            )
+                                                                    )
                         )
                         .build()
                 } else {
                     FieldDefinition.newFieldDefinition()
                         .name(graphQLSourceAttribute.graphQLFieldDefinition.name)
                         .type(
-                            GraphQLSDLTypeComposer.invoke(
+                            GraphQLNonNullableSDLTypeComposer.invoke(
                                 graphQLInputOrOutputType =
                                     graphQLSourceAttribute.graphQLFieldDefinition.type
-                            )
+                                                                    )
                         )
                         .build()
                 }
