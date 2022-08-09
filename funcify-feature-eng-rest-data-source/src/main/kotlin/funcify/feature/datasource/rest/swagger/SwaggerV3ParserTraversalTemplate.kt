@@ -23,14 +23,15 @@ interface SwaggerV3ParserTraversalTemplate<WT> :
 
     override fun onServicePathsGroup(
         parentPath: SchematicPath,
-        childPathInfoBySchematicPath: Map<SchematicPath, PathItem>,
-        contextContainer: SwaggerSourceIndexContextContainer<WT>,
+        childNameAndPathInfoBySchematicPath: Map<SchematicPath, Pair<String, PathItem>>,
+        contextContainer: SwaggerSourceIndexContextContainer<WT>
     ): SwaggerSourceIndexContextContainer<WT>
 
     override fun onServicePath(
         sourcePath: SchematicPath,
+        servicePathName: String,
         pathInfo: PathItem,
-        contextContainer: SwaggerSourceIndexContextContainer<WT>,
+        contextContainer: SwaggerSourceIndexContextContainer<WT>
     ): SwaggerSourceIndexContextContainer<WT>
 
     override fun onServicePostRequest(

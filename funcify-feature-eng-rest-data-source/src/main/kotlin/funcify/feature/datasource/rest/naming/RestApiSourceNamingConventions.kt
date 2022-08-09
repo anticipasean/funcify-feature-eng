@@ -9,7 +9,6 @@ object RestApiSourceNamingConventions {
 
     enum class ConventionType {
         PATH_GROUP_TYPE_NAMING_CONVENTION,
-        PATH_NAME_FIELD_NAMING_CONVENTION,
         PROPERTY_NAME_FIELD_NAMING_CONVENTION,
         REQUEST_TYPE_NAMING_CONVENTION,
         RESPONSE_TYPE_NAMING_CONVENTION
@@ -45,16 +44,6 @@ object RestApiSourceNamingConventions {
             )
     }
 
-    private val PATH_NAME_FIELD_NAMING_CONVENTION: NamingConvention<String> by lazy {
-        NamingConventionFactory.getDefaultFactory()
-            .createConventionFrom(StandardNamingConventions.SNAKE_CASE)
-            .mapping(::identity)
-            .namedAndIdentifiedBy(
-                RestApiSourceNamingConventions::class.qualifiedName!!,
-                ConventionType.PATH_NAME_FIELD_NAMING_CONVENTION
-            )
-    }
-
     private val PROPERTY_NAME_FIELD_NAMING_CONVENTION: NamingConvention<String> by lazy {
         NamingConventionFactory.getDefaultFactory()
             .createConventionFrom(StandardNamingConventions.CAMEL_CASE)
@@ -65,23 +54,19 @@ object RestApiSourceNamingConventions {
             )
     }
 
-    fun getPathGroupTypeNamingConventionForPathGroupPathName(): NamingConvention<String> {
+    fun getPathGroupTypeNamingConvention(): NamingConvention<String> {
         return PATH_GROUP_TYPE_NAMING_CONVENTION
     }
 
-    fun getRequestTypeNamingConventionForRequestPathName(): NamingConvention<String> {
+    fun getRequestTypeNamingConvention(): NamingConvention<String> {
         return REQUEST_TYPE_NAMING_CONVENTION
     }
 
-    fun getResponseTypeNamingConventionForResponsePathName(): NamingConvention<String> {
+    fun getResponseTypeNamingConvention(): NamingConvention<String> {
         return RESPONSE_TYPE_NAMING_CONVENTION
     }
-
-    fun getFieldNamingConventionForPathName(): NamingConvention<String> {
-        return PATH_NAME_FIELD_NAMING_CONVENTION
-    }
-
-    fun getFieldNamingConventionForJsonPropertyName(): NamingConvention<String> {
+    
+    fun getFieldNamingConvention(): NamingConvention<String> {
         return PROPERTY_NAME_FIELD_NAMING_CONVENTION
     }
 }

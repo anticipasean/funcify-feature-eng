@@ -30,7 +30,7 @@ internal object SwaggerParameterAttributeSDLTypeResolver : (SwaggerParameterAttr
             JsonFormatTypes.OBJECT -> {
                 TypeName.newTypeName(
                         RestApiSourceNamingConventions
-                            .getRequestTypeNamingConventionForRequestPathName()
+                            .getRequestTypeNamingConvention()
                             .deriveName(parameterAttribute.jsonPropertyName)
                             .qualifiedForm
                     )
@@ -69,7 +69,7 @@ internal object SwaggerParameterAttributeSDLTypeResolver : (SwaggerParameterAttr
                         ListType.newListType(
                                 TypeName.newTypeName(
                                         RestApiSourceNamingConventions
-                                            .getRequestTypeNamingConventionForRequestPathName()
+                                            .getRequestTypeNamingConvention()
                                             .deriveName(parameterAttribute.jsonPropertyName)
                                             .qualifiedForm
                                     )

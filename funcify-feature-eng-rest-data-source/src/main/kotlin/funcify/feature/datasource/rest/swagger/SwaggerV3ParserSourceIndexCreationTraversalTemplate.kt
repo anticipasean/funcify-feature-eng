@@ -21,7 +21,6 @@ import funcify.feature.naming.ConventionalName
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.tools.extensions.JsonNodeExtensions.addChildKeyValuePairToRightmostObjectOrNullNode
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
-import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentMap
 import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentSetValueMap
 import funcify.feature.tools.extensions.SequenceExtensions.flatMapOptions
 import funcify.feature.tools.extensions.StringExtensions.flatten
@@ -34,7 +33,6 @@ import io.swagger.v3.oas.models.media.Schema
 import io.swagger.v3.oas.models.parameters.RequestBody
 import io.swagger.v3.oas.models.responses.ApiResponse
 import io.swagger.v3.oas.models.responses.ApiResponses
-import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.toPersistentMap
 import org.slf4j.Logger
@@ -63,66 +61,92 @@ interface SwaggerV3ParserSourceIndexCreationTraversalTemplate<WT> :
         logger.debug(
             "on_open_api: [ open_api_representation.open_api: ${openAPIRepresentation.openapi} ]"
         )
-        val childPathPathItemPairsByParentPath:
-            PersistentMap<SchematicPath, PersistentMap<SchematicPath, PathItem>> =
-            openAPIRepresentation
-                .toOption()
-                .mapNotNull { o -> o.paths }
-                .mapNotNull { p ->
-                    p.asSequence().map { (pathString, pathItem) ->
-                        Pair(SchematicPath.of { pathSegments(pathString.split('/')) }, pathItem)
+
+        return openAPIRepresentation
+            .toOption()
+            .mapNotNull { o -> o.paths }
+            .mapNotNull { p ->
+                p.asSequence().map { (servicePathName, pathItem) ->
+                    Triple(
+                        SchematicPath.of {
+                            pathSegments(
+                                servicePathName
+                                    .split('/')
+                                    .filterNot { s -> s.isEmpty() }
+                                    .map { ps ->
+                                        RestApiSourceNamingConventions.getFieldNamingConvention()
+                                            .deriveName(ps)
+                                            .qualifiedForm
+                                    }
+                            )
+                        },
+                        servicePathName,
+                        pathItem
+                    )
+                }
+            }
+            .fold(::emptySequence, ::identity)
+            .map { (sp, pn, pi) -> sp.getParentPath().map { pp -> pp to Triple(sp, pn, pi) } }
+            .flatMapOptions()
+            .reducePairsToPersistentSetValueMap()
+            .asSequence()
+            .map { (pp, childPropsSets) ->
+                pp to
+                    childPropsSets.fold(persistentMapOf<SchematicPath, Pair<String, PathItem>>()) {
+                        pm,
+                        cps ->
+                        pm.put(cps.first, cps.second to cps.third)
                     }
-                }
-                .fold(::emptySequence, ::identity)
-                .map { (sp, pi) -> sp.getParentPath().map { pp -> pp to (sp to pi) } }
-                .flatMapOptions()
-                .reducePairsToPersistentSetValueMap()
-                .asSequence()
-                .map { (parentPath, childPathPathItemPairsSet) ->
-                    parentPath to childPathPathItemPairsSet.stream().reducePairsToPersistentMap()
-                }
-                .reducePairsToPersistentMap()
-        return childPathPathItemPairsByParentPath.asSequence().fold(contextContainer) {
-            ctxCont: SwaggerSourceIndexContextContainer<WT>,
-            (parentPath: SchematicPath, pathItemByChildPath: PersistentMap<SchematicPath, PathItem>)
-            ->
-            onServicePathsGroup(parentPath, pathItemByChildPath, ctxCont)
-        }
+            }
+            .fold(contextContainer) {
+                ctxCont: SwaggerSourceIndexContextContainer<WT>,
+                (parentPath: SchematicPath, childProps: Map<SchematicPath, Pair<String, PathItem>>)
+                ->
+                onServicePathsGroup(parentPath, childProps, ctxCont)
+            }
     }
 
     override fun onServicePathsGroup(
         parentPath: SchematicPath,
-        childPathInfoBySchematicPath: Map<SchematicPath, PathItem>,
-        contextContainer: SwaggerSourceIndexContextContainer<WT>,
+        childNameAndPathInfoBySchematicPath: Map<SchematicPath, Pair<String, PathItem>>,
+        contextContainer: SwaggerSourceIndexContextContainer<WT>
     ): SwaggerSourceIndexContextContainer<WT> {
         logger.debug(
             """on_service_paths_group: [ parent_path: ${parentPath}, 
-            |path_info_by_schematic_path.size: ${childPathInfoBySchematicPath.size} 
+            |child_name_and_path_info_by_schematic_path.size: ${childNameAndPathInfoBySchematicPath.size} 
             |]""".flatten()
         )
         return createSourceIndicesInContextForPathsGroup(
                 parentPath,
-                childPathInfoBySchematicPath,
+                childNameAndPathInfoBySchematicPath,
                 contextContainer
             )
             .let { updatedContext ->
-                childPathInfoBySchematicPath.asSequence().fold(updatedContext) {
+                childNameAndPathInfoBySchematicPath.asSequence().fold(updatedContext) {
                     updCtx,
                     (childPath, pathInfo) ->
-                    onServicePath(childPath, pathInfo, updCtx)
+                    onServicePath(childPath, pathInfo.first, pathInfo.second, updCtx)
                 }
             }
     }
 
     override fun onServicePath(
         sourcePath: SchematicPath,
+        servicePathName: String,
         pathInfo: PathItem,
-        contextContainer: SwaggerSourceIndexContextContainer<WT>,
+        contextContainer: SwaggerSourceIndexContextContainer<WT>
     ): SwaggerSourceIndexContextContainer<WT> {
         logger.debug(
             "on_service_path: [ source_path: ${sourcePath}, path_info: ${pathInfo.description} ]"
         )
-        if (!shouldIncludeSourcePathAndPathInfo(sourcePath, pathInfo, contextContainer)) {
+        if (
+            !shouldIncludeSourcePathAndPathInfo(
+                sourcePath,
+                servicePathName,
+                pathInfo,
+                contextContainer
+            )
+        ) {
             logger.debug("on_service_path: [ excluding source_path: $sourcePath ]")
             return contextContainer
         }
@@ -152,6 +176,7 @@ interface SwaggerV3ParserSourceIndexCreationTraversalTemplate<WT> :
                                 apiResponse,
                                 createSourceAttributeInContextForPathInfoRepresentation(
                                     sourcePath,
+                                    servicePathName,
                                     pathInfo,
                                     contextContainer
                                 )
@@ -530,8 +555,8 @@ interface SwaggerV3ParserSourceIndexCreationTraversalTemplate<WT> :
 
     override fun createSourceIndicesInContextForPathsGroup(
         sourcePath: SchematicPath,
-        pathsGroup: Map<SchematicPath, PathItem>,
-        contextContainer: SwaggerSourceIndexContextContainer<WT>,
+        pathsGroup: Map<SchematicPath, Pair<String, PathItem>>,
+        contextContainer: SwaggerSourceIndexContextContainer<WT>
     ): SwaggerSourceIndexContextContainer<WT> {
         val pathsGroupFirstPath: String =
             pathsGroup
@@ -551,8 +576,7 @@ interface SwaggerV3ParserSourceIndexCreationTraversalTemplate<WT> :
         )
         val conventionalName: ConventionalName =
             if (sourcePath.isRoot()) {
-                RestApiSourceNamingConventions
-                    .getPathGroupTypeNamingConventionForPathGroupPathName()
+                RestApiSourceNamingConventions.getPathGroupTypeNamingConvention()
                     .deriveName(
                         getDataSourceKeyForSwaggerSourceIndicesInContext(contextContainer).name
                     )
@@ -570,8 +594,7 @@ interface SwaggerV3ParserSourceIndexCreationTraversalTemplate<WT> :
                         )
                     }
                     .map { lastSegment ->
-                        RestApiSourceNamingConventions
-                            .getPathGroupTypeNamingConventionForPathGroupPathName()
+                        RestApiSourceNamingConventions.getPathGroupTypeNamingConvention()
                             .deriveName(lastSegment)
                     }
                     .orElseThrow()
@@ -601,7 +624,7 @@ interface SwaggerV3ParserSourceIndexCreationTraversalTemplate<WT> :
                                 )
                             }
                             .map { lastSegment ->
-                                RestApiSourceNamingConventions.getFieldNamingConventionForPathName()
+                                RestApiSourceNamingConventions.getFieldNamingConvention()
                                     .deriveName(lastSegment)
                             }
                             .orElseThrow()
@@ -677,8 +700,7 @@ interface SwaggerV3ParserSourceIndexCreationTraversalTemplate<WT> :
                     )
                 }
                 .map { lastPathSegment ->
-                    RestApiSourceNamingConventions
-                        .getResponseTypeNamingConventionForResponsePathName()
+                    RestApiSourceNamingConventions.getResponseTypeNamingConvention()
                         .deriveName(lastPathSegment)
                 }
                 .orElseThrow()
@@ -695,12 +717,14 @@ interface SwaggerV3ParserSourceIndexCreationTraversalTemplate<WT> :
 
     override fun createSourceAttributeInContextForPathInfoRepresentation(
         sourcePath: SchematicPath,
+        servicePathName: String,
         pathInfo: PathItem,
         contextContainer: SwaggerSourceIndexContextContainer<WT>,
     ): SwaggerSourceIndexContextContainer<WT> {
         logger.debug(
             """create_source_attribute_in_context_for_path_info_representation: [ 
             |source_path: ${sourcePath}, 
+            |service_path_name: ${servicePathName},
             |path_info.post.response.size: ${pathInfo?.post?.responses?.size} 
             |]""".flatten()
         )
@@ -718,13 +742,13 @@ interface SwaggerV3ParserSourceIndexCreationTraversalTemplate<WT> :
                 }
                 .orElseThrow()
         val pathInfoAttributeName: ConventionalName =
-            RestApiSourceNamingConventions.getFieldNamingConventionForPathName()
-                .deriveName(lastPathSegment)
+            RestApiSourceNamingConventions.getFieldNamingConvention().deriveName(lastPathSegment)
         return addNewOrUpdateExistingSwaggerSourceIndexToContext(
             DefaultSwaggerSourcePathItemAttribute(
                 sourcePath,
                 getDataSourceKeyForSwaggerSourceIndicesInContext(contextContainer),
                 pathInfoAttributeName,
+                servicePathName.some(),
                 pathInfo.some()
             ),
             contextContainer
@@ -747,8 +771,7 @@ interface SwaggerV3ParserSourceIndexCreationTraversalTemplate<WT> :
             |]""".flatten()
         )
         val conventionalName: ConventionalName =
-            RestApiSourceNamingConventions.getFieldNamingConventionForJsonPropertyName()
-                .deriveName(jsonPropertyName)
+            RestApiSourceNamingConventions.getFieldNamingConvention().deriveName(jsonPropertyName)
         return addNewOrUpdateExistingSwaggerSourceIndexToContext(
             DefaultSwaggerSourceResponseBodyPropertyAttribute(
                 getDataSourceKeyForSwaggerSourceIndicesInContext(contextContainer),
@@ -790,8 +813,7 @@ interface SwaggerV3ParserSourceIndexCreationTraversalTemplate<WT> :
                     )
                 }
                 .map { lastPathSegment ->
-                    RestApiSourceNamingConventions
-                        .getRequestTypeNamingConventionForRequestPathName()
+                    RestApiSourceNamingConventions.getRequestTypeNamingConvention()
                         .deriveName(lastPathSegment)
                 }
                 .orElseThrow()
@@ -823,8 +845,7 @@ interface SwaggerV3ParserSourceIndexCreationTraversalTemplate<WT> :
             |]""".flatten()
         )
         val conventionalName: ConventionalName =
-            RestApiSourceNamingConventions.getFieldNamingConventionForJsonPropertyName()
-                .deriveName(jsonPropertyName)
+            RestApiSourceNamingConventions.getFieldNamingConvention().deriveName(jsonPropertyName)
         return addNewOrUpdateExistingSwaggerSourceIndexToContext(
             DefaultSwaggerParameterAttribute(
                 getDataSourceKeyForSwaggerSourceIndicesInContext(contextContainer),

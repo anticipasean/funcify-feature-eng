@@ -15,6 +15,7 @@ internal data class DefaultSwaggerSourcePathItemAttribute(
     override val sourcePath: SchematicPath,
     override val dataSourceLookupKey: DataSource.Key<RestApiSourceIndex>,
     override val name: ConventionalName,
+    override val servicePathItemName: Option<String>,
     override val pathItem: Option<PathItem>
 ) : SwaggerSourceAttribute {
 

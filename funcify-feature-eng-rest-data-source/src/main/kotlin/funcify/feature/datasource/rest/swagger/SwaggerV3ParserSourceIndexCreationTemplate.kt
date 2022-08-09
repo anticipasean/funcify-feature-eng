@@ -17,12 +17,13 @@ interface SwaggerV3ParserSourceIndexCreationTemplate<WT> :
 
     override fun createSourceIndicesInContextForPathsGroup(
         sourcePath: SchematicPath,
-        pathsGroup: Map<SchematicPath, PathItem>,
-        contextContainer: SwaggerSourceIndexContextContainer<WT>,
+        pathsGroup: Map<SchematicPath, Pair<String, PathItem>>,
+        contextContainer: SwaggerSourceIndexContextContainer<WT>
     ): SwaggerSourceIndexContextContainer<WT>
 
     override fun createSourceAttributeInContextForPathInfoRepresentation(
         sourcePath: SchematicPath,
+        servicePathName: String,
         pathInfo: PathItem,
         contextContainer: SwaggerSourceIndexContextContainer<WT>,
     ): SwaggerSourceIndexContextContainer<WT>

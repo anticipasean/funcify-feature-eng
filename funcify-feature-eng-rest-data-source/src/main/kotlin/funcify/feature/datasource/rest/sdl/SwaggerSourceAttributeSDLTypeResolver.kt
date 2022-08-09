@@ -20,7 +20,7 @@ internal object SwaggerSourceAttributeSDLTypeResolver :
             sourceAttribute.representsPathItemGroup() -> {
                 TypeName.newTypeName(
                         RestApiSourceNamingConventions
-                            .getPathGroupTypeNamingConventionForPathGroupPathName()
+                            .getPathGroupTypeNamingConvention()
                             .deriveName(
                                 sourceAttribute.name.nameSegments.joinToString("_") { ns ->
                                     ns.value
@@ -34,7 +34,7 @@ internal object SwaggerSourceAttributeSDLTypeResolver :
             sourceAttribute.representsPathItem() -> {
                 TypeName.newTypeName(
                         RestApiSourceNamingConventions
-                            .getResponseTypeNamingConventionForResponsePathName()
+                            .getResponseTypeNamingConvention()
                             .deriveName(
                                 sourceAttribute.name.nameSegments.joinToString("_") { ns ->
                                     ns.value
@@ -56,7 +56,7 @@ internal object SwaggerSourceAttributeSDLTypeResolver :
                             // adjustment
                             TypeName.newTypeName(
                                     RestApiSourceNamingConventions
-                                        .getResponseTypeNamingConventionForResponsePathName()
+                                        .getResponseTypeNamingConvention()
                                         .deriveName(
                                             sourceAttribute.name.nameSegments.joinToString("_") { ns
                                                 ->

@@ -11,12 +11,13 @@ interface SwaggerSourceIndexCreationTemplate<WT, O, P, REQ, RES, SCH> {
 
     fun createSourceIndicesInContextForPathsGroup(
         sourcePath: SchematicPath,
-        pathsGroup: Map<SchematicPath, P>,
+        pathsGroup: Map<SchematicPath, Pair<String, P>>,
         contextContainer: SwaggerSourceIndexContextContainer<WT>
     ): SwaggerSourceIndexContextContainer<WT>
 
     fun createSourceAttributeInContextForPathInfoRepresentation(
         sourcePath: SchematicPath,
+        servicePathName: String,
         pathInfo: P,
         contextContainer: SwaggerSourceIndexContextContainer<WT>
     ): SwaggerSourceIndexContextContainer<WT>

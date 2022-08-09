@@ -13,10 +13,14 @@ fun interface SwaggerRestApiSourceMetadataFilter {
     companion object {
 
         val INCLUDE_ALL_FILTER: SwaggerRestApiSourceMetadataFilter =
-            SwaggerRestApiSourceMetadataFilter { sp: SchematicPath, pi: PathItem ->
+            SwaggerRestApiSourceMetadataFilter { sp: SchematicPath, spn: String, pi: PathItem ->
                 true
             }
     }
 
-    fun includeServicePath(sourcePath: SchematicPath, pathItem: PathItem): Boolean
+    fun includeServicePath(
+        sourcePath: SchematicPath,
+        servicePathName: String,
+        pathItem: PathItem
+    ): Boolean
 }

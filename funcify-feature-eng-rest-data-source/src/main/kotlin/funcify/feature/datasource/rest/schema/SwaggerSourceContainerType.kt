@@ -17,7 +17,7 @@ import kotlinx.collections.immutable.persistentMapOf
 interface SwaggerSourceContainerType :
     SwaggerRestApiSourceIndex, SourceContainerType<RestApiSourceIndex, SwaggerSourceAttribute> {
 
-    val pathItemsBySchematicPath: ImmutableMap<SchematicPath, PathItem>
+    val pathItemsBySchematicPath: ImmutableMap<SchematicPath, Pair<String, PathItem>>
         get() = persistentMapOf()
 
     // TODO: Investigate whether this schema type should be the one used in the swagger model or

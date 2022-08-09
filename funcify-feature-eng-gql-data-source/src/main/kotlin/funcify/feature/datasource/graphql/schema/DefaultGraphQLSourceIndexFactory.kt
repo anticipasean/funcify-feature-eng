@@ -65,17 +65,13 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
             private fun createRootAttributeForFieldDefinition(
                 fieldDefinition: GraphQLFieldDefinition
             ): Try<GraphQLSourceAttribute> {
-                val convPathName =
-                    GraphQLSourceNamingConventions
-                        .getPathNamingConventionForGraphQLFieldDefinitions()
-                        .deriveName(fieldDefinition)
                 val convFieldName =
                     GraphQLSourceNamingConventions
                         .getFieldNamingConventionForGraphQLFieldDefinitions()
                         .deriveName(fieldDefinition)
                 val sourcePath: SchematicPath =
                     SchematicPath.getRootPath().transform {
-                        pathSegment(convPathName.qualifiedForm)
+                        pathSegment(convFieldName.qualifiedForm)
                     }
                 return DefaultGraphQLSourceAttribute(
                         dataSourceLookupKey = key,
@@ -193,7 +189,7 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
                                 .filter { s ->
                                     s !=
                                         GraphQLSourceNamingConventions
-                                            .getPathNamingConventionForGraphQLFieldDefinitions()
+                                            .getFieldNamingConventionForGraphQLFieldDefinitions()
                                             .deriveName(parentDefinition)
                                             .qualifiedForm
                                 }
@@ -201,7 +197,7 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
                     ) {
                         val parentDefinitionPathNameSegment =
                             GraphQLSourceNamingConventions
-                                .getPathNamingConventionForGraphQLFieldDefinitions()
+                                .getFieldNamingConventionForGraphQLFieldDefinitions()
                                 .deriveName(parentDefinition)
                                 .qualifiedForm
                         val message =
@@ -239,16 +235,12 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
                             )
                             .failure()
                     }
-                    val childConvPathName =
-                        GraphQLSourceNamingConventions
-                            .getPathNamingConventionForGraphQLFieldDefinitions()
-                            .deriveName(childDefinition)
                     val childConvFieldName =
                         GraphQLSourceNamingConventions
                             .getFieldNamingConventionForGraphQLFieldDefinitions()
                             .deriveName(childDefinition)
                     val childPath =
-                        parentPath.transform { pathSegment(childConvPathName.qualifiedForm) }
+                        parentPath.transform { pathSegment(childConvFieldName.qualifiedForm) }
                     return DefaultGraphQLSourceAttribute(
                             dataSourceLookupKey = dataSourceLookupKey,
                             sourcePath = childPath,
@@ -288,10 +280,6 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
                             )
                             .failure()
                     }
-                    val childConvPathName =
-                        GraphQLSourceNamingConventions
-                            .getPathNamingConventionForGraphQLFieldDefinitions()
-                            .deriveName(childDefinition)
                     val childConvFieldName =
                         GraphQLSourceNamingConventions
                             .getFieldNamingConventionForGraphQLFieldDefinitions()
@@ -299,7 +287,7 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
                     return DefaultGraphQLSourceAttribute(
                             dataSourceLookupKey = dataSourceLookupKey,
                             sourcePath =
-                                SchematicPath.of { pathSegment(childConvPathName.toString()) },
+                                SchematicPath.of { pathSegment(childConvFieldName.qualifiedForm) },
                             name = childConvFieldName,
                             graphQLFieldDefinition = childDefinition
                         )

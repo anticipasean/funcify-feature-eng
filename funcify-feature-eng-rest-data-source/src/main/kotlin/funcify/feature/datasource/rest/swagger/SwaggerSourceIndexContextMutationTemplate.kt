@@ -23,6 +23,7 @@ interface SwaggerSourceIndexContextMutationTemplate<WT, O, P, REQ, RES, SCH> {
 
     fun shouldIncludeSourcePathAndPathInfo(
         sourcePath: SchematicPath,
+        servicePathName: String,
         pathInfo: P,
         contextContainer: SwaggerSourceIndexContextContainer<WT>
     ): Boolean

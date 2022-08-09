@@ -16,12 +16,13 @@ interface SwaggerOpenAPISchemaTraversalTemplate<WT, O, P, REQ, RES, SCH> {
 
     fun onServicePathsGroup(
         parentPath: SchematicPath,
-        childPathInfoBySchematicPath: Map<SchematicPath, P>,
+        childNameAndPathInfoBySchematicPath: Map<SchematicPath, Pair<String, P>>,
         contextContainer: SwaggerSourceIndexContextContainer<WT>
     ): SwaggerSourceIndexContextContainer<WT>
 
     fun onServicePath(
         sourcePath: SchematicPath,
+        servicePathName: String,
         pathInfo: P,
         contextContainer: SwaggerSourceIndexContextContainer<WT>
     ): SwaggerSourceIndexContextContainer<WT>

@@ -122,12 +122,13 @@ internal class DefaultSwaggerV3ParserSourceIndexFactory() : SwaggerV3ParserSourc
 
     override fun shouldIncludeSourcePathAndPathInfo(
         sourcePath: SchematicPath,
+        servicePathName: String,
         pathInfo: PathItem,
-        contextContainer: SwaggerSourceIndexContextContainer<SV3PWT>,
+        contextContainer: SwaggerSourceIndexContextContainer<SV3PWT>
     ): Boolean {
         return contextContainer
             .narrowed()
             .swaggerRestApiSourceMetadataFilter
-            .includeServicePath(sourcePath, pathInfo)
+            .includeServicePath(sourcePath, servicePathName, pathInfo)
     }
 }

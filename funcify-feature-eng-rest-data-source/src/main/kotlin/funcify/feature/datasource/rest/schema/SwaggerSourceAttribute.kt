@@ -13,6 +13,9 @@ import io.swagger.v3.oas.models.media.Schema
  */
 interface SwaggerSourceAttribute : SwaggerRestApiSourceIndex, SourceAttribute<RestApiSourceIndex> {
 
+    val servicePathItemName: Option<String>
+        get() = none()
+
     val pathItem: Option<PathItem>
         get() = none()
 
@@ -24,7 +27,7 @@ interface SwaggerSourceAttribute : SwaggerRestApiSourceIndex, SourceAttribute<Re
         get() = none()
 
     fun representsPathItem(): Boolean {
-        return pathItem.isDefined()
+        return servicePathItemName.isDefined() && pathItem.isDefined()
     }
 
     fun representsResponseBodyProperty(): Boolean {
