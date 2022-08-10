@@ -6,7 +6,8 @@ import java.util.concurrent.atomic.AtomicReference
 
 internal class DefaultThreadLocalContextOperation<O>(
     private val extractor: () -> Option<O>,
-    private val setter: (O) -> Unit
+    private val setter: (O) -> Unit,
+    private val unsetter: (O) -> Unit
 ) : ThreadLocalContextOperation {
 
     private val parentContextObjectHolder: AtomicReference<Option<O>> = AtomicReference(none())
@@ -17,5 +18,9 @@ internal class DefaultThreadLocalContextOperation<O>(
 
     override fun setInChildContext() {
         parentContextObjectHolder.get().tap { o: O -> setter.invoke(o) }
+    }
+
+    override fun unsetChildContext() {
+        parentContextObjectHolder.get().tap { o: O -> unsetter.invoke(o) }
     }
 }

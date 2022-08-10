@@ -37,6 +37,7 @@ import org.springframework.web.reactive.function.server.ServerRequest
 import org.springframework.web.reactive.function.server.ServerResponse
 import org.springframework.web.reactive.function.server.body
 import reactor.core.publisher.Mono
+import reactor.core.publisher.SignalType
 
 /**
  *
@@ -105,6 +106,16 @@ internal class GraphQLWebFluxHandlerFunction(
                 convertCommonExceptionTypeIntoServerResponse()
             )
             .onErrorResume(convertAnyUnhandledExceptionsIntoServerResponse(request))
+            .doFinally { signalType: SignalType ->
+                when (signalType) {
+                    SignalType.CANCEL,
+                    SignalType.ON_ERROR,
+                    SignalType.ON_COMPLETE -> {
+                        threadLocalContextOperations.forEach { op -> op.unsetChildContext() }
+                    }
+                    else -> {}
+                }
+            }
     }
 
     private fun convertServerRequestIntoRawGraphQLRequest(

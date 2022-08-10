@@ -11,4 +11,6 @@ interface ThreadLocalContextOperation {
 
     fun setInChildContext(): Unit
 
+    fun unsetChildContext(): Unit
+
 }
