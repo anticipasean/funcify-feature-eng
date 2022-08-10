@@ -2,14 +2,18 @@
 spring:
   application:
     name: funcify-feature-eng
+  main:
+    web-application-type: reactive
+  webflux:
+    base-path: /funcify-feature-eng
 server:
-  servlet:
-    context-path: /funcify
   port: 8343
 
 logging:
   level:
     funcify.feature: INFO # Can toggle if debug level needed during local testing
 
-funcify.feature-eng-service:
+feature-eng-service:
   system-default-time-zone: UTC
+  graphql:
+    path: ${spring.webflux.base-path}/graphql

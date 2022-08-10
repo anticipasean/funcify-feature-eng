@@ -2,10 +2,10 @@ package funcify.feature.spring.configuration
 
 import arrow.core.toOption
 import funcify.feature.json.JsonMapper
-import funcify.feature.materializer.threadlocal.ThreadLocalContextOperation
-import funcify.feature.materializer.threadlocal.ThreadLocalContextOperationFactory
 import funcify.feature.materializer.request.GraphQLExecutionInputCustomizer
 import funcify.feature.materializer.request.RawGraphQLRequestFactory
+import funcify.feature.materializer.threadlocal.ThreadLocalContextOperation
+import funcify.feature.materializer.threadlocal.ThreadLocalContextOperationFactory
 import funcify.feature.spring.router.GraphQLWebFluxHandlerFunction
 import funcify.feature.spring.service.GraphQLSingleRequestExecutor
 import org.springframework.beans.factory.ObjectProvider
@@ -44,8 +44,7 @@ class SpringGraphQLWebFluxConfiguration {
 
     @Bean
     fun graphQLWebFluxRouterFunction(
-        @Value("\${spring.webflux.base-path}") basePath: String,
-        @Value("\${feature-eng-service.graphql.path:/graphql}") graphQLPath: String,
+        @Value("\${feature-eng-service.graphql.path}") graphQLPath: String,
         jsonMapper: JsonMapper,
         graphQLSingleRequestExecutor: GraphQLSingleRequestExecutor,
         rawGraphQLRequestFactory: RawGraphQLRequestFactory,
@@ -53,9 +52,7 @@ class SpringGraphQLWebFluxConfiguration {
     ): RouterFunction<ServerResponse> {
         return RouterFunctions.route()
             .POST(
-                // Have to add the base path to the graphql path since webflux does not do this
-                // automatically; lame but necessary
-                basePath + graphQLPath,
+                graphQLPath,
                 RequestPredicates.accept(
                     MediaType.APPLICATION_JSON,
                     MediaType.valueOf(MEDIA_TYPE_APPLICATION_GRAPHQL_VALUE)
