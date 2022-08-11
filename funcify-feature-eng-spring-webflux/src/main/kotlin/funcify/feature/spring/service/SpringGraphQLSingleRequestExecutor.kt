@@ -18,7 +18,6 @@ import org.springframework.stereotype.Component
  * @author smccarron
  * @created 2/20/22
  */
-@Component
 internal class SpringGraphQLSingleRequestExecutor(
     private val graphQLSingleRequestSessionFactory: GraphQLSingleRequestSessionFactory,
     private val graphQLSingleRequestSessionCoordinator: GraphQLSingleRequestSessionCoordinator

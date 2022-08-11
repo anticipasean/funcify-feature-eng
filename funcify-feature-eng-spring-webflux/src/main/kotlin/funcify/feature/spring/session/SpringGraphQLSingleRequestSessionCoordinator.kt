@@ -22,7 +22,6 @@ import org.springframework.stereotype.Component
  * @author smccarron
  * @created 2/19/22
  */
-@Component
 internal class SpringGraphQLSingleRequestSessionCoordinator(
     private val asyncExecutor: Executor,
     private val serializedGraphQLResponseFactory: SerializedGraphQLResponseFactory,

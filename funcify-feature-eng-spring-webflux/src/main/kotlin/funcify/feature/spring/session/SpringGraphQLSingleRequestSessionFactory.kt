@@ -8,14 +8,12 @@ import funcify.feature.tools.container.deferred.Deferred
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import org.slf4j.Logger
-import org.springframework.stereotype.Component
 
 /**
  *
  * @author smccarron
  * @created 2/20/22
  */
-@Component
 internal class SpringGraphQLSingleRequestSessionFactory(
     private val materializationMetamodelBroker: MaterializationMetamodelBroker
 ) : GraphQLSingleRequestSessionFactory {

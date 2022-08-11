@@ -3,9 +3,17 @@ package funcify.feature.spring.configuration
 import funcify.feature.json.JsonMapper
 import funcify.feature.materializer.request.GraphQLExecutionInputCustomizer
 import funcify.feature.materializer.request.RawGraphQLRequestFactory
-import funcify.feature.materializer.threadlocal.ThreadLocalContextOperation
+import funcify.feature.materializer.response.SerializedGraphQLResponseFactory
+import funcify.feature.materializer.schema.MaterializationMetamodelBroker
+import funcify.feature.materializer.service.MaterializationPreparsedDocumentProvider
+import funcify.feature.materializer.session.GraphQLSingleRequestSessionCoordinator
+import funcify.feature.materializer.session.GraphQLSingleRequestSessionFactory
 import funcify.feature.spring.router.GraphQLWebFluxHandlerFunction
 import funcify.feature.spring.service.GraphQLSingleRequestExecutor
+import funcify.feature.spring.service.SpringGraphQLSingleRequestExecutor
+import funcify.feature.spring.session.SpringGraphQLSingleRequestSessionCoordinator
+import funcify.feature.spring.session.SpringGraphQLSingleRequestSessionFactory
+import java.util.concurrent.Executor
 import org.springframework.beans.factory.ObjectProvider
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Bean
@@ -29,13 +37,45 @@ class SpringGraphQLWebFluxConfiguration {
     }
 
     @Bean
+    fun springGraphQLSingleRequestSessionFactory(
+        materializationMetamodelBroker: MaterializationMetamodelBroker
+    ): GraphQLSingleRequestSessionFactory {
+        return SpringGraphQLSingleRequestSessionFactory(
+            materializationMetamodelBroker = materializationMetamodelBroker
+        )
+    }
+
+    @Bean
+    fun springGraphQLSingleRequestSessionCoordinator(
+        asyncExecutor: Executor,
+        serializedGraphQLResponseFactory: SerializedGraphQLResponseFactory,
+        materializationPreparsedDocumentProvider: MaterializationPreparsedDocumentProvider
+    ): GraphQLSingleRequestSessionCoordinator {
+        return SpringGraphQLSingleRequestSessionCoordinator(
+            asyncExecutor = asyncExecutor,
+            serializedGraphQLResponseFactory = serializedGraphQLResponseFactory,
+            materializationPreparsedDocumentProvider = materializationPreparsedDocumentProvider,
+        )
+    }
+
+    @Bean
+    fun springGraphQLSingleRequestExecutor(
+        graphQLSingleRequestSessionFactory: GraphQLSingleRequestSessionFactory,
+        graphQLSingleRequestSessionCoordinator: GraphQLSingleRequestSessionCoordinator
+    ): GraphQLSingleRequestExecutor {
+        return SpringGraphQLSingleRequestExecutor(
+            graphQLSingleRequestSessionFactory = graphQLSingleRequestSessionFactory,
+            graphQLSingleRequestSessionCoordinator = graphQLSingleRequestSessionCoordinator
+        )
+    }
+
+    @Bean
     fun graphQLWebFluxRouterFunction(
         @Value("\${feature-eng-service.graphql.path}") graphQLPath: String,
         jsonMapper: JsonMapper,
         graphQLSingleRequestExecutor: GraphQLSingleRequestExecutor,
         rawGraphQLRequestFactory: RawGraphQLRequestFactory,
-        graphQLExecutionInputCustomizerProvider: ObjectProvider<GraphQLExecutionInputCustomizer>,
-        threadLocalContextOperationProvider: ObjectProvider<ThreadLocalContextOperation>
+        graphQLExecutionInputCustomizerProvider: ObjectProvider<GraphQLExecutionInputCustomizer>
     ): RouterFunction<ServerResponse> {
         return RouterFunctions.route()
             .POST(
@@ -49,8 +89,7 @@ class SpringGraphQLWebFluxConfiguration {
                     graphQLSingleRequestExecutor = graphQLSingleRequestExecutor,
                     rawGraphQLRequestFactory = rawGraphQLRequestFactory,
                     graphQLExecutionInputCustomizers =
-                        graphQLExecutionInputCustomizerProvider.toList(),
-                    threadLocalContextOperations = threadLocalContextOperationProvider.toList()
+                        graphQLExecutionInputCustomizerProvider.toList()
                 )
             )
             .build()

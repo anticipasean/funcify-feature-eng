@@ -12,7 +12,6 @@ import funcify.feature.materializer.request.GraphQLExecutionInputCustomizer
 import funcify.feature.materializer.request.RawGraphQLRequest
 import funcify.feature.materializer.request.RawGraphQLRequestFactory
 import funcify.feature.materializer.response.SerializedGraphQLResponse
-import funcify.feature.materializer.threadlocal.ThreadLocalContextOperation
 import funcify.feature.spring.error.FeatureEngSpringWebFluxException
 import funcify.feature.spring.error.SpringWebFluxErrorResponse
 import funcify.feature.spring.service.GraphQLSingleRequestExecutor
@@ -37,7 +36,6 @@ import org.springframework.web.reactive.function.server.ServerRequest
 import org.springframework.web.reactive.function.server.ServerResponse
 import org.springframework.web.reactive.function.server.body
 import reactor.core.publisher.Mono
-import reactor.core.publisher.SignalType
 
 /**
  *
@@ -48,8 +46,7 @@ internal class GraphQLWebFluxHandlerFunction(
     private val jsonMapper: JsonMapper,
     private val graphQLSingleRequestExecutor: GraphQLSingleRequestExecutor,
     private val rawGraphQLRequestFactory: RawGraphQLRequestFactory,
-    private val graphQLExecutionInputCustomizers: List<GraphQLExecutionInputCustomizer>,
-    private val threadLocalContextOperations: List<ThreadLocalContextOperation>
+    private val graphQLExecutionInputCustomizers: List<GraphQLExecutionInputCustomizer>
 ) : HandlerFunction<ServerResponse> {
 
     companion object {
@@ -89,13 +86,8 @@ internal class GraphQLWebFluxHandlerFunction(
     }
 
     override fun handle(request: ServerRequest): Mono<ServerResponse> {
-        threadLocalContextOperations.forEach { op -> op.initializeInParentContext() }
         logger.info("handle: [ request.path: ${request.path()} ]")
         return Deferred.fromMono(convertServerRequestIntoRawGraphQLRequest(request))
-            .peek(
-                { _ -> threadLocalContextOperations.forEach { op -> op.setInChildContext() } },
-                { _ -> threadLocalContextOperations.forEach { op -> op.setInChildContext() } }
-            )
             .flatMap { rawReq: RawGraphQLRequest ->
                 graphQLSingleRequestExecutor.executeSingleRequest(rawReq)
             }
@@ -106,16 +98,6 @@ internal class GraphQLWebFluxHandlerFunction(
                 convertCommonExceptionTypeIntoServerResponse()
             )
             .onErrorResume(convertAnyUnhandledExceptionsIntoServerResponse(request))
-            .doFinally { signalType: SignalType ->
-                when (signalType) {
-                    SignalType.CANCEL,
-                    SignalType.ON_ERROR,
-                    SignalType.ON_COMPLETE -> {
-                        threadLocalContextOperations.forEach { op -> op.unsetChildContext() }
-                    }
-                    else -> {}
-                }
-            }
     }
 
     private fun convertServerRequestIntoRawGraphQLRequest(
