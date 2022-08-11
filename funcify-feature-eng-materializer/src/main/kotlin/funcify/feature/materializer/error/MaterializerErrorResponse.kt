@@ -29,6 +29,12 @@ enum class MaterializerErrorResponse : ErrorResponse {
             get() = HttpStatus.INTERNAL_SERVER_ERROR.some()
         override val errorMessageIfHttp: Option<String>
             get() = "error occurred during graphql schema creation".some()
+    },
+    SCHEMA_INTEGRITY_ERROR {
+        override val responseStatusIfHttp: Option<HttpStatus>
+            get() = HttpStatus.INTERNAL_SERVER_ERROR.some()
+        override val errorMessageIfHttp: Option<String>
+            get() = "materialization_graphql_schema does not match metamodel_graph vertices".some()
     };
     companion object {}
 }
