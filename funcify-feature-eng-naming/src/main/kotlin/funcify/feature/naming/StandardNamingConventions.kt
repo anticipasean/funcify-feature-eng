@@ -14,7 +14,7 @@ enum class StandardNamingConventions(private val namingConvention: NamingConvent
             .createConventionForStringInput()
             .whenInputProvided {
                 extractOneOrMoreSegmentsWith { s ->
-                    s.splitToSequence(Regex("\\s+|_+")).asIterable()
+                    s.splitToSequence(Regex("\\s+|_+|-+")).asIterable()
                 }
             }
             .followConvention {
@@ -46,7 +46,7 @@ enum class StandardNamingConventions(private val namingConvention: NamingConvent
             .createConventionForStringInput()
             .whenInputProvided {
                 extractOneOrMoreSegmentsWith { s ->
-                    s.splitToSequence(Regex("\\s+|_+")).asIterable()
+                    s.splitToSequence(Regex("\\s+|_+|-+")).asIterable()
                 }
             }
             .followConvention {
@@ -80,7 +80,7 @@ enum class StandardNamingConventions(private val namingConvention: NamingConvent
             .createConventionForStringInput()
             .whenInputProvided {
                 extractOneOrMoreSegmentsWith { s ->
-                    s.splitToSequence(Regex("\\s+|_+")).asIterable()
+                    s.splitToSequence(Regex("\\s+|_+|-+")).asIterable()
                 }
             }
             .followConvention {
