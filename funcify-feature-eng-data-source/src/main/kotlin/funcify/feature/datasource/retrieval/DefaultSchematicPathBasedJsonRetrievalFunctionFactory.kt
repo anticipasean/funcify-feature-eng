@@ -1,10 +1,10 @@
-package funcify.feature.materializer.tools
+package funcify.feature.datasource.retrieval
 
 import arrow.core.Either
 import arrow.core.left
 import arrow.core.right
 import com.fasterxml.jackson.databind.JsonNode
-import funcify.feature.materializer.tools.SchematicPathBasedJsonRetrievalFunction.Builder
+import funcify.feature.datasource.retrieval.SchematicPathBasedJsonRetrievalFunction.Builder
 import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.schema.vertex.ParameterJunctionVertex
@@ -16,6 +16,7 @@ import funcify.feature.tools.container.deferred.Deferred
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.PersistentSet
+import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toPersistentSet
 
@@ -24,19 +25,25 @@ import kotlinx.collections.immutable.toPersistentSet
  * @author smccarron
  * @created 2022-08-11
  */
-internal class DefaultSchematicPathBasedJsonRetrievalFunctionFactory :
-    SchematicPathBasedJsonRetrievalFunctionFactory {
+internal class DefaultSchematicPathBasedJsonRetrievalFunctionFactory(
+    override val dataSourceSpecificJsonRetrievalStrategies:
+        ImmutableSet<DataSourceSpecificJsonRetrievalStrategy<*>> =
+        persistentSetOf()
+) : SchematicPathBasedJsonRetrievalFunctionFactory {
 
     companion object {
 
         internal data class DefaultSchematicPathBasedJsonRetrievalFunction(
-            override val dataSource: DataSource<*>,
+            internal val dataSourceSpecificJsonRetrievalStrategy:
+                DataSourceSpecificJsonRetrievalStrategy<*>,
+            override val dataSource: DataSource<*> =
+                dataSourceSpecificJsonRetrievalStrategy.dataSource,
             internal val parameterVertices:
-                PersistentSet<Either<ParameterJunctionVertex, ParameterLeafVertex>> =
-                persistentSetOf(),
+                ImmutableSet<Either<ParameterJunctionVertex, ParameterLeafVertex>> =
+                dataSourceSpecificJsonRetrievalStrategy.parameterVertices,
             internal val sourceVertices:
-                PersistentSet<Either<SourceJunctionVertex, SourceLeafVertex>> =
-                persistentSetOf()
+                ImmutableSet<Either<SourceJunctionVertex, SourceLeafVertex>> =
+                dataSourceSpecificJsonRetrievalStrategy.sourceVertices
         ) : SchematicPathBasedJsonRetrievalFunction {
 
             override val parameterPaths: ImmutableSet<SchematicPath> by lazy {
@@ -53,31 +60,24 @@ internal class DefaultSchematicPathBasedJsonRetrievalFunctionFactory :
                     .toPersistentSet()
             }
 
-            override fun update(
-                transformer: Builder.() -> Builder
-            ): Try<SchematicPathBasedJsonRetrievalFunction> {
-                return transformer.invoke(DefaultBuilder(this)).build()
-            }
-
             override fun invoke(
                 valuesByParameterPaths: ImmutableMap<SchematicPath, JsonNode>
-            ): Deferred<JsonNode> {
-                TODO("Not yet implemented")
+            ): Deferred<ImmutableMap<SchematicPath, JsonNode>> {
+                return dataSourceSpecificJsonRetrievalStrategy.invoke(valuesByParameterPaths)
             }
         }
 
         internal class DefaultBuilder(
-            private val existingFunction: DefaultSchematicPathBasedJsonRetrievalFunction? = null,
-            private var dataSource: DataSource<*>? = existingFunction?.dataSource,
+            private val dataSourceSpecificJsonRetrievalStrategyByDataSourceKey:
+                ImmutableMap<DataSource.Key<*>, DataSourceSpecificJsonRetrievalStrategy<*>> =
+                persistentMapOf(),
+            private var dataSource: DataSource<*>? = null,
             private var parameterVertices:
                 PersistentSet.Builder<Either<ParameterJunctionVertex, ParameterLeafVertex>> =
-                existingFunction?.parameterVertices?.builder()
-                    ?: persistentSetOf<Either<ParameterJunctionVertex, ParameterLeafVertex>>()
-                        .builder(),
+                persistentSetOf<Either<ParameterJunctionVertex, ParameterLeafVertex>>().builder(),
             private var sourceVertices:
                 PersistentSet.Builder<Either<SourceJunctionVertex, SourceLeafVertex>> =
-                existingFunction?.sourceVertices?.builder()
-                    ?: persistentSetOf<Either<SourceJunctionVertex, SourceLeafVertex>>().builder()
+                persistentSetOf<Either<SourceJunctionVertex, SourceLeafVertex>>().builder()
         ) : Builder {
 
             override fun dataSource(dataSource: DataSource<*>): Builder {
@@ -108,12 +108,22 @@ internal class DefaultSchematicPathBasedJsonRetrievalFunctionFactory :
             }
 
             override fun build(): Try<SchematicPathBasedJsonRetrievalFunction> {
-                TODO("Not yet implemented")
+                TODO()
             }
         }
     }
 
+    private val dataSourceSpecificJsonRetrievalStrategyByDataSourceKey:
+        ImmutableMap<DataSource.Key<*>, DataSourceSpecificJsonRetrievalStrategy<*>> by lazy {
+        dataSourceSpecificJsonRetrievalStrategies.fold(persistentMapOf()) { pm, strategy ->
+            pm.put(strategy.dataSourceKey, strategy)
+        }
+    }
+
     override fun builder(): Builder {
-        TODO("Not yet implemented")
+        return DefaultBuilder(
+            dataSourceSpecificJsonRetrievalStrategyByDataSourceKey =
+                dataSourceSpecificJsonRetrievalStrategyByDataSourceKey
+        )
     }
 }

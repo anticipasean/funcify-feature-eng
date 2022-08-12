@@ -28,5 +28,11 @@ enum class DataSourceErrorResponse : ErrorResponse {
             get() = HttpStatus.INTERNAL_SERVER_ERROR.some()
         override val errorMessageIfHttp: Option<String>
             get() = "no strategies given for this ".some()
+    },
+    MISSING_PARAMETER {
+        override val responseStatusIfHttp: Option<HttpStatus>
+            get() = HttpStatus.INTERNAL_SERVER_ERROR.some()
+        override val errorMessageIfHttp: Option<String>
+            get() = "crucial parameter value has not been set on builder".some()
     }
 }

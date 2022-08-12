@@ -1,7 +1,7 @@
 package funcify.feature.materializer.schema
 
 import com.fasterxml.jackson.databind.JsonNode
-import funcify.feature.materializer.tools.SchematicPathBasedJsonRetrievalFunction
+import funcify.feature.datasource.retrieval.SchematicPathBasedJsonRetrievalFunction
 import funcify.feature.schema.SchematicEdge
 import funcify.feature.schema.path.SchematicPath
 

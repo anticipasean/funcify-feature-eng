@@ -1,4 +1,4 @@
-package funcify.feature.materializer.tools
+package funcify.feature.datasource.retrieval
 
 import com.fasterxml.jackson.databind.JsonNode
 import funcify.feature.schema.datasource.DataSource
@@ -18,7 +18,7 @@ import kotlinx.collections.immutable.ImmutableSet
  * @created 2022-08-11
  */
 interface SchematicPathBasedJsonRetrievalFunction :
-    (ImmutableMap<SchematicPath, JsonNode>) -> Deferred<JsonNode> {
+    (ImmutableMap<SchematicPath, JsonNode>) -> Deferred<ImmutableMap<SchematicPath, JsonNode>> {
 
     val dataSourceKey: DataSource.Key<*>
         get() = dataSource.key
@@ -31,9 +31,7 @@ interface SchematicPathBasedJsonRetrievalFunction :
 
     override fun invoke(
         valuesByParameterPaths: ImmutableMap<SchematicPath, JsonNode>
-    ): Deferred<JsonNode>
-
-    fun update(transformer: Builder.() -> Builder): Try<SchematicPathBasedJsonRetrievalFunction>
+    ): Deferred<ImmutableMap<SchematicPath, JsonNode>>
 
     interface Builder {
 
