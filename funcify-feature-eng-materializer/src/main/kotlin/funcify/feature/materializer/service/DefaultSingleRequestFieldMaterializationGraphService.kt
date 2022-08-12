@@ -64,8 +64,15 @@ internal class DefaultSingleRequestFieldMaterializationGraphService :
                 sourceVertexPath,
                 parameterVertexPaths
             )
+            .peekIfSuccess { (sourceVertex, parameterVertices) ->
+                logger.debug(
+                    """selected_vertices: [ source_vertex: ${sourceVertex.path}, 
+                    |parameter_vertices: ${parameterVertices.joinToString(", ")} 
+                    |]""".flatten()
+                )
+            }
             .map { (sourceJunctionVertex, parameterVerticesSet) ->
-                createInitialEdgesInGraphMappingParameterVerticesToSourceJunctionVertex(
+                createInitialEdgesInGraphMappingParameterVerticesToSourceVertex(
                     session,
                     sourceJunctionVertex,
                     parameterVerticesSet
@@ -108,10 +115,10 @@ internal class DefaultSingleRequestFieldMaterializationGraphService :
             }
     }
 
-    private fun createInitialEdgesInGraphMappingParameterVerticesToSourceJunctionVertex(
+    private fun createInitialEdgesInGraphMappingParameterVerticesToSourceVertex(
         session: SingleRequestFieldMaterializationSession,
-        sourceJunctionVertex: SchematicVertex,
-        parameterVertexPaths: ImmutableSet<SchematicVertex>,
+        sourceVertex: SchematicVertex,
+        parameterVertices: ImmutableSet<SchematicVertex>,
     ): PathBasedGraph<SchematicPath, SchematicVertex, SchematicEdge> {
         TODO("Not yet implemented")
     }

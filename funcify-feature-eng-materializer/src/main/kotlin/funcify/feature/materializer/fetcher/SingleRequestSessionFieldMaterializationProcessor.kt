@@ -13,4 +13,5 @@ interface SingleRequestSessionFieldMaterializationProcessor {
     fun materializeFieldValueInSession(
         session: SingleRequestFieldMaterializationSession
     ): KFuture<Pair<SingleRequestFieldMaterializationSession, Option<Any>>>
+
 }
