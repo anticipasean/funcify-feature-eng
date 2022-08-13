@@ -2,6 +2,7 @@ package funcify.feature.datasource.graphql.retrieval
 
 import arrow.core.Either
 import arrow.core.Option
+import arrow.core.filterIsInstance
 import arrow.core.getOrElse
 import arrow.core.identity
 import arrow.core.left
@@ -33,6 +34,7 @@ internal object GraphQLQueryPathBasedComposer {
         val sourceAttributesOnlyOperationDefinition: OperationDefinition =
             graphQLSourcePaths
                 .asSequence()
+                .sorted()
                 .filter { sp ->
                     // currently root cannot take arguments in GraphQL: OperationDefinition does not
                     // have Arguments field
@@ -78,6 +80,7 @@ internal object GraphQLQueryPathBasedComposer {
                             .filter { ancestorPath -> ancestorPath in sourceAttributePathsSet }
                             .isDefined()
                 }
+                .sortedBy { (sp, _) -> sp }
                 .fold(sourceAttributesOnlyOperationDefinition) {
                     opDef,
                     (parameterAttributePath, parameterAttributeValue) ->
@@ -118,7 +121,19 @@ internal object GraphQLQueryPathBasedComposer {
                             }
                         }
                         .map { ssSeq ->
-                            SelectionSet.newSelectionSet(ssSeq.plus(f).toList()).build()
+                            SelectionSet.newSelectionSet(
+                                    ssSeq
+                                        .plus(f)
+                                        .sortedBy { s ->
+                                            s.some()
+                                                .filterIsInstance<Field>()
+                                                .map(Field::getName)
+                                                .orNull()
+                                                ?: ""
+                                        }
+                                        .toList()
+                                )
+                                .build()
                         }
                         .getOrElse { SelectionSet.newSelectionSet().selection(f).build() }
                 )
@@ -155,6 +170,13 @@ internal object GraphQLQueryPathBasedComposer {
                                                 .asSequence()
                                                 .filterNot { s -> s is Field && s.name == f.name }
                                                 .plus(f)
+                                                .sortedBy { s ->
+                                                    s.some()
+                                                        .filterIsInstance<Field>()
+                                                        .map(Field::getName)
+                                                        .orNull()
+                                                        ?: ""
+                                                }
                                                 .toList()
                                         )
                                         .build()
@@ -179,6 +201,13 @@ internal object GraphQLQueryPathBasedComposer {
                                                 .asSequence()
                                                 .filterNot { s -> s is Field && s.name == f.name }
                                                 .plus(f)
+                                                .sortedBy { s ->
+                                                    s.some()
+                                                        .filterIsInstance<Field>()
+                                                        .map(Field::getName)
+                                                        .orNull()
+                                                        ?: ""
+                                                }
                                                 .toList()
                                         )
                                         .build()
@@ -230,7 +259,19 @@ internal object GraphQLQueryPathBasedComposer {
                             }
                         }
                         .map { ssSeq ->
-                            SelectionSet.newSelectionSet(ssSeq.plus(f).toList()).build()
+                            SelectionSet.newSelectionSet(
+                                    ssSeq
+                                        .plus(f)
+                                        .sortedBy { s ->
+                                            s.some()
+                                                .filterIsInstance<Field>()
+                                                .map(Field::getName)
+                                                .orNull()
+                                                ?: ""
+                                        }
+                                        .toList()
+                                )
+                                .build()
                         }
                         .getOrElse { SelectionSet.newSelectionSet().selection(f).build() }
                 )
@@ -267,6 +308,13 @@ internal object GraphQLQueryPathBasedComposer {
                                                 .asSequence()
                                                 .filterNot { s -> s is Field && s.name == f.name }
                                                 .plus(f)
+                                                .sortedBy { s ->
+                                                    s.some()
+                                                        .filterIsInstance<Field>()
+                                                        .map(Field::getName)
+                                                        .orNull()
+                                                        ?: ""
+                                                }
                                                 .toList()
                                         )
                                         .build()
@@ -291,6 +339,13 @@ internal object GraphQLQueryPathBasedComposer {
                                                 .asSequence()
                                                 .filterNot { s -> s is Field && s.name == f.name }
                                                 .plus(f)
+                                                .sortedBy { s ->
+                                                    s.some()
+                                                        .filterIsInstance<Field>()
+                                                        .map(Field::getName)
+                                                        .orNull()
+                                                        ?: ""
+                                                }
                                                 .toList()
                                         )
                                         .build()
@@ -347,6 +402,7 @@ internal object GraphQLQueryPathBasedComposer {
                                                     )
                                                 )
                                             )
+                                            .sortedBy { a -> a.name }
                                             .toList()
                                     )
                                 }
@@ -392,6 +448,7 @@ internal object GraphQLQueryPathBasedComposer {
                                     .value(convertJsonNodeToGraphQLValue(value))
                                     .build()
                             }
+                            .sortedBy { of -> of.name }
                             .toList()
                     )
                     .build()

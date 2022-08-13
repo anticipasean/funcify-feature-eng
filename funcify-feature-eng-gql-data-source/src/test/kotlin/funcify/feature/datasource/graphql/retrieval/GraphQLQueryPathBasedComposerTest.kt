@@ -43,16 +43,16 @@ internal class GraphQLQueryPathBasedComposerTest {
             """
             |query {
             |  shows {
-            |    title
-            |    releaseYear
-            |    reviews {
-            |      username
-            |      starScore
-            |      submittedDate
-            |    }
             |    artwork {
             |      url
             |    }
+            |    releaseYear
+            |    reviews {
+            |      starScore
+            |      submittedDate
+            |      username
+            |    }
+            |    title
             |  }
             |}
         """.trimMargin()
@@ -88,6 +88,19 @@ internal class GraphQLQueryPathBasedComposerTest {
                 )
                 .contains("abbreviated_version"),
             "path_segment [ abbreviated_version ] not included in given source_path set so should not be in output query"
+        )
+        Assertions.assertTrue(
+            AstPrinter.printAst(
+                    queryOperationComposerFunction.invoke(
+                        persistentMapOf(
+                            SchematicPath.of {
+                                pathSegment("shows", "releaseYear").argument("between")
+                            } to JsonNodeFactory.instance.arrayNode().add(1999).add(2005)
+                        )
+                    )
+                )
+                .contains("releaseYear(between: [1999, 2005])"),
+            "argument for [ between ] expected but not found"
         )
     }
 }
