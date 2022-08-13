@@ -1,77 +1,412 @@
 package funcify.feature.datasource.graphql.retrieval
 
+import arrow.core.Either
+import arrow.core.Option
+import arrow.core.getOrElse
+import arrow.core.identity
+import arrow.core.left
+import arrow.core.right
+import arrow.core.some
 import arrow.core.toOption
+import com.fasterxml.jackson.core.JsonParser
 import com.fasterxml.jackson.databind.JsonNode
+import com.fasterxml.jackson.databind.node.JsonNodeType
+import com.fasterxml.jackson.databind.node.NumericNode
 import funcify.feature.schema.path.SchematicPath
-import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentSetValueMap
-import funcify.feature.tools.extensions.SequenceExtensions.flatMapOptions
+import funcify.feature.tools.extensions.FunctionExtensions.compose
+import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
+import funcify.feature.tools.extensions.OptionExtensions.recurse
+import graphql.language.*
 import java.util.*
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.ImmutableSet
-import kotlinx.collections.immutable.PersistentList
-import kotlinx.collections.immutable.PersistentMap
-import kotlinx.collections.immutable.PersistentSet
-import kotlinx.collections.immutable.persistentListOf
-import kotlinx.collections.immutable.persistentSetOf
+import kotlinx.collections.immutable.toPersistentSet
+import org.slf4j.Logger
 
 internal object GraphQLQueryPathBasedComposer {
 
-    private data class QueryCompositionContext(
-        val stack: LinkedList<QueryCompositionContext> = LinkedList(),
-        val path: SchematicPath,
-        val level: Int = 0,
-        val parameterPaths: PersistentList<SchematicPath> = persistentListOf()
+    private val logger: Logger = loggerFor<GraphQLQueryPathBasedComposer>()
+
+    fun createQueryOperationDefinitionComposerForParameterAttributePathsAndValuesForTheseSourceAttributes(
+        graphQLSourcePaths: ImmutableSet<SchematicPath>
+    ): (ImmutableMap<SchematicPath, JsonNode>) -> OperationDefinition {
+        val sourceAttributesOnlyOperationDefinition: OperationDefinition =
+            graphQLSourcePaths
+                .asSequence()
+                .filter { sp ->
+                    // currently root cannot take arguments in GraphQL: OperationDefinition does not
+                    // have Arguments field
+                    sp.pathSegments.size >= 1 && sp.arguments.isEmpty() && sp.directives.isEmpty()
+                }
+                .fold(
+                    OperationDefinition.newOperationDefinition()
+                        .operation(OperationDefinition.Operation.QUERY)
+                        .build()
+                ) { opDef, sourceAttributePath ->
+                    SourceAttributesQueryCompositionContext(
+                            operationDefinition = opDef,
+                            pathSegments = LinkedList(sourceAttributePath.pathSegments)
+                        )
+                        .some()
+                        .recurse { ctx -> createFieldsInContextForSourceAttributePathSegments(ctx) }
+                        .getOrElse { opDef }
+                }
+        val sourceAttributePathsSet =
+            graphQLSourcePaths
+                .asSequence()
+                .filter { sp ->
+                    sp.pathSegments.size >= 1 && sp.arguments.isEmpty() && sp.directives.isEmpty()
+                }
+                .toPersistentSet()
+        return { parameterValuesByVertexPath: ImmutableMap<SchematicPath, JsonNode> ->
+            parameterValuesByVertexPath
+                .asSequence()
+                .filter { (p, _) ->
+                    p.arguments.size == 1 &&
+                        /*
+                         * Check that parameter_path does not introduce new query branches
+                         * but remains on the path of one of the source_attribute paths
+                         */
+                        p.getParentPath()
+                            .recurse { pp ->
+                                when {
+                                    pp.arguments.isNotEmpty() ->
+                                        pp.getParentPath().map { ppp -> ppp.left() }
+                                    else -> pp.right().some()
+                                }
+                            }
+                            .filter { ancestorPath -> ancestorPath in sourceAttributePathsSet }
+                            .isDefined()
+                }
+                .fold(sourceAttributesOnlyOperationDefinition) {
+                    opDef,
+                    (parameterAttributePath, parameterAttributeValue) ->
+                    parameterAttributePath.arguments
+                        .asSequence()
+                        .firstOrNull()
+                        .toOption()
+                        .map { (argName, _) -> argName to parameterAttributeValue }
+                        .map { keyValuePair ->
+                            ParameterAttributeQueryCompositionContext(
+                                opDef,
+                                LinkedList(parameterAttributePath.pathSegments),
+                                keyValuePair
+                            )
+                        }
+                        .recurse { ctx ->
+                            createFieldArgumentInContextForParameterAttributePath(ctx)
+                        }
+                        .getOrElse { opDef }
+                }
+        }
+    }
+
+    private data class SourceAttributesQueryCompositionContext(
+        val operationDefinition: OperationDefinition,
+        val pathSegments: LinkedList<String>,
+        val selectionSet: SelectionSet =
+            operationDefinition.selectionSet ?: SelectionSet.newSelectionSet().build(),
+        val lineageComposer: (Field) -> OperationDefinition = { f: Field ->
+            operationDefinition.transform { opBldr ->
+                opBldr.selectionSet(
+                    operationDefinition
+                        .toOption()
+                        .mapNotNull { opDef -> opDef.selectionSet }
+                        .map { ss ->
+                            ss.selections.asSequence().filterNot { s ->
+                                s is Field && s.name == f.name
+                            }
+                        }
+                        .map { ssSeq ->
+                            SelectionSet.newSelectionSet(ssSeq.plus(f).toList()).build()
+                        }
+                        .getOrElse { SelectionSet.newSelectionSet().selection(f).build() }
+                )
+            }
+        }
     )
 
-    fun createQueryCompositionFunction(
-        graphQLSourcePaths: ImmutableSet<SchematicPath>
-    ): (ImmutableMap<SchematicPath, JsonNode>) -> String {
-        val sourceAttributeSetsByParentPath:
-            PersistentMap<SchematicPath, PersistentSet<SchematicPath>> =
-            graphQLSourcePaths
-                .asSequence()
-                .filter { sp -> sp.arguments.isEmpty() && sp.directives.isEmpty() }
-                .map { srcAttrPath -> srcAttrPath.getParentPath().map { pp -> pp to srcAttrPath } }
-                .flatMapOptions()
-                .sortedBy { (sp, _) -> sp }
-                .reducePairsToPersistentSetValueMap()
-        val parameterAttributeSetsByParentPath:
-            PersistentMap<SchematicPath, PersistentSet<SchematicPath>> =
-            graphQLSourcePaths
-                .asSequence()
-                .filter { paramPath ->
-                    paramPath.arguments.isNotEmpty() || paramPath.directives.isNotEmpty()
-                }
-                .map { paramPath -> paramPath.getParentPath().map { pp -> pp to paramPath } }
-                .flatMapOptions()
-                .sortedBy { (sp, _) -> sp }
-                .reducePairsToPersistentSetValueMap()
-        val finalContext: QueryCompositionContext =
-            sourceAttributeSetsByParentPath.asSequence().fold(
-                QueryCompositionContext(path = SchematicPath.getRootPath())
-            ) { context, (parentPath, srcAttrSet) ->
-                srcAttrSet
-                    .asSequence()
-                    .map { srcAttrPath ->
-                        parameterAttributeSetsByParentPath[srcAttrPath]
-                            .toOption()
-                            .fold(
-                                { srcAttrPath to persistentSetOf() },
-                                { paramAttrSet -> srcAttrPath to paramAttrSet }
-                            )
-                    }
-                    .fold(context) { ctx, (srcAttrPath, paramAttrPathSet) ->
-                        // TODO: Continue work here
-                        if (!parentPath.isRoot()) {
-                            ctx
-                        } else {
-                            ctx
+    private fun createFieldsInContextForSourceAttributePathSegments(
+        context: SourceAttributesQueryCompositionContext
+    ): Option<Either<SourceAttributesQueryCompositionContext, OperationDefinition>> {
+        return when {
+            context.pathSegments.isNotEmpty() && context.pathSegments.size > 1 -> {
+                val headPathSegment: String = context.pathSegments.pollFirst()
+                val selectionSet: SelectionSet = context.selectionSet
+                val currentFieldRef =
+                    selectionSet.selections
+                        .asSequence()
+                        .filterIsInstance<Field>()
+                        .filter { f -> f.name == headPathSegment }
+                        .firstOrNull()
+                        .toOption()
+                val nextSelectionSet: SelectionSet =
+                    currentFieldRef
+                        .mapNotNull { s -> s.selectionSet }
+                        .fold(SelectionSet.newSelectionSet()::build, ::identity)
+                if (currentFieldRef.isDefined()) {
+                    val updatedLineageComposer =
+                        context.lineageComposer.compose<Field, Field, OperationDefinition> {
+                            f: Field ->
+                            currentFieldRef.orNull()!!.transform { fBldr ->
+                                fBldr.selectionSet(
+                                    SelectionSet.newSelectionSet(
+                                            nextSelectionSet.selections
+                                                .asSequence()
+                                                .filterNot { s -> s is Field && s.name == f.name }
+                                                .plus(f)
+                                                .toList()
+                                        )
+                                        .build()
+                                )
+                            }
                         }
-                    }
+                    context
+                        .copy(
+                            selectionSet = nextSelectionSet,
+                            lineageComposer = updatedLineageComposer
+                        )
+                        .left()
+                        .some()
+                } else {
+                    val updatedLineageComposer =
+                        context.lineageComposer.compose<Field, Field, OperationDefinition> {
+                            f: Field ->
+                            Field.newField(headPathSegment)
+                                .selectionSet(
+                                    SelectionSet.newSelectionSet(
+                                            nextSelectionSet.selections
+                                                .asSequence()
+                                                .filterNot { s -> s is Field && s.name == f.name }
+                                                .plus(f)
+                                                .toList()
+                                        )
+                                        .build()
+                                )
+                                .build()
+                        }
+                    context
+                        .copy(
+                            selectionSet = nextSelectionSet,
+                            lineageComposer = updatedLineageComposer
+                        )
+                        .left()
+                        .some()
+                }
             }
-        val queryTemplateString: String? = null
-        return { parameterValuesByVertexPath: ImmutableMap<SchematicPath, JsonNode> ->
-            queryTemplateString ?: "<NA>"
+            else -> {
+                val headPathSegment: String = context.pathSegments.pollFirst()
+                val selectionSet: SelectionSet = context.selectionSet
+                val currentFieldRef =
+                    selectionSet.selections
+                        .asSequence()
+                        .filterIsInstance<Field>()
+                        .filter { f -> f.name == headPathSegment }
+                        .firstOrNull()
+                        .toOption()
+                context.lineageComposer
+                    .invoke(currentFieldRef.getOrElse { Field.newField(headPathSegment).build() })
+                    .right()
+                    .some()
+            }
+        }
+    }
+
+    private data class ParameterAttributeQueryCompositionContext(
+        val operationDefinition: OperationDefinition,
+        val pathSegments: LinkedList<String>,
+        val nameJsonNodePair: Pair<String, JsonNode>,
+        val selectionSet: SelectionSet =
+            operationDefinition.selectionSet ?: SelectionSet.newSelectionSet().build(),
+        val lineageComposer: (Field) -> OperationDefinition = { f: Field ->
+            operationDefinition.transform { opBldr ->
+                opBldr.selectionSet(
+                    operationDefinition
+                        .toOption()
+                        .mapNotNull { opDef -> opDef.selectionSet }
+                        .map { ss ->
+                            ss.selections.asSequence().filterNot { s ->
+                                s is Field && s.name == f.name
+                            }
+                        }
+                        .map { ssSeq ->
+                            SelectionSet.newSelectionSet(ssSeq.plus(f).toList()).build()
+                        }
+                        .getOrElse { SelectionSet.newSelectionSet().selection(f).build() }
+                )
+            }
+        }
+    )
+
+    private fun createFieldArgumentInContextForParameterAttributePath(
+        context: ParameterAttributeQueryCompositionContext
+    ): Option<Either<ParameterAttributeQueryCompositionContext, OperationDefinition>> {
+        return when {
+            context.pathSegments.isNotEmpty() && context.pathSegments.size > 1 -> {
+                val headPathSegment: String = context.pathSegments.pollFirst()
+                val selectionSet: SelectionSet = context.selectionSet
+                val currentFieldRef =
+                    selectionSet.selections
+                        .asSequence()
+                        .filterIsInstance<Field>()
+                        .filter { f -> f.name == headPathSegment }
+                        .firstOrNull()
+                        .toOption()
+                val nextSelectionSet: SelectionSet =
+                    currentFieldRef
+                        .mapNotNull { s -> s.selectionSet }
+                        .fold(SelectionSet.newSelectionSet()::build, ::identity)
+                if (currentFieldRef.isDefined()) {
+                    val updatedLineageComposer =
+                        context.lineageComposer.compose<Field, Field, OperationDefinition> {
+                            f: Field ->
+                            currentFieldRef.orNull()!!.transform { fBldr ->
+                                fBldr.selectionSet(
+                                    SelectionSet.newSelectionSet(
+                                            nextSelectionSet.selections
+                                                .asSequence()
+                                                .filterNot { s -> s is Field && s.name == f.name }
+                                                .plus(f)
+                                                .toList()
+                                        )
+                                        .build()
+                                )
+                            }
+                        }
+                    context
+                        .copy(
+                            selectionSet = nextSelectionSet,
+                            lineageComposer = updatedLineageComposer
+                        )
+                        .left()
+                        .some()
+                } else {
+                    val updatedLineageComposer =
+                        context.lineageComposer.compose<Field, Field, OperationDefinition> {
+                            f: Field ->
+                            Field.newField(headPathSegment)
+                                .selectionSet(
+                                    SelectionSet.newSelectionSet(
+                                            nextSelectionSet.selections
+                                                .asSequence()
+                                                .filterNot { s -> s is Field && s.name == f.name }
+                                                .plus(f)
+                                                .toList()
+                                        )
+                                        .build()
+                                )
+                                .build()
+                        }
+                    context
+                        .copy(
+                            selectionSet = nextSelectionSet,
+                            lineageComposer = updatedLineageComposer
+                        )
+                        .left()
+                        .some()
+                }
+            }
+            context.pathSegments.size == 1 -> {
+                val headPathSegment: String = context.pathSegments.pollFirst()
+                val selectionSet: SelectionSet = context.selectionSet
+                val updatedField: Field =
+                    selectionSet.selections
+                        .asSequence()
+                        .filterIsInstance<Field>()
+                        .filter { f -> f.name == headPathSegment }
+                        .firstOrNull()
+                        .toOption()
+                        .fold(
+                            {
+                                Field.newField(headPathSegment)
+                                    .arguments(
+                                        listOf(
+                                            Argument(
+                                                context.nameJsonNodePair.first,
+                                                convertJsonNodeToGraphQLValue(
+                                                    context.nameJsonNodePair.second
+                                                )
+                                            )
+                                        )
+                                    )
+                                    .build()
+                            },
+                            { f: Field ->
+                                f.transform { fBldr ->
+                                    fBldr.arguments(
+                                        f.arguments
+                                            .asSequence()
+                                            .filterNot { a ->
+                                                a.name == context.nameJsonNodePair.first
+                                            }
+                                            .plus(
+                                                Argument(
+                                                    context.nameJsonNodePair.first,
+                                                    convertJsonNodeToGraphQLValue(
+                                                        context.nameJsonNodePair.second
+                                                    )
+                                                )
+                                            )
+                                            .toList()
+                                    )
+                                }
+                            }
+                        )
+                context.lineageComposer.invoke(updatedField).right().some()
+            }
+            else -> {
+                context.operationDefinition.right().some()
+            }
+        }
+    }
+
+    // Potentially recursive call, if this is an array or object node value
+    private fun convertJsonNodeToGraphQLValue(jsonNode: JsonNode): Value<*> {
+        return when (jsonNode.nodeType) {
+            JsonNodeType.BINARY -> IntValue.of(jsonNode.asInt(0))
+            JsonNodeType.BOOLEAN -> BooleanValue.of(jsonNode.asBoolean(false))
+            JsonNodeType.NUMBER -> {
+                when ((jsonNode as NumericNode).numberType()) {
+                    JsonParser.NumberType.INT -> IntValue.of(jsonNode.asInt(0))
+                    JsonParser.NumberType.LONG ->
+                        IntValue.newIntValue(jsonNode.bigIntegerValue()).build()
+                    JsonParser.NumberType.BIG_INTEGER ->
+                        IntValue.newIntValue(jsonNode.bigIntegerValue()).build()
+                    JsonParser.NumberType.FLOAT -> FloatValue.of(jsonNode.asDouble(0.0))
+                    JsonParser.NumberType.DOUBLE -> FloatValue.of(jsonNode.asDouble(0.0))
+                    JsonParser.NumberType.BIG_DECIMAL ->
+                        FloatValue.newFloatValue(jsonNode.decimalValue()).build()
+                    else -> NullValue.of()
+                }
+            }
+            JsonNodeType.STRING -> StringValue.of(jsonNode.asText(""))
+            JsonNodeType.OBJECT -> {
+                ObjectValue.newObjectValue()
+                    .objectFields(
+                        jsonNode
+                            .fields()
+                            .asSequence()
+                            .map { (key, value) ->
+                                ObjectField.newObjectField()
+                                    .name(key)
+                                    .value(convertJsonNodeToGraphQLValue(value))
+                                    .build()
+                            }
+                            .toList()
+                    )
+                    .build()
+            }
+            JsonNodeType.ARRAY -> {
+                ArrayValue.newArrayValue()
+                    .values(
+                        jsonNode
+                            .asSequence()
+                            .map { value -> convertJsonNodeToGraphQLValue(value) }
+                            .toList()
+                    )
+                    .build()
+            }
+            else -> NullValue.of()
         }
     }
 }
