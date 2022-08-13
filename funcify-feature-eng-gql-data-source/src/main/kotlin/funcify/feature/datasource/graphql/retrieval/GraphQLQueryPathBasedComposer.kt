@@ -145,7 +145,7 @@ internal object GraphQLQueryPathBasedComposer {
         context: SourceAttributesQueryCompositionContext
     ): Option<Either<SourceAttributesQueryCompositionContext, OperationDefinition>> {
         return when {
-            context.pathSegments.isNotEmpty() && context.pathSegments.size > 1 -> {
+            context.pathSegments.size > 1 -> {
                 val headPathSegment: String = context.pathSegments.pollFirst()
                 val selectionSet: SelectionSet = context.selectionSet
                 val currentFieldRef =
@@ -283,7 +283,7 @@ internal object GraphQLQueryPathBasedComposer {
         context: ParameterAttributeQueryCompositionContext
     ): Option<Either<ParameterAttributeQueryCompositionContext, OperationDefinition>> {
         return when {
-            context.pathSegments.isNotEmpty() && context.pathSegments.size > 1 -> {
+            context.pathSegments.size > 1 -> {
                 val headPathSegment: String = context.pathSegments.pollFirst()
                 val selectionSet: SelectionSet = context.selectionSet
                 val currentFieldRef =
