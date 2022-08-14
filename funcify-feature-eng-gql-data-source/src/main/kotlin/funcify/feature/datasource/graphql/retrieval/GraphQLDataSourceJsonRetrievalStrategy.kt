@@ -17,6 +17,7 @@ import funcify.feature.schema.vertex.SourceJunctionVertex
 import funcify.feature.schema.vertex.SourceLeafVertex
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.container.deferred.Deferred
+import funcify.feature.tools.extensions.DeferredExtensions.deferred
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.PersistentMapExtensions.toPersistentMap
 import funcify.feature.tools.extensions.StringExtensions.flatten
@@ -195,59 +196,80 @@ internal class GraphQLDataSourceJsonRetrievalStrategy(
     private fun convertResponseJsonIntoThrowableIfErrorsPresent():
         (JsonNode) -> Deferred<JsonNode> {
         return { responseJson: JsonNode ->
-            Deferred.fromAttempt(
-                responseJson
-                    .toOption()
-                    .filter { jn ->
-                        jn.has(ERRORS_KEY) &&
-                            jn.path(ERRORS_KEY).isArray &&
-                            !jn.path(ERRORS_KEY).isEmpty
-                    }
-                    .map { jn ->
-                        jsonMapper
-                            .fromJsonNode(jn)
-                            .toKotlinObject(GraphqlErrorException::class)
-                            .map { graphqlErrorException: GraphqlErrorException ->
-                                GQLDataSourceException(
-                                    GQLDataSourceErrorResponse.Companion.GQLSpecificErrorResponse(
-                                        graphqlErrorException
-                                    )
+            responseJson
+                .toOption()
+                .filter { jn ->
+                    jn.has(ERRORS_KEY) &&
+                        jn.path(ERRORS_KEY).isArray &&
+                        !jn.path(ERRORS_KEY).isEmpty
+                }
+                .map { jn ->
+                    jsonMapper
+                        .fromJsonNode(jn)
+                        .toKotlinObject(GraphqlErrorException::class)
+                        .map { graphqlErrorException: GraphqlErrorException ->
+                            GQLDataSourceException(
+                                GQLDataSourceErrorResponse.Companion.GQLSpecificErrorResponse(
+                                    graphqlErrorException
                                 )
-                            }
-                            .mapFailure { _: Throwable ->
-                                // ignore error if unable to deserialize graphql_error_json into
-                                // graphql_error instance
-                                val firstErrorJSONAsString =
-                                    jsonMapper
-                                        .fromJsonNode(jn.path(ERRORS_KEY).first())
-                                        .toJsonString()
-                                        .orElse("<NA>")
-                                GQLDataSourceException(
-                                    GQLDataSourceErrorResponse.CLIENT_ERROR,
-                                    "error received: [ $firstErrorJSONAsString ]"
-                                )
-                            }
-                    }
-                    .fold(
-                        {
-                            // treat as success if no error could be created from response_json
-                            // input
-                            Try.success(responseJson)
-                        },
-                        { errorJsonAsExceptionTry ->
-                            // take either the deserialized error response or the synthetic one with
-                            // the graphql_error as a json_string
-                            errorJsonAsExceptionTry
-                                .either()
-                                .fold(Try.Companion::failure, Try.Companion::failure)
+                            )
                         }
-                    )
-            )
+                        .mapFailure { _: Throwable ->
+                            // ignore error if unable to deserialize graphql_error_json into
+                            // graphql_error instance
+                            val firstErrorJSONAsString =
+                                jsonMapper
+                                    .fromJsonNode(jn.path(ERRORS_KEY).first())
+                                    .toJsonString()
+                                    .orElse("<NA>")
+                            GQLDataSourceException(
+                                GQLDataSourceErrorResponse.CLIENT_ERROR,
+                                "error received: [ $firstErrorJSONAsString ]"
+                            )
+                        }
+                }
+                .fold(
+                    {
+                        // treat as success if no error could be created from response_json
+                        // input
+                        Try.success(responseJson)
+                    },
+                    { errorJsonAsExceptionTry ->
+                        // take either the deserialized error response or the synthetic one with
+                        // the graphql_error as a json_string
+                        errorJsonAsExceptionTry
+                            .either()
+                            .fold(Try.Companion::failure, Try.Companion::failure)
+                    }
+                )
+                .deferred()
         }
     }
 
     private fun convertResponseJsonIntoJsonValuesBySchematicPathMap():
         (JsonNode) -> Deferred<ImmutableMap<SchematicPath, JsonNode>> {
-        TODO("Not yet implemented")
+        return { responseJson: JsonNode ->
+            Try.success(responseJson)
+                .filter(
+                    { jn ->
+                        jn.has(DATA_KEY) && jn.path(DATA_KEY).isObject && !jn.path(DATA_KEY).isEmpty
+                    },
+                    { jn ->
+                        GQLDataSourceException(
+                            GQLDataSourceErrorResponse.MALFORMED_CONTENT_RECEIVED,
+                            """response_json from 
+                                |[ graphql_data_source.service.name: ${graphQLDataSource.graphQLApiService.serviceName} ] 
+                                |is not in the expected format; 
+                                |lacks an non-empty object value for 
+                                |key [ ${DATA_KEY} ]""".flatten()
+                        )
+                    }
+                )
+                .map { jn ->
+                    GraphQLJsonResponsePathExtractor
+                        .extractPathToValueMappingsFromGraphQLJsonResponse(jn.path(DATA_KEY))
+                }
+                .deferred()
+        }
     }
 }
