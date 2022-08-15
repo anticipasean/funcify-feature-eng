@@ -9,6 +9,7 @@ import arrow.core.right
 import arrow.core.some
 import arrow.core.toOption
 import arrow.typeclasses.Monoid
+import funcify.feature.tools.container.async.KFuture
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import java.util.*
 import java.util.concurrent.CompletableFuture
@@ -16,9 +17,9 @@ import java.util.concurrent.CompletionException
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
 import java.util.stream.Stream
-import kotlin.streams.asStream
 import kotlinx.collections.immutable.PersistentList
 import kotlinx.collections.immutable.persistentListOf
+import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 
 /**
@@ -88,9 +89,11 @@ sealed interface Try<out S> : Iterable<S> {
         @JvmStatic
         fun <S> attemptNullable(function: () -> S?, ifNull: () -> Throwable): Try<S> {
             return try {
-                function.invoke().toOption().map { s -> success(s) }.getOrElse {
-                    failure(ifNull.invoke())
-                }
+                function
+                    .invoke()
+                    .toOption()
+                    .map { s -> success(s) }
+                    .getOrElse { failure(ifNull.invoke()) }
             } catch (t: Throwable) {
                 failure<S>(t)
             }
@@ -376,7 +379,8 @@ sealed interface Try<out S> : Iterable<S> {
 
         @JvmStatic
         fun <S> attemptStream(stream: Stream<Try<S>>): Try<Stream<S>> {
-            return stream.reduce(
+            return stream
+                .reduce(
                     success(Stream.builder<S>()),
                     { acc: Try<Stream.Builder<S>>, t: Try<S> ->
                         acc.flatMap { sBldr ->
@@ -452,7 +456,7 @@ sealed interface Try<out S> : Iterable<S> {
     }
 
     fun getSuccess(): Option<S> {
-        return fold({ value: S -> value.some() }) { None }
+        return fold({ result: S -> result.some() }) { None }
     }
 
     fun getFailure(): Option<Throwable> {
@@ -519,8 +523,8 @@ sealed interface Try<out S> : Iterable<S> {
             { input: S ->
                 try {
                     Option.fromNullable(mapper.invoke(input)).fold({
-                            success<R>(ifNull.invoke())
-                        }) { r -> success<R>(r) }
+                        success<R>(ifNull.invoke())
+                    }) { r -> success<R>(r) }
                 } catch (t: Throwable) {
                     failure<R>(t)
                 }
@@ -712,11 +716,11 @@ sealed interface Try<out S> : Iterable<S> {
     }
 
     fun orNull(): S? {
-        return fold({ s: S -> s }, { _: Throwable -> null })
+        return fold({ result: S -> result }, { _: Throwable -> null })
     }
 
     fun orElse(defaultValue: @UnsafeVariance S): S {
-        return fold({ input: S -> input }, { _: Throwable -> defaultValue })
+        return fold({ result: S -> result }, { _: Throwable -> defaultValue })
     }
 
     /**
@@ -730,7 +734,7 @@ sealed interface Try<out S> : Iterable<S> {
      * @return the result success value or the result of the default value supplier
      */
     fun orElseGet(defaultValueSupplier: () -> @UnsafeVariance S): S {
-        return fold({ input: S -> input }, { _: Throwable -> defaultValueSupplier.invoke() })
+        return fold({ result: S -> result }, { _: Throwable -> defaultValueSupplier.invoke() })
     }
 
     /**
@@ -747,7 +751,7 @@ sealed interface Try<out S> : Iterable<S> {
      */
     fun <F : Throwable> orElseThrow(exceptionWrapper: (Throwable) -> F): S {
         return fold(
-            { input: S -> input },
+            { result: S -> result },
             { throwable: Throwable -> throw exceptionWrapper.invoke(throwable) }
         )
     }
@@ -764,7 +768,7 @@ sealed interface Try<out S> : Iterable<S> {
      * [java.lang.RuntimeException]
      */
     fun orElseThrow(): S {
-        return fold({ input: S -> input }, { throwable: Throwable -> throw throwable })
+        return fold({ result: S -> result }, { throwable: Throwable -> throw throwable })
     }
 
     fun ifFailed(errorHandler: (Throwable) -> Unit) {
@@ -772,7 +776,7 @@ sealed interface Try<out S> : Iterable<S> {
     }
 
     fun ifSuccess(successHandler: (S) -> Unit) {
-        getSuccess().fold({}) { input: S -> successHandler.invoke(input) }
+        getSuccess().fold({}) { result: S -> successHandler.invoke(result) }
     }
 
     /**
@@ -781,35 +785,35 @@ sealed interface Try<out S> : Iterable<S> {
      *
      * @param handler
      */
-    fun onComplete(handler: (S?, Throwable?) -> Unit) {
+    fun handleEither(handler: (S?, Throwable?) -> Unit) {
         fold(
-            { input: S -> attempt { handler.invoke(input, null) } },
+            { result: S -> attempt { handler.invoke(result, null) } },
             { throwable: Throwable -> attempt { handler.invoke(null, throwable) } }
         )
     }
 
     fun stream(): Stream<out S> {
-        return sequence().asStream()
+        return fold({ result: S -> Stream.of(result) }, { _: Throwable -> Stream.empty() })
     }
 
     fun sequence(): Sequence<S> {
-        return fold({ input: S -> sequenceOf(input) }, { emptySequence() })
+        return fold({ result: S -> sequenceOf(result) }, { _: Throwable -> emptySequence() })
     }
 
     /**
      * Right is used to represent the success value per tradition since chained operations are
      * typically performed on the right value more often than the left value in an Either monad
      */
-    fun either(): Either<Throwable, S> {
-        return fold({ input: S -> input.right() }) { throwable: Throwable -> throwable.left() }
+    fun toEither(): Either<Throwable, S> {
+        return fold({ result: S -> result.right() }) { throwable: Throwable -> throwable.left() }
     }
 
     fun peek(successObserver: (S) -> Unit, failureObserver: (Throwable) -> Unit): Try<S> {
         return fold(
-            { input: S ->
+            { result: S ->
                 try {
-                    successObserver.invoke(input)
-                    success<S>(input)
+                    successObserver.invoke(result)
+                    success<S>(result)
                 } catch (t: Throwable) {
                     failure<S>(t)
                 }
@@ -833,16 +837,24 @@ sealed interface Try<out S> : Iterable<S> {
         return peek({}, failureObserver)
     }
 
-    fun <R> transform(transformer: (Try<S>) -> R): R {
-        return transformer.invoke(this)
-    }
-
     override fun iterator(): Iterator<S> {
-        return sequence().iterator()
+        return fold({ result: S -> sequenceOf(result) }, { _: Throwable -> emptySequence() })
+            .iterator()
     }
 
     fun toMono(): Mono<out S> {
         return fold({ s: S -> Mono.just(s) }, { t: Throwable -> Mono.error(t) })
+    }
+
+    fun toFlux(): Flux<out S> {
+        return fold({ result: S -> Flux.just(result) }, { t: Throwable -> Flux.error(t) })
+    }
+
+    fun toKFuture(): KFuture<S> {
+        return fold(
+            { result: S -> KFuture.completed(result) },
+            { t: Throwable -> KFuture.failed(t) }
+        )
     }
 
     /**

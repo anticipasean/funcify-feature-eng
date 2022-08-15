@@ -20,7 +20,7 @@ import funcify.feature.schema.vertex.ParameterAttributeVertex
 import funcify.feature.schema.vertex.SourceAttributeVertex
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.container.deferred.Deferred
-import funcify.feature.tools.extensions.DeferredExtensions.deferred
+import funcify.feature.tools.extensions.DeferredExtensions.toDeferred
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.extensions.ThrowableExtensions.possiblyNestedHeadStackTraceElement
@@ -328,7 +328,7 @@ internal class DefaultMetamodelGraphCreationStrategy() :
                         }
                     }
                 }
-                .deferred()
+                .toDeferred()
                 .flatMapFailure { t: Throwable ->
                     Deferred.completed(context.update { addError(t) })
                 }

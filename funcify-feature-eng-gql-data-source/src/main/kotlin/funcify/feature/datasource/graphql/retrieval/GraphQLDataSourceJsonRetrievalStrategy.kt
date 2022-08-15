@@ -21,7 +21,7 @@ import funcify.feature.schema.vertex.SourceJunctionVertex
 import funcify.feature.schema.vertex.SourceLeafVertex
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.container.deferred.Deferred
-import funcify.feature.tools.extensions.DeferredExtensions.deferred
+import funcify.feature.tools.extensions.DeferredExtensions.toDeferred
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentMap
 import funcify.feature.tools.extensions.PersistentMapExtensions.toPersistentMap
@@ -297,11 +297,11 @@ internal class GraphQLDataSourceJsonRetrievalStrategy(
                         // take either the deserialized error response or the synthetic one with
                         // the graphql_error as a json_string
                         errorJsonAsExceptionTry
-                            .either()
+                            .toEither()
                             .fold(Try.Companion::failure, Try.Companion::failure)
                     }
                 )
-                .deferred()
+                .toDeferred()
         }
     }
 
@@ -337,7 +337,7 @@ internal class GraphQLDataSourceJsonRetrievalStrategy(
                         .flatMapOptions()
                         .reducePairsToPersistentMap()
                 }
-                .deferred()
+                .toDeferred()
         }
     }
 }
