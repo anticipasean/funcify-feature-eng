@@ -1,4 +1,4 @@
-package funcify.feature.datasource.graphql.retrieval
+package funcify.feature.datasource.json
 
 import arrow.core.Either
 import arrow.core.filterIsInstance
@@ -16,24 +16,24 @@ import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.PersistentList
 import kotlinx.collections.immutable.persistentListOf
 
-object GraphQLJsonResponsePathExtractor {
+object JsonNodeSchematicPathToValueMappingExtractor :
+    (JsonNode) -> ImmutableMap<SchematicPath, JsonNode> {
 
-    fun extractPathToValueMappingsFromGraphQLJsonResponse(
-        dataJsonObject: JsonNode
-    ): ImmutableMap<SchematicPath, JsonNode> {
-        return sequenceOf(GraphQLJsonNodePathTraversalContext(persistentListOf(), dataJsonObject))
-            .recurse { ctx -> traverseGraphQLJsonDataResponse(ctx) }
+    override fun invoke(dataJsonObject: JsonNode): ImmutableMap<SchematicPath, JsonNode> {
+        return sequenceOf(JsonNodePathTraversalContext(persistentListOf(), dataJsonObject))
+            .recurse { ctx -> traverseJsonNodeContextCreatingPathsForEachNonObjectValue(ctx) }
+            .sortedBy { (sp, _) -> sp }
             .reducePairsToPersistentMap()
     }
 
-    private data class GraphQLJsonNodePathTraversalContext(
+    private data class JsonNodePathTraversalContext(
         val pathSegments: PersistentList<String>,
         val value: JsonNode
     )
 
-    private fun traverseGraphQLJsonDataResponse(
-        context: GraphQLJsonNodePathTraversalContext
-    ): Sequence<Either<GraphQLJsonNodePathTraversalContext, Pair<SchematicPath, JsonNode>>> {
+    private fun traverseJsonNodeContextCreatingPathsForEachNonObjectValue(
+        context: JsonNodePathTraversalContext
+    ): Sequence<Either<JsonNodePathTraversalContext, Pair<SchematicPath, JsonNode>>> {
         return when (context.value.nodeType) {
             JsonNodeType.NULL,
             JsonNodeType.MISSING,
@@ -53,7 +53,7 @@ object GraphQLJsonResponsePathExtractor {
                     .map { on -> on.fields().asSequence() }
                     .fold(::emptySequence, ::identity)
                     .map { (key, jsonValue) ->
-                        GraphQLJsonNodePathTraversalContext(
+                        JsonNodePathTraversalContext(
                                 pathSegments = context.pathSegments.add(key),
                                 value = jsonValue
                             )

@@ -7,6 +7,7 @@ import funcify.feature.datasource.graphql.GraphQLApiDataSource
 import funcify.feature.datasource.graphql.error.GQLDataSourceErrorResponse
 import funcify.feature.datasource.graphql.error.GQLDataSourceException
 import funcify.feature.datasource.graphql.schema.GraphQLSourceIndex
+import funcify.feature.datasource.json.JsonNodeSchematicPathToValueMappingExtractor
 import funcify.feature.datasource.retrieval.DataSourceSpecificJsonRetrievalStrategy
 import funcify.feature.json.JsonMapper
 import funcify.feature.schema.datasource.DataSource
@@ -265,10 +266,8 @@ internal class GraphQLDataSourceJsonRetrievalStrategy(
                         )
                     }
                 )
-                .map { jn ->
-                    GraphQLJsonResponsePathExtractor
-                        .extractPathToValueMappingsFromGraphQLJsonResponse(jn.path(DATA_KEY))
-                }
+                .map { jn -> jn.path(DATA_KEY) }
+                .map(JsonNodeSchematicPathToValueMappingExtractor)
                 .deferred()
         }
     }
