@@ -29,6 +29,7 @@ import funcify.feature.tools.extensions.DeferredExtensions.toDeferred
 import funcify.feature.tools.extensions.FunctionExtensions.compose
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentMap
+import funcify.feature.tools.extensions.SequenceExtensions.flatMapOptions
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.extensions.TryExtensions.successIfDefined
 import io.swagger.v3.oas.models.media.Schema
@@ -252,6 +253,14 @@ internal class DefaultSwaggerRestDataSourceJsonRetrievalStrategy(
                 .orElseThrow()
     }
 
+    private val sourceVertexPathBySourceIndexPath:
+        ImmutableMap<SchematicPath, SchematicPath> by lazy {
+        swaggerSourceAttributesByVertexPath
+            .asSequence()
+            .map { (vertexPath, swaggerSrcAttr) -> swaggerSrcAttr.sourcePath to vertexPath }
+            .reducePairsToPersistentMap()
+    }
+
     override fun invoke(
         valuesByParameterPaths: ImmutableMap<SchematicPath, JsonNode>
     ): Deferred<ImmutableMap<SchematicPath, JsonNode>> {
@@ -260,7 +269,7 @@ internal class DefaultSwaggerRestDataSourceJsonRetrievalStrategy(
         return attemptToCreateRequestJsonObjectFromValuesByParameterPaths(valuesByParameterPaths)
             .toDeferred()
             .flatMap(makeRequestToRestApiDataSourceWithJsonPayload())
-            .flatMap(convertJsonResponseIntoValuesBySchematicPathMap())
+            .flatMap(convertJsonResponseIntoValuesBySourceVertexPathsMap())
     }
 
     private fun attemptToCreateRequestJsonObjectFromValuesByParameterPaths(
@@ -377,11 +386,31 @@ internal class DefaultSwaggerRestDataSourceJsonRetrievalStrategy(
         }
     }
 
-    private fun convertJsonResponseIntoValuesBySchematicPathMap():
+    private fun convertJsonResponseIntoValuesBySourceVertexPathsMap():
         (JsonNode) -> Deferred<ImmutableMap<SchematicPath, JsonNode>> {
         return { responseJsonNode: JsonNode ->
             Deferred.completed(
                 JsonNodeSchematicPathToValueMappingExtractor.invoke(responseJsonNode)
+                    .asSequence()
+                    .map { (sourcePath, jsonValue) ->
+                        SchematicPath.of {
+                            pathSegments(
+                                parentVertexPathToSwaggerSourceAttribute.second.sourcePath
+                                    .pathSegments
+                                    .asSequence()
+                                    .plus(sourcePath.pathSegments)
+                                    .toList()
+                            )
+                        } to jsonValue
+                    }
+                    .map { (remappedSourcePath, jsonValue) ->
+                        sourceVertexPathBySourceIndexPath[remappedSourcePath].toOption().map {
+                            sourceVertexPath ->
+                            sourceVertexPath to jsonValue
+                        }
+                    }
+                    .flatMapOptions()
+                    .reducePairsToPersistentMap()
             )
         }
     }
