@@ -1,11 +1,14 @@
 package funcify.feature.datasource.graphql.retrieval
 
 import arrow.core.Either
+import arrow.core.filterIsInstance
 import arrow.core.toOption
 import com.fasterxml.jackson.databind.JsonNode
 import funcify.feature.datasource.graphql.GraphQLApiDataSource
 import funcify.feature.datasource.graphql.error.GQLDataSourceErrorResponse
 import funcify.feature.datasource.graphql.error.GQLDataSourceException
+import funcify.feature.datasource.graphql.schema.GraphQLParameterAttribute
+import funcify.feature.datasource.graphql.schema.GraphQLSourceAttribute
 import funcify.feature.datasource.graphql.schema.GraphQLSourceIndex
 import funcify.feature.datasource.json.JsonNodeSchematicPathToValueMappingExtractor
 import funcify.feature.datasource.retrieval.DataSourceSpecificJsonRetrievalStrategy
@@ -20,7 +23,9 @@ import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.container.deferred.Deferred
 import funcify.feature.tools.extensions.DeferredExtensions.deferred
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
+import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentMap
 import funcify.feature.tools.extensions.PersistentMapExtensions.toPersistentMap
+import funcify.feature.tools.extensions.SequenceExtensions.flatMapOptions
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import graphql.GraphqlErrorException
 import graphql.language.AstPrinter
@@ -28,6 +33,7 @@ import graphql.language.OperationDefinition
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentSetOf
+import kotlinx.collections.immutable.toPersistentSet
 import org.slf4j.Logger
 
 /**
@@ -55,10 +61,52 @@ internal class GraphQLDataSourceJsonRetrievalStrategy(
 
     override val sourcePaths: ImmutableSet<SchematicPath> by lazy { super.sourcePaths }
 
+    private val sourceVertexPathByGraphQLDataSourceIndexPath:
+        ImmutableMap<SchematicPath, SchematicPath> by lazy {
+        sourceVertices
+            .asSequence()
+            .map { sjvOrSlv ->
+                sjvOrSlv
+                    .fold({ sjv -> sjv.compositeAttribute }, { slv -> slv.compositeAttribute })
+                    .getSourceAttributeByDataSource()[graphQLDataSource.key]
+                    .toOption()
+                    .filterIsInstance<GraphQLSourceAttribute>()
+                    .map { gqlSa ->
+                        gqlSa.sourcePath to
+                            sjvOrSlv.fold(SourceJunctionVertex::path, SourceLeafVertex::path)
+                    }
+            }
+            .flatMapOptions()
+            .reducePairsToPersistentMap()
+    }
+
+    private val graphQLDataSourceIndexPathByParameterVertexPath:
+        ImmutableMap<SchematicPath, SchematicPath> by lazy {
+        parameterVertices
+            .asSequence()
+            .map { pjvOrPlv ->
+                pjvOrPlv
+                    .fold(
+                        { pjv -> pjv.compositeParameterAttribute },
+                        { plv -> plv.compositeParameterAttribute }
+                    )
+                    .getParameterAttributesByDataSource()[graphQLDataSource.key]
+                    .toOption()
+                    .filterIsInstance<GraphQLParameterAttribute>()
+                    .map { gqlPa ->
+                        pjvOrPlv.fold(ParameterJunctionVertex::path, ParameterLeafVertex::path) to
+                            gqlPa.sourcePath
+                    }
+            }
+            .flatMapOptions()
+            .reducePairsToPersistentMap()
+    }
+
     private val queryOperationDefinitionFunction by lazy {
         GraphQLQueryPathBasedComposer
             .createQueryOperationDefinitionComposerForParameterAttributePathsAndValuesForTheseSourceAttributes(
-                sourcePaths
+                // Use the path on the data_source index since it may differ from the vertex path
+                sourceVertexPathByGraphQLDataSourceIndexPath.keys.toPersistentSet()
             )
     }
 
@@ -156,7 +204,17 @@ internal class GraphQLDataSourceJsonRetrievalStrategy(
         logger.debug("invoke: [ values_by_parameter_paths.keys: $parameterPathsSetStr ]")
         return Deferred.fromAttempt(
                 attemptToCreateGraphQLQueryStringFromValuesByParameterPathsInput(
-                    valuesByParameterPaths,
+                    valuesByParameterPaths
+                        .asSequence()
+                        .map { (vertexPath, jsonValue) ->
+                            graphQLDataSourceIndexPathByParameterVertexPath[vertexPath]
+                                .toOption()
+                                .map { graphQLDataSourceParameterPath ->
+                                    graphQLDataSourceParameterPath to jsonValue
+                                }
+                        }
+                        .flatMapOptions()
+                        .reducePairsToPersistentMap(),
                     parameterPathsSetStr
                 )
             )
@@ -268,6 +326,17 @@ internal class GraphQLDataSourceJsonRetrievalStrategy(
                 )
                 .map { jn -> jn.path(DATA_KEY) }
                 .map(JsonNodeSchematicPathToValueMappingExtractor)
+                .map { valuesBySourceIndexPath ->
+                    valuesBySourceIndexPath
+                        .asSequence()
+                        .map { (sourceIndexPath, jsonValue) ->
+                            sourceVertexPathByGraphQLDataSourceIndexPath[sourceIndexPath]
+                                .toOption()
+                                .map { vertexPath -> vertexPath to jsonValue }
+                        }
+                        .flatMapOptions()
+                        .reducePairsToPersistentMap()
+                }
                 .deferred()
         }
     }
