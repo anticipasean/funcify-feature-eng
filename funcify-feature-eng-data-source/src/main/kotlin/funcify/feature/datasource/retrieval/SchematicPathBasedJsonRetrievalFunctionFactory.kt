@@ -1,7 +1,5 @@
 package funcify.feature.datasource.retrieval
 
-import kotlinx.collections.immutable.ImmutableSet
-
 /**
  *
  * @author smccarron
@@ -9,8 +7,6 @@ import kotlinx.collections.immutable.ImmutableSet
  */
 interface SchematicPathBasedJsonRetrievalFunctionFactory {
 
-    val dataSourceSpecificJsonRetrievalStrategies:
-        ImmutableSet<DataSourceSpecificJsonRetrievalStrategy<*>>
-
     fun builder(): SchematicPathBasedJsonRetrievalFunction.Builder
+
 }
