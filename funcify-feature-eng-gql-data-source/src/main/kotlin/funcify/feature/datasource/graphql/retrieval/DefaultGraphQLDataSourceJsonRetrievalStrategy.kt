@@ -41,7 +41,7 @@ import org.slf4j.Logger
  * @author smccarron
  * @created 2022-08-12
  */
-internal class GraphQLDataSourceJsonRetrievalStrategy(
+internal class DefaultGraphQLDataSourceJsonRetrievalStrategy(
     internal val jsonMapper: JsonMapper,
     internal val graphQLDataSource: GraphQLApiDataSource,
     override val parameterVertices:
@@ -50,7 +50,7 @@ internal class GraphQLDataSourceJsonRetrievalStrategy(
 ) : DataSourceSpecificJsonRetrievalStrategy<GraphQLSourceIndex> {
 
     companion object {
-        private val logger: Logger = loggerFor<GraphQLDataSourceJsonRetrievalStrategy>()
+        private val logger: Logger = loggerFor<DefaultGraphQLDataSourceJsonRetrievalStrategy>()
         private const val DATA_KEY = "data"
         private const val ERRORS_KEY = "errors"
     }
