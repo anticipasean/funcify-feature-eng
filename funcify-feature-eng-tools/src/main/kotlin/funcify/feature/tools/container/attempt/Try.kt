@@ -125,6 +125,7 @@ sealed interface Try<out S> : Iterable<S> {
             }
         }
 
+        @JvmStatic
         fun <I, O> liftNullable(function: (I) -> O?): (I) -> Try<O> {
             return liftNullable(function) { input: I ->
                 val message =
@@ -136,6 +137,7 @@ sealed interface Try<out S> : Iterable<S> {
             }
         }
 
+        @JvmStatic
         fun <I1, I2, O> lift(function: (I1, I2) -> O): (I1, I2) -> Try<O> {
             return { i1: I1, i2: I2 ->
                 try {
@@ -146,6 +148,7 @@ sealed interface Try<out S> : Iterable<S> {
             }
         }
 
+        @JvmStatic
         fun <I1, I2, O> liftNullable(
             function: (I1, I2) -> O?,
             ifNullResult: (I1, I2) -> Throwable
@@ -163,6 +166,7 @@ sealed interface Try<out S> : Iterable<S> {
             }
         }
 
+        @JvmStatic
         fun <I1, I2, O> liftNullable(function: (I1, I2) -> O?): (I1, I2) -> Try<O> {
             return liftNullable(function) { i1: I1, i2: I2 ->
                 val message =
@@ -175,6 +179,7 @@ sealed interface Try<out S> : Iterable<S> {
             }
         }
 
+        @JvmStatic
         fun <S> fromOptional(optional: Optional<out S>): Try<S> {
             return try {
                 success<S>(optional.get())
@@ -183,6 +188,7 @@ sealed interface Try<out S> : Iterable<S> {
             }
         }
 
+        @JvmStatic
         fun <S> fromOptional(
             optional: Optional<out S>,
             onOptionalEmpty: (NoSuchElementException) -> Throwable
@@ -196,6 +202,7 @@ sealed interface Try<out S> : Iterable<S> {
             }
         }
 
+        @JvmStatic
         fun <S> fromOptional(optional: Optional<out S>, ifEmpty: () -> S): Try<S> {
             return try {
                 optional.map { s: S -> success(s) }.orElseGet { success(ifEmpty.invoke()) }
@@ -233,7 +240,7 @@ sealed interface Try<out S> : Iterable<S> {
         }
 
         @JvmStatic
-        fun <S> attemptRetryable(function: () -> S, numberOfRetries: Int): Try<S> {
+        fun <S> attemptRetryable(numberOfRetries: Int, function: () -> S): Try<S> {
             if (numberOfRetries < 0) {
                 val message =
                     """
@@ -256,8 +263,8 @@ sealed interface Try<out S> : Iterable<S> {
 
         @JvmStatic
         fun <S> attemptRetryableIf(
-            function: () -> S,
             numberOfRetries: Int,
+            function: () -> S,
             failureCondition: (Throwable) -> Boolean
         ): Try<S> {
             if (numberOfRetries < 0) {
@@ -283,7 +290,7 @@ sealed interface Try<out S> : Iterable<S> {
         }
 
         @JvmStatic
-        fun <S> attemptWithTimeout(function: () -> S, timeout: Long, unit: TimeUnit): Try<S> {
+        fun <S> attemptWithTimeout(timeout: Long, unit: TimeUnit, function: () -> S): Try<S> {
             val validatedTimeout = Math.max(0, timeout)
             return try {
                 CompletableFuture.supplyAsync { attempt(function) }.get(validatedTimeout, unit)
@@ -310,9 +317,9 @@ sealed interface Try<out S> : Iterable<S> {
 
         @JvmStatic
         fun <S> attemptNullableWithTimeout(
-            function: () -> S?,
             timeout: Long,
-            unit: TimeUnit
+            unit: TimeUnit,
+            function: () -> S?
         ): Try<Option<S>> {
             val validatedTimeout = Math.max(0, timeout)
             return try {
