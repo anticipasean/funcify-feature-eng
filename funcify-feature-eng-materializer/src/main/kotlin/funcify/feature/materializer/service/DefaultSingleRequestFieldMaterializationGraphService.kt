@@ -1,10 +1,12 @@
 package funcify.feature.materializer.service
 
+import arrow.core.Either
 import com.google.common.cache.CacheBuilder
 import funcify.feature.datasource.retrieval.SchematicPathBasedJsonRetrievalFunctionFactory
 import funcify.feature.materializer.error.MaterializerErrorResponse
 import funcify.feature.materializer.error.MaterializerException
 import funcify.feature.materializer.fetcher.SingleRequestFieldMaterializationSession
+import funcify.feature.materializer.schema.RequestParameterEdgeFactory
 import funcify.feature.schema.SchematicEdge
 import funcify.feature.schema.SchematicVertex
 import funcify.feature.schema.path.SchematicPath
@@ -15,6 +17,8 @@ import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.extensions.TryExtensions.successIfDefined
 import graphql.execution.ResultPath
+import graphql.language.Argument
+import graphql.language.Field
 import java.util.concurrent.ConcurrentMap
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.toImmutableSet
@@ -27,12 +31,20 @@ import org.slf4j.Logger
  */
 internal class DefaultSingleRequestFieldMaterializationGraphService(
     private val schematicPathBasedJsonRetrievalFunctionFactory:
-        SchematicPathBasedJsonRetrievalFunctionFactory
+        SchematicPathBasedJsonRetrievalFunctionFactory,
+    private val requestParameterEdgeFactory: RequestParameterEdgeFactory,
 ) : SingleRequestFieldMaterializationGraphService {
 
     companion object {
         private val logger: Logger =
             loggerFor<DefaultSingleRequestFieldMaterializationGraphService>()
+
+        private data class InitialGraphMappingContext(
+            val pathBasedGraph: PathBasedGraph<SchematicPath, SchematicVertex, SchematicEdge> =
+                PathBasedGraph.emptyTwoToOnePathsToEdgeGraph(),
+            val parentPath: SchematicPath,
+            val currentFieldOrArgument: Either<Argument, Field>
+        )
     }
 
     /**
@@ -118,14 +130,6 @@ internal class DefaultSingleRequestFieldMaterializationGraphService(
             }
     }
 
-    private fun createInitialEdgesInGraphMappingParameterVerticesToSourceVertex(
-        session: SingleRequestFieldMaterializationSession,
-        sourceVertex: SchematicVertex,
-        parameterVertices: ImmutableSet<SchematicVertex>,
-    ): PathBasedGraph<SchematicPath, SchematicVertex, SchematicEdge> {
-        TODO("Not yet implemented")
-    }
-
     private fun getSourceVertexPathForSelectedFieldInSession(
         session: SingleRequestFieldMaterializationSession
     ): SchematicPath {
@@ -157,5 +161,13 @@ internal class DefaultSingleRequestFieldMaterializationGraphService(
             .asSequence()
             .map { (argName, _) -> sourceVertexPath.transform { argument(argName) } }
             .toImmutableSet()
+    }
+
+    private fun createInitialEdgesInGraphMappingParameterVerticesToSourceVertex(
+        session: SingleRequestFieldMaterializationSession,
+        sourceVertex: SchematicVertex,
+        parameterVertices: ImmutableSet<SchematicVertex>,
+    ): PathBasedGraph<SchematicPath, SchematicVertex, SchematicEdge> {
+        TODO()
     }
 }
