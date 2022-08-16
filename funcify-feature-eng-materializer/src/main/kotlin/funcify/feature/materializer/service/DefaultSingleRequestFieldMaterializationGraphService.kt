@@ -1,19 +1,33 @@
 package funcify.feature.materializer.service
 
 import arrow.core.Either
+import arrow.core.Option
+import arrow.core.left
+import arrow.core.none
+import arrow.core.right
+import arrow.core.singleOrNone
+import arrow.core.some
+import arrow.core.toOption
 import com.google.common.cache.CacheBuilder
 import funcify.feature.datasource.retrieval.SchematicPathBasedJsonRetrievalFunctionFactory
 import funcify.feature.materializer.error.MaterializerErrorResponse
 import funcify.feature.materializer.error.MaterializerException
 import funcify.feature.materializer.fetcher.SingleRequestFieldMaterializationSession
+import funcify.feature.materializer.schema.RequestParameterEdge
 import funcify.feature.materializer.schema.RequestParameterEdgeFactory
 import funcify.feature.schema.SchematicEdge
 import funcify.feature.schema.SchematicVertex
+import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.path.SchematicPath
+import funcify.feature.schema.vertex.ParameterJunctionVertex
+import funcify.feature.schema.vertex.ParameterLeafVertex
+import funcify.feature.schema.vertex.SourceJunctionVertex
+import funcify.feature.schema.vertex.SourceLeafVertex
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.container.deferred.Deferred
 import funcify.feature.tools.container.graph.PathBasedGraph
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
+import funcify.feature.tools.extensions.SequenceExtensions.recurse
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.extensions.TryExtensions.successIfDefined
 import graphql.execution.ResultPath
@@ -38,13 +52,6 @@ internal class DefaultSingleRequestFieldMaterializationGraphService(
     companion object {
         private val logger: Logger =
             loggerFor<DefaultSingleRequestFieldMaterializationGraphService>()
-
-        private data class InitialGraphMappingContext(
-            val pathBasedGraph: PathBasedGraph<SchematicPath, SchematicVertex, SchematicEdge> =
-                PathBasedGraph.emptyTwoToOnePathsToEdgeGraph(),
-            val parentPath: SchematicPath,
-            val currentFieldOrArgument: Either<Argument, Field>
-        )
     }
 
     /**
@@ -86,13 +93,7 @@ internal class DefaultSingleRequestFieldMaterializationGraphService(
                     |]""".flatten()
                 )
             }
-            .map { (sourceJunctionVertex, parameterVerticesSet) ->
-                createInitialEdgesInGraphMappingParameterVerticesToSourceVertex(
-                    session,
-                    sourceJunctionVertex,
-                    parameterVerticesSet
-                )
-            }
+            .map { (sourceJunctionVertex, parameterVerticesSet) -> TODO() }
 
         return Deferred.completed(session)
     }
@@ -163,11 +164,217 @@ internal class DefaultSingleRequestFieldMaterializationGraphService(
             .toImmutableSet()
     }
 
-    private fun createInitialEdgesInGraphMappingParameterVerticesToSourceVertex(
+    private fun createEdgesInGraphMappingParameterVerticesToSourceVertex(
         session: SingleRequestFieldMaterializationSession,
-        sourceVertex: SchematicVertex,
-        parameterVertices: ImmutableSet<SchematicVertex>,
     ): PathBasedGraph<SchematicPath, SchematicVertex, SchematicEdge> {
+        sequenceOf(GraphConnectionsContext(currentFieldOrArgument = session.field.left()))
+            .recurse { ctx ->
+                makeConnectionsFromParentToChildFieldOrArgumentInContext(session, ctx)
+            }
+
         TODO()
+    }
+
+    private data class GraphConnectionsContext(
+        val parentPath: SchematicPath = SchematicPath.getRootPath(),
+        val parentVertex: Option<SchematicVertex> = none(),
+        val currentFieldOrArgument: Either<Field, Argument>
+    )
+
+    private data class GraphConnection(
+        val vertex1: SchematicVertex,
+        val vertex2: SchematicVertex,
+        val edge: RequestParameterEdge,
+    )
+
+    private fun makeConnectionsFromParentToChildFieldOrArgumentInContext(
+        session: SingleRequestFieldMaterializationSession,
+        context: GraphConnectionsContext
+    ): Sequence<Either<GraphConnectionsContext, GraphConnection>> {
+        return when (
+            val fieldOrArgument: Either<Field, Argument> = context.currentFieldOrArgument
+        ) {
+            is Either.Left -> {
+                val field: Field = fieldOrArgument.value
+                val vertexPath: SchematicPath =
+                    SchematicPath.of {
+                        pathSegments(
+                            context.parentPath.pathSegments.asSequence().plus(field.name).toList()
+                        )
+                    }
+                val sourceVertex =
+                    session.metamodelGraph.pathBasedGraph
+                        .getVertex(vertexPath)
+                        .successIfDefined(sourceVertexNotFoundExceptionSupplier(vertexPath))
+                        .orElseThrow()
+                val sourceJunctionOrLeafVertex: Either<SourceJunctionVertex, SourceLeafVertex> =
+                    when (sourceVertex) {
+                            is SourceJunctionVertex -> sourceVertex.left().some()
+                            is SourceLeafVertex -> sourceVertex.right().some()
+                            else -> none()
+                        }
+                        .successIfDefined(sourceVertexNotFoundExceptionSupplier(vertexPath))
+                        .orElseThrow()
+                if (context.parentVertex.isDefined()) {
+                        val edge: RequestParameterEdge =
+                            requestParameterEdgeFactory
+                                .builder()
+                                .fromPathToPath(context.parentPath, vertexPath)
+                                .extractionFromAncestorFunction { parentMap ->
+                                    parentMap[vertexPath].toOption()
+                                }
+                                .build()
+                        sequenceOf(
+                            GraphConnection(context.parentVertex.orNull()!!, sourceVertex, edge)
+                                .right()
+                        )
+                    } else {
+                        val rootVertex: SchematicVertex =
+                            session.metamodelGraph.pathBasedGraph
+                                .getVertex(SchematicPath.getRootPath())
+                                .successIfDefined(
+                                    sourceVertexNotFoundExceptionSupplier(
+                                        SchematicPath.getRootPath()
+                                    )
+                                )
+                                .orElseThrow()
+                        val dataSourceKey: DataSource.Key<*> =
+                            sourceJunctionOrLeafVertex
+                                .fold(
+                                    SourceJunctionVertex::compositeAttribute,
+                                    SourceLeafVertex::compositeAttribute
+                                )
+                                .getSourceAttributeByDataSource()
+                                .keys
+                                .singleOrNone()
+                                .successIfDefined(
+                                    moreThanOneDataSourceFoundExceptionSupplier(vertexPath)
+                                )
+                                .orElseThrow()
+                        val dataSource: DataSource<*> =
+                            session.metamodelGraph.dataSourcesByKey[dataSourceKey]
+                                .toOption()
+                                .successIfDefined(
+                                    dataSourceNotFoundExceptionSupplier(
+                                        dataSourceKey,
+                                        session.metamodelGraph.dataSourcesByKey.keys
+                                    )
+                                )
+                                .orElseThrow()
+                        val edge: RequestParameterEdge =
+                            requestParameterEdgeFactory
+                                .builder()
+                                .fromPathToPath(SchematicPath.getRootPath(), vertexPath)
+                                .retrievalFunctionSpecForDataSource(dataSource) {
+                                    sourceJunctionOrLeafVertex.fold(
+                                        { sjv -> addSourceVertex(sjv) },
+                                        { slv -> addSourceVertex(slv) }
+                                    )
+                                }
+                                .build()
+                        sequenceOf(GraphConnection(rootVertex, sourceVertex, edge).right())
+                    }
+                    .plus(
+                        field.arguments.asSequence().map { argument: Argument ->
+                            GraphConnectionsContext(
+                                    vertexPath,
+                                    sourceVertex.some(),
+                                    argument.right()
+                                )
+                                .left()
+                        }
+                    )
+            }
+            is Either.Right -> {
+                val argument: Argument = fieldOrArgument.value
+                val vertexPath: SchematicPath =
+                    SchematicPath.of {
+                        pathSegments(context.parentPath.pathSegments).argument(argument.name)
+                    }
+                val parameterVertex =
+                    session.metamodelGraph.pathBasedGraph
+                        .getVertex(vertexPath)
+                        .successIfDefined(parameterVertexNotFoundExceptionSupplier(vertexPath))
+                        .orElseThrow()
+                val parameterJunctionOrLeafVertex:
+                    Either<ParameterJunctionVertex, ParameterLeafVertex> =
+                    when (parameterVertex) {
+                            is ParameterJunctionVertex -> parameterVertex.left().some()
+                            is ParameterLeafVertex -> parameterVertex.right().some()
+                            else -> none()
+                        }
+                        .successIfDefined(parameterVertexNotFoundExceptionSupplier(vertexPath))
+                        .orElseThrow()
+                TODO()
+            }
+        }
+    }
+
+    private fun sourceVertexNotFoundExceptionSupplier(
+        vertexPath: SchematicPath
+    ): () -> MaterializerException {
+        return { ->
+            MaterializerException(
+                MaterializerErrorResponse.SCHEMA_INTEGRITY_ERROR,
+                """source_junction_vertex or source_leaf_vertex 
+                   |expected but not found in 
+                   |metamodel_graph.path_based_graph for path 
+                   |[ vertex_path: $vertexPath ]""".flatten()
+            )
+        }
+    }
+
+    private fun parameterVertexNotFoundExceptionSupplier(
+        vertexPath: SchematicPath
+    ): () -> MaterializerException {
+        return { ->
+            MaterializerException(
+                MaterializerErrorResponse.SCHEMA_INTEGRITY_ERROR,
+                """parameter_junction_vertex or parameter_leaf_vertex 
+                   |expected in 
+                   |metamodel_graph.path_based_graph for path 
+                   |but not found 
+                   |[ vertex_path: $vertexPath ]""".flatten()
+            )
+        }
+    }
+
+    private fun moreThanOneDataSourceFoundExceptionSupplier(
+        vertexPath: SchematicPath
+    ): () -> MaterializerException {
+        return { ->
+            MaterializerException(
+                MaterializerErrorResponse.UNEXPECTED_ERROR,
+                """more than one data_source found for vertex: 
+                    |[ vertex_path: ${vertexPath} ]; 
+                    |currently unable to handle more than 
+                    |one data_source for a source_vertex""".flatten()
+            )
+        }
+    }
+
+    private fun dataSourceNotFoundExceptionSupplier(
+        dataSourceKey: DataSource.Key<*>,
+        availableDataSourceKeys: ImmutableSet<DataSource.Key<*>>
+    ): () -> MaterializerException {
+        return { ->
+            val dataSourceKeysAvailable =
+                availableDataSourceKeys
+                    .asSequence()
+                    .joinToString(
+                        separator = ", ",
+                        prefix = "{ ",
+                        postfix = " }",
+                        transform = { d -> "${d.name}: ${d.dataSourceType}" }
+                    )
+            MaterializerException(
+                MaterializerErrorResponse.UNEXPECTED_ERROR,
+                """no data_source found in metamodel mapping to 
+                    |data_source.key: 
+                    |[ expected: ${dataSourceKey}, 
+                    |actual: ${dataSourceKeysAvailable} 
+                    |]""".flatten()
+            )
+        }
     }
 }
