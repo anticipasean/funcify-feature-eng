@@ -103,7 +103,7 @@ class DefaultSchematicPathBasedJsonRetrievalFunctionFactory(
                                 DataSourceErrorResponse.STRATEGY_MISSING,
                                 """no ${DataSourceSpecificJsonRetrievalStrategyProvider::class.qualifiedName} 
                                     |found that supports this type of data_source: 
-                                    |[ actual: ${dataSource}  
+                                    |[ actual: ${dataSource!!.key}  
                                     |]""".flatten()
                             )
                             .failure()

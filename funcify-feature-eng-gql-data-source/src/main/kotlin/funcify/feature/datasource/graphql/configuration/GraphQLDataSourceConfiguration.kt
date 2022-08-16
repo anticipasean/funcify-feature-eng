@@ -6,17 +6,20 @@ import funcify.feature.datasource.graphql.factory.DefaultGraphQLApiServiceFactor
 import funcify.feature.datasource.graphql.factory.GraphQLApiDataSourceFactory
 import funcify.feature.datasource.graphql.factory.GraphQLApiServiceFactory
 import funcify.feature.datasource.graphql.metadata.filter.CompositeGraphQLApiSourceMetadataFilter
-import funcify.feature.datasource.graphql.metadata.reader.ComprehensiveGraphQLApiSourceMetadataReader
-import funcify.feature.datasource.graphql.metadata.provider.DefaultGraphQLApiSourceMetadataProvider
-import funcify.feature.datasource.graphql.metadata.reader.DefaultGraphQLSourceIndexCreationContextFactory
 import funcify.feature.datasource.graphql.metadata.filter.GraphQLApiSourceMetadataFilter
+import funcify.feature.datasource.graphql.metadata.provider.DefaultGraphQLApiSourceMetadataProvider
 import funcify.feature.datasource.graphql.metadata.provider.GraphQLApiSourceMetadataProvider
+import funcify.feature.datasource.graphql.metadata.reader.ComprehensiveGraphQLApiSourceMetadataReader
+import funcify.feature.datasource.graphql.metadata.reader.DefaultGraphQLSourceIndexCreationContextFactory
 import funcify.feature.datasource.graphql.metadata.reader.GraphQLApiSourceMetadataReader
 import funcify.feature.datasource.graphql.metadata.reader.GraphQLSourceIndexCreationContextFactory
+import funcify.feature.datasource.graphql.retrieval.DefaultGraphQLDataSourceJsonRetrievalStrategyProvider
+import funcify.feature.datasource.graphql.retrieval.GraphQLDataSourceJsonRetrievalStrategyProvider
 import funcify.feature.datasource.graphql.schema.DefaultGraphQLSourceIndexFactory
 import funcify.feature.datasource.graphql.schema.GraphQLSourceIndexFactory
 import funcify.feature.datasource.graphql.sdl.GraphQLSourceIndexBasedSDLDefinitionImplementationStrategy
 import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionImplementationStrategy
+import funcify.feature.json.JsonMapper
 import org.springframework.beans.factory.ObjectProvider
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
@@ -121,4 +124,11 @@ class GraphQLDataSourceConfiguration {
         return GraphQLSourceIndexBasedSDLDefinitionImplementationStrategy()
     }
 
+    @ConditionalOnMissingBean(value = [GraphQLDataSourceJsonRetrievalStrategyProvider::class])
+    @Bean
+    fun graphQLDataSourceJsonRetrievalStrategyProvider(
+        jsonMapper: JsonMapper
+    ): GraphQLDataSourceJsonRetrievalStrategyProvider {
+        return DefaultGraphQLDataSourceJsonRetrievalStrategyProvider(jsonMapper = jsonMapper)
+    }
 }
