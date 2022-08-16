@@ -1,8 +1,8 @@
-package funcify.feature.datasource.graphql.retrieval
+package funcify.feature.datasource.rest.retrieval
 
 import arrow.core.Either
-import funcify.feature.datasource.graphql.GraphQLApiDataSource
-import funcify.feature.datasource.graphql.schema.GraphQLSourceIndex
+import funcify.feature.datasource.rest.RestApiDataSource
+import funcify.feature.datasource.rest.schema.RestApiSourceIndex
 import funcify.feature.datasource.retrieval.SchematicPathBasedJsonRetrievalFunction
 import funcify.feature.json.JsonMapper
 import funcify.feature.schema.datasource.DataSource
@@ -17,23 +17,22 @@ import kotlin.reflect.full.isSubclassOf
 import kotlinx.collections.immutable.ImmutableSet
 import org.slf4j.Logger
 
-internal class DefaultGraphQLDataSourceJsonRetrievalStrategyProvider(
+internal class DefaultSwaggerRestApiJsonRetrievalStrategyProvider(
     private val jsonMapper: JsonMapper
-) : GraphQLDataSourceJsonRetrievalStrategyProvider {
+) : SwaggerRestApiJsonRetrievalStrategyProvider {
 
     companion object {
-        private val logger: Logger =
-            loggerFor<DefaultGraphQLDataSourceJsonRetrievalStrategyProvider>()
+        private val logger: Logger = loggerFor<DefaultSwaggerRestApiJsonRetrievalStrategyProvider>()
     }
 
     override fun canProvideJsonRetrievalFunctionsForVerticesWithSourceIndicesIn(
         dataSourceKey: DataSource.Key<*>
     ): Boolean {
-        return dataSourceKey.sourceIndexType.isSubclassOf(GraphQLSourceIndex::class)
+        return dataSourceKey.sourceIndexType.isSubclassOf(RestApiSourceIndex::class)
     }
 
     override fun createSchematicPathBasedJsonRetrievalFunctionFor(
-        dataSource: DataSource<GraphQLSourceIndex>,
+        dataSource: DataSource<RestApiSourceIndex>,
         sourceVertices: ImmutableSet<Either<SourceJunctionVertex, SourceLeafVertex>>,
         parameterVertices: ImmutableSet<Either<ParameterJunctionVertex, ParameterLeafVertex>>,
     ): Try<SchematicPathBasedJsonRetrievalFunction> {
@@ -45,11 +44,11 @@ internal class DefaultGraphQLDataSourceJsonRetrievalStrategyProvider(
             |]""".flatten()
         )
         return Try.attempt {
-            DefaultGraphQLDataSourceJsonRetrievalStrategy(
-                jsonMapper,
-                dataSource as GraphQLApiDataSource,
-                parameterVertices,
-                sourceVertices
+            DefaultSwaggerRestDataSourceJsonRetrievalStrategy(
+                jsonMapper = jsonMapper,
+                dataSource = dataSource as RestApiDataSource,
+                parameterVertices = parameterVertices,
+                sourceVertices = sourceVertices
             )
         }
     }

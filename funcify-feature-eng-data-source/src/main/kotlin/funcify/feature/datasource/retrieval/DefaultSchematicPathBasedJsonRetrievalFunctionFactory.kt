@@ -25,8 +25,8 @@ import kotlinx.collections.immutable.persistentSetOf
  * @author smccarron
  * @created 2022-08-11
  */
-class DefaultSchematicPathBasedJsonRetrievalFunctionFactory(
-    val dataSourceSpecificJsonRetrievalStrategyProviders:
+internal class DefaultSchematicPathBasedJsonRetrievalFunctionFactory(
+    private val dataSourceSpecificJsonRetrievalStrategyProviders:
         ImmutableSet<DataSourceSpecificJsonRetrievalStrategyProvider<*>> =
         persistentSetOf()
 ) : SchematicPathBasedJsonRetrievalFunctionFactory {

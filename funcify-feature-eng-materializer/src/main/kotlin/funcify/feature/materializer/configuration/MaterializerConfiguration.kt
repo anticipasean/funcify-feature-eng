@@ -6,6 +6,7 @@ import funcify.feature.datasource.graphql.GraphQLApiDataSource
 import funcify.feature.datasource.graphql.metadata.alias.GraphQLApiDataSourceAliasProvider
 import funcify.feature.datasource.graphql.metadata.temporal.GraphQLApiDataSourceLastUpdatedAttributeProvider
 import funcify.feature.datasource.rest.RestApiDataSource
+import funcify.feature.datasource.retrieval.SchematicPathBasedJsonRetrievalFunctionFactory
 import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionCreationContextFactory
 import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionImplementationStrategy
 import funcify.feature.error.FeatureEngCommonException
@@ -199,9 +200,13 @@ class MaterializerConfiguration {
 
     @ConditionalOnMissingBean(value = [SingleRequestFieldMaterializationGraphService::class])
     @Bean
-    fun singleRequestFieldMaterializationGraphService():
-        SingleRequestFieldMaterializationGraphService {
-        return DefaultSingleRequestFieldMaterializationGraphService()
+    fun singleRequestFieldMaterializationGraphService(
+        schematicPathBasedJsonRetrievalFunctionFactory:
+            SchematicPathBasedJsonRetrievalFunctionFactory
+    ): SingleRequestFieldMaterializationGraphService {
+        return DefaultSingleRequestFieldMaterializationGraphService(
+            schematicPathBasedJsonRetrievalFunctionFactory
+        )
     }
 
     @ConditionalOnMissingBean(value = [MaterializationPreparsedDocumentProvider::class])

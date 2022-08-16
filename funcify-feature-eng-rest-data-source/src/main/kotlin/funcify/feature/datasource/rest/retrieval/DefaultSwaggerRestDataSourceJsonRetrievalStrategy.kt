@@ -46,7 +46,7 @@ import reactor.core.publisher.Mono
  * @created 2022-08-15
  */
 internal class DefaultSwaggerRestDataSourceJsonRetrievalStrategy(
-    internal val jsonMapper: JsonMapper,
+    private val jsonMapper: JsonMapper,
     override val dataSource: RestApiDataSource,
     override val parameterVertices:
         ImmutableSet<Either<ParameterJunctionVertex, ParameterLeafVertex>>,

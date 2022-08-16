@@ -1,6 +1,7 @@
 package funcify.feature.materializer.service
 
 import com.google.common.cache.CacheBuilder
+import funcify.feature.datasource.retrieval.SchematicPathBasedJsonRetrievalFunctionFactory
 import funcify.feature.materializer.error.MaterializerErrorResponse
 import funcify.feature.materializer.error.MaterializerException
 import funcify.feature.materializer.fetcher.SingleRequestFieldMaterializationSession
@@ -24,8 +25,10 @@ import org.slf4j.Logger
  * @author smccarron
  * @created 2022-08-08
  */
-internal class DefaultSingleRequestFieldMaterializationGraphService :
-    SingleRequestFieldMaterializationGraphService {
+internal class DefaultSingleRequestFieldMaterializationGraphService(
+    private val schematicPathBasedJsonRetrievalFunctionFactory:
+        SchematicPathBasedJsonRetrievalFunctionFactory
+) : SingleRequestFieldMaterializationGraphService {
 
     companion object {
         private val logger: Logger =

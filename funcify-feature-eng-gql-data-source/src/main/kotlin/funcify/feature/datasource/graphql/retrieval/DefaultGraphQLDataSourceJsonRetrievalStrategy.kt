@@ -42,8 +42,8 @@ import org.slf4j.Logger
  * @created 2022-08-12
  */
 internal class DefaultGraphQLDataSourceJsonRetrievalStrategy(
-    internal val jsonMapper: JsonMapper,
-    internal val graphQLDataSource: GraphQLApiDataSource,
+    private val jsonMapper: JsonMapper,
+    private val graphQLDataSource: GraphQLApiDataSource,
     override val parameterVertices:
         ImmutableSet<Either<ParameterJunctionVertex, ParameterLeafVertex>>,
     override val sourceVertices: ImmutableSet<Either<SourceJunctionVertex, SourceLeafVertex>>

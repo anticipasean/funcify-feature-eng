@@ -14,6 +14,8 @@ import funcify.feature.datasource.rest.metadata.provider.DefaultSwaggerRestApiMe
 import funcify.feature.datasource.rest.metadata.provider.SwaggerRestApiMetadataProvider
 import funcify.feature.datasource.rest.metadata.reader.DefaultSwaggerRestApiSourceMetadataReader
 import funcify.feature.datasource.rest.metadata.reader.SwaggerRestApiSourceMetadataReader
+import funcify.feature.datasource.rest.retrieval.DefaultSwaggerRestApiJsonRetrievalStrategyProvider
+import funcify.feature.datasource.rest.retrieval.SwaggerRestApiJsonRetrievalStrategyProvider
 import funcify.feature.datasource.rest.schema.SwaggerRestApiSourceMetamodel
 import funcify.feature.datasource.rest.sdl.CompositeSwaggerSourceIndexSDLDefinitionImplementationStrategy
 import funcify.feature.datasource.rest.sdl.DefaultSwaggerSourceIndexSDLDefinitionFactory
@@ -129,5 +131,13 @@ class RestApiDataSourceConfiguration {
         return CompositeSwaggerSourceIndexSDLDefinitionImplementationStrategy(
             sdlDefinitionImplementationStrategies
         )
+    }
+
+    @ConditionalOnMissingBean(value = [SwaggerRestApiJsonRetrievalStrategyProvider::class])
+    @Bean
+    fun swaggerRestApiJsonRetrievalStrategyProvider(
+        jsonMapper: JsonMapper
+    ): SwaggerRestApiJsonRetrievalStrategyProvider {
+        return DefaultSwaggerRestApiJsonRetrievalStrategyProvider(jsonMapper = jsonMapper)
     }
 }
