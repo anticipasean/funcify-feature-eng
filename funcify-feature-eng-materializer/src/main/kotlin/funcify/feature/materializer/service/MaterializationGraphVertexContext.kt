@@ -2,7 +2,8 @@ package funcify.feature.materializer.service
 
 import arrow.core.Either
 import arrow.core.Option
-import funcify.feature.schema.SchematicEdge
+import funcify.feature.materializer.fetcher.SingleRequestFieldMaterializationSession
+import funcify.feature.materializer.schema.RequestParameterEdge
 import funcify.feature.schema.SchematicVertex
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.schema.vertex.ParameterJunctionVertex
@@ -20,20 +21,34 @@ import graphql.language.Field
  * @author smccarron
  * @created 2022-08-17
  */
-interface MaterializationGraphVertexContext<V : SchematicVertex> {
+sealed interface MaterializationGraphVertexContext<V : SchematicVertex> {
+
+    val session: SingleRequestFieldMaterializationSession
+
+    val graph: PathBasedGraph<SchematicPath, SchematicVertex, RequestParameterEdge>
 
     val currentVertex: V
 
     val vertexGraphType: SchematicGraphVertexType
 
-    val graph: PathBasedGraph<SchematicPath, SchematicVertex, SchematicEdge>
+    val path: SchematicPath
+        get() = currentVertex.path
+
+    val parentPath: Option<SchematicPath>
+        get() = currentVertex.path.getParentPath()
 
     val parentVertex: Option<SchematicVertex>
         get() = currentVertex.path.getParentPath().flatMap { pp -> graph.getVertex(pp) }
 
+    fun <NV : SchematicVertex> update(
+        transformer: Builder<V>.() -> Builder<NV>
+    ): MaterializationGraphVertexContext<NV>
+
     interface Builder<V : SchematicVertex> {
 
-        fun graph(graph: PathBasedGraph<SchematicPath, SchematicVertex, SchematicEdge>): Builder<V>
+        fun graph(
+            graph: PathBasedGraph<SchematicPath, SchematicVertex, RequestParameterEdge>
+        ): Builder<V>
 
         fun <NV, SJV, SLV> nextSourceVertex(
             nextVertex: Either<SJV, SLV>,
@@ -49,7 +64,7 @@ interface MaterializationGraphVertexContext<V : SchematicVertex> {
         ): Builder<NV> where
         NV : SchematicVertex,
         PJV : ParameterJunctionVertex,
-        PLV : ParameterJunctionVertex
+        PLV : ParameterLeafVertex
 
         fun build(): MaterializationGraphVertexContext<V>
     }

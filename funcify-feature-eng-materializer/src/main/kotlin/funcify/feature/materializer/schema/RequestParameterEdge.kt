@@ -28,10 +28,6 @@ interface RequestParameterEdge : SchematicEdge {
         val materializedJsonValue: JsonNode
     }
 
-    interface MissingContextValueRequestParameterEdge: RequestParameterEdge {
-
-    }
-
     interface RetrievalFunctionSpecRequestParameterEdge : RequestParameterEdge {
         val dataSource: DataSource<*>
         val sourceVerticesByPath:
@@ -66,8 +62,6 @@ interface RequestParameterEdge : SchematicEdge {
         fun fromPathToPath(path1: SchematicPath, path2: SchematicPath): Builder
 
         fun materializedValue(materializedJsonNode: JsonNode): Builder
-
-        fun missingContextValue(): Builder
 
         fun retrievalFunctionSpecForDataSource(
             dataSource: DataSource<*>,

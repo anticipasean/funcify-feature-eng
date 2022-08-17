@@ -1,5 +1,6 @@
 package funcify.feature.materializer.service
 
+import funcify.feature.materializer.fetcher.SingleRequestFieldMaterializationSession
 import funcify.feature.materializer.service.MaterializationGraphVertexContext.SourceRootMaterializationGraphVertexContext
 import funcify.feature.schema.vertex.SourceRootVertex
 
@@ -10,8 +11,8 @@ import funcify.feature.schema.vertex.SourceRootVertex
  */
 interface MaterializationGraphVertexContextFactory {
 
-    fun createSourceRootVertexContext(
-        sourceRootVertex: SourceRootVertex
+    fun createSourceRootVertexContextInSession(
+        sourceRootVertex: SourceRootVertex,
+        singleRequestFieldMaterializationSession: SingleRequestFieldMaterializationSession
     ): SourceRootMaterializationGraphVertexContext
-
 }
