@@ -39,6 +39,14 @@ internal class DefaultRequestParameterEdgeFactory : RequestParameterEdgeFactory 
             }
         }
 
+        internal class DefaultMissingContextValueRequestParameterEdge(
+            override val id: Pair<SchematicPath, SchematicPath>
+        ) : RequestParameterEdge.MissingContextValueRequestParameterEdge {
+            override fun updateEdge(transformer: Builder.() -> Builder): RequestParameterEdge {
+                TODO("Not yet implemented")
+            }
+        }
+
         internal class DefaultRetrievalFunctionSpecRequestParameterEdge(
             override val id: Pair<SchematicPath, SchematicPath>,
             override val dataSource: DataSource<*>,
@@ -97,6 +105,10 @@ internal class DefaultRequestParameterEdgeFactory : RequestParameterEdgeFactory 
             }
 
             override fun materializedValue(materializedJsonNode: JsonNode): Builder {
+                TODO("Not yet implemented")
+            }
+
+            override fun missingContextValue(): Builder {
                 TODO("Not yet implemented")
             }
 

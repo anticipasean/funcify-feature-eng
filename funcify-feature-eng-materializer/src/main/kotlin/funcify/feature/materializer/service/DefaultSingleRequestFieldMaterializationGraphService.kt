@@ -5,24 +5,21 @@ import arrow.core.Option
 import arrow.core.left
 import arrow.core.none
 import arrow.core.right
-import arrow.core.singleOrNone
 import arrow.core.some
 import arrow.core.toOption
+import com.fasterxml.jackson.databind.JsonNode
 import com.google.common.cache.CacheBuilder
 import funcify.feature.datasource.retrieval.SchematicPathBasedJsonRetrievalFunctionFactory
 import funcify.feature.materializer.error.MaterializerErrorResponse
 import funcify.feature.materializer.error.MaterializerException
 import funcify.feature.materializer.fetcher.SingleRequestFieldMaterializationSession
+import funcify.feature.materializer.json.GraphQLValueToJsonNodeConverter
 import funcify.feature.materializer.schema.RequestParameterEdge
 import funcify.feature.materializer.schema.RequestParameterEdgeFactory
 import funcify.feature.schema.SchematicEdge
 import funcify.feature.schema.SchematicVertex
 import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.path.SchematicPath
-import funcify.feature.schema.vertex.ParameterJunctionVertex
-import funcify.feature.schema.vertex.ParameterLeafVertex
-import funcify.feature.schema.vertex.SourceJunctionVertex
-import funcify.feature.schema.vertex.SourceLeafVertex
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.container.deferred.Deferred
 import funcify.feature.tools.container.graph.PathBasedGraph
@@ -171,6 +168,26 @@ internal class DefaultSingleRequestFieldMaterializationGraphService(
             .recurse { ctx ->
                 makeConnectionsFromParentToChildFieldOrArgumentInContext(session, ctx)
             }
+            .fold(
+                PathBasedGraph.emptyTwoToOnePathsToEdgeGraph<
+                    SchematicPath, SchematicVertex, RequestParameterEdge>()
+            ) { g, connection ->
+                when {
+                    !g.getVertex(connection.vertex1.path).isDefined() &&
+                        !g.getVertex(connection.vertex2.path).isDefined() -> {
+                        g.putVertex(connection.vertex1.path, connection.vertex1)
+                            .putVertex(connection.vertex2.path, connection.vertex2)
+                            .putEdge(connection.edge.id, connection.edge)
+                    }
+                    !g.getVertex(connection.vertex2.path).isDefined() -> {
+                        g.putVertex(connection.vertex2.path, connection.vertex2)
+                            .putEdge(connection.edge.id, connection.edge)
+                    }
+                    else -> {
+                        g.putEdge(connection.edge.id, connection.edge)
+                    }
+                }
+            }
 
         TODO()
     }
@@ -207,14 +224,6 @@ internal class DefaultSingleRequestFieldMaterializationGraphService(
                         .getVertex(vertexPath)
                         .successIfDefined(sourceVertexNotFoundExceptionSupplier(vertexPath))
                         .orElseThrow()
-                val sourceJunctionOrLeafVertex: Either<SourceJunctionVertex, SourceLeafVertex> =
-                    when (sourceVertex) {
-                            is SourceJunctionVertex -> sourceVertex.left().some()
-                            is SourceLeafVertex -> sourceVertex.right().some()
-                            else -> none()
-                        }
-                        .successIfDefined(sourceVertexNotFoundExceptionSupplier(vertexPath))
-                        .orElseThrow()
                 if (context.parentVertex.isDefined()) {
                         val edge: RequestParameterEdge =
                             requestParameterEdgeFactory
@@ -229,50 +238,7 @@ internal class DefaultSingleRequestFieldMaterializationGraphService(
                                 .right()
                         )
                     } else {
-                        val rootVertex: SchematicVertex =
-                            session.metamodelGraph.pathBasedGraph
-                                .getVertex(SchematicPath.getRootPath())
-                                .successIfDefined(
-                                    sourceVertexNotFoundExceptionSupplier(
-                                        SchematicPath.getRootPath()
-                                    )
-                                )
-                                .orElseThrow()
-                        val dataSourceKey: DataSource.Key<*> =
-                            sourceJunctionOrLeafVertex
-                                .fold(
-                                    SourceJunctionVertex::compositeAttribute,
-                                    SourceLeafVertex::compositeAttribute
-                                )
-                                .getSourceAttributeByDataSource()
-                                .keys
-                                .singleOrNone()
-                                .successIfDefined(
-                                    moreThanOneDataSourceFoundExceptionSupplier(vertexPath)
-                                )
-                                .orElseThrow()
-                        val dataSource: DataSource<*> =
-                            session.metamodelGraph.dataSourcesByKey[dataSourceKey]
-                                .toOption()
-                                .successIfDefined(
-                                    dataSourceNotFoundExceptionSupplier(
-                                        dataSourceKey,
-                                        session.metamodelGraph.dataSourcesByKey.keys
-                                    )
-                                )
-                                .orElseThrow()
-                        val edge: RequestParameterEdge =
-                            requestParameterEdgeFactory
-                                .builder()
-                                .fromPathToPath(SchematicPath.getRootPath(), vertexPath)
-                                .retrievalFunctionSpecForDataSource(dataSource) {
-                                    sourceJunctionOrLeafVertex.fold(
-                                        { sjv -> addSourceVertex(sjv) },
-                                        { slv -> addSourceVertex(slv) }
-                                    )
-                                }
-                                .build()
-                        sequenceOf(GraphConnection(rootVertex, sourceVertex, edge).right())
+                        emptySequence()
                     }
                     .plus(
                         field.arguments.asSequence().map { argument: Argument ->
@@ -286,27 +252,59 @@ internal class DefaultSingleRequestFieldMaterializationGraphService(
                     )
             }
             is Either.Right -> {
+                // TODO: Break argument values down, if non-scalar, such that each constituent
+                // parameter leaf vertex gets its own edges
                 val argument: Argument = fieldOrArgument.value
                 val vertexPath: SchematicPath =
                     SchematicPath.of {
                         pathSegments(context.parentPath.pathSegments).argument(argument.name)
                     }
+                val parentVertex: SchematicVertex =
+                    context.parentVertex
+                        .successIfDefined(possibleOutOfOrderProcessingExceptionSupplier(vertexPath))
+                        .orElseThrow()
                 val parameterVertex =
                     session.metamodelGraph.pathBasedGraph
                         .getVertex(vertexPath)
                         .successIfDefined(parameterVertexNotFoundExceptionSupplier(vertexPath))
                         .orElseThrow()
-                val parameterJunctionOrLeafVertex:
-                    Either<ParameterJunctionVertex, ParameterLeafVertex> =
-                    when (parameterVertex) {
-                            is ParameterJunctionVertex -> parameterVertex.left().some()
-                            is ParameterLeafVertex -> parameterVertex.right().some()
-                            else -> none()
-                        }
-                        .successIfDefined(parameterVertexNotFoundExceptionSupplier(vertexPath))
+                val argumentJsonValue: JsonNode =
+                    GraphQLValueToJsonNodeConverter.invoke(argument.value)
+                        .successIfDefined(
+                            argumentValueNotResolvedIntoJsonExceptionSupplier(vertexPath, argument)
+                        )
                         .orElseThrow()
-                TODO()
+                val edge =
+                    if (argumentJsonValue.isNull) {
+                        requestParameterEdgeFactory
+                            .builder()
+                            .fromPathToPath(context.parentPath, vertexPath)
+                            .missingContextValue()
+                            .build()
+                    } else {
+                        requestParameterEdgeFactory
+                            .builder()
+                            .fromPathToPath(context.parentPath, vertexPath)
+                            .materializedValue(argumentJsonValue)
+                            .build()
+                    }
+                sequenceOf(GraphConnection(parentVertex, parameterVertex, edge).right())
             }
+        }
+    }
+
+    private fun argumentValueNotResolvedIntoJsonExceptionSupplier(
+        vertexPath: SchematicPath,
+        argument: Argument
+    ): () -> MaterializerException {
+        return { ->
+            MaterializerException(
+                MaterializerErrorResponse.UNEXPECTED_ERROR,
+                """graphql_value [ type: ${argument.value::class.qualifiedName} ] 
+                   |for argument [ name: ${argument.name} ] 
+                   |could not be resolved in JSON for 
+                   |[ vertex_path: ${vertexPath} ]""".flatten()
+            )
         }
     }
 
@@ -335,6 +333,19 @@ internal class DefaultSingleRequestFieldMaterializationGraphService(
                    |metamodel_graph.path_based_graph for path 
                    |but not found 
                    |[ vertex_path: $vertexPath ]""".flatten()
+            )
+        }
+    }
+
+    private fun possibleOutOfOrderProcessingExceptionSupplier(
+        vertexPath: SchematicPath
+    ): () -> MaterializerException {
+        return { ->
+            MaterializerException(
+                MaterializerErrorResponse.UNEXPECTED_ERROR,
+                """vertices are likely being processed out-of-order; 
+                    |the parent_vertex for the given parameter_vertex 
+                    |is not defined: [ vertex_path: ${vertexPath} ]""".flatten()
             )
         }
     }
