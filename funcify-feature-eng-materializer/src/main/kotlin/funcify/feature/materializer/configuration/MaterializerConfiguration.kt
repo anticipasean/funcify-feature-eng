@@ -22,9 +22,12 @@ import funcify.feature.materializer.response.SerializedGraphQLResponseFactory
 import funcify.feature.materializer.schema.DefaultMaterializationGraphQLSchemaFactory
 import funcify.feature.materializer.schema.DefaultMaterializationMetamodel
 import funcify.feature.materializer.schema.DefaultMaterializationMetamodelBroker
+import funcify.feature.materializer.schema.DefaultRequestParameterEdgeFactory
 import funcify.feature.materializer.schema.MaterializationGraphQLSchemaFactory
 import funcify.feature.materializer.schema.MaterializationMetamodelBroker
 import funcify.feature.materializer.service.DefaultMaterializationGraphQLWiringFactory
+import funcify.feature.materializer.service.DefaultMaterializationGraphVertexConnector
+import funcify.feature.materializer.service.DefaultMaterializationGraphVertexContextFactory
 import funcify.feature.materializer.service.DefaultMaterializationPreparsedDocumentProvider
 import funcify.feature.materializer.service.DefaultSingleRequestFieldMaterializationGraphService
 import funcify.feature.materializer.service.MaterializationGraphQLWiringFactory
@@ -205,7 +208,9 @@ class MaterializerConfiguration {
             SchematicPathBasedJsonRetrievalFunctionFactory
     ): SingleRequestFieldMaterializationGraphService {
         return DefaultSingleRequestFieldMaterializationGraphService(
-            schematicPathBasedJsonRetrievalFunctionFactory
+            schematicPathBasedJsonRetrievalFunctionFactory,
+            DefaultMaterializationGraphVertexContextFactory(),
+            DefaultMaterializationGraphVertexConnector(DefaultRequestParameterEdgeFactory())
         )
     }
 
