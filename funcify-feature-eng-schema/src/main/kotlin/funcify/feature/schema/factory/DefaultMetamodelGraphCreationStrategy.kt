@@ -1,11 +1,5 @@
 package funcify.feature.schema.factory
 
-import arrow.core.Either
-import arrow.core.left
-import arrow.core.none
-import arrow.core.right
-import arrow.core.some
-import arrow.core.toOption
 import funcify.feature.schema.SchematicVertex
 import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.datasource.SourceIndex
@@ -16,8 +10,6 @@ import funcify.feature.schema.error.SchemaException
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.schema.strategy.CompositeSchematicVertexGraphRemappingStrategy
 import funcify.feature.schema.strategy.SchematicVertexGraphRemappingStrategy
-import funcify.feature.schema.vertex.ParameterAttributeVertex
-import funcify.feature.schema.vertex.SourceAttributeVertex
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.container.deferred.Deferred
 import funcify.feature.tools.extensions.DeferredExtensions.toDeferred
@@ -213,34 +205,15 @@ internal class DefaultMetamodelGraphCreationStrategy() :
                     aliasSetBySchematicPath.asSequence().fold(context.aliasRegistry) {
                         areg,
                         (path, aliasSet) ->
-                        when (
-                            val srcOrParamAttr =
-                                context.schematicVerticesByPath[path]
-                                    .toOption()
-                                    .flatMap { v ->
-                                        when (v) {
-                                            is SourceAttributeVertex -> v.left().some()
-                                            is ParameterAttributeVertex -> v.right().some()
-                                            else -> none()
-                                        }
-                                    }
-                                    .orNull()
-                        ) {
-                            is Either.Left ->
-                                aliasSet.fold(areg) { reg, alias ->
-                                    reg.registerSourceAttributeVertexWithAlias(
-                                        srcOrParamAttr.value,
-                                        alias
-                                    )
+                        when {
+                            path.arguments.isNotEmpty() ->
+                                aliasSet.fold(areg) { ar, n ->
+                                    ar.registerParameterVertexPathWithAlias(path, n)
                                 }
-                            is Either.Right ->
-                                aliasSet.fold(areg) { reg, alias ->
-                                    reg.registerParameterAttributeVertexWithAlias(
-                                        srcOrParamAttr.value,
-                                        alias
-                                    )
+                            else ->
+                                aliasSet.fold(areg) { ar, n ->
+                                    ar.registerSourceVertexPathWithAlias(path, n)
                                 }
-                            else -> areg
                         }
                     }
                 }

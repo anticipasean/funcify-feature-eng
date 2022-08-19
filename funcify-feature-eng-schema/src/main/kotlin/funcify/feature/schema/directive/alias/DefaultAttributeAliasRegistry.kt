@@ -4,8 +4,7 @@ import arrow.core.Option
 import arrow.core.toOption
 import funcify.feature.naming.ConventionalName
 import funcify.feature.naming.StandardNamingConventions
-import funcify.feature.schema.vertex.ParameterAttributeVertex
-import funcify.feature.schema.vertex.SourceAttributeVertex
+import funcify.feature.schema.path.SchematicPath
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentMap
 import kotlinx.collections.immutable.PersistentMap
@@ -13,16 +12,14 @@ import kotlinx.collections.immutable.persistentMapOf
 
 internal data class DefaultAttributeAliasRegistry(
     private val sourceAttributeVerticesByStandardAndAliasQualifiedNames:
-        PersistentMap<String, SourceAttributeVertex> =
+        PersistentMap<String, SchematicPath> =
         persistentMapOf(),
     private val parameterAttributeVerticesByStandardAndAliasQualifiedNames:
-        PersistentMap<String, ParameterAttributeVertex> =
+        PersistentMap<String, SchematicPath> =
         persistentMapOf(),
-    private val memoizingSourceAttributeVertexAliasMapper:
-        MemoizingAliasMapperFunction<SourceAttributeVertex> =
+    private val memoizingSourceAttributeVertexAliasMapper: MemoizingAliasMapperFunction =
         MemoizingAliasMapperFunction(),
-    private val memoizingParameterAttributeVertexAliasMapper:
-        MemoizingAliasMapperFunction<ParameterAttributeVertex> =
+    private val memoizingParameterAttributeVertexAliasMapper: MemoizingAliasMapperFunction =
         MemoizingAliasMapperFunction()
 ) : AttributeAliasRegistry {
 
@@ -45,20 +42,23 @@ internal data class DefaultAttributeAliasRegistry(
             }
         }
 
-        internal data class MemoizingAliasMapperFunction<out V>(
-            private val schematicVerticesByNormalizedName: ConcurrentMap<String, V> =
+        internal data class MemoizingAliasMapperFunction(
+            private val schematicVerticesByNormalizedName: ConcurrentMap<String, SchematicPath> =
                 ConcurrentHashMap(),
-            private val verticesByStandardAndAliasQualifiedNames: PersistentMap<String, V> =
+            private val verticesByStandardAndAliasQualifiedNames:
+                PersistentMap<String, SchematicPath> =
                 persistentMapOf()
-        ) : (String) -> Option<V> {
+        ) : (String) -> Option<SchematicPath> {
 
-            override fun invoke(unnormalizedName: String): Option<V> {
+            override fun invoke(unnormalizedName: String): Option<SchematicPath> {
                 return schematicVerticesByNormalizedName
                     .computeIfAbsent(unnormalizedName, ::normalizeNameAndAttemptToMapToVertex)
                     .toOption()
             }
 
-            private fun normalizeNameAndAttemptToMapToVertex(unnormalizedName: String): V? {
+            private fun normalizeNameAndAttemptToMapToVertex(
+                unnormalizedName: String
+            ): SchematicPath? {
                 if (unnormalizedName.length < 3) {
                     return null
                 }
@@ -68,20 +68,17 @@ internal data class DefaultAttributeAliasRegistry(
         }
     }
 
-    override fun registerSourceAttributeVertexWithAlias(
-        sourceAttributeVertex: SourceAttributeVertex,
+    override fun registerSourceVertexPathWithAlias(
+        sourceVertexPath: SchematicPath,
         alias: String
     ): AttributeAliasRegistry {
-        val sourceAttributeVertexQualifiedName: String =
-            StandardNamingConventions.SNAKE_CASE.deriveName(
-                    sourceAttributeVertex.compositeAttribute.conventionalName.qualifiedForm
-                )
-                .qualifiedForm
+        if (sourceVertexPath.arguments.isNotEmpty()) {
+            return registerParameterVertexPathWithAlias(sourceVertexPath, alias)
+        }
         val aliasQualifiedName: String =
             StandardNamingConventions.SNAKE_CASE.deriveName(alias).qualifiedForm
-        val updatedSourceAttributeVerticesByQualifiedNames:
-            PersistentMap<String, SourceAttributeVertex> =
-            sequenceOf(sourceAttributeVertexQualifiedName, aliasQualifiedName)
+        val updatedSourceAttributeVerticesByQualifiedNames: PersistentMap<String, SchematicPath> =
+            sequenceOf(aliasQualifiedName)
                 .flatMap { s ->
                     if (s.indexOf('_') >= 0) {
                         sequenceOf(s.replace("_", ""), s)
@@ -90,7 +87,7 @@ internal data class DefaultAttributeAliasRegistry(
                     }
                 }
                 .fold(sourceAttributeVerticesByStandardAndAliasQualifiedNames) { pm, name ->
-                    pm.put(name, sourceAttributeVertex)
+                    pm.put(name, sourceVertexPath)
                 }
         return copy(
             sourceAttributeVerticesByStandardAndAliasQualifiedNames =
@@ -105,21 +102,18 @@ internal data class DefaultAttributeAliasRegistry(
         )
     }
 
-    override fun registerParameterAttributeVertexWithAlias(
-        parameterAttributeVertex: ParameterAttributeVertex,
+    override fun registerParameterVertexPathWithAlias(
+        parameterVertexPath: SchematicPath,
         alias: String,
     ): AttributeAliasRegistry {
-        val parameterAttributeVertexQualifiedName: String =
-            StandardNamingConventions.SNAKE_CASE.deriveName(
-                    parameterAttributeVertex.compositeParameterAttribute.conventionalName
-                        .qualifiedForm
-                )
-                .qualifiedForm
+        if (parameterVertexPath.arguments.isEmpty()) {
+            return registerSourceVertexPathWithAlias(parameterVertexPath, alias)
+        }
         val aliasQualifiedName: String =
             StandardNamingConventions.SNAKE_CASE.deriveName(alias).qualifiedForm
         val updatedParameterAttributeVerticesByQualifiedNames:
-            PersistentMap<String, ParameterAttributeVertex> =
-            sequenceOf(parameterAttributeVertexQualifiedName, aliasQualifiedName)
+            PersistentMap<String, SchematicPath> =
+            sequenceOf(aliasQualifiedName)
                 .flatMap { s ->
                     if (s.indexOf('_') >= 0) {
                         sequenceOf(s.replace("_", ""), s)
@@ -128,7 +122,7 @@ internal data class DefaultAttributeAliasRegistry(
                     }
                 }
                 .fold(parameterAttributeVerticesByStandardAndAliasQualifiedNames) { pm, name ->
-                    pm.put(name, parameterAttributeVertex)
+                    pm.put(name, parameterVertexPath)
                 }
 
         return copy(
@@ -144,15 +138,13 @@ internal data class DefaultAttributeAliasRegistry(
         )
     }
 
-    override fun getSourceAttributeVertexWithSimilarNameOrAlias(
-        name: String
-    ): Option<SourceAttributeVertex> {
+    override fun getSourceVertexPathWithSimilarNameOrAlias(name: String): Option<SchematicPath> {
         return memoizingSourceAttributeVertexAliasMapper.invoke(name)
     }
 
-    override fun getSourceAttributeVertexWithSimilarNameOrAlias(
+    override fun getSourceVertexPathWithSimilarNameOrAlias(
         conventionalName: ConventionalName
-    ): Option<SourceAttributeVertex> {
+    ): Option<SchematicPath> {
         return if (
             conventionalName.namingConventionKey ==
                 StandardNamingConventions.SNAKE_CASE.conventionKey
@@ -165,15 +157,13 @@ internal data class DefaultAttributeAliasRegistry(
         }
     }
 
-    override fun getParameterAttributeVertexWithSimilarNameOrAlias(
-        name: String
-    ): Option<ParameterAttributeVertex> {
+    override fun getParameterVertexPathWithSimilarNameOrAlias(name: String): Option<SchematicPath> {
         return memoizingParameterAttributeVertexAliasMapper.invoke(name)
     }
 
-    override fun getParameterAttributeVertexWithSimilarNameOrAlias(
+    override fun getParameterVertexPathWithSimilarNameOrAlias(
         conventionalName: ConventionalName
-    ): Option<ParameterAttributeVertex> {
+    ): Option<SchematicPath> {
         return if (
             conventionalName.namingConventionKey ==
                 StandardNamingConventions.SNAKE_CASE.conventionKey

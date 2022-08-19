@@ -2,8 +2,7 @@ package funcify.feature.schema.directive.alias
 
 import arrow.core.Option
 import funcify.feature.naming.ConventionalName
-import funcify.feature.schema.vertex.ParameterAttributeVertex
-import funcify.feature.schema.vertex.SourceAttributeVertex
+import funcify.feature.schema.path.SchematicPath
 
 /**
  *
@@ -19,43 +18,41 @@ interface AttributeAliasRegistry {
         }
     }
 
-    fun registerSourceAttributeVertexWithAlias(
-        sourceAttributeVertex: SourceAttributeVertex,
+    fun registerSourceVertexPathWithAlias(
+        sourceVertexPath: SchematicPath,
         alias: String
     ): AttributeAliasRegistry
 
-    fun registerParameterAttributeVertexWithAlias(
-        parameterAttributeVertex: ParameterAttributeVertex,
+    fun registerParameterVertexPathWithAlias(
+        parameterVertexPath: SchematicPath,
         alias: String
     ): AttributeAliasRegistry
 
     fun containsSimilarSourceAttributeNameOrAlias(name: String): Boolean {
-        return getSourceAttributeVertexWithSimilarNameOrAlias(name).isDefined()
+        return getSourceVertexPathWithSimilarNameOrAlias(name).isDefined()
     }
 
     fun containsSimilarSourceAttributeNameOrAlias(conventionalName: ConventionalName): Boolean {
-        return getSourceAttributeVertexWithSimilarNameOrAlias(conventionalName).isDefined()
+        return getSourceVertexPathWithSimilarNameOrAlias(conventionalName).isDefined()
     }
 
     fun containsSimilarParameterAttributeNameOrAlias(name: String): Boolean {
-        return getParameterAttributeVertexWithSimilarNameOrAlias(name).isDefined()
+        return getParameterVertexPathWithSimilarNameOrAlias(name).isDefined()
     }
 
     fun containsSimilarParameterAttributeNameOrAlias(conventionalName: ConventionalName): Boolean {
-        return getParameterAttributeVertexWithSimilarNameOrAlias(conventionalName).isDefined()
+        return getParameterVertexPathWithSimilarNameOrAlias(conventionalName).isDefined()
     }
 
-    fun getSourceAttributeVertexWithSimilarNameOrAlias(name: String): Option<SourceAttributeVertex>
+    fun getSourceVertexPathWithSimilarNameOrAlias(name: String): Option<SchematicPath>
 
-    fun getSourceAttributeVertexWithSimilarNameOrAlias(
+    fun getSourceVertexPathWithSimilarNameOrAlias(
         conventionalName: ConventionalName
-    ): Option<SourceAttributeVertex>
+    ): Option<SchematicPath>
 
-    fun getParameterAttributeVertexWithSimilarNameOrAlias(
-        name: String
-    ): Option<ParameterAttributeVertex>
+    fun getParameterVertexPathWithSimilarNameOrAlias(name: String): Option<SchematicPath>
 
-    fun getParameterAttributeVertexWithSimilarNameOrAlias(
+    fun getParameterVertexPathWithSimilarNameOrAlias(
         conventionalName: ConventionalName
-    ): Option<ParameterAttributeVertex>
+    ): Option<SchematicPath>
 }
