@@ -76,7 +76,7 @@ internal class DefaultSingleRequestFieldMaterializationGraphService(
             "execution_step_info: [ {} ]",
             session.dataFetchingEnvironment.executionStepInfo.simplePrint()
         )
-
+        traverseFieldInSessionCreatingMaterializationGraph(session)
         return Deferred.completed(session)
     }
 
@@ -242,21 +242,6 @@ internal class DefaultSingleRequestFieldMaterializationGraphService(
             ResolvedParameterVertexContext(vertexPath, parameterJunctionOrLeafVertex, argument)
                 .right()
         )
-    }
-
-    private fun argumentValueNotResolvedIntoJsonExceptionSupplier(
-        vertexPath: SchematicPath,
-        argument: Argument
-    ): () -> MaterializerException {
-        return { ->
-            MaterializerException(
-                MaterializerErrorResponse.UNEXPECTED_ERROR,
-                """graphql_value [ type: ${argument.value::class.qualifiedName} ] 
-                   |for argument [ name: ${argument.name} ] 
-                   |could not be resolved in JSON for 
-                   |[ vertex_path: ${vertexPath} ]""".flatten()
-            )
-        }
     }
 
     private fun sourceVertexNotFoundExceptionSupplier(

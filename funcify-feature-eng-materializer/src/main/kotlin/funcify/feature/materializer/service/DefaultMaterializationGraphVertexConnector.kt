@@ -28,6 +28,7 @@ import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.extensions.TryExtensions.successIfDefined
 import graphql.language.Argument
 import graphql.language.NullValue
+import graphql.schema.SelectedField
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.toPersistentSet
 import org.slf4j.Logger
@@ -410,7 +411,7 @@ internal class DefaultMaterializationGraphVertexConnector(
         )
         val ancestorRetrievalFunctionSpecEdge: RetrievalFunctionSpecRequestParameterEdge =
             findAncestorRetrievalFunctionSpecRequestParameterEdge(context).orElseThrow()
-        when {
+        return when {
             // case 1: caller has provided an input value for this argument so it need not be
             // retrieved through any other means
             !context.argument.value.toOption().filterIsInstance<NullValue>().isDefined() -> {
@@ -432,6 +433,7 @@ internal class DefaultMaterializationGraphVertexConnector(
                                 context.path,
                                 requestParameterEdgeFactory
                                     .builder()
+                                    .fromPathToPath(context.parentPath.orNull()!!, context.path)
                                     .materializedValue(
                                         GraphQLValueToJsonNodeConverter.invoke(
                                                 context.argument.value
@@ -451,7 +453,35 @@ internal class DefaultMaterializationGraphVertexConnector(
             }
             // case 2: caller has not provided an input value for this argument so it needs to be
             // retrieved through some other source--if possible
-            else -> {}
+            else -> {
+                logger.debug(
+                    "[ argument: { name: ${context.argument.name}, value: ${context.argument.value} } ]"
+                )
+                val selectedFieldToStringConverter: (SelectedField) -> CharSequence = { sf ->
+                    val argumentsToString =
+                        sf.arguments
+                            .asSequence()
+                            .joinToString(
+                                ", ",
+                                "{ ",
+                                " }",
+                                transform = { arg -> "k: ${arg.key} v: ${arg.value}" }
+                            )
+                    "{ name: ${sf.name}, arguments: $argumentsToString, fully_qualified_name: ${sf.fullyQualifiedName}, object_type_names: ${sf.objectTypeNames.joinToString(", ")}"
+                }
+                logger.debug(
+                    "[ data_fetching_environment.selection_set.fields: {}",
+                    context.session.dataFetchingEnvironment.selectionSet.fields
+                        .asSequence()
+                        .joinToString(
+                            separator = ",\n",
+                            prefix = "{\n",
+                            postfix = "\n}",
+                            transform = selectedFieldToStringConverter
+                        )
+                )
+                context
+            }
         }
     }
 
@@ -476,6 +506,79 @@ internal class DefaultMaterializationGraphVertexConnector(
         logger.debug(
             "on_parameter_leaf_vertex: [ context.vertex_path: ${context.currentVertex.path} ]"
         )
-        TODO("Not yet implemented")
+        val ancestorRetrievalFunctionSpecEdge: RetrievalFunctionSpecRequestParameterEdge =
+            findAncestorRetrievalFunctionSpecRequestParameterEdge(context).orElseThrow()
+        return when {
+            // case 1: caller has provided an input value for this argument so it need not be
+            // retrieved through any other means
+            !context.argument.value.toOption().filterIsInstance<NullValue>().isDefined() -> {
+                // add materialized value as an edge from this parameter to its source_vertex and
+                // add this parameter_path to the ancestor function spec so that it can be used in
+                // the request made to the source
+                context.update {
+                    graph(
+                        context.graph
+                            .putVertex(context.path, context.currentVertex)
+                            .putEdge(
+                                ancestorRetrievalFunctionSpecEdge.id,
+                                ancestorRetrievalFunctionSpecEdge.updateSpec {
+                                    addParameterVertex(context.currentVertex)
+                                }
+                            )
+                            .putEdge(
+                                context.parentPath.orNull()!!,
+                                context.path,
+                                requestParameterEdgeFactory
+                                    .builder()
+                                    .fromPathToPath(context.parentPath.orNull()!!, context.path)
+                                    .materializedValue(
+                                        GraphQLValueToJsonNodeConverter.invoke(
+                                                context.argument.value
+                                            )
+                                            .successIfDefined(
+                                                argumentValueNotResolvedIntoJsonExceptionSupplier(
+                                                    context.path,
+                                                    context.argument
+                                                )
+                                            )
+                                            .orElseThrow()
+                                    )
+                                    .build()
+                            )
+                    )
+                }
+            }
+            // case 2: caller has not provided an input value for this argument so it needs to be
+            // retrieved through some other source--if possible
+            else -> {
+                logger.debug(
+                    "[ argument: { name: ${context.argument.name}, value: ${context.argument.value} } ]"
+                )
+                val selectedFieldToStringConverter: (SelectedField) -> CharSequence = { sf ->
+                    val argumentsToString =
+                        sf.arguments
+                            .asSequence()
+                            .joinToString(
+                                ", ",
+                                "{ ",
+                                " }",
+                                transform = { arg -> "k: ${arg.key} v: ${arg.value}" }
+                            )
+                    "{ name: ${sf.name}, arguments: $argumentsToString, fully_qualified_name: ${sf.fullyQualifiedName}, object_type_names: ${sf.objectTypeNames.joinToString(", ")}"
+                }
+                logger.debug(
+                    "[ data_fetching_environment.selection_set.fields: {}",
+                    context.session.dataFetchingEnvironment.selectionSet.fields
+                        .asSequence()
+                        .joinToString(
+                            separator = ",\n",
+                            prefix = "{\n",
+                            postfix = "\n}",
+                            transform = selectedFieldToStringConverter
+                        )
+                )
+                context
+            }
+        }
     }
 }

@@ -2,6 +2,8 @@ package funcify.feature.materializer.schema
 
 import arrow.core.Either
 import arrow.core.Option
+import arrow.core.left
+import arrow.core.right
 import com.fasterxml.jackson.databind.JsonNode
 import funcify.feature.datasource.retrieval.SchematicPathBasedJsonRetrievalFunction
 import funcify.feature.materializer.schema.RequestParameterEdge.Builder
@@ -50,10 +52,86 @@ internal class DefaultRequestParameterEdgeFactory : RequestParameterEdgeFactory 
                 persistentMapOf(),
         ) : RetrievalFunctionSpecRequestParameterEdge {
 
+            companion object {
+                private class DefaultSpecBuilder(
+                    private val id: Pair<SchematicPath, SchematicPath>,
+                    private var dataSource: DataSource<*>,
+                    private val sourceVerticesByPathBuilder:
+                        PersistentMap.Builder<
+                            SchematicPath, Either<SourceJunctionVertex, SourceLeafVertex>>,
+                    private val parameterVerticesByPathBuilder:
+                        PersistentMap.Builder<
+                            SchematicPath, Either<ParameterJunctionVertex, ParameterLeafVertex>>
+                ) : SpecBuilder {
+                    override fun dataSource(dataSource: DataSource<*>): SpecBuilder {
+                        this.dataSource = dataSource
+                        return this
+                    }
+
+                    override fun addSourceVertex(
+                        sourceJunctionVertex: SourceJunctionVertex
+                    ): SpecBuilder {
+                        sourceVerticesByPathBuilder.put(
+                            sourceJunctionVertex.path,
+                            sourceJunctionVertex.left()
+                        )
+                        return this
+                    }
+
+                    override fun addSourceVertex(sourceLeafVertex: SourceLeafVertex): SpecBuilder {
+                        sourceVerticesByPathBuilder.put(
+                            sourceLeafVertex.path,
+                            sourceLeafVertex.right()
+                        )
+                        return this
+                    }
+
+                    override fun addParameterVertex(
+                        parameterJunctionVertex: ParameterJunctionVertex
+                    ): SpecBuilder {
+                        parameterVerticesByPathBuilder.put(
+                            parameterJunctionVertex.path,
+                            parameterJunctionVertex.left()
+                        )
+                        return this
+                    }
+
+                    override fun addParameterVertex(
+                        parameterLeafVertex: ParameterLeafVertex
+                    ): SpecBuilder {
+                        parameterVerticesByPathBuilder.put(
+                            parameterLeafVertex.path,
+                            parameterLeafVertex.right()
+                        )
+                        return this
+                    }
+
+                    override fun build(): RetrievalFunctionSpecRequestParameterEdge {
+                        // TODO: Add check that if data_source has changed, whether the vertices
+                        // support the current data_source is reassessed
+                        return DefaultRetrievalFunctionSpecRequestParameterEdge(
+                            id,
+                            dataSource,
+                            sourceVerticesByPathBuilder.build(),
+                            parameterVerticesByPathBuilder.build()
+                        )
+                    }
+                }
+            }
+
             override fun updateSpec(
                 transformer: SpecBuilder.() -> SpecBuilder
             ): RetrievalFunctionSpecRequestParameterEdge {
-                TODO("Not yet implemented")
+                return transformer
+                    .invoke(
+                        DefaultSpecBuilder(
+                            id,
+                            dataSource,
+                            sourceVerticesByPath.builder(),
+                            parameterVerticesByPath.builder()
+                        )
+                    )
+                    .build()
             }
 
             override fun updateEdge(transformer: Builder.() -> Builder): RequestParameterEdge {
@@ -97,35 +175,72 @@ internal class DefaultRequestParameterEdgeFactory : RequestParameterEdgeFactory 
             }
 
             override fun materializedValue(materializedJsonNode: JsonNode): Builder {
-                TODO("Not yet implemented")
+                this.materializedJsonNode = materializedJsonNode
+                return this
             }
 
             override fun retrievalFunctionSpecForDataSource(
                 dataSource: DataSource<*>,
                 specCreator: SpecBuilder.() -> SpecBuilder,
             ): Builder {
-                TODO("Not yet implemented")
+                this.dataSource = dataSource
+                this.specBuilderFunction = specCreator
+                return this
             }
 
             override fun retrievalFunction(
                 retrievalFunction: SchematicPathBasedJsonRetrievalFunction
             ): Builder {
-                TODO("Not yet implemented")
+                this.retrievalFunction = retrievalFunction
+                return this
             }
 
             override fun extractionFromAncestorFunction(
                 extractor: (ImmutableMap<SchematicPath, JsonNode>) -> Option<JsonNode>
             ): Builder {
-                TODO("Not yet implemented")
+                this.extractor = extractor
+                return this
             }
 
             override fun build(): RequestParameterEdge {
-                TODO("Not yet implemented")
+                return when {
+                    pathPair == null -> {
+                        throw IllegalArgumentException(
+                            "path_pair: [ from path to path ] must be provided for edge creation"
+                        )
+                    }
+                    materializedJsonNode != null -> {
+                        DefaultMaterializedValueRequestParameterEdge(
+                            pathPair!!,
+                            materializedJsonNode!!
+                        )
+                    }
+                    dataSource != null && specBuilderFunction != null -> {
+                        DefaultRetrievalFunctionSpecRequestParameterEdge(pathPair!!, dataSource!!)
+                            .updateSpec(specBuilderFunction!!)
+                    }
+                    retrievalFunction != null -> {
+                        DefaultRetrievalFunctionValueRequestParameterEdge(
+                            pathPair!!,
+                            retrievalFunction!!
+                        )
+                    }
+                    extractor != null -> {
+                        DefaultDependentValueRequestParameterEdge(pathPair!!, extractor!!)
+                    }
+                    else -> {
+                        // TODO: Complete list of edge parameter types when ready and convert to
+                        // module exception typ
+                        throw IllegalArgumentException(
+                            "one or more of the following arguments is missing for creation of a request_parameter_edge: ["
+                        )
+                    }
+                }
             }
         }
     }
 
     override fun builder(): Builder {
-        TODO("Not yet implemented")
+        return DefaultBuilder()
     }
 }
