@@ -1,5 +1,6 @@
 package funcify.feature.materializer.service
 
+import arrow.core.Option
 import arrow.core.filterIsInstance
 import arrow.core.firstOrNone
 import arrow.core.left
@@ -21,6 +22,8 @@ import funcify.feature.materializer.service.MaterializationGraphVertexContext.So
 import funcify.feature.materializer.service.MaterializationGraphVertexContext.SourceRootMaterializationGraphVertexContext
 import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.path.SchematicPath
+import funcify.feature.schema.vertex.SourceAttributeVertex
+import funcify.feature.schema.vertex.SourceContainerTypeVertex
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.OptionExtensions.recurse
@@ -454,35 +457,174 @@ internal class DefaultMaterializationGraphVertexConnector(
             // case 2: caller has not provided an input value for this argument so it needs to be
             // retrieved through some other source--if possible
             else -> {
-                logger.debug(
-                    "[ argument: { name: ${context.argument.name}, value: ${context.argument.value} } ]"
-                )
-                val selectedFieldToStringConverter: (SelectedField) -> CharSequence = { sf ->
-                    val argumentsToString =
-                        sf.arguments
-                            .asSequence()
-                            .joinToString(
-                                ", ",
-                                "{ ",
-                                " }",
-                                transform = { arg -> "k: ${arg.key} v: ${arg.value}" }
-                            )
-                    "{ name: ${sf.name}, arguments: $argumentsToString, fully_qualified_name: ${sf.fullyQualifiedName}, object_type_names: ${sf.objectTypeNames.joinToString(", ")}"
+                val sourceAttributeVertexWithSameNameInSameDomain =
+                    sourceAttributeVertexWithSameNameInSameDomain(context)
+                val sourceAttributeVertexWithSameNameInDifferentDomain =
+                    sourceAttributeVertexWithSameNameInDifferentDomain(context)
+                val sourceAttributeVertexByAliasReferenceInSameDomain =
+                    sourceAttributeVertexByAliasReferenceInSameDomain(context)
+                val sourceAttributeVertexByAliasReferenceInDifferentDomain =
+                    sourceAttributeVertexByAliasReferenceInDifferentDomain(context)
+                when {
+                    sourceAttributeVertexWithSameNameInSameDomain.isDefined() -> {}
+                    sourceAttributeVertexWithSameNameInDifferentDomain.isDefined() -> {}
+                    sourceAttributeVertexByAliasReferenceInSameDomain.isDefined() -> {}
+                    sourceAttributeVertexByAliasReferenceInDifferentDomain.isDefined() -> {}
+                    else -> {}
                 }
-                logger.debug(
-                    "[ data_fetching_environment.selection_set.fields: {}",
-                    context.session.dataFetchingEnvironment.selectionSet.fields
-                        .asSequence()
-                        .joinToString(
-                            separator = ",\n",
-                            prefix = "{\n",
-                            postfix = "\n}",
-                            transform = selectedFieldToStringConverter
-                        )
-                )
                 context
             }
         }
+    }
+
+    private fun sourceAttributeVertexWithSameNameInDifferentDomain(
+        context: ParameterJunctionMaterializationGraphVertexContext
+    ): Option<SourceAttributeVertex> {
+        return context.currentVertex.compositeParameterAttribute.conventionalName.qualifiedForm
+            .toOption()
+            .flatMap { name ->
+                context.session.metamodelGraph.sourceAttributeVerticesByQualifiedName[name]
+                    .toOption()
+            }
+            .flatMap { srcAttrs ->
+                context.path.pathSegments.firstOrNone().flatMap { domainPathSegment ->
+                    srcAttrs
+                        .asSequence()
+                        .firstOrNull { sav: SourceAttributeVertex ->
+                            sav.path.pathSegments
+                                .firstOrNone { firstPathSegment ->
+                                    firstPathSegment != domainPathSegment
+                                }
+                                .isDefined()
+                        }
+                        .toOption()
+                }
+            }
+    }
+
+    private fun sourceAttributeVertexWithSameNameInSameDomain(
+        context: ParameterJunctionMaterializationGraphVertexContext
+    ): Option<SourceAttributeVertex> {
+        return context.currentVertex.compositeParameterAttribute.conventionalName.qualifiedForm
+            .toOption()
+            .flatMap { name ->
+                context.session.metamodelGraph.sourceAttributeVerticesByQualifiedName[name]
+                    .toOption()
+            }
+            .flatMap { srcAttrs ->
+                context.path.pathSegments.firstOrNone().flatMap { domainPathSegment ->
+                    srcAttrs
+                        .asSequence()
+                        .firstOrNull { sav: SourceAttributeVertex ->
+                            sav.path.pathSegments
+                                .firstOrNone { firstPathSegment ->
+                                    firstPathSegment == domainPathSegment
+                                }
+                                .isDefined()
+                        }
+                        .toOption()
+                }
+            }
+    }
+
+    private fun sourceAttributeVertexByAliasReferenceInSameDomain(
+        context: ParameterJunctionMaterializationGraphVertexContext
+    ): Option<SourceAttributeVertex> {
+        return context.currentVertex.compositeParameterAttribute.conventionalName.qualifiedForm
+            .toOption()
+            .flatMap { name ->
+                context.session.metamodelGraph.attributeAliasRegistry
+                    .getSourceVertexPathWithSimilarNameOrAlias(name)
+            }
+            .flatMap { srcAttrPath ->
+                srcAttrPath
+                    .getParentPath()
+                    .flatMap { pp ->
+                        context.session.metamodelGraph.pathBasedGraph
+                            .getVertex(pp)
+                            .filterIsInstance<SourceContainerTypeVertex>()
+                            .map { sct: SourceContainerTypeVertex ->
+                                sct.compositeContainerType.conventionalName.qualifiedForm
+                            }
+                            .zip(
+                                context.session.metamodelGraph.pathBasedGraph
+                                    .getVertex(srcAttrPath)
+                                    .filterIsInstance<SourceAttributeVertex>()
+                                    .map { sav: SourceAttributeVertex ->
+                                        sav.compositeAttribute.conventionalName.qualifiedForm
+                                    }
+                            )
+                            .flatMap { parentTypeSrcAttrName ->
+                                context.session.metamodelGraph
+                                    .sourceAttributeVerticesWithParentTypeAttributeQualifiedNamePair[
+                                        parentTypeSrcAttrName]
+                                    .toOption()
+                            }
+                    }
+                    .flatMap { srcAttrs ->
+                        srcAttrs.firstOrNone { sav: SourceAttributeVertex ->
+                            context.path.pathSegments
+                                .firstOrNone()
+                                .filter { domainPathSegment ->
+                                    sav.path.pathSegments
+                                        .firstOrNone { ps -> ps == domainPathSegment }
+                                        .isDefined()
+                                }
+                                .toOption()
+                                .isDefined()
+                        }
+                    }
+            }
+    }
+
+    private fun sourceAttributeVertexByAliasReferenceInDifferentDomain(
+        context: ParameterJunctionMaterializationGraphVertexContext
+    ): Option<SourceAttributeVertex> {
+        return context.currentVertex.compositeParameterAttribute.conventionalName.qualifiedForm
+            .toOption()
+            .flatMap { name ->
+                context.session.metamodelGraph.attributeAliasRegistry
+                    .getSourceVertexPathWithSimilarNameOrAlias(name)
+            }
+            .flatMap { srcAttrPath ->
+                srcAttrPath
+                    .getParentPath()
+                    .flatMap { pp ->
+                        context.session.metamodelGraph.pathBasedGraph
+                            .getVertex(pp)
+                            .filterIsInstance<SourceContainerTypeVertex>()
+                            .map { sct: SourceContainerTypeVertex ->
+                                sct.compositeContainerType.conventionalName.qualifiedForm
+                            }
+                            .zip(
+                                context.session.metamodelGraph.pathBasedGraph
+                                    .getVertex(srcAttrPath)
+                                    .filterIsInstance<SourceAttributeVertex>()
+                                    .map { sav: SourceAttributeVertex ->
+                                        sav.compositeAttribute.conventionalName.qualifiedForm
+                                    }
+                            )
+                            .flatMap { parentTypeSrcAttrName ->
+                                context.session.metamodelGraph
+                                    .sourceAttributeVerticesWithParentTypeAttributeQualifiedNamePair[
+                                        parentTypeSrcAttrName]
+                                    .toOption()
+                            }
+                    }
+                    .flatMap { srcAttrs ->
+                        srcAttrs.firstOrNone { sav: SourceAttributeVertex ->
+                            context.path.pathSegments
+                                .firstOrNone()
+                                .filter { domainPathSegment ->
+                                    sav.path.pathSegments
+                                        .firstOrNone { ps -> ps != domainPathSegment }
+                                        .isDefined()
+                                }
+                                .toOption()
+                                .isDefined()
+                        }
+                    }
+            }
     }
 
     private fun argumentValueNotResolvedIntoJsonExceptionSupplier(

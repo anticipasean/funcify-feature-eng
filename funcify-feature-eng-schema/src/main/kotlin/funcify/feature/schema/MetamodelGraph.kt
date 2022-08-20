@@ -9,9 +9,14 @@ import funcify.feature.schema.directive.temporal.LastUpdatedTemporalAttributePat
 import funcify.feature.schema.factory.MetamodelGraphCreationContext
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.schema.strategy.SchematicVertexGraphRemappingStrategy
+import funcify.feature.schema.vertex.ParameterAttributeVertex
+import funcify.feature.schema.vertex.ParameterContainerTypeVertex
+import funcify.feature.schema.vertex.SourceAttributeVertex
+import funcify.feature.schema.vertex.SourceContainerTypeVertex
 import funcify.feature.tools.container.deferred.Deferred
 import funcify.feature.tools.container.graph.PathBasedGraph
 import kotlinx.collections.immutable.ImmutableMap
+import kotlinx.collections.immutable.ImmutableSet
 
 /**
  *
@@ -27,6 +32,24 @@ interface MetamodelGraph {
     val attributeAliasRegistry: AttributeAliasRegistry
 
     val lastUpdatedTemporalAttributePathRegistry: LastUpdatedTemporalAttributePathRegistry
+
+    val sourceAttributeVerticesByQualifiedName:
+        ImmutableMap<String, ImmutableSet<SourceAttributeVertex>>
+
+    val sourceContainerTypeVerticesByQualifiedName:
+        ImmutableMap<String, ImmutableSet<SourceContainerTypeVertex>>
+
+    val parameterAttributeVerticesByQualifiedName:
+        ImmutableMap<String, ImmutableSet<ParameterAttributeVertex>>
+
+    val parameterContainerTypeVerticesByQualifiedName:
+        ImmutableMap<String, ImmutableSet<ParameterContainerTypeVertex>>
+
+    val sourceAttributeVerticesWithParentTypeAttributeQualifiedNamePair:
+        ImmutableMap<Pair<String, String>, ImmutableSet<SourceAttributeVertex>>
+
+    val parameterAttributeVerticesWithParentTypeAttributeQualifiedNamePair:
+        ImmutableMap<Pair<String, String>, ImmutableSet<ParameterAttributeVertex>>
 
     interface Builder {
 
