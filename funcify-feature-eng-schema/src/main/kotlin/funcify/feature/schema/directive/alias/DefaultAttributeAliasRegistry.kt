@@ -1,26 +1,30 @@
 package funcify.feature.schema.directive.alias
 
 import arrow.core.Option
+import arrow.core.identity
 import arrow.core.toOption
 import funcify.feature.naming.ConventionalName
 import funcify.feature.naming.StandardNamingConventions
 import funcify.feature.schema.path.SchematicPath
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentMap
+import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.PersistentMap
+import kotlinx.collections.immutable.PersistentSet
 import kotlinx.collections.immutable.persistentMapOf
+import kotlinx.collections.immutable.persistentSetOf
 
 internal data class DefaultAttributeAliasRegistry(
     private val sourceAttributeVerticesByStandardAndAliasQualifiedNames:
         PersistentMap<String, SchematicPath> =
         persistentMapOf(),
     private val parameterAttributeVerticesByStandardAndAliasQualifiedNames:
-        PersistentMap<String, SchematicPath> =
+        PersistentMap<String, PersistentSet<SchematicPath>> =
         persistentMapOf(),
     private val memoizingSourceAttributeVertexAliasMapper: MemoizingAliasMapperFunction =
         MemoizingAliasMapperFunction(),
-    private val memoizingParameterAttributeVertexAliasMapper: MemoizingAliasMapperFunction =
-        MemoizingAliasMapperFunction()
+    private val memoizingParameterAttributeVertexAliasMapper: MemoizingAliasSetMapperFunction =
+        MemoizingAliasSetMapperFunction()
 ) : AttributeAliasRegistry {
 
     companion object {
@@ -66,6 +70,37 @@ internal data class DefaultAttributeAliasRegistry(
                     StandardNamingConventions.SNAKE_CASE.deriveName(unnormalizedName).qualifiedForm]
             }
         }
+
+        internal data class MemoizingAliasSetMapperFunction(
+            private val schematicVerticesByNormalizedName:
+                ConcurrentMap<String, PersistentSet<SchematicPath>> =
+                ConcurrentHashMap(),
+            private val verticesByStandardAndAliasQualifiedNames:
+                PersistentMap<String, PersistentSet<SchematicPath>> =
+                persistentMapOf()
+        ) : (String) -> ImmutableSet<SchematicPath> {
+
+            override fun invoke(unnormalizedName: String): ImmutableSet<SchematicPath> {
+                return schematicVerticesByNormalizedName.computeIfAbsent(
+                    unnormalizedName,
+                    ::normalizeNameAndAttemptToMapToVertex
+                )
+            }
+
+            private fun normalizeNameAndAttemptToMapToVertex(
+                unnormalizedName: String
+            ): PersistentSet<SchematicPath> {
+                if (unnormalizedName.length < 3) {
+                    return persistentSetOf()
+                }
+                return verticesByStandardAndAliasQualifiedNames[
+                        StandardNamingConventions.SNAKE_CASE.deriveName(unnormalizedName)
+                            .qualifiedForm
+                    ]
+                    .toOption()
+                    .fold(::persistentSetOf, ::identity)
+            }
+        }
     }
 
     override fun registerSourceVertexPathWithAlias(
@@ -78,17 +113,23 @@ internal data class DefaultAttributeAliasRegistry(
         val aliasQualifiedName: String =
             StandardNamingConventions.SNAKE_CASE.deriveName(alias).qualifiedForm
         val updatedSourceAttributeVerticesByQualifiedNames: PersistentMap<String, SchematicPath> =
-            sequenceOf(aliasQualifiedName)
-                .flatMap { s ->
-                    if (s.indexOf('_') >= 0) {
-                        sequenceOf(s.replace("_", ""), s)
-                    } else {
-                        sequenceOf(s)
-                    }
-                }
-                .fold(sourceAttributeVerticesByStandardAndAliasQualifiedNames) { pm, name ->
+            sequenceOf(aliasQualifiedName).fold(
+                sourceAttributeVerticesByStandardAndAliasQualifiedNames
+            ) { pm, name ->
+                if (name in pm) {
+                    pm[name]
+                        .toOption()
+                        .filter { currentPathEntry ->
+                            // current_path is not canonical if source_vertex_path input
+                            // represents
+                            // a shorter way to get to the same value
+                            currentPathEntry.level() > sourceVertexPath.level()
+                        }
+                        .fold({ pm }, { pm.put(name, sourceVertexPath) })
+                } else {
                     pm.put(name, sourceVertexPath)
                 }
+            }
         return copy(
             sourceAttributeVerticesByStandardAndAliasQualifiedNames =
                 updatedSourceAttributeVerticesByQualifiedNames,
@@ -112,18 +153,12 @@ internal data class DefaultAttributeAliasRegistry(
         val aliasQualifiedName: String =
             StandardNamingConventions.SNAKE_CASE.deriveName(alias).qualifiedForm
         val updatedParameterAttributeVerticesByQualifiedNames:
-            PersistentMap<String, SchematicPath> =
-            sequenceOf(aliasQualifiedName)
-                .flatMap { s ->
-                    if (s.indexOf('_') >= 0) {
-                        sequenceOf(s.replace("_", ""), s)
-                    } else {
-                        sequenceOf(s)
-                    }
-                }
-                .fold(parameterAttributeVerticesByStandardAndAliasQualifiedNames) { pm, name ->
-                    pm.put(name, parameterVertexPath)
-                }
+            PersistentMap<String, PersistentSet<SchematicPath>> =
+            sequenceOf(aliasQualifiedName).fold(
+                parameterAttributeVerticesByStandardAndAliasQualifiedNames
+            ) { pm, name ->
+                pm.put(name, pm.getOrElse(name) { persistentSetOf() }.add(parameterVertexPath))
+            }
 
         return copy(
             parameterAttributeVerticesByStandardAndAliasQualifiedNames =
@@ -131,7 +166,7 @@ internal data class DefaultAttributeAliasRegistry(
             // Wipe cache clean when adding new entry in order to maintain mappings
             // only between the latest entry set and input strings
             memoizingParameterAttributeVertexAliasMapper =
-                MemoizingAliasMapperFunction(
+                MemoizingAliasSetMapperFunction(
                     verticesByStandardAndAliasQualifiedNames =
                         updatedParameterAttributeVerticesByQualifiedNames
                 )
@@ -152,18 +187,20 @@ internal data class DefaultAttributeAliasRegistry(
             memoizingSourceAttributeVertexAliasMapper.invoke(conventionalName.qualifiedForm)
         } else {
             memoizingSourceAttributeVertexAliasMapper.invoke(
-                conventionalName.nameSegments.joinToString("_")
+                conventionalName.nameSegments.joinToString("_") { ns -> ns.value.lowercase() }
             )
         }
     }
 
-    override fun getParameterVertexPathWithSimilarNameOrAlias(name: String): Option<SchematicPath> {
+    override fun getParameterVertexPathsWithSimilarNameOrAlias(
+        name: String
+                                                              ): ImmutableSet<SchematicPath> {
         return memoizingParameterAttributeVertexAliasMapper.invoke(name)
     }
 
-    override fun getParameterVertexPathWithSimilarNameOrAlias(
+    override fun getParameterVertexPathsWithSimilarNameOrAlias(
         conventionalName: ConventionalName
-    ): Option<SchematicPath> {
+                                                              ): ImmutableSet<SchematicPath> {
         return if (
             conventionalName.namingConventionKey ==
                 StandardNamingConventions.SNAKE_CASE.conventionKey
@@ -171,7 +208,7 @@ internal data class DefaultAttributeAliasRegistry(
             memoizingParameterAttributeVertexAliasMapper.invoke(conventionalName.qualifiedForm)
         } else {
             memoizingParameterAttributeVertexAliasMapper.invoke(
-                conventionalName.nameSegments.joinToString("_")
+                conventionalName.nameSegments.joinToString("_") { ns -> ns.value.lowercase() }
             )
         }
     }

@@ -3,6 +3,7 @@ package funcify.feature.schema.directive.alias
 import arrow.core.Option
 import funcify.feature.naming.ConventionalName
 import funcify.feature.schema.path.SchematicPath
+import kotlinx.collections.immutable.ImmutableSet
 
 /**
  *
@@ -37,11 +38,11 @@ interface AttributeAliasRegistry {
     }
 
     fun containsSimilarParameterAttributeNameOrAlias(name: String): Boolean {
-        return getParameterVertexPathWithSimilarNameOrAlias(name).isDefined()
+        return getParameterVertexPathsWithSimilarNameOrAlias(name).isNotEmpty()
     }
 
     fun containsSimilarParameterAttributeNameOrAlias(conventionalName: ConventionalName): Boolean {
-        return getParameterVertexPathWithSimilarNameOrAlias(conventionalName).isDefined()
+        return getParameterVertexPathsWithSimilarNameOrAlias(conventionalName).isNotEmpty()
     }
 
     fun getSourceVertexPathWithSimilarNameOrAlias(name: String): Option<SchematicPath>
@@ -50,9 +51,9 @@ interface AttributeAliasRegistry {
         conventionalName: ConventionalName
     ): Option<SchematicPath>
 
-    fun getParameterVertexPathWithSimilarNameOrAlias(name: String): Option<SchematicPath>
+    fun getParameterVertexPathsWithSimilarNameOrAlias(name: String): ImmutableSet<SchematicPath>
 
-    fun getParameterVertexPathWithSimilarNameOrAlias(
+    fun getParameterVertexPathsWithSimilarNameOrAlias(
         conventionalName: ConventionalName
-    ): Option<SchematicPath>
+    ): ImmutableSet<SchematicPath>
 }
