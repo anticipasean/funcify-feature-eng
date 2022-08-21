@@ -31,7 +31,7 @@ internal class DefaultRequestParameterEdgeFactory : RequestParameterEdgeFactory 
 
     companion object {
 
-        internal class DefaultMaterializedValueRequestParameterEdge(
+        internal data class DefaultMaterializedValueRequestParameterEdge(
             override val id: Pair<SchematicPath, SchematicPath>,
             override val materializedJsonValue: JsonNode
         ) : MaterializedValueRequestParameterEdge {
@@ -41,7 +41,7 @@ internal class DefaultRequestParameterEdgeFactory : RequestParameterEdgeFactory 
             }
         }
 
-        internal class DefaultRetrievalFunctionSpecRequestParameterEdge(
+        internal data class DefaultRetrievalFunctionSpecRequestParameterEdge(
             override val id: Pair<SchematicPath, SchematicPath>,
             override val dataSource: DataSource<*>,
             override val sourceVerticesByPath:
@@ -139,7 +139,7 @@ internal class DefaultRequestParameterEdgeFactory : RequestParameterEdgeFactory 
             }
         }
 
-        internal class DefaultDependentValueRequestParameterEdge(
+        internal data class DefaultDependentValueRequestParameterEdge(
             override val id: Pair<SchematicPath, SchematicPath>,
             override val extractionFunction:
                 (ImmutableMap<SchematicPath, JsonNode>) -> Option<JsonNode>
@@ -150,7 +150,7 @@ internal class DefaultRequestParameterEdgeFactory : RequestParameterEdgeFactory 
             }
         }
 
-        internal class DefaultRetrievalFunctionValueRequestParameterEdge(
+        internal data class DefaultRetrievalFunctionValueRequestParameterEdge(
             override val id: Pair<SchematicPath, SchematicPath>,
             override val retrievalFunction: SchematicPathBasedJsonRetrievalFunction,
         ) : RetrievalFunctionValueRequestParameterEdge {
@@ -160,7 +160,7 @@ internal class DefaultRequestParameterEdgeFactory : RequestParameterEdgeFactory 
             }
         }
 
-        internal class DefaultBuilder(
+        internal data class DefaultBuilder(
             var pathPair: Pair<SchematicPath, SchematicPath>? = null,
             var materializedJsonNode: JsonNode? = null,
             var dataSource: DataSource<*>? = null,

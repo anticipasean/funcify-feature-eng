@@ -2,14 +2,17 @@ package funcify.feature.materializer.service
 
 import arrow.core.Either
 import arrow.core.filterIsInstance
+import arrow.core.identity
 import arrow.core.left
 import arrow.core.none
 import arrow.core.right
 import arrow.core.some
+import arrow.core.toOption
 import funcify.feature.datasource.retrieval.SchematicPathBasedJsonRetrievalFunctionFactory
 import funcify.feature.materializer.error.MaterializerErrorResponse
 import funcify.feature.materializer.error.MaterializerException
 import funcify.feature.materializer.fetcher.SingleRequestFieldMaterializationSession
+import funcify.feature.materializer.schema.RequestParameterEdge
 import funcify.feature.schema.SchematicVertex
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.schema.vertex.ParameterJunctionVertex
@@ -19,12 +22,16 @@ import funcify.feature.schema.vertex.SourceLeafVertex
 import funcify.feature.schema.vertex.SourceRootVertex
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.container.deferred.Deferred
+import funcify.feature.tools.container.graph.PathBasedGraph
+import funcify.feature.tools.extensions.DeferredExtensions.toDeferred
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.SequenceExtensions.recurse
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.extensions.TryExtensions.successIfDefined
 import graphql.language.Argument
 import graphql.language.Field
+import graphql.language.Selection
+import graphql.language.SelectionSet
 import org.slf4j.Logger
 
 /**
@@ -76,8 +83,9 @@ internal class DefaultSingleRequestFieldMaterializationGraphService(
             "execution_step_info: [ {} ]",
             session.dataFetchingEnvironment.executionStepInfo.simplePrint()
         )
-        traverseFieldInSessionCreatingMaterializationGraph(session)
-        return Deferred.completed(session)
+        return traverseFieldInSessionCreatingMaterializationGraph(session).toDeferred().map { ctx ->
+            ctx.session
+        }
     }
 
     private fun traverseFieldInSessionCreatingMaterializationGraph(
@@ -120,6 +128,10 @@ internal class DefaultSingleRequestFieldMaterializationGraphService(
                     ) {
                         materializationGraphVertexCtx: MaterializationGraphVertexContext<*>,
                         resolvedFieldOrArgContext ->
+                        logger.debug(
+                            "current_graph_state: {}",
+                            createGraphStr(materializationGraphVertexCtx.graph)
+                        )
                         when (resolvedFieldOrArgContext) {
                             is ResolvedSourceVertexContext -> {
                                 materializationGraphVertexCtx.update {
@@ -166,11 +178,33 @@ internal class DefaultSingleRequestFieldMaterializationGraphService(
             }
     }
 
+    private fun createGraphStr(
+        graph: PathBasedGraph<SchematicPath, SchematicVertex, RequestParameterEdge>
+    ): String {
+        return "%s\n%s".format(
+            graph.verticesByPath.keys
+                .asSequence()
+                .joinToString(separator = ",\n", prefix = "vertices: { ", postfix = " }"),
+            graph.edgesByConnectedVertices
+                .asSequence()
+                .flatMap { (id, edgeSet) -> edgeSet.asSequence().map { e -> id to e } }
+                .joinToString(
+                    separator = ",\n",
+                    prefix = "edges: { ",
+                    postfix = " }",
+                    transform = { (id, edge) ->
+                        "%s --> %s --> %s".format(id.first, edge, id.second)
+                    }
+                )
+        )
+    }
+
     private fun resolveSourceVertexForField(
         field: Field,
         fieldOrArgCtx: FieldOrArgumentGraphContext,
         session: SingleRequestFieldMaterializationSession,
     ): Sequence<Either<FieldOrArgumentGraphContext, ResolvedSourceVertexContext>> {
+        logger.debug("resolve_source_vertex_for_field: [ field.name: ${field.name} ]")
         val vertexPath: SchematicPath =
             SchematicPath.of {
                 pathSegments(
@@ -205,6 +239,16 @@ internal class DefaultSingleRequestFieldMaterializationGraphService(
                     FieldOrArgumentGraphContext(vertexPath, argument.right()).left()
                 }
             )
+            .plus(
+                field
+                    .toOption()
+                    .mapNotNull { f: Field -> f.selectionSet }
+                    .mapNotNull { ss: SelectionSet -> ss.selections }
+                    .map { sList: List<Selection<*>> -> sList.asSequence() }
+                    .fold(::emptySequence, ::identity)
+                    .filterIsInstance<Field>()
+                    .map { f: Field -> FieldOrArgumentGraphContext(vertexPath, f.left()).left() }
+            )
     }
 
     private fun resolveParameterVertexForArgument(
@@ -212,6 +256,7 @@ internal class DefaultSingleRequestFieldMaterializationGraphService(
         fieldOrArgCtx: FieldOrArgumentGraphContext,
         session: SingleRequestFieldMaterializationSession,
     ): Sequence<Either<FieldOrArgumentGraphContext, ResolvedParameterVertexContext>> {
+        logger.debug("resolve_parameter_vertex_for_argument: [ argument.name: ${argument.name} ]")
         val vertexPath: SchematicPath =
             SchematicPath.of {
                 pathSegments(fieldOrArgCtx.parentPath.pathSegments).argument(argument.name)
