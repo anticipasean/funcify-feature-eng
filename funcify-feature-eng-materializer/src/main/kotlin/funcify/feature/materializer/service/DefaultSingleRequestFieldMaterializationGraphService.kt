@@ -13,6 +13,7 @@ import funcify.feature.materializer.error.MaterializerErrorResponse
 import funcify.feature.materializer.error.MaterializerException
 import funcify.feature.materializer.fetcher.SingleRequestFieldMaterializationSession
 import funcify.feature.materializer.schema.RequestParameterEdge
+import funcify.feature.naming.StandardNamingConventions
 import funcify.feature.schema.SchematicVertex
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.schema.vertex.ParameterJunctionVertex
@@ -32,6 +33,7 @@ import graphql.language.Argument
 import graphql.language.Field
 import graphql.language.Selection
 import graphql.language.SelectionSet
+import kotlin.streams.asSequence
 import org.slf4j.Logger
 
 /**
@@ -181,19 +183,48 @@ internal class DefaultSingleRequestFieldMaterializationGraphService(
     private fun createGraphStr(
         graph: PathBasedGraph<SchematicPath, SchematicVertex, RequestParameterEdge>
     ): String {
+        val edgeToString: (RequestParameterEdge) -> String = { e ->
+            StandardNamingConventions.SNAKE_CASE.deriveName(e::class.simpleName!!).qualifiedForm +
+                "(" +
+                (when (e) {
+                    is RequestParameterEdge.RetrievalFunctionSpecRequestParameterEdge -> {
+                        "datasource.key.name: " +
+                            e.dataSource.key.name +
+                            ", source_vertices.keys: " +
+                            e.sourceVerticesByPath.keys
+                                .asSequence()
+                                .joinToString(", ", "{ ", " }") +
+                            ", parameter_vertices.keys: " +
+                            e.parameterVerticesByPath.keys
+                                .asSequence()
+                                .joinToString(", ", "{ ", " }")
+                    }
+                    is RequestParameterEdge.DependentValueRequestParameterEdge -> {
+                        ""
+                    }
+                    is RequestParameterEdge.MaterializedValueRequestParameterEdge -> {
+                        ""
+                    }
+                    is RequestParameterEdge.RetrievalFunctionValueRequestParameterEdge -> {
+                        ""
+                    }
+                    else -> ""
+                }) +
+                ")"
+        }
         return "%s\n%s".format(
             graph.verticesByPath.keys
                 .asSequence()
                 .joinToString(separator = ",\n", prefix = "vertices: { ", postfix = " }"),
-            graph.edgesByConnectedVertices
+            graph
+                .edgesAsStream()
                 .asSequence()
-                .flatMap { (id, edgeSet) -> edgeSet.asSequence().map { e -> id to e } }
                 .joinToString(
                     separator = ",\n",
                     prefix = "edges: { ",
                     postfix = " }",
-                    transform = { (id, edge) ->
-                        "%s --> %s --> %s".format(id.first, edge, id.second)
+                    transform = { e ->
+                        "%s --> %s --> %s".format(e.id.first, edgeToString.invoke(e), e.id.second)
                     }
                 )
         )

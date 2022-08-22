@@ -63,6 +63,12 @@ internal class DefaultMaterializationGraphVertexConnector(
         logger.debug(
             "on_source_junction_vertex: [ context.vertex_path: ${context.currentVertex.path} ]"
         )
+        logger.debug(
+            "path {}.is_child_to: {}: {}",
+            context.path,
+            SchematicPath.getRootPath(),
+            context.path.isChildTo(SchematicPath.getRootPath())
+        )
         return when {
             // TODO: can combine cases where top-level node and no ancestor_retrieval_function_spec:
             // both requiring assessment of data_source.key and creation of the

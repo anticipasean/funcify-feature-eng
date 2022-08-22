@@ -163,11 +163,6 @@ interface SchematicPath : Comparable<SchematicPath> {
             this.scheme != other.scheme -> {
                 false
             }
-            /** Special handling for root or size of path_segments is zero */
-            this.isRoot() -> {
-                other.pathSegments.size == 0 &&
-                    (other.arguments.isNotEmpty() || other.directives.isNotEmpty())
-            }
             this.pathSegments.size > other.pathSegments.size -> {
                 false
             }
@@ -263,11 +258,6 @@ interface SchematicPath : Comparable<SchematicPath> {
         return when {
             this.scheme != other.scheme -> {
                 false
-            }
-            /** Special case for root or number of path_segments equal to zero */
-            other.isRoot() -> {
-                this.pathSegments.size == 0 &&
-                    (this.arguments.isNotEmpty() || this.directives.isNotEmpty())
             }
             this.pathSegments.size < other.pathSegments.size -> {
                 false
