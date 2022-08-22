@@ -2,8 +2,8 @@ package funcify.feature.materializer.service
 
 import arrow.core.Either
 import arrow.core.Option
-import funcify.feature.materializer.fetcher.SingleRequestFieldMaterializationSession
 import funcify.feature.materializer.schema.RequestParameterEdge
+import funcify.feature.schema.MetamodelGraph
 import funcify.feature.schema.SchematicVertex
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.schema.vertex.ParameterJunctionVertex
@@ -23,7 +23,7 @@ import graphql.language.Field
  */
 sealed interface MaterializationGraphVertexContext<V : SchematicVertex> {
 
-    val session: SingleRequestFieldMaterializationSession
+    val metamodelGraph: MetamodelGraph
 
     val graph: PathBasedGraph<SchematicPath, SchematicVertex, RequestParameterEdge>
 
@@ -58,10 +58,20 @@ sealed interface MaterializationGraphVertexContext<V : SchematicVertex> {
         SJV : SourceJunctionVertex,
         SLV : SourceLeafVertex
 
+        fun <NV, SJV, SLV> nextSourceVertex(nextVertex: Either<SJV, SLV>): Builder<NV> where
+        NV : SchematicVertex,
+        SJV : SourceJunctionVertex,
+        SLV : SourceLeafVertex
+
         fun <NV, PJV, PLV> nextParameterVertex(
             nextVertex: Either<PJV, PLV>,
             argument: Argument
         ): Builder<NV> where
+        NV : SchematicVertex,
+        PJV : ParameterJunctionVertex,
+        PLV : ParameterLeafVertex
+
+        fun <NV, PJV, PLV> nextParameterVertex(nextVertex: Either<PJV, PLV>): Builder<NV> where
         NV : SchematicVertex,
         PJV : ParameterJunctionVertex,
         PLV : ParameterLeafVertex
@@ -77,28 +87,28 @@ sealed interface MaterializationGraphVertexContext<V : SchematicVertex> {
     }
     interface SourceJunctionMaterializationGraphVertexContext :
         MaterializationGraphVertexContext<SourceJunctionVertex> {
-        val field: Field
+        val field: Option<Field>
         override val currentVertex: SourceJunctionVertex
         override val vertexGraphType: SchematicGraphVertexType
             get() = SchematicGraphVertexType.SOURCE_JUNCTION_VERTEX
     }
     interface SourceLeafMaterializationGraphVertexContext :
         MaterializationGraphVertexContext<SourceLeafVertex> {
-        val field: Field
+        val field: Option<Field>
         override val currentVertex: SourceLeafVertex
         override val vertexGraphType: SchematicGraphVertexType
             get() = SchematicGraphVertexType.SOURCE_LEAF_VERTEX
     }
     interface ParameterJunctionMaterializationGraphVertexContext :
         MaterializationGraphVertexContext<ParameterJunctionVertex> {
-        val argument: Argument
+        val argument: Option<Argument>
         override val currentVertex: ParameterJunctionVertex
         override val vertexGraphType: SchematicGraphVertexType
             get() = SchematicGraphVertexType.PARAMETER_JUNCTION_VERTEX
     }
     interface ParameterLeafMaterializationGraphVertexContext :
         MaterializationGraphVertexContext<ParameterLeafVertex> {
-        val argument: Argument
+        val argument: Option<Argument>
         override val currentVertex: ParameterLeafVertex
         override val vertexGraphType: SchematicGraphVertexType
             get() = SchematicGraphVertexType.PARAMETER_LEAF_VERTEX

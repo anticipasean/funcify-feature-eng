@@ -1,7 +1,8 @@
 package funcify.feature.materializer.service
 
 import arrow.core.Either
-import funcify.feature.materializer.fetcher.SingleRequestFieldMaterializationSession
+import arrow.core.Option
+import arrow.core.toOption
 import funcify.feature.materializer.schema.RequestParameterEdge
 import funcify.feature.materializer.service.MaterializationGraphVertexContext.Builder
 import funcify.feature.materializer.service.MaterializationGraphVertexContext.ParameterJunctionMaterializationGraphVertexContext
@@ -9,6 +10,7 @@ import funcify.feature.materializer.service.MaterializationGraphVertexContext.Pa
 import funcify.feature.materializer.service.MaterializationGraphVertexContext.SourceJunctionMaterializationGraphVertexContext
 import funcify.feature.materializer.service.MaterializationGraphVertexContext.SourceLeafMaterializationGraphVertexContext
 import funcify.feature.materializer.service.MaterializationGraphVertexContext.SourceRootMaterializationGraphVertexContext
+import funcify.feature.schema.MetamodelGraph
 import funcify.feature.schema.SchematicVertex
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.schema.vertex.ParameterJunctionVertex
@@ -27,7 +29,7 @@ internal class DefaultMaterializationGraphVertexContextFactory :
     companion object {
 
         internal class DefaultBuilder<V : SchematicVertex>(
-            private val session: SingleRequestFieldMaterializationSession,
+            private var metamodelGraph: MetamodelGraph,
             private var graph: PathBasedGraph<SchematicPath, SchematicVertex, RequestParameterEdge>,
             private val vertex: V,
             private var field: Field? = null,
@@ -58,7 +60,24 @@ internal class DefaultMaterializationGraphVertexContextFactory :
                             slv as NV
                         }
                     )
-                return DefaultBuilder<NV>(session, graph, nextVertexUnwrapped, field, null)
+                return DefaultBuilder<NV>(metamodelGraph, graph, nextVertexUnwrapped, field, null)
+            }
+
+            override fun <
+                NV : SchematicVertex, SJV : SourceJunctionVertex, SLV : SourceLeafVertex
+            > nextSourceVertex(nextVertex: Either<SJV, SLV>): Builder<NV> {
+                val nextVertexUnwrapped: NV =
+                    nextVertex.fold(
+                        { sjv ->
+                            @Suppress("UNCHECKED_CAST") //
+                            sjv as NV
+                        },
+                        { slv ->
+                            @Suppress("UNCHECKED_CAST") //
+                            slv as NV
+                        }
+                    )
+                return DefaultBuilder<NV>(metamodelGraph, graph, nextVertexUnwrapped, null, null)
             }
 
             override fun <
@@ -78,7 +97,36 @@ internal class DefaultMaterializationGraphVertexContextFactory :
                             plv as NV
                         }
                     )
-                return DefaultBuilder<NV>(session, graph, nextVertexUnwrapped, null, argument)
+                return DefaultBuilder<NV>(
+                    metamodelGraph,
+                    graph,
+                    nextVertexUnwrapped,
+                    null,
+                    argument
+                )
+            }
+
+            override fun <
+                NV : SchematicVertex, PJV : ParameterJunctionVertex, PLV : ParameterLeafVertex
+            > nextParameterVertex(nextVertex: Either<PJV, PLV>): Builder<NV> {
+                val nextVertexUnwrapped: NV =
+                    nextVertex.fold(
+                        { pjv ->
+                            @Suppress("UNCHECKED_CAST") //
+                            pjv as NV
+                        },
+                        { plv ->
+                            @Suppress("UNCHECKED_CAST") //
+                            plv as NV
+                        }
+                    )
+                return DefaultBuilder<NV>(
+                    metamodelGraph,
+                    graph,
+                    nextVertexUnwrapped,
+                    null,
+                    null,
+                )
             }
 
             override fun build(): MaterializationGraphVertexContext<V> {
@@ -95,40 +143,40 @@ internal class DefaultMaterializationGraphVertexContextFactory :
                     }
                     SchematicGraphVertexType.SOURCE_ROOT_VERTEX -> {
                         DefaultSourceRootMaterializationGraphVertexContext(
-                            session,
+                            metamodelGraph,
                             graph,
                             vertex as SourceRootVertex
                         )
                     }
                     SchematicGraphVertexType.SOURCE_JUNCTION_VERTEX -> {
                         DefaultSourceJunctionMaterializationGraphVertexContext(
-                            session,
+                            metamodelGraph,
                             graph,
-                            field!!,
+                            field.toOption(),
                             vertex as SourceJunctionVertex
                         )
                     }
                     SchematicGraphVertexType.SOURCE_LEAF_VERTEX -> {
                         DefaultSourceLeafMaterializationGraphVertexContext(
-                            session,
+                            metamodelGraph,
                             graph,
-                            field!!,
+                            field.toOption(),
                             vertex as SourceLeafVertex
                         )
                     }
                     SchematicGraphVertexType.PARAMETER_JUNCTION_VERTEX -> {
                         DefaultParameterJunctionMaterializationGraphVertexContext(
-                            session,
+                            metamodelGraph,
                             graph,
-                            argument!!,
+                            argument.toOption(),
                             vertex as ParameterJunctionVertex
                         )
                     }
                     SchematicGraphVertexType.PARAMETER_LEAF_VERTEX -> {
                         DefaultParameterLeafMaterializationGraphVertexContext(
-                            session,
+                            metamodelGraph,
                             graph,
-                            argument!!,
+                            argument.toOption(),
                             vertex as ParameterLeafVertex
                         )
                     }
@@ -138,7 +186,7 @@ internal class DefaultMaterializationGraphVertexContextFactory :
         }
 
         internal class DefaultSourceRootMaterializationGraphVertexContext(
-            override val session: SingleRequestFieldMaterializationSession,
+            override val metamodelGraph: MetamodelGraph,
             override val graph:
                 PathBasedGraph<SchematicPath, SchematicVertex, RequestParameterEdge>,
             override val currentVertex: SourceRootVertex
@@ -148,16 +196,16 @@ internal class DefaultMaterializationGraphVertexContextFactory :
                 transformer: Builder<SourceRootVertex>.() -> Builder<NV>
             ): MaterializationGraphVertexContext<NV> {
                 return transformer
-                    .invoke(DefaultBuilder<SourceRootVertex>(session, graph, currentVertex))
+                    .invoke(DefaultBuilder<SourceRootVertex>(metamodelGraph, graph, currentVertex))
                     .build()
             }
         }
 
         internal class DefaultSourceJunctionMaterializationGraphVertexContext(
-            override val session: SingleRequestFieldMaterializationSession,
+            override val metamodelGraph: MetamodelGraph,
             override val graph:
                 PathBasedGraph<SchematicPath, SchematicVertex, RequestParameterEdge>,
-            override val field: Field,
+            override val field: Option<Field>,
             override val currentVertex: SourceJunctionVertex
         ) : SourceJunctionMaterializationGraphVertexContext {
 
@@ -166,17 +214,22 @@ internal class DefaultMaterializationGraphVertexContextFactory :
             ): MaterializationGraphVertexContext<NV> {
                 return transformer
                     .invoke(
-                        DefaultBuilder<SourceJunctionVertex>(session, graph, currentVertex, field)
+                        DefaultBuilder<SourceJunctionVertex>(
+                            metamodelGraph,
+                            graph,
+                            currentVertex,
+                            field.orNull()
+                        )
                     )
                     .build()
             }
         }
 
         internal class DefaultSourceLeafMaterializationGraphVertexContext(
-            override val session: SingleRequestFieldMaterializationSession,
+            override val metamodelGraph: MetamodelGraph,
             override val graph:
                 PathBasedGraph<SchematicPath, SchematicVertex, RequestParameterEdge>,
-            override val field: Field,
+            override val field: Option<Field>,
             override val currentVertex: SourceLeafVertex
         ) : SourceLeafMaterializationGraphVertexContext {
 
@@ -184,16 +237,23 @@ internal class DefaultMaterializationGraphVertexContextFactory :
                 transformer: Builder<SourceLeafVertex>.() -> Builder<NV>
             ): MaterializationGraphVertexContext<NV> {
                 return transformer
-                    .invoke(DefaultBuilder<SourceLeafVertex>(session, graph, currentVertex, field))
+                    .invoke(
+                        DefaultBuilder<SourceLeafVertex>(
+                            metamodelGraph,
+                            graph,
+                            currentVertex,
+                            field.orNull()
+                        )
+                    )
                     .build()
             }
         }
 
         internal class DefaultParameterJunctionMaterializationGraphVertexContext(
-            override val session: SingleRequestFieldMaterializationSession,
+            override val metamodelGraph: MetamodelGraph,
             override val graph:
                 PathBasedGraph<SchematicPath, SchematicVertex, RequestParameterEdge>,
-            override val argument: Argument,
+            override val argument: Option<Argument>,
             override val currentVertex: ParameterJunctionVertex
         ) : ParameterJunctionMaterializationGraphVertexContext {
 
@@ -203,11 +263,11 @@ internal class DefaultMaterializationGraphVertexContextFactory :
                 return transformer
                     .invoke(
                         DefaultBuilder<ParameterJunctionVertex>(
-                            session,
+                            metamodelGraph,
                             graph,
                             currentVertex,
                             null,
-                            argument
+                            argument.orNull()
                         )
                     )
                     .build()
@@ -215,10 +275,10 @@ internal class DefaultMaterializationGraphVertexContextFactory :
         }
 
         internal class DefaultParameterLeafMaterializationGraphVertexContext(
-            override val session: SingleRequestFieldMaterializationSession,
+            override val metamodelGraph: MetamodelGraph,
             override val graph:
                 PathBasedGraph<SchematicPath, SchematicVertex, RequestParameterEdge>,
-            override val argument: Argument,
+            override val argument: Option<Argument>,
             override val currentVertex: ParameterLeafVertex
         ) : ParameterLeafMaterializationGraphVertexContext {
 
@@ -228,11 +288,11 @@ internal class DefaultMaterializationGraphVertexContextFactory :
                 return transformer
                     .invoke(
                         DefaultBuilder<ParameterLeafVertex>(
-                            session,
+                            metamodelGraph,
                             graph,
                             currentVertex,
                             null,
-                            argument
+                            argument.orNull()
                         )
                     )
                     .build()
@@ -240,12 +300,12 @@ internal class DefaultMaterializationGraphVertexContextFactory :
         }
     }
 
-    override fun createSourceRootVertexContextInSession(
+    override fun createSourceRootVertexContext(
         sourceRootVertex: SourceRootVertex,
-        singleRequestFieldMaterializationSession: SingleRequestFieldMaterializationSession,
+        metamodelGraph: MetamodelGraph
     ): SourceRootMaterializationGraphVertexContext {
         return DefaultSourceRootMaterializationGraphVertexContext(
-            singleRequestFieldMaterializationSession,
+            metamodelGraph,
             PathBasedGraph.emptyTwoToOnePathsToEdgeGraph(),
             sourceRootVertex
         )

@@ -3,7 +3,6 @@ package funcify.feature.materializer.service
 import arrow.core.*
 import funcify.feature.materializer.error.MaterializerErrorResponse
 import funcify.feature.materializer.error.MaterializerException
-import funcify.feature.materializer.fetcher.SingleRequestFieldMaterializationSession
 import funcify.feature.materializer.json.GraphQLValueToJsonNodeConverter
 import funcify.feature.materializer.schema.RequestParameterEdge
 import funcify.feature.materializer.schema.RequestParameterEdge.RetrievalFunctionSpecRequestParameterEdge
@@ -13,6 +12,7 @@ import funcify.feature.materializer.service.MaterializationGraphVertexContext.Pa
 import funcify.feature.materializer.service.MaterializationGraphVertexContext.SourceJunctionMaterializationGraphVertexContext
 import funcify.feature.materializer.service.MaterializationGraphVertexContext.SourceLeafMaterializationGraphVertexContext
 import funcify.feature.materializer.service.MaterializationGraphVertexContext.SourceRootMaterializationGraphVertexContext
+import funcify.feature.schema.MetamodelGraph
 import funcify.feature.schema.SchematicVertex
 import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.path.SchematicPath
@@ -46,27 +46,34 @@ internal class DefaultMaterializationGraphVertexConnector(
         private val logger: Logger = loggerFor<DefaultMaterializationGraphVertexConnector>()
     }
 
-    override fun onSourceRootVertex(
+    override fun connectSourceRootVertex(
         context: SourceRootMaterializationGraphVertexContext
     ): MaterializationGraphVertexContext<*> {
         logger.debug(
-            "on_source_root_vertex: [ context.vertex_path: ${context.currentVertex.path} ]"
+            "connect_source_root_vertex: [ context.vertex_path: ${context.currentVertex.path} ]"
         )
-        return context.update {
-            graph(context.graph.putVertex(SchematicPath.getRootPath(), context.currentVertex))
+        return if (context.graph.getVertex(context.path).isDefined()) {
+            context
+        } else {
+            context.update {
+                graph(context.graph.putVertex(SchematicPath.getRootPath(), context.currentVertex))
+            }
         }
     }
 
-    override fun onSourceJunctionVertex(
+    override fun connectSourceJunctionVertex(
         context: SourceJunctionMaterializationGraphVertexContext
     ): MaterializationGraphVertexContext<*> {
         logger.debug(
-            "on_source_junction_vertex: [ context.vertex_path: ${context.currentVertex.path} ]"
+            "connect_source_junction_vertex: [ context.vertex_path: ${context.currentVertex.path} ]"
         )
         return when {
             // TODO: can combine cases where top-level node and no ancestor_retrieval_function_spec:
             // both requiring assessment of data_source.key and creation of the
             // retrieval_function_spec edge
+
+            // case 1: child of root => a domain node but already has an edge from root to this node
+            // defined
             context.path.isChildTo(SchematicPath.getRootPath()) &&
                 context.path
                     .getParentPath()
@@ -76,9 +83,13 @@ internal class DefaultMaterializationGraphVertexConnector(
                     .isDefined() -> {
                 context
             }
+            // case 2: child of root => a domain node but without a request_parameter_edge defined
             context.path.isChildTo(SchematicPath.getRootPath()) -> {
                 val topLevelDataSourceForVertex: DataSource<*> =
-                    selectDataSourceForSourceAttributeVertex(context.session, context.currentVertex)
+                    selectDataSourceForSourceAttributeVertex(
+                        context.metamodelGraph,
+                        context.currentVertex
+                    )
                 val edge =
                     requestParameterEdgeFactory
                         .builder()
@@ -95,6 +106,8 @@ internal class DefaultMaterializationGraphVertexConnector(
                     )
                 }
             }
+            // case 3: not a child of root so there should be an ancestor with a
+            // retrieval_function_spec edge defined
             else -> {
                 val ancestorRetrievalFunctionSpec: RetrievalFunctionSpecRequestParameterEdge =
                     findAncestorRetrievalFunctionSpecRequestParameterEdge(context).orElseThrow()
@@ -141,10 +154,39 @@ internal class DefaultMaterializationGraphVertexConnector(
                     // ancestor_retrieval_function_spec so it cannot be fetched from the same
                     // data_source
                     // and requires its own retrieval spec
+                    // it has a field defined, so its arguments should be processed later
+                    context.field.isDefined() -> {
+                        val dataSourceForVertex: DataSource<*> =
+                            selectDataSourceForSourceAttributeVertex(
+                                context.metamodelGraph,
+                                context.currentVertex
+                            )
+                        val edge =
+                            requestParameterEdgeFactory
+                                .builder()
+                                .fromPathToPath(context.parentPath.orNull()!!, context.path)
+                                .retrievalFunctionSpecForDataSource(dataSourceForVertex) {
+                                    addSourceVertex(context.currentVertex)
+                                }
+                                .build()
+                        context.update {
+                            graph(
+                                context.graph
+                                    .putVertex(context.path, context.currentVertex)
+                                    .putEdge(context.parentPath.orNull()!!, context.path, edge)
+                            )
+                        }
+                    }
+                    // case 3: source_junction_vertex does not have a representation in the same
+                    // ancestor_retrieval_function_spec so it cannot be fetched from the same
+                    // data_source
+                    // and requires its own retrieval spec
+                    // it does not have a field defined, so its arguments won't be processed later
+                    // and thus must be processed now
                     else -> {
                         val dataSourceForVertex: DataSource<*> =
                             selectDataSourceForSourceAttributeVertex(
-                                context.session,
+                                context.metamodelGraph,
                                 context.currentVertex
                             )
                         val edge =
@@ -169,7 +211,7 @@ internal class DefaultMaterializationGraphVertexConnector(
     }
 
     private fun selectDataSourceForSourceAttributeVertex(
-        session: SingleRequestFieldMaterializationSession,
+        metamodelGraph: MetamodelGraph,
         sourceAttributeVertex: SourceAttributeVertex
     ): DataSource<*> {
         val topLevelDataSourceKeyForVertex: DataSource.Key<*> =
@@ -181,12 +223,12 @@ internal class DefaultMaterializationGraphVertexConnector(
                     moreThanOneDataSourceFoundExceptionSupplier(sourceAttributeVertex.path)
                 )
                 .orElseThrow()
-        return session.metamodelGraph.dataSourcesByKey[topLevelDataSourceKeyForVertex]
+        return metamodelGraph.dataSourcesByKey[topLevelDataSourceKeyForVertex]
             .toOption()
             .successIfDefined(
                 dataSourceNotFoundExceptionSupplier(
                     topLevelDataSourceKeyForVertex,
-                    session.metamodelGraph.dataSourcesByKey.keys.toPersistentSet()
+                    metamodelGraph.dataSourcesByKey.keys.toPersistentSet()
                 )
             )
             .orElseThrow()
@@ -278,11 +320,11 @@ internal class DefaultMaterializationGraphVertexConnector(
         }
     }
 
-    override fun onSourceLeafVertex(
+    override fun connectSourceLeafVertex(
         context: SourceLeafMaterializationGraphVertexContext
     ): MaterializationGraphVertexContext<*> {
         logger.debug(
-            "on_source_leaf_vertex: [ context.vertex_path: ${context.currentVertex.path} ]"
+            "connect_source_leaf_vertex: [ context.vertex_path: ${context.currentVertex.path} ]"
         )
         return when {
             // TODO: can combine cases where top-level node and no ancestor_retrieval_function_spec:
@@ -290,7 +332,10 @@ internal class DefaultMaterializationGraphVertexConnector(
             // retrieval_function_spec edge
             context.path.isChildTo(SchematicPath.getRootPath()) -> {
                 val topLevelDataSourceForVertex: DataSource<*> =
-                    selectDataSourceForSourceAttributeVertex(context.session, context.currentVertex)
+                    selectDataSourceForSourceAttributeVertex(
+                        context.metamodelGraph,
+                        context.currentVertex
+                    )
                 val edge =
                     requestParameterEdgeFactory
                         .builder()
@@ -353,10 +398,9 @@ internal class DefaultMaterializationGraphVertexConnector(
                     // data_source
                     // and requires its own retrieval spec
                     else -> {
-
                         val dataSourceForVertex: DataSource<*> =
                             selectDataSourceForSourceAttributeVertex(
-                                context.session,
+                                context.metamodelGraph,
                                 context.currentVertex
                             )
                         val edge =
@@ -380,16 +424,20 @@ internal class DefaultMaterializationGraphVertexConnector(
         }
     }
 
-    override fun onParameterJunctionVertex(
+    override fun connectParameterJunctionVertex(
         context: ParameterJunctionMaterializationGraphVertexContext
     ): MaterializationGraphVertexContext<*> {
         logger.debug(
-            "on_parameter_junction_vertex: [ context.vertex_path: ${context.currentVertex.path} ]"
+            "connect_parameter_junction_vertex: [ context.vertex_path: ${context.currentVertex.path} ]"
         )
         return when {
             // case 1: caller has provided an input value for this argument so it need not be
             // retrieved through any other means
-            !context.argument.value.toOption().filterIsInstance<NullValue>().isDefined() -> {
+            context.argument.isDefined() &&
+                !context.argument
+                    .map(Argument::getValue)
+                    .filterIsInstance<NullValue>()
+                    .isDefined() -> {
                 // add materialized value as an edge from this parameter to its source_vertex and
                 // add this parameter_path to the ancestor function spec so that it can be used in
                 // the request made to the source
@@ -411,12 +459,12 @@ internal class DefaultMaterializationGraphVertexConnector(
                                     .fromPathToPath(context.parentPath.orNull()!!, context.path)
                                     .materializedValue(
                                         GraphQLValueToJsonNodeConverter.invoke(
-                                                context.argument.value
+                                                context.argument.orNull()!!.value
                                             )
                                             .successIfDefined(
                                                 argumentValueNotResolvedIntoJsonExceptionSupplier(
                                                     context.path,
-                                                    context.argument
+                                                    context.argument.orNull()!!
                                                 )
                                             )
                                             .orElseThrow()
@@ -514,12 +562,12 @@ internal class DefaultMaterializationGraphVertexConnector(
                         context
                     )
                 val dataSourceForKey: DataSource<*> =
-                    context.session.metamodelGraph.dataSourcesByKey[datasourceKey]
+                    context.metamodelGraph.dataSourcesByKey[datasourceKey]
                         .toOption()
                         .successIfDefined(
                             dataSourceNotFoundExceptionSupplier(
                                 datasourceKey,
-                                context.session.metamodelGraph.dataSourcesByKey.keys
+                                context.metamodelGraph.dataSourcesByKey.keys
                             )
                         )
                         .orElseThrow()
@@ -532,13 +580,9 @@ internal class DefaultMaterializationGraphVertexConnector(
                     } else {
                         pathWithSpecNeeded
                             .getParentPath()
-                            .flatMap { pp ->
-                                context.session.metamodelGraph.pathBasedGraph.getVertex(pp)
-                            }
+                            .flatMap { pp -> context.metamodelGraph.pathBasedGraph.getVertex(pp) }
                             .zip(
-                                context.session.metamodelGraph.pathBasedGraph.getVertex(
-                                    pathWithSpecNeeded
-                                )
+                                context.metamodelGraph.pathBasedGraph.getVertex(pathWithSpecNeeded)
                             )
                             .map { (a1Vertex, a2Vertex) ->
                                 // These could potentially be the same but it shouldn't
@@ -689,7 +733,7 @@ internal class DefaultMaterializationGraphVertexConnector(
                          * else use the current path-to-dskey pair since the parent is on a different datasource
                          * and would thus require its own retreival function spec
                          */
-                        context.session.metamodelGraph.pathBasedGraph
+                        context.metamodelGraph.pathBasedGraph
                             .getVertex(pp)
                             .filterIsInstance<SourceContainerTypeVertex>()
                             .flatMap { sct: SourceContainerTypeVertex ->
@@ -722,8 +766,7 @@ internal class DefaultMaterializationGraphVertexConnector(
         return context.currentVertex.compositeParameterAttribute.conventionalName.qualifiedForm
             .toOption()
             .flatMap { name ->
-                context.session.metamodelGraph.sourceAttributeVerticesByQualifiedName[name]
-                    .toOption()
+                context.metamodelGraph.sourceAttributeVerticesByQualifiedName[name].toOption()
             }
             .flatMap { srcAttrs ->
                 context.path.pathSegments.firstOrNone().flatMap { domainPathSegment ->
@@ -747,8 +790,7 @@ internal class DefaultMaterializationGraphVertexConnector(
         return context.currentVertex.compositeParameterAttribute.conventionalName.qualifiedForm
             .toOption()
             .flatMap { name ->
-                context.session.metamodelGraph.sourceAttributeVerticesByQualifiedName[name]
-                    .toOption()
+                context.metamodelGraph.sourceAttributeVerticesByQualifiedName[name].toOption()
             }
             .flatMap { srcAttrs ->
                 context.path.pathSegments.firstOrNone().flatMap { domainPathSegment ->
@@ -773,21 +815,21 @@ internal class DefaultMaterializationGraphVertexConnector(
         return context.currentVertex.compositeParameterAttribute.conventionalName.qualifiedForm
             .toOption()
             .flatMap { name ->
-                context.session.metamodelGraph.attributeAliasRegistry
+                context.metamodelGraph.attributeAliasRegistry
                     .getSourceVertexPathWithSimilarNameOrAlias(name)
             }
             .flatMap { srcAttrPath ->
                 srcAttrPath
                     .getParentPath()
                     .flatMap { pp ->
-                        context.session.metamodelGraph.pathBasedGraph
+                        context.metamodelGraph.pathBasedGraph
                             .getVertex(pp)
                             .filterIsInstance<SourceContainerTypeVertex>()
                             .map { sct: SourceContainerTypeVertex ->
                                 sct.compositeContainerType.conventionalName.qualifiedForm
                             }
                             .zip(
-                                context.session.metamodelGraph.pathBasedGraph
+                                context.metamodelGraph.pathBasedGraph
                                     .getVertex(srcAttrPath)
                                     .filterIsInstance<SourceAttributeVertex>()
                                     .map { sav: SourceAttributeVertex ->
@@ -795,7 +837,7 @@ internal class DefaultMaterializationGraphVertexConnector(
                                     }
                             )
                             .flatMap { parentTypeSrcAttrName ->
-                                context.session.metamodelGraph
+                                context.metamodelGraph
                                     .sourceAttributeVerticesWithParentTypeAttributeQualifiedNamePair[
                                         parentTypeSrcAttrName]
                                     .toOption()
@@ -824,21 +866,21 @@ internal class DefaultMaterializationGraphVertexConnector(
         return context.currentVertex.compositeParameterAttribute.conventionalName.qualifiedForm
             .toOption()
             .flatMap { name ->
-                context.session.metamodelGraph.attributeAliasRegistry
+                context.metamodelGraph.attributeAliasRegistry
                     .getSourceVertexPathWithSimilarNameOrAlias(name)
             }
             .flatMap { srcAttrPath ->
                 srcAttrPath
                     .getParentPath()
                     .flatMap { pp ->
-                        context.session.metamodelGraph.pathBasedGraph
+                        context.metamodelGraph.pathBasedGraph
                             .getVertex(pp)
                             .filterIsInstance<SourceContainerTypeVertex>()
                             .map { sct: SourceContainerTypeVertex ->
                                 sct.compositeContainerType.conventionalName.qualifiedForm
                             }
                             .zip(
-                                context.session.metamodelGraph.pathBasedGraph
+                                context.metamodelGraph.pathBasedGraph
                                     .getVertex(srcAttrPath)
                                     .filterIsInstance<SourceAttributeVertex>()
                                     .map { sav: SourceAttributeVertex ->
@@ -846,7 +888,7 @@ internal class DefaultMaterializationGraphVertexConnector(
                                     }
                             )
                             .flatMap { parentTypeSrcAttrName ->
-                                context.session.metamodelGraph
+                                context.metamodelGraph
                                     .sourceAttributeVerticesWithParentTypeAttributeQualifiedNamePair[
                                         parentTypeSrcAttrName]
                                     .toOption()
@@ -883,16 +925,16 @@ internal class DefaultMaterializationGraphVertexConnector(
         }
     }
 
-    override fun onParameterLeafVertex(
+    override fun connectParameterLeafVertex(
         context: ParameterLeafMaterializationGraphVertexContext
     ): MaterializationGraphVertexContext<*> {
         logger.debug(
-            "on_parameter_leaf_vertex: [ context.vertex_path: ${context.currentVertex.path} ]"
+            "connect_parameter_leaf_vertex: [ context.vertex_path: ${context.currentVertex.path} ]"
         )
         return when {
             // case 1: caller has provided an input value for this argument so it need not be
             // retrieved through any other means
-            !context.argument.value.toOption().filterIsInstance<NullValue>().isDefined() -> {
+            !context.argument.map(Argument::getValue).filterIsInstance<NullValue>().isDefined() -> {
                 // add materialized value as an edge from this parameter to its source_vertex and
                 // add this parameter_path to the ancestor function spec so that it can be used in
                 // the request made to the source
@@ -914,12 +956,12 @@ internal class DefaultMaterializationGraphVertexConnector(
                                     .fromPathToPath(context.parentPath.orNull()!!, context.path)
                                     .materializedValue(
                                         GraphQLValueToJsonNodeConverter.invoke(
-                                                context.argument.value
+                                                context.argument.orNull()!!.value
                                             )
                                             .successIfDefined(
                                                 argumentValueNotResolvedIntoJsonExceptionSupplier(
                                                     context.path,
-                                                    context.argument
+                                                    context.argument.orNull()!!
                                                 )
                                             )
                                             .orElseThrow()

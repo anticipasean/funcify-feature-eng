@@ -86,8 +86,26 @@ internal class DefaultSingleRequestFieldMaterializationGraphService(
             "execution_step_info: [ {} ]",
             session.dataFetchingEnvironment.executionStepInfo.simplePrint()
         )
+        logger.debug(
+            "metamodel.parameter_attribute_vertices_by_source_attribute_vertex_paths: {}",
+            session.metamodelGraph.parameterAttributeVerticesBySourceAttributeVertexPaths
+                .asSequence()
+                .joinToString(
+                    separator = ",\n",
+                    prefix = "{ ",
+                    postfix = " }",
+                    transform = { (savPath, paramVerts) ->
+                        "${savPath}: %s".format(
+                            paramVerts
+                                .asSequence()
+                                .map { pav -> pav.path }
+                                .joinToString(separator = ", ", prefix = "{ ", postfix = " }")
+                        )
+                    }
+                )
+        )
         return traverseFieldInSessionCreatingMaterializationGraph(session).toDeferred().map { ctx ->
-            ctx.session
+            session
         }
     }
 
@@ -128,9 +146,11 @@ internal class DefaultSingleRequestFieldMaterializationGraphService(
                         }
                     }
                     .fold(
-                        materializationGraphVertexConnector.onSourceRootVertex(
-                            materializationGraphVertexContextFactory
-                                .createSourceRootVertexContextInSession(sourceRootVertex, session)
+                        materializationGraphVertexConnector.connectSourceRootVertex(
+                            materializationGraphVertexContextFactory.createSourceRootVertexContext(
+                                sourceRootVertex,
+                                session.metamodelGraph
+                            )
                         )
                     ) {
                         materializationGraphVertexCtx: MaterializationGraphVertexContext<*>,
@@ -157,7 +177,7 @@ internal class DefaultSingleRequestFieldMaterializationGraphService(
                                 }
                             }
                         }.let { context ->
-                            materializationGraphVertexConnector.onSchematicVertex(context)
+                            materializationGraphVertexConnector.connectSchematicVertex(context)
                         }
                     }
             }

@@ -128,4 +128,20 @@ internal data class DefaultMetamodelGraph(
             .flatMapOptions()
             .reducePairsToPersistentSetValueMap()
     }
+
+    override val parameterAttributeVerticesBySourceAttributeVertexPaths:
+        ImmutableMap<SchematicPath, ImmutableSet<ParameterAttributeVertex>> by lazy {
+        pathBasedGraph.verticesByPath.values
+            .asSequence()
+            .filterIsInstance<SourceAttributeVertex>()
+            .map { sav: SourceAttributeVertex -> sav.path }
+            .flatMap { savPath: SchematicPath ->
+                pathBasedGraph.verticesByPath.values
+                    .asSequence()
+                    .filterIsInstance<ParameterAttributeVertex>()
+                    .filter { pav: ParameterAttributeVertex -> savPath.isAncestorOf(pav.path) }
+                    .map { pav: ParameterAttributeVertex -> savPath to pav }
+            }
+            .reducePairsToPersistentSetValueMap()
+    }
 }

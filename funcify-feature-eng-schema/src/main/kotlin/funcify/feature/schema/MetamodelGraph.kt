@@ -51,6 +51,9 @@ interface MetamodelGraph {
     val parameterAttributeVerticesWithParentTypeAttributeQualifiedNamePair:
         ImmutableMap<Pair<String, String>, ImmutableSet<ParameterAttributeVertex>>
 
+    val parameterAttributeVerticesBySourceAttributeVertexPaths:
+        ImmutableMap<SchematicPath, ImmutableSet<ParameterAttributeVertex>>
+
     interface Builder {
 
         fun <SI : SourceIndex<SI>> addDataSource(dataSource: DataSource<SI>): Builder

@@ -13,45 +13,45 @@ import funcify.feature.materializer.service.MaterializationGraphVertexContext.So
  */
 interface MaterializationGraphVertexConnector {
 
-    fun onSchematicVertex(
+    fun connectSchematicVertex(
         context: MaterializationGraphVertexContext<*>
     ): MaterializationGraphVertexContext<*> {
         return when (context) {
             is SourceRootMaterializationGraphVertexContext -> {
-                onSourceRootVertex(context)
+                connectSourceRootVertex(context)
             }
             is SourceJunctionMaterializationGraphVertexContext -> {
-                onSourceJunctionVertex(context)
+                connectSourceJunctionVertex(context)
             }
             is SourceLeafMaterializationGraphVertexContext -> {
-                onSourceLeafVertex(context)
+                connectSourceLeafVertex(context)
             }
             is ParameterJunctionMaterializationGraphVertexContext -> {
-                onParameterJunctionVertex(context)
+                connectParameterJunctionVertex(context)
             }
             is ParameterLeafMaterializationGraphVertexContext -> {
-                onParameterLeafVertex(context)
+                connectParameterLeafVertex(context)
             }
         }
     }
 
-    fun onSourceRootVertex(
+    fun connectSourceRootVertex(
         context: SourceRootMaterializationGraphVertexContext
     ): MaterializationGraphVertexContext<*>
 
-    fun onSourceJunctionVertex(
+    fun connectSourceJunctionVertex(
         context: SourceJunctionMaterializationGraphVertexContext
     ): MaterializationGraphVertexContext<*>
 
-    fun onSourceLeafVertex(
+    fun connectSourceLeafVertex(
         context: SourceLeafMaterializationGraphVertexContext
     ): MaterializationGraphVertexContext<*>
 
-    fun onParameterJunctionVertex(
+    fun connectParameterJunctionVertex(
         context: ParameterJunctionMaterializationGraphVertexContext
     ): MaterializationGraphVertexContext<*>
 
-    fun onParameterLeafVertex(
+    fun connectParameterLeafVertex(
         context: ParameterLeafMaterializationGraphVertexContext
     ): MaterializationGraphVertexContext<*>
 }
