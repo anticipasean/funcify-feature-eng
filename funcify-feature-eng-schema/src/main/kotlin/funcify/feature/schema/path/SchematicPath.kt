@@ -377,35 +377,20 @@ interface SchematicPath : Comparable<SchematicPath> {
             this.scheme != other.scheme -> {
                 false
             }
-            /** Every path but root itself is a descendent of root */
-            other.isRoot() -> {
-                !this.isRoot()
-            }
             /** if other has more path segments, not a descendent but could be an ancestor */
             this.pathSegments.size < other.pathSegments.size -> {
                 false
             }
             /**
-             * if other has fewer path segments than this one, then this is a descendent of the
-             * other if all path segments of the other match those within this path
+             * if the other has fewer or the same number of path segments and does not represent an
+             * argument or directive
              */
-            this.pathSegments.size > other.pathSegments.size && other.pathSegments.size > 0 -> {
-                this.pathSegments
-                    .asSequence()
-                    .take(other.pathSegments.size)
-                    .zip(other.pathSegments.asSequence()) { t, o -> t == o }
-                    .all { matched -> matched }
-            }
-            /**
-             * if this path represents a parameter index--has arguments and/or directives--on the
-             * other and the other represents a source index
-             */
-            this.pathSegments.size == other.pathSegments.size &&
-                (this.arguments.isNotEmpty() || this.directives.isNotEmpty()) &&
+            this.pathSegments.size >= other.pathSegments.size &&
                 other.arguments.isEmpty() &&
                 other.directives.isEmpty() -> {
                 this.pathSegments
                     .asSequence()
+                    .take(other.pathSegments.size)
                     .zip(other.pathSegments.asSequence()) { t, o -> t == o }
                     .all { matched -> matched }
             }
@@ -466,15 +451,17 @@ interface SchematicPath : Comparable<SchematicPath> {
             this.scheme != other.scheme -> {
                 false
             }
-            /** root is an ancestor to all but itself */
-            this.isRoot() -> {
-                !other.isRoot()
-            }
             /** if other has fewer path segments, not an ancestor but could be descendent */
             this.pathSegments.size > other.pathSegments.size -> {
                 false
             }
-            this.pathSegments.size < other.pathSegments.size && this.pathSegments.size > 0 -> {
+            /**
+             * if this has fewer or the same number of path segments and does not represent an
+             * argument or directive
+             */
+            this.pathSegments.size <= other.pathSegments.size &&
+                this.arguments.isEmpty() &&
+                this.directives.isEmpty() -> {
                 this.pathSegments
                     .asSequence()
                     .zip(other.pathSegments.asSequence().take(this.pathSegments.size)) { t, o ->
@@ -482,15 +469,9 @@ interface SchematicPath : Comparable<SchematicPath> {
                     }
                     .all { matched -> matched }
             }
-            this.pathSegments.size == other.pathSegments.size &&
-                arguments.isEmpty() &&
-                directives.isEmpty() &&
-                (other.arguments.isNotEmpty() || other.directives.isNotEmpty()) -> {
-                this.pathSegments
-                    .asSequence()
-                    .zip(other.pathSegments.asSequence()) { t, o -> t == o }
-                    .all { matched -> matched }
-            }
+            /**
+             * if this has the same number of path segments and represents an argument or directive
+             */
             this.pathSegments.size == other.pathSegments.size &&
                 (arguments.isNotEmpty() || directives.isNotEmpty()) &&
                 (other.arguments.isNotEmpty() || other.directives.isNotEmpty()) -> {

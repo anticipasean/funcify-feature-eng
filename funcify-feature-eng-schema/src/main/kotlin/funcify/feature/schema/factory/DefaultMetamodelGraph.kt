@@ -139,7 +139,9 @@ internal data class DefaultMetamodelGraph(
                 pathBasedGraph.verticesByPath.values
                     .asSequence()
                     .filterIsInstance<ParameterAttributeVertex>()
-                    .filter { pav: ParameterAttributeVertex -> savPath.isAncestorOf(pav.path) }
+                    .filter { pav: ParameterAttributeVertex ->
+                        pav.path.transform { clearArguments() } == savPath
+                    }
                     .map { pav: ParameterAttributeVertex -> savPath to pav }
             }
             .reducePairsToPersistentSetValueMap()

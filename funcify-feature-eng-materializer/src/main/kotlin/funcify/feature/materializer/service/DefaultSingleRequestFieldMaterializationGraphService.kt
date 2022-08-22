@@ -105,8 +105,17 @@ internal class DefaultSingleRequestFieldMaterializationGraphService(
                 )
         )
         return traverseFieldInSessionCreatingMaterializationGraph(session).toDeferred().map { ctx ->
+            logger.debug("topological_sort: {}", createTopologicalSortString(ctx))
             session
         }
+    }
+
+    private fun createTopologicalSortString(context: MaterializationGraphVertexContext<*>): String {
+        return context.graph
+            .depthFirstSearchOnPath(SchematicPath.getRootPath())
+            .asSequence()
+            .map { (v1, p1, e, p2, v2) -> "%s --> %s --> %s".format(p1, e::class.simpleName, p2) }
+            .joinToString(",\n--> ", "{ ", " }")
     }
 
     private fun traverseFieldInSessionCreatingMaterializationGraph(

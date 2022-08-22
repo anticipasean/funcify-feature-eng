@@ -17,6 +17,8 @@ import funcify.feature.schema.SchematicVertex
 import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.schema.vertex.ParameterAttributeVertex
+import funcify.feature.schema.vertex.ParameterJunctionVertex
+import funcify.feature.schema.vertex.ParameterLeafVertex
 import funcify.feature.schema.vertex.SourceAttributeVertex
 import funcify.feature.schema.vertex.SourceContainerTypeVertex
 import funcify.feature.schema.vertex.SourceJunctionVertex
@@ -67,23 +69,22 @@ internal class DefaultMaterializationGraphVertexConnector(
         logger.debug(
             "connect_source_junction_vertex: [ context.vertex_path: ${context.currentVertex.path} ]"
         )
-        return when {
-            // TODO: can combine cases where top-level node and no ancestor_retrieval_function_spec:
+        return when { // TODO: can combine cases where top-level node and no
+            // ancestor_retrieval_function_spec:
             // both requiring assessment of data_source.key and creation of the
             // retrieval_function_spec edge
 
             // case 1: child of root => a domain node but already has an edge from root to this node
-            // defined
+            // defined wherein a spec is defined for this connection
             context.path.isChildTo(SchematicPath.getRootPath()) &&
-                context.path
-                    .getParentPath()
-                    .flatMap { pp ->
-                        context.graph.getEdgesFromPathToPath(pp, context.path).firstOrNone()
-                    }
+                context.graph
+                    .getEdgesFromPathToPath(SchematicPath.getRootPath(), context.path)
+                    .firstOrNone()
+                    .filterIsInstance<RetrievalFunctionSpecRequestParameterEdge>()
+                    .filter { specEdge -> specEdge.sourceVerticesByPath.containsKey(context.path) }
                     .isDefined() -> {
                 context
-            }
-            // case 2: child of root => a domain node but without a request_parameter_edge defined
+            } // case 2: child of root => a domain node but without a request_parameter_edge defined
             context.path.isChildTo(SchematicPath.getRootPath()) -> {
                 val topLevelDataSourceForVertex: DataSource<*> =
                     selectDataSourceForSourceAttributeVertex(
@@ -102,109 +103,63 @@ internal class DefaultMaterializationGraphVertexConnector(
                     graph(
                         context.graph
                             .putVertex(context.path, context.currentVertex)
-                            .putEdge(SchematicPath.getRootPath(), context.path, edge)
+                            .putEdge(edge, RequestParameterEdge::id)
                     )
                 }
             }
-            // case 3: not a child of root so there should be an ancestor with a
-            // retrieval_function_spec edge defined
+            // Case 3: source_junction_vertex does not support same data_source as ancestor
+            // spec_edge
+            findAncestorRetrievalFunctionSpecRequestParameterEdge(context)
+                .getSuccess()
+                .filter { specEdge ->
+                    !context.currentVertex.compositeAttribute
+                        .getSourceAttributeByDataSource()
+                        .containsKey(specEdge.dataSource.key)
+                }
+                .isDefined() -> {
+                val topLevelDataSourceForVertex: DataSource<*> =
+                    selectDataSourceForSourceAttributeVertex(
+                        context.metamodelGraph,
+                        context.currentVertex
+                    )
+                val edge =
+                    requestParameterEdgeFactory
+                        .builder()
+                        .fromPathToPath(context.path.getParentPath().orNull()!!, context.path)
+                        .retrievalFunctionSpecForDataSource(topLevelDataSourceForVertex) {
+                            addSourceVertex(context.currentVertex)
+                        }
+                        .build()
+                context.metamodelGraph.parameterAttributeVerticesBySourceAttributeVertexPaths
+                    .getOrNone(context.path)
+                    .map(ImmutableSet<ParameterAttributeVertex>::asSequence)
+                    .fold(::emptySequence, ::identity)
+                    .fold(
+                        context.update {
+                            graph(
+                                context.graph
+                                    .putVertex(context.path, context.currentVertex)
+                                    .putEdge(edge, RequestParameterEdge::id)
+                            )
+                        } as MaterializationGraphVertexContext<*>
+                    ) { ctx, parameterAttributeVertex ->
+                        connectSchematicVertex(
+                            ctx.update {
+                                nextParameterVertex(
+                                    (when (parameterAttributeVertex) {
+                                        is ParameterJunctionVertex ->
+                                            parameterAttributeVertex.left()
+                                        is ParameterLeafVertex -> parameterAttributeVertex.right()
+                                        else -> null
+                                    }!!)
+                                )
+                            }
+                        )
+                    }
+            }
             else -> {
-                val ancestorRetrievalFunctionSpec: RetrievalFunctionSpecRequestParameterEdge =
-                    findAncestorRetrievalFunctionSpecRequestParameterEdge(context).orElseThrow()
-                val ancestorRetrievalSpecDataSourceKey: DataSource.Key<*> =
-                    ancestorRetrievalFunctionSpec.dataSource.key
-                when {
-                    // case 1: source_junction_vertex has a representation in the same data_source
-                    // as the one in the spec being constructed
-                    context.currentVertex.compositeAttribute
-                        .getSourceAttributeForDataSourceKey(ancestorRetrievalSpecDataSourceKey)
-                        .toOption()
-                        .isDefined() -> {
-                        // add vertex to this spec
-                        context.update {
-                            graph(
-                                context.graph
-                                    .putVertex(context.path, context.currentVertex)
-                                    .putEdge(
-                                        ancestorRetrievalFunctionSpec.id,
-                                        ancestorRetrievalFunctionSpec.updateSpec {
-                                            addSourceVertex(context.currentVertex)
-                                        }
-                                    )
-                                    // add edge connecting parent to child indicating extraction
-                                    // should be done on the ancestor result node
-                                    .putEdge(
-                                        context.parentPath.orNull()!!,
-                                        context.path,
-                                        requestParameterEdgeFactory
-                                            .builder()
-                                            .fromPathToPath(
-                                                context.parentPath.orNull()!!,
-                                                context.path
-                                            )
-                                            .extractionFromAncestorFunction { parentResultMap ->
-                                                parentResultMap[context.path].toOption()
-                                            }
-                                            .build()
-                                    )
-                            )
-                        }
-                    }
-                    // case 2: source_junction_vertex does not have a representation in the same
-                    // ancestor_retrieval_function_spec so it cannot be fetched from the same
-                    // data_source
-                    // and requires its own retrieval spec
-                    // it has a field defined, so its arguments should be processed later
-                    context.field.isDefined() -> {
-                        val dataSourceForVertex: DataSource<*> =
-                            selectDataSourceForSourceAttributeVertex(
-                                context.metamodelGraph,
-                                context.currentVertex
-                            )
-                        val edge =
-                            requestParameterEdgeFactory
-                                .builder()
-                                .fromPathToPath(context.parentPath.orNull()!!, context.path)
-                                .retrievalFunctionSpecForDataSource(dataSourceForVertex) {
-                                    addSourceVertex(context.currentVertex)
-                                }
-                                .build()
-                        context.update {
-                            graph(
-                                context.graph
-                                    .putVertex(context.path, context.currentVertex)
-                                    .putEdge(context.parentPath.orNull()!!, context.path, edge)
-                            )
-                        }
-                    }
-                    // case 3: source_junction_vertex does not have a representation in the same
-                    // ancestor_retrieval_function_spec so it cannot be fetched from the same
-                    // data_source
-                    // and requires its own retrieval spec
-                    // it does not have a field defined, so its arguments won't be processed later
-                    // and thus must be processed now
-                    else -> {
-                        val dataSourceForVertex: DataSource<*> =
-                            selectDataSourceForSourceAttributeVertex(
-                                context.metamodelGraph,
-                                context.currentVertex
-                            )
-                        val edge =
-                            requestParameterEdgeFactory
-                                .builder()
-                                .fromPathToPath(context.parentPath.orNull()!!, context.path)
-                                .retrievalFunctionSpecForDataSource(dataSourceForVertex) {
-                                    addSourceVertex(context.currentVertex)
-                                }
-                                .build()
-                        context.update {
-                            graph(
-                                context.graph
-                                    .putVertex(context.path, context.currentVertex)
-                                    .putEdge(context.parentPath.orNull()!!, context.path, edge)
-                            )
-                        }
-                    }
+                context.update {
+                    graph(context.graph.putVertex(context.currentVertex, SchematicVertex::path))
                 }
             }
         }
@@ -245,22 +200,19 @@ internal class DefaultMaterializationGraphVertexConnector(
         graph: PathBasedGraph<SchematicPath, SchematicVertex, RequestParameterEdge>,
     ): Try<RetrievalFunctionSpecRequestParameterEdge> {
         return vertexPath
-            .getParentPath()
-            .recurse { pp ->
+            .some()
+            .recurse { p ->
                 when (
-                    val edgeBetweenGrandparentAndParent: RequestParameterEdge? =
-                        pp.getParentPath()
-                            .flatMap { ppp -> graph.getEdgesFromPathToPath(ppp, pp).firstOrNone() }
+                    val edgeBetweenParentAndCurrent: RequestParameterEdge? =
+                        p.getParentPath()
+                            .flatMap { pp -> graph.getEdgesFromPathToPath(pp, p).firstOrNone() }
                             .orNull()
                 ) {
-                    null -> {
-                        none()
-                    }
                     is RetrievalFunctionSpecRequestParameterEdge -> {
-                        edgeBetweenGrandparentAndParent.right().some()
+                        edgeBetweenParentAndCurrent.right().some()
                     }
                     else -> {
-                        pp.getParentPath().map { ppp -> ppp.left() }
+                        p.getParentPath().map { pp -> pp.left() }
                     }
                 }
             }
@@ -327,9 +279,17 @@ internal class DefaultMaterializationGraphVertexConnector(
             "connect_source_leaf_vertex: [ context.vertex_path: ${context.currentVertex.path} ]"
         )
         return when {
-            // TODO: can combine cases where top-level node and no ancestor_retrieval_function_spec:
-            // both requiring assessment of data_source.key and creation of the
-            // retrieval_function_spec edge
+            // case 1: child of root => a domain node but already has an edge from root to this node
+            // defined wherein a spec is defined for this connection
+            context.path.isChildTo(SchematicPath.getRootPath()) &&
+                context.graph
+                    .getEdgesFromPathToPath(SchematicPath.getRootPath(), context.path)
+                    .firstOrNone()
+                    .filterIsInstance<RetrievalFunctionSpecRequestParameterEdge>()
+                    .filter { specEdge -> specEdge.sourceVerticesByPath.containsKey(context.path) }
+                    .isDefined() -> {
+                context
+            } // case 2: child of root => a domain node but without a request_parameter_edge defined
             context.path.isChildTo(SchematicPath.getRootPath()) -> {
                 val topLevelDataSourceForVertex: DataSource<*> =
                     selectDataSourceForSourceAttributeVertex(
@@ -348,55 +308,79 @@ internal class DefaultMaterializationGraphVertexConnector(
                     graph(
                         context.graph
                             .putVertex(context.path, context.currentVertex)
-                            .putEdge(edge, RequestParameterEdge::id)
+                            .putEdge(SchematicPath.getRootPath(), context.path, edge)
                     )
                 }
-            }
+            } // case 3: not a child of root so there should be an ancestor with a
+            // retrieval_function_spec edge defined
             else -> {
                 val ancestorRetrievalFunctionSpec: RetrievalFunctionSpecRequestParameterEdge =
                     findAncestorRetrievalFunctionSpecRequestParameterEdge(context).orElseThrow()
                 val ancestorRetrievalSpecDataSourceKey: DataSource.Key<*> =
                     ancestorRetrievalFunctionSpec.dataSource.key
-                when {
-                    // case 1: source_junction_vertex has a representation in the same data_source
+                when { // case 1: source_leaf_vertex has a representation in the same
+                    // data_source
                     // as the one in the spec being constructed
                     context.currentVertex.compositeAttribute
                         .getSourceAttributeForDataSourceKey(ancestorRetrievalSpecDataSourceKey)
                         .toOption()
-                        .isDefined() -> {
-                        // add vertex to this spec
-                        context.update {
-                            graph(
-                                context.graph
-                                    .putVertex(context.path, context.currentVertex)
-                                    .putEdge(
-                                        ancestorRetrievalFunctionSpec.updateSpec {
-                                            addSourceVertex(context.currentVertex)
-                                        },
-                                        RequestParameterEdge::id
-                                    )
-                                    // add edge connecting parent to child indicating extraction
-                                    // should be done on the ancestor result node
-                                    .putEdge(
-                                        requestParameterEdgeFactory
-                                            .builder()
-                                            .fromPathToPath(
-                                                context.parentPath.orNull()!!,
-                                                context.path
+                        .isDefined() -> { // add vertex to this spec
+                        context.metamodelGraph
+                            .parameterAttributeVerticesBySourceAttributeVertexPaths
+                            .getOrNone(context.path)
+                            .map(ImmutableSet<ParameterAttributeVertex>::asSequence)
+                            .fold(::emptySequence, ::identity)
+                            .fold(
+                                context.update {
+                                    graph(
+                                        context.graph
+                                            .putVertex(context.path, context.currentVertex)
+                                            .putEdge(
+                                                ancestorRetrievalFunctionSpec.updateSpec {
+                                                    addSourceVertex(context.currentVertex)
+                                                },
+                                                RequestParameterEdge::id
+                                            ) // add edge connecting parent to child indicating
+                                            // extraction
+                                            // should be done on the ancestor result node
+                                            .putEdge(
+                                                requestParameterEdgeFactory
+                                                    .builder()
+                                                    .fromPathToPath(
+                                                        ancestorRetrievalFunctionSpec.id.second,
+                                                        context.path
+                                                    )
+                                                    .extractionFromAncestorFunction {
+                                                        parentResultMap ->
+                                                        parentResultMap[context.path].toOption()
+                                                    }
+                                                    .build(),
+                                                RequestParameterEdge::id
                                             )
-                                            .extractionFromAncestorFunction { parentResultMap ->
-                                                parentResultMap.getOrNone(context.path)
-                                            }
-                                            .build(),
-                                        RequestParameterEdge::id
                                     )
-                            )
-                        }
+                                } as MaterializationGraphVertexContext<*>
+                            ) { ctx, parameterAttributeVertex ->
+                                connectSchematicVertex(
+                                    ctx.update {
+                                        nextParameterVertex(
+                                            (when (parameterAttributeVertex) {
+                                                is ParameterJunctionVertex ->
+                                                    parameterAttributeVertex.left()
+                                                is ParameterLeafVertex ->
+                                                    parameterAttributeVertex.right()
+                                                else -> null
+                                            }!!)
+                                        )
+                                    }
+                                )
+                            }
                     }
-                    // case 2: source_junction_vertex does not have a representation in the same
+                    // case 3: source_leaf_vertex does not have a representation in the same
                     // ancestor_retrieval_function_spec so it cannot be fetched from the same
                     // data_source
                     // and requires its own retrieval spec
+                    // it does not have a field defined, so its arguments won't be processed later
+                    // and thus must be processed now
                     else -> {
                         val dataSourceForVertex: DataSource<*> =
                             selectDataSourceForSourceAttributeVertex(
@@ -411,13 +395,34 @@ internal class DefaultMaterializationGraphVertexConnector(
                                     addSourceVertex(context.currentVertex)
                                 }
                                 .build()
-                        context.update {
-                            graph(
-                                context.graph
-                                    .putVertex(context.path, context.currentVertex)
-                                    .putEdge(edge, RequestParameterEdge::id)
-                            )
-                        }
+                        context.metamodelGraph
+                            .parameterAttributeVerticesBySourceAttributeVertexPaths
+                            .getOrNone(context.path)
+                            .map(ImmutableSet<ParameterAttributeVertex>::asSequence)
+                            .fold(::emptySequence, ::identity)
+                            .fold(
+                                context.update {
+                                    graph(
+                                        context.graph
+                                            .putVertex(context.path, context.currentVertex)
+                                            .putEdge(edge, RequestParameterEdge::id)
+                                    )
+                                } as MaterializationGraphVertexContext<*>
+                            ) { ctx, parameterAttributeVertex ->
+                                connectSchematicVertex(
+                                    ctx.update {
+                                        nextParameterVertex(
+                                            (when (parameterAttributeVertex) {
+                                                is ParameterJunctionVertex ->
+                                                    parameterAttributeVertex.left()
+                                                is ParameterLeafVertex ->
+                                                    parameterAttributeVertex.right()
+                                                else -> null
+                                            }!!)
+                                        )
+                                    }
+                                )
+                            }
                     }
                 }
             }
@@ -512,15 +517,32 @@ internal class DefaultMaterializationGraphVertexConnector(
         sourceAttributeVertex: SourceAttributeVertex,
         context: MaterializationGraphVertexContext<V>,
     ): MaterializationGraphVertexContext<*> {
+        val parameterJunctionOrLeafVertex: Either<ParameterJunctionVertex, ParameterLeafVertex> =
+            when (val v = context.currentVertex) {
+                is ParameterJunctionVertex -> v.left()
+                is ParameterLeafVertex -> v.right()
+                else -> null
+            }!!
         return when {
-            context.graph.getVertex(sourceAttributeVertex.path).isDefined() -> {
-                val sourceAttributeVertexPath: SchematicPath = sourceAttributeVertex.path
+            // Case 1: source_attribute_vertex already has entry in spec_edge
+            // connect this parameter to that edge with an extraction_function
+            findAncestorRetrievalFunctionSpecRequestParameterEdge(
+                    sourceAttributeVertex.path,
+                    context.graph
+                )
+                .getSuccess()
+                .filter { specEdge ->
+                    specEdge.sourceVerticesByPath.containsKey(sourceAttributeVertex.path)
+                }
+                .isDefined() -> {
                 val ancestorRetrievalFunctionSpecEdgeForSourceAttributeVertex =
                     findAncestorRetrievalFunctionSpecRequestParameterEdge(
-                            sourceAttributeVertexPath,
+                            sourceAttributeVertex.path,
                             context.graph
                         )
                         .orElseThrow()
+                val ancestorRetrievalFunctionSpecEdgeForParameterAttributeVertex =
+                    findAncestorRetrievalFunctionSpecRequestParameterEdge(context).orElseThrow()
                 context.update {
                     graph(
                         context.graph
@@ -534,229 +556,81 @@ internal class DefaultMaterializationGraphVertexConnector(
                                         context.path
                                     )
                                     .extractionFromAncestorFunction { jsonValuesMap ->
-                                        jsonValuesMap.getOrNone(sourceAttributeVertexPath)
+                                        jsonValuesMap.getOrNone(sourceAttributeVertex.path)
                                     }
                                     .build(),
+                                RequestParameterEdge::id
+                            )
+                            .putEdge(
+                                ancestorRetrievalFunctionSpecEdgeForParameterAttributeVertex
+                                    .updateSpec {
+                                        parameterJunctionOrLeafVertex.fold(
+                                            { pjv -> addParameterVertex(pjv) },
+                                            { plv -> addParameterVertex(plv) }
+                                        )
+                                    },
                                 RequestParameterEdge::id
                             )
                     )
                 }
             }
-            // Current ancestor retrieval function spec is for a datasource
-            // not supported by this source_attribute_vertex
-            findAncestorRetrievalFunctionSpecRequestParameterEdge(
-                    sourceAttributeVertex.path,
-                    context.graph
-                )
-                .getSuccess()
-                .filter { edge ->
-                    sourceAttributeVertex.compositeAttribute
-                        .getSourceAttributeByDataSource()
-                        .keys
-                        .none { dskey -> dskey == edge.dataSource.key }
-                }
-                .isDefined() -> {
-                val (pathWithSpecNeeded, datasourceKey) =
-                    assessOrFindPathAndDataSourceKeyForWhichToCreateRetrievalFunctionSpec(
-                        sourceAttributeVertex,
-                        context
-                    )
-                val dataSourceForKey: DataSource<*> =
-                    context.metamodelGraph.dataSourcesByKey[datasourceKey]
-                        .toOption()
-                        .successIfDefined(
-                            dataSourceNotFoundExceptionSupplier(
-                                datasourceKey,
-                                context.metamodelGraph.dataSourcesByKey.keys
-                            )
-                        )
-                        .orElseThrow()
-                val graphWithVerticesAdded:
-                    PathBasedGraph<SchematicPath, SchematicVertex, RequestParameterEdge> =
-                    if (context.graph.getVertex(pathWithSpecNeeded).isDefined()) {
-                        context.graph
-                            .putVertex(sourceAttributeVertex, SchematicVertex::path)
-                            .putVertex(context.currentVertex, SchematicVertex::path)
-                    } else {
-                        pathWithSpecNeeded
-                            .getParentPath()
-                            .flatMap { pp -> context.metamodelGraph.pathBasedGraph.getVertex(pp) }
-                            .zip(
-                                context.metamodelGraph.pathBasedGraph.getVertex(pathWithSpecNeeded)
-                            )
-                            .map { (a1Vertex, a2Vertex) ->
-                                // These could potentially be the same but it shouldn't
-                                // be an issue as long as we're not removing vertices
-                                // which could in turn remove edges
-                                context.graph
-                                    .putVertex(a1Vertex, SchematicVertex::path)
-                                    .putVertex(a2Vertex, SchematicVertex::path)
-                                    .putVertex(sourceAttributeVertex, SchematicVertex::path)
-                                    .putVertex(context.currentVertex, SchematicVertex::path)
-                            }
-                            .successIfDefined(
-                                oneOrMoreVerticesMissingFromMetamodelExceptionSupplier(
-                                    pathWithSpecNeeded.getParentPath().getOrElse {
-                                        SchematicPath.getRootPath()
-                                    },
-                                    pathWithSpecNeeded
-                                )
-                            )
-                            .orElseThrow()
-                    }
-
+            // case 2: source_attribute_vertex does not have entry in spec_edge
+            // add source_attribute_vertex through call to its connect_X method
+            else -> {
                 val sourceOrJunctionVertex: Either<SourceJunctionVertex, SourceLeafVertex> =
                     when (sourceAttributeVertex) {
                         is SourceJunctionVertex -> sourceAttributeVertex.left()
                         is SourceLeafVertex -> sourceAttributeVertex.right()
                         else -> null
                     }!!
-
-                context.update {
-                    graph(
-                        graphWithVerticesAdded
-                            .putEdge(
-                                requestParameterEdgeFactory
-                                    .builder()
-                                    .fromPathToPath(
-                                        pathWithSpecNeeded.getParentPath().getOrElse {
-                                            SchematicPath.getRootPath()
-                                        },
-                                        pathWithSpecNeeded
+                connectSchematicVertex(context.update { nextSourceVertex(sourceOrJunctionVertex) })
+                    .let { updatedContext ->
+                        val ancestorRetrievalFunctionSpecEdgeForSourceAttributeVertex =
+                            findAncestorRetrievalFunctionSpecRequestParameterEdge(
+                                    sourceAttributeVertex.path,
+                                    updatedContext.graph
+                                )
+                                .orElseThrow()
+                        val ancestorRetrievalFunctionSpecEdgeForParameterAttributeVertex =
+                            findAncestorRetrievalFunctionSpecRequestParameterEdge(
+                                    context.path,
+                                    updatedContext.graph
+                                )
+                                .orElseThrow()
+                        updatedContext.update {
+                            graph(
+                                updatedContext.graph
+                                    .putVertex(context.path, context.currentVertex)
+                                    .putEdge(
+                                        requestParameterEdgeFactory
+                                            .builder()
+                                            .fromPathToPath(
+                                                ancestorRetrievalFunctionSpecEdgeForSourceAttributeVertex
+                                                    .id
+                                                    .second,
+                                                context.path
+                                            )
+                                            .extractionFromAncestorFunction { resultJsonMap ->
+                                                resultJsonMap.getOrNone(sourceAttributeVertex.path)
+                                            }
+                                            .build(),
+                                        RequestParameterEdge::id
                                     )
-                                    .retrievalFunctionSpecForDataSource(dataSourceForKey) {
-                                        sourceOrJunctionVertex.fold(
-                                            { sjv -> addSourceVertex(sjv) },
-                                            { slv -> addSourceVertex(slv) }
-                                        )
-                                    }
-                                    .build(),
-                                RequestParameterEdge::id
-                            )
-                            .putEdge(
-                                requestParameterEdgeFactory
-                                    .builder()
-                                    .fromPathToPath(pathWithSpecNeeded, context.path)
-                                    .extractionFromAncestorFunction { resultJsonMap ->
-                                        resultJsonMap.getOrNone(pathWithSpecNeeded)
-                                    }
-                                    .build(),
-                                RequestParameterEdge::id
-                            )
-                    )
-                }
-            }
-            else -> {
-                val ancestorRetrievalFunctionSpecEdge =
-                    findAncestorRetrievalFunctionSpecRequestParameterEdge(context).orElseThrow()
-                // source_root_vertex is not of type
-                // source_attribute_vertex
-                // so only these two are available in the standard setup
-                val sourceJunctionOrLeafVertex =
-                    when (sourceAttributeVertex) {
-                        is SourceJunctionVertex -> sourceAttributeVertex.left()
-                        is SourceLeafVertex -> sourceAttributeVertex.right()
-                        else -> null
-                    }!!
-                context.update {
-                    graph(
-                        context.graph
-                            .putVertex(sourceAttributeVertex, SchematicVertex::path)
-                            .putEdge(
-                                ancestorRetrievalFunctionSpecEdge.updateSpec {
-                                    sourceJunctionOrLeafVertex.fold(
-                                        { sjv -> addSourceVertex(sjv) },
-                                        { slv -> addSourceVertex(slv) }
+                                    .putEdge(
+                                        ancestorRetrievalFunctionSpecEdgeForParameterAttributeVertex
+                                            .updateSpec {
+                                                parameterJunctionOrLeafVertex.fold(
+                                                    { pjv -> addParameterVertex(pjv) },
+                                                    { plv -> addParameterVertex(plv) }
+                                                )
+                                            },
+                                        RequestParameterEdge::id
                                     )
-                                },
-                                RequestParameterEdge::id
                             )
-                            .putEdge(
-                                requestParameterEdgeFactory
-                                    .builder()
-                                    .fromPathToPath(
-                                        ancestorRetrievalFunctionSpecEdge.id.second,
-                                        context.path
-                                    )
-                                    .extractionFromAncestorFunction { valuesMap ->
-                                        valuesMap.getOrNone(sourceAttributeVertex.path)
-                                    }
-                                    .build(),
-                                RequestParameterEdge::id
-                            )
-                    )
-                }
-            }
-        }
-    }
-
-    private fun oneOrMoreVerticesMissingFromMetamodelExceptionSupplier(
-        vararg vertexPath: SchematicPath
-    ): () -> MaterializerException {
-        return { ->
-            val vertexPathsAsString =
-                vertexPath
-                    .asSequence()
-                    .joinToString(separator = ", ", prefix = "{ ", postfix = " }")
-            MaterializerException(
-                MaterializerErrorResponse.UNEXPECTED_ERROR,
-                """one or more vertices expected in the 
-                  |metamodel.path_based_graph is/are missing: 
-                  |[ vertex_paths: ${vertexPathsAsString} ]
-                  """.flatten()
-            )
-        }
-    }
-
-    private fun <
-        V : SchematicVertex> assessOrFindPathAndDataSourceKeyForWhichToCreateRetrievalFunctionSpec(
-        sourceAttributeVertex: SourceAttributeVertex,
-        context: MaterializationGraphVertexContext<V>,
-    ): Pair<SchematicPath, DataSource.Key<*>> {
-        return sourceAttributeVertex.path
-            .some()
-            .zip(
-                sourceAttributeVertex.compositeAttribute
-                    .getSourceAttributeByDataSource()
-                    .keys
-                    .firstOrNone()
-            )
-            .recurse { (p, dsKey) ->
-                when (val pp = p.getParentPath().orNull()) {
-                    /*
-                     * Use the current pair if no parent path: a domain path (level == 1)
-                     */
-                    null -> (p to dsKey).right().some()
-                    else -> {
-                        /*
-                         * Find the datasource.keys on the parent and find its parent if the dsKey is the same
-                         * else use the current path-to-dskey pair since the parent is on a different datasource
-                         * and would thus require its own retreival function spec
-                         */
-                        context.metamodelGraph.pathBasedGraph
-                            .getVertex(pp)
-                            .filterIsInstance<SourceContainerTypeVertex>()
-                            .flatMap { sct: SourceContainerTypeVertex ->
-                                sct.compositeContainerType
-                                    .getSourceContainerTypeByDataSource()
-                                    .keys
-                                    .firstOrNone()
-                                    .flatMap { sctDsKey ->
-                                        when (dsKey) {
-                                            sctDsKey -> (pp to sctDsKey).some()
-                                            else -> none()
-                                        }
-                                    }
-                            }
-                            .fold(
-                                { (p to dsKey).right().some() },
-                                { parentWithSameDsKey -> parentWithSameDsKey.left().some() }
-                            )
+                        }
                     }
-                }
             }
-            .successIfDefined()
-            .orElseThrow()
+        }
     }
 
     private fun <
@@ -934,7 +808,11 @@ internal class DefaultMaterializationGraphVertexConnector(
         return when {
             // case 1: caller has provided an input value for this argument so it need not be
             // retrieved through any other means
-            !context.argument.map(Argument::getValue).filterIsInstance<NullValue>().isDefined() -> {
+            context.argument.isDefined() &&
+                !context.argument
+                    .map(Argument::getValue)
+                    .filterIsInstance<NullValue>()
+                    .isDefined() -> {
                 // add materialized value as an edge from this parameter to its source_vertex and
                 // add this parameter_path to the ancestor function spec so that it can be used in
                 // the request made to the source
@@ -992,7 +870,7 @@ internal class DefaultMaterializationGraphVertexConnector(
                     else -> {
                         throw MaterializerException(
                             MaterializerErrorResponse.UNEXPECTED_ERROR,
-                            """parameter_junction_vertex could not be mapped to 
+                            """parameter_leaf_vertex could not be mapped to 
                                 |source_attribute_vertex such that its materialized 
                                 |value could be obtained: 
                                 |[ vertex_path: ${context.path} 
