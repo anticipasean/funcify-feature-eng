@@ -13,6 +13,28 @@ import funcify.feature.materializer.service.MaterializationGraphVertexContext.So
  */
 interface MaterializationGraphVertexConnector {
 
+    fun onSchematicVertex(
+        context: MaterializationGraphVertexContext<*>
+    ): MaterializationGraphVertexContext<*> {
+        return when (context) {
+            is SourceRootMaterializationGraphVertexContext -> {
+                onSourceRootVertex(context)
+            }
+            is SourceJunctionMaterializationGraphVertexContext -> {
+                onSourceJunctionVertex(context)
+            }
+            is SourceLeafMaterializationGraphVertexContext -> {
+                onSourceLeafVertex(context)
+            }
+            is ParameterJunctionMaterializationGraphVertexContext -> {
+                onParameterJunctionVertex(context)
+            }
+            is ParameterLeafMaterializationGraphVertexContext -> {
+                onParameterLeafVertex(context)
+            }
+        }
+    }
+
     fun onSourceRootVertex(
         context: SourceRootMaterializationGraphVertexContext
     ): MaterializationGraphVertexContext<*>
@@ -32,5 +54,4 @@ interface MaterializationGraphVertexConnector {
     fun onParameterLeafVertex(
         context: ParameterLeafMaterializationGraphVertexContext
     ): MaterializationGraphVertexContext<*>
-
 }

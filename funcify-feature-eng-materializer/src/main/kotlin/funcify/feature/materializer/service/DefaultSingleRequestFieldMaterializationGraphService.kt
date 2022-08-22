@@ -31,6 +31,7 @@ import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.extensions.TryExtensions.successIfDefined
 import graphql.language.Argument
 import graphql.language.Field
+import graphql.language.OperationDefinition
 import graphql.language.Selection
 import graphql.language.SelectionSet
 import kotlin.streams.asSequence
@@ -98,12 +99,16 @@ internal class DefaultSingleRequestFieldMaterializationGraphService(
             .filterIsInstance<SourceRootVertex>()
             .successIfDefined(sourceVertexNotFoundExceptionSupplier(SchematicPath.getRootPath()))
             .map { sourceRootVertex: SourceRootVertex ->
-                sequenceOf(
-                        FieldOrArgumentGraphContext(
-                            SchematicPath.getRootPath(),
-                            session.field.left()
-                        )
-                    )
+                session.dataFetchingEnvironment.operationDefinition
+                    .toOption()
+                    .mapNotNull { opDef: OperationDefinition -> opDef.selectionSet }
+                    .mapNotNull { ss: SelectionSet -> ss.selections }
+                    .map { sList: List<Selection<*>> -> sList.asSequence() }
+                    .fold(::emptySequence, ::identity)
+                    .filterIsInstance<Field>()
+                    .map { f: Field ->
+                        FieldOrArgumentGraphContext(SchematicPath.getRootPath(), f.left())
+                    }
                     .recurse { fieldOrArgCtx ->
                         when (fieldOrArgCtx.fieldOrArgument) {
                             is Either.Left -> {
@@ -152,29 +157,7 @@ internal class DefaultSingleRequestFieldMaterializationGraphService(
                                 }
                             }
                         }.let { context ->
-                            when (context) {
-                                is MaterializationGraphVertexContext.SourceJunctionMaterializationGraphVertexContext -> {
-                                    materializationGraphVertexConnector.onSourceJunctionVertex(
-                                        context
-                                    )
-                                }
-                                is MaterializationGraphVertexContext.SourceLeafMaterializationGraphVertexContext -> {
-                                    materializationGraphVertexConnector.onSourceLeafVertex(context)
-                                }
-                                is MaterializationGraphVertexContext.ParameterJunctionMaterializationGraphVertexContext -> {
-                                    materializationGraphVertexConnector.onParameterJunctionVertex(
-                                        context
-                                    )
-                                }
-                                is MaterializationGraphVertexContext.ParameterLeafMaterializationGraphVertexContext -> {
-                                    materializationGraphVertexConnector.onParameterLeafVertex(
-                                        context
-                                    )
-                                }
-                                is MaterializationGraphVertexContext.SourceRootMaterializationGraphVertexContext -> {
-                                    materializationGraphVertexConnector.onSourceRootVertex(context)
-                                }
-                            }
+                            materializationGraphVertexConnector.onSchematicVertex(context)
                         }
                     }
             }
@@ -314,6 +297,8 @@ internal class DefaultSingleRequestFieldMaterializationGraphService(
                     parameterJunctionOrLeafVertexUnresolvedExceptionSupplier(vertexPath)
                 )
                 .orElseThrow()
+        // TODO: Add support for argument.value.object_fields if argument.value is of type
+        // ObjectValue
         return sequenceOf(
             ResolvedParameterVertexContext(vertexPath, parameterJunctionOrLeafVertex, argument)
                 .right()

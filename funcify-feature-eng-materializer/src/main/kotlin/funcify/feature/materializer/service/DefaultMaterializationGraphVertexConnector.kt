@@ -63,12 +63,6 @@ internal class DefaultMaterializationGraphVertexConnector(
         logger.debug(
             "on_source_junction_vertex: [ context.vertex_path: ${context.currentVertex.path} ]"
         )
-        logger.debug(
-            "path {}.is_child_to: {}: {}",
-            context.path,
-            SchematicPath.getRootPath(),
-            context.path.isChildTo(SchematicPath.getRootPath())
-        )
         return when {
             // TODO: can combine cases where top-level node and no ancestor_retrieval_function_spec:
             // both requiring assessment of data_source.key and creation of the
@@ -346,7 +340,7 @@ internal class DefaultMaterializationGraphVertexConnector(
                                                 context.path
                                             )
                                             .extractionFromAncestorFunction { parentResultMap ->
-                                                parentResultMap[context.path].toOption()
+                                                parentResultMap.getOrNone(context.path)
                                             }
                                             .build(),
                                         RequestParameterEdge::id
@@ -438,9 +432,11 @@ internal class DefaultMaterializationGraphVertexConnector(
             else -> {
                 val sourceAttributeVertexWithSameNameOrAlias =
                     findSourceAttributeVertexWithSameNameInSameDomain(context)
-                        .or(findSourceAttributeVertexByAliasReferenceInSameDomain(context))
-                        .or(findSourceAttributeVertexWithSameNameInDifferentDomain(context))
-                        .or(findSourceAttributeVertexByAliasReferenceInDifferentDomain(context))
+                        .orElse { findSourceAttributeVertexByAliasReferenceInSameDomain(context) }
+                        .orElse { findSourceAttributeVertexWithSameNameInDifferentDomain(context) }
+                        .orElse {
+                            findSourceAttributeVertexByAliasReferenceInDifferentDomain(context)
+                        }
                 when {
                     sourceAttributeVertexWithSameNameOrAlias.isDefined() -> {
                         getParameterAttributeVertexValueThroughSourceAttributeVertex(
@@ -939,9 +935,11 @@ internal class DefaultMaterializationGraphVertexConnector(
             else -> {
                 val sourceAttributeVertexWithSameNameOrAlias =
                     findSourceAttributeVertexWithSameNameInSameDomain(context)
-                        .or(findSourceAttributeVertexByAliasReferenceInSameDomain(context))
-                        .or(findSourceAttributeVertexWithSameNameInDifferentDomain(context))
-                        .or(findSourceAttributeVertexByAliasReferenceInDifferentDomain(context))
+                        .orElse { findSourceAttributeVertexByAliasReferenceInSameDomain(context) }
+                        .orElse { findSourceAttributeVertexWithSameNameInDifferentDomain(context) }
+                        .orElse {
+                            findSourceAttributeVertexByAliasReferenceInDifferentDomain(context)
+                        }
                 when {
                     sourceAttributeVertexWithSameNameOrAlias.isDefined() -> {
                         getParameterAttributeVertexValueThroughSourceAttributeVertex(
