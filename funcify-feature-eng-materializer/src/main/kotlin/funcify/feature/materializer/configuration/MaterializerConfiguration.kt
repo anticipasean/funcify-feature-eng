@@ -204,13 +204,17 @@ class MaterializerConfiguration {
     @ConditionalOnMissingBean(value = [SingleRequestFieldMaterializationGraphService::class])
     @Bean
     fun singleRequestFieldMaterializationGraphService(
+        jsonMapper: JsonMapper,
         schematicPathBasedJsonRetrievalFunctionFactory:
             SchematicPathBasedJsonRetrievalFunctionFactory
     ): SingleRequestFieldMaterializationGraphService {
         return DefaultSingleRequestFieldMaterializationGraphService(
             schematicPathBasedJsonRetrievalFunctionFactory,
             DefaultMaterializationGraphVertexContextFactory(),
-            DefaultMaterializationGraphVertexConnector(DefaultRequestParameterEdgeFactory())
+            DefaultMaterializationGraphVertexConnector(
+                jsonMapper,
+                DefaultRequestParameterEdgeFactory()
+            )
         )
     }
 

@@ -1,6 +1,8 @@
 package funcify.feature.materializer.service
 
 import arrow.core.*
+import com.fasterxml.jackson.databind.JsonNode
+import funcify.feature.json.JsonMapper
 import funcify.feature.materializer.error.MaterializerErrorResponse
 import funcify.feature.materializer.error.MaterializerException
 import funcify.feature.materializer.json.GraphQLValueToJsonNodeConverter
@@ -31,6 +33,8 @@ import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.extensions.TryExtensions.successIfDefined
 import graphql.language.Argument
 import graphql.language.NullValue
+import graphql.schema.FieldCoordinates
+import graphql.schema.GraphQLArgument
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.toPersistentSet
 import org.slf4j.Logger
@@ -41,6 +45,7 @@ import org.slf4j.Logger
  * @created 2022-08-17
  */
 internal class DefaultMaterializationGraphVertexConnector(
+    private val jsonMapper: JsonMapper,
     private val requestParameterEdgeFactory: RequestParameterEdgeFactory,
 ) : MaterializationGraphVertexConnector {
 
@@ -523,7 +528,6 @@ internal class DefaultMaterializationGraphVertexConnector(
                     )
                 }
             }
-
             // case 2: caller has not provided an input value for this argument so it needs to be
             // retrieved through some other source--if possible
             else -> {
@@ -535,11 +539,56 @@ internal class DefaultMaterializationGraphVertexConnector(
                             findSourceAttributeVertexByAliasReferenceInDifferentDomain(context)
                         }
                 when {
+                    // case 2.1: source is another source_attribute_vertex by same name or alias
                     sourceAttributeVertexWithSameNameOrAlias.isDefined() -> {
                         getParameterAttributeVertexValueThroughSourceAttributeVertex(
                             sourceAttributeVertexWithSameNameOrAlias.orNull()!!,
                             context
                         )
+                    }
+                    // case 2.2: source is a default argument value from the schema
+                    correspondingFieldDefinitionHasNonNullDefaultArgumentValuePresent(context) -> {
+                        val materializedDefaultJsonValue: JsonNode =
+                            getCorrespondingFieldDefinitionNonNullDefaultArgumentValue(context)
+                                .successIfDefined(
+                                    argumentValueNotResolvedIntoJsonExceptionSupplier(
+                                        context.path,
+                                        context.argument.orNull()!!
+                                    )
+                                )
+                                .orElseThrow()
+                        // add materialized value as an edge from this parameter to its
+                        // source_vertex and
+                        // add this parameter_path to the ancestor function spec so that it can be
+                        // used in
+                        // the request made to the source
+                        val ancestorRetrievalFunctionSpecEdge:
+                            RetrievalFunctionSpecRequestParameterEdge =
+                            findAncestorRetrievalFunctionSpecRequestParameterEdge(context)
+                                .orElseThrow()
+                        context.update {
+                            graph(
+                                context.graph
+                                    .putVertex(context.path, context.currentVertex)
+                                    .putEdge(
+                                        ancestorRetrievalFunctionSpecEdge.updateSpec {
+                                            addParameterVertex(context.currentVertex)
+                                        },
+                                        RequestParameterEdge::id
+                                    )
+                                    .putEdge(
+                                        requestParameterEdgeFactory
+                                            .builder()
+                                            .fromPathToPath(
+                                                context.parentPath.orNull()!!,
+                                                context.path
+                                            )
+                                            .materializedValue(materializedDefaultJsonValue)
+                                            .build(),
+                                        RequestParameterEdge::id
+                                    )
+                            )
+                        }
                     }
                     else -> {
                         throw MaterializerException(
@@ -553,6 +602,83 @@ internal class DefaultMaterializationGraphVertexConnector(
                     }
                 }
             }
+        }
+    }
+
+    private fun <
+        V : ParameterAttributeVertex
+    > correspondingFieldDefinitionHasNonNullDefaultArgumentValuePresent(
+        context: MaterializationGraphVertexContext<V>
+    ): Boolean {
+        return getCorrespondingFieldDefinitionArgumentInSchema(context)
+            .filter { graphQLArgument: GraphQLArgument ->
+                graphQLArgument.hasSetDefaultValue() &&
+                    graphQLArgument.argumentDefaultValue.value != null
+            }
+            .isDefined()
+    }
+
+    private fun <V : ParameterAttributeVertex> getCorrespondingFieldDefinitionArgumentInSchema(
+        context: MaterializationGraphVertexContext<V>
+    ): Option<GraphQLArgument> {
+        return context.path
+            .toOption()
+            .map { p -> SchematicPath.of { pathSegments(p.pathSegments) } }
+            .flatMap { sourceVertexPath ->
+                sourceVertexPath
+                    .getParentPath()
+                    .flatMap { parentSourceVertexPath ->
+                        context.metamodelGraph.pathBasedGraph
+                            .getVertex(parentSourceVertexPath)
+                            .filterIsInstance<SourceContainerTypeVertex>()
+                    }
+                    .zip(
+                        context.metamodelGraph.pathBasedGraph
+                            .getVertex(sourceVertexPath)
+                            .filterIsInstance<SourceAttributeVertex>()
+                    )
+            }
+            .mapNotNull { (sct, sa) ->
+                FieldCoordinates.coordinates(
+                    sct.compositeContainerType.conventionalName.qualifiedForm,
+                    sa.compositeAttribute.conventionalName.qualifiedForm
+                )
+            }
+            .mapNotNull { fieldCoords ->
+                logger.debug("field_coordinates: [ {} ]", fieldCoords)
+                context.graphQLSchema.getFieldDefinition(fieldCoords)
+            }
+            .flatMap { fieldDef ->
+                logger.debug(
+                    "field_definition.arguments: [ {} ]",
+                    fieldDef.arguments
+                        .asSequence()
+                        .joinToString(
+                            ", ",
+                            "{ ",
+                            " }",
+                            transform = { a -> "${a.name}: ${a.argumentDefaultValue}" }
+                        )
+                )
+                fieldDef
+                    .getArgument(
+                        context.currentVertex.compositeParameterAttribute.conventionalName
+                            .qualifiedForm
+                    )
+                    .toOption()
+            }
+    }
+
+    private fun <
+        V : ParameterAttributeVertex> getCorrespondingFieldDefinitionNonNullDefaultArgumentValue(
+        context: MaterializationGraphVertexContext<V>
+    ): Option<JsonNode> {
+        return getCorrespondingFieldDefinitionArgumentInSchema(context).flatMap {
+            graphQLArgument: GraphQLArgument ->
+            jsonMapper
+                .fromKotlinObject(graphQLArgument.argumentDefaultValue.value)
+                .toJsonNode()
+                .getSuccess()
         }
     }
 
@@ -905,11 +1031,56 @@ internal class DefaultMaterializationGraphVertexConnector(
                             findSourceAttributeVertexByAliasReferenceInDifferentDomain(context)
                         }
                 when {
+                    // case 2.1: source is another source_attribute_vertex by same name or alias
                     sourceAttributeVertexWithSameNameOrAlias.isDefined() -> {
                         getParameterAttributeVertexValueThroughSourceAttributeVertex(
                             sourceAttributeVertexWithSameNameOrAlias.orNull()!!,
                             context
                         )
+                    }
+                    // case 2.2: source is a default argument value from the schema
+                    correspondingFieldDefinitionHasNonNullDefaultArgumentValuePresent(context) -> {
+                        val materializedDefaultJsonValue: JsonNode =
+                            getCorrespondingFieldDefinitionNonNullDefaultArgumentValue(context)
+                                .successIfDefined(
+                                    argumentValueNotResolvedIntoJsonExceptionSupplier(
+                                        context.path,
+                                        context.argument.orNull()!!
+                                    )
+                                )
+                                .orElseThrow()
+                        // add materialized value as an edge from this parameter to its
+                        // source_vertex and
+                        // add this parameter_path to the ancestor function spec so that it can be
+                        // used in
+                        // the request made to the source
+                        val ancestorRetrievalFunctionSpecEdge:
+                            RetrievalFunctionSpecRequestParameterEdge =
+                            findAncestorRetrievalFunctionSpecRequestParameterEdge(context)
+                                .orElseThrow()
+                        context.update {
+                            graph(
+                                context.graph
+                                    .putVertex(context.path, context.currentVertex)
+                                    .putEdge(
+                                        ancestorRetrievalFunctionSpecEdge.updateSpec {
+                                            addParameterVertex(context.currentVertex)
+                                        },
+                                        RequestParameterEdge::id
+                                    )
+                                    .putEdge(
+                                        requestParameterEdgeFactory
+                                            .builder()
+                                            .fromPathToPath(
+                                                context.parentPath.orNull()!!,
+                                                context.path
+                                            )
+                                            .materializedValue(materializedDefaultJsonValue)
+                                            .build(),
+                                        RequestParameterEdge::id
+                                    )
+                            )
+                        }
                     }
                     else -> {
                         throw MaterializerException(

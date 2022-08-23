@@ -55,7 +55,7 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
             ): DefaultGraphQLSourceContainerType {
                 return DefaultGraphQLSourceContainerType(
                     dataSourceLookupKey = key,
-                    name = StandardNamingConventions.SNAKE_CASE.deriveName("query"),
+                    name = StandardNamingConventions.PASCAL_CASE.deriveName("query"),
                     sourcePath = SchematicPath.getRootPath(),
                     dataType = queryObjectType,
                     sourceAttributes = persistentSetOf()
@@ -91,7 +91,8 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
                 attributeDefinition: GraphQLFieldDefinition
             ): Try<GraphQLSourceContainerType> {
                 return when (
-                    GraphQLOutputFieldsContainerTypeExtractor.invoke(attributeDefinition.type)
+                    val outputFieldContainerTypeOpt =
+                        GraphQLOutputFieldsContainerTypeExtractor.invoke(attributeDefinition.type)
                 ) {
                     is Some -> {
                         DefaultGraphQLSourceContainerType(
@@ -99,8 +100,8 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
                                 sourcePath = attributePath,
                                 name =
                                     GraphQLSourceNamingConventions
-                                        .getFieldNamingConventionForGraphQLFieldDefinitions()
-                                        .deriveName(attributeDefinition),
+                                        .getOutputTypeNamingConventionForGraphQLFieldsContainers()
+                                        .deriveName(outputFieldContainerTypeOpt.orNull()!!),
                                 dataType = attributeDefinition.type
                             )
                             .successIfNonNull()
@@ -748,9 +749,9 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
                 return DefaultGraphQLParameterFieldArgumentContainerType(
                         sourcePath = parameterContainerPath,
                         name =
-                            StandardNamingConventions.PASCAL_CASE.deriveName(
-                                fieldArgumentInputFieldsContainerType.name
-                            ),
+                            GraphQLSourceNamingConventions
+                                .getInputTypeNamingConventionForGraphQLInputFieldsContainers()
+                                .deriveName(fieldArgumentInputFieldsContainerType),
                         dataSourceLookupKey = key,
                         fieldArgument = fieldArgument.some()
                     )
@@ -840,9 +841,9 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
                         dataSourceLookupKey = key,
                         sourcePath = directiveArgumentPath,
                         name =
-                            StandardNamingConventions.PASCAL_CASE.deriveName(
-                                directiveArgumentInputObjectType.name
-                            ),
+                            GraphQLSourceNamingConventions
+                                .getInputTypeNamingConventionForGraphQLInputFieldsContainers()
+                                .deriveName(directiveArgumentInputObjectType),
                         directiveArgument = directiveArgument.some()
                     )
                     .successIfNonNull()
@@ -1375,9 +1376,9 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
                                 dataSourceLookupKey = parameterAttribute.dataSourceLookupKey,
                                 sourcePath = parameterAttribute.sourcePath,
                                 name =
-                                    StandardNamingConventions.PASCAL_CASE.deriveName(
-                                        inputObjectFieldsContainerType.name
-                                    ),
+                                    GraphQLSourceNamingConventions
+                                        .getInputTypeNamingConventionForGraphQLInputFieldsContainers()
+                                        .deriveName(inputObjectFieldsContainerType),
                                 directiveArgument = parameterAttribute.directiveArgument
                             )
                             .successIfNonNull()
@@ -1387,9 +1388,9 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
                                 dataSourceLookupKey = parameterAttribute.dataSourceLookupKey,
                                 sourcePath = parameterAttribute.sourcePath,
                                 name =
-                                    StandardNamingConventions.PASCAL_CASE.deriveName(
-                                        inputObjectFieldsContainerType.name
-                                    ),
+                                    GraphQLSourceNamingConventions
+                                        .getInputTypeNamingConventionForGraphQLInputFieldsContainers()
+                                        .deriveName(inputObjectFieldsContainerType),
                                 fieldArgument = parameterAttribute.fieldArgument
                             )
                             .successIfNonNull()
@@ -1399,9 +1400,9 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
                                 dataSourceLookupKey = parameterAttribute.dataSourceLookupKey,
                                 sourcePath = parameterAttribute.sourcePath,
                                 name =
-                                    StandardNamingConventions.PASCAL_CASE.deriveName(
-                                        inputObjectFieldsContainerType.name
-                                    ),
+                                    GraphQLSourceNamingConventions
+                                        .getInputTypeNamingConventionForGraphQLInputFieldsContainers()
+                                        .deriveName(inputObjectFieldsContainerType),
                                 dataType = inputObjectFieldsContainerType as GraphQLInputObjectType
                             )
                             .successIfNonNull()
