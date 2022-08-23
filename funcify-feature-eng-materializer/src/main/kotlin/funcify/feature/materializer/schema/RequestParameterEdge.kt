@@ -22,8 +22,6 @@ import kotlinx.collections.immutable.PersistentMap
  */
 interface RequestParameterEdge : SchematicEdge {
 
-    fun updateEdge(transformer: Builder.() -> Builder): RequestParameterEdge
-
     interface MaterializedValueRequestParameterEdge : RequestParameterEdge {
         val materializedJsonValue: JsonNode
     }
@@ -53,10 +51,6 @@ interface RequestParameterEdge : SchematicEdge {
         val extractionFunction: (ImmutableMap<SchematicPath, JsonNode>) -> Option<JsonNode>
     }
 
-    interface RetrievalFunctionValueRequestParameterEdge : RequestParameterEdge {
-        val retrievalFunction: SchematicPathBasedJsonRetrievalFunction
-    }
-
     interface Builder {
 
         fun fromPathToPath(path1: SchematicPath, path2: SchematicPath): Builder
@@ -67,8 +61,6 @@ interface RequestParameterEdge : SchematicEdge {
             dataSource: DataSource<*>,
             specCreator: SpecBuilder.() -> SpecBuilder
         ): Builder
-
-        fun retrievalFunction(retrievalFunction: SchematicPathBasedJsonRetrievalFunction): Builder
 
         fun extractionFromAncestorFunction(
             extractor: (ImmutableMap<SchematicPath, JsonNode>) -> Option<JsonNode>

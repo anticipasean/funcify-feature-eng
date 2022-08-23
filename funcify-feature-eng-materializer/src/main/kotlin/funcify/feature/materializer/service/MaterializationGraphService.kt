@@ -10,6 +10,6 @@ import funcify.feature.tools.container.deferred.Deferred
  */
 interface MaterializationGraphService<M : MaterializationSession> {
 
-    fun createMaterializationGraphForSession(session: M): Deferred<M>
+    fun createRequestMaterializationGraphForSession(session: M): Deferred<M>
 
 }

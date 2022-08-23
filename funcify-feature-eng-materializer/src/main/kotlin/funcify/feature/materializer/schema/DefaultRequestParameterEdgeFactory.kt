@@ -5,13 +5,11 @@ import arrow.core.Option
 import arrow.core.left
 import arrow.core.right
 import com.fasterxml.jackson.databind.JsonNode
-import funcify.feature.datasource.retrieval.SchematicPathBasedJsonRetrievalFunction
 import funcify.feature.materializer.schema.RequestParameterEdge.Builder
 import funcify.feature.materializer.schema.RequestParameterEdge.DependentValueRequestParameterEdge
 import funcify.feature.materializer.schema.RequestParameterEdge.MaterializedValueRequestParameterEdge
 import funcify.feature.materializer.schema.RequestParameterEdge.RetrievalFunctionSpecRequestParameterEdge
 import funcify.feature.materializer.schema.RequestParameterEdge.RetrievalFunctionSpecRequestParameterEdge.SpecBuilder
-import funcify.feature.materializer.schema.RequestParameterEdge.RetrievalFunctionValueRequestParameterEdge
 import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.schema.vertex.ParameterJunctionVertex
@@ -34,12 +32,7 @@ internal class DefaultRequestParameterEdgeFactory : RequestParameterEdgeFactory 
         internal data class DefaultMaterializedValueRequestParameterEdge(
             override val id: Pair<SchematicPath, SchematicPath>,
             override val materializedJsonValue: JsonNode
-        ) : MaterializedValueRequestParameterEdge {
-
-            override fun updateEdge(transformer: Builder.() -> Builder): RequestParameterEdge {
-                TODO("Not yet implemented")
-            }
-        }
+        ) : MaterializedValueRequestParameterEdge {}
 
         internal data class DefaultRetrievalFunctionSpecRequestParameterEdge(
             override val id: Pair<SchematicPath, SchematicPath>,
@@ -63,6 +56,7 @@ internal class DefaultRequestParameterEdgeFactory : RequestParameterEdgeFactory 
                         PersistentMap.Builder<
                             SchematicPath, Either<ParameterJunctionVertex, ParameterLeafVertex>>
                 ) : SpecBuilder {
+
                     override fun dataSource(dataSource: DataSource<*>): SpecBuilder {
                         this.dataSource = dataSource
                         return this
@@ -71,7 +65,7 @@ internal class DefaultRequestParameterEdgeFactory : RequestParameterEdgeFactory 
                     override fun addSourceVertex(
                         sourceJunctionVertex: SourceJunctionVertex
                     ): SpecBuilder {
-                        sourceVerticesByPathBuilder.put(
+                        this.sourceVerticesByPathBuilder.put(
                             sourceJunctionVertex.path,
                             sourceJunctionVertex.left()
                         )
@@ -79,7 +73,7 @@ internal class DefaultRequestParameterEdgeFactory : RequestParameterEdgeFactory 
                     }
 
                     override fun addSourceVertex(sourceLeafVertex: SourceLeafVertex): SpecBuilder {
-                        sourceVerticesByPathBuilder.put(
+                        this.sourceVerticesByPathBuilder.put(
                             sourceLeafVertex.path,
                             sourceLeafVertex.right()
                         )
@@ -89,7 +83,7 @@ internal class DefaultRequestParameterEdgeFactory : RequestParameterEdgeFactory 
                     override fun addParameterVertex(
                         parameterJunctionVertex: ParameterJunctionVertex
                     ): SpecBuilder {
-                        parameterVerticesByPathBuilder.put(
+                        this.parameterVerticesByPathBuilder.put(
                             parameterJunctionVertex.path,
                             parameterJunctionVertex.left()
                         )
@@ -133,39 +127,19 @@ internal class DefaultRequestParameterEdgeFactory : RequestParameterEdgeFactory 
                     )
                     .build()
             }
-
-            override fun updateEdge(transformer: Builder.() -> Builder): RequestParameterEdge {
-                TODO("Not yet implemented")
-            }
         }
 
         internal data class DefaultDependentValueRequestParameterEdge(
             override val id: Pair<SchematicPath, SchematicPath>,
             override val extractionFunction:
                 (ImmutableMap<SchematicPath, JsonNode>) -> Option<JsonNode>
-        ) : DependentValueRequestParameterEdge {
-
-            override fun updateEdge(transformer: Builder.() -> Builder): RequestParameterEdge {
-                TODO("Not yet implemented")
-            }
-        }
-
-        internal data class DefaultRetrievalFunctionValueRequestParameterEdge(
-            override val id: Pair<SchematicPath, SchematicPath>,
-            override val retrievalFunction: SchematicPathBasedJsonRetrievalFunction,
-        ) : RetrievalFunctionValueRequestParameterEdge {
-
-            override fun updateEdge(transformer: Builder.() -> Builder): RequestParameterEdge {
-                TODO("Not yet implemented")
-            }
-        }
+        ) : DependentValueRequestParameterEdge {}
 
         internal data class DefaultBuilder(
             var pathPair: Pair<SchematicPath, SchematicPath>? = null,
             var materializedJsonNode: JsonNode? = null,
             var dataSource: DataSource<*>? = null,
             var specBuilderFunction: (SpecBuilder.() -> SpecBuilder)? = null,
-            var retrievalFunction: SchematicPathBasedJsonRetrievalFunction? = null,
             var extractor: ((ImmutableMap<SchematicPath, JsonNode>) -> Option<JsonNode>)? = null
         ) : Builder {
 
@@ -185,13 +159,6 @@ internal class DefaultRequestParameterEdgeFactory : RequestParameterEdgeFactory 
             ): Builder {
                 this.dataSource = dataSource
                 this.specBuilderFunction = specCreator
-                return this
-            }
-
-            override fun retrievalFunction(
-                retrievalFunction: SchematicPathBasedJsonRetrievalFunction
-            ): Builder {
-                this.retrievalFunction = retrievalFunction
                 return this
             }
 
@@ -218,12 +185,6 @@ internal class DefaultRequestParameterEdgeFactory : RequestParameterEdgeFactory 
                     dataSource != null && specBuilderFunction != null -> {
                         DefaultRetrievalFunctionSpecRequestParameterEdge(pathPair!!, dataSource!!)
                             .updateSpec(specBuilderFunction!!)
-                    }
-                    retrievalFunction != null -> {
-                        DefaultRetrievalFunctionValueRequestParameterEdge(
-                            pathPair!!,
-                            retrievalFunction!!
-                        )
                     }
                     extractor != null -> {
                         DefaultDependentValueRequestParameterEdge(pathPair!!, extractor!!)

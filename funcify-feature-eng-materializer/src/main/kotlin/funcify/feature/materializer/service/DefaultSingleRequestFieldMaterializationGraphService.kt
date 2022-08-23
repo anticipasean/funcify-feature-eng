@@ -8,7 +8,6 @@ import arrow.core.none
 import arrow.core.right
 import arrow.core.some
 import arrow.core.toOption
-import funcify.feature.datasource.retrieval.SchematicPathBasedJsonRetrievalFunctionFactory
 import funcify.feature.materializer.error.MaterializerErrorResponse
 import funcify.feature.materializer.error.MaterializerException
 import funcify.feature.materializer.fetcher.SingleRequestFieldMaterializationSession
@@ -45,8 +44,6 @@ import org.slf4j.Logger
  * @created 2022-08-08
  */
 internal class DefaultSingleRequestFieldMaterializationGraphService(
-    private val schematicPathBasedJsonRetrievalFunctionFactory:
-        SchematicPathBasedJsonRetrievalFunctionFactory,
     private val materializationGraphVertexContextFactory: MaterializationGraphVertexContextFactory,
     private val materializationGraphVertexConnector: MaterializationGraphVertexConnector
 ) : SingleRequestFieldMaterializationGraphService {
@@ -75,7 +72,7 @@ internal class DefaultSingleRequestFieldMaterializationGraphService(
         ) : ResolvedVertexContext
     }
 
-    override fun createMaterializationGraphForSession(
+    override fun createRequestMaterializationGraphForSession(
         session: SingleRequestFieldMaterializationSession
     ): Deferred<SingleRequestFieldMaterializationSession> {
         logger.debug(
@@ -247,9 +244,6 @@ internal class DefaultSingleRequestFieldMaterializationGraphService(
                         ""
                     }
                     is RequestParameterEdge.MaterializedValueRequestParameterEdge -> {
-                        ""
-                    }
-                    is RequestParameterEdge.RetrievalFunctionValueRequestParameterEdge -> {
                         ""
                     }
                     else -> ""

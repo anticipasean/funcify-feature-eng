@@ -11,8 +11,7 @@ import funcify.feature.tools.container.deferred.Deferred
 interface SingleRequestFieldMaterializationGraphService :
     MaterializationGraphService<SingleRequestFieldMaterializationSession> {
 
-    override fun createMaterializationGraphForSession(
+    override fun createRequestMaterializationGraphForSession(
         session: SingleRequestFieldMaterializationSession
     ): Deferred<SingleRequestFieldMaterializationSession>
-
 }

@@ -6,7 +6,6 @@ import funcify.feature.datasource.graphql.GraphQLApiDataSource
 import funcify.feature.datasource.graphql.metadata.alias.GraphQLApiDataSourceAliasProvider
 import funcify.feature.datasource.graphql.metadata.temporal.GraphQLApiDataSourceLastUpdatedAttributeProvider
 import funcify.feature.datasource.rest.RestApiDataSource
-import funcify.feature.datasource.retrieval.SchematicPathBasedJsonRetrievalFunctionFactory
 import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionCreationContextFactory
 import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionImplementationStrategy
 import funcify.feature.error.FeatureEngCommonException
@@ -205,17 +204,16 @@ class MaterializerConfiguration {
     @ConditionalOnMissingBean(value = [SingleRequestFieldMaterializationGraphService::class])
     @Bean
     fun singleRequestFieldMaterializationGraphService(
-        jsonMapper: JsonMapper,
-        schematicPathBasedJsonRetrievalFunctionFactory:
-            SchematicPathBasedJsonRetrievalFunctionFactory
+        jsonMapper: JsonMapper
     ): SingleRequestFieldMaterializationGraphService {
         return DefaultSingleRequestFieldMaterializationGraphService(
-            schematicPathBasedJsonRetrievalFunctionFactory,
-            DefaultMaterializationGraphVertexContextFactory(),
-            DefaultMaterializationGraphVertexConnector(
-                jsonMapper,
-                DefaultRequestParameterEdgeFactory()
-            )
+            materializationGraphVertexContextFactory =
+                DefaultMaterializationGraphVertexContextFactory(),
+            materializationGraphVertexConnector =
+                DefaultMaterializationGraphVertexConnector(
+                    jsonMapper,
+                    DefaultRequestParameterEdgeFactory()
+                )
         )
     }
 
@@ -224,7 +222,7 @@ class MaterializerConfiguration {
     fun materializationPreparsedDocumentProvider(
         jsonMapper: JsonMapper
     ): MaterializationPreparsedDocumentProvider {
-        return DefaultMaterializationPreparsedDocumentProvider(jsonMapper)
+        return DefaultMaterializationPreparsedDocumentProvider(jsonMapper = jsonMapper)
     }
 
     @ConditionalOnMissingBean(value = [GraphQLSchema::class])
@@ -260,7 +258,10 @@ class MaterializerConfiguration {
     ): MaterializationMetamodelBroker {
         val broker: MaterializationMetamodelBroker = DefaultMaterializationMetamodelBroker()
         broker.pushNewMaterializationMetamodel(
-            DefaultMaterializationMetamodel(metamodelGraph, materializationGraphQLSchema)
+            DefaultMaterializationMetamodel(
+                metamodelGraph = metamodelGraph,
+                materializationGraphQLSchema = materializationGraphQLSchema
+            )
         )
         return broker
     }

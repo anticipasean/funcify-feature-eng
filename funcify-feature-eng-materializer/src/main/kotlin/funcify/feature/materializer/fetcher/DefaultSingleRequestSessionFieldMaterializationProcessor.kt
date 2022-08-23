@@ -44,7 +44,7 @@ internal class DefaultSingleRequestSessionFieldMaterializationProcessor(
             |]""".flatten()
         )
         return singleRequestFieldMaterializationGraphService
-            .createMaterializationGraphForSession(session)
+            .createRequestMaterializationGraphForSession(session)
             .map { s -> s to none<Any>() }
             .toKFuture()
             .map { l -> l.first() }
