@@ -106,9 +106,10 @@ internal class DefaultSingleRequestFieldMaterializationGraphService(
                     }
                 )
         )
+        // TODO: Add caching based on operation_definition input and parameterization of
+        // materialized_values
         return traverseFieldInSessionCreatingMaterializationGraph(session).toDeferred().map { ctx ->
-            logger.debug("topological_sort: {}", createTopologicalSortString(ctx))
-            session
+            session.update { requestMaterializationGraph(ctx.graph) }
         }
     }
 

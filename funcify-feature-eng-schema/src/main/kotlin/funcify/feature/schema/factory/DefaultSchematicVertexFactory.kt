@@ -1,7 +1,6 @@
 package funcify.feature.schema.factory
 
 import arrow.core.Option
-import arrow.core.getOrElse
 import arrow.core.none
 import arrow.core.some
 import funcify.feature.naming.ConventionalName
@@ -67,8 +66,7 @@ internal class DefaultSchematicVertexFactory : SchematicVertexFactory {
                 )
                 return DefaultSchematicVertexSpec<SI>(
                         schematicPath = schematicPath,
-                        conventionalName =
-                            suppliedConventionalName.getOrElse { sourceAttribute.name },
+                        suppliedConventionalName = suppliedConventionalName,
                         mappedSourceIndexAttempt =
                             @Suppress("UNCHECKED_CAST") //
                             (sourceAttribute as? SI).successIfNonNull()
@@ -86,8 +84,7 @@ internal class DefaultSchematicVertexFactory : SchematicVertexFactory {
                 )
                 return DefaultSchematicVertexSpec<SI>(
                         schematicPath = schematicPath,
-                        conventionalName =
-                            suppliedConventionalName.getOrElse { sourceContainerType.name },
+                        suppliedConventionalName = suppliedConventionalName,
                         mappedSourceIndexAttempt =
                             @Suppress("UNCHECKED_CAST") //
                             (sourceContainerType as? SI).successIfNonNull()
@@ -103,8 +100,7 @@ internal class DefaultSchematicVertexFactory : SchematicVertexFactory {
                 )
                 return DefaultSchematicVertexSpec<SI>(
                         schematicPath = schematicPath,
-                        conventionalName =
-                            suppliedConventionalName.getOrElse { parameterAttribute.name },
+                        suppliedConventionalName = suppliedConventionalName,
                         mappedSourceIndexAttempt =
                             @Suppress("UNCHECKED_CAST") //
                             (parameterAttribute as? SI).successIfNonNull()
@@ -121,8 +117,7 @@ internal class DefaultSchematicVertexFactory : SchematicVertexFactory {
                 )
                 return DefaultSchematicVertexSpec<SI>(
                         schematicPath = schematicPath,
-                        conventionalName =
-                            suppliedConventionalName.getOrElse { parameterContainerType.name },
+                        suppliedConventionalName = suppliedConventionalName,
                         mappedSourceIndexAttempt =
                             @Suppress("UNCHECKED_CAST") //
                             (parameterContainerType as? SI).successIfNonNull()
@@ -159,25 +154,6 @@ internal class DefaultSchematicVertexFactory : SchematicVertexFactory {
             val suppliedConventionalName: Option<ConventionalName>
         ) : SchematicVertexFactory.ExistingSchematicVertexSpec {
 
-            companion object {
-                private fun SchematicVertex.name(): ConventionalName {
-                    return when (this) {
-                        is SourceAttributeVertex -> this.compositeAttribute.conventionalName
-                        is ParameterAttributeVertex ->
-                            this.compositeParameterAttribute.conventionalName
-                        is SourceContainerTypeVertex -> this.compositeContainerType.conventionalName
-                        is ParameterContainerTypeVertex ->
-                            this.compositeParameterContainerType.conventionalName
-                        else -> {
-                            throw SchemaException(
-                                SchemaErrorResponse.UNEXPECTED_ERROR,
-                                "unsupported source index type: ${this::class.qualifiedName}"
-                            )
-                        }
-                    }
-                }
-            }
-
             override fun <SI : SourceIndex<SI>> forSourceAttribute(
                 sourceAttribute: SourceAttribute<SI>
             ): Try<SchematicVertex> {
@@ -188,8 +164,7 @@ internal class DefaultSchematicVertexFactory : SchematicVertexFactory {
                 )
                 return DefaultSchematicVertexSpec<SI>(
                         schematicPath = schematicPath,
-                        conventionalName =
-                            suppliedConventionalName.getOrElse { existingSchematicVertex.name() },
+                        suppliedConventionalName = suppliedConventionalName,
                         mappedSourceIndexAttempt =
                             @Suppress("UNCHECKED_CAST") //
                             (sourceAttribute as? SI).successIfNonNull(),
@@ -208,8 +183,7 @@ internal class DefaultSchematicVertexFactory : SchematicVertexFactory {
                 )
                 return DefaultSchematicVertexSpec<SI>(
                         schematicPath = schematicPath,
-                        conventionalName =
-                            suppliedConventionalName.getOrElse { existingSchematicVertex.name() },
+                        suppliedConventionalName = suppliedConventionalName,
                         mappedSourceIndexAttempt =
                             @Suppress("UNCHECKED_CAST") //
                             (sourceContainerType as? SI).successIfNonNull(),
@@ -226,8 +200,7 @@ internal class DefaultSchematicVertexFactory : SchematicVertexFactory {
                 )
                 return DefaultSchematicVertexSpec<SI>(
                         schematicPath = schematicPath,
-                        conventionalName =
-                            suppliedConventionalName.getOrElse { existingSchematicVertex.name() },
+                        suppliedConventionalName = suppliedConventionalName,
                         mappedSourceIndexAttempt =
                             @Suppress("UNCHECKED_CAST") //
                             (parameterAttribute as? SI).successIfNonNull(),
@@ -245,8 +218,7 @@ internal class DefaultSchematicVertexFactory : SchematicVertexFactory {
                 )
                 return DefaultSchematicVertexSpec<SI>(
                         schematicPath = schematicPath,
-                        conventionalName =
-                            suppliedConventionalName.getOrElse { existingSchematicVertex.name() },
+                        suppliedConventionalName = suppliedConventionalName,
                         mappedSourceIndexAttempt =
                             @Suppress("UNCHECKED_CAST") //
                             (parameterContainerType as? SI).successIfNonNull(),
@@ -258,10 +230,29 @@ internal class DefaultSchematicVertexFactory : SchematicVertexFactory {
 
         private data class DefaultSchematicVertexSpec<SI : SourceIndex<SI>>(
             val schematicPath: SchematicPath,
-            val conventionalName: ConventionalName,
+            val suppliedConventionalName: Option<ConventionalName> = none(),
             val mappedSourceIndexAttempt: Try<SI>,
             val existingSchematicVertexOpt: Option<SchematicVertex> = none()
         ) {
+
+            companion object {
+                private fun SchematicVertex.name(): ConventionalName {
+                    return when (this) {
+                        is SourceAttributeVertex -> this.compositeAttribute.conventionalName
+                        is ParameterAttributeVertex ->
+                            this.compositeParameterAttribute.conventionalName
+                        is SourceContainerTypeVertex -> this.compositeContainerType.conventionalName
+                        is ParameterContainerTypeVertex ->
+                            this.compositeParameterContainerType.conventionalName
+                        else -> {
+                            throw SchemaException(
+                                SchemaErrorResponse.UNEXPECTED_ERROR,
+                                "unsupported source index type: ${this::class.qualifiedName}"
+                            )
+                        }
+                    }
+                }
+            }
 
             fun createSchematicVertex(): Try<SchematicVertex> {
                 if (mappedSourceIndexAttempt.isFailure()) {
@@ -282,7 +273,7 @@ internal class DefaultSchematicVertexFactory : SchematicVertexFactory {
                         factory.createNewSchematicVertexForSourceIndexWithName(
                             schematicPath = schematicPath,
                             sourceIndex = mappedSourceIndexAttempt.orNull()!!,
-                            conventionalName = conventionalName
+                            suppliedConventionalName = suppliedConventionalName
                         )
                     }
                     else -> {
@@ -290,7 +281,7 @@ internal class DefaultSchematicVertexFactory : SchematicVertexFactory {
                             schematicPath = schematicPath,
                             existingSchematicVertex = existingSchematicVertexOpt.orNull()!!,
                             sourceIndex = mappedSourceIndexAttempt.orNull()!!,
-                            conventionalName = conventionalName
+                            suppliedConventionalName = suppliedConventionalName
                         )
                     }
                 }

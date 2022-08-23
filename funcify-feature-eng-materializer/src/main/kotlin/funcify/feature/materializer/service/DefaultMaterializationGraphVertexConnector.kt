@@ -33,6 +33,7 @@ import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.extensions.TryExtensions.successIfDefined
 import graphql.language.Argument
 import graphql.language.NullValue
+import graphql.language.Value
 import graphql.schema.FieldCoordinates
 import graphql.schema.GraphQLArgument
 import kotlinx.collections.immutable.ImmutableSet
@@ -551,9 +552,8 @@ internal class DefaultMaterializationGraphVertexConnector(
                         val materializedDefaultJsonValue: JsonNode =
                             getCorrespondingFieldDefinitionNonNullDefaultArgumentValue(context)
                                 .successIfDefined(
-                                    argumentValueNotResolvedIntoJsonExceptionSupplier(
-                                        context.path,
-                                        context.argument.orNull()!!
+                                    defaultArgumentValueNotResolvedIntoJsonExceptionSupplier(
+                                        context.path
                                     )
                                 )
                                 .orElseThrow()
@@ -644,22 +644,8 @@ internal class DefaultMaterializationGraphVertexConnector(
                     sa.compositeAttribute.conventionalName.qualifiedForm
                 )
             }
-            .mapNotNull { fieldCoords ->
-                logger.debug("field_coordinates: [ {} ]", fieldCoords)
-                context.graphQLSchema.getFieldDefinition(fieldCoords)
-            }
+            .mapNotNull { fieldCoords -> context.graphQLSchema.getFieldDefinition(fieldCoords) }
             .flatMap { fieldDef ->
-                logger.debug(
-                    "field_definition.arguments: [ {} ]",
-                    fieldDef.arguments
-                        .asSequence()
-                        .joinToString(
-                            ", ",
-                            "{ ",
-                            " }",
-                            transform = { a -> "${a.name}: ${a.argumentDefaultValue}" }
-                        )
-                )
                 fieldDef
                     .getArgument(
                         context.currentVertex.compositeParameterAttribute.conventionalName
@@ -675,10 +661,21 @@ internal class DefaultMaterializationGraphVertexConnector(
     ): Option<JsonNode> {
         return getCorrespondingFieldDefinitionArgumentInSchema(context).flatMap {
             graphQLArgument: GraphQLArgument ->
-            jsonMapper
-                .fromKotlinObject(graphQLArgument.argumentDefaultValue.value)
-                .toJsonNode()
-                .getSuccess()
+            val defaultValueHolder = graphQLArgument.argumentDefaultValue
+            when {
+                defaultValueHolder.isLiteral && defaultValueHolder.value is Value<*> -> {
+                    GraphQLValueToJsonNodeConverter.invoke(defaultValueHolder.value as Value<*>)
+                }
+                defaultValueHolder.isInternal -> {
+                    jsonMapper.fromKotlinObject(defaultValueHolder.value).toJsonNode().getSuccess()
+                }
+                defaultValueHolder.isExternal -> {
+                    jsonMapper.fromKotlinObject(defaultValueHolder.value).toJsonNode().getSuccess()
+                }
+                else -> {
+                    none()
+                }
+            }
         }
     }
 
@@ -969,6 +966,19 @@ internal class DefaultMaterializationGraphVertexConnector(
         }
     }
 
+    private fun defaultArgumentValueNotResolvedIntoJsonExceptionSupplier(
+        vertexPath: SchematicPath
+    ): () -> MaterializerException {
+        return { ->
+            MaterializerException(
+                MaterializerErrorResponse.UNEXPECTED_ERROR,
+                """graphql_default_argument_value for [ vertex_path: ${vertexPath} ] 
+                   |could not be extracted or
+                   |converted into JSON""".flatten()
+            )
+        }
+    }
+
     override fun connectParameterLeafVertex(
         context: ParameterLeafMaterializationGraphVertexContext
     ): MaterializationGraphVertexContext<*> {
@@ -1043,9 +1053,8 @@ internal class DefaultMaterializationGraphVertexConnector(
                         val materializedDefaultJsonValue: JsonNode =
                             getCorrespondingFieldDefinitionNonNullDefaultArgumentValue(context)
                                 .successIfDefined(
-                                    argumentValueNotResolvedIntoJsonExceptionSupplier(
-                                        context.path,
-                                        context.argument.orNull()!!
+                                    defaultArgumentValueNotResolvedIntoJsonExceptionSupplier(
+                                        context.path
                                     )
                                 )
                                 .orElseThrow()

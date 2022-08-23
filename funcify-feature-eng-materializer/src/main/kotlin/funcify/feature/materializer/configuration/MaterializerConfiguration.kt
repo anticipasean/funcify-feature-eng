@@ -41,6 +41,7 @@ import funcify.feature.schema.strategy.SchematicVertexGraphRemappingStrategy
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import graphql.schema.GraphQLSchema
+import graphql.schema.idl.SchemaPrinter
 import java.util.concurrent.Executor
 import org.slf4j.Logger
 import org.springframework.beans.factory.ObjectProvider
@@ -242,6 +243,7 @@ class MaterializerConfiguration {
                             |${gs.queryType.fieldDefinitions.size} ]
                             |""".flatten()
                     )
+                    logger.info("materialization_graphql_schema: \n{}", SchemaPrinter().print(gs))
                 },
                 { t: Throwable ->
                     logger.error("materialization_graphql_schema: [ status: failed ]", t)
