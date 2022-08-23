@@ -158,9 +158,52 @@ internal class DefaultMaterializationGraphVertexConnector(
                     }
             }
             else -> {
-                context.update {
-                    graph(context.graph.putVertex(context.currentVertex, SchematicVertex::path))
-                }
+                val ancestorSpecEdge: RetrievalFunctionSpecRequestParameterEdge =
+                    findAncestorRetrievalFunctionSpecRequestParameterEdge(context).orElseThrow()
+                context.metamodelGraph.parameterAttributeVerticesBySourceAttributeVertexPaths
+                    .getOrNone(context.path)
+                    .map(ImmutableSet<ParameterAttributeVertex>::asSequence)
+                    .fold(::emptySequence, ::identity)
+                    .fold(
+                        context.update {
+                            graph(
+                                context.graph
+                                    .putVertex(context.currentVertex, SchematicVertex::path)
+                                    .putEdge(
+                                        ancestorSpecEdge.updateSpec {
+                                            addSourceVertex(context.currentVertex)
+                                        },
+                                        RequestParameterEdge::id
+                                    )
+                                    .putEdge(
+                                        requestParameterEdgeFactory
+                                            .builder()
+                                            .fromPathToPath(
+                                                ancestorSpecEdge.id.second,
+                                                context.path
+                                            )
+                                            .extractionFromAncestorFunction { resultMap ->
+                                                resultMap.getOrNone(context.path)
+                                            }
+                                            .build(),
+                                        RequestParameterEdge::id
+                                    )
+                            )
+                        } as MaterializationGraphVertexContext<*>
+                    ) { ctx, parameterAttributeVertex ->
+                        connectSchematicVertex(
+                            ctx.update {
+                                nextParameterVertex(
+                                    (when (parameterAttributeVertex) {
+                                        is ParameterJunctionVertex ->
+                                            parameterAttributeVertex.left()
+                                        is ParameterLeafVertex -> parameterAttributeVertex.right()
+                                        else -> null
+                                    }!!)
+                                )
+                            }
+                        )
+                    }
             }
         }
     }
@@ -480,6 +523,7 @@ internal class DefaultMaterializationGraphVertexConnector(
                     )
                 }
             }
+
             // case 2: caller has not provided an input value for this argument so it needs to be
             // retrieved through some other source--if possible
             else -> {

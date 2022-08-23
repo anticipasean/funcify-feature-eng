@@ -15,6 +15,7 @@ import funcify.feature.schema.vertex.SourceRootVertex
 import funcify.feature.tools.container.graph.PathBasedGraph
 import graphql.language.Argument
 import graphql.language.Field
+import graphql.schema.GraphQLSchema
 
 /**
  *
@@ -22,6 +23,8 @@ import graphql.language.Field
  * @created 2022-08-17
  */
 sealed interface MaterializationGraphVertexContext<V : SchematicVertex> {
+
+    val graphQLSchema: GraphQLSchema
 
     val metamodelGraph: MetamodelGraph
 

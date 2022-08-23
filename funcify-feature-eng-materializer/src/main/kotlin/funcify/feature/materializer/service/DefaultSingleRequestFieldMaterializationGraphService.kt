@@ -34,6 +34,8 @@ import graphql.language.Field
 import graphql.language.OperationDefinition
 import graphql.language.Selection
 import graphql.language.SelectionSet
+import kotlin.reflect.KClass
+import kotlin.reflect.full.isSubclassOf
 import kotlin.streams.asSequence
 import org.slf4j.Logger
 
@@ -111,8 +113,36 @@ internal class DefaultSingleRequestFieldMaterializationGraphService(
     }
 
     private fun createTopologicalSortString(context: MaterializationGraphVertexContext<*>): String {
+        val requestParameterEdgeTypeComparator: Comparator<KClass<out RequestParameterEdge>> =
+            kotlin.Comparator { cls1, cls2 ->
+                when {
+                    cls1 == cls2 -> 0
+                    RequestParameterEdge.MaterializedValueRequestParameterEdge::class.isSubclassOf(
+                        cls1
+                    ) -> -1
+                    RequestParameterEdge.MaterializedValueRequestParameterEdge::class.isSubclassOf(
+                        cls2
+                    ) -> 1
+                    RequestParameterEdge.RetrievalFunctionSpecRequestParameterEdge::class
+                        .isSubclassOf(cls1) -> -1
+                    RequestParameterEdge.RetrievalFunctionSpecRequestParameterEdge::class
+                        .isSubclassOf(cls2) -> 1
+                    RequestParameterEdge.DependentValueRequestParameterEdge::class.isSubclassOf(
+                        cls1
+                    ) -> -1
+                    RequestParameterEdge.DependentValueRequestParameterEdge::class.isSubclassOf(
+                        cls2
+                    ) -> 1
+                    else -> {
+                        0
+                    }
+                }
+            }
+
         return context.graph
-            .depthFirstSearchOnPath(SchematicPath.getRootPath())
+            .createMinimumSpanningTreeGraphUsingEdgeCostFunction(
+                Comparator.comparing({ e -> e::class }, requestParameterEdgeTypeComparator)
+            )
             .asSequence()
             .map { (v1, p1, e, p2, v2) -> "%s --> %s --> %s".format(p1, e::class.simpleName, p2) }
             .joinToString(",\n--> ", "{ ", " }")
@@ -158,7 +188,8 @@ internal class DefaultSingleRequestFieldMaterializationGraphService(
                         materializationGraphVertexConnector.connectSourceRootVertex(
                             materializationGraphVertexContextFactory.createSourceRootVertexContext(
                                 sourceRootVertex,
-                                session.metamodelGraph
+                                session.metamodelGraph,
+                                session.materializationSchema
                             )
                         )
                     ) {

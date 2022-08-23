@@ -47,18 +47,25 @@ object JsonNodeSchematicPathToValueMappingExtractor :
                 )
             }
             JsonNodeType.OBJECT -> {
-                context.value
+                context.pathSegments
                     .toOption()
-                    .filterIsInstance<ObjectNode>()
-                    .map { on -> on.fields().asSequence() }
-                    .fold(::emptySequence, ::identity)
-                    .map { (key, jsonValue) ->
-                        JsonNodePathTraversalContext(
-                                pathSegments = context.pathSegments.add(key),
-                                value = jsonValue
-                            )
-                            .left()
-                    }
+                    .filter { ps -> ps.isNotEmpty() }
+                    .map { ps -> (SchematicPath.of { pathSegments(ps) } to context.value).right() }
+                    .fold(::emptySequence, ::sequenceOf)
+                    .plus(
+                        context.value
+                            .toOption()
+                            .filterIsInstance<ObjectNode>()
+                            .map { on -> on.fields().asSequence() }
+                            .fold(::emptySequence, ::identity)
+                            .map { (key, jsonValue) ->
+                                JsonNodePathTraversalContext(
+                                        pathSegments = context.pathSegments.add(key),
+                                        value = jsonValue
+                                    )
+                                    .left()
+                            }
+                    )
             }
             else -> emptySequence()
         }

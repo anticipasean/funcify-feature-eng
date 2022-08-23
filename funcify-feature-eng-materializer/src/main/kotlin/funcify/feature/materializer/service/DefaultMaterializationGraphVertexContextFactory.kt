@@ -22,6 +22,7 @@ import funcify.feature.schema.vertex.SourceRootVertex
 import funcify.feature.tools.container.graph.PathBasedGraph
 import graphql.language.Argument
 import graphql.language.Field
+import graphql.schema.GraphQLSchema
 
 internal class DefaultMaterializationGraphVertexContextFactory :
     MaterializationGraphVertexContextFactory {
@@ -29,6 +30,7 @@ internal class DefaultMaterializationGraphVertexContextFactory :
     companion object {
 
         internal class DefaultBuilder<V : SchematicVertex>(
+            private var graphQLSchema: GraphQLSchema,
             private var metamodelGraph: MetamodelGraph,
             private var graph: PathBasedGraph<SchematicPath, SchematicVertex, RequestParameterEdge>,
             private val vertex: V,
@@ -60,7 +62,14 @@ internal class DefaultMaterializationGraphVertexContextFactory :
                             slv as NV
                         }
                     )
-                return DefaultBuilder<NV>(metamodelGraph, graph, nextVertexUnwrapped, field, null)
+                return DefaultBuilder<NV>(
+                    graphQLSchema,
+                    metamodelGraph,
+                    graph,
+                    nextVertexUnwrapped,
+                    field,
+                    null
+                )
             }
 
             override fun <
@@ -77,7 +86,14 @@ internal class DefaultMaterializationGraphVertexContextFactory :
                             slv as NV
                         }
                     )
-                return DefaultBuilder<NV>(metamodelGraph, graph, nextVertexUnwrapped, null, null)
+                return DefaultBuilder<NV>(
+                    graphQLSchema,
+                    metamodelGraph,
+                    graph,
+                    nextVertexUnwrapped,
+                    null,
+                    null
+                )
             }
 
             override fun <
@@ -98,6 +114,7 @@ internal class DefaultMaterializationGraphVertexContextFactory :
                         }
                     )
                 return DefaultBuilder<NV>(
+                    graphQLSchema,
                     metamodelGraph,
                     graph,
                     nextVertexUnwrapped,
@@ -121,6 +138,7 @@ internal class DefaultMaterializationGraphVertexContextFactory :
                         }
                     )
                 return DefaultBuilder<NV>(
+                    graphQLSchema,
                     metamodelGraph,
                     graph,
                     nextVertexUnwrapped,
@@ -143,6 +161,7 @@ internal class DefaultMaterializationGraphVertexContextFactory :
                     }
                     SchematicGraphVertexType.SOURCE_ROOT_VERTEX -> {
                         DefaultSourceRootMaterializationGraphVertexContext(
+                            graphQLSchema,
                             metamodelGraph,
                             graph,
                             vertex as SourceRootVertex
@@ -150,6 +169,7 @@ internal class DefaultMaterializationGraphVertexContextFactory :
                     }
                     SchematicGraphVertexType.SOURCE_JUNCTION_VERTEX -> {
                         DefaultSourceJunctionMaterializationGraphVertexContext(
+                            graphQLSchema,
                             metamodelGraph,
                             graph,
                             field.toOption(),
@@ -158,6 +178,7 @@ internal class DefaultMaterializationGraphVertexContextFactory :
                     }
                     SchematicGraphVertexType.SOURCE_LEAF_VERTEX -> {
                         DefaultSourceLeafMaterializationGraphVertexContext(
+                            graphQLSchema,
                             metamodelGraph,
                             graph,
                             field.toOption(),
@@ -166,6 +187,7 @@ internal class DefaultMaterializationGraphVertexContextFactory :
                     }
                     SchematicGraphVertexType.PARAMETER_JUNCTION_VERTEX -> {
                         DefaultParameterJunctionMaterializationGraphVertexContext(
+                            graphQLSchema,
                             metamodelGraph,
                             graph,
                             argument.toOption(),
@@ -174,6 +196,7 @@ internal class DefaultMaterializationGraphVertexContextFactory :
                     }
                     SchematicGraphVertexType.PARAMETER_LEAF_VERTEX -> {
                         DefaultParameterLeafMaterializationGraphVertexContext(
+                            graphQLSchema,
                             metamodelGraph,
                             graph,
                             argument.toOption(),
@@ -186,6 +209,7 @@ internal class DefaultMaterializationGraphVertexContextFactory :
         }
 
         internal class DefaultSourceRootMaterializationGraphVertexContext(
+            override val graphQLSchema: GraphQLSchema,
             override val metamodelGraph: MetamodelGraph,
             override val graph:
                 PathBasedGraph<SchematicPath, SchematicVertex, RequestParameterEdge>,
@@ -196,12 +220,20 @@ internal class DefaultMaterializationGraphVertexContextFactory :
                 transformer: Builder<SourceRootVertex>.() -> Builder<NV>
             ): MaterializationGraphVertexContext<NV> {
                 return transformer
-                    .invoke(DefaultBuilder<SourceRootVertex>(metamodelGraph, graph, currentVertex))
+                    .invoke(
+                        DefaultBuilder<SourceRootVertex>(
+                            graphQLSchema,
+                            metamodelGraph,
+                            graph,
+                            currentVertex
+                        )
+                    )
                     .build()
             }
         }
 
         internal class DefaultSourceJunctionMaterializationGraphVertexContext(
+            override val graphQLSchema: GraphQLSchema,
             override val metamodelGraph: MetamodelGraph,
             override val graph:
                 PathBasedGraph<SchematicPath, SchematicVertex, RequestParameterEdge>,
@@ -215,6 +247,7 @@ internal class DefaultMaterializationGraphVertexContextFactory :
                 return transformer
                     .invoke(
                         DefaultBuilder<SourceJunctionVertex>(
+                            graphQLSchema,
                             metamodelGraph,
                             graph,
                             currentVertex,
@@ -226,6 +259,7 @@ internal class DefaultMaterializationGraphVertexContextFactory :
         }
 
         internal class DefaultSourceLeafMaterializationGraphVertexContext(
+            override val graphQLSchema: GraphQLSchema,
             override val metamodelGraph: MetamodelGraph,
             override val graph:
                 PathBasedGraph<SchematicPath, SchematicVertex, RequestParameterEdge>,
@@ -239,6 +273,7 @@ internal class DefaultMaterializationGraphVertexContextFactory :
                 return transformer
                     .invoke(
                         DefaultBuilder<SourceLeafVertex>(
+                            graphQLSchema,
                             metamodelGraph,
                             graph,
                             currentVertex,
@@ -250,6 +285,7 @@ internal class DefaultMaterializationGraphVertexContextFactory :
         }
 
         internal class DefaultParameterJunctionMaterializationGraphVertexContext(
+            override val graphQLSchema: GraphQLSchema,
             override val metamodelGraph: MetamodelGraph,
             override val graph:
                 PathBasedGraph<SchematicPath, SchematicVertex, RequestParameterEdge>,
@@ -263,6 +299,7 @@ internal class DefaultMaterializationGraphVertexContextFactory :
                 return transformer
                     .invoke(
                         DefaultBuilder<ParameterJunctionVertex>(
+                            graphQLSchema,
                             metamodelGraph,
                             graph,
                             currentVertex,
@@ -275,6 +312,7 @@ internal class DefaultMaterializationGraphVertexContextFactory :
         }
 
         internal class DefaultParameterLeafMaterializationGraphVertexContext(
+            override val graphQLSchema: GraphQLSchema,
             override val metamodelGraph: MetamodelGraph,
             override val graph:
                 PathBasedGraph<SchematicPath, SchematicVertex, RequestParameterEdge>,
@@ -288,6 +326,7 @@ internal class DefaultMaterializationGraphVertexContextFactory :
                 return transformer
                     .invoke(
                         DefaultBuilder<ParameterLeafVertex>(
+                            graphQLSchema,
                             metamodelGraph,
                             graph,
                             currentVertex,
@@ -302,9 +341,11 @@ internal class DefaultMaterializationGraphVertexContextFactory :
 
     override fun createSourceRootVertexContext(
         sourceRootVertex: SourceRootVertex,
-        metamodelGraph: MetamodelGraph
+        metamodelGraph: MetamodelGraph,
+        materializationSchema: GraphQLSchema
     ): SourceRootMaterializationGraphVertexContext {
         return DefaultSourceRootMaterializationGraphVertexContext(
+            materializationSchema,
             metamodelGraph,
             PathBasedGraph.emptyTwoToOnePathsToEdgeGraph(),
             sourceRootVertex
