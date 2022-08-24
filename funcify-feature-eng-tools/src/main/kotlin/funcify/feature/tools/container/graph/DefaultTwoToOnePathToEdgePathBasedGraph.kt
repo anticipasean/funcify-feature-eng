@@ -6,13 +6,13 @@ import arrow.core.getOrElse
 import arrow.core.some
 import arrow.core.toOption
 import funcify.feature.tools.container.tree.UnionFindTree
-import funcify.feature.tools.extensions.StreamExtensions.flatMapOptions
 import funcify.feature.tools.extensions.OptionExtensions.stream
 import funcify.feature.tools.extensions.OptionExtensions.toPersistentSet
 import funcify.feature.tools.extensions.PersistentListExtensions.reduceToPersistentList
 import funcify.feature.tools.extensions.PersistentMapExtensions.reduceEntriesToPersistentMap
 import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentMap
 import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentSetValueMap
+import funcify.feature.tools.extensions.StreamExtensions.flatMapOptions
 import java.util.stream.Stream
 import java.util.stream.StreamSupport
 import kotlinx.collections.immutable.ImmutableMap
@@ -186,6 +186,10 @@ internal data class DefaultTwoToOnePathToEdgePathBasedGraph<P, V, E>(
 
     override fun getEdgesFromPathToPath(path1: P, path2: P): ImmutableSet<E> {
         return edgesByPathPair[Pair(path1, path2)].toOption().toPersistentSet()
+    }
+
+    override fun getEdgesFromPathToPath(connectedPaths: Pair<P, P>): ImmutableSet<E> {
+        return edgesByPathPair[connectedPaths].toOption().toPersistentSet()
     }
 
     /**

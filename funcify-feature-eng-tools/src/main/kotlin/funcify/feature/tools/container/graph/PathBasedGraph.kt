@@ -141,6 +141,8 @@ interface PathBasedGraph<P, V, E> : PersistentGraph<V, E>, Iterable<Tuple5<V, P,
 
     fun getEdgesFromPathToPath(path1: P, path2: P): ImmutableSet<E>
 
+    fun getEdgesFromPathToPath(connectedPaths: Pair<P, P>): ImmutableSet<E>
+
     fun getEdgesFrom(path: P): Stream<E> {
         return connectedPaths()
             .filter { pair: Pair<P, P> -> pair.first == path }
