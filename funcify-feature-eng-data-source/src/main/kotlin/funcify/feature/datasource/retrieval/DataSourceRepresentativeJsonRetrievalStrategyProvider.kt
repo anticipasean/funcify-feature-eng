@@ -15,15 +15,15 @@ import kotlinx.collections.immutable.ImmutableSet
  * @author smccarron
  * @created 2022-08-15
  */
-interface DataSourceSpecificJsonRetrievalStrategyProvider<SI : SourceIndex<SI>> {
+interface DataSourceRepresentativeJsonRetrievalStrategyProvider<SI : SourceIndex<SI>> {
 
-    fun canProvideJsonRetrievalFunctionsForVerticesWithSourceIndicesIn(
+    fun providesJsonRetrievalFunctionsForVerticesWithSourceIndicesIn(
         dataSourceKey: DataSource.Key<*>
     ): Boolean
 
-    fun createSchematicPathBasedJsonRetrievalFunctionFor(
+    fun createMultipleSourceIndicesJsonRetrievalFunctionFor(
         dataSource: DataSource<SI>,
         sourceVertices: ImmutableSet<Either<SourceJunctionVertex, SourceLeafVertex>>,
         parameterVertices: ImmutableSet<Either<ParameterJunctionVertex, ParameterLeafVertex>>
-    ): Try<SchematicPathBasedJsonRetrievalFunction>
+    ): Try<MultipleSourceIndicesJsonRetrievalFunction>
 }

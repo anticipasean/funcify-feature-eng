@@ -17,7 +17,7 @@ import kotlinx.collections.immutable.ImmutableSet
  * @author smccarron
  * @created 2022-08-11
  */
-interface SchematicPathBasedJsonRetrievalFunction :
+interface MultipleSourceIndicesJsonRetrievalFunction :
     (ImmutableMap<SchematicPath, JsonNode>) -> Deferred<ImmutableMap<SchematicPath, JsonNode>> {
 
     val dataSourceKey: DataSource.Key<*>
@@ -45,6 +45,6 @@ interface SchematicPathBasedJsonRetrievalFunction :
 
         fun addSourceTarget(sourceLeafVertex: SourceLeafVertex): Builder
 
-        fun build(): Try<SchematicPathBasedJsonRetrievalFunction>
+        fun build(): Try<MultipleSourceIndicesJsonRetrievalFunction>
     }
 }

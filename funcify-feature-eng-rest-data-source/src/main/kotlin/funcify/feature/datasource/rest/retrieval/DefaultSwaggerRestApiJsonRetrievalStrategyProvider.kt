@@ -3,7 +3,7 @@ package funcify.feature.datasource.rest.retrieval
 import arrow.core.Either
 import funcify.feature.datasource.rest.RestApiDataSource
 import funcify.feature.datasource.rest.schema.RestApiSourceIndex
-import funcify.feature.datasource.retrieval.SchematicPathBasedJsonRetrievalFunction
+import funcify.feature.datasource.retrieval.MultipleSourceIndicesJsonRetrievalFunction
 import funcify.feature.json.JsonMapper
 import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.vertex.ParameterJunctionVertex
@@ -25,17 +25,17 @@ internal class DefaultSwaggerRestApiJsonRetrievalStrategyProvider(
         private val logger: Logger = loggerFor<DefaultSwaggerRestApiJsonRetrievalStrategyProvider>()
     }
 
-    override fun canProvideJsonRetrievalFunctionsForVerticesWithSourceIndicesIn(
+    override fun providesJsonRetrievalFunctionsForVerticesWithSourceIndicesIn(
         dataSourceKey: DataSource.Key<*>
     ): Boolean {
         return dataSourceKey.sourceIndexType.isSubclassOf(RestApiSourceIndex::class)
     }
 
-    override fun createSchematicPathBasedJsonRetrievalFunctionFor(
+    override fun createMultipleSourceIndicesJsonRetrievalFunctionFor(
         dataSource: DataSource<RestApiSourceIndex>,
         sourceVertices: ImmutableSet<Either<SourceJunctionVertex, SourceLeafVertex>>,
         parameterVertices: ImmutableSet<Either<ParameterJunctionVertex, ParameterLeafVertex>>,
-    ): Try<SchematicPathBasedJsonRetrievalFunction> {
+    ): Try<MultipleSourceIndicesJsonRetrievalFunction> {
         logger.debug(
             """create_schematic_path_based_json_retrieval_function_for: [ 
             |data_source: ${dataSource.key}, 

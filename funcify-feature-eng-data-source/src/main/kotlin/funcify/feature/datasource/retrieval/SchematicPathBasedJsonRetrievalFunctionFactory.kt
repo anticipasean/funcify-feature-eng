@@ -7,6 +7,9 @@ package funcify.feature.datasource.retrieval
  */
 interface SchematicPathBasedJsonRetrievalFunctionFactory {
 
-    fun builder(): SchematicPathBasedJsonRetrievalFunction.Builder
+    fun multipleSourceIndicesJsonRetrievalFunctionBuilder():
+        MultipleSourceIndicesJsonRetrievalFunction.Builder
 
+    fun singleSourceIndexCacheRetrievalFunctionBuilder():
+        SingleSourceIndexJsonOptionCacheRetrievalFunction.Builder
 }

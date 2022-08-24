@@ -6,7 +6,7 @@ import arrow.core.left
 import arrow.core.right
 import funcify.feature.datasource.error.DataSourceErrorResponse
 import funcify.feature.datasource.error.DataSourceException
-import funcify.feature.datasource.retrieval.SchematicPathBasedJsonRetrievalFunction.Builder
+import funcify.feature.datasource.retrieval.MultipleSourceIndicesJsonRetrievalFunction.Builder
 import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.datasource.SourceIndex
 import funcify.feature.schema.vertex.ParameterJunctionVertex
@@ -26,16 +26,19 @@ import kotlinx.collections.immutable.persistentSetOf
  * @created 2022-08-11
  */
 internal class DefaultSchematicPathBasedJsonRetrievalFunctionFactory(
-    private val dataSourceSpecificJsonRetrievalStrategyProviders:
-        ImmutableSet<DataSourceSpecificJsonRetrievalStrategyProvider<*>> =
+    private val dataSourceRepresentativeJsonRetrievalStrategyProviders:
+        ImmutableSet<DataSourceRepresentativeJsonRetrievalStrategyProvider<*>> =
+        persistentSetOf(),
+    private val dataSourceCacheJsonRetrievalStrategyProviders:
+        ImmutableSet<DataSourceCacheJsonRetrievalStrategyProvider<*>> =
         persistentSetOf()
 ) : SchematicPathBasedJsonRetrievalFunctionFactory {
 
     companion object {
 
-        internal class DefaultBuilder(
-            private val dataSourceSpecificJsonRetrievalStrategyProviders:
-                ImmutableSet<DataSourceSpecificJsonRetrievalStrategyProvider<*>> =
+        internal class DefaultMultiSourceIndicesFunctionBuilder(
+            private val dataSourceRepresentativeJsonRetrievalStrategyProviders:
+                ImmutableSet<DataSourceRepresentativeJsonRetrievalStrategyProvider<*>> =
                 persistentSetOf(),
             private var dataSource: DataSource<*>? = null,
             private var parameterVertices:
@@ -73,13 +76,13 @@ internal class DefaultSchematicPathBasedJsonRetrievalFunctionFactory(
                 return this
             }
 
-            override fun build(): Try<SchematicPathBasedJsonRetrievalFunction> {
+            override fun build(): Try<MultipleSourceIndicesJsonRetrievalFunction> {
                 return when {
                     dataSource == null -> {
                         DataSourceException(
                                 DataSourceErrorResponse.MISSING_PARAMETER,
                                 """data_source has not been provided 
-                                |for ${SchematicPathBasedJsonRetrievalFunction::class.qualifiedName} 
+                                |for ${MultipleSourceIndicesJsonRetrievalFunction::class.qualifiedName} 
                                 |creation""".flatten()
                             )
                             .failure()
@@ -87,21 +90,22 @@ internal class DefaultSchematicPathBasedJsonRetrievalFunctionFactory(
                     sourceVertices.isEmpty() -> {
                         DataSourceException(
                                 DataSourceErrorResponse.MISSING_PARAMETER,
-                                """at least one source_vertex must supplied 
-                                |for the return value of this ${SchematicPathBasedJsonRetrievalFunction::class.qualifiedName} 
+                                """at least one source_vertex must be supplied 
+                                |for the return value of this ${MultipleSourceIndicesJsonRetrievalFunction::class.qualifiedName} 
                                 |to have any mappings""".flatten()
                             )
                             .failure()
                     }
-                    dataSourceSpecificJsonRetrievalStrategyProviders.none { strategyProvider ->
+                    dataSourceRepresentativeJsonRetrievalStrategyProviders.none { strategyProvider
+                        ->
                         strategyProvider
-                            .canProvideJsonRetrievalFunctionsForVerticesWithSourceIndicesIn(
+                            .providesJsonRetrievalFunctionsForVerticesWithSourceIndicesIn(
                                 dataSource!!.key
                             )
                     } -> {
                         DataSourceException(
                                 DataSourceErrorResponse.STRATEGY_MISSING,
-                                """no ${DataSourceSpecificJsonRetrievalStrategyProvider::class.qualifiedName} 
+                                """no ${DataSourceRepresentativeJsonRetrievalStrategyProvider::class.qualifiedName} 
                                     |found that supports this type of data_source: 
                                     |[ actual: ${dataSource!!.key}  
                                     |]""".flatten()
@@ -110,13 +114,13 @@ internal class DefaultSchematicPathBasedJsonRetrievalFunctionFactory(
                     }
                     else -> {
                         Try.fromOption(
-                                dataSourceSpecificJsonRetrievalStrategyProviders.firstOrNone {
-                                    strategyProvider ->
-                                    strategyProvider
-                                        .canProvideJsonRetrievalFunctionsForVerticesWithSourceIndicesIn(
-                                            dataSource!!.key
-                                        )
-                                }
+                                dataSourceRepresentativeJsonRetrievalStrategyProviders
+                                    .firstOrNone { strategyProvider ->
+                                        strategyProvider
+                                            .providesJsonRetrievalFunctionsForVerticesWithSourceIndicesIn(
+                                                dataSource!!.key
+                                            )
+                                    }
                             )
                             .flatMap { provider ->
                                 createTypedDataSourceSpecificJsonRetrievalStrategyFor(
@@ -132,29 +136,150 @@ internal class DefaultSchematicPathBasedJsonRetrievalFunctionFactory(
 
             private fun <
                 SI : SourceIndex<SI>> createTypedDataSourceSpecificJsonRetrievalStrategyFor(
-                provider: DataSourceSpecificJsonRetrievalStrategyProvider<SI>,
+                provider: DataSourceRepresentativeJsonRetrievalStrategyProvider<SI>,
                 dataSource: DataSource<*>,
                 sourceVertices: PersistentSet<Either<SourceJunctionVertex, SourceLeafVertex>>,
                 parameterVertices:
                     PersistentSet<Either<ParameterJunctionVertex, ParameterLeafVertex>>
-            ): Try<SchematicPathBasedJsonRetrievalFunction> {
+            ): Try<MultipleSourceIndicesJsonRetrievalFunction> {
                 // If already assessed as acceptable in earlier check, then this datasource must be
                 // of this source_index type
                 @Suppress("UNCHECKED_CAST")
                 val typedDataSource: DataSource<SI> = dataSource as DataSource<SI>
-                return provider.createSchematicPathBasedJsonRetrievalFunctionFor(
+                return provider.createMultipleSourceIndicesJsonRetrievalFunctionFor(
                     typedDataSource,
                     sourceVertices,
                     parameterVertices
                 )
             }
         }
+
+        internal class DefaultSingleSourceIndexCacheRetrievalFunctionBuilder(
+            private val dataSourceCacheJsonRetrievalStrategyProviders:
+                ImmutableSet<DataSourceCacheJsonRetrievalStrategyProvider<*>> =
+                persistentSetOf(),
+            private var dataSource: DataSource<*>? = null,
+            private var sourceJunctionVertex: SourceJunctionVertex? = null,
+            private var sourceLeafVertex: SourceLeafVertex? = null
+        ) : SingleSourceIndexJsonOptionCacheRetrievalFunction.Builder {
+
+            override fun cacheForDataSource(
+                dataSource: DataSource<*>
+            ): SingleSourceIndexJsonOptionCacheRetrievalFunction.Builder {
+                this.dataSource = dataSource
+                return this
+            }
+
+            override fun sourceTarget(
+                sourceJunctionVertex: SourceJunctionVertex
+            ): SingleSourceIndexJsonOptionCacheRetrievalFunction.Builder {
+                this.sourceJunctionVertex = sourceJunctionVertex
+                return this
+            }
+
+            override fun sourceTarget(
+                sourceLeafVertex: SourceLeafVertex
+            ): SingleSourceIndexJsonOptionCacheRetrievalFunction.Builder {
+                this.sourceLeafVertex = sourceLeafVertex
+                return this
+            }
+
+            override fun build(): Try<SingleSourceIndexJsonOptionCacheRetrievalFunction> {
+                return when {
+                    dataSource == null -> {
+                        DataSourceException(
+                                DataSourceErrorResponse.MISSING_PARAMETER,
+                                """data_source has not been provided 
+                                |for ${SingleSourceIndexJsonOptionCacheRetrievalFunction::class.qualifiedName} 
+                                |creation""".flatten()
+                            )
+                            .failure()
+                    }
+                    sourceJunctionVertex == null && sourceLeafVertex == null -> {
+                        DataSourceException(
+                                DataSourceErrorResponse.MISSING_PARAMETER,
+                                """at least one source_vertex must be supplied 
+                                |for the return value of this 
+                                |${SingleSourceIndexJsonOptionCacheRetrievalFunction::class.qualifiedName} 
+                                |to have any mappings""".flatten()
+                            )
+                            .failure()
+                    }
+                    dataSourceCacheJsonRetrievalStrategyProviders.none { strategyProvider ->
+                        strategyProvider
+                            .providesJsonRetrievalFunctionsForVerticesWithSourceIndicesIn(
+                                dataSource!!.key
+                            )
+                    } -> {
+                        DataSourceException(
+                                DataSourceErrorResponse.STRATEGY_MISSING,
+                                """no ${DataSourceCacheJsonRetrievalStrategyProvider::class.qualifiedName} 
+                                    |found that supports this type of data_source: 
+                                    |[ actual: ${dataSource!!.key}  
+                                    |]""".flatten()
+                            )
+                            .failure()
+                    }
+                    else -> {
+                        Try.fromOption(
+                                dataSourceCacheJsonRetrievalStrategyProviders.firstOrNone {
+                                    strategyProvider ->
+                                    strategyProvider
+                                        .providesJsonRetrievalFunctionsForVerticesWithSourceIndicesIn(
+                                            dataSource!!.key
+                                        )
+                                }
+                            )
+                            .flatMap { provider ->
+                                createTypedDataSourceCacheJsonRetrievalStrategyFor(
+                                    provider,
+                                    dataSource!!,
+                                    (when {
+                                        sourceJunctionVertex != null -> {
+                                            sourceJunctionVertex!!.left()
+                                        }
+                                        sourceLeafVertex != null -> {
+                                            sourceLeafVertex!!.right()
+                                        }
+                                        else -> {
+                                            null
+                                        }
+                                    })!!
+                                )
+                            }
+                    }
+                }
+            }
+
+            private fun <SI : SourceIndex<SI>> createTypedDataSourceCacheJsonRetrievalStrategyFor(
+                provider: DataSourceCacheJsonRetrievalStrategyProvider<SI>,
+                dataSource: DataSource<*>,
+                sourceVertex: Either<SourceJunctionVertex, SourceLeafVertex>
+            ): Try<SingleSourceIndexJsonOptionCacheRetrievalFunction> {
+                // If already assessed as acceptable in earlier check, then this datasource must be
+                // of this source_index type
+                @Suppress("UNCHECKED_CAST")
+                val typedDataSource: DataSource<SI> = dataSource as DataSource<SI>
+                return provider.createSingleSourceIndexJsonOptionRetrievalFunctionForCacheFor(
+                    typedDataSource,
+                    sourceVertex
+                )
+            }
+        }
     }
 
-    override fun builder(): Builder {
-        return DefaultBuilder(
-            dataSourceSpecificJsonRetrievalStrategyProviders =
-                dataSourceSpecificJsonRetrievalStrategyProviders
+    override fun multipleSourceIndicesJsonRetrievalFunctionBuilder(): Builder {
+        return DefaultMultiSourceIndicesFunctionBuilder(
+            dataSourceRepresentativeJsonRetrievalStrategyProviders =
+                dataSourceRepresentativeJsonRetrievalStrategyProviders
+        )
+    }
+
+    override fun singleSourceIndexCacheRetrievalFunctionBuilder():
+        SingleSourceIndexJsonOptionCacheRetrievalFunction.Builder {
+        return DefaultSingleSourceIndexCacheRetrievalFunctionBuilder(
+            dataSourceCacheJsonRetrievalStrategyProviders =
+                dataSourceCacheJsonRetrievalStrategyProviders
         )
     }
 }

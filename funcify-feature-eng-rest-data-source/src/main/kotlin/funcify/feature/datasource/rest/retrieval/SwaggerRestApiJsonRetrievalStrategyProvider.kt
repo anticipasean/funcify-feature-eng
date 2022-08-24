@@ -1,7 +1,7 @@
 package funcify.feature.datasource.rest.retrieval
 
 import funcify.feature.datasource.rest.schema.RestApiSourceIndex
-import funcify.feature.datasource.retrieval.DataSourceSpecificJsonRetrievalStrategyProvider
+import funcify.feature.datasource.retrieval.DataSourceRepresentativeJsonRetrievalStrategyProvider
 
 /**
  *
@@ -9,4 +9,4 @@ import funcify.feature.datasource.retrieval.DataSourceSpecificJsonRetrievalStrat
  * @created 2022-08-15
  */
 interface SwaggerRestApiJsonRetrievalStrategyProvider :
-    DataSourceSpecificJsonRetrievalStrategyProvider<RestApiSourceIndex> {}
+    DataSourceRepresentativeJsonRetrievalStrategyProvider<RestApiSourceIndex> {}

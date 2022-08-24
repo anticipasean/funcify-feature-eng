@@ -1,6 +1,7 @@
 package funcify.feature.datasource.configuration
 
-import funcify.feature.datasource.retrieval.DataSourceSpecificJsonRetrievalStrategyProvider
+import funcify.feature.datasource.retrieval.DataSourceCacheJsonRetrievalStrategyProvider
+import funcify.feature.datasource.retrieval.DataSourceRepresentativeJsonRetrievalStrategyProvider
 import funcify.feature.datasource.retrieval.DefaultSchematicPathBasedJsonRetrievalFunctionFactory
 import funcify.feature.datasource.retrieval.SchematicPathBasedJsonRetrievalFunctionFactory
 import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionCreationContextFactory
@@ -29,10 +30,16 @@ class DataSourceConfiguration {
     @ConditionalOnMissingBean(value = [SchematicPathBasedJsonRetrievalFunctionFactory::class])
     @Bean
     fun schematicPathBasedJsonRetrievalFunctionFactory(
-        strategyProviders: ObjectProvider<DataSourceSpecificJsonRetrievalStrategyProvider<*>>
+        dataSourceRepresentativeJsonRetrievalStrategyProviders:
+            ObjectProvider<DataSourceRepresentativeJsonRetrievalStrategyProvider<*>>,
+        dataSourceCacheJsonRetrievalStrategyProviders:
+            ObjectProvider<DataSourceCacheJsonRetrievalStrategyProvider<*>>
     ): SchematicPathBasedJsonRetrievalFunctionFactory {
         return DefaultSchematicPathBasedJsonRetrievalFunctionFactory(
-            strategyProviders.toPersistentSet()
+            dataSourceRepresentativeJsonRetrievalStrategyProviders =
+                dataSourceRepresentativeJsonRetrievalStrategyProviders.toPersistentSet(),
+            dataSourceCacheJsonRetrievalStrategyProviders =
+                dataSourceCacheJsonRetrievalStrategyProviders.toPersistentSet()
         )
     }
 }

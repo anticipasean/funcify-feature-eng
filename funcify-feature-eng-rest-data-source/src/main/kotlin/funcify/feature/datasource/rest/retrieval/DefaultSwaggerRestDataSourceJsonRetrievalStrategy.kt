@@ -15,7 +15,7 @@ import funcify.feature.datasource.rest.schema.RestApiSourceIndex
 import funcify.feature.datasource.rest.schema.SwaggerParameterAttribute
 import funcify.feature.datasource.rest.schema.SwaggerRestApiSourceMetamodel
 import funcify.feature.datasource.rest.schema.SwaggerSourceAttribute
-import funcify.feature.datasource.retrieval.DataSourceSpecificJsonRetrievalStrategy
+import funcify.feature.datasource.retrieval.DataSourceRepresentativeJsonRetrievalStrategy
 import funcify.feature.json.JsonMapper
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.schema.vertex.ParameterJunctionVertex
@@ -51,7 +51,7 @@ internal class DefaultSwaggerRestDataSourceJsonRetrievalStrategy(
     override val parameterVertices:
         ImmutableSet<Either<ParameterJunctionVertex, ParameterLeafVertex>>,
     override val sourceVertices: ImmutableSet<Either<SourceJunctionVertex, SourceLeafVertex>>
-) : DataSourceSpecificJsonRetrievalStrategy<RestApiSourceIndex> {
+) : DataSourceRepresentativeJsonRetrievalStrategy<RestApiSourceIndex> {
 
     companion object {
         private val logger: Logger = loggerFor<DefaultSwaggerRestDataSourceJsonRetrievalStrategy>()

@@ -11,7 +11,7 @@ import funcify.feature.datasource.graphql.schema.GraphQLParameterAttribute
 import funcify.feature.datasource.graphql.schema.GraphQLSourceAttribute
 import funcify.feature.datasource.graphql.schema.GraphQLSourceIndex
 import funcify.feature.datasource.json.JsonNodeSchematicPathToValueMappingExtractor
-import funcify.feature.datasource.retrieval.DataSourceSpecificJsonRetrievalStrategy
+import funcify.feature.datasource.retrieval.DataSourceRepresentativeJsonRetrievalStrategy
 import funcify.feature.json.JsonMapper
 import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.path.SchematicPath
@@ -47,7 +47,7 @@ internal class DefaultGraphQLDataSourceJsonRetrievalStrategy(
     override val parameterVertices:
         ImmutableSet<Either<ParameterJunctionVertex, ParameterLeafVertex>>,
     override val sourceVertices: ImmutableSet<Either<SourceJunctionVertex, SourceLeafVertex>>
-) : DataSourceSpecificJsonRetrievalStrategy<GraphQLSourceIndex> {
+) : DataSourceRepresentativeJsonRetrievalStrategy<GraphQLSourceIndex> {
 
     companion object {
         private val logger: Logger = loggerFor<DefaultGraphQLDataSourceJsonRetrievalStrategy>()

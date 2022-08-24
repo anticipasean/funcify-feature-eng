@@ -3,7 +3,6 @@ package funcify.feature.materializer.schema
 import arrow.core.Either
 import arrow.core.Option
 import com.fasterxml.jackson.databind.JsonNode
-import funcify.feature.datasource.retrieval.SchematicPathBasedJsonRetrievalFunction
 import funcify.feature.materializer.schema.RequestParameterEdge.RetrievalFunctionSpecRequestParameterEdge.SpecBuilder
 import funcify.feature.schema.SchematicEdge
 import funcify.feature.schema.datasource.DataSource
