@@ -24,14 +24,7 @@ import funcify.feature.materializer.schema.DefaultMaterializationMetamodelBroker
 import funcify.feature.materializer.schema.DefaultRequestParameterEdgeFactory
 import funcify.feature.materializer.schema.MaterializationGraphQLSchemaFactory
 import funcify.feature.materializer.schema.MaterializationMetamodelBroker
-import funcify.feature.materializer.service.DefaultMaterializationGraphQLWiringFactory
-import funcify.feature.materializer.service.DefaultMaterializationGraphVertexConnector
-import funcify.feature.materializer.service.DefaultMaterializationGraphVertexContextFactory
-import funcify.feature.materializer.service.DefaultMaterializationPreparsedDocumentProvider
-import funcify.feature.materializer.service.DefaultSingleRequestFieldMaterializationGraphService
-import funcify.feature.materializer.service.MaterializationGraphQLWiringFactory
-import funcify.feature.materializer.service.MaterializationPreparsedDocumentProvider
-import funcify.feature.materializer.service.SingleRequestFieldMaterializationGraphService
+import funcify.feature.materializer.service.*
 import funcify.feature.scalar.registry.ScalarTypeRegistry
 import funcify.feature.schema.MetamodelGraph
 import funcify.feature.schema.factory.MetamodelGraphCreationContext
@@ -192,21 +185,24 @@ class MaterializerConfiguration {
     @Bean
     fun singleRequestFieldMaterializationDataFetcherFactory(
         asyncExecutor: Executor,
-        singleRequestFieldMaterializationGraphService: SingleRequestFieldMaterializationGraphService
+        singleRequestMaterializationGraphService: SingleRequestMaterializationGraphService,
+        singleRequestMaterializationPreprocessingService:
+            SingleRequestMaterializationPreprocessingService
     ): SingleRequestFieldMaterializationDataFetcherFactory {
         return DefaultSingleRequestFieldMaterializationDataFetcherFactory(
             asyncExecutor = asyncExecutor,
-            singleRequestFieldMaterializationGraphService =
-                singleRequestFieldMaterializationGraphService
+            singleRequestMaterializationGraphService = singleRequestMaterializationGraphService,
+            singleRequestMaterializationPreprocessingService =
+                singleRequestMaterializationPreprocessingService
         )
     }
 
-    @ConditionalOnMissingBean(value = [SingleRequestFieldMaterializationGraphService::class])
+    @ConditionalOnMissingBean(value = [SingleRequestMaterializationGraphService::class])
     @Bean
     fun singleRequestFieldMaterializationGraphService(
         jsonMapper: JsonMapper
-    ): SingleRequestFieldMaterializationGraphService {
-        return DefaultSingleRequestFieldMaterializationGraphService(
+    ): SingleRequestMaterializationGraphService {
+        return DefaultSingleRequestMaterializationGraphService(
             materializationGraphVertexContextFactory =
                 DefaultMaterializationGraphVertexContextFactory(),
             materializationGraphVertexConnector =
@@ -215,6 +211,13 @@ class MaterializerConfiguration {
                     DefaultRequestParameterEdgeFactory()
                 )
         )
+    }
+
+    @ConditionalOnMissingBean(value = [SingleRequestMaterializationPreprocessingService::class])
+    @Bean
+    fun singleRequestMaterializationPreprocessingService():
+        SingleRequestMaterializationPreprocessingService {
+        return DefaultSingleRequestMaterializationPreprocessingService()
     }
 
     @ConditionalOnMissingBean(value = [MaterializationPreparsedDocumentProvider::class])

@@ -43,14 +43,14 @@ import org.slf4j.Logger
  * @author smccarron
  * @created 2022-08-08
  */
-internal class DefaultSingleRequestFieldMaterializationGraphService(
+internal class DefaultSingleRequestMaterializationGraphService(
     private val materializationGraphVertexContextFactory: MaterializationGraphVertexContextFactory,
     private val materializationGraphVertexConnector: MaterializationGraphVertexConnector
-) : SingleRequestFieldMaterializationGraphService {
+                                                              ) : SingleRequestMaterializationGraphService {
 
     companion object {
         private val logger: Logger =
-            loggerFor<DefaultSingleRequestFieldMaterializationGraphService>()
+            loggerFor<DefaultSingleRequestMaterializationGraphService>()
 
         private data class FieldOrArgumentGraphContext(
             val parentPath: SchematicPath,
@@ -138,9 +138,7 @@ internal class DefaultSingleRequestFieldMaterializationGraphService(
             }
 
         return context.graph
-            .createMinimumSpanningTreeGraphUsingEdgeCostFunction(
-                Comparator.comparing({ e -> e::class }, requestParameterEdgeTypeComparator)
-            )
+            .depthFirstSearchOnPath(SchematicPath.getRootPath())
             .asSequence()
             .map { (v1, p1, e, p2, v2) -> "%s --> %s --> %s".format(p1, e::class.simpleName, p2) }
             .joinToString(",\n--> ", "{ ", " }")

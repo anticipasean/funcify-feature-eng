@@ -4,7 +4,8 @@ import arrow.core.Option
 import arrow.core.filterIsInstance
 import arrow.core.none
 import arrow.core.toOption
-import funcify.feature.materializer.service.SingleRequestFieldMaterializationGraphService
+import funcify.feature.materializer.service.SingleRequestMaterializationGraphService
+import funcify.feature.materializer.service.SingleRequestMaterializationPreprocessingService
 import funcify.feature.tools.container.async.KFuture
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flatten
@@ -19,8 +20,9 @@ import org.slf4j.Logger
  */
 internal class DefaultSingleRequestSessionFieldMaterializationProcessor(
     private val asyncExecutor: Executor,
-    private val singleRequestFieldMaterializationGraphService:
-        SingleRequestFieldMaterializationGraphService
+    private val singleRequestMaterializationGraphService: SingleRequestMaterializationGraphService,
+    private val singleRequestMaterializationPreprocessingService:
+        SingleRequestMaterializationPreprocessingService
 ) : SingleRequestSessionFieldMaterializationProcessor {
 
     companion object {
@@ -43,8 +45,12 @@ internal class DefaultSingleRequestSessionFieldMaterializationProcessor(
             |field.type: $fieldTypeName }
             |]""".flatten()
         )
-        return singleRequestFieldMaterializationGraphService
+        return singleRequestMaterializationGraphService
             .createRequestMaterializationGraphForSession(session)
+            .flatMap { s ->
+                singleRequestMaterializationPreprocessingService
+                    .preprocessRequestMaterializationGraphInSession(s)
+            }
             .map { s -> s to none<Any>() }
             .toKFuture()
             .map { l -> l.first() }

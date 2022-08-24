@@ -5,13 +5,14 @@ import arrow.core.getOrElse
 import arrow.core.lastOrNone
 import com.fasterxml.jackson.databind.ObjectMapper
 import funcify.feature.datasource.graphql.factory.DefaultGraphQLApiDataSourceFactory.Companion.DefaultGraphQLApiDataSourceKey
-import funcify.feature.datasource.graphql.metadata.reader.ComprehensiveGraphQLApiSourceMetadataReader
-import funcify.feature.datasource.graphql.metadata.reader.DefaultGraphQLSourceIndexCreationContextFactory
-import funcify.feature.datasource.graphql.metadata.filter.InternalServiceTypesExcludingSourceMetadataFilter
 import funcify.feature.datasource.graphql.metadata.MockGraphQLApiSourceMetadataProvider
 import funcify.feature.datasource.graphql.metadata.MockGraphQLApiSourceMetadataProvider.Companion.fakeService
+import funcify.feature.datasource.graphql.metadata.filter.InternalServiceTypesExcludingSourceMetadataFilter
+import funcify.feature.datasource.graphql.metadata.reader.ComprehensiveGraphQLApiSourceMetadataReader
+import funcify.feature.datasource.graphql.metadata.reader.DefaultGraphQLSourceIndexCreationContextFactory
 import funcify.feature.datasource.graphql.schema.DefaultGraphQLSourceContainerType
 import funcify.feature.datasource.graphql.schema.DefaultGraphQLSourceIndexFactory
+import funcify.feature.datasource.graphql.schema.GraphQLSourceAttribute
 import funcify.feature.datasource.graphql.schema.GraphQLSourceContainerType
 import funcify.feature.json.JsonObjectMappingConfiguration
 import funcify.feature.tools.extensions.OptionExtensions.stream
@@ -38,9 +39,9 @@ internal class GraphQLApiSourceMetadataReaderTest {
                 .fold({ gqls: GraphQLSchema -> gqls }, { t: Throwable -> Assertions.fail(t) })
         val sourceMetamodel =
             ComprehensiveGraphQLApiSourceMetadataReader(
-                DefaultGraphQLSourceIndexFactory(),
-                DefaultGraphQLSourceIndexCreationContextFactory,
-                InternalServiceTypesExcludingSourceMetadataFilter()
+                    DefaultGraphQLSourceIndexFactory(),
+                    DefaultGraphQLSourceIndexCreationContextFactory,
+                    InternalServiceTypesExcludingSourceMetadataFilter()
                 )
                 .readSourceMetamodelFromMetadata(
                     DefaultGraphQLApiDataSourceKey(name = "mock-service"),
@@ -71,7 +72,12 @@ internal class GraphQLApiSourceMetadataReaderTest {
                     entry.key.pathSegments.lastOrNone().filter { s -> s == "shows" }.isDefined()
                 }
                 .firstOrNone()
-                .flatMap { entry -> entry.value.firstOrNone() }
+                .mapNotNull { entry ->
+                    entry.value
+                        .asSequence()
+                        .filter { gqlSrcInd -> gqlSrcInd is GraphQLSourceAttribute }
+                        .firstOrNull()
+                }
                 .map { gqlSrcInd -> gqlSrcInd.name.qualifiedForm }
                 .getOrElse { "" }
         )

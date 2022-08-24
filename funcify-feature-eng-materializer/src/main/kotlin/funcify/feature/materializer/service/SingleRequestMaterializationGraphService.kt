@@ -8,7 +8,7 @@ import funcify.feature.tools.container.deferred.Deferred
  * @author smccarron
  * @created 2022-08-08
  */
-interface SingleRequestFieldMaterializationGraphService :
+interface SingleRequestMaterializationGraphService :
     MaterializationGraphService<SingleRequestFieldMaterializationSession> {
 
     override fun createRequestMaterializationGraphForSession(
