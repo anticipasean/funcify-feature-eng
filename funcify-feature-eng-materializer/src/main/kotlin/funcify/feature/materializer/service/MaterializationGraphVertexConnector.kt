@@ -1,5 +1,6 @@
 package funcify.feature.materializer.service
 
+import funcify.feature.materializer.context.MaterializationGraphVertexContext
 import funcify.feature.materializer.error.MaterializerErrorResponse
 import funcify.feature.materializer.error.MaterializerException
 import funcify.feature.schema.vertex.ParameterAttributeVertex

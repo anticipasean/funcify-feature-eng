@@ -2,6 +2,7 @@ package funcify.feature.materializer.service
 
 import com.fasterxml.jackson.databind.JsonNode
 import funcify.feature.materializer.schema.RequestParameterEdge
+import funcify.feature.materializer.spec.RetrievalFunctionSpec
 import funcify.feature.schema.SchematicVertex
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.tools.container.graph.PathBasedGraph
@@ -23,5 +24,5 @@ interface RequestParameterMaterializationGraphPhase {
         PersistentMap<SchematicPath, PersistentSet<SchematicPath>>
 
     val retrievalFunctionSpecByTopSourceIndexPath:
-        PersistentMap<SchematicPath, MaterializationGraphVertexContext.RetrievalFunctionSpec>
+        PersistentMap<SchematicPath, RetrievalFunctionSpec>
 }

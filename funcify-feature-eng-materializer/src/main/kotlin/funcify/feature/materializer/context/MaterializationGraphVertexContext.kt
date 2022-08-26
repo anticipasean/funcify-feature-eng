@@ -1,15 +1,14 @@
-package funcify.feature.materializer.service
+package funcify.feature.materializer.context
 
 import arrow.core.Either
 import arrow.core.Option
 import com.fasterxml.jackson.databind.JsonNode
 import funcify.feature.materializer.schema.RequestParameterEdge
+import funcify.feature.materializer.spec.RetrievalFunctionSpec
 import funcify.feature.schema.MetamodelGraph
 import funcify.feature.schema.SchematicVertex
 import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.path.SchematicPath
-import funcify.feature.schema.vertex.ParameterJunctionVertex
-import funcify.feature.schema.vertex.ParameterLeafVertex
 import funcify.feature.schema.vertex.SourceJunctionVertex
 import funcify.feature.schema.vertex.SourceLeafVertex
 import funcify.feature.tools.container.graph.PathBasedGraph
@@ -91,22 +90,4 @@ sealed interface MaterializationGraphVertexContext<V : SchematicVertex> {
         fun build(): MaterializationGraphVertexContext<V>
     }
 
-    interface RetrievalFunctionSpec {
-        val dataSource: DataSource<*>
-        val sourceVerticesByPath:
-            PersistentMap<SchematicPath, Either<SourceJunctionVertex, SourceLeafVertex>>
-        val parameterVerticesByPath:
-            PersistentMap<SchematicPath, Either<ParameterJunctionVertex, ParameterLeafVertex>>
-
-        fun updateSpec(transformer: SpecBuilder.() -> SpecBuilder): RetrievalFunctionSpec
-
-        interface SpecBuilder {
-            fun dataSource(dataSource: DataSource<*>): SpecBuilder
-            fun addSourceVertex(sourceJunctionVertex: SourceJunctionVertex): SpecBuilder
-            fun addSourceVertex(sourceLeafVertex: SourceLeafVertex): SpecBuilder
-            fun addParameterVertex(parameterJunctionVertex: ParameterJunctionVertex): SpecBuilder
-            fun addParameterVertex(parameterLeafVertex: ParameterLeafVertex): SpecBuilder
-            fun build(): RetrievalFunctionSpec
-        }
-    }
 }

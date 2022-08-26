@@ -1,4 +1,4 @@
-package funcify.feature.materializer.service
+package funcify.feature.materializer.context
 
 import funcify.feature.schema.MetamodelGraph
 import funcify.feature.schema.vertex.SourceRootVertex

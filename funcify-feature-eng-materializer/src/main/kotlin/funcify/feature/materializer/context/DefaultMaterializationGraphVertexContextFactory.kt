@@ -1,13 +1,13 @@
-package funcify.feature.materializer.service
+package funcify.feature.materializer.context
 
 import arrow.core.*
 import com.fasterxml.jackson.databind.JsonNode
 import funcify.feature.materializer.error.MaterializerErrorResponse
 import funcify.feature.materializer.error.MaterializerException
 import funcify.feature.materializer.schema.RequestParameterEdge
-import funcify.feature.materializer.service.MaterializationGraphVertexContext.Builder
-import funcify.feature.materializer.service.MaterializationGraphVertexContext.RetrievalFunctionSpec
-import funcify.feature.materializer.service.MaterializationGraphVertexContext.RetrievalFunctionSpec.SpecBuilder
+import funcify.feature.materializer.context.MaterializationGraphVertexContext.Builder
+import funcify.feature.materializer.spec.DefaultRetrievalFunctionSpec
+import funcify.feature.materializer.spec.RetrievalFunctionSpec
 import funcify.feature.schema.MetamodelGraph
 import funcify.feature.schema.SchematicVertex
 import funcify.feature.schema.datasource.DataSource
@@ -32,174 +32,9 @@ import kotlinx.collections.immutable.PersistentSet
 import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.persistentSetOf
 
-internal class DefaultMaterializationGraphVertexContextFactory :
-    MaterializationGraphVertexContextFactory {
+internal class DefaultMaterializationGraphVertexContextFactory : MaterializationGraphVertexContextFactory {
 
     companion object {
-
-        internal data class DefaultRetrievalFunctionSpec(
-            override val dataSource: DataSource<*>,
-            override val sourceVerticesByPath:
-                PersistentMap<SchematicPath, Either<SourceJunctionVertex, SourceLeafVertex>> =
-                persistentMapOf(),
-            override val parameterVerticesByPath:
-                PersistentMap<SchematicPath, Either<ParameterJunctionVertex, ParameterLeafVertex>> =
-                persistentMapOf(),
-        ) : RetrievalFunctionSpec {
-
-            companion object {
-                private class DefaultSpecBuilder(
-                    private var dataSource: DataSource<*>,
-                    private val sourceVerticesByPathBuilder:
-                        PersistentMap.Builder<
-                            SchematicPath, Either<SourceJunctionVertex, SourceLeafVertex>>,
-                    private val parameterVerticesByPathBuilder:
-                        PersistentMap.Builder<
-                            SchematicPath, Either<ParameterJunctionVertex, ParameterLeafVertex>>
-                ) : SpecBuilder {
-
-                    override fun dataSource(dataSource: DataSource<*>): SpecBuilder {
-                        this.dataSource = dataSource
-                        return this
-                    }
-
-                    override fun addSourceVertex(
-                        sourceJunctionVertex: SourceJunctionVertex
-                    ): SpecBuilder {
-                        this.sourceVerticesByPathBuilder.put(
-                            sourceJunctionVertex.path,
-                            sourceJunctionVertex.left()
-                        )
-                        return this
-                    }
-
-                    override fun addSourceVertex(sourceLeafVertex: SourceLeafVertex): SpecBuilder {
-                        this.sourceVerticesByPathBuilder.put(
-                            sourceLeafVertex.path,
-                            sourceLeafVertex.right()
-                        )
-                        return this
-                    }
-
-                    override fun addParameterVertex(
-                        parameterJunctionVertex: ParameterJunctionVertex
-                    ): SpecBuilder {
-                        this.parameterVerticesByPathBuilder.put(
-                            parameterJunctionVertex.path,
-                            parameterJunctionVertex.left()
-                        )
-                        return this
-                    }
-
-                    override fun addParameterVertex(
-                        parameterLeafVertex: ParameterLeafVertex
-                    ): SpecBuilder {
-                        parameterVerticesByPathBuilder.put(
-                            parameterLeafVertex.path,
-                            parameterLeafVertex.right()
-                        )
-                        return this
-                    }
-
-                    override fun build(): RetrievalFunctionSpec {
-                        // TODO: Add check that if data_source has changed, whether the vertices
-                        // support the current data_source is reassessed
-                        return when {
-                            sourceVerticesByPathBuilder.any { (_, sjvOrSlv) ->
-                                !sjvOrSlv
-                                    .fold(
-                                        SourceJunctionVertex::compositeAttribute,
-                                        SourceLeafVertex::compositeAttribute
-                                    )
-                                    .getSourceAttributeByDataSource()
-                                    .containsKey(dataSource.key)
-                            } -> {
-                                val sourceJunctionOrLeafVertexPathsWithoutDatasourceRep =
-                                    sourceVerticesByPathBuilder
-                                        .asSequence()
-                                        .filter { (_, sjvOrSlv) ->
-                                            !sjvOrSlv
-                                                .fold(
-                                                    SourceJunctionVertex::compositeAttribute,
-                                                    SourceLeafVertex::compositeAttribute
-                                                )
-                                                .getSourceAttributeByDataSource()
-                                                .containsKey(dataSource.key)
-                                        }
-                                        .map { (p, _) -> p }
-                                        .joinToString(", ", "{ ", " }")
-                                throw MaterializerException(
-                                    MaterializerErrorResponse.UNEXPECTED_ERROR,
-                                    """source_junction_or_leaf_vertex (-ies) does 
-                                        |not have a representation 
-                                        |in the specified datasource for this spec: 
-                                        |[ datasource.key.name: ${dataSource.key.name}, 
-                                        |source_junction_or_leaf_vertex(-ies).path: 
-                                        |${sourceJunctionOrLeafVertexPathsWithoutDatasourceRep}  
-                                        |]""".flatten()
-                                )
-                            }
-                            parameterVerticesByPathBuilder.any { (_, pjvOrPlv) ->
-                                !pjvOrPlv
-                                    .fold(
-                                        ParameterJunctionVertex::compositeParameterAttribute,
-                                        ParameterLeafVertex::compositeParameterAttribute
-                                    )
-                                    .getParameterAttributesByDataSource()
-                                    .containsKey(dataSource.key)
-                            } -> {
-                                val parameterJunctionOrLeafVertexPathsWithoutDatasourceRep =
-                                    parameterVerticesByPathBuilder
-                                        .asSequence()
-                                        .filter { (_, pjvOrPlv) ->
-                                            !pjvOrPlv
-                                                .fold(
-                                                    ParameterJunctionVertex::
-                                                        compositeParameterAttribute,
-                                                    ParameterLeafVertex::compositeParameterAttribute
-                                                )
-                                                .getParameterAttributesByDataSource()
-                                                .containsKey(dataSource.key)
-                                        }
-                                        .map { (p, _) -> p }
-                                        .joinToString(", ", "{ ", " }")
-                                throw MaterializerException(
-                                    MaterializerErrorResponse.UNEXPECTED_ERROR,
-                                    """parameter_junction_or_leaf_vertex (-ies) does 
-                                        |not have a representation 
-                                        |in the specified datasource for this spec: 
-                                        |[ datasource.key.name: ${dataSource.key.name}, 
-                                        |parameter_junction_or_leaf_vertex(-ies).path: 
-                                        |${parameterJunctionOrLeafVertexPathsWithoutDatasourceRep}  
-                                        |]""".flatten()
-                                )
-                            }
-                            else -> {
-                                DefaultRetrievalFunctionSpec(
-                                    dataSource,
-                                    sourceVerticesByPathBuilder.build(),
-                                    parameterVerticesByPathBuilder.build()
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-
-            override fun updateSpec(
-                transformer: SpecBuilder.() -> SpecBuilder
-            ): RetrievalFunctionSpec {
-                return transformer
-                    .invoke(
-                        DefaultSpecBuilder(
-                            dataSource,
-                            sourceVerticesByPath.builder(),
-                            parameterVerticesByPath.builder()
-                        )
-                    )
-                    .build()
-            }
-        }
 
         internal data class DefaultMaterializationGraphVertexContext<V : SchematicVertex>(
             override val graphQLSchema: GraphQLSchema,
@@ -683,4 +518,5 @@ internal class DefaultMaterializationGraphVertexContextFactory :
             currentVertex = sourceRootVertex
         )
     }
+
 }
