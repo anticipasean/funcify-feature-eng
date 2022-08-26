@@ -6,6 +6,7 @@ import funcify.feature.json.JsonMapper
 import funcify.feature.materializer.error.MaterializerErrorResponse
 import funcify.feature.materializer.error.MaterializerException
 import funcify.feature.materializer.json.GraphQLValueToJsonNodeConverter
+import funcify.feature.materializer.schema.RequestParameterEdge
 import funcify.feature.materializer.schema.RequestParameterEdgeFactory
 import funcify.feature.schema.MetamodelGraph
 import funcify.feature.schema.datasource.DataSource
@@ -84,6 +85,8 @@ internal class DefaultMaterializationGraphVertexConnector(
                         selectedDatasource.key,
                         context.metamodelGraph
                     )
+                val nearestLastUpdatedAttributeEdge: Option<RequestParameterEdge> =
+                    createNearestLastUpdatedAttributeEdgeIfNotPresentInExpectedAncestorSpec(context)
                 // case 2.1: source_index does not have a retrieval_function_spec but does not have
                 // an ancestor that shares the same datasource and therefore must have its own
                 // retrieval_function_spec
@@ -97,9 +100,15 @@ internal class DefaultMaterializationGraphVertexConnector(
                         .fold(
                             context.update {
                                 addRetrievalFunctionSpecFor(
-                                    sourceJunctionOrLeafVertex,
-                                    selectedDatasource
-                                )
+                                        sourceJunctionOrLeafVertex,
+                                        selectedDatasource
+                                    )
+                                    .let { bldr ->
+                                        nearestLastUpdatedAttributeEdge.tap { edge ->
+                                            bldr.addRequestParameterEdge(edge)
+                                        }
+                                        bldr
+                                    }
                             } as MaterializationGraphVertexContext<*>
                         ) { ctx, parameterAttributeVertex ->
                             connectSchematicVertex(
@@ -120,17 +129,23 @@ internal class DefaultMaterializationGraphVertexConnector(
                         .fold(
                             context.update {
                                 addRequestParameterEdge(
-                                    requestParameterEdgeFactory
-                                        .builder()
-                                        .fromPathToPath(
-                                            currentOrAncestorPathWithSameDataSource,
-                                            context.path
-                                        )
-                                        .dependentExtractionFunction { resultMap ->
-                                            resultMap.getOrNone(context.path)
+                                        requestParameterEdgeFactory
+                                            .builder()
+                                            .fromPathToPath(
+                                                currentOrAncestorPathWithSameDataSource,
+                                                context.path
+                                            )
+                                            .dependentExtractionFunction { resultMap ->
+                                                resultMap.getOrNone(context.path)
+                                            }
+                                            .build()
+                                    )
+                                    .let { bldr ->
+                                        nearestLastUpdatedAttributeEdge.tap { edge ->
+                                            bldr.addRequestParameterEdge(edge)
                                         }
-                                        .build()
-                                )
+                                        bldr
+                                    }
                             } as MaterializationGraphVertexContext<*>
                         ) { ctx, parameterAttributeVertex ->
                             connectSchematicVertex(
@@ -228,6 +243,48 @@ internal class DefaultMaterializationGraphVertexConnector(
                     |]""".flatten()
             )
         }
+    }
+
+    private fun <
+        V : SourceAttributeVertex
+    > createNearestLastUpdatedAttributeEdgeIfNotPresentInExpectedAncestorSpec(
+        context: MaterializationGraphVertexContext<V>
+    ): Option<RequestParameterEdge> {
+        return context.metamodelGraph.lastUpdatedTemporalAttributePathRegistry
+            .findNearestLastUpdatedTemporalAttributePathRelative(context.path)
+            .flatMap { lastUpdatedRelativePath ->
+                context.metamodelGraph.pathBasedGraph.getVertex(lastUpdatedRelativePath)
+            }
+            .filterIsInstance<SourceAttributeVertex>()
+            .flatMap { sav: SourceAttributeVertex ->
+                sav.compositeAttribute
+                    .getSourceAttributeByDataSource()
+                    .keys
+                    .singleOrNone()
+                    .map { dsKey ->
+                        findAncestorOrKeepCurrentWithSameDataSource(
+                            sav.path,
+                            dsKey,
+                            context.metamodelGraph
+                        )
+                    }
+                    .filter { ancestorOrCurrentPath -> ancestorOrCurrentPath != sav.path }
+                    .flatMap { ancestorPath ->
+                        context.retrievalFunctionSpecByTopSourceIndexPath
+                            .getOrNone(ancestorPath)
+                            .filter { spec -> !spec.sourceVerticesByPath.containsKey(sav.path) }
+                            .map { spec -> ancestorPath to spec }
+                    }
+                    .map { (ancestorPath, _) ->
+                        requestParameterEdgeFactory
+                            .builder()
+                            .fromPathToPath(ancestorPath, sav.path)
+                            .dependentExtractionFunction { resultMap ->
+                                resultMap.getOrNone(sav.path)
+                            }
+                            .build()
+                    }
+            }
     }
 
     override fun <V : ParameterAttributeVertex> connectParameterJunctionOrLeafVertex(
