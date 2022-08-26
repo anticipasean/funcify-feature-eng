@@ -11,7 +11,6 @@ import arrow.core.toOption
 import funcify.feature.materializer.error.MaterializerErrorResponse
 import funcify.feature.materializer.error.MaterializerException
 import funcify.feature.materializer.fetcher.SingleRequestFieldMaterializationSession
-import funcify.feature.materializer.schema.RequestParameterEdge
 import funcify.feature.schema.SchematicVertex
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.schema.vertex.ParameterJunctionVertex
@@ -31,9 +30,6 @@ import graphql.language.Field
 import graphql.language.OperationDefinition
 import graphql.language.Selection
 import graphql.language.SelectionSet
-import kotlin.reflect.KClass
-import kotlin.reflect.full.isSubclassOf
-import kotlin.streams.asSequence
 import org.slf4j.Logger
 
 /**
@@ -75,82 +71,37 @@ internal class DefaultSingleRequestMaterializationGraphService(
         logger.debug(
             "create_materialization_graph_for_session: [ session.session_id: ${session.sessionId} ]"
         )
-        logger.debug(
-            "field.selection_set: [ session.field.selection_set: ${session.field.selectionSet} ]"
-        )
-        logger.debug(
-            "execution_step_info: [ {} ]",
-            session.dataFetchingEnvironment.executionStepInfo.simplePrint()
-        )
-        logger.debug(
-            "metamodel.parameter_attribute_vertices_by_source_attribute_vertex_paths: {}",
-            session.metamodelGraph.parameterAttributeVerticesBySourceAttributeVertexPaths
-                .asSequence()
-                .joinToString(
-                    separator = ",\n",
-                    prefix = "{ ",
-                    postfix = " }",
-                    transform = { (savPath, paramVerts) ->
-                        "${savPath}: %s".format(
-                            paramVerts
-                                .asSequence()
-                                .map { pav -> pav.path }
-                                .joinToString(separator = ", ", prefix = "{ ", postfix = " }")
-                        )
-                    }
-                )
-        )
         // TODO: Add caching based on operation_definition input and parameterization of
         // materialized_values
-        return traverseFieldInSessionCreatingMaterializationGraph(session).toDeferred().map { ctx ->
-            session.update {
-                requestParameterMaterializationGraphPhase(
-                    DefaultRequestParameterMaterializationGraphPhase(
-                        requestGraph = ctx.graph,
-                        materializedParameterValuesByPath = ctx.materializedParameterValuesByPath,
-                        parameterIndexPathsBySourceIndexPath =
-                            ctx.parameterIndexPathsBySourceIndexPath,
-                        retrievalFunctionSpecByTopSourceIndexPath =
-                            ctx.retrievalFunctionSpecByTopSourceIndexPath
-                    )
-                )
-            }
+        if (session.requestParameterMaterializationGraphPhase.isDefined()) {
+            return Deferred.completed(session)
         }
-    }
-
-    private fun createTopologicalSortString(context: MaterializationGraphVertexContext<*>): String {
-        val requestParameterEdgeTypeComparator: Comparator<KClass<out RequestParameterEdge>> =
-            kotlin.Comparator { cls1, cls2 ->
-                when {
-                    cls1 == cls2 -> 0
-                    RequestParameterEdge.MaterializedValueRequestParameterEdge::class.isSubclassOf(
-                        cls1
-                    ) -> -1
-                    RequestParameterEdge.MaterializedValueRequestParameterEdge::class.isSubclassOf(
-                        cls2
-                    ) -> 1
-                    RequestParameterEdge.DependentValueRequestParameterEdge::class.isSubclassOf(
-                        cls1
-                    ) -> -1
-                    RequestParameterEdge.DependentValueRequestParameterEdge::class.isSubclassOf(
-                        cls2
-                    ) -> 1
-                    else -> {
-                        0
-                    }
+        return traverseOperationDefinitionInSessionCreatingMaterializationGraph(session)
+            .toDeferred()
+            .map { ctx ->
+                session.update {
+                    requestParameterMaterializationGraphPhase(
+                        DefaultRequestParameterMaterializationGraphPhase(
+                            requestGraph = ctx.requestParameterGraph,
+                            materializedParameterValuesByPath =
+                                ctx.materializedParameterValuesByPath,
+                            parameterIndexPathsBySourceIndexPath =
+                                ctx.parameterIndexPathsBySourceIndexPath,
+                            retrievalFunctionSpecByTopSourceIndexPath =
+                                ctx.retrievalFunctionSpecByTopSourceIndexPath
+                        )
+                    )
                 }
             }
-
-        return context.graph
-            .depthFirstSearchOnPath(SchematicPath.getRootPath())
-            .asSequence()
-            .map { (v1, p1, e, p2, v2) -> "%s --> %s --> %s".format(p1, e::class.simpleName, p2) }
-            .joinToString(",\n--> ", "{ ", " }")
     }
 
-    private fun traverseFieldInSessionCreatingMaterializationGraph(
+    private fun traverseOperationDefinitionInSessionCreatingMaterializationGraph(
         session: SingleRequestFieldMaterializationSession
     ): Try<MaterializationGraphVertexContext<*>> {
+        logger.debug(
+            "traverse_operation_definition_in_session_creating_materialization_graph: [ session.session_id: {} ]",
+            session.sessionId
+        )
         return session.metamodelGraph.pathBasedGraph
             .getVertex(SchematicPath.getRootPath())
             .filterIsInstance<SourceRootVertex>()
@@ -193,13 +144,13 @@ internal class DefaultSingleRequestMaterializationGraphService(
                             )
                         )
                     ) {
-                        materializationGraphVertexCtx: MaterializationGraphVertexContext<*>,
+                        matGraphVertContext: MaterializationGraphVertexContext<*>,
                         resolvedFieldOrArgContext ->
                         when (resolvedFieldOrArgContext) {
                             is ResolvedSourceVertexContext -> {
                                 materializationGraphVertexConnector
                                     .connectSourceJunctionOrLeafVertex(
-                                        materializationGraphVertexCtx.update {
+                                        matGraphVertContext.update {
                                             nextVertex(
                                                 resolvedFieldOrArgContext.sourceJunctionOrLeafVertex
                                                     .fold(::identity, ::identity),
@@ -211,7 +162,7 @@ internal class DefaultSingleRequestMaterializationGraphService(
                             is ResolvedParameterVertexContext -> {
                                 materializationGraphVertexConnector
                                     .connectParameterJunctionOrLeafVertex(
-                                        materializationGraphVertexCtx.update {
+                                        matGraphVertContext.update {
                                             nextVertex(
                                                 resolvedFieldOrArgContext
                                                     .parameterJunctionOrLeafVertex

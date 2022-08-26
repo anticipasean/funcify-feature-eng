@@ -106,6 +106,7 @@ internal class DefaultSingleRequestMaterializationPreprocessingService(
                     .joinToString(",\n", "{ ", " }")
             )
         }
+        
         return Deferred.completed(session)
     }
     //

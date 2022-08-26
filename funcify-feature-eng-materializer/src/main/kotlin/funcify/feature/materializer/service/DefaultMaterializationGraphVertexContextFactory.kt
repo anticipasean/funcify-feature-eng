@@ -204,7 +204,7 @@ internal class DefaultMaterializationGraphVertexContextFactory :
         internal data class DefaultMaterializationGraphVertexContext<V : SchematicVertex>(
             override val graphQLSchema: GraphQLSchema,
             override val metamodelGraph: MetamodelGraph,
-            override val graph:
+            override val requestParameterGraph:
                 PathBasedGraph<SchematicPath, SchematicVertex, RequestParameterEdge> =
                 PathBasedGraph.emptyTwoToOnePathsToEdgeGraph(),
             override val materializedParameterValuesByPath: PersistentMap<SchematicPath, JsonNode> =
@@ -233,7 +233,7 @@ internal class DefaultMaterializationGraphVertexContextFactory :
             private val existingContext: DefaultMaterializationGraphVertexContext<*>,
             private var graph:
                 PathBasedGraph<SchematicPath, SchematicVertex, RequestParameterEdge> =
-                existingContext.graph,
+                existingContext.requestParameterGraph,
             private val materializedParameterValuesByPath:
                 PersistentMap.Builder<SchematicPath, JsonNode> =
                 existingContext.materializedParameterValuesByPath.builder(),
@@ -657,7 +657,7 @@ internal class DefaultMaterializationGraphVertexContextFactory :
                 return DefaultMaterializationGraphVertexContext<V>(
                     graphQLSchema = existingContext.graphQLSchema,
                     metamodelGraph = existingContext.metamodelGraph,
-                    graph = graph,
+                    requestParameterGraph = graph,
                     materializedParameterValuesByPath = materializedParameterValuesByPath.build(),
                     parameterIndexPathsBySourceIndexPath =
                         parameterIndexPathsBySourceIndexPath.build(),
@@ -679,7 +679,7 @@ internal class DefaultMaterializationGraphVertexContextFactory :
         return DefaultMaterializationGraphVertexContext<SourceRootVertex>(
             graphQLSchema = materializationSchema,
             metamodelGraph = metamodelGraph,
-            graph = PathBasedGraph.emptyTwoToOnePathsToEdgeGraph(),
+            requestParameterGraph = PathBasedGraph.emptyTwoToOnePathsToEdgeGraph(),
             currentVertex = sourceRootVertex
         )
     }

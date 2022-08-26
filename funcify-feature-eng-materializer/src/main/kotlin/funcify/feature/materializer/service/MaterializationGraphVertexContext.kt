@@ -30,7 +30,7 @@ sealed interface MaterializationGraphVertexContext<V : SchematicVertex> {
 
     val metamodelGraph: MetamodelGraph
 
-    val graph: PathBasedGraph<SchematicPath, SchematicVertex, RequestParameterEdge>
+    val requestParameterGraph: PathBasedGraph<SchematicPath, SchematicVertex, RequestParameterEdge>
 
     val materializedParameterValuesByPath: PersistentMap<SchematicPath, JsonNode>
 
@@ -53,7 +53,11 @@ sealed interface MaterializationGraphVertexContext<V : SchematicVertex> {
         get() = currentVertex.path.getParentPath()
 
     val parentVertex: Option<SchematicVertex>
-        get() = currentVertex.path.getParentPath().flatMap { pp -> graph.getVertex(pp) }
+        get() {
+            return currentVertex.path.getParentPath().flatMap { pp ->
+                metamodelGraph.pathBasedGraph.getVertex(pp)
+            }
+        }
 
     fun <NV : SchematicVertex> update(
         transformer: Builder<V>.() -> Builder<NV>

@@ -66,47 +66,40 @@ internal class DefaultMaterializationGraphVertexConnector(
                 else -> null
             }!!
         return when {
+            // case 1: current source_index already has a retrieval_function_spec associated with it
+            // --> continue
             context.path in context.retrievalFunctionSpecByTopSourceIndexPath -> {
                 context
             }
+            // case 2: current source_index does not already have a retrieval_function_spec
             else -> {
-                val currentOrAncestorPathToDatasourceKey =
-                    context.currentVertex.compositeAttribute
-                        .getSourceAttributeByDataSource()
-                        .keys
-                        .singleOrNone()
-                        .map { dsKey ->
-                            val schematicPathKeyPair =
-                                findAncestorOrKeepCurrentWithSameDataSource(
-                                    context.path,
-                                    dsKey,
-                                    context.metamodelGraph
-                                ) to dsKey
-                            logger.info(
-                                "find_ancestor_or_keep_current_with_same_datasource: [ input_path: ${context.path}, output_path: ${schematicPathKeyPair.first} ]"
-                            )
-                            schematicPathKeyPair
-                        }
-                        .successIfDefined(moreThanOneDataSourceFoundExceptionSupplier(context.path))
-                        .orElseThrow()
-                if (currentOrAncestorPathToDatasourceKey.first == context.path) {
-                    val datasource =
-                        context.metamodelGraph.dataSourcesByKey
-                            .getOrNone(currentOrAncestorPathToDatasourceKey.second)
-                            .successIfDefined(
-                                dataSourceNotFoundExceptionSupplier(
-                                    currentOrAncestorPathToDatasourceKey.second,
-                                    context.metamodelGraph.dataSourcesByKey.keys
-                                )
-                            )
-                            .orElseThrow()
+                val selectedDatasource: DataSource<*> =
+                    selectDataSourceForSourceAttributeVertex(
+                        context.currentVertex,
+                        context.metamodelGraph
+                    )
+                val currentOrAncestorPathWithSameDataSource =
+                    findAncestorOrKeepCurrentWithSameDataSource(
+                        context.path,
+                        selectedDatasource.key,
+                        context.metamodelGraph
+                    )
+                // case 2.1: source_index does not have a retrieval_function_spec but does not have
+                // an ancestor that shares the same datasource and therefore must have its own
+                // retrieval_function_spec
+                // --> create retrieval_function_spec and connect any parameter_vertices associated
+                // with this spec
+                if (currentOrAncestorPathWithSameDataSource == context.path) {
                     context.metamodelGraph.parameterAttributeVerticesBySourceAttributeVertexPaths
                         .getOrNone(context.path)
                         .map(ImmutableSet<ParameterAttributeVertex>::asSequence)
                         .fold(::emptySequence, ::identity)
                         .fold(
                             context.update {
-                                addRetrievalFunctionSpecFor(sourceJunctionOrLeafVertex, datasource)
+                                addRetrievalFunctionSpecFor(
+                                    sourceJunctionOrLeafVertex,
+                                    selectedDatasource
+                                )
                             } as MaterializationGraphVertexContext<*>
                         ) { ctx, parameterAttributeVertex ->
                             connectSchematicVertex(
@@ -114,6 +107,12 @@ internal class DefaultMaterializationGraphVertexConnector(
                             )
                         }
                 } else {
+                    // case 2.2: source_index does not have a retrieval_function_spec and does have
+                    // an ancestor that shares the same datasource
+                    // the value for this source_index therefore should be extracted from its
+                    // ancestor result_map
+                    // --> connect this vertex to its ancestor spec and connect any parameters
+                    // associated with this vertex
                     context.metamodelGraph.parameterAttributeVerticesBySourceAttributeVertexPaths
                         .getOrNone(context.path)
                         .map(ImmutableSet<ParameterAttributeVertex>::asSequence)
@@ -124,7 +123,7 @@ internal class DefaultMaterializationGraphVertexConnector(
                                     requestParameterEdgeFactory
                                         .builder()
                                         .fromPathToPath(
-                                            currentOrAncestorPathToDatasourceKey.first,
+                                            currentOrAncestorPathWithSameDataSource,
                                             context.path
                                         )
                                         .dependentExtractionFunction { resultMap ->
@@ -144,8 +143,8 @@ internal class DefaultMaterializationGraphVertexConnector(
     }
 
     private fun selectDataSourceForSourceAttributeVertex(
-        metamodelGraph: MetamodelGraph,
-        sourceAttributeVertex: SourceAttributeVertex
+        sourceAttributeVertex: SourceAttributeVertex,
+        metamodelGraph: MetamodelGraph
     ): DataSource<*> {
         val topLevelDataSourceKeyForVertex: DataSource.Key<*> =
             sourceAttributeVertex.compositeAttribute
@@ -231,20 +230,6 @@ internal class DefaultMaterializationGraphVertexConnector(
         }
     }
 
-    private fun ancestorRetrievalFunctionSpecNotFoundExceptionSupplier(
-        vertexPath: SchematicPath
-    ): () -> MaterializerException {
-        return { ->
-            MaterializerException(
-                MaterializerErrorResponse.UNEXPECTED_ERROR,
-                """retrieval_function_spec not found in ancestor of 
-                    |[ vertex_path: ${vertexPath} ]; 
-                    |vertices are likely being 
-                    |processed out-of-order""".flatten()
-            )
-        }
-    }
-
     override fun <V : ParameterAttributeVertex> connectParameterJunctionOrLeafVertex(
         context: MaterializationGraphVertexContext<V>
     ): MaterializationGraphVertexContext<*> {
@@ -302,17 +287,15 @@ internal class DefaultMaterializationGraphVertexConnector(
                                     requestParameterEdgeFactory
                                         .builder()
                                         .fromPathToPath(
+                                            // source_attr_vertex to this parameter_index
+                                            // its value depends on that source_index value
                                             sourceAttributeVertexWithSameNameOrAlias
                                                 .map(SourceAttributeVertex::path)
                                                 .orNull()!!,
                                             context.path
                                         )
                                         .dependentExtractionFunction { resultMap ->
-                                            resultMap.getOrNone(
-                                                sourceAttributeVertexWithSameNameOrAlias
-                                                    .map(SourceAttributeVertex::path)
-                                                    .orNull()!!
-                                            )
+                                            resultMap.values.firstOrNone()
                                         }
                                         .build()
                                 )
@@ -342,9 +325,6 @@ internal class DefaultMaterializationGraphVertexConnector(
                                     )
                                 )
                                 .orElseThrow()
-                        logger.info(
-                            "corresponding_field_definition_has_non_null_default_argument_value_present: [ path: ${context.path}, materialized_json_value: ${materializedDefaultJsonValue} ]"
-                        )
                         context.update {
                             addRequestParameterEdge(
                                 requestParameterEdgeFactory
