@@ -1,19 +1,19 @@
 package funcify.feature.materializer.fetcher
 
+import arrow.core.Option
+import arrow.core.none
+import arrow.core.toOption
 import funcify.feature.materializer.fetcher.SingleRequestFieldMaterializationSession.Builder
-import funcify.feature.materializer.schema.RequestParameterEdge
+import funcify.feature.materializer.service.RequestParameterMaterializationGraphPhase
 import funcify.feature.materializer.session.GraphQLSingleRequestSession
-import funcify.feature.schema.SchematicVertex
-import funcify.feature.schema.path.SchematicPath
-import funcify.feature.tools.container.graph.PathBasedGraph
 import graphql.schema.DataFetchingEnvironment
 
 internal data class DefaultSingleRequestFieldMaterializationSession(
     override val dataFetchingEnvironment: DataFetchingEnvironment,
     override val singleRequestSession: GraphQLSingleRequestSession,
-    override val requestMaterializationGraph:
-        PathBasedGraph<SchematicPath, SchematicVertex, RequestParameterEdge> =
-        PathBasedGraph.emptyTwoToOnePathsToEdgeGraph()
+    override val requestParameterMaterializationGraphPhase:
+        Option<RequestParameterMaterializationGraphPhase> =
+        none()
 ) : SingleRequestFieldMaterializationSession {
 
     companion object {
@@ -21,9 +21,9 @@ internal data class DefaultSingleRequestFieldMaterializationSession(
             val existingSession: DefaultSingleRequestFieldMaterializationSession,
             var dataFetchingEnvironment: DataFetchingEnvironment =
                 existingSession.dataFetchingEnvironment,
-            var requestMaterializationGraph:
-                PathBasedGraph<SchematicPath, SchematicVertex, RequestParameterEdge> =
-                existingSession.requestMaterializationGraph
+            var requestParameterMaterializationGraphPhase:
+                RequestParameterMaterializationGraphPhase? =
+                existingSession.requestParameterMaterializationGraphPhase.orNull()
         ) : Builder {
 
             override fun dataFetchingEnvironment(
@@ -33,18 +33,19 @@ internal data class DefaultSingleRequestFieldMaterializationSession(
                 return this
             }
 
-            override fun requestMaterializationGraph(
-                requestMaterializationGraph:
-                    PathBasedGraph<SchematicPath, SchematicVertex, RequestParameterEdge>
+            override fun requestParameterMaterializationGraphPhase(
+                requestParameterMaterializationGraphPhase: RequestParameterMaterializationGraphPhase
             ): Builder {
-                this.requestMaterializationGraph = requestMaterializationGraph
+                this.requestParameterMaterializationGraphPhase =
+                    requestParameterMaterializationGraphPhase
                 return this
             }
 
             override fun build(): SingleRequestFieldMaterializationSession {
                 return existingSession.copy(
                     dataFetchingEnvironment = dataFetchingEnvironment,
-                    requestMaterializationGraph = requestMaterializationGraph
+                    requestParameterMaterializationGraphPhase =
+                        requestParameterMaterializationGraphPhase.toOption()
                 )
             }
         }

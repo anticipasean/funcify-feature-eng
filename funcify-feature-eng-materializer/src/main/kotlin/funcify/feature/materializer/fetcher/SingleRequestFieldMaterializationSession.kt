@@ -1,13 +1,11 @@
 package funcify.feature.materializer.fetcher
 
-import funcify.feature.materializer.schema.RequestParameterEdge
+import arrow.core.Option
+import funcify.feature.materializer.service.RequestParameterMaterializationGraphPhase
 import funcify.feature.materializer.session.GraphQLSingleRequestSession
 import funcify.feature.materializer.session.MaterializationSession
 import funcify.feature.materializer.threadlocal.ThreadLocalContextKey
 import funcify.feature.schema.MetamodelGraph
-import funcify.feature.schema.SchematicVertex
-import funcify.feature.schema.path.SchematicPath
-import funcify.feature.tools.container.graph.PathBasedGraph
 import graphql.GraphQLContext
 import graphql.language.Field
 import graphql.schema.DataFetchingEnvironment
@@ -33,10 +31,9 @@ interface SingleRequestFieldMaterializationSession : MaterializationSession {
 
     val dataFetchingEnvironment: DataFetchingEnvironment
 
-    val singleRequestSession: GraphQLSingleRequestSession
+    val requestParameterMaterializationGraphPhase: Option<RequestParameterMaterializationGraphPhase>
 
-    val requestMaterializationGraph:
-        PathBasedGraph<SchematicPath, SchematicVertex, RequestParameterEdge>
+    val singleRequestSession: GraphQLSingleRequestSession
 
     override val sessionId: UUID
         get() = singleRequestSession.sessionId
@@ -65,9 +62,8 @@ interface SingleRequestFieldMaterializationSession : MaterializationSession {
 
         fun dataFetchingEnvironment(dataFetchingEnvironment: DataFetchingEnvironment): Builder
 
-        fun requestMaterializationGraph(
-            requestMaterializationGraph:
-                PathBasedGraph<SchematicPath, SchematicVertex, RequestParameterEdge>
+        fun requestParameterMaterializationGraphPhase(
+            requestParameterMaterializationGraphPhase: RequestParameterMaterializationGraphPhase
         ): Builder
 
         fun build(): SingleRequestFieldMaterializationSession

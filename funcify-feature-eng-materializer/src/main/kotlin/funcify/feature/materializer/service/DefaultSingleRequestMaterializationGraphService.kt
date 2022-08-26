@@ -12,7 +12,6 @@ import funcify.feature.materializer.error.MaterializerErrorResponse
 import funcify.feature.materializer.error.MaterializerException
 import funcify.feature.materializer.fetcher.SingleRequestFieldMaterializationSession
 import funcify.feature.materializer.schema.RequestParameterEdge
-import funcify.feature.naming.StandardNamingConventions
 import funcify.feature.schema.SchematicVertex
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.schema.vertex.ParameterJunctionVertex
@@ -22,7 +21,6 @@ import funcify.feature.schema.vertex.SourceLeafVertex
 import funcify.feature.schema.vertex.SourceRootVertex
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.container.deferred.Deferred
-import funcify.feature.tools.container.graph.PathBasedGraph
 import funcify.feature.tools.extensions.DeferredExtensions.toDeferred
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.SequenceExtensions.recurse
@@ -46,11 +44,10 @@ import org.slf4j.Logger
 internal class DefaultSingleRequestMaterializationGraphService(
     private val materializationGraphVertexContextFactory: MaterializationGraphVertexContextFactory,
     private val materializationGraphVertexConnector: MaterializationGraphVertexConnector
-                                                              ) : SingleRequestMaterializationGraphService {
+) : SingleRequestMaterializationGraphService {
 
     companion object {
-        private val logger: Logger =
-            loggerFor<DefaultSingleRequestMaterializationGraphService>()
+        private val logger: Logger = loggerFor<DefaultSingleRequestMaterializationGraphService>()
 
         private data class FieldOrArgumentGraphContext(
             val parentPath: SchematicPath,
@@ -106,7 +103,18 @@ internal class DefaultSingleRequestMaterializationGraphService(
         // TODO: Add caching based on operation_definition input and parameterization of
         // materialized_values
         return traverseFieldInSessionCreatingMaterializationGraph(session).toDeferred().map { ctx ->
-            session.update { requestMaterializationGraph(ctx.graph) }
+            session.update {
+                requestParameterMaterializationGraphPhase(
+                    DefaultRequestParameterMaterializationGraphPhase(
+                        requestGraph = ctx.graph,
+                        materializedParameterValuesByPath = ctx.materializedParameterValuesByPath,
+                        parameterIndexPathsBySourceIndexPath =
+                            ctx.parameterIndexPathsBySourceIndexPath,
+                        retrievalFunctionSpecByTopSourceIndexPath =
+                            ctx.retrievalFunctionSpecByTopSourceIndexPath
+                    )
+                )
+            }
         }
     }
 
@@ -121,10 +129,6 @@ internal class DefaultSingleRequestMaterializationGraphService(
                     RequestParameterEdge.MaterializedValueRequestParameterEdge::class.isSubclassOf(
                         cls2
                     ) -> 1
-                    RequestParameterEdge.RetrievalFunctionSpecRequestParameterEdge::class
-                        .isSubclassOf(cls1) -> -1
-                    RequestParameterEdge.RetrievalFunctionSpecRequestParameterEdge::class
-                        .isSubclassOf(cls2) -> 1
                     RequestParameterEdge.DependentValueRequestParameterEdge::class.isSubclassOf(
                         cls1
                     ) -> -1
@@ -191,79 +195,35 @@ internal class DefaultSingleRequestMaterializationGraphService(
                     ) {
                         materializationGraphVertexCtx: MaterializationGraphVertexContext<*>,
                         resolvedFieldOrArgContext ->
-                        logger.debug(
-                            "current_graph_state: {}",
-                            createGraphStr(materializationGraphVertexCtx.graph)
-                        )
                         when (resolvedFieldOrArgContext) {
                             is ResolvedSourceVertexContext -> {
-                                materializationGraphVertexCtx.update {
-                                    nextSourceVertex(
-                                        resolvedFieldOrArgContext.sourceJunctionOrLeafVertex,
-                                        resolvedFieldOrArgContext.field
+                                materializationGraphVertexConnector
+                                    .connectSourceJunctionOrLeafVertex(
+                                        materializationGraphVertexCtx.update {
+                                            nextVertex(
+                                                resolvedFieldOrArgContext.sourceJunctionOrLeafVertex
+                                                    .fold(::identity, ::identity),
+                                                resolvedFieldOrArgContext.field
+                                            )
+                                        }
                                     )
-                                }
                             }
                             is ResolvedParameterVertexContext -> {
-                                materializationGraphVertexCtx.update {
-                                    nextParameterVertex(
-                                        resolvedFieldOrArgContext.parameterJunctionOrLeafVertex,
-                                        resolvedFieldOrArgContext.argument
+                                materializationGraphVertexConnector
+                                    .connectParameterJunctionOrLeafVertex(
+                                        materializationGraphVertexCtx.update {
+                                            nextVertex(
+                                                resolvedFieldOrArgContext
+                                                    .parameterJunctionOrLeafVertex
+                                                    .fold(::identity, ::identity),
+                                                resolvedFieldOrArgContext.argument
+                                            )
+                                        }
                                     )
-                                }
                             }
-                        }.let { context ->
-                            materializationGraphVertexConnector.connectSchematicVertex(context)
                         }
                     }
             }
-    }
-
-    private fun createGraphStr(
-        graph: PathBasedGraph<SchematicPath, SchematicVertex, RequestParameterEdge>
-    ): String {
-        val edgeToString: (RequestParameterEdge) -> String = { e ->
-            StandardNamingConventions.SNAKE_CASE.deriveName(e::class.simpleName!!).qualifiedForm +
-                "(" +
-                (when (e) {
-                    is RequestParameterEdge.RetrievalFunctionSpecRequestParameterEdge -> {
-                        "datasource.key.name: " +
-                            e.dataSource.key.name +
-                            ", source_vertices.keys: " +
-                            e.sourceVerticesByPath.keys
-                                .asSequence()
-                                .joinToString(", ", "{ ", " }") +
-                            ", parameter_vertices.keys: " +
-                            e.parameterVerticesByPath.keys
-                                .asSequence()
-                                .joinToString(", ", "{ ", " }")
-                    }
-                    is RequestParameterEdge.DependentValueRequestParameterEdge -> {
-                        ""
-                    }
-                    is RequestParameterEdge.MaterializedValueRequestParameterEdge -> {
-                        ""
-                    }
-                    else -> ""
-                }) +
-                ")"
-        }
-        return "%s\n%s".format(
-            graph.verticesByPath.keys
-                .asSequence()
-                .joinToString(separator = ",\n", prefix = "vertices: { ", postfix = " }"),
-            graph
-                .edgesAsStream()
-                .asSequence()
-                .joinToString(
-                    separator = ",\n",
-                    prefix = "edges: { ",
-                    postfix = " }",
-                    transform = { e ->
-                        "%s --> %s --> %s".format(e.id.first, edgeToString.invoke(e), e.id.second)
-                    }
-                )
-        )
     }
 
     private fun resolveSourceVertexForField(
@@ -298,13 +258,13 @@ internal class DefaultSingleRequestMaterializationGraphService(
                 }
                 .successIfDefined(sourceJunctionOrLeafVertexUnresolvedExceptionSupplier(vertexPath))
                 .orElseThrow()
-        return sequenceOf(
-                ResolvedSourceVertexContext(vertexPath, sourceJunctionOrLeafVertex, field).right()
-            )
+        return field.arguments
+            .asSequence()
+            .map { argument: Argument ->
+                FieldOrArgumentGraphContext(vertexPath, argument.right()).left()
+            }
             .plus(
-                field.arguments.asSequence().map { argument: Argument ->
-                    FieldOrArgumentGraphContext(vertexPath, argument.right()).left()
-                }
+                ResolvedSourceVertexContext(vertexPath, sourceJunctionOrLeafVertex, field).right()
             )
             .plus(
                 field

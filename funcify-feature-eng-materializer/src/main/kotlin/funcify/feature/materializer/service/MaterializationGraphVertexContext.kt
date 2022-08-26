@@ -2,20 +2,22 @@ package funcify.feature.materializer.service
 
 import arrow.core.Either
 import arrow.core.Option
+import com.fasterxml.jackson.databind.JsonNode
 import funcify.feature.materializer.schema.RequestParameterEdge
 import funcify.feature.schema.MetamodelGraph
 import funcify.feature.schema.SchematicVertex
+import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.schema.vertex.ParameterJunctionVertex
 import funcify.feature.schema.vertex.ParameterLeafVertex
-import funcify.feature.schema.vertex.SchematicGraphVertexType
 import funcify.feature.schema.vertex.SourceJunctionVertex
 import funcify.feature.schema.vertex.SourceLeafVertex
-import funcify.feature.schema.vertex.SourceRootVertex
 import funcify.feature.tools.container.graph.PathBasedGraph
 import graphql.language.Argument
 import graphql.language.Field
 import graphql.schema.GraphQLSchema
+import kotlinx.collections.immutable.PersistentMap
+import kotlinx.collections.immutable.PersistentSet
 
 /**
  *
@@ -30,9 +32,19 @@ sealed interface MaterializationGraphVertexContext<V : SchematicVertex> {
 
     val graph: PathBasedGraph<SchematicPath, SchematicVertex, RequestParameterEdge>
 
+    val materializedParameterValuesByPath: PersistentMap<SchematicPath, JsonNode>
+
+    val parameterIndexPathsBySourceIndexPath:
+        PersistentMap<SchematicPath, PersistentSet<SchematicPath>>
+
+    val retrievalFunctionSpecByTopSourceIndexPath:
+        PersistentMap<SchematicPath, RetrievalFunctionSpec>
+
     val currentVertex: V
 
-    val vertexGraphType: SchematicGraphVertexType
+    val field: Option<Field>
+
+    val argument: Option<Argument>
 
     val path: SchematicPath
         get() = currentVertex.path
@@ -49,71 +61,48 @@ sealed interface MaterializationGraphVertexContext<V : SchematicVertex> {
 
     interface Builder<V : SchematicVertex> {
 
-        fun graph(
-            graph: PathBasedGraph<SchematicPath, SchematicVertex, RequestParameterEdge>
+        fun addRequestParameterEdge(requestParameterEdge: RequestParameterEdge): Builder<V>
+
+        fun <SJV, SLV> addRetrievalFunctionSpecFor(
+            sourceVertex: Either<SJV, SLV>,
+            dataSource: DataSource<*>
+        ): Builder<V> where SJV : SourceJunctionVertex, SLV : SourceLeafVertex
+
+        fun addRetrievalFunctionSpecFor(
+            sourceJunctionVertex: SourceJunctionVertex,
+            dataSource: DataSource<*>
         ): Builder<V>
 
-        fun <NV, SJV, SLV> nextSourceVertex(
-            nextVertex: Either<SJV, SLV>,
-            field: Field
-        ): Builder<NV> where
-        NV : SchematicVertex,
-        SJV : SourceJunctionVertex,
-        SLV : SourceLeafVertex
+        fun addRetrievalFunctionSpecFor(
+            sourceLeafVertex: SourceLeafVertex,
+            dataSource: DataSource<*>
+        ): Builder<V>
 
-        fun <NV, SJV, SLV> nextSourceVertex(nextVertex: Either<SJV, SLV>): Builder<NV> where
-        NV : SchematicVertex,
-        SJV : SourceJunctionVertex,
-        SLV : SourceLeafVertex
+        fun <NV : SchematicVertex> nextVertex(nextVertex: NV): Builder<NV>
 
-        fun <NV, PJV, PLV> nextParameterVertex(
-            nextVertex: Either<PJV, PLV>,
-            argument: Argument
-        ): Builder<NV> where
-        NV : SchematicVertex,
-        PJV : ParameterJunctionVertex,
-        PLV : ParameterLeafVertex
+        fun <NV : SchematicVertex> nextVertex(nextVertex: NV, field: Field): Builder<NV>
 
-        fun <NV, PJV, PLV> nextParameterVertex(nextVertex: Either<PJV, PLV>): Builder<NV> where
-        NV : SchematicVertex,
-        PJV : ParameterJunctionVertex,
-        PLV : ParameterLeafVertex
+        fun <NV : SchematicVertex> nextVertex(nextVertex: NV, argument: Argument): Builder<NV>
 
         fun build(): MaterializationGraphVertexContext<V>
     }
 
-    interface SourceRootMaterializationGraphVertexContext :
-        MaterializationGraphVertexContext<SourceRootVertex> {
-        override val currentVertex: SourceRootVertex
-        override val vertexGraphType: SchematicGraphVertexType
-            get() = SchematicGraphVertexType.SOURCE_ROOT_VERTEX
-    }
-    interface SourceJunctionMaterializationGraphVertexContext :
-        MaterializationGraphVertexContext<SourceJunctionVertex> {
-        val field: Option<Field>
-        override val currentVertex: SourceJunctionVertex
-        override val vertexGraphType: SchematicGraphVertexType
-            get() = SchematicGraphVertexType.SOURCE_JUNCTION_VERTEX
-    }
-    interface SourceLeafMaterializationGraphVertexContext :
-        MaterializationGraphVertexContext<SourceLeafVertex> {
-        val field: Option<Field>
-        override val currentVertex: SourceLeafVertex
-        override val vertexGraphType: SchematicGraphVertexType
-            get() = SchematicGraphVertexType.SOURCE_LEAF_VERTEX
-    }
-    interface ParameterJunctionMaterializationGraphVertexContext :
-        MaterializationGraphVertexContext<ParameterJunctionVertex> {
-        val argument: Option<Argument>
-        override val currentVertex: ParameterJunctionVertex
-        override val vertexGraphType: SchematicGraphVertexType
-            get() = SchematicGraphVertexType.PARAMETER_JUNCTION_VERTEX
-    }
-    interface ParameterLeafMaterializationGraphVertexContext :
-        MaterializationGraphVertexContext<ParameterLeafVertex> {
-        val argument: Option<Argument>
-        override val currentVertex: ParameterLeafVertex
-        override val vertexGraphType: SchematicGraphVertexType
-            get() = SchematicGraphVertexType.PARAMETER_LEAF_VERTEX
+    interface RetrievalFunctionSpec {
+        val dataSource: DataSource<*>
+        val sourceVerticesByPath:
+            PersistentMap<SchematicPath, Either<SourceJunctionVertex, SourceLeafVertex>>
+        val parameterVerticesByPath:
+            PersistentMap<SchematicPath, Either<ParameterJunctionVertex, ParameterLeafVertex>>
+
+        fun updateSpec(transformer: SpecBuilder.() -> SpecBuilder): RetrievalFunctionSpec
+
+        interface SpecBuilder {
+            fun dataSource(dataSource: DataSource<*>): SpecBuilder
+            fun addSourceVertex(sourceJunctionVertex: SourceJunctionVertex): SpecBuilder
+            fun addSourceVertex(sourceLeafVertex: SourceLeafVertex): SpecBuilder
+            fun addParameterVertex(parameterJunctionVertex: ParameterJunctionVertex): SpecBuilder
+            fun addParameterVertex(parameterLeafVertex: ParameterLeafVertex): SpecBuilder
+            fun build(): RetrievalFunctionSpec
+        }
     }
 }

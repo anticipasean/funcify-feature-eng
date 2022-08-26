@@ -1,10 +1,14 @@
 package funcify.feature.materializer.service
 
-import funcify.feature.materializer.service.MaterializationGraphVertexContext.ParameterJunctionMaterializationGraphVertexContext
-import funcify.feature.materializer.service.MaterializationGraphVertexContext.ParameterLeafMaterializationGraphVertexContext
-import funcify.feature.materializer.service.MaterializationGraphVertexContext.SourceJunctionMaterializationGraphVertexContext
-import funcify.feature.materializer.service.MaterializationGraphVertexContext.SourceLeafMaterializationGraphVertexContext
-import funcify.feature.materializer.service.MaterializationGraphVertexContext.SourceRootMaterializationGraphVertexContext
+import funcify.feature.materializer.error.MaterializerErrorResponse
+import funcify.feature.materializer.error.MaterializerException
+import funcify.feature.schema.vertex.ParameterAttributeVertex
+import funcify.feature.schema.vertex.ParameterJunctionVertex
+import funcify.feature.schema.vertex.ParameterLeafVertex
+import funcify.feature.schema.vertex.SourceAttributeVertex
+import funcify.feature.schema.vertex.SourceJunctionVertex
+import funcify.feature.schema.vertex.SourceLeafVertex
+import funcify.feature.schema.vertex.SourceRootVertex
 
 /**
  *
@@ -16,42 +20,55 @@ interface MaterializationGraphVertexConnector {
     fun connectSchematicVertex(
         context: MaterializationGraphVertexContext<*>
     ): MaterializationGraphVertexContext<*> {
-        return when (context) {
-            is SourceRootMaterializationGraphVertexContext -> {
-                connectSourceRootVertex(context)
+        return when (context.currentVertex) {
+            is SourceRootVertex -> {
+                @Suppress("UNCHECKED_CAST") //
+                connectSourceRootVertex(
+                    context as MaterializationGraphVertexContext<SourceRootVertex>
+                )
             }
-            is SourceJunctionMaterializationGraphVertexContext -> {
-                connectSourceJunctionVertex(context)
+            is SourceJunctionVertex -> {
+                @Suppress("UNCHECKED_CAST") //
+                connectSourceJunctionOrLeafVertex(
+                    context as MaterializationGraphVertexContext<SourceJunctionVertex>
+                )
             }
-            is SourceLeafMaterializationGraphVertexContext -> {
-                connectSourceLeafVertex(context)
+            is SourceLeafVertex -> {
+                @Suppress("UNCHECKED_CAST") //
+                connectSourceJunctionOrLeafVertex(
+                    context as MaterializationGraphVertexContext<SourceLeafVertex>
+                )
             }
-            is ParameterJunctionMaterializationGraphVertexContext -> {
-                connectParameterJunctionVertex(context)
+            is ParameterJunctionVertex -> {
+                @Suppress("UNCHECKED_CAST") //
+                connectParameterJunctionOrLeafVertex(
+                    context as MaterializationGraphVertexContext<ParameterJunctionVertex>
+                )
             }
-            is ParameterLeafMaterializationGraphVertexContext -> {
-                connectParameterLeafVertex(context)
+            is ParameterLeafVertex -> {
+                @Suppress("UNCHECKED_CAST") //
+                connectParameterJunctionOrLeafVertex(
+                    context as MaterializationGraphVertexContext<ParameterLeafVertex>
+                )
+            }
+            else -> {
+                throw MaterializerException(
+                    MaterializerErrorResponse.UNEXPECTED_ERROR,
+                    "unhandled vertex type: [ type: ${context.currentVertex::class.simpleName} ]"
+                )
             }
         }
     }
 
     fun connectSourceRootVertex(
-        context: SourceRootMaterializationGraphVertexContext
+        context: MaterializationGraphVertexContext<SourceRootVertex>
     ): MaterializationGraphVertexContext<*>
 
-    fun connectSourceJunctionVertex(
-        context: SourceJunctionMaterializationGraphVertexContext
+    fun <V : SourceAttributeVertex> connectSourceJunctionOrLeafVertex(
+        context: MaterializationGraphVertexContext<V>
     ): MaterializationGraphVertexContext<*>
 
-    fun connectSourceLeafVertex(
-        context: SourceLeafMaterializationGraphVertexContext
-    ): MaterializationGraphVertexContext<*>
-
-    fun connectParameterJunctionVertex(
-        context: ParameterJunctionMaterializationGraphVertexContext
-    ): MaterializationGraphVertexContext<*>
-
-    fun connectParameterLeafVertex(
-        context: ParameterLeafMaterializationGraphVertexContext
+    fun <V : ParameterAttributeVertex> connectParameterJunctionOrLeafVertex(
+        context: MaterializationGraphVertexContext<V>
     ): MaterializationGraphVertexContext<*>
 }
