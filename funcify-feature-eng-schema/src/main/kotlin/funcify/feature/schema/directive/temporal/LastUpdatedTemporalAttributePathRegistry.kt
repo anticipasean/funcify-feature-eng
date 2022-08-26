@@ -1,5 +1,6 @@
 package funcify.feature.schema.directive.temporal
 
+import arrow.core.Option
 import funcify.feature.schema.path.SchematicPath
 import kotlinx.collections.immutable.ImmutableSet
 
@@ -25,4 +26,8 @@ interface LastUpdatedTemporalAttributePathRegistry {
     fun pathBelongsToLastUpdatedTemporalAttributeVertex(path: SchematicPath): Boolean
 
     fun getAllPathsBelongingToLastUpdatedTemporalAttributeVertices(): ImmutableSet<SchematicPath>
+
+    fun pathBelongsToLastUpdatedTemporalAttributeParentVertex(path: SchematicPath): Boolean
+
+    fun findNearestLastUpdatedTemporalAttributePathRelative(path: SchematicPath): Option<SchematicPath>
 }
