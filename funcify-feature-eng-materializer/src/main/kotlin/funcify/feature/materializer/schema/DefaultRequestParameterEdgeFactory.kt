@@ -29,9 +29,10 @@ internal class DefaultRequestParameterEdgeFactory : RequestParameterEdgeFactory 
         ) : DependentValueRequestParameterEdge {}
 
         internal data class DefaultBuilder(
-            var pathPair: Pair<SchematicPath, SchematicPath>? = null,
-            var materializedJsonNode: JsonNode? = null,
-            var extractor: ((ImmutableMap<SchematicPath, JsonNode>) -> Option<JsonNode>)? = null
+            private var pathPair: Pair<SchematicPath, SchematicPath>? = null,
+            private var materializedJsonNode: JsonNode? = null,
+            private var extractor: ((ImmutableMap<SchematicPath, JsonNode>) -> Option<JsonNode>)? =
+                null
         ) : Builder {
 
             override fun fromPathToPath(path1: SchematicPath, path2: SchematicPath): Builder {

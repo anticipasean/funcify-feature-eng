@@ -1,5 +1,6 @@
 package funcify.feature.materializer.schema
 
+import arrow.core.getOrElse
 import arrow.core.toOption
 import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionCreationContext
 import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionCreationContextFactory
@@ -35,6 +36,8 @@ import graphql.schema.GraphQLSchema
 import graphql.schema.idl.RuntimeWiring
 import graphql.schema.idl.SchemaGenerator
 import graphql.schema.idl.TypeDefinitionRegistry
+import kotlin.reflect.KType
+import kotlin.reflect.jvm.jvmErasure
 import kotlinx.collections.immutable.PersistentList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toPersistentList
@@ -87,27 +90,8 @@ internal class DefaultMaterializationGraphQLSchemaFactory(
                 |vertices[0].path: ${firstVertexPathSupplier.invoke()} 
                 |] ]""".flatten()
         )
-        var counter: Int = 0
         if (logger.isDebugEnabled) {
-            metamodelGraph.pathBasedGraph.verticesByPath.streamPairs().forEach {
-                pair: Pair<SchematicPath, SchematicVertex> ->
-                val vertexName =
-                    when (val vertex = pair.second) {
-                        is SourceRootVertex ->
-                            vertex.compositeContainerType.conventionalName.toString()
-                        is SourceJunctionVertex ->
-                            vertex.compositeAttribute.conventionalName.toString()
-                        is SourceLeafVertex -> vertex.compositeAttribute.conventionalName.toString()
-                        is ParameterJunctionVertex ->
-                            vertex.compositeParameterAttribute.conventionalName.toString()
-                        is ParameterLeafVertex ->
-                            vertex.compositeParameterAttribute.conventionalName.toString()
-                        else -> "<NA>"
-                    }
-                logger.debug(
-                    "[${++counter}]: [ path: ${pair.first}, vertex: [ type: ${pair.second::class.simpleName}, name: ${vertexName} ]"
-                )
-            }
+            logSchematicVerticesToBeWiredIntoMaterializationGraphQLSchema(metamodelGraph)
         }
         return metamodelGraph.pathBasedGraph.vertices
             .stream()
@@ -141,6 +125,43 @@ internal class DefaultMaterializationGraphQLSchemaFactory(
                             t
                         )
                     }
+            }
+    }
+
+    private fun logSchematicVerticesToBeWiredIntoMaterializationGraphQLSchema(
+        metamodelGraph: MetamodelGraph
+    ) {
+        var counter: Int = 0
+        val vertexSuperTypeNameExtractor: (Pair<SchematicPath, SchematicVertex>) -> String =
+            { (_, v) ->
+                v::class
+                    .supertypes
+                    .asSequence()
+                    .map { kType: KType -> kType.jvmErasure.simpleName }
+                    .firstOrNull()
+                    .toOption()
+                    .getOrElse { v::class.simpleName ?: "<NA>" }
+            }
+        val vertexNameExtractor: (Pair<SchematicPath, SchematicVertex>) -> String = { (_, v) ->
+            when (v) {
+                is SourceRootVertex -> v.compositeContainerType.conventionalName.toString()
+                is SourceJunctionVertex -> v.compositeAttribute.conventionalName.toString()
+                is SourceLeafVertex -> v.compositeAttribute.conventionalName.toString()
+                is ParameterJunctionVertex ->
+                    v.compositeParameterAttribute.conventionalName.toString()
+                is ParameterLeafVertex -> v.compositeParameterAttribute.conventionalName.toString()
+                else -> "<NA>"
+            }
+        }
+        metamodelGraph.pathBasedGraph.verticesByPath
+            .streamPairs()
+            .sorted { p1, p2 -> p1.first.compareTo(p2.first) }
+            .forEach { pair: Pair<SchematicPath, SchematicVertex> ->
+                val vertexName = vertexNameExtractor.invoke(pair)
+                val vertexSuperTypeName = vertexSuperTypeNameExtractor.invoke(pair)
+                logger.debug(
+                    "[${counter++}]: [ path: ${pair.first}, vertex: [ type: $vertexSuperTypeName, name: $vertexName ]"
+                )
             }
     }
 
