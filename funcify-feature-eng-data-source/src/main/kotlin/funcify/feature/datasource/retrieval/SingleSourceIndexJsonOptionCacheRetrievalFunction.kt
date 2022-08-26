@@ -1,5 +1,6 @@
 package funcify.feature.datasource.retrieval
 
+import arrow.core.Either
 import arrow.core.Option
 import com.fasterxml.jackson.databind.JsonNode
 import funcify.feature.schema.datasource.DataSource
@@ -32,6 +33,10 @@ interface SingleSourceIndexJsonOptionCacheRetrievalFunction :
     interface Builder {
 
         fun cacheForDataSource(dataSource: DataSource<*>): Builder
+
+        fun sourceTarget(
+            sourceJunctionOrLeafVertex: Either<SourceJunctionVertex, SourceLeafVertex>
+        ): Builder
 
         fun sourceTarget(sourceJunctionVertex: SourceJunctionVertex): Builder
 

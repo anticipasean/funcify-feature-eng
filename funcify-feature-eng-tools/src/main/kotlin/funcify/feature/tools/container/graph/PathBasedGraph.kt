@@ -106,7 +106,7 @@ interface PathBasedGraph<P, V, E> : PersistentGraph<V, E>, Iterable<Tuple5<V, P,
 
     override fun spliterator(): Spliterator<Tuple5<V, P, E, P, V>> {
         return connectedPaths()
-            .map({ (p1: P, p2: P) -> getFullConnectionsFromPathToPath(p1, p2) })
+            .map { (p1: P, p2: P) -> getFullConnectionsFromPathToPath(p1, p2) }
             .flatMap { set: ImmutableSet<Tuple5<V, P, E, P, V>> -> set.stream() }
             .spliterator()
     }

@@ -55,6 +55,13 @@ internal class DefaultSchematicPathBasedJsonRetrievalFunctionFactory(
             }
 
             override fun addRequestParameter(
+                parameterJunctionOrLeafVertex: Either<ParameterJunctionVertex, ParameterLeafVertex>
+            ): Builder {
+                this.parameterVertices.add(parameterJunctionOrLeafVertex)
+                return this
+            }
+
+            override fun addRequestParameter(
                 parameterJunctionVertex: ParameterJunctionVertex
             ): Builder {
                 this.parameterVertices.add(parameterJunctionVertex.left())
@@ -63,6 +70,13 @@ internal class DefaultSchematicPathBasedJsonRetrievalFunctionFactory(
 
             override fun addRequestParameter(parameterLeafVertex: ParameterLeafVertex): Builder {
                 this.parameterVertices.add(parameterLeafVertex.right())
+                return this
+            }
+
+            override fun addSourceTarget(
+                sourceJunctionOrLeafVertex: Either<SourceJunctionVertex, SourceLeafVertex>
+            ): Builder {
+                this.sourceVertices.add(sourceJunctionOrLeafVertex)
                 return this
             }
 
@@ -171,6 +185,16 @@ internal class DefaultSchematicPathBasedJsonRetrievalFunctionFactory(
             }
 
             override fun sourceTarget(
+                sourceJunctionOrLeafVertex: Either<SourceJunctionVertex, SourceLeafVertex>
+            ): SingleSourceIndexJsonOptionCacheRetrievalFunction.Builder {
+                sourceJunctionOrLeafVertex.fold(
+                    { sjv -> this.sourceJunctionVertex = sjv },
+                    { slv -> this.sourceLeafVertex = slv }
+                )
+                return this
+            }
+
+            override fun sourceTarget(
                 sourceJunctionVertex: SourceJunctionVertex
             ): SingleSourceIndexJsonOptionCacheRetrievalFunction.Builder {
                 this.sourceJunctionVertex = sourceJunctionVertex
@@ -265,6 +289,22 @@ internal class DefaultSchematicPathBasedJsonRetrievalFunctionFactory(
                     sourceVertex
                 )
             }
+        }
+    }
+
+    override fun canBuildMultipleSourceIndicesJsonRetrievalFunctionForDataSource(
+        dataSourceKey: DataSource.Key<*>
+    ): Boolean {
+        return dataSourceRepresentativeJsonRetrievalStrategyProviders.any { provider ->
+            provider.providesJsonRetrievalFunctionsForVerticesWithSourceIndicesIn(dataSourceKey)
+        }
+    }
+
+    override fun canBuildSingleSourceIndexJsonOptionCacheRetrievalFunctionForDataSource(
+        dataSourceKey: DataSource.Key<*>
+    ): Boolean {
+        return dataSourceCacheJsonRetrievalStrategyProviders.any { provider ->
+            provider.providesJsonRetrievalFunctionsForVerticesWithSourceIndicesIn(dataSourceKey)
         }
     }
 

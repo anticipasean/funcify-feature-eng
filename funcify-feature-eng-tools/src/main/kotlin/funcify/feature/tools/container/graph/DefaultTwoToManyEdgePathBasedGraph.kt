@@ -3,6 +3,7 @@ package funcify.feature.tools.container.graph
 import arrow.core.Option
 import arrow.core.Tuple5
 import arrow.core.getOrElse
+import arrow.core.identity
 import arrow.core.some
 import arrow.core.toOption
 import funcify.feature.tools.container.tree.UnionFindTree
@@ -14,6 +15,7 @@ import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPer
 import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentSetValueMap
 import funcify.feature.tools.extensions.StreamExtensions.flatMapOptions
 import java.util.stream.Stream
+import java.util.stream.Stream.empty
 import java.util.stream.StreamSupport
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.ImmutableSet
@@ -64,8 +66,16 @@ internal data class DefaultTwoToManyEdgePathBasedGraph<P, V, E>(
      * parent_path_n-1 to child_path_n-1 ) } detailing what "child" paths each path has if
      * directionality is being used in the algorithm in question
      */
-    private val pathConnections: ImmutableMap<P, ImmutableSet<P>> by lazy {
+    private val forwardConnections: ImmutableMap<P, ImmutableSet<P>> by lazy {
         edgesSetByPathPair.keys.stream().parallel().reducePairsToPersistentSetValueMap()
+    }
+
+    private val reverseConnections: ImmutableMap<P, ImmutableSet<P>> by lazy {
+        edgesSetByPathPair.keys
+            .stream()
+            .parallel()
+            .map { pair -> pair.swap() }
+            .reducePairsToPersistentSetValueMap()
     }
 
     private val lazyEdgeCount: Int by lazy {
@@ -213,7 +223,7 @@ internal data class DefaultTwoToManyEdgePathBasedGraph<P, V, E>(
      * through
      */
     override fun getEdgesFrom(path: P): Stream<E> {
-        return pathConnections[path]
+        return forwardConnections[path]
             .toOption()
             .map { ps: ImmutableSet<P> -> ps.stream().map { p: P -> path to p } }
             .getOrElse { Stream.empty() }
@@ -229,18 +239,18 @@ internal data class DefaultTwoToManyEdgePathBasedGraph<P, V, E>(
      * through
      */
     override fun getEdgesTo(path: P): Stream<E> {
-        return pathConnections[path]
+        return reverseConnections[path]
             .toOption()
-            .map { ps: ImmutableSet<P> -> ps.stream().map { p: P -> p to path } }
-            .getOrElse { Stream.empty() }
-            .map { pair: Pair<P, P> ->
-                edgesSetByPathPair[pair].toOption().getOrElse { persistentSetOf() }
-            }
-            .flatMap { eSet: PersistentSet<E> -> eSet.stream() }
+            .map(ImmutableSet<P>::stream)
+            .fold(::empty, ::identity)
+            .map { p -> p to path }
+            .map { pair -> edgesSetByPathPair[pair].toOption() }
+            .flatMapOptions()
+            .flatMap(ImmutableSet<E>::stream)
     }
 
     override fun successors(vertexPath: P): Stream<Pair<P, V>> {
-        return pathConnections[vertexPath]
+        return forwardConnections[vertexPath]
             .toOption()
             .getOrElse { persistentSetOf() }
             .stream()
@@ -253,12 +263,12 @@ internal data class DefaultTwoToManyEdgePathBasedGraph<P, V, E>(
     }
 
     override fun predecessors(vertexPath: P): Stream<Pair<P, V>> {
-        return pathConnections
-            .stream()
-            .filter { (_, value) -> value.stream().anyMatch { p: P -> p == vertexPath } }
-            .map { (key, _) -> key }
-            .filter { p: P -> p != vertexPath }
-            .flatMap { p: P -> verticesByPath[p].toOption().map { v: V -> p to v }.stream() }
+        return reverseConnections[vertexPath]
+            .toOption()
+            .map(ImmutableSet<P>::stream)
+            .fold(::empty, ::identity)
+            .map { p -> verticesByPath[p].toOption().map { v -> p to v } }
+            .flatMapOptions()
     }
 
     override fun predecessors(vertex: V, pathExtractor: Function1<V, P>): Stream<Pair<P, V>> {
@@ -442,7 +452,7 @@ internal data class DefaultTwoToManyEdgePathBasedGraph<P, V, E>(
                         inputPath = p,
                         verticesByPath = verticesByPath,
                         edgesSetByPathPair = edgesSetByPathPair,
-                        pathConnections = pathConnections
+                        pathConnections = forwardConnections
                     ),
                     false
                 )

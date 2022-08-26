@@ -1,5 +1,13 @@
 package funcify.feature.materializer.service
 
+import arrow.core.Option
+import arrow.core.filterIsInstance
+import arrow.core.getOrNone
+import arrow.core.identity
+import arrow.core.singleOrNone
+import arrow.core.some
+import arrow.core.toOption
+import com.fasterxml.jackson.databind.JsonNode
 import funcify.feature.datasource.retrieval.MultipleSourceIndicesJsonRetrievalFunction
 import funcify.feature.datasource.retrieval.SchematicPathBasedJsonRetrievalFunctionFactory
 import funcify.feature.datasource.retrieval.SingleSourceIndexJsonOptionCacheRetrievalFunction
@@ -7,15 +15,24 @@ import funcify.feature.materializer.error.MaterializerErrorResponse
 import funcify.feature.materializer.error.MaterializerException
 import funcify.feature.materializer.fetcher.SingleRequestFieldMaterializationSession
 import funcify.feature.materializer.schema.RequestParameterEdge
+import funcify.feature.materializer.schema.RequestParameterEdge.*
+import funcify.feature.materializer.spec.RetrievalFunctionSpec
 import funcify.feature.naming.StandardNamingConventions
 import funcify.feature.schema.SchematicVertex
 import funcify.feature.schema.path.SchematicPath
+import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.container.deferred.Deferred
 import funcify.feature.tools.container.graph.PathBasedGraph
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
+import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentMap
+import funcify.feature.tools.extensions.SequenceExtensions.flatMapOptions
+import funcify.feature.tools.extensions.StreamExtensions.flatMapOptions
 import funcify.feature.tools.extensions.StringExtensions.flatten
+import java.util.stream.Stream.empty
 import kotlin.streams.asSequence
+import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.PersistentMap
+import kotlinx.collections.immutable.PersistentSet
 import kotlinx.collections.immutable.persistentMapOf
 import org.slf4j.Logger
 
@@ -28,25 +45,30 @@ internal class DefaultSingleRequestMaterializationPreprocessingService(
         private val logger: Logger =
             loggerFor<DefaultSingleRequestMaterializationPreprocessingService>()
 
-        private data class SubgraphRequestCreationContext(
-            val processedSubgraphBySpecEdgeKey:
-                PersistentMap<
-                    Pair<SchematicPath, SchematicPath>,
-                    PathBasedGraph<SchematicPath, SchematicVertex, RequestParameterEdge>
-                > =
+        private data class RequestCreationContext(
+            val processedRetrievalFunctionSpecsBySourceIndexPath:
+                PersistentMap<SchematicPath, RetrievalFunctionSpec> =
                 persistentMapOf(),
-            val multiSrcIndexFunctionBySpecEdgeKey:
-                PersistentMap<
-                    Pair<SchematicPath, SchematicPath>, MultipleSourceIndicesJsonRetrievalFunction
-                > =
+            val remainingRetrievalFunctionSpecsBySourceIndexPath:
+                PersistentMap<SchematicPath, RetrievalFunctionSpec> =
                 persistentMapOf(),
-            val singleSrcIndexCacheFunctionBySpecEdgeKey:
-                PersistentMap<
-                    Pair<SchematicPath, SchematicPath>,
-                    SingleSourceIndexJsonOptionCacheRetrievalFunction
-                > =
+            val multiSrcIndexFunctionBySourceIndexPath:
+                PersistentMap<SchematicPath, MultipleSourceIndicesJsonRetrievalFunction> =
+                persistentMapOf(),
+            val singleSrcIndexCacheFunctionBySourceIndexPath:
+                PersistentMap<SchematicPath, SingleSourceIndexJsonOptionCacheRetrievalFunction> =
+                persistentMapOf(),
+            val dispatchedMultiValueDeferredResponsesBySourceIndexPath:
+                PersistentMap<SchematicPath, Deferred<ImmutableMap<SchematicPath, JsonNode>>> =
+                persistentMapOf(),
+            val dispatchedSingleValueDeferredResponsesBySourceIndexPath:
+                PersistentMap<SchematicPath, Deferred<Option<JsonNode>>> =
                 persistentMapOf()
         )
+
+        private fun interface DependentSourcesJsonRetrievalFunction :
+            (ImmutableMap<SchematicPath, JsonNode>) -> Deferred<
+                    ImmutableMap<SchematicPath, JsonNode>>
     }
 
     override fun preprocessRequestMaterializationGraphInSession(
@@ -106,98 +128,241 @@ internal class DefaultSingleRequestMaterializationPreprocessingService(
                     .joinToString(",\n", "{ ", " }")
             )
         }
-        
+        session.requestParameterMaterializationGraphPhase.map { phase ->
+            phase.retrievalFunctionSpecByTopSourceIndexPath
+                .asSequence()
+                .fold(Try.success(RequestCreationContext())) {
+                    reqCreationContextUpdateAttempt,
+                    (sourceIndexPath, retrievalFunctionSpec) ->
+                    reqCreationContextUpdateAttempt.flatMap { context ->
+                        createAndDispatchFirstRoundOfRequestFunctionsForApplicableRetrievalFunctionSpecs(
+                            session,
+                            phase,
+                            context,
+                            sourceIndexPath,
+                            retrievalFunctionSpec
+                        )
+                    }
+                }
+                .flatMap { reqCreationContext ->
+                    reqCreationContext.remainingRetrievalFunctionSpecsBySourceIndexPath
+                        .asSequence()
+                        .fold(Try.success(reqCreationContext)) {
+                            reqCreationContextUpdateAttempt,
+                            (sourceIndexPath, retrievalFunctionSpec) ->
+                            reqCreationContextUpdateAttempt.flatMap { context ->
+                                createDependentRetrievalFunctionsForApplicableRemainingRetrievalFunctionSpecs(
+                                    session,
+                                    phase,
+                                    context,
+                                    sourceIndexPath,
+                                    retrievalFunctionSpec
+                                )
+                            }
+                        }
+                }
+        }
         return Deferred.completed(session)
     }
-    //
-    //    private fun updateSubgraphRequestCreationContextPerSpecEdgeKeyAndSubgraph(
-    //        session: SingleRequestFieldMaterializationSession,
-    //        context: SubgraphRequestCreationContext,
-    //        edgeKey: Pair<SchematicPath, SchematicPath>,
-    //        subGraph: PathBasedGraph<SchematicPath, SchematicVertex, RequestParameterEdge>,
-    //    ): Try<SubgraphRequestCreationContext> {
-    //        return when {
-    //            // case 1: spec edge is on a domain node so a top level
-    //            // identifier parameter must have been provided by the caller
-    //            // for materialization of domain values
-    //            edgeKey.first.isRoot() &&
-    //                edgeKey.second.level() == 1 &&
-    //                edgeKey.second.arguments.isEmpty() &&
-    //                edgeKey.second.directives.isEmpty() -> {
-    //                session.requestMaterializationGraph
-    //                    .getEdgesFromPathToPath(edgeKey)
-    //                    .firstOrNone()
-    //                    .filterIsInstance<RetrievalFunctionSpecRequestParameterEdge>()
-    //
-    // .successIfDefined(retrievalFunctionSpecEdgeNotFoundExceptionSupplier(edgeKey))
-    //                    .map { specEdge ->
-    //                        specEdge.sourceVerticesByPath.asSequence().fold(
-    //                            specEdge.parameterVerticesByPath.asSequence().fold(
-    //                                schematicPathBasedJsonRetrievalFunctionFactory
-    //                                    .multipleSourceIndicesJsonRetrievalFunctionBuilder()
-    //                                    .dataSource(specEdge.dataSource)
-    //                            ) { bldr, (_, paramVert) ->
-    //                                paramVert.fold(
-    //                                    { pjv -> bldr.addRequestParameter(pjv) },
-    //                                    { plv -> bldr.addRequestParameter(plv) }
-    //                                )
-    //                            }
-    //                        ) { bldr, (_, srcVert) ->
-    //                            srcVert.fold(
-    //                                { sjv -> bldr.addSourceTarget(sjv) },
-    //                                { slv -> bldr.addSourceTarget(slv) }
-    //                            )
-    //                        }
-    //                    }
-    //                    .flatMap { builder -> builder.build() }
-    //                    .map { multiSrcIndFunc ->
-    //                        context.copy(
-    //                            processedSubgraphBySpecEdgeKey =
-    //                                context.processedSubgraphBySpecEdgeKey.put(edgeKey, subGraph),
-    //                            multiSrcIndexFunctionBySpecEdgeKey =
-    //                                context.multiSrcIndexFunctionBySpecEdgeKey.put(
-    //                                    edgeKey,
-    //                                    multiSrcIndFunc
-    //                                )
-    //                        )
-    //                    }
-    //            }
-    //            // case 2: spec edge does not contain any nodes dependent on output of a processed
-    //            // function
-    //
-    //            // case 2: spec edge is not a domain node and has at least one parameter value
-    // dependent
-    //            // on the output of another request function
-    //            else -> {
-    //
-    // Try.failure(unhandledSubgraphRequestCreationCaseExceptionSupplier(edgeKey).invoke())
-    //            }
-    //        }
-    //    }
 
-    private fun retrievalFunctionSpecEdgeNotFoundExceptionSupplier(
-        edgeKey: Pair<SchematicPath, SchematicPath>
-    ): () -> MaterializerException {
-        return { ->
-            MaterializerException(
-                MaterializerErrorResponse.UNEXPECTED_ERROR,
-                """retrieval_function_spec_edge expected 
-                    |but not found at [ edge_key: ${edgeKey} ] 
-                    |in request_materialization_graph""".flatten()
-            )
+    private fun createDependentRetrievalFunctionsForApplicableRemainingRetrievalFunctionSpecs(
+        session: SingleRequestFieldMaterializationSession,
+        phase: RequestParameterMaterializationGraphPhase,
+        requestCreationContext: RequestCreationContext,
+        sourceIndexPath: SchematicPath,
+        retrievalFunctionSpec: RetrievalFunctionSpec,
+    ): Try<RequestCreationContext> {
+        logger.debug(
+            "create_dependent_retrieval_functions_for_applicable_remaining_retrieval_function_specs: [ source_index_path: ${sourceIndexPath} ]"
+        )
+        return when {
+            // case 1: a multi-source index retrieval function can be built for this datasource
+            schematicPathBasedJsonRetrievalFunctionFactory
+                .canBuildMultipleSourceIndicesJsonRetrievalFunctionForDataSource(
+                    retrievalFunctionSpec.dataSource.key
+                ) -> {
+                retrievalFunctionSpec.sourceVerticesByPath
+                    .asSequence()
+                    .fold(
+                        retrievalFunctionSpec.parameterVerticesByPath.asSequence().fold(
+                            schematicPathBasedJsonRetrievalFunctionFactory
+                                .multipleSourceIndicesJsonRetrievalFunctionBuilder()
+                                .dataSource(retrievalFunctionSpec.dataSource)
+                        ) { retrievalFunctionBuilder, (_, paramVert) ->
+                            retrievalFunctionBuilder.addRequestParameter(paramVert)
+                        }
+                    ) { retrievalFunctionBuilder, (_, srcVert) ->
+                        retrievalFunctionBuilder.addSourceTarget(srcVert)
+                    }
+                    .build()
+                    .map { multiSrcIndJsonRetrievalFunction ->
+                        phase.parameterIndexPathsBySourceIndexPath
+                            .getOrNone(sourceIndexPath)
+                            .map(PersistentSet<SchematicPath>::stream)
+                            .fold(::empty, ::identity)
+                            .parallel()
+                            .flatMap { paramPath ->
+                                phase.requestGraph
+                                    .getEdgesTo(paramPath)
+                                    .map { requestParameterEdge ->
+                                        requestParameterEdge
+                                            .some()
+                                            .filterIsInstance<DependentValueRequestParameterEdge>()
+                                    }
+                                    .flatMapOptions()
+                            }
+                            .map { dependentValueRequestParameterEdge ->
+                                requestCreationContext.multiSrcIndexFunctionBySourceIndexPath
+                                    .asSequence()
+                                    .firstOrNull { (srcIndPath, func) ->
+                                        func.sourcePaths.contains(
+                                            dependentValueRequestParameterEdge.id.first
+                                        )
+                                    }
+                                    .toOption()
+                                    .map {}
+                            }
+
+                        requestCreationContext
+                    }
+            }
+            else -> {
+                Try.success(
+                    requestCreationContext.copy(
+                        remainingRetrievalFunctionSpecsBySourceIndexPath =
+                            requestCreationContext.remainingRetrievalFunctionSpecsBySourceIndexPath
+                                .put(sourceIndexPath, retrievalFunctionSpec)
+                    )
+                )
+            }
         }
     }
 
-    private fun unhandledSubgraphRequestCreationCaseExceptionSupplier(
-        edgeKey: Pair<SchematicPath, SchematicPath>
-    ): () -> MaterializerException {
-        return { ->
-            MaterializerException(
-                MaterializerErrorResponse.UNEXPECTED_ERROR,
-                """unhandled case when processing 
-                    |request_parameter_function_spec_edge with 
-                    |subgraph [ edge_key: ${edgeKey} ]""".flatten()
-            )
+    private fun createAndDispatchFirstRoundOfRequestFunctionsForApplicableRetrievalFunctionSpecs(
+        session: SingleRequestFieldMaterializationSession,
+        phase: RequestParameterMaterializationGraphPhase,
+        requestCreationContext: RequestCreationContext,
+        sourceIndexPath: SchematicPath,
+        retrievalFunctionSpec: RetrievalFunctionSpec,
+    ): Try<RequestCreationContext> {
+        logger.debug(
+            "create_and_dispatch_first_round_of_request_functions_for_applicable_retrieval_function_specs: [ source_index_path: ${sourceIndexPath} ]"
+        )
+        return when {
+            // case 1: all parameters expected for this function_spec have materialized values (=>
+            // input values supplied by caller) and a function can be built for this datasource
+            retrievalFunctionSpec.parameterVerticesByPath.all { (p, _) ->
+                p in phase.materializedParameterValuesByPath
+            } &&
+                schematicPathBasedJsonRetrievalFunctionFactory
+                    .canBuildMultipleSourceIndicesJsonRetrievalFunctionForDataSource(
+                        retrievalFunctionSpec.dataSource.key
+                    ) -> {
+                retrievalFunctionSpec.sourceVerticesByPath
+                    .asSequence()
+                    .fold(
+                        retrievalFunctionSpec.parameterVerticesByPath.asSequence().fold(
+                            schematicPathBasedJsonRetrievalFunctionFactory
+                                .multipleSourceIndicesJsonRetrievalFunctionBuilder()
+                                .dataSource(retrievalFunctionSpec.dataSource)
+                        ) { retrievalFunctionBuilder, (_, paramVert) ->
+                            retrievalFunctionBuilder.addRequestParameter(paramVert)
+                        }
+                    ) { retrievalFunctionBuilder, (_, srcVert) ->
+                        retrievalFunctionBuilder.addSourceTarget(srcVert)
+                    }
+                    .build()
+                    .map { multiSrcIndJsonRetrFunc ->
+                        requestCreationContext.copy(
+                            processedRetrievalFunctionSpecsBySourceIndexPath =
+                                requestCreationContext
+                                    .processedRetrievalFunctionSpecsBySourceIndexPath
+                                    .put(sourceIndexPath, retrievalFunctionSpec),
+                            multiSrcIndexFunctionBySourceIndexPath =
+                                requestCreationContext.multiSrcIndexFunctionBySourceIndexPath.put(
+                                    sourceIndexPath,
+                                    multiSrcIndJsonRetrFunc
+                                ),
+                            dispatchedMultiValueDeferredResponsesBySourceIndexPath =
+                                requestCreationContext
+                                    .dispatchedMultiValueDeferredResponsesBySourceIndexPath
+                                    .put(
+                                        sourceIndexPath,
+                                        multiSrcIndJsonRetrFunc.invoke(
+                                            retrievalFunctionSpec.parameterVerticesByPath.keys
+                                                .asSequence()
+                                                .map { p ->
+                                                    phase.materializedParameterValuesByPath[p]
+                                                        .toOption()
+                                                        .map { jn -> p to jn }
+                                                }
+                                                .flatMapOptions()
+                                                .reducePairsToPersistentMap()
+                                        )
+                                    )
+                        )
+                    }
+            }
+            // case 2: source_index_path represents a single scalar or list (non-object) value that
+            // may be provided
+            // by a caching function and a function can be built for this datasource/ datasource
+            // caching service
+            retrievalFunctionSpec.sourceVerticesByPath
+                .asIterable()
+                .singleOrNone()
+                .filter { (_, srcJunctionOrLeafVertex) -> srcJunctionOrLeafVertex.isRight() }
+                .isDefined() &&
+                schematicPathBasedJsonRetrievalFunctionFactory
+                    .canBuildSingleSourceIndexJsonOptionCacheRetrievalFunctionForDataSource(
+                        retrievalFunctionSpec.dataSource.key
+                    ) -> {
+                Try.fromOption(
+                        retrievalFunctionSpec.sourceVerticesByPath.asIterable().singleOrNone()
+                    )
+                    .flatMap { (_, srcJunctionOrLeafVertex) ->
+                        schematicPathBasedJsonRetrievalFunctionFactory
+                            .singleSourceIndexCacheRetrievalFunctionBuilder()
+                            .cacheForDataSource(retrievalFunctionSpec.dataSource)
+                            .sourceTarget(srcJunctionOrLeafVertex)
+                            .build()
+                    }
+                    .map {
+                        singleSrcIndCacheRetrFunc: SingleSourceIndexJsonOptionCacheRetrievalFunction
+                        ->
+                        requestCreationContext.copy(
+                            processedRetrievalFunctionSpecsBySourceIndexPath =
+                                requestCreationContext
+                                    .processedRetrievalFunctionSpecsBySourceIndexPath
+                                    .put(sourceIndexPath, retrievalFunctionSpec),
+                            singleSrcIndexCacheFunctionBySourceIndexPath =
+                                requestCreationContext.singleSrcIndexCacheFunctionBySourceIndexPath
+                                    .put(sourceIndexPath, singleSrcIndCacheRetrFunc),
+                            dispatchedSingleValueDeferredResponsesBySourceIndexPath =
+                                requestCreationContext
+                                    .dispatchedSingleValueDeferredResponsesBySourceIndexPath
+                                    .put(
+                                        sourceIndexPath,
+                                        singleSrcIndCacheRetrFunc.invoke(
+                                            // TODO: Explore whether all "context" values should be
+                                            // included
+                                            // or only some
+                                            phase.materializedParameterValuesByPath
+                                        )
+                                    )
+                        )
+                    }
+            }
+            // case 3: retrieval_function_spec cannot be processed before calls of these other
+            // functions have been made
+            else -> {
+                Try.success(
+                    requestCreationContext.copy(
+                        remainingRetrievalFunctionSpecsBySourceIndexPath =
+                            requestCreationContext.remainingRetrievalFunctionSpecsBySourceIndexPath
+                                .put(sourceIndexPath, retrievalFunctionSpec)
+                    )
+                )
+            }
         }
     }
 
@@ -208,10 +373,10 @@ internal class DefaultSingleRequestMaterializationPreprocessingService(
             StandardNamingConventions.SNAKE_CASE.deriveName(e::class.simpleName!!).qualifiedForm +
                 "(" +
                 (when (e) {
-                    is RequestParameterEdge.DependentValueRequestParameterEdge -> {
+                    is DependentValueRequestParameterEdge -> {
                         ""
                     }
-                    is RequestParameterEdge.MaterializedValueRequestParameterEdge -> {
+                    is MaterializedValueRequestParameterEdge -> {
                         ""
                     }
                     else -> ""
@@ -235,79 +400,4 @@ internal class DefaultSingleRequestMaterializationPreprocessingService(
                 )
         )
     }
-
-    //    private fun createSubgraphsLinkedToRetrievalFunctionSpecEdges(
-    //        requestMaterializationGraph:
-    //            PathBasedGraph<SchematicPath, SchematicVertex, RequestParameterEdge>
-    //    ): PersistentMap<
-    //        Pair<SchematicPath, SchematicPath>,
-    //        PathBasedGraph<SchematicPath, SchematicVertex, RequestParameterEdge>
-    //    > {
-    //        return requestMaterializationGraph
-    //            .edgesAsStream()
-    //            .parallel()
-    //            .filter { rpe: RequestParameterEdge ->
-    //                rpe is RetrievalFunctionSpecRequestParameterEdge
-    //            }
-    //            .map { rpe: RequestParameterEdge -> rpe as
-    // RetrievalFunctionSpecRequestParameterEdge }
-    //            .flatMap { rfspe: RetrievalFunctionSpecRequestParameterEdge ->
-    //                requestMaterializationGraph.depthFirstSearchOnPath(rfspe.id.second).map {
-    // tuple ->
-    //                    rfspe.id to tuple
-    //                }
-    //            }
-    //            .reduce(
-    //                persistentMapOf<
-    //                    Pair<SchematicPath, SchematicPath>,
-    //                    PathBasedGraph<SchematicPath, SchematicVertex, RequestParameterEdge>
-    //                >(),
-    //                { pm, (specEdgeId, tuple) ->
-    //                    pm.put(
-    //                        specEdgeId,
-    //                        pm.getOrElse(specEdgeId) {
-    // PathBasedGraph.emptyTwoToOnePathsToEdgeGraph() }
-    //                            .putVertex(tuple.second, tuple.first)
-    //                            .putVertex(tuple.fourth, tuple.fifth)
-    //                            .putEdge(tuple.third, RequestParameterEdge::id)
-    //                    )
-    //                },
-    //                { pm1, pm2 ->
-    //                    val finalResultHolder:
-    //                        Array<
-    //                            PersistentMap<
-    //                                Pair<SchematicPath, SchematicPath>,
-    //                                PathBasedGraph<SchematicPath, SchematicVertex,
-    // RequestParameterEdge>
-    //                            >
-    //                        > =
-    //                        arrayOf(pm2)
-    //                    pm1.forEach { (specEdgeId, subgraph) ->
-    //                        finalResultHolder[0] =
-    //                            finalResultHolder[0].put(
-    //                                specEdgeId,
-    //                                subgraph.fold(
-    //                                    { vs, es ->
-    //                                        finalResultHolder[0]
-    //                                            .getOrElse(specEdgeId) {
-    //                                                PathBasedGraph.emptyTwoToOnePathsToEdgeGraph()
-    //                                            }
-    //                                            .putAllVertices(vs)
-    //                                            .putAllEdges(es)
-    //                                    },
-    //                                    { vs, eSets ->
-    //                                        finalResultHolder[0]
-    //                                            .getOrElse(specEdgeId) {
-    //                                                PathBasedGraph.emptyTwoToOnePathsToEdgeGraph()
-    //                                            }
-    //                                            .putAllVertices(vs)
-    //                                            .putAllEdgeSets(eSets)
-    //                                    }
-    //                                )
-    //                            )
-    //                    }
-    //                    finalResultHolder[0]
-    //                }
-    //            )
-    //    }
 }

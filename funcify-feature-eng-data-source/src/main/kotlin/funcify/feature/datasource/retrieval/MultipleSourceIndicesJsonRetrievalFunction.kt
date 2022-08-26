@@ -1,5 +1,6 @@
 package funcify.feature.datasource.retrieval
 
+import arrow.core.Either
 import com.fasterxml.jackson.databind.JsonNode
 import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.path.SchematicPath
@@ -37,9 +38,17 @@ interface MultipleSourceIndicesJsonRetrievalFunction :
 
         fun dataSource(dataSource: DataSource<*>): Builder
 
+        fun addRequestParameter(
+            parameterJunctionOrLeafVertex: Either<ParameterJunctionVertex, ParameterLeafVertex>
+        ): Builder
+
         fun addRequestParameter(parameterJunctionVertex: ParameterJunctionVertex): Builder
 
         fun addRequestParameter(parameterLeafVertex: ParameterLeafVertex): Builder
+
+        fun addSourceTarget(
+            sourceJunctionOrLeafVertex: Either<SourceJunctionVertex, SourceLeafVertex>
+        ): Builder
 
         fun addSourceTarget(sourceJunctionVertex: SourceJunctionVertex): Builder
 
