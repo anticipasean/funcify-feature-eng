@@ -2,12 +2,14 @@ package funcify.feature.materializer.service
 
 import arrow.core.Option
 import arrow.core.filterIsInstance
+import arrow.core.getOrElse
 import arrow.core.getOrNone
 import arrow.core.identity
 import arrow.core.singleOrNone
 import arrow.core.some
 import arrow.core.toOption
 import com.fasterxml.jackson.databind.JsonNode
+import com.fasterxml.jackson.databind.node.JsonNodeFactory
 import funcify.feature.datasource.retrieval.MultipleSourceIndicesJsonRetrievalFunction
 import funcify.feature.datasource.retrieval.SchematicPathBasedJsonRetrievalFunctionFactory
 import funcify.feature.datasource.retrieval.SingleSourceIndexJsonOptionCacheRetrievalFunction
@@ -23,6 +25,7 @@ import funcify.feature.schema.path.SchematicPath
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.container.deferred.Deferred
 import funcify.feature.tools.container.graph.PathBasedGraph
+import funcify.feature.tools.extensions.DeferredExtensions.toDeferred
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentMap
 import funcify.feature.tools.extensions.SequenceExtensions.flatMapOptions
@@ -145,24 +148,45 @@ internal class DefaultSingleRequestMaterializationPreprocessingService(
                     }
                 }
                 .flatMap { reqCreationContext ->
-                    reqCreationContext.remainingRetrievalFunctionSpecsBySourceIndexPath
-                        .asSequence()
-                        .fold(Try.success(reqCreationContext)) {
-                            reqCreationContextUpdateAttempt,
-                            (sourceIndexPath, retrievalFunctionSpec) ->
-                            reqCreationContextUpdateAttempt.flatMap { context ->
-                                createDependentRetrievalFunctionsForApplicableRemainingRetrievalFunctionSpecs(
-                                    session,
-                                    phase,
-                                    context,
-                                    sourceIndexPath,
-                                    retrievalFunctionSpec
-                                )
-                            }
-                        }
+                    checkWhetherRemainingCanBeResolved(reqCreationContext, session, phase)
                 }
         }
         return Deferred.completed(session)
+    }
+
+    private fun checkWhetherRemainingCanBeResolved(
+        reqCreationContext: RequestCreationContext,
+        session: SingleRequestFieldMaterializationSession,
+        phase: RequestParameterMaterializationGraphPhase,
+    ): Try<RequestCreationContext> {
+        var start: Int = 0
+        var end: Int = reqCreationContext.remainingRetrievalFunctionSpecsBySourceIndexPath.size
+        var updateAttempt = Try.success(reqCreationContext)
+        do {
+            updateAttempt =
+                reqCreationContext.remainingRetrievalFunctionSpecsBySourceIndexPath
+                    .asSequence()
+                    .fold(updateAttempt) {
+                        reqCreationContextUpdateAttempt,
+                        (sourceIndexPath, retrievalFunctionSpec),
+                        ->
+                        reqCreationContextUpdateAttempt.flatMap { context ->
+                            createDependentRetrievalFunctionsForApplicableRemainingRetrievalFunctionSpecs(
+                                session,
+                                phase,
+                                context,
+                                sourceIndexPath,
+                                retrievalFunctionSpec
+                            )
+                        }
+                    }
+            start = end
+            end =
+                updateAttempt
+                    .map { ctx -> ctx.remainingRetrievalFunctionSpecsBySourceIndexPath.size }
+                    .orElse(start)
+        } while (start > 0 && start > end && updateAttempt.isSuccess())
+        return updateAttempt
     }
 
     private fun createDependentRetrievalFunctionsForApplicableRemainingRetrievalFunctionSpecs(
@@ -177,10 +201,14 @@ internal class DefaultSingleRequestMaterializationPreprocessingService(
         )
         return when {
             // case 1: a multi-source index retrieval function can be built for this datasource
-            schematicPathBasedJsonRetrievalFunctionFactory
-                .canBuildMultipleSourceIndicesJsonRetrievalFunctionForDataSource(
-                    retrievalFunctionSpec.dataSource.key
-                ) -> {
+            retrievalFunctionSpec.parameterVerticesByPath.all { (p, _) ->
+                requestCreationContext.processedRetrievalFunctionSpecsBySourceIndexPath.values
+                    .any { spec -> spec.sourceVerticesByPath.containsKey(p) }
+            } &&
+                schematicPathBasedJsonRetrievalFunctionFactory
+                    .canBuildMultipleSourceIndicesJsonRetrievalFunctionForDataSource(
+                        retrievalFunctionSpec.dataSource.key
+                    ) -> {
                 retrievalFunctionSpec.sourceVerticesByPath
                     .asSequence()
                     .fold(
@@ -214,16 +242,61 @@ internal class DefaultSingleRequestMaterializationPreprocessingService(
                             .map { dependentValueRequestParameterEdge ->
                                 requestCreationContext.multiSrcIndexFunctionBySourceIndexPath
                                     .asSequence()
-                                    .firstOrNull { (srcIndPath, func) ->
+                                    .firstOrNull { (_, func) ->
                                         func.sourcePaths.contains(
                                             dependentValueRequestParameterEdge.id.first
                                         )
                                     }
                                     .toOption()
-                                    .map {}
+                                    .flatMap { (srcIndPath, _) ->
+                                        requestCreationContext
+                                            .dispatchedMultiValueDeferredResponsesBySourceIndexPath
+                                            .getOrNone(srcIndPath)
+                                            .map { resultDeferred ->
+                                                resultDeferred.map { resultMap ->
+                                                    dependentValueRequestParameterEdge.id.second to
+                                                        dependentValueRequestParameterEdge
+                                                            .extractionFunction
+                                                            .invoke(resultMap)
+                                                            .getOrElse {
+                                                                JsonNodeFactory.instance.nullNode()
+                                                            }
+                                                }
+                                            }
+                                    }
                             }
-
-                        requestCreationContext
+                            .flatMapOptions()
+                            .let { pairStream ->
+                                Deferred.deferredStream(pairStream)
+                                    .toMono()
+                                    .map { pairs ->
+                                        pairs.asSequence().reducePairsToPersistentMap()
+                                    }
+                                    .toDeferred()
+                            }
+                            .flatMap { inputMap ->
+                                multiSrcIndJsonRetrievalFunction.invoke(inputMap)
+                            }
+                            .let { resultDeferred ->
+                                requestCreationContext.copy(
+                                    processedRetrievalFunctionSpecsBySourceIndexPath =
+                                        requestCreationContext
+                                            .processedRetrievalFunctionSpecsBySourceIndexPath
+                                            .put(sourceIndexPath, retrievalFunctionSpec),
+                                    multiSrcIndexFunctionBySourceIndexPath =
+                                        requestCreationContext
+                                            .multiSrcIndexFunctionBySourceIndexPath
+                                            .put(sourceIndexPath, multiSrcIndJsonRetrievalFunction),
+                                    dispatchedMultiValueDeferredResponsesBySourceIndexPath =
+                                        requestCreationContext
+                                            .dispatchedMultiValueDeferredResponsesBySourceIndexPath
+                                            .put(sourceIndexPath, resultDeferred),
+                                    remainingRetrievalFunctionSpecsBySourceIndexPath =
+                                        requestCreationContext
+                                            .remainingRetrievalFunctionSpecsBySourceIndexPath
+                                            .remove(sourceIndexPath)
+                                )
+                            }
                     }
             }
             else -> {
