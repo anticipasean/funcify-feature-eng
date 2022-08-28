@@ -1,6 +1,7 @@
 package funcify.feature.materializer.fetcher
 
 import arrow.core.Option
+import funcify.feature.materializer.service.RequestDispatchMaterializationPhase
 import funcify.feature.materializer.service.RequestParameterMaterializationGraphPhase
 import funcify.feature.materializer.session.GraphQLSingleRequestSession
 import funcify.feature.materializer.session.MaterializationSession
@@ -33,6 +34,8 @@ interface SingleRequestFieldMaterializationSession : MaterializationSession {
 
     val requestParameterMaterializationGraphPhase: Option<RequestParameterMaterializationGraphPhase>
 
+    val requestDispatchMaterializationGraphPhase: Option<RequestDispatchMaterializationPhase>
+
     val singleRequestSession: GraphQLSingleRequestSession
 
     override val sessionId: UUID
@@ -64,6 +67,10 @@ interface SingleRequestFieldMaterializationSession : MaterializationSession {
 
         fun requestParameterMaterializationGraphPhase(
             requestParameterMaterializationGraphPhase: RequestParameterMaterializationGraphPhase
+        ): Builder
+
+        fun requestDispatchMaterializationPhase(
+            requestDispatchMaterializationPhase: RequestDispatchMaterializationPhase
         ): Builder
 
         fun build(): SingleRequestFieldMaterializationSession

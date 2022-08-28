@@ -4,6 +4,7 @@ import arrow.core.Option
 import arrow.core.none
 import arrow.core.toOption
 import funcify.feature.materializer.fetcher.SingleRequestFieldMaterializationSession.Builder
+import funcify.feature.materializer.service.RequestDispatchMaterializationPhase
 import funcify.feature.materializer.service.RequestParameterMaterializationGraphPhase
 import funcify.feature.materializer.session.GraphQLSingleRequestSession
 import graphql.schema.DataFetchingEnvironment
@@ -13,6 +14,9 @@ internal data class DefaultSingleRequestFieldMaterializationSession(
     override val singleRequestSession: GraphQLSingleRequestSession,
     override val requestParameterMaterializationGraphPhase:
         Option<RequestParameterMaterializationGraphPhase> =
+        none(),
+    override val requestDispatchMaterializationGraphPhase:
+        Option<RequestDispatchMaterializationPhase> =
         none()
 ) : SingleRequestFieldMaterializationSession {
 
@@ -23,7 +27,9 @@ internal data class DefaultSingleRequestFieldMaterializationSession(
                 existingSession.dataFetchingEnvironment,
             var requestParameterMaterializationGraphPhase:
                 RequestParameterMaterializationGraphPhase? =
-                existingSession.requestParameterMaterializationGraphPhase.orNull()
+                existingSession.requestParameterMaterializationGraphPhase.orNull(),
+            var requestDispatchMaterializationPhase: RequestDispatchMaterializationPhase? =
+                existingSession.requestDispatchMaterializationGraphPhase.orNull()
         ) : Builder {
 
             override fun dataFetchingEnvironment(
@@ -38,6 +44,13 @@ internal data class DefaultSingleRequestFieldMaterializationSession(
             ): Builder {
                 this.requestParameterMaterializationGraphPhase =
                     requestParameterMaterializationGraphPhase
+                return this
+            }
+
+            override fun requestDispatchMaterializationPhase(
+                requestDispatchMaterializationPhase: RequestDispatchMaterializationPhase
+            ): Builder {
+                this.requestDispatchMaterializationPhase = requestDispatchMaterializationPhase
                 return this
             }
 

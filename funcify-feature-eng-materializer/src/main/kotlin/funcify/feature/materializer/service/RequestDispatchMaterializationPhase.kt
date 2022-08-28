@@ -1,10 +1,9 @@
 package funcify.feature.materializer.service
 
-import funcify.feature.datasource.retrieval.MultipleSourceIndicesJsonRetrievalFunction
-import funcify.feature.datasource.retrieval.SingleSourceIndexJsonOptionCacheRetrievalFunction
-import funcify.feature.materializer.spec.RetrievalFunctionSpec
+import funcify.feature.materializer.service.SourceIndexRequestDispatch.DispatchedCacheableSingleSourceIndexRetrieval
+import funcify.feature.materializer.service.SourceIndexRequestDispatch.DispatchedMultiSourceIndexRetrieval
 import funcify.feature.schema.path.SchematicPath
-import kotlinx.collections.immutable.PersistentMap
+import kotlinx.collections.immutable.ImmutableMap
 
 /**
  *
@@ -13,15 +12,10 @@ import kotlinx.collections.immutable.PersistentMap
  */
 interface RequestDispatchMaterializationPhase : MaterializationPhase {
 
-    val processedRetrievalFunctionSpecsBySourceIndexPath:
-        PersistentMap<SchematicPath, RetrievalFunctionSpec>
+    val cacheableSingleSourceIndexRequestDispatchesBySourceIndexPath:
+        ImmutableMap<SchematicPath, DispatchedCacheableSingleSourceIndexRetrieval>
 
-    val remainingRetrievalFunctionSpecsBySourceIndexPath:
-        PersistentMap<SchematicPath, RetrievalFunctionSpec>
+    val multipleSourceIndexRequestDispatchesBySourceIndexPath:
+        ImmutableMap<SchematicPath, DispatchedMultiSourceIndexRetrieval>
 
-    val multiSrcIndexFunctionBySourceIndexPath:
-        PersistentMap<SchematicPath, MultipleSourceIndicesJsonRetrievalFunction>
-
-    val singleSrcIndexCacheFunctionBySourceIndexPath:
-        PersistentMap<SchematicPath, SingleSourceIndexJsonOptionCacheRetrievalFunction>
 }

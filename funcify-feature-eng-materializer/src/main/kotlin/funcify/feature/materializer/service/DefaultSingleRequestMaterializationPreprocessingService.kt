@@ -1,13 +1,6 @@
 package funcify.feature.materializer.service
 
-import arrow.core.Option
-import arrow.core.filterIsInstance
-import arrow.core.getOrElse
-import arrow.core.getOrNone
-import arrow.core.identity
-import arrow.core.singleOrNone
-import arrow.core.some
-import arrow.core.toOption
+import arrow.core.*
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.node.JsonNodeFactory
 import funcify.feature.datasource.retrieval.MultipleSourceIndicesJsonRetrievalFunction
@@ -18,6 +11,7 @@ import funcify.feature.materializer.error.MaterializerException
 import funcify.feature.materializer.fetcher.SingleRequestFieldMaterializationSession
 import funcify.feature.materializer.schema.RequestParameterEdge
 import funcify.feature.materializer.schema.RequestParameterEdge.*
+import funcify.feature.materializer.service.SourceIndexRequestDispatch.*
 import funcify.feature.materializer.spec.RetrievalFunctionSpec
 import funcify.feature.naming.StandardNamingConventions
 import funcify.feature.schema.SchematicVertex
@@ -36,12 +30,15 @@ import kotlin.streams.asSequence
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.PersistentSet
+import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentMapOf
 import org.slf4j.Logger
 
 internal class DefaultSingleRequestMaterializationPreprocessingService(
     private val schematicPathBasedJsonRetrievalFunctionFactory:
-        SchematicPathBasedJsonRetrievalFunctionFactory
+        SchematicPathBasedJsonRetrievalFunctionFactory,
+    private val sourceIndexRequestDispatchFactory: SourceIndexRequestDispatchFactory =
+        DefaultSourceIndexRequestDispatchFactory()
 ) : SingleRequestMaterializationPreprocessingService {
 
     companion object {
@@ -131,27 +128,127 @@ internal class DefaultSingleRequestMaterializationPreprocessingService(
                     .joinToString(",\n", "{ ", " }")
             )
         }
-        session.requestParameterMaterializationGraphPhase.map { phase ->
-            phase.retrievalFunctionSpecByTopSourceIndexPath
-                .asSequence()
-                .fold(Try.success(RequestCreationContext())) {
-                    reqCreationContextUpdateAttempt,
-                    (sourceIndexPath, retrievalFunctionSpec) ->
-                    reqCreationContextUpdateAttempt.flatMap { context ->
-                        createAndDispatchFirstRoundOfRequestFunctionsForApplicableRetrievalFunctionSpecs(
-                            session,
-                            phase,
-                            context,
-                            sourceIndexPath,
-                            retrievalFunctionSpec
-                        )
+        val phase = session.requestParameterMaterializationGraphPhase.orNull()!!
+        return phase.retrievalFunctionSpecByTopSourceIndexPath
+            .asSequence()
+            .fold(Try.success(RequestCreationContext())) {
+                reqCreationContextUpdateAttempt,
+                (sourceIndexPath, retrievalFunctionSpec) ->
+                reqCreationContextUpdateAttempt.flatMap { context ->
+                    createAndDispatchFirstRoundOfRequestFunctionsForApplicableRetrievalFunctionSpecs(
+                        session,
+                        phase,
+                        context,
+                        sourceIndexPath,
+                        retrievalFunctionSpec
+                    )
+                }
+            }
+            .flatMap { reqCreationContext ->
+                checkWhetherRemainingCanBeResolved(reqCreationContext, session, phase)
+            }
+            .flatMap { reqCreationContext ->
+                convertToFailureIfAnyRemainingStillPresent(reqCreationContext)
+            }
+            .map { reqCreationContext ->
+                convertRequestCreationContextIntoRequestDispatchMaterializationPhase(
+                    reqCreationContext
+                )
+            }
+            .map { requestDispatchPhase ->
+                session.update { requestDispatchMaterializationPhase(requestDispatchPhase) }
+            }
+            .toDeferred()
+    }
+
+    private fun convertRequestCreationContextIntoRequestDispatchMaterializationPhase(
+        requestCreationContext: RequestCreationContext
+    ): RequestDispatchMaterializationPhase {
+        return requestCreationContext.processedRetrievalFunctionSpecsBySourceIndexPath
+            .asSequence()
+            .fold(
+                persistentListOf<DispatchedCacheableSingleSourceIndexRetrieval>() to
+                    persistentListOf<DispatchedMultiSourceIndexRetrieval>()
+            ) { plPair, (sourceIndexPath, retrievalSpec) ->
+                when {
+                    sourceIndexPath in
+                        requestCreationContext
+                            .dispatchedSingleValueDeferredResponsesBySourceIndexPath -> {
+                        plPair.first.add(
+                            sourceIndexRequestDispatchFactory
+                                .builder()
+                                .sourceIndexPath(sourceIndexPath)
+                                .retrievalFunctionSpec(retrievalSpec)
+                                .singleSourceIndexJsonOptionCacheRetrievalFunction(
+                                    requestCreationContext
+                                        .singleSrcIndexCacheFunctionBySourceIndexPath[
+                                            sourceIndexPath]!!
+                                )
+                                .dispatchedSingleIndexCacheRequest(
+                                    requestCreationContext
+                                        .dispatchedSingleValueDeferredResponsesBySourceIndexPath[
+                                            sourceIndexPath]!!
+                                )
+                                .build()
+                        ) to plPair.second
+                    }
+                    sourceIndexPath in
+                        requestCreationContext
+                            .dispatchedMultiValueDeferredResponsesBySourceIndexPath -> {
+                        plPair.first to
+                            plPair.second.add(
+                                sourceIndexRequestDispatchFactory
+                                    .builder()
+                                    .sourceIndexPath(sourceIndexPath)
+                                    .retrievalFunctionSpec(retrievalSpec)
+                                    .multipleSourceIndicesJsonRetrievalFunction(
+                                        requestCreationContext
+                                            .multiSrcIndexFunctionBySourceIndexPath[
+                                                sourceIndexPath]!!
+                                    )
+                                    .dispatchedMultipleIndexRequest(
+                                        requestCreationContext
+                                            .dispatchedMultiValueDeferredResponsesBySourceIndexPath[
+                                                sourceIndexPath]!!
+                                    )
+                                    .build()
+                            )
+                    }
+                    else -> {
+                        plPair
                     }
                 }
-                .flatMap { reqCreationContext ->
-                    checkWhetherRemainingCanBeResolved(reqCreationContext, session, phase)
-                }
+            }
+            .let { cacheableSingleOrMultiSrcRetrievals ->
+                DefaultRequestDispatchMaterializationPhase(
+                    cacheableSingleOrMultiSrcRetrievals.first
+                        .asSequence()
+                        .map { s -> s.sourceIndexPath to s }
+                        .reducePairsToPersistentMap(),
+                    cacheableSingleOrMultiSrcRetrievals.second
+                        .asSequence()
+                        .map { m -> m.sourceIndexPath to m }
+                        .reducePairsToPersistentMap()
+                )
+            }
+    }
+
+    private fun convertToFailureIfAnyRemainingStillPresent(
+        reqCreationContext: RequestCreationContext
+    ): Try<RequestCreationContext> {
+        if (reqCreationContext.remainingRetrievalFunctionSpecsBySourceIndexPath.isNotEmpty()) {
+            val remainingSourceIndexPathsSet =
+                reqCreationContext.remainingRetrievalFunctionSpecsBySourceIndexPath.keys
+                    .joinToString(", ", "{ ", " }")
+            val message: String =
+                """unable to apply retrieval strategies to all retrieval_function_specs 
+                    |provided in request_parameter_materialization_graph_phase: [ 
+                    |remaining_retrieval_specs.source_index_paths: ${remainingSourceIndexPathsSet} 
+                    |]""".flatten()
+            throw MaterializerException(MaterializerErrorResponse.UNEXPECTED_ERROR, message)
+        } else {
+            return Try.success(reqCreationContext)
         }
-        return Deferred.completed(session)
     }
 
     private fun checkWhetherRemainingCanBeResolved(
@@ -163,6 +260,9 @@ internal class DefaultSingleRequestMaterializationPreprocessingService(
         var end: Int = reqCreationContext.remainingRetrievalFunctionSpecsBySourceIndexPath.size
         var updateAttempt = Try.success(reqCreationContext)
         do {
+            logger.info(
+                "check_whether_remaining_can_be_resolved: [ remaining_retrieval_function_spec.count: ${end} ]"
+            )
             updateAttempt =
                 reqCreationContext.remainingRetrievalFunctionSpecsBySourceIndexPath
                     .asSequence()
