@@ -7,7 +7,6 @@ import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.jsonFormatVisitors.JsonFormatTypes
 import com.fasterxml.jackson.databind.node.JsonNodeFactory
 import com.fasterxml.jackson.databind.node.JsonNodeType
-import funcify.feature.datasource.json.JsonNodeSchematicPathToValueMappingExtractor
 import funcify.feature.datasource.rest.RestApiDataSource
 import funcify.feature.datasource.rest.error.RestApiDataSourceException
 import funcify.feature.datasource.rest.error.RestApiErrorResponse
@@ -29,7 +28,6 @@ import funcify.feature.tools.extensions.DeferredExtensions.toDeferred
 import funcify.feature.tools.extensions.FunctionExtensions.compose
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentMap
-import funcify.feature.tools.extensions.SequenceExtensions.flatMapOptions
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.extensions.TryExtensions.successIfDefined
 import io.swagger.v3.oas.models.media.Schema
@@ -50,11 +48,30 @@ internal class DefaultSwaggerRestDataSourceJsonRetrievalStrategy(
     override val dataSource: RestApiDataSource,
     override val parameterVertices:
         ImmutableSet<Either<ParameterJunctionVertex, ParameterLeafVertex>>,
-    override val sourceVertices: ImmutableSet<Either<SourceJunctionVertex, SourceLeafVertex>>
+    override val sourceVertices: ImmutableSet<Either<SourceJunctionVertex, SourceLeafVertex>>,
+    private val postProcessingStrategy: SwaggerRestApiJsonResponsePostProcessingStrategy
 ) : DataSourceRepresentativeJsonRetrievalStrategy<RestApiSourceIndex> {
 
     companion object {
         private val logger: Logger = loggerFor<DefaultSwaggerRestDataSourceJsonRetrievalStrategy>()
+        private data class DefaultSwaggerRestApiJsonResponsePostProcessingContext(
+            override val jsonMapper: JsonMapper,
+            override val dataSource: RestApiDataSource,
+            override val parameterVertices:
+                ImmutableSet<Either<ParameterJunctionVertex, ParameterLeafVertex>>,
+            override val sourceVertices:
+                ImmutableSet<Either<SourceJunctionVertex, SourceLeafVertex>>,
+            override val parentPathVertexPair:
+                Pair<SchematicPath, Either<SourceJunctionVertex, SourceLeafVertex>>,
+            override val parentVertexPathToSwaggerSourceAttribute:
+                Pair<SchematicPath, SwaggerSourceAttribute>,
+            override val swaggerSourceAttributesByVertexPath:
+                ImmutableMap<SchematicPath, SwaggerSourceAttribute>,
+            override val swaggerParameterAttributesByVertexPath:
+                ImmutableMap<SchematicPath, SwaggerParameterAttribute>,
+            override val sourceVertexPathBySourceIndexPath:
+                ImmutableMap<SchematicPath, SchematicPath>
+        ) : SwaggerRestApiJsonResponsePostProcessingContext {}
     }
 
     private val parentPathVertexPair:
@@ -269,7 +286,7 @@ internal class DefaultSwaggerRestDataSourceJsonRetrievalStrategy(
         return attemptToCreateRequestJsonObjectFromValuesByParameterPaths(valuesByParameterPaths)
             .toDeferred()
             .flatMap(makeRequestToRestApiDataSourceWithJsonPayload())
-            .flatMap(convertJsonResponseIntoValuesBySourceVertexPathsMap())
+            .flatMap(applyResponsePostProcessingStrategy())
     }
 
     private fun attemptToCreateRequestJsonObjectFromValuesByParameterPaths(
@@ -376,7 +393,10 @@ internal class DefaultSwaggerRestDataSourceJsonRetrievalStrategy(
                                     Mono.error(
                                         RestApiDataSourceException(
                                             RestApiErrorResponse.CLIENT_ERROR,
-                                            "client_response from service not successful: [ error_message: ${errorMessage} ]"
+                                            """client_response from service not successful: [ 
+                                                |status: ${clientResponse.statusCode()}, 
+                                                |message: ${errorMessage} 
+                                                |]""".flatten()
                                         )
                                     )
                                 }
@@ -386,31 +406,23 @@ internal class DefaultSwaggerRestDataSourceJsonRetrievalStrategy(
         }
     }
 
-    private fun convertJsonResponseIntoValuesBySourceVertexPathsMap():
+    private fun applyResponsePostProcessingStrategy():
         (JsonNode) -> Deferred<ImmutableMap<SchematicPath, JsonNode>> {
         return { responseJsonNode: JsonNode ->
-            Deferred.completed(
-                JsonNodeSchematicPathToValueMappingExtractor.invoke(responseJsonNode)
-                    .asSequence()
-                    .map { (sourcePath, jsonValue) ->
-                        SchematicPath.of {
-                            pathSegments(
-                                parentVertexPathToSwaggerSourceAttribute.second.sourcePath
-                                    .pathSegments
-                                    .asSequence()
-                                    .plus(sourcePath.pathSegments)
-                                    .toList()
-                            )
-                        } to jsonValue
-                    }
-                    .map { (remappedSourcePath, jsonValue) ->
-                        sourceVertexPathBySourceIndexPath[remappedSourcePath].toOption().map {
-                            sourceVertexPath ->
-                            sourceVertexPath to jsonValue
-                        }
-                    }
-                    .flatMapOptions()
-                    .reducePairsToPersistentMap()
+            postProcessingStrategy.postProcessRestApiJsonResponse(
+                DefaultSwaggerRestApiJsonResponsePostProcessingContext(
+                    jsonMapper = jsonMapper,
+                    dataSource = dataSource,
+                    parameterVertices = parameterVertices,
+                    sourceVertices = sourceVertices,
+                    parentPathVertexPair = parentPathVertexPair,
+                    parentVertexPathToSwaggerSourceAttribute =
+                        parentVertexPathToSwaggerSourceAttribute,
+                    swaggerSourceAttributesByVertexPath = swaggerSourceAttributesByVertexPath,
+                    swaggerParameterAttributesByVertexPath = swaggerParameterAttributesByVertexPath,
+                    sourceVertexPathBySourceIndexPath = sourceVertexPathBySourceIndexPath
+                ),
+                responseJsonNode
             )
         }
     }

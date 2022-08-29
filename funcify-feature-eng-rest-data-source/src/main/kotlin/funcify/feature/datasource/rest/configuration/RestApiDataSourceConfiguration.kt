@@ -14,7 +14,9 @@ import funcify.feature.datasource.rest.metadata.provider.DefaultSwaggerRestApiMe
 import funcify.feature.datasource.rest.metadata.provider.SwaggerRestApiMetadataProvider
 import funcify.feature.datasource.rest.metadata.reader.DefaultSwaggerRestApiSourceMetadataReader
 import funcify.feature.datasource.rest.metadata.reader.SwaggerRestApiSourceMetadataReader
+import funcify.feature.datasource.rest.retrieval.DefaultSwaggerRestApiJsonResponsePostProcessingStrategy
 import funcify.feature.datasource.rest.retrieval.DefaultSwaggerRestApiJsonRetrievalStrategyProvider
+import funcify.feature.datasource.rest.retrieval.SwaggerRestApiJsonResponsePostProcessingStrategy
 import funcify.feature.datasource.rest.retrieval.SwaggerRestApiJsonRetrievalStrategyProvider
 import funcify.feature.datasource.rest.schema.SwaggerRestApiSourceMetamodel
 import funcify.feature.datasource.rest.sdl.CompositeSwaggerSourceIndexSDLDefinitionImplementationStrategy
@@ -136,8 +138,16 @@ class RestApiDataSourceConfiguration {
     @ConditionalOnMissingBean(value = [SwaggerRestApiJsonRetrievalStrategyProvider::class])
     @Bean
     fun swaggerRestApiJsonRetrievalStrategyProvider(
-        jsonMapper: JsonMapper
+        jsonMapper: JsonMapper,
+        swaggerRestApiJsonResponsePostProcessingStrategyProvider:
+            ObjectProvider<SwaggerRestApiJsonResponsePostProcessingStrategy>
     ): SwaggerRestApiJsonRetrievalStrategyProvider {
-        return DefaultSwaggerRestApiJsonRetrievalStrategyProvider(jsonMapper = jsonMapper)
+        return DefaultSwaggerRestApiJsonRetrievalStrategyProvider(
+            jsonMapper = jsonMapper,
+            postProcessingStrategy =
+                swaggerRestApiJsonResponsePostProcessingStrategyProvider.getIfAvailable {
+                    DefaultSwaggerRestApiJsonResponsePostProcessingStrategy()
+                }
+        )
     }
 }

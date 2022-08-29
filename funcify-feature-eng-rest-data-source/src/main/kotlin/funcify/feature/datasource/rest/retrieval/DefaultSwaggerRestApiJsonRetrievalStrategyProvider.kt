@@ -18,7 +18,8 @@ import kotlinx.collections.immutable.ImmutableSet
 import org.slf4j.Logger
 
 internal class DefaultSwaggerRestApiJsonRetrievalStrategyProvider(
-    private val jsonMapper: JsonMapper
+    private val jsonMapper: JsonMapper,
+    private val postProcessingStrategy: SwaggerRestApiJsonResponsePostProcessingStrategy
 ) : SwaggerRestApiJsonRetrievalStrategyProvider {
 
     companion object {
@@ -48,7 +49,8 @@ internal class DefaultSwaggerRestApiJsonRetrievalStrategyProvider(
                 jsonMapper = jsonMapper,
                 dataSource = dataSource as RestApiDataSource,
                 parameterVertices = parameterVertices,
-                sourceVertices = sourceVertices
+                sourceVertices = sourceVertices,
+                postProcessingStrategy = postProcessingStrategy
             )
         }
     }
