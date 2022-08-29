@@ -10,7 +10,7 @@ import funcify.feature.tools.container.deferred.Deferred
  * @author smccarron
  * @created 2/9/22
  */
-interface MaterializationRequestPreprocessingService<M : MaterializationSession> {
+interface MaterializationRequestDispatchService<M : MaterializationSession> {
 
-    fun preprocessRequestMaterializationGraphInSession(session: M): Deferred<M>
+    fun dispatchRequestsInMaterializationGraphInSession(session: M): Deferred<M>
 }

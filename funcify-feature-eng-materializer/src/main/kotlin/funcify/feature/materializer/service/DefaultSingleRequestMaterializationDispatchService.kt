@@ -35,16 +35,15 @@ import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentMapOf
 import org.slf4j.Logger
 
-internal class DefaultSingleRequestMaterializationPreprocessingService(
+internal class DefaultSingleRequestMaterializationDispatchService(
     private val schematicPathBasedJsonRetrievalFunctionFactory:
         SchematicPathBasedJsonRetrievalFunctionFactory,
     private val sourceIndexRequestDispatchFactory: SourceIndexRequestDispatchFactory =
         DefaultSourceIndexRequestDispatchFactory()
-) : SingleRequestMaterializationPreprocessingService {
+) : SingleRequestMaterializationDispatchService {
 
     companion object {
-        private val logger: Logger =
-            loggerFor<DefaultSingleRequestMaterializationPreprocessingService>()
+        private val logger: Logger = loggerFor<DefaultSingleRequestMaterializationDispatchService>()
 
         private data class RequestCreationContext(
             val processedRetrievalFunctionSpecsBySourceIndexPath:
@@ -71,15 +70,15 @@ internal class DefaultSingleRequestMaterializationPreprocessingService(
         )
     }
 
-    override fun preprocessRequestMaterializationGraphInSession(
+    override fun dispatchRequestsInMaterializationGraphInSession(
         session: SingleRequestFieldMaterializationSession
     ): Deferred<SingleRequestFieldMaterializationSession> {
         logger.info(
-            "preprocess_request_materialization_graph_in_session: [ session.session_id: ${session.sessionId} ]"
+            "dispatch_requests_in_materialization_graph_in_session: [ session.session_id: ${session.sessionId} ]"
         )
         if (!session.requestParameterMaterializationGraphPhase.isDefined()) {
             logger.error(
-                """preprocess_request_materialization_graph_in_session: 
+                """dispatch_requests_in_materialization_graph_in_session: 
                 |[ status: failed ] 
                 |session has not been updated with a 
                 |request_materialization_graph; 
@@ -93,6 +92,9 @@ internal class DefaultSingleRequestMaterializationPreprocessingService(
                         |has been skipped""".flatten()
                 )
             )
+        }
+        if (session.requestDispatchMaterializationGraphPhase.isDefined()) {
+            return Deferred.completed(session)
         }
         session.requestParameterMaterializationGraphPhase.map { phase ->
             logger.info("request_graph: \n{}", createGraphStr(phase.requestGraph))

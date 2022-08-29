@@ -188,20 +188,23 @@ class MaterializerConfiguration {
     fun singleRequestFieldMaterializationDataFetcherFactory(
         asyncExecutor: Executor,
         singleRequestMaterializationGraphService: SingleRequestMaterializationGraphService,
-        singleRequestMaterializationPreprocessingService:
-            SingleRequestMaterializationPreprocessingService
+        singleRequestMaterializationDispatchService: SingleRequestMaterializationDispatchService,
+        singleRequestMaterializationOrchestratorService:
+            SingleRequestMaterializationOrchestratorService
     ): SingleRequestFieldMaterializationDataFetcherFactory {
         return DefaultSingleRequestFieldMaterializationDataFetcherFactory(
             asyncExecutor = asyncExecutor,
             singleRequestMaterializationGraphService = singleRequestMaterializationGraphService,
             singleRequestMaterializationPreprocessingService =
-                singleRequestMaterializationPreprocessingService
+                singleRequestMaterializationDispatchService,
+            singleRequestMaterializationOrchestratorService =
+                singleRequestMaterializationOrchestratorService
         )
     }
 
     @ConditionalOnMissingBean(value = [SingleRequestMaterializationGraphService::class])
     @Bean
-    fun singleRequestFieldMaterializationGraphService(
+    fun singleRequestMaterializationGraphService(
         jsonMapper: JsonMapper
     ): SingleRequestMaterializationGraphService {
         return DefaultSingleRequestMaterializationGraphService(
@@ -209,22 +212,29 @@ class MaterializerConfiguration {
                 DefaultMaterializationGraphVertexContextFactory(),
             materializationGraphVertexConnector =
                 DefaultMaterializationGraphVertexConnector(
-                    jsonMapper,
-                    DefaultRequestParameterEdgeFactory()
+                    jsonMapper = jsonMapper,
+                    requestParameterEdgeFactory = DefaultRequestParameterEdgeFactory()
                 )
         )
     }
 
-    @ConditionalOnMissingBean(value = [SingleRequestMaterializationPreprocessingService::class])
+    @ConditionalOnMissingBean(value = [SingleRequestMaterializationDispatchService::class])
     @Bean
-    fun singleRequestMaterializationPreprocessingService(
+    fun singleRequestMaterializationDispatchService(
         schematicPathBasedJsonRetrievalFunctionFactory:
             SchematicPathBasedJsonRetrievalFunctionFactory
-    ): SingleRequestMaterializationPreprocessingService {
-        return DefaultSingleRequestMaterializationPreprocessingService(
+    ): SingleRequestMaterializationDispatchService {
+        return DefaultSingleRequestMaterializationDispatchService(
             schematicPathBasedJsonRetrievalFunctionFactory =
                 schematicPathBasedJsonRetrievalFunctionFactory
         )
+    }
+
+    @ConditionalOnMissingBean(value = [SingleRequestMaterializationOrchestratorService::class])
+    @Bean
+    fun singleRequestMaterializationOrchestratorService():
+        SingleRequestMaterializationOrchestratorService {
+        return DefaultSingleRequestMaterializationOrchestratorService()
     }
 
     @ConditionalOnMissingBean(value = [MaterializationPreparsedDocumentProvider::class])

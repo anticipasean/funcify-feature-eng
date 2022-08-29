@@ -2,10 +2,10 @@ package funcify.feature.materializer.fetcher
 
 import arrow.core.Option
 import arrow.core.filterIsInstance
-import arrow.core.none
 import arrow.core.toOption
+import funcify.feature.materializer.service.SingleRequestMaterializationDispatchService
 import funcify.feature.materializer.service.SingleRequestMaterializationGraphService
-import funcify.feature.materializer.service.SingleRequestMaterializationPreprocessingService
+import funcify.feature.materializer.service.SingleRequestMaterializationOrchestratorService
 import funcify.feature.tools.container.async.KFuture
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flatten
@@ -22,7 +22,9 @@ internal class DefaultSingleRequestSessionFieldMaterializationProcessor(
     private val asyncExecutor: Executor,
     private val singleRequestMaterializationGraphService: SingleRequestMaterializationGraphService,
     private val singleRequestMaterializationPreprocessingService:
-        SingleRequestMaterializationPreprocessingService
+        SingleRequestMaterializationDispatchService,
+    private val singleRequestMaterializationOrchestratorService:
+        SingleRequestMaterializationOrchestratorService
 ) : SingleRequestSessionFieldMaterializationProcessor {
 
     companion object {
@@ -49,9 +51,11 @@ internal class DefaultSingleRequestSessionFieldMaterializationProcessor(
             .createRequestMaterializationGraphForSession(session)
             .flatMap { s ->
                 singleRequestMaterializationPreprocessingService
-                    .preprocessRequestMaterializationGraphInSession(s)
+                    .dispatchRequestsInMaterializationGraphInSession(s)
             }
-            .map { s -> s to none<Any>() }
+            .flatMap { s ->
+                singleRequestMaterializationOrchestratorService.materializeValueInSession(s)
+            }
             .toKFuture()
             .map { l -> l.first() }
     }

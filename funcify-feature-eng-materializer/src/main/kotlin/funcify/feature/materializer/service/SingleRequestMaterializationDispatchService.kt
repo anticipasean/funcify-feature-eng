@@ -8,10 +8,10 @@ import funcify.feature.tools.container.deferred.Deferred
  * @author smccarron
  * @created 2022-08-24
  */
-interface SingleRequestMaterializationPreprocessingService :
-    MaterializationRequestPreprocessingService<SingleRequestFieldMaterializationSession> {
+interface SingleRequestMaterializationDispatchService :
+    MaterializationRequestDispatchService<SingleRequestFieldMaterializationSession> {
 
-    override fun preprocessRequestMaterializationGraphInSession(
+    override fun dispatchRequestsInMaterializationGraphInSession(
         session: SingleRequestFieldMaterializationSession
     ): Deferred<SingleRequestFieldMaterializationSession>
 }

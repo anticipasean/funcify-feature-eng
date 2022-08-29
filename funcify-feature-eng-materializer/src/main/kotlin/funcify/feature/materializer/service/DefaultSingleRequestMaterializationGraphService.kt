@@ -71,7 +71,7 @@ internal class DefaultSingleRequestMaterializationGraphService(
         session: SingleRequestFieldMaterializationSession
     ): Deferred<SingleRequestFieldMaterializationSession> {
         logger.debug(
-            "create_materialization_graph_for_session: [ session.session_id: ${session.sessionId} ]"
+            "create_request_materialization_graph_for_session: [ session.session_id: ${session.sessionId} ]"
         )
         // TODO: Add caching based on operation_definition input and parameterization of
         // materialized_values
@@ -146,8 +146,8 @@ internal class DefaultSingleRequestMaterializationGraphService(
                             )
                         )
                     ) {
-                            matGraphVertContext: MaterializationGraphVertexContext<*>,
-                            resolvedFieldOrArgContext ->
+                        matGraphVertContext: MaterializationGraphVertexContext<*>,
+                        resolvedFieldOrArgContext ->
                         when (resolvedFieldOrArgContext) {
                             is ResolvedSourceVertexContext -> {
                                 materializationGraphVertexConnector

@@ -2,8 +2,9 @@ package funcify.feature.materializer.fetcher
 
 import arrow.core.filterIsInstance
 import arrow.core.toOption
+import funcify.feature.materializer.service.SingleRequestMaterializationDispatchService
 import funcify.feature.materializer.service.SingleRequestMaterializationGraphService
-import funcify.feature.materializer.service.SingleRequestMaterializationPreprocessingService
+import funcify.feature.materializer.service.SingleRequestMaterializationOrchestratorService
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import graphql.execution.DataFetcherResult
@@ -18,7 +19,9 @@ internal class DefaultSingleRequestFieldMaterializationDataFetcherFactory(
     private val asyncExecutor: Executor,
     private val singleRequestMaterializationGraphService: SingleRequestMaterializationGraphService,
     private val singleRequestMaterializationPreprocessingService:
-        SingleRequestMaterializationPreprocessingService
+        SingleRequestMaterializationDispatchService,
+    private val singleRequestMaterializationOrchestratorService:
+        SingleRequestMaterializationOrchestratorService
 ) : SingleRequestFieldMaterializationDataFetcherFactory {
 
     companion object {
@@ -49,7 +52,9 @@ internal class DefaultSingleRequestFieldMaterializationDataFetcherFactory(
                 asyncExecutor = asyncExecutor,
                 singleRequestMaterializationGraphService = singleRequestMaterializationGraphService,
                 singleRequestMaterializationPreprocessingService =
-                    singleRequestMaterializationPreprocessingService
+                    singleRequestMaterializationPreprocessingService,
+                singleRequestMaterializationOrchestratorService =
+                    singleRequestMaterializationOrchestratorService
             )
         )
     }
