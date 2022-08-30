@@ -58,7 +58,9 @@ internal data class DefaultSingleRequestFieldMaterializationSession(
                 return existingSession.copy(
                     dataFetchingEnvironment = dataFetchingEnvironment,
                     requestParameterMaterializationGraphPhase =
-                        requestParameterMaterializationGraphPhase.toOption()
+                        requestParameterMaterializationGraphPhase.toOption(),
+                    requestDispatchMaterializationGraphPhase =
+                        requestDispatchMaterializationPhase.toOption()
                 )
             }
         }

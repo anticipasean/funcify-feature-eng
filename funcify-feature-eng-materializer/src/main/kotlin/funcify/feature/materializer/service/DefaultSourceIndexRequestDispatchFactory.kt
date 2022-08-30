@@ -1,7 +1,6 @@
 package funcify.feature.materializer.service
 
 import arrow.core.Option
-import arrow.core.toOption
 import com.fasterxml.jackson.databind.JsonNode
 import funcify.feature.datasource.retrieval.BackupSingleSourceIndexJsonOptionRetrievalFunction
 import funcify.feature.datasource.retrieval.MultipleSourceIndicesJsonRetrievalFunction
@@ -63,6 +62,9 @@ internal class DefaultSourceIndexRequestDispatchFactory : SourceIndexRequestDisp
             private val singleSourceIndexJsonOptionCacheRetrievalFunction:
                 SingleSourceIndexJsonOptionCacheRetrievalFunction,
             private var dispatchedSingleIndexCacheRequest: Deferred<Option<JsonNode>>? = null,
+            private var backupBaseMultipleSourceIndicesJsonRetrievalFunction:
+                MultipleSourceIndicesJsonRetrievalFunction? =
+                null,
             private var backupFunction: BackupSingleSourceIndexJsonOptionRetrievalFunction? = null
         ) : SourceIndexRequestDispatch.CacheableSingleSourceIndexRetrievalSpec {
 
@@ -70,6 +72,15 @@ internal class DefaultSourceIndexRequestDispatchFactory : SourceIndexRequestDisp
                 dispatch: Deferred<Option<JsonNode>>
             ): SourceIndexRequestDispatch.CacheableSingleSourceIndexRetrievalSpec {
                 this.dispatchedSingleIndexCacheRequest = dispatch
+                return this
+            }
+
+            override fun backupBaseMultipleSourceIndicesJsonRetrievalFunction(
+                multipleSourceIndicesJsonRetrievalFunction:
+                    MultipleSourceIndicesJsonRetrievalFunction
+            ): SourceIndexRequestDispatch.CacheableSingleSourceIndexRetrievalSpec {
+                this.backupBaseMultipleSourceIndicesJsonRetrievalFunction =
+                    multipleSourceIndicesJsonRetrievalFunction
                 return this
             }
 
@@ -85,7 +96,9 @@ internal class DefaultSourceIndexRequestDispatchFactory : SourceIndexRequestDisp
                 return when {
                     sourceIndexPath == null ||
                         retrievalFunctionSpec == null ||
-                        dispatchedSingleIndexCacheRequest == null -> {
+                        dispatchedSingleIndexCacheRequest == null ||
+                        backupBaseMultipleSourceIndicesJsonRetrievalFunction == null ||
+                        backupFunction == null -> {
                         throw MaterializerException(
                             MaterializerErrorResponse.UNEXPECTED_ERROR,
                             "one or more required parameters is missing for dispatched_cacheable_single_source_index_retrieval instance creation"
@@ -97,7 +110,8 @@ internal class DefaultSourceIndexRequestDispatchFactory : SourceIndexRequestDisp
                             retrievalFunctionSpec,
                             singleSourceIndexJsonOptionCacheRetrievalFunction,
                             dispatchedSingleIndexCacheRequest!!,
-                            backupFunction.toOption()
+                            backupBaseMultipleSourceIndicesJsonRetrievalFunction!!,
+                            backupFunction!!
                         )
                     }
                 }
@@ -149,8 +163,10 @@ internal class DefaultSourceIndexRequestDispatchFactory : SourceIndexRequestDisp
             override val singleSourceIndexJsonOptionCacheRetrievalFunction:
                 SingleSourceIndexJsonOptionCacheRetrievalFunction,
             override val dispatchedSingleIndexCacheRequest: Deferred<Option<JsonNode>>,
+            override val backupBaseMultipleSourceIndicesJsonRetrievalFunction:
+                MultipleSourceIndicesJsonRetrievalFunction,
             override val backupSingleSourceIndexJsonOptionRetrievalFunction:
-                Option<BackupSingleSourceIndexJsonOptionRetrievalFunction>
+                BackupSingleSourceIndexJsonOptionRetrievalFunction
         ) : SourceIndexRequestDispatch.DispatchedCacheableSingleSourceIndexRetrieval {}
 
         internal class DefaultDispatchedMultiSourceIndexRetrieval(

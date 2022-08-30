@@ -38,6 +38,10 @@ interface SourceIndexRequestDispatch {
             dispatch: Deferred<Option<JsonNode>>
         ): CacheableSingleSourceIndexRetrievalSpec
 
+        fun backupBaseMultipleSourceIndicesJsonRetrievalFunction(
+            multipleSourceIndicesJsonRetrievalFunction: MultipleSourceIndicesJsonRetrievalFunction
+        ): CacheableSingleSourceIndexRetrievalSpec
+
         fun backupSingleSourceIndexJsonOptionRetrievalFunction(
             backupFunction: BackupSingleSourceIndexJsonOptionRetrievalFunction
         ): CacheableSingleSourceIndexRetrievalSpec
@@ -61,8 +65,11 @@ interface SourceIndexRequestDispatch {
 
         val dispatchedSingleIndexCacheRequest: Deferred<Option<JsonNode>>
 
+        val backupBaseMultipleSourceIndicesJsonRetrievalFunction:
+            MultipleSourceIndicesJsonRetrievalFunction
+
         val backupSingleSourceIndexJsonOptionRetrievalFunction:
-            Option<BackupSingleSourceIndexJsonOptionRetrievalFunction>
+            BackupSingleSourceIndexJsonOptionRetrievalFunction
     }
 
     interface DispatchedMultiSourceIndexRetrieval : SourceIndexRequestDispatch {

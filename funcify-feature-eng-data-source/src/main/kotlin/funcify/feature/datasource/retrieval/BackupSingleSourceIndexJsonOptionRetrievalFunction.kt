@@ -12,9 +12,9 @@ import kotlinx.collections.immutable.ImmutableMap
  * @created 2022-08-28
  */
 fun interface BackupSingleSourceIndexJsonOptionRetrievalFunction :
-    (ImmutableMap<SchematicPath, Deferred<Option<JsonNode>>>) -> Deferred<JsonNode> {
+    (ImmutableMap<SchematicPath, Deferred<Option<JsonNode>>>) -> Deferred<Option<JsonNode>> {
 
     override fun invoke(
         parameterValuesByPath: ImmutableMap<SchematicPath, Deferred<Option<JsonNode>>>
-    ): Deferred<JsonNode>
+    ): Deferred<Option<JsonNode>>
 }
