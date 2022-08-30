@@ -1,16 +1,20 @@
 package funcify.feature.materializer.service
 
 import arrow.core.Option
-import arrow.core.getOrElse
 import arrow.core.getOrNone
+import arrow.core.toOption
 import funcify.feature.materializer.error.MaterializerErrorResponse
 import funcify.feature.materializer.error.MaterializerException
 import funcify.feature.materializer.fetcher.SingleRequestFieldMaterializationSession
+import funcify.feature.materializer.schema.RequestParameterEdge
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.container.deferred.Deferred
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
+import funcify.feature.tools.extensions.OptionExtensions.toOption
+import funcify.feature.tools.extensions.StreamExtensions.flatMapOptions
 import funcify.feature.tools.extensions.StringExtensions.flatten
+import funcify.feature.tools.extensions.TryExtensions.successIfDefined
 import org.slf4j.Logger
 
 internal class DefaultSingleRequestMaterializationOrchestratorService :
@@ -50,29 +54,69 @@ internal class DefaultSingleRequestMaterializationOrchestratorService :
             SchematicPath.of {
                 pathSegments(session.dataFetchingEnvironment.executionStepInfo.path.keysOnly)
             }
-        return Try.success(
-            session to
-                session.requestDispatchMaterializationGraphPhase
-                    .flatMap { phase ->
-                        phase.multipleSourceIndexRequestDispatchesBySourceIndexPath.getOrNone(
-                            currentFieldPath
-                        )
-                    }
-                    .map { mr ->
-                        mr.dispatchedMultipleIndexRequest.map { deferredResultMap ->
-                            deferredResultMap.getOrNone(currentFieldPath)
-                        }
-                    }
-                    .getOrElse {
-                        Deferred.failed(
-                            MaterializerException(
-                                MaterializerErrorResponse.UNEXPECTED_ERROR,
-                                "could not find dispatched_request for source_index_path: ${currentFieldPath}"
+        return when {
+                currentFieldPath in
+                    session.requestDispatchMaterializationGraphPhase
+                        .orNull()!!
+                        .multipleSourceIndexRequestDispatchesBySourceIndexPath -> {
+                    session.requestDispatchMaterializationGraphPhase
+                        .flatMap { phase ->
+                            phase.multipleSourceIndexRequestDispatchesBySourceIndexPath.getOrNone(
+                                currentFieldPath
                             )
-                        )
+                        }
+                        .map { mr ->
+                            mr.dispatchedMultipleIndexRequest.map { deferredResultMap ->
+                                deferredResultMap.getOrNone(currentFieldPath)
+                            }
+                        }
+                }
+                currentFieldPath in
+                    session.requestDispatchMaterializationGraphPhase
+                        .orNull()!!
+                        .cacheableSingleSourceIndexRequestDispatchesBySourceIndexPath -> {
+                    session.requestDispatchMaterializationGraphPhase.flatMap { phase ->
+                        phase.cacheableSingleSourceIndexRequestDispatchesBySourceIndexPath
+                            .getOrNone(currentFieldPath)
+                            .map { sr -> sr.dispatchedSingleIndexCacheRequest }
                     }
-        )
+                }
+                else -> {
+                    session.requestParameterMaterializationGraphPhase.flatMap { graphPhase ->
+                        graphPhase.requestGraph
+                            .getEdgesTo(currentFieldPath)
+                            .filter { edge ->
+                                edge is RequestParameterEdge.DependentValueRequestParameterEdge
+                            }
+                            .map { edge ->
+                                edge as RequestParameterEdge.DependentValueRequestParameterEdge
+                            }
+                            .map { edge ->
+                                session.requestDispatchMaterializationGraphPhase
+                                    .flatMap { dispatchPhase ->
+                                        dispatchPhase
+                                            .multipleSourceIndexRequestDispatchesBySourceIndexPath[
+                                                edge.id.first]
+                                            .toOption()
+                                    }
+                                    .map { mr ->
+                                        mr.dispatchedMultipleIndexRequest.map { resultMap ->
+                                            edge.extractionFunction.invoke(resultMap)
+                                        }
+                                    }
+                            }
+                            .flatMapOptions()
+                            .findFirst()
+                            .toOption()
+                    }
+                }
+            }
+            .successIfDefined({ ->
+                MaterializerException(
+                    MaterializerErrorResponse.UNEXPECTED_ERROR,
+                    "could not find dispatched_request for source_index_path: ${currentFieldPath}"
+                )
+            })
+            .map { df -> session to df }
     }
-
-
 }

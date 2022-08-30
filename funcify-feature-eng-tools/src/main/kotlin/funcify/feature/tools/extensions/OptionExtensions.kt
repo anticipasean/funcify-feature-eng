@@ -4,6 +4,7 @@ import arrow.core.Either
 import arrow.core.Option
 import arrow.core.none
 import funcify.feature.tools.control.TraversalFunctions
+import java.util.*
 import java.util.stream.Stream
 import kotlinx.collections.immutable.PersistentSet
 import kotlinx.collections.immutable.persistentSetOf
@@ -25,5 +26,15 @@ object OptionExtensions {
 
     fun <T> Option<T>.toPersistentSet(): PersistentSet<T> {
         return this.fold({ persistentSetOf() }, { t: T -> persistentSetOf(t) })
+    }
+
+    fun <T> Optional<T?>?.toOption(): Option<T> {
+        return when {
+            this == null -> none()
+            this.isEmpty -> none()
+            else -> {
+                Option.fromNullable(this.get())
+            }
+        }
     }
 }
