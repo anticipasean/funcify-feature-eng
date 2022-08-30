@@ -1,6 +1,7 @@
 package funcify.feature.materializer.service
 
 import funcify.feature.materializer.session.MaterializationSession
+import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.container.deferred.Deferred
 
 /**
@@ -12,5 +13,5 @@ import funcify.feature.tools.container.deferred.Deferred
  */
 interface MaterializationRequestDispatchService<M : MaterializationSession> {
 
-    fun dispatchRequestsInMaterializationGraphInSession(session: M): Deferred<M>
+    fun dispatchRequestsInMaterializationGraphInSession(session: M): Try<M>
 }

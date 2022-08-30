@@ -1,7 +1,8 @@
 package funcify.feature.materializer.fetcher
 
 import arrow.core.Option
-import funcify.feature.tools.container.async.KFuture
+import funcify.feature.tools.container.attempt.Try
+import funcify.feature.tools.container.deferred.Deferred
 
 /**
  *
@@ -12,6 +13,5 @@ interface SingleRequestSessionFieldMaterializationProcessor {
 
     fun materializeFieldValueInSession(
         session: SingleRequestFieldMaterializationSession
-    ): KFuture<Pair<SingleRequestFieldMaterializationSession, Option<Any>>>
-
+    ): Try<Pair<SingleRequestFieldMaterializationSession, Deferred<Option<Any>>>>
 }

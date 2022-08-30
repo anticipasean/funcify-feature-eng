@@ -1,6 +1,7 @@
 package funcify.feature.materializer.service
 
 import funcify.feature.materializer.fetcher.SingleRequestFieldMaterializationSession
+import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.container.deferred.Deferred
 
 /**
@@ -13,5 +14,5 @@ interface SingleRequestMaterializationGraphService :
 
     override fun createRequestMaterializationGraphForSession(
         session: SingleRequestFieldMaterializationSession
-    ): Deferred<SingleRequestFieldMaterializationSession>
+    ): Try<SingleRequestFieldMaterializationSession>
 }

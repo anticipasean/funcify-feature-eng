@@ -6,7 +6,8 @@ import arrow.core.toOption
 import funcify.feature.materializer.service.SingleRequestMaterializationDispatchService
 import funcify.feature.materializer.service.SingleRequestMaterializationGraphService
 import funcify.feature.materializer.service.SingleRequestMaterializationOrchestratorService
-import funcify.feature.tools.container.async.KFuture
+import funcify.feature.tools.container.attempt.Try
+import funcify.feature.tools.container.deferred.Deferred
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import graphql.schema.GraphQLNamedOutputType
@@ -34,7 +35,7 @@ internal class DefaultSingleRequestSessionFieldMaterializationProcessor(
 
     override fun materializeFieldValueInSession(
         session: SingleRequestFieldMaterializationSession
-    ): KFuture<Pair<SingleRequestFieldMaterializationSession, Option<Any>>> {
+    ): Try<Pair<SingleRequestFieldMaterializationSession, Deferred<Option<Any>>>> {
         val fieldTypeName: String? =
             session.fieldOutputType
                 .toOption()
@@ -56,7 +57,5 @@ internal class DefaultSingleRequestSessionFieldMaterializationProcessor(
             .flatMap { s ->
                 singleRequestMaterializationOrchestratorService.materializeValueInSession(s)
             }
-            .toKFuture()
-            .map { l -> l.first() }
     }
 }

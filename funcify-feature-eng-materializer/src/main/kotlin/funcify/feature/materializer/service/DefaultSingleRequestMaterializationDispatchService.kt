@@ -72,7 +72,7 @@ internal class DefaultSingleRequestMaterializationDispatchService(
 
     override fun dispatchRequestsInMaterializationGraphInSession(
         session: SingleRequestFieldMaterializationSession
-    ): Deferred<SingleRequestFieldMaterializationSession> {
+    ): Try<SingleRequestFieldMaterializationSession> {
         logger.info(
             "dispatch_requests_in_materialization_graph_in_session: [ session.session_id: ${session.sessionId} ]"
         )
@@ -84,7 +84,7 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                 |request_materialization_graph; 
                 |a key processing step has been skipped!""".flatten()
             )
-            return Deferred.failed(
+            return Try.failure(
                 MaterializerException(
                     MaterializerErrorResponse.UNEXPECTED_ERROR,
                     """materialization_processing_step: 
@@ -94,7 +94,7 @@ internal class DefaultSingleRequestMaterializationDispatchService(
             )
         }
         if (session.requestDispatchMaterializationGraphPhase.isDefined()) {
-            return Deferred.completed(session)
+            return Try.success(session)
         }
         session.requestParameterMaterializationGraphPhase.map { phase ->
             logger.info("request_graph: \n{}", createGraphStr(phase.requestGraph))
@@ -165,7 +165,6 @@ internal class DefaultSingleRequestMaterializationDispatchService(
             .map { requestDispatchPhase ->
                 session.update { requestDispatchMaterializationPhase(requestDispatchPhase) }
             }
-            .toDeferred()
     }
 
     private fun createAndDispatchFirstRoundOfRequestFunctionsForApplicableRetrievalFunctionSpecs(

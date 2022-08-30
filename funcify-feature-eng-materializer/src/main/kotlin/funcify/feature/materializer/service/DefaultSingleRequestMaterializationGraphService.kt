@@ -21,8 +21,6 @@ import funcify.feature.schema.vertex.SourceJunctionVertex
 import funcify.feature.schema.vertex.SourceLeafVertex
 import funcify.feature.schema.vertex.SourceRootVertex
 import funcify.feature.tools.container.attempt.Try
-import funcify.feature.tools.container.deferred.Deferred
-import funcify.feature.tools.extensions.DeferredExtensions.toDeferred
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.SequenceExtensions.recurse
 import funcify.feature.tools.extensions.StringExtensions.flatten
@@ -69,32 +67,30 @@ internal class DefaultSingleRequestMaterializationGraphService(
 
     override fun createRequestMaterializationGraphForSession(
         session: SingleRequestFieldMaterializationSession
-    ): Deferred<SingleRequestFieldMaterializationSession> {
+    ): Try<SingleRequestFieldMaterializationSession> {
         logger.debug(
             "create_request_materialization_graph_for_session: [ session.session_id: ${session.sessionId} ]"
         )
         // TODO: Add caching based on operation_definition input and parameterization of
         // materialized_values
         if (session.requestParameterMaterializationGraphPhase.isDefined()) {
-            return Deferred.completed(session)
+            return Try.success(session)
         }
-        return traverseOperationDefinitionInSessionCreatingMaterializationGraph(session)
-            .toDeferred()
-            .map { ctx ->
-                session.update {
-                    requestParameterMaterializationGraphPhase(
-                        DefaultRequestParameterMaterializationGraphPhase(
-                            requestGraph = ctx.requestParameterGraph,
-                            materializedParameterValuesByPath =
-                                ctx.materializedParameterValuesByPath,
-                            parameterIndexPathsBySourceIndexPath =
-                                ctx.parameterIndexPathsBySourceIndexPath,
-                            retrievalFunctionSpecByTopSourceIndexPath =
-                                ctx.retrievalFunctionSpecByTopSourceIndexPath
-                        )
+        return traverseOperationDefinitionInSessionCreatingMaterializationGraph(session).map { ctx
+            ->
+            session.update {
+                requestParameterMaterializationGraphPhase(
+                    DefaultRequestParameterMaterializationGraphPhase(
+                        requestGraph = ctx.requestParameterGraph,
+                        materializedParameterValuesByPath = ctx.materializedParameterValuesByPath,
+                        parameterIndexPathsBySourceIndexPath =
+                            ctx.parameterIndexPathsBySourceIndexPath,
+                        retrievalFunctionSpecByTopSourceIndexPath =
+                            ctx.retrievalFunctionSpecByTopSourceIndexPath
                     )
-                }
+                )
             }
+        }
     }
 
     private fun traverseOperationDefinitionInSessionCreatingMaterializationGraph(

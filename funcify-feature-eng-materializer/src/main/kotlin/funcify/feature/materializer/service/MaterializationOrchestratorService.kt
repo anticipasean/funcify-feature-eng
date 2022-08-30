@@ -2,6 +2,7 @@ package funcify.feature.materializer.service
 
 import arrow.core.Option
 import funcify.feature.materializer.session.MaterializationSession
+import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.container.deferred.Deferred
 
 /**
@@ -11,6 +12,5 @@ import funcify.feature.tools.container.deferred.Deferred
  */
 interface MaterializationOrchestratorService<M : MaterializationSession> {
 
-    fun materializeValueInSession(session: M): Deferred<Pair<M, Option<Any>>>
-
+    fun materializeValueInSession(session: M): Try<Pair<M, Deferred<Option<Any>>>>
 }
