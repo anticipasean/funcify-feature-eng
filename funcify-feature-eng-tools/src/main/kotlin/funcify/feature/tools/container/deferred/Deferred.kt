@@ -1,10 +1,8 @@
 package funcify.feature.tools.container.deferred
 
 import arrow.core.Option
-import arrow.core.fold
 import funcify.feature.tools.container.async.KFuture
 import funcify.feature.tools.container.attempt.Try
-import funcify.feature.tools.container.deferred.monoid.DeferredMonoidFactory
 import funcify.feature.tools.container.deferred.source.DeferredSourceContextFactory
 import funcify.feature.tools.extensions.PredicateExtensions.negate
 import java.util.*
@@ -104,34 +102,25 @@ interface Deferred<out I> : Iterable<I>, Publisher<@UnsafeVariance I> {
         fun <S, D, I> deferredSequence(sequenceOfDeferred: S): Deferred<I> where
         S : Sequence<D>,
         D : Deferred<I> {
-            return sequenceOfDeferred.fold(DeferredMonoidFactory.getHomogeneousDeferredMonoid<I>())
+            return fromFlux(
+                Flux.fromIterable<D>(Iterable { sequenceOfDeferred.iterator() }).flatMap { d -> d }
+            )
         }
 
         @JvmStatic
         fun <S, D, I> deferredStream(streamOfDeferred: S): Deferred<I> where
         S : Stream<out D>,
         D : Deferred<I> {
-            return fromFlux(
-                streamOfDeferred.reduce(
-                    Flux.empty<I>(),
-                    { f, d -> f.mergeWith(d) },
-                    { f1, f2 -> f1.mergeWith(f2) }
-                )
-            )
+            return fromFlux(Flux.fromStream(streamOfDeferred).flatMap { d -> d })
         }
 
         @JvmStatic
         fun <C, D, I> deferredIterable(iterableOfDeferred: C): Deferred<I> where
         C : Iterable<D>,
         D : Deferred<I> {
-            return iterableOfDeferred.fold(DeferredMonoidFactory.getHomogeneousDeferredMonoid<I>())
+            return fromFlux(Flux.fromIterable(iterableOfDeferred).flatMap { d -> d })
         }
 
-        fun <O, I> Deferred<O>.flattenOptions(): Deferred<I> where O : Option<I> {
-            return this.flatMapMono { option: O ->
-                option.fold({ Mono.empty() }, { i -> Mono.just(i) })
-            }
-        }
     }
 
     fun <O> map(mapper: (I) -> O): Deferred<O>
