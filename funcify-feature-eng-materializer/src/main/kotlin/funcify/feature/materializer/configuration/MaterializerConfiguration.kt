@@ -232,9 +232,10 @@ class MaterializerConfiguration {
 
     @ConditionalOnMissingBean(value = [SingleRequestMaterializationOrchestratorService::class])
     @Bean
-    fun singleRequestMaterializationOrchestratorService():
-        SingleRequestMaterializationOrchestratorService {
-        return DefaultSingleRequestMaterializationOrchestratorService()
+    fun singleRequestMaterializationOrchestratorService(
+        jsonMapper: JsonMapper
+    ): SingleRequestMaterializationOrchestratorService {
+        return DefaultSingleRequestMaterializationOrchestratorService(jsonMapper = jsonMapper)
     }
 
     @ConditionalOnMissingBean(value = [MaterializationPreparsedDocumentProvider::class])

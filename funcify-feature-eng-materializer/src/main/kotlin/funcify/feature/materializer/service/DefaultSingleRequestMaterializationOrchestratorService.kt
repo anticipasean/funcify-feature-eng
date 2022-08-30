@@ -2,7 +2,11 @@ package funcify.feature.materializer.service
 
 import arrow.core.Option
 import arrow.core.getOrNone
+import arrow.core.none
 import arrow.core.toOption
+import com.fasterxml.jackson.databind.JsonNode
+import com.fasterxml.jackson.databind.node.JsonNodeType
+import funcify.feature.json.JsonMapper
 import funcify.feature.materializer.error.MaterializerErrorResponse
 import funcify.feature.materializer.error.MaterializerException
 import funcify.feature.materializer.fetcher.SingleRequestFieldMaterializationSession
@@ -17,8 +21,9 @@ import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.extensions.TryExtensions.successIfDefined
 import org.slf4j.Logger
 
-internal class DefaultSingleRequestMaterializationOrchestratorService :
-    SingleRequestMaterializationOrchestratorService {
+internal class DefaultSingleRequestMaterializationOrchestratorService(
+    private val jsonMapper: JsonMapper
+) : SingleRequestMaterializationOrchestratorService {
 
     companion object {
         private val logger: Logger =
@@ -117,6 +122,30 @@ internal class DefaultSingleRequestMaterializationOrchestratorService :
                     "could not find dispatched_request for source_index_path: ${currentFieldPath}"
                 )
             })
+            .map { df ->
+                df.map { jsonNodeOpt -> jsonNodeOpt.flatMap { jn -> jsonNodeToScalarValue(jn) } }
+            }
             .map { df -> session to df }
+    }
+
+    fun jsonNodeToScalarValue(jsonNode: JsonNode): Option<Any> {
+        return when (jsonNode.nodeType) {
+            JsonNodeType.MISSING,
+            JsonNodeType.NULL -> none()
+            JsonNodeType.BOOLEAN,
+            JsonNodeType.NUMBER,
+            JsonNodeType.BINARY,
+            JsonNodeType.STRING -> {
+                jsonMapper.fromJsonNode(jsonNode).toKotlinObject(Any::class).getSuccess()
+            }
+            JsonNodeType.ARRAY -> {
+                jsonMapper.fromJsonNode(jsonNode).toKotlinObject(List::class).getSuccess()
+            }
+            JsonNodeType.OBJECT,
+            JsonNodeType.POJO -> {
+                jsonMapper.fromJsonNode(jsonNode).toKotlinObject(Map::class).getSuccess()
+            }
+            else -> none()
+        }
     }
 }
