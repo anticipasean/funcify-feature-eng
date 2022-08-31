@@ -1,11 +1,11 @@
 package funcify.feature.materializer.schema
 
-import funcify.feature.tools.container.deferred.Deferred
+import funcify.feature.tools.container.async.KFuture
 
 interface MaterializationMetamodelBroker {
 
     fun pushNewMaterializationMetamodel(materializationMetamodel: MaterializationMetamodel)
 
-    fun fetchLatestMaterializationMetamodel(): Deferred<MaterializationMetamodel>
+    fun fetchLatestMaterializationMetamodel(): KFuture<MaterializationMetamodel>
 
 }

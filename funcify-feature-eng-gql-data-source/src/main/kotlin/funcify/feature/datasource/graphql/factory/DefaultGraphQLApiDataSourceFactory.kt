@@ -14,8 +14,8 @@ import funcify.feature.schema.datasource.SourceMetamodel
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import graphql.schema.GraphQLSchema
-import org.slf4j.Logger
 import kotlin.reflect.KClass
+import org.slf4j.Logger
 
 internal class DefaultGraphQLApiDataSourceFactory(
     private val graphQLApiSourceMetadataProvider: GraphQLApiSourceMetadataProvider,
@@ -55,12 +55,14 @@ internal class DefaultGraphQLApiDataSourceFactory(
                     graphQLApiService = graphQLApiService,
                     graphQLSourceSchema = gqlSchema,
                     sourceMetamodel =
-                        graphQLApiSourceMetadataReader.readSourceMetamodelFromMetadata(dataSourceKey, gqlSchema),
+                        graphQLApiSourceMetadataReader.readSourceMetamodelFromMetadata(
+                            dataSourceKey,
+                            gqlSchema
+                        ),
                     key = dataSourceKey
                 )
             }
-            .blockForFirst()
-            .orElseThrow { t: Throwable ->
+            .getOrElseThrow { t: Throwable ->
                 GQLDataSourceException(
                     GQLDataSourceErrorResponse.UNEXPECTED_ERROR,
                     """error occurred when retrieving or processing metadata 

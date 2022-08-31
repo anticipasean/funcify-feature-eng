@@ -6,7 +6,7 @@ import funcify.feature.materializer.error.MaterializerErrorResponse
 import funcify.feature.materializer.error.MaterializerException
 import funcify.feature.materializer.session.GraphQLSingleRequestSession
 import funcify.feature.tools.container.attempt.Try
-import funcify.feature.tools.container.deferred.Deferred
+import funcify.feature.tools.container.async.KFuture
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.extensions.ThrowableExtensions.possiblyNestedHeadStackTraceElement
@@ -104,7 +104,7 @@ internal class DefaultSingleRequestContextDecoratingFieldMaterializationDataFetc
     private fun <R> unwrapCompletionStageAndFoldMaterializedValueOptionIntoDataFetcherResult(
         environment: DataFetchingEnvironment,
         sessionAndMaterializedValuePairFuture:
-            Try<Pair<SingleRequestFieldMaterializationSession, Deferred<Option<Any>>>>
+            Try<Pair<SingleRequestFieldMaterializationSession, KFuture<Option<Any>>>>
     ): CompletionStage<out DataFetcherResult<R>> {
         // Unwrap completion_stage and fold materialized_value_option in
         // data_fetcher_result creation to avoid use of null within kfuture

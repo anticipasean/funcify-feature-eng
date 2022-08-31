@@ -7,7 +7,6 @@ import funcify.feature.materializer.service.MaterializationPreparsedDocumentProv
 import funcify.feature.materializer.session.GraphQLSingleRequestSession
 import funcify.feature.materializer.session.GraphQLSingleRequestSessionCoordinator
 import funcify.feature.tools.container.async.KFuture
-import funcify.feature.tools.container.deferred.Deferred
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import graphql.ExecutionInput
@@ -15,7 +14,6 @@ import graphql.ExecutionResult
 import graphql.GraphQL
 import java.util.concurrent.Executor
 import org.slf4j.Logger
-import org.springframework.stereotype.Component
 
 /**
  *
@@ -34,21 +32,19 @@ internal class SpringGraphQLSingleRequestSessionCoordinator(
 
     override fun conductSingleRequestSession(
         session: GraphQLSingleRequestSession
-    ): Deferred<GraphQLSingleRequestSession> {
+    ): KFuture<GraphQLSingleRequestSession> {
         logger.info(
             """conduct_single_request_session: [ 
                 |session.session_id: ${session.sessionId} ]
                 |""".flatten()
         )
-        return Deferred.fromKFuture(
-                KFuture.of(
-                    completionStage =
-                        GraphQL.newGraphQL(session.materializationSchema)
-                            .preparsedDocumentProvider(materializationPreparsedDocumentProvider)
-                            .build()
-                            .executeAsync(executionInputBuilderUpdater(session)),
-                    executor = asyncExecutor
-                )
+        return KFuture.of(
+                completionStage =
+                    GraphQL.newGraphQL(session.materializationSchema)
+                        .preparsedDocumentProvider(materializationPreparsedDocumentProvider)
+                        .build()
+                        .executeAsync(executionInputBuilderUpdater(session)),
+                executor = asyncExecutor
             )
             .map { er: ExecutionResult ->
                 serializedGraphQLResponseFactory.builder().executionResult(er).build()

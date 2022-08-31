@@ -20,7 +20,7 @@ internal class MockGraphQLApiSourceMetadataProviderTest {
     fun provideMockMetadataTest() {
         MockGraphQLApiSourceMetadataProvider(objectMapper)
             .provideMetadata(fakeService)
-            .blockForFirst()
+            .get()
             .fold(
                 { gqlSchema: GraphQLSchema ->
                     Assertions.assertEquals(

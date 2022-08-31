@@ -5,7 +5,7 @@ import com.fasterxml.jackson.databind.JsonNode
 import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.datasource.SourceIndex
 import funcify.feature.schema.path.SchematicPath
-import funcify.feature.tools.container.deferred.Deferred
+import funcify.feature.tools.container.async.KFuture
 import kotlinx.collections.immutable.ImmutableMap
 
 /**
@@ -24,5 +24,5 @@ interface DataSourceCacheJsonRetrievalStrategy<SI : SourceIndex<SI>> :
 
     override fun invoke(
         contextParameterValuesByPath: ImmutableMap<SchematicPath, JsonNode>
-    ): Deferred<Option<JsonNode>>
+    ): KFuture<Option<JsonNode>>
 }

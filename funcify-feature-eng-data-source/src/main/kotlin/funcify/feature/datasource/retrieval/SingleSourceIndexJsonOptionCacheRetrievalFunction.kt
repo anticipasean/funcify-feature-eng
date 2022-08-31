@@ -8,7 +8,7 @@ import funcify.feature.schema.path.SchematicPath
 import funcify.feature.schema.vertex.SourceJunctionVertex
 import funcify.feature.schema.vertex.SourceLeafVertex
 import funcify.feature.tools.container.attempt.Try
-import funcify.feature.tools.container.deferred.Deferred
+import funcify.feature.tools.container.async.KFuture
 import kotlinx.collections.immutable.ImmutableMap
 
 /**
@@ -17,7 +17,7 @@ import kotlinx.collections.immutable.ImmutableMap
  * @created 2022-08-24
  */
 interface SingleSourceIndexJsonOptionCacheRetrievalFunction :
-    (ImmutableMap<SchematicPath, JsonNode>) -> Deferred<Option<JsonNode>> {
+    (ImmutableMap<SchematicPath, JsonNode>) -> KFuture<Option<JsonNode>> {
 
     val cacheForDataSourceKey: DataSource.Key<*>
         get() = cacheForDataSource.key
@@ -28,7 +28,7 @@ interface SingleSourceIndexJsonOptionCacheRetrievalFunction :
 
     override fun invoke(
         contextParameterValuesByPath: ImmutableMap<SchematicPath, JsonNode>
-    ): Deferred<Option<JsonNode>>
+    ): KFuture<Option<JsonNode>>
 
     interface Builder {
 

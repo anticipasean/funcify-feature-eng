@@ -4,7 +4,7 @@ import arrow.core.toOption
 import com.fasterxml.jackson.databind.JsonNode
 import funcify.feature.datasource.json.JsonNodeSchematicPathToValueMappingExtractor
 import funcify.feature.schema.path.SchematicPath
-import funcify.feature.tools.container.deferred.Deferred
+import funcify.feature.tools.container.async.KFuture
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentMap
 import funcify.feature.tools.extensions.SequenceExtensions.flatMapOptions
@@ -26,11 +26,11 @@ internal class DefaultSwaggerRestApiJsonResponsePostProcessingStrategy :
     override fun postProcessRestApiJsonResponse(
         context: SwaggerRestApiJsonResponsePostProcessingContext,
         responseJsonNode: JsonNode,
-    ): Deferred<ImmutableMap<SchematicPath, JsonNode>> {
+    ): KFuture<ImmutableMap<SchematicPath, JsonNode>> {
         logger.debug(
             "post_process_rest_api_json_response: [ response_json_node.type: ${responseJsonNode.nodeType} ]"
         )
-        return Deferred.completed(
+        return KFuture.completed(
             JsonNodeSchematicPathToValueMappingExtractor.invoke(responseJsonNode)
                 .asSequence()
                 .map { (sourcePath, jsonValue) ->

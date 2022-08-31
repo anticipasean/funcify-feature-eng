@@ -6,7 +6,7 @@ import com.fasterxml.jackson.databind.node.JsonNodeFactory
 import com.fasterxml.jackson.databind.node.ObjectNode
 import com.jayway.jsonpath.JsonPath
 import funcify.feature.datasource.rest.RestApiService
-import funcify.feature.tools.container.deferred.Deferred
+import funcify.feature.tools.container.async.KFuture
 import io.swagger.v3.oas.models.OpenAPI
 import io.swagger.v3.parser.OpenAPIV3Parser
 import java.net.URI
@@ -62,7 +62,7 @@ interface SwaggerSchemaEndpoint {
      * @default_value: a function that creates an empty [ObjectNode] and publisher for it
      */
     fun requestBodyCreator(): () -> Publisher<JsonNode> {
-        return { -> Deferred.completed<JsonNode>(JsonNodeFactory.instance.objectNode()) }
+        return { -> KFuture.completed<JsonNode>(JsonNodeFactory.instance.objectNode()) }
     }
 
     /**

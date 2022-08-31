@@ -15,9 +15,9 @@ import funcify.feature.materializer.response.SerializedGraphQLResponse
 import funcify.feature.spring.error.FeatureEngSpringWebFluxException
 import funcify.feature.spring.error.SpringWebFluxErrorResponse
 import funcify.feature.spring.service.GraphQLSingleRequestExecutor
+import funcify.feature.tools.container.async.KFuture
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.container.attempt.Try.Companion.flatMapFailure
-import funcify.feature.tools.container.deferred.Deferred
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.PersistentMapExtensions.reduceEntriesToPersistentMap
 import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentMap
@@ -83,21 +83,26 @@ internal class GraphQLWebFluxHandlerFunction(
                     )
                 }
         }
+
+        private fun <T> Mono<out T>.narrow(): Mono<T> {
+            return this.map(::identity)
+        }
     }
 
     override fun handle(request: ServerRequest): Mono<ServerResponse> {
         logger.info("handle: [ request.path: ${request.path()} ]")
-        return Deferred.fromMono(convertServerRequestIntoRawGraphQLRequest(request))
+        return KFuture.fromMono(convertServerRequestIntoRawGraphQLRequest(request))
             .flatMap { rawReq: RawGraphQLRequest ->
                 graphQLSingleRequestExecutor.executeSingleRequest(rawReq)
             }
+            .flatMapMono(convertAggregateSerializedGraphQLResponseIntoServerResponse())
             .toMono()
-            .flatMap(convertAggregateSerializedGraphQLResponseIntoServerResponse())
             .onErrorResume(
                 FeatureEngCommonException::class.java,
                 convertCommonExceptionTypeIntoServerResponse()
             )
             .onErrorResume(convertAnyUnhandledExceptionsIntoServerResponse(request))
+            .narrow()
     }
 
     private fun convertServerRequestIntoRawGraphQLRequest(
@@ -236,47 +241,24 @@ internal class GraphQLWebFluxHandlerFunction(
     }
 
     private fun convertAggregateSerializedGraphQLResponseIntoServerResponse():
-        (List<SerializedGraphQLResponse>) -> Mono<out ServerResponse> {
-        return { aggregatedResponses ->
-            when (aggregatedResponses.size) {
-                0 -> {
-                    Mono.error(
-                        FeatureEngSpringWebFluxException(
-                            SpringWebFluxErrorResponse.NO_RESPONSE_PROVIDED,
-                            "response for request not provided"
-                        )
+        (SerializedGraphQLResponse) -> Mono<out ServerResponse> {
+        return { response ->
+            Try.attempt { response.executionResult.toSpecification() }
+                .mapFailure { t: Throwable ->
+                    val message: String =
+                        """unable to convert graphql execution_result 
+                        |into specification for api_response 
+                        |[ type: Map<String, Any?> ] given cause: 
+                        |[ type: ${t::class.qualifiedName}, 
+                        |message: ${t.message} ]""".flatten()
+                    FeatureEngSpringWebFluxException(
+                        SpringWebFluxErrorResponse.EXECUTION_RESULT_ISSUE,
+                        message,
+                        t
                     )
                 }
-                1 -> {
-                    Mono.just(aggregatedResponses[0])
-                        .flatMap { response ->
-                            Try.attempt { response.executionResult.toSpecification() }
-                                .mapFailure { t: Throwable ->
-                                    val message: String =
-                                        """unable to convert graphql execution_result 
-                                            |into specification for api_response 
-                                            |[ type: Map<String, Any?> ] given cause: 
-                                            |[ type: ${t::class.qualifiedName}, 
-                                            |message: ${t.message} ]""".flatten()
-                                    FeatureEngSpringWebFluxException(
-                                        SpringWebFluxErrorResponse.EXECUTION_RESULT_ISSUE,
-                                        message,
-                                        t
-                                    )
-                                }
-                                .toMono()
-                        }
-                        .flatMap { spec -> ServerResponse.ok().bodyValue(spec) }
-                }
-                else -> {
-                    Mono.error(
-                        FeatureEngSpringWebFluxException(
-                            SpringWebFluxErrorResponse.TOO_MANY_RESPONSES_PROVIDED,
-                            "number of responses given: [ actual: ${aggregatedResponses.size}, expected: 1 ]"
-                        )
-                    )
-                }
-            }
+                .toMono()
+                .flatMap { spec -> ServerResponse.ok().bodyValue(spec) }
         }
     }
 
@@ -351,7 +333,7 @@ internal class GraphQLWebFluxHandlerFunction(
 
     private fun convertAnyUnhandledExceptionsIntoServerResponse(
         request: ServerRequest
-    ): (Throwable) -> Mono<ServerResponse> {
+    ): (Throwable) -> Mono<out ServerResponse> {
         return { err: Throwable ->
             logger.error(
                 """handle: [ request.path: ${request.path()} ]: 

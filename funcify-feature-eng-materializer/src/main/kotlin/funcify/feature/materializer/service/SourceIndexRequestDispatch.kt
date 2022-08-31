@@ -7,7 +7,7 @@ import funcify.feature.datasource.retrieval.MultipleSourceIndicesJsonRetrievalFu
 import funcify.feature.datasource.retrieval.SingleSourceIndexJsonOptionCacheRetrievalFunction
 import funcify.feature.materializer.spec.RetrievalFunctionSpec
 import funcify.feature.schema.path.SchematicPath
-import funcify.feature.tools.container.deferred.Deferred
+import funcify.feature.tools.container.async.KFuture
 import kotlinx.collections.immutable.ImmutableMap
 
 interface SourceIndexRequestDispatch {
@@ -35,7 +35,7 @@ interface SourceIndexRequestDispatch {
     interface CacheableSingleSourceIndexRetrievalSpec {
 
         fun dispatchedSingleIndexCacheRequest(
-            dispatch: Deferred<Option<JsonNode>>
+            dispatch: KFuture<Option<JsonNode>>
         ): CacheableSingleSourceIndexRetrievalSpec
 
         fun backupBaseMultipleSourceIndicesJsonRetrievalFunction(
@@ -52,7 +52,7 @@ interface SourceIndexRequestDispatch {
     interface MultipleSourceIndexRetrievalSpec {
 
         fun dispatchedMultipleIndexRequest(
-            dispatch: Deferred<ImmutableMap<SchematicPath, JsonNode>>
+            dispatch: KFuture<ImmutableMap<SchematicPath, JsonNode>>
         ): MultipleSourceIndexRetrievalSpec
 
         fun build(): DispatchedMultiSourceIndexRetrieval
@@ -63,7 +63,7 @@ interface SourceIndexRequestDispatch {
         val singleSourceIndexJsonOptionCacheRetrievalFunction:
             SingleSourceIndexJsonOptionCacheRetrievalFunction
 
-        val dispatchedSingleIndexCacheRequest: Deferred<Option<JsonNode>>
+        val dispatchedSingleIndexCacheRequest: KFuture<Option<JsonNode>>
 
         val backupBaseMultipleSourceIndicesJsonRetrievalFunction:
             MultipleSourceIndicesJsonRetrievalFunction
@@ -76,6 +76,6 @@ interface SourceIndexRequestDispatch {
 
         val multipleSourceIndicesJsonRetrievalFunction: MultipleSourceIndicesJsonRetrievalFunction
 
-        val dispatchedMultipleIndexRequest: Deferred<ImmutableMap<SchematicPath, JsonNode>>
+        val dispatchedMultipleIndexRequest: KFuture<ImmutableMap<SchematicPath, JsonNode>>
     }
 }

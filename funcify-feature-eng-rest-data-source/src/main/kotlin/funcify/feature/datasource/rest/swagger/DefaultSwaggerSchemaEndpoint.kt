@@ -4,7 +4,7 @@ import arrow.core.identity
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.node.JsonNodeFactory
 import com.jayway.jsonpath.JsonPath
-import funcify.feature.tools.container.deferred.Deferred
+import funcify.feature.tools.container.async.KFuture
 import java.net.URI
 import org.reactivestreams.Publisher
 import org.springframework.boot.web.reactive.function.client.WebClientCustomizer
@@ -31,7 +31,7 @@ internal class DefaultSwaggerSchemaEndpoint(
         private val DEFAULT_HTTP_METHOD: HttpMethod = HttpMethod.POST
         private val DEFAULT_URI_CUSTOMIZER: (UriBuilder) -> URI = { ub -> ub.build() }
         private val DEFAULT_REQUEST_BODY_CREATOR: () -> Publisher<JsonNode> = { ->
-            Deferred.completed<JsonNode>(JsonNodeFactory.instance.objectNode())
+            KFuture.completed<JsonNode>(JsonNodeFactory.instance.objectNode())
         }
         private val DEFAULT_RESPONSE_OPEN_API_SPECIFICATION_JSON_PATH: JsonPath =
             JsonPath.compile("$")

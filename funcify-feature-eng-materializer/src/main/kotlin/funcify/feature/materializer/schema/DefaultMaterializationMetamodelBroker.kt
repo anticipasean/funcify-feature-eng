@@ -3,7 +3,7 @@ package funcify.feature.materializer.schema
 import arrow.core.continuations.AtomicRef
 import funcify.feature.materializer.error.MaterializerErrorResponse
 import funcify.feature.materializer.error.MaterializerException
-import funcify.feature.tools.container.deferred.Deferred
+import funcify.feature.tools.container.async.KFuture
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import org.slf4j.Logger
@@ -39,9 +39,9 @@ internal class DefaultMaterializationMetamodelBroker() : MaterializationMetamode
         }
     }
 
-    override fun fetchLatestMaterializationMetamodel(): Deferred<MaterializationMetamodel> {
+    override fun fetchLatestMaterializationMetamodel(): KFuture<MaterializationMetamodel> {
         logger.info("fetch_latest_materialization_schema: []")
-        return Deferred.fromMono(
+        return KFuture.fromMono(
             Mono.fromSupplier { ->
                 when (
                     val materializationMetamodel: MaterializationMetamodel? =

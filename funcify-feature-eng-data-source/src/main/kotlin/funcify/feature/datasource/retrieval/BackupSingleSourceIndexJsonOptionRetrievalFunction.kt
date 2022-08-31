@@ -3,7 +3,7 @@ package funcify.feature.datasource.retrieval
 import arrow.core.Option
 import com.fasterxml.jackson.databind.JsonNode
 import funcify.feature.schema.path.SchematicPath
-import funcify.feature.tools.container.deferred.Deferred
+import funcify.feature.tools.container.async.KFuture
 import kotlinx.collections.immutable.ImmutableMap
 
 /**
@@ -12,9 +12,9 @@ import kotlinx.collections.immutable.ImmutableMap
  * @created 2022-08-28
  */
 fun interface BackupSingleSourceIndexJsonOptionRetrievalFunction :
-    (ImmutableMap<SchematicPath, Deferred<Option<JsonNode>>>) -> Deferred<Option<JsonNode>> {
+        (ImmutableMap<SchematicPath, KFuture<Option<JsonNode>>>) -> KFuture<Option<JsonNode>> {
 
     override fun invoke(
-        parameterValuesByPath: ImmutableMap<SchematicPath, Deferred<Option<JsonNode>>>
-    ): Deferred<Option<JsonNode>>
+        parameterValuesByPath: ImmutableMap<SchematicPath, KFuture<Option<JsonNode>>>
+    ): KFuture<Option<JsonNode>>
 }

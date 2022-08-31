@@ -10,7 +10,7 @@ import funcify.feature.datasource.graphql.GraphQLApiService
 import funcify.feature.datasource.graphql.error.GQLDataSourceErrorResponse
 import funcify.feature.datasource.graphql.error.GQLDataSourceErrorResponse.GRAPHQL_DATA_SOURCE_CREATION_ERROR
 import funcify.feature.datasource.graphql.error.GQLDataSourceException
-import funcify.feature.tools.container.deferred.Deferred
+import funcify.feature.tools.container.async.KFuture
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import io.netty.handler.codec.http.HttpScheme
 import java.util.stream.Collectors
@@ -186,7 +186,7 @@ internal class DefaultGraphQLApiServiceFactory(
             query: String,
             variables: Map<String, Any>,
             operationName: String?
-        ): Deferred<JsonNode> {
+        ): KFuture<JsonNode> {
             logger.debug(
                 """execute_single_query: 
                     |[ query.length: ${query.length}, 
@@ -196,30 +196,30 @@ internal class DefaultGraphQLApiServiceFactory(
             )
             val queryBodySupplierMono: Mono<ObjectNode> =
                 Mono.fromSupplier {
-                    mapOf<String, Any?>(
-                            "query" to query,
-                            "variables" to variables,
-                            "operationName" to operationName
-                        )
-                        .foldLeft(JsonNodeFactory.instance.objectNode()) {
-                            objNod: ObjectNode,
-                            entry: Map.Entry<String, Any?> ->
-                            when (val entVal = entry.value) {
-                                is String -> {
-                                    objNod.put(entry.key, entVal)
-                                }
-                                null -> {
-                                    objNod.putNull(entry.key)
-                                }
-                                else -> {
-                                    objNod.set(
-                                        entry.key,
-                                        objectMapper.valueToTree<JsonNode>(entry.value)
-                                    )
+                        mapOf<String, Any?>(
+                                "query" to query,
+                                "variables" to variables,
+                                "operationName" to operationName
+                            )
+                            .foldLeft(JsonNodeFactory.instance.objectNode()) {
+                                objNod: ObjectNode,
+                                entry: Map.Entry<String, Any?> ->
+                                when (val entVal = entry.value) {
+                                    is String -> {
+                                        objNod.put(entry.key, entVal)
+                                    }
+                                    null -> {
+                                        objNod.putNull(entry.key)
+                                    }
+                                    else -> {
+                                        objNod.set(
+                                            entry.key,
+                                            objectMapper.valueToTree<JsonNode>(entry.value)
+                                        )
+                                    }
                                 }
                             }
-                        }
-                }
+                    }
                     .onErrorResume(IllegalArgumentException::class.java) {
                         e: IllegalArgumentException ->
                         Mono.error(
@@ -229,7 +229,7 @@ internal class DefaultGraphQLApiServiceFactory(
                             )
                         )
                     }
-            return Deferred.fromMono(
+            return KFuture.fromMono(
                 webClient
                     .post()
                     .contentType(MediaType.APPLICATION_JSON)

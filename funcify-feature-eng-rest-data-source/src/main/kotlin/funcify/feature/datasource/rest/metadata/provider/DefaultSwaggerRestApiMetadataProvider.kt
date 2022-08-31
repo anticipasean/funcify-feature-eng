@@ -8,7 +8,7 @@ import funcify.feature.datasource.rest.swagger.SwaggerSchemaEndpoint
 import funcify.feature.datasource.rest.swagger.SwaggerSchemaEndpointRegistry
 import funcify.feature.json.JsonMapper
 import funcify.feature.tools.container.attempt.Try
-import funcify.feature.tools.container.deferred.Deferred
+import funcify.feature.tools.container.async.KFuture
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.extensions.TryExtensions.successIfDefined
@@ -39,7 +39,7 @@ internal class DefaultSwaggerRestApiMetadataProvider(
         private val logger: Logger = loggerFor<DefaultSwaggerRestApiMetadataProvider>()
     }
 
-    override fun provideMetadata(service: RestApiService): Deferred<OpenAPI> {
+    override fun provideMetadata(service: RestApiService): KFuture<OpenAPI> {
         logger.info(
             """provide_metadata: [ service: 
             |{ name: ${service.serviceName}, 
@@ -47,7 +47,7 @@ internal class DefaultSwaggerRestApiMetadataProvider(
             |port: ${service.port} } ]
             |""".flatten()
         )
-        return Deferred.fromAttempt(
+        return KFuture.fromAttempt(
                 swaggerSchemaEndpointRegistry
                     .getSwaggerSchemaEndpointForRestApiService(service)
                     .successIfDefined {

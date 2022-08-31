@@ -3,7 +3,7 @@ package funcify.feature.schema.directive.temporal
 import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.datasource.SourceIndex
 import funcify.feature.schema.path.SchematicPath
-import funcify.feature.tools.container.deferred.Deferred
+import funcify.feature.tools.container.async.KFuture
 import kotlinx.collections.immutable.ImmutableSet
 
 /**
@@ -15,6 +15,6 @@ interface DataSourceAttributeLastUpdatedProvider<SI : SourceIndex<SI>> {
 
     fun provideTemporalAttributePathsInDataSourceForUseInLastUpdatedCalculations(
         dataSource: DataSource<SI>
-    ): Deferred<ImmutableSet<SchematicPath>>
+    ): KFuture<ImmutableSet<SchematicPath>>
 
 }

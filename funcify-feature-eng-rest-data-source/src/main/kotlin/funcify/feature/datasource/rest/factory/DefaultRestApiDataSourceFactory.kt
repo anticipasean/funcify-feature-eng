@@ -66,8 +66,7 @@ internal class DefaultRestApiDataSourceFactory<MD>(
                     key = sourceMetamodelPair.first
                 )
             }
-            .blockForFirst()
-            .orElseThrow { t: Throwable ->
+            .getOrElseThrow { t: Throwable ->
                 RestApiDataSourceException(
                     RestApiErrorResponse.UNEXPECTED_ERROR,
                     """error when retrieving or processing metadata 

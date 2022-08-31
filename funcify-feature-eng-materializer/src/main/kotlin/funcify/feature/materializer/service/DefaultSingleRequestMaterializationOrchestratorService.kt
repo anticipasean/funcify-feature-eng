@@ -13,7 +13,7 @@ import funcify.feature.materializer.fetcher.SingleRequestFieldMaterializationSes
 import funcify.feature.materializer.schema.RequestParameterEdge
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.tools.container.attempt.Try
-import funcify.feature.tools.container.deferred.Deferred
+import funcify.feature.tools.container.async.KFuture
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.OptionExtensions.toOption
 import funcify.feature.tools.extensions.StreamExtensions.flatMapOptions
@@ -32,7 +32,7 @@ internal class DefaultSingleRequestMaterializationOrchestratorService(
 
     override fun materializeValueInSession(
         session: SingleRequestFieldMaterializationSession
-    ): Try<Pair<SingleRequestFieldMaterializationSession, Deferred<Option<Any>>>> {
+    ): Try<Pair<SingleRequestFieldMaterializationSession, KFuture<Option<Any>>>> {
         logger.info("materialize_value_in_session: [ session.session_id: ${session.sessionId} ]")
         logger.info("field: {}", session.dataFetchingEnvironment.field)
         if (

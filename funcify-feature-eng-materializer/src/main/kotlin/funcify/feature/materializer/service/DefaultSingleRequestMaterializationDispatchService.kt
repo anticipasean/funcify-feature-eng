@@ -18,9 +18,9 @@ import funcify.feature.naming.StandardNamingConventions
 import funcify.feature.schema.SchematicVertex
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.tools.container.attempt.Try
-import funcify.feature.tools.container.deferred.Deferred
+import funcify.feature.tools.container.async.KFuture
 import funcify.feature.tools.container.graph.PathBasedGraph
-import funcify.feature.tools.extensions.DeferredExtensions.toDeferred
+import funcify.feature.tools.extensions.KFutureExtensions.toKFuture
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentMap
 import funcify.feature.tools.extensions.PersistentMapExtensions.streamPairs
@@ -63,11 +63,11 @@ internal class DefaultSingleRequestMaterializationDispatchService(
             val singleSrcIndexBackupFunctionBySourceIndexPath:
                 PersistentMap<SchematicPath, BackupSingleSourceIndexJsonOptionRetrievalFunction> =
                 persistentMapOf(),
-            val dispatchedMultiValueDeferredResponsesBySourceIndexPath:
-                PersistentMap<SchematicPath, Deferred<ImmutableMap<SchematicPath, JsonNode>>> =
+            val dispatchedMultiValueKFutureResponsesBySourceIndexPath:
+                PersistentMap<SchematicPath, KFuture<ImmutableMap<SchematicPath, JsonNode>>> =
                 persistentMapOf(),
-            val dispatchedSingleValueDeferredResponsesBySourceIndexPath:
-                PersistentMap<SchematicPath, Deferred<Option<JsonNode>>> =
+            val dispatchedSingleValueKFutureResponsesBySourceIndexPath:
+                PersistentMap<SchematicPath, KFuture<Option<JsonNode>>> =
                 persistentMapOf()
         )
     }
@@ -209,9 +209,9 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                                     sourceIndexPath,
                                     multiSrcIndJsonRetrFunc
                                 ),
-                            dispatchedMultiValueDeferredResponsesBySourceIndexPath =
+                            dispatchedMultiValueKFutureResponsesBySourceIndexPath =
                                 requestCreationContext
-                                    .dispatchedMultiValueDeferredResponsesBySourceIndexPath
+                                    .dispatchedMultiValueKFutureResponsesBySourceIndexPath
                                     .put(
                                         sourceIndexPath,
                                         multiSrcIndJsonRetrFunc.invoke(
@@ -285,9 +285,9 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                             singleSrcIndexBackupFunctionBySourceIndexPath =
                                 requestCreationContext.singleSrcIndexBackupFunctionBySourceIndexPath
                                     .put(sourceIndexPath, backupFunction),
-                            dispatchedSingleValueDeferredResponsesBySourceIndexPath =
+                            dispatchedSingleValueKFutureResponsesBySourceIndexPath =
                                 requestCreationContext
-                                    .dispatchedSingleValueDeferredResponsesBySourceIndexPath
+                                    .dispatchedSingleValueKFutureResponsesBySourceIndexPath
                                     .put(
                                         sourceIndexPath,
                                         singleSrcIndCacheRetrFunc.invoke(
@@ -336,7 +336,7 @@ internal class DefaultSingleRequestMaterializationDispatchService(
         multiSrcIndJsonRetrFunc: MultipleSourceIndicesJsonRetrievalFunction
     ): BackupSingleSourceIndexJsonOptionRetrievalFunction {
         return BackupSingleSourceIndexJsonOptionRetrievalFunction { dispatchedParams ->
-            Deferred.deferredSequence(
+            KFuture.deferredSequence(
                     dispatchedParams.asSequence().map { (p, jnOptDef) ->
                         jnOptDef.map { jnOpt ->
                             p to jnOpt.getOrElse { JsonNodeFactory.instance.nullNode() }
@@ -345,7 +345,7 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                 )
                 .toMono()
                 .map { pairs -> pairs.asSequence().reducePairsToPersistentMap() }
-                .toDeferred()
+                .toKFuture()
                 .flatMap { inputMap -> multiSrcIndJsonRetrFunc.invoke(inputMap) }
                 .map { resultMap -> resultMap.getOrNone(sourceIndexPath) }
         }
@@ -459,10 +459,10 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                                     .toOption()
                                     .flatMap { (srcIndPath, _) ->
                                         requestCreationContext
-                                            .dispatchedMultiValueDeferredResponsesBySourceIndexPath
+                                            .dispatchedMultiValueKFutureResponsesBySourceIndexPath
                                             .getOrNone(srcIndPath)
-                                            .map { resultDeferred ->
-                                                resultDeferred.map { resultMap ->
+                                            .map { resultKFuture ->
+                                                resultKFuture.map { resultMap ->
                                                     dependentValueRequestParameterEdge.id.second to
                                                         dependentValueRequestParameterEdge
                                                             .extractionFunction
@@ -476,17 +476,17 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                             }
                             .flatMapOptions()
                             .let { pairStream ->
-                                Deferred.deferredStream(pairStream)
+                                KFuture.deferredStream(pairStream)
                                     .toMono()
                                     .map { pairs ->
                                         pairs.asSequence().reducePairsToPersistentMap()
                                     }
-                                    .toDeferred()
+                                    .toKFuture()
                             }
                             .flatMap { inputMap ->
                                 multiSrcIndJsonRetrievalFunction.invoke(inputMap)
                             }
-                            .let { resultDeferred ->
+                            .let { resultKFuture ->
                                 requestCreationContext.copy(
                                     processedRetrievalFunctionSpecsBySourceIndexPath =
                                         requestCreationContext
@@ -496,10 +496,10 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                                         requestCreationContext
                                             .multiSrcIndexFunctionBySourceIndexPath
                                             .put(sourceIndexPath, multiSrcIndJsonRetrievalFunction),
-                                    dispatchedMultiValueDeferredResponsesBySourceIndexPath =
+                                    dispatchedMultiValueKFutureResponsesBySourceIndexPath =
                                         requestCreationContext
-                                            .dispatchedMultiValueDeferredResponsesBySourceIndexPath
-                                            .put(sourceIndexPath, resultDeferred),
+                                            .dispatchedMultiValueKFutureResponsesBySourceIndexPath
+                                            .put(sourceIndexPath, resultKFuture),
                                     remainingRetrievalFunctionSpecsBySourceIndexPath =
                                         requestCreationContext
                                             .remainingRetrievalFunctionSpecsBySourceIndexPath
@@ -570,7 +570,7 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                     )
                     .map { (path, singSrcIndCachFunc) ->
                         requestCreationContext
-                            .dispatchedSingleValueDeferredResponsesBySourceIndexPath[path]
+                            .dispatchedSingleValueKFutureResponsesBySourceIndexPath[path]
                             .toOption()
                             .zip(
                                 requestCreationContext.multiSrcIndexFunctionBySourceIndexPath[path]
@@ -591,14 +591,14 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                             .successIfDefined(
                                 singleSourceIndexCacheFunctionMissingOtherComponentsExceptionSupplier()
                             )
-                            .map { updatedDeferredResult -> path to updatedDeferredResult }
+                            .map { updatedKFutureResult -> path to updatedKFutureResult }
                     }
             )
-            .map { updatedPathToDeferredResultPairs ->
-                updatedPathToDeferredResultPairs.fold(requestCreationContext) { ctx, (p, dr) ->
+            .map { updatedPathToKFutureResultPairs ->
+                updatedPathToKFutureResultPairs.fold(requestCreationContext) { ctx, (p, dr) ->
                     ctx.copy(
-                        dispatchedSingleValueDeferredResponsesBySourceIndexPath =
-                            ctx.dispatchedSingleValueDeferredResponsesBySourceIndexPath.put(p, dr)
+                        dispatchedSingleValueKFutureResponsesBySourceIndexPath =
+                            ctx.dispatchedSingleValueKFutureResponsesBySourceIndexPath.put(p, dr)
                     )
                 }
             }
@@ -656,13 +656,13 @@ internal class DefaultSingleRequestMaterializationDispatchService(
     private fun dispatchSingleSourceIndexCacheRetrievalWithBackupFollowup(
         phase: RequestParameterMaterializationGraphPhase,
         requestCreationContext: RequestCreationContext,
-        dispatchedCacheSingleValueRequest: Deferred<Option<JsonNode>>,
+        dispatchedCacheSingleValueRequest: KFuture<Option<JsonNode>>,
         singleSourceIndexJsonOptionCacheRetrievalFunction:
             SingleSourceIndexJsonOptionCacheRetrievalFunction,
         multipleSourceIndicesJsonRetrievalFunction: MultipleSourceIndicesJsonRetrievalFunction,
         backupSingleSourceIndexJsonOptionRetrievalFunction:
             BackupSingleSourceIndexJsonOptionRetrievalFunction
-    ): Deferred<Option<JsonNode>> {
+    ): KFuture<Option<JsonNode>> {
         val deferredParameterValuesByParamPath = { ->
             multipleSourceIndicesJsonRetrievalFunction.parameterPaths
                 .parallelStream()
@@ -679,22 +679,22 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                         .map { (p, _) ->
                             when {
                                 requestCreationContext
-                                    .dispatchedSingleValueDeferredResponsesBySourceIndexPath
+                                    .dispatchedSingleValueKFutureResponsesBySourceIndexPath
                                     .containsKey(p) -> {
                                     requestCreationContext
-                                        .dispatchedSingleValueDeferredResponsesBySourceIndexPath[
+                                        .dispatchedSingleValueKFutureResponsesBySourceIndexPath[
                                             p]!!
                                         .left()
                                         .some()
                                 }
                                 requestCreationContext
-                                    .dispatchedMultiValueDeferredResponsesBySourceIndexPath
+                                    .dispatchedMultiValueKFutureResponsesBySourceIndexPath
                                     .containsKey(p) -> {
                                     requestCreationContext
-                                        .dispatchedMultiValueDeferredResponsesBySourceIndexPath[p]!!
+                                        .dispatchedMultiValueKFutureResponsesBySourceIndexPath[p]!!
                                         .right()
-                                        .map { multiValueDeferredResult ->
-                                            multiValueDeferredResult.map { resultMap ->
+                                        .map { multiValueKFutureResult ->
+                                            multiValueKFutureResult.map { resultMap ->
                                                 edge.extractionFunction.invoke(resultMap)
                                             }
                                         }
@@ -712,7 +712,7 @@ internal class DefaultSingleRequestMaterializationDispatchService(
         }
         return dispatchedCacheSingleValueRequest.flatMap { cachedValue ->
             if (cachedValue.isDefined()) {
-                Deferred.completed(cachedValue)
+                KFuture.completed(cachedValue)
             } else {
                 backupSingleSourceIndexJsonOptionRetrievalFunction.invoke(
                     deferredParameterValuesByParamPath.invoke()
@@ -733,7 +733,7 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                 when {
                     sourceIndexPath in
                         requestCreationContext
-                            .dispatchedSingleValueDeferredResponsesBySourceIndexPath -> {
+                            .dispatchedSingleValueKFutureResponsesBySourceIndexPath -> {
                         plPair.first.add(
                             sourceIndexRequestDispatchFactory
                                 .builder()
@@ -751,7 +751,7 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                                 )
                                 .dispatchedSingleIndexCacheRequest(
                                     requestCreationContext
-                                        .dispatchedSingleValueDeferredResponsesBySourceIndexPath[
+                                        .dispatchedSingleValueKFutureResponsesBySourceIndexPath[
                                             sourceIndexPath]!!
                                 )
                                 .backupBaseMultipleSourceIndicesJsonRetrievalFunction(
@@ -763,7 +763,7 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                     }
                     sourceIndexPath in
                         requestCreationContext
-                            .dispatchedMultiValueDeferredResponsesBySourceIndexPath -> {
+                            .dispatchedMultiValueKFutureResponsesBySourceIndexPath -> {
                         plPair.first to
                             plPair.second.add(
                                 sourceIndexRequestDispatchFactory
@@ -777,7 +777,7 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                                     )
                                     .dispatchedMultipleIndexRequest(
                                         requestCreationContext
-                                            .dispatchedMultiValueDeferredResponsesBySourceIndexPath[
+                                            .dispatchedMultiValueKFutureResponsesBySourceIndexPath[
                                                 sourceIndexPath]!!
                                     )
                                     .build()

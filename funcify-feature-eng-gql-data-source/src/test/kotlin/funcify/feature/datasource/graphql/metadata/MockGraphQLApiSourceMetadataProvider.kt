@@ -4,15 +4,16 @@ import arrow.core.filterIsInstance
 import arrow.core.toOption
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.databind.node.JsonNodeFactory
 import com.fasterxml.jackson.module.kotlin.treeToValue
 import funcify.feature.datasource.graphql.GraphQLApiService
 import funcify.feature.datasource.graphql.error.GQLDataSourceErrorResponse
 import funcify.feature.datasource.graphql.error.GQLDataSourceException
 import funcify.feature.datasource.graphql.metadata.provider.GraphQLApiSourceMetadataProvider
+import funcify.feature.tools.container.async.KFuture
 import funcify.feature.tools.container.attempt.Try
-import funcify.feature.tools.container.deferred.Deferred
-import funcify.feature.tools.extensions.StreamExtensions.flatMapOptions
 import funcify.feature.tools.extensions.PersistentListExtensions.reduceToPersistentList
+import funcify.feature.tools.extensions.StreamExtensions.flatMapOptions
 import graphql.ExecutionResult
 import graphql.GraphQL
 import graphql.GraphQLError
@@ -33,7 +34,8 @@ import kotlinx.collections.immutable.PersistentList
  * @author smccarron
  * @created 4/4/22
  */
-class MockGraphQLApiSourceMetadataProvider(val objectMapper: ObjectMapper) : GraphQLApiSourceMetadataProvider {
+class MockGraphQLApiSourceMetadataProvider(val objectMapper: ObjectMapper) :
+    GraphQLApiSourceMetadataProvider {
 
     companion object {
         /**
@@ -105,14 +107,14 @@ class MockGraphQLApiSourceMetadataProvider(val objectMapper: ObjectMapper) : Gra
                     query: String,
                     variables: Map<String, Any>,
                     operationName: String?
-                ): Deferred<JsonNode> {
-                    return Deferred.empty()
+                ): KFuture<JsonNode> {
+                    return KFuture.completed(JsonNodeFactory.instance.nullNode())
                 }
             }
     }
 
-    override fun provideMetadata(service: GraphQLApiService): Deferred<GraphQLSchema> {
-        return Deferred.fromAttempt(
+    override fun provideMetadata(service: GraphQLApiService): KFuture<GraphQLSchema> {
+        return KFuture.fromAttempt(
             mimicIntrospectionQueryAgainstGraphQLAPIServerOnParsedSchema().flatMap { jn ->
                 convertJsonNodeIntoGraphQLSchemaInstance(jn)
             }
@@ -166,8 +168,7 @@ class MockGraphQLApiSourceMetadataProvider(val objectMapper: ObjectMapper) : Gra
                 IntrospectionResultToSchema().createSchemaDefinition(strMap)
             }
             .map { document: Document ->
-                document
-                    .definitions
+                document.definitions
                     .stream()
                     .map { def: Definition<*> ->
                         def.toOption().filterIsInstance<SDLDefinition<*>>()

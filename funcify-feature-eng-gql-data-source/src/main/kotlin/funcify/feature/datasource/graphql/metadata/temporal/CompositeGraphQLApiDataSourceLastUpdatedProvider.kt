@@ -3,7 +3,7 @@ package funcify.feature.datasource.graphql.metadata.temporal
 import funcify.feature.datasource.graphql.schema.GraphQLSourceIndex
 import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.path.SchematicPath
-import funcify.feature.tools.container.deferred.Deferred
+import funcify.feature.tools.container.async.KFuture
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import kotlinx.collections.immutable.ImmutableSet
@@ -27,15 +27,15 @@ internal class CompositeGraphQLApiDataSourceLastUpdatedProvider(
 
     override fun provideTemporalAttributePathsInDataSourceForUseInLastUpdatedCalculations(
         dataSource: DataSource<GraphQLSourceIndex>
-    ): Deferred<ImmutableSet<SchematicPath>> {
+    ): KFuture<ImmutableSet<SchematicPath>> {
         logger.info(
             """provide_temporal_attribute_paths_in_datasource_for_use_in_last_updated_calculations: 
             |[ datasource.name: ${dataSource.name} 
             |]""".flatten()
         )
-        return Deferred.deferredIterable(
+        return KFuture.combineIterableOf(
                 lastUpdatedAttributeProviders.fold(
-                    persistentListOf<Deferred<ImmutableSet<SchematicPath>>>()
+                    persistentListOf<KFuture<ImmutableSet<SchematicPath>>>()
                 ) { pl, provider ->
                     pl.add(
                         provider
@@ -45,10 +45,6 @@ internal class CompositeGraphQLApiDataSourceLastUpdatedProvider(
                     )
                 }
             )
-            .let { d: Deferred<ImmutableSet<SchematicPath>> ->
-                Deferred.fromMono(
-                    d.toFlux().reduce(persistentSetOf()) { accSet, set -> accSet.addAll(set) }
-                )
-            }
+            .map { sets -> sets.fold(persistentSetOf()) { ps, set -> ps.addAll(set) } }
     }
 }

@@ -9,7 +9,7 @@ import funcify.feature.materializer.error.MaterializerErrorResponse
 import funcify.feature.materializer.error.MaterializerException
 import funcify.feature.materializer.spec.RetrievalFunctionSpec
 import funcify.feature.schema.path.SchematicPath
-import funcify.feature.tools.container.deferred.Deferred
+import funcify.feature.tools.container.async.KFuture
 import kotlinx.collections.immutable.ImmutableMap
 
 internal class DefaultSourceIndexRequestDispatchFactory : SourceIndexRequestDispatchFactory {
@@ -61,7 +61,7 @@ internal class DefaultSourceIndexRequestDispatchFactory : SourceIndexRequestDisp
             private val retrievalFunctionSpec: RetrievalFunctionSpec?,
             private val singleSourceIndexJsonOptionCacheRetrievalFunction:
                 SingleSourceIndexJsonOptionCacheRetrievalFunction,
-            private var dispatchedSingleIndexCacheRequest: Deferred<Option<JsonNode>>? = null,
+            private var dispatchedSingleIndexCacheRequest: KFuture<Option<JsonNode>>? = null,
             private var backupBaseMultipleSourceIndicesJsonRetrievalFunction:
                 MultipleSourceIndicesJsonRetrievalFunction? =
                 null,
@@ -69,7 +69,7 @@ internal class DefaultSourceIndexRequestDispatchFactory : SourceIndexRequestDisp
         ) : SourceIndexRequestDispatch.CacheableSingleSourceIndexRetrievalSpec {
 
             override fun dispatchedSingleIndexCacheRequest(
-                dispatch: Deferred<Option<JsonNode>>
+                dispatch: KFuture<Option<JsonNode>>
             ): SourceIndexRequestDispatch.CacheableSingleSourceIndexRetrievalSpec {
                 this.dispatchedSingleIndexCacheRequest = dispatch
                 return this
@@ -124,12 +124,12 @@ internal class DefaultSourceIndexRequestDispatchFactory : SourceIndexRequestDisp
             private val multipleSourceIndicesJsonRetrievalFunction:
                 MultipleSourceIndicesJsonRetrievalFunction,
             private var dispatchedMultipleIndexRequest:
-                Deferred<ImmutableMap<SchematicPath, JsonNode>>? =
+                KFuture<ImmutableMap<SchematicPath, JsonNode>>? =
                 null
         ) : SourceIndexRequestDispatch.MultipleSourceIndexRetrievalSpec {
 
             override fun dispatchedMultipleIndexRequest(
-                dispatch: Deferred<ImmutableMap<SchematicPath, JsonNode>>
+                dispatch: KFuture<ImmutableMap<SchematicPath, JsonNode>>
             ): SourceIndexRequestDispatch.MultipleSourceIndexRetrievalSpec {
                 this.dispatchedMultipleIndexRequest = dispatch
                 return this
@@ -162,7 +162,7 @@ internal class DefaultSourceIndexRequestDispatchFactory : SourceIndexRequestDisp
             override val retrievalFunctionSpec: RetrievalFunctionSpec,
             override val singleSourceIndexJsonOptionCacheRetrievalFunction:
                 SingleSourceIndexJsonOptionCacheRetrievalFunction,
-            override val dispatchedSingleIndexCacheRequest: Deferred<Option<JsonNode>>,
+            override val dispatchedSingleIndexCacheRequest: KFuture<Option<JsonNode>>,
             override val backupBaseMultipleSourceIndicesJsonRetrievalFunction:
                 MultipleSourceIndicesJsonRetrievalFunction,
             override val backupSingleSourceIndexJsonOptionRetrievalFunction:
@@ -175,7 +175,7 @@ internal class DefaultSourceIndexRequestDispatchFactory : SourceIndexRequestDisp
             override val multipleSourceIndicesJsonRetrievalFunction:
                 MultipleSourceIndicesJsonRetrievalFunction,
             override val dispatchedMultipleIndexRequest:
-                Deferred<ImmutableMap<SchematicPath, JsonNode>>
+                KFuture<ImmutableMap<SchematicPath, JsonNode>>
         ) : SourceIndexRequestDispatch.DispatchedMultiSourceIndexRetrieval {}
     }
 

@@ -4,7 +4,7 @@ import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.datasource.SourceIndex
 import funcify.feature.schema.datasource.SourceMetamodel
 import funcify.feature.schema.path.SchematicPath
-import funcify.feature.tools.container.deferred.Deferred
+import funcify.feature.tools.container.async.KFuture
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.ImmutableSet
 
@@ -19,5 +19,5 @@ fun interface DataSourceAttributeAliasProvider<SI : SourceIndex<SI>> {
 
     fun provideAnyAliasesForAttributePathsInDataSource(
         dataSource: DataSource<SI>
-    ): Deferred<ImmutableMap<SchematicPath, ImmutableSet<String>>>
+    ): KFuture<ImmutableMap<SchematicPath, ImmutableSet<String>>>
 }

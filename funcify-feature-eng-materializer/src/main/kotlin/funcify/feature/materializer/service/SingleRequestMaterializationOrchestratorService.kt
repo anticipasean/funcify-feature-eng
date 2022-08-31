@@ -3,7 +3,7 @@ package funcify.feature.materializer.service
 import arrow.core.Option
 import funcify.feature.materializer.fetcher.SingleRequestFieldMaterializationSession
 import funcify.feature.tools.container.attempt.Try
-import funcify.feature.tools.container.deferred.Deferred
+import funcify.feature.tools.container.async.KFuture
 
 /**
  *
@@ -15,5 +15,5 @@ interface SingleRequestMaterializationOrchestratorService :
 
     override fun materializeValueInSession(
         session: SingleRequestFieldMaterializationSession
-    ): Try<Pair<SingleRequestFieldMaterializationSession, Deferred<Option<Any>>>>
+    ): Try<Pair<SingleRequestFieldMaterializationSession, KFuture<Option<Any>>>>
 }

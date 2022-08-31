@@ -2,7 +2,7 @@ package funcify.feature.materializer.service
 
 import funcify.feature.materializer.session.MaterializationSession
 import funcify.feature.tools.container.attempt.Try
-import funcify.feature.tools.container.deferred.Deferred
+import funcify.feature.tools.container.async.KFuture
 
 /**
  * Takes the session's request materialization graph with its [RequestParameterEdge]s and packages

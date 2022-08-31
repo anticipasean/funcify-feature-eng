@@ -14,7 +14,7 @@ import funcify.feature.schema.error.SchemaException
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.schema.strategy.CompositeSchematicVertexGraphRemappingStrategy
 import funcify.feature.schema.strategy.SchematicVertexGraphRemappingStrategy
-import funcify.feature.tools.container.deferred.Deferred
+import funcify.feature.tools.container.async.KFuture
 import funcify.feature.tools.container.graph.PathBasedGraph
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flatten
@@ -30,9 +30,9 @@ internal class DefaultMetamodelGraphFactory(val schematicVertexFactory: Schemati
         private val logger: Logger = loggerFor<DefaultMetamodelGraphFactory>()
 
         internal data class DefaultBuilder(
-            var deferredMetamodelGraphCreationContext: Deferred<MetamodelGraphCreationContext>,
+            var deferredMetamodelGraphCreationContext: KFuture<MetamodelGraphCreationContext>,
             val creationFactory:
-                MetamodelGraphCreationStrategyTemplate<Deferred<MetamodelGraphCreationContext>> =
+                MetamodelGraphCreationStrategyTemplate<KFuture<MetamodelGraphCreationContext>> =
                 DefaultMetamodelGraphCreationStrategy()
         ) : MetamodelGraph.Builder {
 
@@ -81,12 +81,12 @@ internal class DefaultMetamodelGraphFactory(val schematicVertexFactory: Schemati
                 return this
             }
 
-            override fun build(): Deferred<MetamodelGraph> {
+            override fun build(): KFuture<MetamodelGraph> {
                 return deferredMetamodelGraphCreationContext
                     .flatMap { context: MetamodelGraphCreationContext ->
                         creationFactory.applySchematicVertexGraphRemappingStrategy(
                             context.schematicVertexGraphRemappingStrategy,
-                            Deferred.completed(context)
+                            KFuture.completed(context)
                         )
                     }
                     .flatMap { context: MetamodelGraphCreationContext ->
@@ -103,14 +103,14 @@ internal class DefaultMetamodelGraphFactory(val schematicVertexFactory: Schemati
                                            |]""".flatten()
                                     }
                                 )
-                            Deferred.failed(
+                            KFuture.failed(
                                 SchemaException(
                                     SchemaErrorResponse.METAMODEL_CREATION_ERROR,
                                     "one or more errors occurred during metamodel_graph creation: $errorsListAsStr"
                                 )
                             )
                         } else {
-                            Deferred.completed(
+                            KFuture.completed(
                                 DefaultMetamodelGraph(
                                     context.dataSourcesByName.values.fold(persistentMapOf()) {
                                         dsMap,
@@ -132,7 +132,7 @@ internal class DefaultMetamodelGraphFactory(val schematicVertexFactory: Schemati
 
     override fun builder(): MetamodelGraph.Builder {
         return DefaultBuilder(
-            Deferred.completed(
+            KFuture.completed(
                 DefaultMetamodelGraphCreationContext(
                     schematicVertexFactory = schematicVertexFactory,
                     schematicVertexGraphRemappingStrategy =

@@ -13,7 +13,7 @@ import funcify.feature.schema.vertex.ParameterAttributeVertex
 import funcify.feature.schema.vertex.ParameterContainerTypeVertex
 import funcify.feature.schema.vertex.SourceAttributeVertex
 import funcify.feature.schema.vertex.SourceContainerTypeVertex
-import funcify.feature.tools.container.deferred.Deferred
+import funcify.feature.tools.container.async.KFuture
 import funcify.feature.tools.container.graph.PathBasedGraph
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.ImmutableSet
@@ -72,6 +72,6 @@ interface MetamodelGraph {
             strategy: SchematicVertexGraphRemappingStrategy<MetamodelGraphCreationContext>
         ): Builder
 
-        fun build(): Deferred<MetamodelGraph>
+        fun build(): KFuture<MetamodelGraph>
     }
 }

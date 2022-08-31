@@ -1,7 +1,7 @@
 package funcify.feature.materializer.session
 
 import funcify.feature.materializer.request.RawGraphQLRequest
-import funcify.feature.tools.container.deferred.Deferred
+import funcify.feature.tools.container.async.KFuture
 
 /**
  *
@@ -12,5 +12,5 @@ interface GraphQLSingleRequestSessionFactory {
 
     fun createSessionForSingleRequest(
         rawGraphQLRequest: RawGraphQLRequest
-    ): Deferred<GraphQLSingleRequestSession>
+    ): KFuture<GraphQLSingleRequestSession>
 }

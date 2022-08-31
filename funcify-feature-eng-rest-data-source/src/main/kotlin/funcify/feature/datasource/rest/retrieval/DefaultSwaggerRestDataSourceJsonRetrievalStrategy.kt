@@ -21,10 +21,9 @@ import funcify.feature.schema.vertex.ParameterJunctionVertex
 import funcify.feature.schema.vertex.ParameterLeafVertex
 import funcify.feature.schema.vertex.SourceJunctionVertex
 import funcify.feature.schema.vertex.SourceLeafVertex
+import funcify.feature.tools.container.async.KFuture
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.container.attempt.Try.Companion.filterInstanceOf
-import funcify.feature.tools.container.deferred.Deferred
-import funcify.feature.tools.extensions.DeferredExtensions.toDeferred
 import funcify.feature.tools.extensions.FunctionExtensions.compose
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentMap
@@ -280,11 +279,11 @@ internal class DefaultSwaggerRestDataSourceJsonRetrievalStrategy(
 
     override fun invoke(
         valuesByParameterPaths: ImmutableMap<SchematicPath, JsonNode>
-    ): Deferred<ImmutableMap<SchematicPath, JsonNode>> {
+    ): KFuture<ImmutableMap<SchematicPath, JsonNode>> {
         val parameterPathsAsString = valuesByParameterPaths.keys.joinToString(", ", "{ ", " }")
         logger.debug("invoke: [ values_by_parameter_paths.keys: $parameterPathsAsString ] ]")
         return attemptToCreateRequestJsonObjectFromValuesByParameterPaths(valuesByParameterPaths)
-            .toDeferred()
+            .toKFuture()
             .flatMap(makeRequestToRestApiDataSourceWithJsonPayload())
             .flatMap(applyResponsePostProcessingStrategy())
     }
@@ -357,7 +356,7 @@ internal class DefaultSwaggerRestDataSourceJsonRetrievalStrategy(
         }
     }
 
-    private fun makeRequestToRestApiDataSourceWithJsonPayload(): (JsonNode) -> Deferred<JsonNode> {
+    private fun makeRequestToRestApiDataSourceWithJsonPayload(): (JsonNode) -> KFuture<JsonNode> {
         return { requestBodyJson: JsonNode ->
             parentVertexPathToSwaggerSourceAttribute.second.servicePathItemName
                 .successIfDefined {
@@ -369,7 +368,7 @@ internal class DefaultSwaggerRestDataSourceJsonRetrievalStrategy(
                             |]""".flatten()
                     )
                 }
-                .toDeferred()
+                .toKFuture()
                 .flatMapMono { pathString ->
                     dataSource.restApiService
                         .getWebClient()
@@ -378,7 +377,7 @@ internal class DefaultSwaggerRestDataSourceJsonRetrievalStrategy(
                         .accept(MediaType.APPLICATION_JSON)
                         .contentType(MediaType.APPLICATION_JSON)
                         .body(
-                            jsonMapper.fromJsonNode(requestBodyJson).toJsonString().toDeferred(),
+                            jsonMapper.fromJsonNode(requestBodyJson).toJsonString().toKFuture(),
                             String::class.java
                         )
                         .exchangeToMono { clientResponse: ClientResponse ->
@@ -407,7 +406,7 @@ internal class DefaultSwaggerRestDataSourceJsonRetrievalStrategy(
     }
 
     private fun applyResponsePostProcessingStrategy():
-        (JsonNode) -> Deferred<ImmutableMap<SchematicPath, JsonNode>> {
+        (JsonNode) -> KFuture<ImmutableMap<SchematicPath, JsonNode>> {
         return { responseJsonNode: JsonNode ->
             postProcessingStrategy.postProcessRestApiJsonResponse(
                 DefaultSwaggerRestApiJsonResponsePostProcessingContext(

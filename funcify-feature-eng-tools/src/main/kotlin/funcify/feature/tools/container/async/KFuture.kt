@@ -14,6 +14,8 @@ import java.util.concurrent.TimeUnit
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.PersistentList
 import kotlinx.collections.immutable.persistentListOf
+import org.reactivestreams.Publisher
+import org.reactivestreams.Subscriber
 import reactor.core.publisher.Mono
 
 /**
@@ -21,7 +23,7 @@ import reactor.core.publisher.Mono
  * @author smccarron
  * @created 4/6/22
  */
-interface KFuture<out T> {
+interface KFuture<out T> : Publisher<@UnsafeVariance T> {
 
     companion object {
 
@@ -83,6 +85,11 @@ interface KFuture<out T> {
         @JvmStatic
         fun <T> fromAttempt(attempt: Try<T>): KFuture<T> {
             return attempt.fold({ t: T -> completed(t) }, { t: Throwable -> failed(t) })
+        }
+
+        @JvmStatic
+        fun <T> fromMono(mono: Mono<T>): KFuture<T> {
+            return of(mono.toFuture())
         }
 
         @JvmStatic
@@ -384,6 +391,23 @@ interface KFuture<out T> {
         }
     }
 
+    fun <R> flatMapMono(mapper: (T) -> Mono<out R>): KFuture<R> {
+        return fold { completionStage: CompletionStage<out T>, executorOpt: Option<Executor> ->
+            executorOpt.fold(
+                { of(completionStage.thenComposeAsync { t: T -> mapper.invoke(t).toFuture() }) },
+                { exec: Executor ->
+                    of(
+                        completionStage.thenComposeAsync(
+                            { t: T -> mapper.invoke(t).toFuture() },
+                            exec
+                        ),
+                        exec
+                    )
+                }
+            )
+        }
+    }
+
     fun <U, V> zip(other: KFuture<U>, zipper: (T, U) -> V): KFuture<V> {
         return fold { thisStage: CompletionStage<out T>, executorOpt1: Option<Executor> ->
             other.fold { otherStage: CompletionStage<out U>, executorOpt2: Option<Executor> ->
@@ -642,6 +666,13 @@ interface KFuture<out T> {
         return fold { stage: CompletionStage<out T>, _: Option<Executor> ->
             Mono.fromCompletionStage(stage)
         }
+    }
+
+    override fun subscribe(s: Subscriber<in T>?) {
+        if (s == null) {
+            throw IllegalArgumentException("subscriber to ${KFuture::class.qualifiedName} is null")
+        }
+        return toMono().subscribe(s)
     }
 
     fun <R> fold(stageAndExecutor: (CompletionStage<out T>, Option<Executor>) -> R): R

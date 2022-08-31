@@ -4,7 +4,7 @@ import funcify.feature.materializer.request.RawGraphQLRequest
 import funcify.feature.materializer.schema.MaterializationMetamodelBroker
 import funcify.feature.materializer.session.GraphQLSingleRequestSession
 import funcify.feature.materializer.session.GraphQLSingleRequestSessionFactory
-import funcify.feature.tools.container.deferred.Deferred
+import funcify.feature.tools.container.async.KFuture
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import org.slf4j.Logger
@@ -24,7 +24,7 @@ internal class SpringGraphQLSingleRequestSessionFactory(
 
     override fun createSessionForSingleRequest(
         rawGraphQLRequest: RawGraphQLRequest
-    ): Deferred<GraphQLSingleRequestSession> {
+    ): KFuture<GraphQLSingleRequestSession> {
         logger.info(
             """create_session_for_single_request: 
                 |[ raw_graphql_request.request_id: ${rawGraphQLRequest.requestId} ]

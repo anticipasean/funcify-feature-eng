@@ -3,7 +3,7 @@ package funcify.feature.datasource.graphql.metadata.alias
 import funcify.feature.datasource.graphql.schema.GraphQLSourceIndex
 import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.path.SchematicPath
-import funcify.feature.tools.container.deferred.Deferred
+import funcify.feature.tools.container.async.KFuture
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.ImmutableSet
@@ -28,27 +28,25 @@ internal class CompositeGraphQLApiDataSourceAliasProvider(
 
     override fun provideAnyAliasesForAttributePathsInDataSource(
         dataSource: DataSource<GraphQLSourceIndex>
-    ): Deferred<ImmutableMap<SchematicPath, ImmutableSet<String>>> {
+    ): KFuture<ImmutableMap<SchematicPath, ImmutableSet<String>>> {
         logger.debug(
             "provide_any_aliases_for_attribute_paths_in_datasource: [ datasource.name: ${dataSource.name} ]"
         )
-        return Deferred.deferredIterable(
+        return KFuture.combineIterableOf(
                 graphQLApiDataSourceAliasProviders.fold(
-                    persistentListOf<Deferred<ImmutableMap<SchematicPath, ImmutableSet<String>>>>()
+                    persistentListOf<KFuture<ImmutableMap<SchematicPath, ImmutableSet<String>>>>()
                 ) { pl, provider ->
                     pl.add(provider.provideAnyAliasesForAttributePathsInDataSource(dataSource))
                 }
             )
             .let { d ->
-                Deferred.fromMono(
-                    d.toFlux().reduce(persistentMapOf<SchematicPath, PersistentSet<String>>()) {
-                        pm,
-                        im ->
+                d.map { il ->
+                    il.fold(persistentMapOf<SchematicPath, PersistentSet<String>>()) { pm, im ->
                         im.asSequence().fold(pm) { accMap, (k, vSet) ->
                             accMap.put(k, accMap.getOrDefault(k, persistentSetOf()).addAll(vSet))
                         }
                     }
-                )
+                }
             }
     }
 }

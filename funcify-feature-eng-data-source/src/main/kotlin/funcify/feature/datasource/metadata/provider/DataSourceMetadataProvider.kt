@@ -1,6 +1,6 @@
 package funcify.feature.datasource.metadata.provider
 
-import funcify.feature.tools.container.deferred.Deferred
+import funcify.feature.tools.container.async.KFuture
 
 /**
  *
@@ -13,5 +13,5 @@ import funcify.feature.tools.container.deferred.Deferred
  */
 fun interface DataSourceMetadataProvider<S, MD> {
 
-    fun provideMetadata(service: S): Deferred<MD>
+    fun provideMetadata(service: S): KFuture<MD>
 }

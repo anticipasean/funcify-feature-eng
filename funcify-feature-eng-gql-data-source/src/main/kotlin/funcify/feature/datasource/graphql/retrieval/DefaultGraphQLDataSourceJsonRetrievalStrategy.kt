@@ -19,9 +19,8 @@ import funcify.feature.schema.vertex.ParameterJunctionVertex
 import funcify.feature.schema.vertex.ParameterLeafVertex
 import funcify.feature.schema.vertex.SourceJunctionVertex
 import funcify.feature.schema.vertex.SourceLeafVertex
+import funcify.feature.tools.container.async.KFuture
 import funcify.feature.tools.container.attempt.Try
-import funcify.feature.tools.container.deferred.Deferred
-import funcify.feature.tools.extensions.DeferredExtensions.toDeferred
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentMap
 import funcify.feature.tools.extensions.PersistentMapExtensions.toPersistentMap
@@ -199,10 +198,10 @@ internal class DefaultGraphQLDataSourceJsonRetrievalStrategy(
 
     override fun invoke(
         valuesByParameterPaths: ImmutableMap<SchematicPath, JsonNode>
-    ): Deferred<ImmutableMap<SchematicPath, JsonNode>> {
+    ): KFuture<ImmutableMap<SchematicPath, JsonNode>> {
         val parameterPathsSetStr = valuesByParameterPaths.keys.joinToString(",", "{ ", " }")
         logger.debug("invoke: [ values_by_parameter_paths.keys: $parameterPathsSetStr ]")
-        return Deferred.fromAttempt(
+        return KFuture.fromAttempt(
                 attemptToCreateGraphQLQueryStringFromValuesByParameterPathsInput(
                     valuesByParameterPaths
                         .asSequence()
@@ -252,8 +251,7 @@ internal class DefaultGraphQLDataSourceJsonRetrievalStrategy(
             }
     }
 
-    private fun convertResponseJsonIntoThrowableIfErrorsPresent():
-        (JsonNode) -> Deferred<JsonNode> {
+    private fun convertResponseJsonIntoThrowableIfErrorsPresent(): (JsonNode) -> KFuture<JsonNode> {
         return { responseJson: JsonNode ->
             responseJson
                 .toOption()
@@ -301,12 +299,12 @@ internal class DefaultGraphQLDataSourceJsonRetrievalStrategy(
                             .fold(Try.Companion::failure, Try.Companion::failure)
                     }
                 )
-                .toDeferred()
+                .toKFuture()
         }
     }
 
     private fun convertResponseJsonIntoJsonValuesBySchematicPathMap():
-        (JsonNode) -> Deferred<ImmutableMap<SchematicPath, JsonNode>> {
+        (JsonNode) -> KFuture<ImmutableMap<SchematicPath, JsonNode>> {
         return { responseJson: JsonNode ->
             Try.success(responseJson)
                 .filter(
@@ -337,7 +335,7 @@ internal class DefaultGraphQLDataSourceJsonRetrievalStrategy(
                         .flatMapOptions()
                         .reducePairsToPersistentMap()
                 }
-                .toDeferred()
+                .toKFuture()
         }
     }
 }

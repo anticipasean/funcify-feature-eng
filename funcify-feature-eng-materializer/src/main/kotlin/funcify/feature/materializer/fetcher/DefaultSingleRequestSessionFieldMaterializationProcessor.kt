@@ -7,7 +7,7 @@ import funcify.feature.materializer.service.SingleRequestMaterializationDispatch
 import funcify.feature.materializer.service.SingleRequestMaterializationGraphService
 import funcify.feature.materializer.service.SingleRequestMaterializationOrchestratorService
 import funcify.feature.tools.container.attempt.Try
-import funcify.feature.tools.container.deferred.Deferred
+import funcify.feature.tools.container.async.KFuture
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import graphql.schema.GraphQLNamedOutputType
@@ -35,7 +35,7 @@ internal class DefaultSingleRequestSessionFieldMaterializationProcessor(
 
     override fun materializeFieldValueInSession(
         session: SingleRequestFieldMaterializationSession
-    ): Try<Pair<SingleRequestFieldMaterializationSession, Deferred<Option<Any>>>> {
+    ): Try<Pair<SingleRequestFieldMaterializationSession, KFuture<Option<Any>>>> {
         val fieldTypeName: String? =
             session.fieldOutputType
                 .toOption()
