@@ -2,7 +2,8 @@ package funcify.feature.spring.service
 
 import funcify.feature.materializer.request.RawGraphQLRequest
 import funcify.feature.materializer.response.SerializedGraphQLResponse
-import funcify.feature.tools.container.async.KFuture
+import funcify.feature.tools.container.deferred.Deferred
+import reactor.core.publisher.Mono
 
 /**
  *
@@ -13,5 +14,5 @@ interface GraphQLSingleRequestExecutor {
 
     fun executeSingleRequest(
         rawGraphQLRequest: RawGraphQLRequest
-    ): KFuture<SerializedGraphQLResponse>
+    ): Mono<out SerializedGraphQLResponse>
 }

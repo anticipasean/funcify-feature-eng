@@ -7,11 +7,10 @@ import funcify.feature.materializer.session.GraphQLSingleRequestSessionCoordinat
 import funcify.feature.materializer.session.GraphQLSingleRequestSessionFactory
 import funcify.feature.spring.error.FeatureEngSpringWebFluxException
 import funcify.feature.spring.error.SpringWebFluxErrorResponse
-import funcify.feature.tools.container.async.KFuture
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import org.slf4j.Logger
-import org.springframework.stereotype.Component
+import reactor.core.publisher.Mono
 
 /**
  *
@@ -29,7 +28,7 @@ internal class SpringGraphQLSingleRequestExecutor(
 
     override fun executeSingleRequest(
         rawGraphQLRequest: RawGraphQLRequest
-    ): KFuture<SerializedGraphQLResponse> {
+    ): Mono<out SerializedGraphQLResponse> {
         logger.info(
             """execute_single_request: 
                 |[ raw_graphql_request.request_id: 
@@ -48,14 +47,14 @@ internal class SpringGraphQLSingleRequestExecutor(
                             """session was not updated such that 
                               |a serialized_graphql_response was added to it
                               |""".flatten()
-                        KFuture.failed(
+                        Mono.error(
                             FeatureEngSpringWebFluxException(
                                 SpringWebFluxErrorResponse.NO_RESPONSE_PROVIDED,
                                 message
                             )
                         )
                     },
-                    { sr -> KFuture.completed(sr) }
+                    { sr -> Mono.just(sr) }
                 )
             }
     }

@@ -11,13 +11,9 @@ import funcify.feature.json.JsonMapper
 import funcify.feature.materializer.request.GraphQLExecutionInputCustomizer
 import funcify.feature.materializer.request.RawGraphQLRequest
 import funcify.feature.materializer.request.RawGraphQLRequestFactory
-import funcify.feature.materializer.response.SerializedGraphQLResponse
 import funcify.feature.spring.error.FeatureEngSpringWebFluxException
 import funcify.feature.spring.error.SpringWebFluxErrorResponse
 import funcify.feature.spring.service.GraphQLSingleRequestExecutor
-import funcify.feature.tools.container.async.KFuture
-import funcify.feature.tools.container.async.KFuture.Companion.flatMapFailure
-import funcify.feature.tools.container.async.KFuture.Companion.flatMapFailureOfType
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.container.attempt.Try.Companion.flatMapFailure
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
@@ -93,17 +89,16 @@ internal class GraphQLWebFluxHandlerFunction(
 
     override fun handle(request: ServerRequest): Mono<ServerResponse> {
         logger.info("handle: [ request.path: ${request.path()} ]")
-        return KFuture.fromMono(convertServerRequestIntoRawGraphQLRequest(request))
+        return convertServerRequestIntoRawGraphQLRequest(request)
             .flatMap { rawReq: RawGraphQLRequest ->
                 graphQLSingleRequestExecutor.executeSingleRequest(rawReq)
             }
-            .flatMapMono(convertAggregateSerializedGraphQLResponseIntoServerResponse())
-            .flatMapFailureOfType(
+            .flatMap { serializedRes -> ServerResponse.ok().bodyValue(serializedRes) }
+            .onErrorResume(
                 FeatureEngCommonException::class.java,
-                convertCommonExceptionTypeIntoServerResponse()
+                { commonException -> convertCommonExceptionTypeIntoServerResponse(commonException) }
             )
-            .flatMapFailure(convertAnyUnhandledExceptionsIntoServerResponse(request))
-            .toMono()
+            .onErrorResume(convertAnyUnhandledExceptionsIntoServerResponse(request))
             .narrow()
     }
 
@@ -242,57 +237,30 @@ internal class GraphQLWebFluxHandlerFunction(
         return HttpHeaders.readOnlyHttpHeaders(request.headers().asHttpHeaders())
     }
 
-    private fun convertAggregateSerializedGraphQLResponseIntoServerResponse():
-        (SerializedGraphQLResponse) -> Mono<out ServerResponse> {
-        return { response ->
-            Try.attempt { response.executionResult.toSpecification() }
-                .mapFailure { t: Throwable ->
-                    val message: String =
-                        """unable to convert graphql execution_result 
-                        |into specification for api_response 
-                        |[ type: Map<String, Any?> ] given cause: 
-                        |[ type: ${t::class.qualifiedName}, 
-                        |message: ${t.message} ]""".flatten()
-                    FeatureEngSpringWebFluxException(
-                        SpringWebFluxErrorResponse.EXECUTION_RESULT_ISSUE,
-                        message,
-                        t
-                    )
-                }
-                .toMono()
-                .flatMap { spec -> ServerResponse.ok().bodyValue(spec) }
-        }
-    }
-
     // TODO: Currently has two different output formats: direct message and graphql_error_map_string
     // Should be made into one
-    private fun convertCommonExceptionTypeIntoServerResponse():
-        (FeatureEngCommonException) -> KFuture<ServerResponse> {
-        return { commonException: FeatureEngCommonException ->
-            when {
-                commonException.errorResponse.responseIfGraphQL.isDefined() -> {
-                    val graphQLError: GraphQLError =
-                        commonException.errorResponse.responseIfGraphQL.orNull()!!
-                    KFuture.fromMono(
-                        commonException.errorResponse.responseStatusIfHttp
-                            .map { httpStatus: HttpStatus -> ServerResponse.status(httpStatus) }
-                            .getOrElse { ServerResponse.status(HttpStatus.INTERNAL_SERVER_ERROR) }
-                            .bodyValue(
-                                convertGraphQLErrorWithinCommonExceptionIntoStringBodyValue(
-                                    graphQLError,
-                                    commonException
-                                )
-                            )
+    private fun convertCommonExceptionTypeIntoServerResponse(
+        commonException: FeatureEngCommonException
+    ): Mono<out ServerResponse> {
+        return when {
+            commonException.errorResponse.responseIfGraphQL.isDefined() -> {
+                val graphQLError: GraphQLError =
+                    commonException.errorResponse.responseIfGraphQL.orNull()!!
+                commonException.errorResponse.responseStatusIfHttp
+                    .map { httpStatus: HttpStatus -> ServerResponse.status(httpStatus) }
+                    .getOrElse { ServerResponse.status(HttpStatus.INTERNAL_SERVER_ERROR) }
+                    .bodyValue(
+                        convertGraphQLErrorWithinCommonExceptionIntoStringBodyValue(
+                            graphQLError,
+                            commonException
+                        )
                     )
-                }
-                else -> {
-                    KFuture.fromMono(
-                        commonException.errorResponse.responseStatusIfHttp
-                            .map { httpStatus: HttpStatus -> ServerResponse.status(httpStatus) }
-                            .getOrElse { ServerResponse.status(HttpStatus.INTERNAL_SERVER_ERROR) }
-                            .bodyValue(commonException.inputMessage)
-                    )
-                }
+            }
+            else -> {
+                commonException.errorResponse.responseStatusIfHttp
+                    .map { httpStatus: HttpStatus -> ServerResponse.status(httpStatus) }
+                    .getOrElse { ServerResponse.status(HttpStatus.INTERNAL_SERVER_ERROR) }
+                    .bodyValue(commonException.inputMessage)
             }
         }
     }
@@ -339,7 +307,7 @@ internal class GraphQLWebFluxHandlerFunction(
 
     private fun convertAnyUnhandledExceptionsIntoServerResponse(
         request: ServerRequest
-    ): (Throwable) -> KFuture<ServerResponse> {
+    ): (Throwable) -> Mono<out ServerResponse> {
         return { err: Throwable ->
             logger.error(
                 """handle: [ request.path: ${request.path()} ]: 
@@ -349,10 +317,8 @@ internal class GraphQLWebFluxHandlerFunction(
                    |]""".flatten(),
                 err
             )
-            KFuture.fromMono(
-                ServerResponse.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Mono.just(err.message.toOption().getOrElse { "error_message empty" }))
-            )
+            ServerResponse.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Mono.just(err.message.toOption().getOrElse { "error_message empty" }))
         }
     }
 }

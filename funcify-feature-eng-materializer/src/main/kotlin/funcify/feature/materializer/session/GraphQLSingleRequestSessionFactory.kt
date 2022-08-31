@@ -2,6 +2,7 @@ package funcify.feature.materializer.session
 
 import funcify.feature.materializer.request.RawGraphQLRequest
 import funcify.feature.tools.container.async.KFuture
+import reactor.core.publisher.Mono
 
 /**
  *
@@ -12,5 +13,5 @@ interface GraphQLSingleRequestSessionFactory {
 
     fun createSessionForSingleRequest(
         rawGraphQLRequest: RawGraphQLRequest
-    ): KFuture<GraphQLSingleRequestSession>
+    ): Mono<out GraphQLSingleRequestSession>
 }

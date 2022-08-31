@@ -1,6 +1,6 @@
 package funcify.feature.materializer.session
 
-import funcify.feature.tools.container.async.KFuture
+import reactor.core.publisher.Mono
 
 /**
  *
@@ -11,5 +11,5 @@ interface GraphQLSingleRequestSessionCoordinator {
 
     fun conductSingleRequestSession(
         session: GraphQLSingleRequestSession
-    ): KFuture<GraphQLSingleRequestSession>
+    ): Mono<GraphQLSingleRequestSession>
 }
