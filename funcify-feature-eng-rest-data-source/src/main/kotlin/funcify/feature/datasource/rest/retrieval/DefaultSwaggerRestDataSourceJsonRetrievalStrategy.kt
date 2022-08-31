@@ -313,11 +313,11 @@ internal class DefaultSwaggerRestDataSourceJsonRetrievalStrategy(
                                 ) { _: NoSuchElementException ->
                                     RestApiDataSourceException(
                                         RestApiErrorResponse.INVALID_INPUT,
-                                        """value for parameter_attribute does not match 
+                                        """value for parameter_attribute [ vertex_path: ${vertexPath} ] does not match 
                                            |NULL node type or schema-stated node type: 
-                                           |[ expected: ${jsonSchemaToJsonTypeConverter().invoke(parameterAttr.jsonSchema)} 
-                                           |or ${JsonFormatTypes.NULL.value()}, 
-                                           |actual: ${jsonValue.nodeType}""".flatten()
+                                           |[ expected: ${JsonFormatTypes.NULL} or ${jsonSchemaToJsonTypeConverter().invoke(parameterAttr.jsonSchema)} 
+                                           |actual: ${jsonValue.nodeType}: ${jsonMapper.fromJsonNode(jsonValue).toJsonString().orElse("")} 
+                                           |]""".flatten()
                                     )
                                 }
                                 .map { jn -> parameterAttr to jn }
@@ -330,6 +330,12 @@ internal class DefaultSwaggerRestDataSourceJsonRetrievalStrategy(
                     (paramAttr, jsonValue) ->
                     requestJsonNode.set(paramAttr.jsonPropertyName, jsonValue)
                 }
+            }
+            .peekIfSuccess { requestPayload ->
+                logger.info(
+                    "swagger_rest_api_service.payload: {}",
+                    jsonMapper.fromJsonNode(requestPayload).toJsonString().orElse("")
+                )
             }
     }
 

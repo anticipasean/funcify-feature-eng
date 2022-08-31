@@ -48,6 +48,7 @@ object JsonNodeSchematicPathToValueMappingExtractor :
                 )
             }
             JsonNodeType.ARRAY -> {
+                // TODO: Revisit whether array nodes should be traversed if on root
                 context.pathSegments
                     .toOption()
                     .filter { ps -> ps.isNotEmpty() }
@@ -83,6 +84,7 @@ object JsonNodeSchematicPathToValueMappingExtractor :
                     )
             }
             JsonNodeType.OBJECT -> {
+                // TODO: Revisit whether the outermost object node should have a path
                 context.pathSegments
                     .toOption()
                     .filter { ps -> ps.isNotEmpty() }

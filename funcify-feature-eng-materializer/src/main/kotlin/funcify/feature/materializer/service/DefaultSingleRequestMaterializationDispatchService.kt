@@ -172,6 +172,50 @@ internal class DefaultSingleRequestMaterializationDispatchService(
             .map { requestDispatchPhase ->
                 session.update { requestDispatchMaterializationPhase(requestDispatchPhase) }
             }
+            .peekIfSuccess { updatedSession ->
+                logger.info(
+                    "request_dispatch_phase: {}",
+                    createRequestDispatchPhaseString(
+                        updatedSession.requestDispatchMaterializationGraphPhase.orNull()!!
+                    )
+                )
+            }
+    }
+
+    private fun createRequestDispatchPhaseString(
+        requestDispatchMaterializationPhase: RequestDispatchMaterializationPhase
+    ): String {
+        return requestDispatchMaterializationPhase
+            .multipleSourceIndexRequestDispatchesBySourceIndexPath
+            .asSequence()
+            .map { (p, m) ->
+                "path: $p, multiple_src_ind_request_dispatch: { source_indices: %s, param_indices: %s ]".format(
+                    m.multipleSourceIndicesJsonRetrievalFunction.sourcePaths
+                        .asSequence()
+                        .joinToString(", ", "{ ", " }"),
+                    m.multipleSourceIndicesJsonRetrievalFunction.parameterPaths.joinToString(
+                        ", ",
+                        "{ ",
+                        " }"
+                    )
+                )
+            }
+            .joinToString(",\n", "multi_src_ind_request_dispatches: { \n", "\n}\n") +
+            "\n" +
+            requestDispatchMaterializationPhase
+                .cacheableSingleSourceIndexRequestDispatchesBySourceIndexPath
+                .asSequence()
+                .map { (p, s) ->
+                    "path: $p, single_src_ind_request_dispatch: { source_indices: %s, param_indices: %s ]".format(
+                        s.backupBaseMultipleSourceIndicesJsonRetrievalFunction.sourcePaths
+                            .asSequence()
+                            .joinToString(", ", "{ ", " }"),
+                        s.backupBaseMultipleSourceIndicesJsonRetrievalFunction.parameterPaths
+                            .asSequence()
+                            .joinToString(", ", "{ ", " }")
+                    )
+                }
+                .joinToString(",\n", "single_src_ind_request_dispatches: {\n", "\n}\n")
     }
 
     private fun createAndDispatchFirstRoundOfRequestFunctionsForApplicableRetrievalFunctionSpecs(
