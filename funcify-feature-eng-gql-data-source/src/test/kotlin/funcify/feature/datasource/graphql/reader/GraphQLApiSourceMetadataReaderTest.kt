@@ -35,7 +35,7 @@ internal class GraphQLApiSourceMetadataReaderTest {
         val graphQLSchema: GraphQLSchema =
             MockGraphQLApiSourceMetadataProvider(objectMapper)
                 .provideMetadata(fakeService)
-                .blockForFirst()
+                .get()
                 .fold({ gqls: GraphQLSchema -> gqls }, { t: Throwable -> Assertions.fail(t) })
         val sourceMetamodel =
             ComprehensiveGraphQLApiSourceMetadataReader(

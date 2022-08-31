@@ -85,7 +85,7 @@ internal class DefaultGraphQLApiDataSourceFactoryTest {
                     .builder()
                     .addDataSource(graphQLApiDataSource)
                     .build()
-                    .blockForFirst()
+                    .get()
             } catch (t: Throwable) {
                 Assertions.fail<Try<MetamodelGraph>>(
                     "throwable was not caught in creation of metamodel graph",

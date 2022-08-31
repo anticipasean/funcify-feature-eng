@@ -11,6 +11,7 @@ import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CompletionStage
 import java.util.concurrent.Executor
 import java.util.concurrent.TimeUnit
+import java.util.stream.Stream
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.PersistentList
 import kotlinx.collections.immutable.persistentListOf
@@ -172,6 +173,92 @@ interface KFuture<out T> : Publisher<@UnsafeVariance T> {
             return of(CompletableFuture.supplyAsync(awaitAllAndReduceToList, executor), executor)
         }
 
+        @JvmStatic
+        fun <T, KF : KFuture<T>, S : Sequence<KF>> combineSequenceOf(
+            futuresSequence: S
+        ): KFuture<ImmutableList<T>> {
+            val awaitAllAndReduceToList: () -> PersistentList<T> = { ->
+                val futuresList: PersistentList<CompletableFuture<out T>> =
+                    futuresSequence.fold(persistentListOf()) { pl, kf ->
+                        kf.fold { cs, _ -> pl.add(cs.toCompletableFuture()) }
+                    }
+                val aggregateFuture =
+                    CompletableFuture.allOf(*futuresList.toTypedArray<CompletableFuture<out T>>())
+                aggregateFuture.join()
+                futuresList
+                    .stream()
+                    .map { cf: CompletableFuture<out T> -> cf.join() }
+                    .reduceToPersistentList()
+            }
+            return of(CompletableFuture.supplyAsync(awaitAllAndReduceToList))
+        }
+
+        @JvmStatic
+        fun <T, KF : KFuture<T>, S : Sequence<KF>> combineSequenceOf(
+            executor: Executor,
+            futuresSequence: S
+        ): KFuture<ImmutableList<T>> {
+            val awaitAllAndReduceToList: () -> PersistentList<T> = { ->
+                val futuresList: PersistentList<CompletableFuture<out T>> =
+                    futuresSequence.fold(persistentListOf()) { pl, kf ->
+                        kf.fold { cs, _ -> pl.add(cs.toCompletableFuture()) }
+                    }
+                val aggregateFuture =
+                    CompletableFuture.allOf(*futuresList.toTypedArray<CompletableFuture<out T>>())
+                aggregateFuture.join()
+                futuresList
+                    .stream()
+                    .map { cf: CompletableFuture<out T> -> cf.join() }
+                    .reduceToPersistentList()
+            }
+            return of(CompletableFuture.supplyAsync(awaitAllAndReduceToList, executor), executor)
+        }
+
+        @JvmStatic
+        fun <T, KF : KFuture<T>, S : Stream<KF>> combineStreamOf(
+            futuresStream: S
+        ): KFuture<ImmutableList<T>> {
+            val awaitAllAndReduceToList: () -> PersistentList<T> = { ->
+                val futuresList: PersistentList<CompletableFuture<out T>> =
+                    futuresStream.reduce(
+                        persistentListOf(),
+                        { pl, kf -> kf.fold { cs, _ -> pl.add(cs.toCompletableFuture()) } },
+                        { pl1, pl2 -> pl1.addAll(pl2) }
+                    )
+                val aggregateFuture =
+                    CompletableFuture.allOf(*futuresList.toTypedArray<CompletableFuture<out T>>())
+                aggregateFuture.join()
+                futuresList
+                    .stream()
+                    .map { cf: CompletableFuture<out T> -> cf.join() }
+                    .reduceToPersistentList()
+            }
+            return of(CompletableFuture.supplyAsync(awaitAllAndReduceToList))
+        }
+
+        @JvmStatic
+        fun <T, KF : KFuture<T>, S : Stream<KF>> combineStreamOf(
+            executor: Executor,
+            futuresStream: S
+        ): KFuture<ImmutableList<T>> {
+            val awaitAllAndReduceToList: () -> PersistentList<T> = { ->
+                val futuresList: PersistentList<CompletableFuture<out T>> =
+                    futuresStream.reduce(
+                        persistentListOf(),
+                        { pl, kf -> kf.fold { cs, _ -> pl.add(cs.toCompletableFuture()) } },
+                        { pl1, pl2 -> pl1.addAll(pl2) }
+                    )
+                val aggregateFuture =
+                    CompletableFuture.allOf(*futuresList.toTypedArray<CompletableFuture<out T>>())
+                aggregateFuture.join()
+                futuresList
+                    .stream()
+                    .map { cf: CompletableFuture<out T> -> cf.join() }
+                    .reduceToPersistentList()
+            }
+            return of(CompletableFuture.supplyAsync(awaitAllAndReduceToList, executor), executor)
+        }
+
         /**
          *
          * kotlin translates exceptionally/exceptionallyAsync/... methods into (Throwable) ->
@@ -193,40 +280,95 @@ interface KFuture<out T> : Publisher<@UnsafeVariance T> {
         inline fun <reified T> KFuture<T>.flatMapFailure(
             crossinline mapper: (Throwable) -> KFuture<T>
         ): KFuture<T> {
-            return fold { completionStage: CompletionStage<out T>, executorOption: Option<Executor>
-                ->
-                val handleFunctionCall: (T?, Throwable?) -> KFuture<T> =
-                    { t: T?, throwable: Throwable? ->
-                        if (throwable != null) {
-                            mapper.invoke(throwable)
-                        } else if (t != null) {
-                            of(CompletableFuture.completedFuture(t))
-                        } else {
-                            of(
-                                CompletableFuture.failedFuture(
-                                    IllegalArgumentException("completed_value is null")
-                                )
+            val handleFunctionCall: (T?, Throwable?) -> KFuture<T> =
+                { t: T?, throwable: Throwable? ->
+                    if (throwable != null) {
+                        mapper.invoke(throwable)
+                    } else if (t != null) {
+                        WrappedCompletionStageAndExecutor(CompletableFuture.completedFuture(t))
+                    } else {
+                        WrappedCompletionStageAndExecutor(
+                            CompletableFuture.failedFuture(
+                                IllegalArgumentException("completed_value is null")
+                            )
+                        )
+                    }
+                }
+            return when (this) {
+                is WrappedCompletionStageAndExecutor -> {
+                    when {
+                        this.executorOpt.isDefined() -> {
+                            WrappedCompletionStageAndExecutor(
+                                this.completionStage
+                                    .handleAsync(handleFunctionCall, this.executorOpt.orNull()!!)
+                                    .thenComposeAsync { kf -> kf.toCompletionStage() },
+                                this.executorOpt
+                            )
+                        }
+                        else -> {
+                            WrappedCompletionStageAndExecutor(
+                                this.completionStage
+                                    .handleAsync(handleFunctionCall)
+                                    .thenComposeAsync { kf -> kf.toCompletionStage() },
+                                none()
                             )
                         }
                     }
-                executorOption.fold(
-                    {
-                        of(
-                            completionStage.handleAsync(handleFunctionCall).thenCompose { kf ->
-                                kf.fold<CompletionStage<out T>>({ cs, _ -> cs })
-                            }
-                        )
-                    },
-                    { exec: Executor ->
-                        of(
-                            completionStage.handleAsync(handleFunctionCall, exec).thenCompose { kf
-                                ->
-                                kf.fold<CompletionStage<out T>>({ cs, _ -> cs })
-                            },
-                            exec
+                }
+                else -> {
+                    throw IllegalStateException(
+                        "unhandled container type: [ ${this::class.qualifiedName} ]"
+                    )
+                }
+            }
+        }
+
+        inline fun <reified T, X : Exception> KFuture<T>.flatMapFailureOfType(
+            exceptionType: Class<X>,
+            crossinline mapper: (X) -> KFuture<T>
+        ): KFuture<T> {
+            val handleFunctionCall: (T?, Throwable?) -> KFuture<T> =
+                { t: T?, throwable: Throwable? ->
+                    if (throwable != null && exceptionType.isInstance(throwable)) {
+                        mapper.invoke(exceptionType.cast(throwable))
+                    } else if (throwable != null) {
+                        WrappedCompletionStageAndExecutor(CompletableFuture.failedFuture(throwable))
+                    } else if (t != null) {
+                        WrappedCompletionStageAndExecutor(CompletableFuture.completedFuture(t))
+                    } else {
+                        WrappedCompletionStageAndExecutor(
+                            CompletableFuture.failedFuture(
+                                IllegalArgumentException("completed_value is null")
+                            )
                         )
                     }
-                )
+                }
+            return when (this) {
+                is WrappedCompletionStageAndExecutor -> {
+                    when {
+                        this.executorOpt.isDefined() -> {
+                            WrappedCompletionStageAndExecutor(
+                                this.completionStage
+                                    .handleAsync(handleFunctionCall, this.executorOpt.orNull()!!)
+                                    .thenComposeAsync { kf -> kf.toCompletionStage() },
+                                this.executorOpt
+                            )
+                        }
+                        else -> {
+                            WrappedCompletionStageAndExecutor(
+                                this.completionStage
+                                    .handleAsync(handleFunctionCall)
+                                    .thenComposeAsync { kf -> kf.toCompletionStage() },
+                                none()
+                            )
+                        }
+                    }
+                }
+                else -> {
+                    throw IllegalStateException(
+                        "unhandled container type: [ ${this::class.qualifiedName} ]"
+                    )
+                }
             }
         }
     }
@@ -666,6 +808,10 @@ interface KFuture<out T> : Publisher<@UnsafeVariance T> {
         return fold { stage: CompletionStage<out T>, _: Option<Executor> ->
             Mono.fromCompletionStage(stage)
         }
+    }
+
+    fun toCompletionStage(): CompletionStage<out T> {
+        return fold { cs: CompletionStage<out T>, _: Option<Executor> -> cs }
     }
 
     override fun subscribe(s: Subscriber<in T>?) {

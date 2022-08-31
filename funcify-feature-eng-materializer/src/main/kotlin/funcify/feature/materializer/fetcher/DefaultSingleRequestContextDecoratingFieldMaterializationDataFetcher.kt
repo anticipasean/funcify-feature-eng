@@ -1,12 +1,11 @@
 package funcify.feature.materializer.fetcher
 
 import arrow.core.Option
-import arrow.core.none
 import funcify.feature.materializer.error.MaterializerErrorResponse
 import funcify.feature.materializer.error.MaterializerException
 import funcify.feature.materializer.session.GraphQLSingleRequestSession
-import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.container.async.KFuture
+import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.extensions.ThrowableExtensions.possiblyNestedHeadStackTraceElement
@@ -116,15 +115,14 @@ internal class DefaultSingleRequestContextDecoratingFieldMaterializationDataFetc
                     session
                 )
                 deferredResult
-                    .toCompletionStage()
-                    .thenApply { l -> l.firstOrNull() ?: none() }
-                    .thenApply { o ->
+                    .map { o ->
                         foldUntypedMaterializedValueOptionIntoTypedDataFetcherResult<R>(
                             environment,
                             session,
                             o
                         )
                     }
+                    .toCompletionStage()
             },
             { throwable: Throwable ->
                 CompletableFuture.completedStage(

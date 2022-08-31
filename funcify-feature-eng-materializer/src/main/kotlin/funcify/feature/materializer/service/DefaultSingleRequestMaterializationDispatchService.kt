@@ -17,10 +17,9 @@ import funcify.feature.materializer.spec.RetrievalFunctionSpec
 import funcify.feature.naming.StandardNamingConventions
 import funcify.feature.schema.SchematicVertex
 import funcify.feature.schema.path.SchematicPath
-import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.container.async.KFuture
+import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.container.graph.PathBasedGraph
-import funcify.feature.tools.extensions.KFutureExtensions.toKFuture
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentMap
 import funcify.feature.tools.extensions.PersistentMapExtensions.streamPairs
@@ -336,16 +335,14 @@ internal class DefaultSingleRequestMaterializationDispatchService(
         multiSrcIndJsonRetrFunc: MultipleSourceIndicesJsonRetrievalFunction
     ): BackupSingleSourceIndexJsonOptionRetrievalFunction {
         return BackupSingleSourceIndexJsonOptionRetrievalFunction { dispatchedParams ->
-            KFuture.deferredSequence(
+            KFuture.combineSequenceOf(
                     dispatchedParams.asSequence().map { (p, jnOptDef) ->
                         jnOptDef.map { jnOpt ->
                             p to jnOpt.getOrElse { JsonNodeFactory.instance.nullNode() }
                         }
                     }
                 )
-                .toMono()
                 .map { pairs -> pairs.asSequence().reducePairsToPersistentMap() }
-                .toKFuture()
                 .flatMap { inputMap -> multiSrcIndJsonRetrFunc.invoke(inputMap) }
                 .map { resultMap -> resultMap.getOrNone(sourceIndexPath) }
         }
@@ -476,12 +473,9 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                             }
                             .flatMapOptions()
                             .let { pairStream ->
-                                KFuture.deferredStream(pairStream)
-                                    .toMono()
-                                    .map { pairs ->
-                                        pairs.asSequence().reducePairsToPersistentMap()
-                                    }
-                                    .toKFuture()
+                                KFuture.combineStreamOf(pairStream).map { pairs ->
+                                    pairs.asSequence().reducePairsToPersistentMap()
+                                }
                             }
                             .flatMap { inputMap ->
                                 multiSrcIndJsonRetrievalFunction.invoke(inputMap)
@@ -682,8 +676,7 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                                     .dispatchedSingleValueKFutureResponsesBySourceIndexPath
                                     .containsKey(p) -> {
                                     requestCreationContext
-                                        .dispatchedSingleValueKFutureResponsesBySourceIndexPath[
-                                            p]!!
+                                        .dispatchedSingleValueKFutureResponsesBySourceIndexPath[p]!!
                                         .left()
                                         .some()
                                 }

@@ -5,7 +5,6 @@ import arrow.core.Option
 import java.util.concurrent.CompletionStage
 import java.util.concurrent.Executor
 
-
 /**
  *
  * @author smccarron
@@ -13,14 +12,15 @@ import java.util.concurrent.Executor
  */
 object KFutureFactory {
 
-    internal data class WrappedCompletionStageAndExecutor<T>(private val completionStage: CompletionStage<out T>,
-                                                             private val executorOpt: Option<Executor> = None) : KFuture<T> {
+    data class WrappedCompletionStageAndExecutor<T>(
+        val completionStage: CompletionStage<out T>,
+        val executorOpt: Option<Executor> = None
+    ) : KFuture<T> {
 
-        override fun <R> fold(stageAndExecutor: (CompletionStage<out T>, Option<Executor>) -> R): R {
-            return stageAndExecutor.invoke(completionStage,
-                                           executorOpt)
+        override fun <R> fold(
+            stageAndExecutor: (CompletionStage<out T>, Option<Executor>) -> R
+        ): R {
+            return stageAndExecutor.invoke(completionStage, executorOpt)
         }
-
     }
-
 }
