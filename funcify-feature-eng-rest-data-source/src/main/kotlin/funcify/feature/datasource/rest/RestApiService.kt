@@ -1,5 +1,6 @@
 package funcify.feature.datasource.rest
 
+import org.springframework.boot.web.reactive.function.client.WebClientCustomizer
 import org.springframework.web.reactive.function.client.WebClient
 
 /**
@@ -32,6 +33,8 @@ interface RestApiService {
         fun port(port: UInt): Builder
 
         fun serviceContextPath(serviceContextPath: String): Builder
+
+        fun serviceSpecificWebClientCustomizer(webClientCustomizer: WebClientCustomizer): Builder
 
         fun build(): RestApiService
     }

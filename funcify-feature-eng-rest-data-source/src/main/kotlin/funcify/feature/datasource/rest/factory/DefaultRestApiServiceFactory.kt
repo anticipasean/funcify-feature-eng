@@ -1,5 +1,6 @@
 package funcify.feature.datasource.rest.factory
 
+import arrow.core.compose
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.fasterxml.jackson.databind.ObjectMapper
 import funcify.feature.datasource.rest.RestApiService
@@ -39,7 +40,9 @@ internal class DefaultRestApiServiceFactory(
             private var serviceName: String = UNSET_SERVICE_NAME,
             private var hostName: String = UNSET_HOST_NAME,
             private var port: UInt = UNSET_PORT,
-            private var serviceContextPath: String = UNSET_SERVICE_CONTEXT_PATH
+            private var serviceContextPath: String = UNSET_SERVICE_CONTEXT_PATH,
+            private var serviceSpecificWebClientCustomizers: MutableList<WebClientCustomizer> =
+                mutableListOf()
         ) : RestApiService.Builder {
 
             override fun sslTlsSupported(sslTlsSupported: Boolean): RestApiService.Builder {
@@ -64,6 +67,13 @@ internal class DefaultRestApiServiceFactory(
 
             override fun serviceContextPath(serviceContextPath: String): RestApiService.Builder {
                 this.serviceContextPath = serviceContextPath
+                return this
+            }
+
+            override fun serviceSpecificWebClientCustomizer(
+                webClientCustomizer: WebClientCustomizer
+            ): RestApiService.Builder {
+                this.serviceSpecificWebClientCustomizers.add(webClientCustomizer)
                 return this
             }
 
@@ -96,6 +106,16 @@ internal class DefaultRestApiServiceFactory(
                                     HttpScheme.HTTP.port()
                                 else -> port.toInt()
                             }.toUInt()
+                        val serviceSpecificWebClientUpdater:
+                            (WebClient.Builder) -> WebClient.Builder =
+                            serviceSpecificWebClientCustomizers.fold(webClientUpdater) {
+                                wcu,
+                                serviceSpecificCustomizer ->
+                                wcu.compose { wcb ->
+                                    serviceSpecificCustomizer.customize(wcb)
+                                    wcb
+                                }
+                            }
                         return DefaultRestApiService(
                             sslTlsSupported = sslTlsSupported,
                             httpScheme = httpScheme,
@@ -104,7 +124,7 @@ internal class DefaultRestApiServiceFactory(
                             port = validatedPort,
                             serviceContextPath = serviceContextPath,
                             objectMapper = objectMapper,
-                            webClientUpdater = webClientUpdater
+                            webClientUpdater = serviceSpecificWebClientUpdater
                         )
                     }
                 }
@@ -141,13 +161,14 @@ internal class DefaultRestApiServiceFactory(
             }
             override fun getWebClient(): WebClient {
                 logger.debug("get_web_client: [ ]")
-                return Try.attempt { backingWebClient }.orElseThrow { t: Throwable ->
-                    RestApiDataSourceException(
-                        RestApiErrorResponse.UNEXPECTED_ERROR,
-                        "error occurred when creating backing web client instance",
-                        t
-                    )
-                }
+                return Try.attempt { backingWebClient }
+                    .orElseThrow { t: Throwable ->
+                        RestApiDataSourceException(
+                            RestApiErrorResponse.UNEXPECTED_ERROR,
+                            "error occurred when creating backing web client instance",
+                            t
+                        )
+                    }
             }
         }
     }
