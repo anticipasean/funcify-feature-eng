@@ -340,37 +340,45 @@ internal class DefaultMaterializationGraphVertexConnector(
                 when {
                     // case 2.1: source is another source_attribute_vertex by same name or alias
                     sourceAttributeVertexWithSameNameOrAlias.isDefined() -> {
-                        context.update {
-                            addRequestParameterEdge(
-                                    requestParameterEdgeFactory
-                                        .builder()
-                                        .fromPathToPath(
-                                            // source_attr_vertex to this parameter_index
-                                            // its value depends on that source_index value
-                                            sourceAttributeVertexWithSameNameOrAlias
-                                                .map(SourceAttributeVertex::path)
-                                                .orNull()!!,
-                                            context.path
-                                        )
-                                        .dependentExtractionFunction { resultMap ->
-                                            resultMap.values.firstOrNone()
-                                        }
-                                        .build()
-                                )
-                                .addRequestParameterEdge(
-                                    requestParameterEdgeFactory
-                                        .builder()
-                                        .fromPathToPath(
-                                            context.path,
-                                            context.path.transform {
-                                                clearArguments().clearDirectives()
+                        sequenceOf(sourceAttributeVertexWithSameNameOrAlias.orNull()!!).fold(
+                            context.update {
+                                addRequestParameterEdge(
+                                        requestParameterEdgeFactory
+                                            .builder()
+                                            .fromPathToPath(
+                                                // source_attr_vertex to this parameter_index
+                                                // its value depends on that source_index value
+                                                sourceAttributeVertexWithSameNameOrAlias
+                                                    .map(SourceAttributeVertex::path)
+                                                    .orNull()!!,
+                                                context.path
+                                            )
+                                            .dependentExtractionFunction { resultMap ->
+                                                resultMap.getOrNone(
+                                                    sourceAttributeVertexWithSameNameOrAlias
+                                                        .orNull()!!
+                                                        .path
+                                                )
                                             }
-                                        )
-                                        .dependentExtractionFunction { resultMap ->
-                                            resultMap.values.firstOrNone()
-                                        }
-                                        .build()
-                                )
+                                            .build()
+                                    )
+                                    .addRequestParameterEdge(
+                                        requestParameterEdgeFactory
+                                            .builder()
+                                            .fromPathToPath(
+                                                context.path,
+                                                context.path.transform {
+                                                    clearArguments().clearDirectives()
+                                                }
+                                            )
+                                            .dependentExtractionFunction { resultMap ->
+                                                resultMap.getOrNone(context.path)
+                                            }
+                                            .build()
+                                    )
+                            } as MaterializationGraphVertexContext<*>
+                        ) { ctx, sourceAttributeVertex ->
+                            connectSchematicVertex(ctx.update { nextVertex(sourceAttributeVertex) })
                         }
                     }
                     // case 2.2: source is a default argument value from the schema
