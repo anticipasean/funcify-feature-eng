@@ -11,6 +11,7 @@ import funcify.feature.json.JsonMapper
 import funcify.feature.materializer.request.GraphQLExecutionInputCustomizer
 import funcify.feature.materializer.request.RawGraphQLRequest
 import funcify.feature.materializer.request.RawGraphQLRequestFactory
+import funcify.feature.materializer.response.SerializedGraphQLResponse
 import funcify.feature.spring.error.FeatureEngSpringWebFluxException
 import funcify.feature.spring.error.SpringWebFluxErrorResponse
 import funcify.feature.spring.service.GraphQLSingleRequestExecutor
@@ -32,7 +33,7 @@ import org.springframework.http.MediaType
 import org.springframework.web.reactive.function.server.HandlerFunction
 import org.springframework.web.reactive.function.server.ServerRequest
 import org.springframework.web.reactive.function.server.ServerResponse
-import org.springframework.web.reactive.function.server.body
+
 import reactor.core.publisher.Mono
 
 /**
@@ -93,7 +94,7 @@ internal class GraphQLWebFluxHandlerFunction(
             .flatMap { rawReq: RawGraphQLRequest ->
                 graphQLSingleRequestExecutor.executeSingleRequest(rawReq)
             }
-            .flatMap { serializedRes -> ServerResponse.ok().bodyValue(serializedRes) }
+            .flatMap(convertAggregateSerializedGraphQLResponseIntoServerResponse())
             .onErrorResume(
                 FeatureEngCommonException::class.java,
                 { commonException -> convertCommonExceptionTypeIntoServerResponse(commonException) }
@@ -237,6 +238,28 @@ internal class GraphQLWebFluxHandlerFunction(
         return HttpHeaders.readOnlyHttpHeaders(request.headers().asHttpHeaders())
     }
 
+    private fun convertAggregateSerializedGraphQLResponseIntoServerResponse():
+        (SerializedGraphQLResponse) -> Mono<out ServerResponse> {
+        return { response ->
+            Try.attempt { response.executionResult.toSpecification() }
+                .mapFailure { t: Throwable ->
+                    val message: String =
+                        """unable to convert graphql execution_result 
+                        |into specification for api_response 
+                        |[ type: Map<String, Any?> ] given cause: 
+                        |[ type: ${t::class.qualifiedName}, 
+                        |message: ${t.message} ]""".flatten()
+                    FeatureEngSpringWebFluxException(
+                        SpringWebFluxErrorResponse.EXECUTION_RESULT_ISSUE,
+                        message,
+                        t
+                    )
+                }
+                .toMono()
+                .flatMap { spec -> ServerResponse.ok().bodyValue(spec) }
+        }
+    }
+
     // TODO: Currently has two different output formats: direct message and graphql_error_map_string
     // Should be made into one
     private fun convertCommonExceptionTypeIntoServerResponse(
@@ -318,7 +341,10 @@ internal class GraphQLWebFluxHandlerFunction(
                 err
             )
             ServerResponse.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(Mono.just(err.message.toOption().getOrElse { "error_message empty" }))
+                .body(
+                    Mono.just(err.message.toOption().getOrElse { "error_message empty" }),
+                    String::class.java
+                )
         }
     }
 }

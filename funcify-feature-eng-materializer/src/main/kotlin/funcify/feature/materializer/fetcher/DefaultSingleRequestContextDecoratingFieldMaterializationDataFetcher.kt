@@ -5,6 +5,8 @@ import funcify.feature.materializer.error.MaterializerErrorResponse
 import funcify.feature.materializer.error.MaterializerException
 import funcify.feature.materializer.session.GraphQLSingleRequestSession
 import funcify.feature.tools.container.async.KFuture
+import funcify.feature.tools.container.async.KFuture.Companion.completed
+import funcify.feature.tools.container.async.KFuture.Companion.flatMapFailure
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flatten
@@ -120,6 +122,14 @@ internal class DefaultSingleRequestContextDecoratingFieldMaterializationDataFetc
                             environment,
                             session,
                             o
+                        )
+                    }
+                    .flatMapFailure { throwable: Throwable ->
+                        completed<DataFetcherResult<R>>(
+                            renderGraphQLErrorDataFetcherResultFromThrowableAndEnvironment<R>(
+                                throwable,
+                                environment
+                            )
                         )
                     }
                     .toCompletionStage()
