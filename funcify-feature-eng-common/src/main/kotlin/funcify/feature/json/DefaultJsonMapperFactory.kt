@@ -1,13 +1,18 @@
 package funcify.feature.json
 
+import arrow.core.getOrElse
+import arrow.core.toOption
+import com.fasterxml.jackson.databind.JavaType
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.databind.type.TypeFactory
 import com.jayway.jsonpath.Configuration
 import com.jayway.jsonpath.JsonPath
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import kotlin.reflect.KClass
 import kotlin.reflect.cast
+import org.springframework.core.ParameterizedTypeReference
 
 internal object DefaultJsonMapperFactory : JsonMapperFactory {
 
@@ -84,9 +89,32 @@ internal object DefaultJsonMapperFactory : JsonMapperFactory {
     ) : MappingTarget {
 
         override fun <T : Any> toKotlinObject(kClass: KClass<T>): Try<T> {
+            return Try.success(sourceObjectInstance)
+                .filter(
+                    { s -> kClass.isInstance(s) },
+                    { s ->
+                        IllegalArgumentException(
+                            """source_object_instance is not an instance of target_type: 
+                            |[ expected: %s, actual: %s ]"""
+                                .flatten()
+                                .format(
+                                    kClass.qualifiedName,
+                                    s.toOption()
+                                        .map { src -> src::class.qualifiedName }
+                                        .getOrElse { "<NA>" }
+                                )
+                        )
+                    }
+                )
+                .map { s -> kClass.cast(s) }
+        }
+
+        override fun <T : Any> toKotlinObject(
+            parameterizedTypeReference: ParameterizedTypeReference<T>
+        ): Try<T> {
             return Try.attempt {
                 @Suppress("UNCHECKED_CAST") //
-                kClass.cast(sourceObjectInstance)
+                sourceObjectInstance as T
             }
         }
 
@@ -126,24 +154,62 @@ internal object DefaultJsonMapperFactory : JsonMapperFactory {
     ) : MappingTarget {
 
         override fun <T : Any> toKotlinObject(kClass: KClass<T>): Try<T> {
-            return Try.attempt { jacksonObjectMapper.treeToValue(jsonNode, kClass.java) }
+            return Try.attemptNullable(
+                { jacksonObjectMapper.treeToValue(jsonNode, kClass.java) },
+                { ->
+                    IllegalStateException(
+                        "null value returned for [ target_type: ${kClass::qualifiedName} ] from json_node source"
+                    )
+                }
+            )
+        }
+
+        override fun <T : Any> toKotlinObject(
+            parameterizedTypeReference: ParameterizedTypeReference<T>
+        ): Try<T> {
+            return Try.attempt {
+                    TypeFactory.defaultInstance().constructType(parameterizedTypeReference.type)
+                }
+                .mapFailure { t ->
+                    IllegalStateException(
+                        "target type parameterized_type_reference could not be converted into [ ${JavaType::class.qualifiedName} ]",
+                        t
+                    )
+                }
+                .map { jt -> jacksonObjectMapper.treeToValue(jsonNode, jt) }
         }
 
         override fun toJsonNode(): Try<JsonNode> {
-            return Try.attempt { jsonNode }
+            return Try.success(jsonNode)
         }
 
         override fun toJsonString(): Try<String> {
-            return Try.attempt {
-                jacksonObjectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(jsonNode)
-            }
+            return Try.attemptNullable(
+                {
+                    jacksonObjectMapper
+                        .writerWithDefaultPrettyPrinter()
+                        .writeValueAsString(jsonNode)
+                },
+                { ->
+                    IllegalStateException(
+                        "null value returned for string target type for json_node source"
+                    )
+                }
+            )
         }
 
         override fun toJsonNodeForPath(jaywayJsonPath: String): Try<JsonNode> {
-            return Try.attempt {
-                JsonPath.parse(jsonNode, jaywayJsonPathConfiguration)
-                    .read(jaywayJsonPath, JsonNode::class.java)
-            }
+            return Try.attemptNullable(
+                {
+                    JsonPath.parse(jsonNode, jaywayJsonPathConfiguration)
+                        .read(jaywayJsonPath, JsonNode::class.java)
+                },
+                { ->
+                    IllegalStateException(
+                        "jayway_json_path returned null value for json_node source"
+                    )
+                }
+            )
         }
 
         override fun toJsonNodeForPath(jaywayJsonPath: JsonPath): Try<JsonNode> {
@@ -161,8 +227,30 @@ internal object DefaultJsonMapperFactory : JsonMapperFactory {
             return Try.attempt { jacksonObjectMapper.readValue(jsonValue, kClass.java) }
         }
 
+        override fun <T : Any> toKotlinObject(
+            parameterizedTypeReference: ParameterizedTypeReference<T>
+        ): Try<T> {
+            return Try.attempt {
+                    TypeFactory.defaultInstance().constructType(parameterizedTypeReference.type)
+                }
+                .mapFailure { t ->
+                    IllegalStateException(
+                        "target type parameterized_type_reference could not be converted into [ ${JavaType::class.qualifiedName} ]",
+                        t
+                    )
+                }
+                .map { jt -> jacksonObjectMapper.readValue(jsonValue, jt) }
+        }
+
         override fun toJsonNode(): Try<JsonNode> {
-            return Try.attempt { jacksonObjectMapper.readTree(jsonValue) }
+            return Try.attemptNullable(
+                { jacksonObjectMapper.readTree(jsonValue) },
+                { ->
+                    IllegalStateException(
+                        "null json_node target returned for json_value string source"
+                    )
+                }
+            )
         }
 
         override fun toJsonString(): Try<String> {
