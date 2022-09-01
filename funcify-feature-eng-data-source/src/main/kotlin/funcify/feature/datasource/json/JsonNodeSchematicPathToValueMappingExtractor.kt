@@ -55,8 +55,10 @@ object JsonNodeSchematicPathToValueMappingExtractor :
                     .map { ps -> (SchematicPath.of { pathSegments(ps) } to context.value).right() }
                     .fold(::emptySequence, ::sequenceOf)
                     .plus(
-                        context.value
+                        context.pathSegments
                             .toOption()
+                            .filter { ps -> ps.isNotEmpty() }
+                            .and(context.value.toOption())
                             .filterIsInstance<ArrayNode>()
                             .map { an -> an.asSequence().withIndex() }
                             .fold(::emptySequence, ::identity)
@@ -84,10 +86,8 @@ object JsonNodeSchematicPathToValueMappingExtractor :
                     )
             }
             JsonNodeType.OBJECT -> {
-                // TODO: Revisit whether the outermost object node should have a path
                 context.pathSegments
                     .toOption()
-                    .filter { ps -> ps.isNotEmpty() }
                     .map { ps -> (SchematicPath.of { pathSegments(ps) } to context.value).right() }
                     .fold(::emptySequence, ::sequenceOf)
                     .plus(

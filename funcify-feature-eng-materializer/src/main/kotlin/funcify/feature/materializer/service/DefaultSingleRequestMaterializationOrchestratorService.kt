@@ -75,7 +75,7 @@ internal class DefaultSingleRequestMaterializationOrchestratorService(
                     when (rp) {
                         ResultPath.rootPath() -> ll.right().some()
                         else -> {
-                            (rp.parent to ll.apply { offerFirst(rp.segmentToString()) })
+                            (rp.parent to ll.apply { offerFirst(rp.toString()) })
                                 .left()
                                 .some()
                         }
@@ -94,12 +94,12 @@ internal class DefaultSingleRequestMaterializationOrchestratorService(
                     session.requestDispatchMaterializationGraphPhase
                         .flatMap { phase ->
                             phase.multipleSourceIndexRequestDispatchesBySourceIndexPath.getOrNone(
-                                currentFieldPath
+                                currentFieldPathWithoutIndexing
                             )
                         }
                         .map { mr ->
                             mr.dispatchedMultipleIndexRequest.map { deferredResultMap ->
-                                deferredResultMap.getOrNone(currentFieldPath)
+                                deferredResultMap.getOrNone(currentFieldPathWithoutIndexing)
                             }
                         }
                 }
@@ -116,7 +116,7 @@ internal class DefaultSingleRequestMaterializationOrchestratorService(
                 else -> {
                     session.requestParameterMaterializationGraphPhase.flatMap { graphPhase ->
                         graphPhase.requestGraph
-                            .getEdgesTo(currentFieldPath)
+                            .getEdgesTo(currentFieldPathWithoutIndexing)
                             .filter { edge ->
                                 edge is RequestParameterEdge.DependentValueRequestParameterEdge
                             }

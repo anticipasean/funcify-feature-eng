@@ -1,6 +1,7 @@
 package funcify.feature.datasource.graphql.retrieval
 
 import arrow.core.Either
+import arrow.core.Option
 import arrow.core.filterIsInstance
 import arrow.core.toOption
 import com.fasterxml.jackson.databind.JsonNode
@@ -14,6 +15,7 @@ import funcify.feature.datasource.json.JsonNodeSchematicPathToValueMappingExtrac
 import funcify.feature.datasource.retrieval.DataSourceRepresentativeJsonRetrievalStrategy
 import funcify.feature.json.JsonMapper
 import funcify.feature.schema.datasource.DataSource
+import funcify.feature.schema.index.CompositeSourceAttribute
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.schema.vertex.ParameterJunctionVertex
 import funcify.feature.schema.vertex.ParameterLeafVertex
@@ -107,6 +109,34 @@ internal class DefaultGraphQLDataSourceJsonRetrievalStrategy(
                 // Use the path on the data_source index since it may differ from the vertex path
                 sourceVertexPathByGraphQLDataSourceIndexPath.keys.toPersistentSet()
             )
+    }
+
+    private val parentPathToVertex:
+        Option<Pair<SchematicPath, Either<SourceJunctionVertex, SourceLeafVertex>>> by lazy {
+        sourceVertices
+            .asSequence()
+            .minByOrNull { sjvOrSlv ->
+                sjvOrSlv.fold(SourceJunctionVertex::path, SourceLeafVertex::path)
+            }
+            .toOption()
+            .map { sjvOrSlv ->
+                sjvOrSlv.fold(SourceJunctionVertex::path, SourceLeafVertex::path) to sjvOrSlv
+            }
+    }
+
+    private val parentSourcePath: Option<SchematicPath> by lazy {
+        parentPathToVertex
+            .map { (_, sjvOrSlv) ->
+                sjvOrSlv.fold(
+                    SourceJunctionVertex::compositeAttribute,
+                    SourceLeafVertex::compositeAttribute
+                )
+            }
+            .flatMap { csa: CompositeSourceAttribute ->
+                csa.getSourceAttributeByDataSource()[dataSource.key].toOption()
+            }
+            .filterIsInstance<GraphQLSourceAttribute>()
+            .map { gsa: GraphQLSourceAttribute -> gsa.sourcePath }
     }
 
     init {
@@ -324,16 +354,18 @@ internal class DefaultGraphQLDataSourceJsonRetrievalStrategy(
                 )
                 .map { jn -> jn.path(DATA_KEY) }
                 .map(JsonNodeSchematicPathToValueMappingExtractor)
-                .map { valuesBySourceIndexPath ->
-                    valuesBySourceIndexPath
-                        .asSequence()
-                        .map { (sourceIndexPath, jsonValue) ->
-                            sourceVertexPathByGraphQLDataSourceIndexPath[sourceIndexPath]
-                                .toOption()
-                                .map { vertexPath -> vertexPath to jsonValue }
-                        }
-                        .flatMapOptions()
-                        .reducePairsToPersistentMap()
+                .peekIfSuccess { resultMap ->
+                    logger.info(
+                        "graphql_data_source.result_map: {}",
+                        resultMap
+                            .asSequence()
+                            .joinToString(
+                                separator = ",\n",
+                                prefix = "{ ",
+                                postfix = " }",
+                                transform = { (k, v) -> "$k: $v" }
+                            )
+                    )
                 }
                 .toKFuture()
         }
