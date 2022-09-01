@@ -30,6 +30,7 @@ import funcify.feature.json.JsonMapper
 import funcify.feature.tools.extensions.PersistentListExtensions.toPersistentList
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import io.swagger.v3.oas.models.OpenAPI
+import java.util.concurrent.Executor
 import org.springframework.beans.factory.ObjectProvider
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.autoconfigure.web.reactive.function.client.WebClientCodecCustomizer
@@ -138,11 +139,13 @@ class RestApiDataSourceConfiguration {
     @ConditionalOnMissingBean(value = [SwaggerRestApiJsonRetrievalStrategyProvider::class])
     @Bean
     fun swaggerRestApiJsonRetrievalStrategyProvider(
+        asyncExecutor: Executor,
         jsonMapper: JsonMapper,
         swaggerRestApiJsonResponsePostProcessingStrategyProvider:
             ObjectProvider<SwaggerRestApiJsonResponsePostProcessingStrategy>
     ): SwaggerRestApiJsonRetrievalStrategyProvider {
         return DefaultSwaggerRestApiJsonRetrievalStrategyProvider(
+            asyncExecutor = asyncExecutor,
             jsonMapper = jsonMapper,
             postProcessingStrategy =
                 swaggerRestApiJsonResponsePostProcessingStrategyProvider.getIfAvailable {

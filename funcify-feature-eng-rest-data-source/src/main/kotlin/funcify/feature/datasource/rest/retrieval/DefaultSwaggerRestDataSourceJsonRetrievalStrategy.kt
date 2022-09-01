@@ -30,6 +30,7 @@ import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPer
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.extensions.TryExtensions.successIfDefined
 import io.swagger.v3.oas.models.media.Schema
+import java.util.concurrent.Executor
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.ImmutableSet
 import org.slf4j.Logger
@@ -43,6 +44,7 @@ import reactor.core.publisher.Mono
  * @created 2022-08-15
  */
 internal class DefaultSwaggerRestDataSourceJsonRetrievalStrategy(
+    private val asyncExecutor: Executor,
     private val jsonMapper: JsonMapper,
     override val dataSource: RestApiDataSource,
     override val parameterVertices:
@@ -284,7 +286,7 @@ internal class DefaultSwaggerRestDataSourceJsonRetrievalStrategy(
         logger.debug("invoke: [ values_by_parameter_paths.keys: $parameterPathsAsString ] ]")
         return attemptToCreateRequestJsonObjectFromValuesByParameterPaths(valuesByParameterPaths)
             .toKFuture()
-            .flatMap(makeRequestToRestApiDataSourceWithJsonPayload())
+            .flatMap(asyncExecutor, makeRequestToRestApiDataSourceWithJsonPayload())
             .flatMap(applyResponsePostProcessingStrategy())
     }
 

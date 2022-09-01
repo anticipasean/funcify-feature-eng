@@ -31,6 +31,7 @@ import funcify.feature.tools.extensions.StringExtensions.flatten
 import graphql.GraphqlErrorException
 import graphql.language.AstPrinter
 import graphql.language.OperationDefinition
+import java.util.concurrent.Executor
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentSetOf
@@ -43,6 +44,7 @@ import org.slf4j.Logger
  * @created 2022-08-12
  */
 internal class DefaultGraphQLDataSourceJsonRetrievalStrategy(
+    private val asyncExecutor: Executor,
     private val jsonMapper: JsonMapper,
     private val graphQLDataSource: GraphQLApiDataSource,
     override val parameterVertices:
@@ -247,7 +249,7 @@ internal class DefaultGraphQLDataSourceJsonRetrievalStrategy(
                     parameterPathsSetStr
                 )
             )
-            .flatMap { queryString ->
+            .flatMap(asyncExecutor) { queryString ->
                 graphQLDataSource.graphQLApiService.executeSingleQuery(queryString)
             }
             .flatMap(convertResponseJsonIntoThrowableIfErrorsPresent())

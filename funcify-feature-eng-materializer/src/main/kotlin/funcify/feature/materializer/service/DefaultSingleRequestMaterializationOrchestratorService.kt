@@ -37,6 +37,17 @@ internal class DefaultSingleRequestMaterializationOrchestratorService(
         logger.info("materialize_value_in_session: [ session.session_id: ${session.sessionId} ]")
         logger.info("field: {}", session.dataFetchingEnvironment.field)
         logger.info("field_result_path: {}", session.dataFetchingEnvironment.executionStepInfo.path)
+        val sourceTypeName: String =
+            session.dataFetchingEnvironment
+                .getSource<Any>()
+                .toOption()
+                .mapNotNull { s -> s::class.qualifiedName }
+                .getOrElse { "<NA>" }
+        logger.info(
+            "data_fetching_environment.source: [ type: {}, value: {} ]",
+            sourceTypeName,
+            session.dataFetchingEnvironment.getSource<Any>()
+        )
         if (
             !session.requestParameterMaterializationGraphPhase.isDefined() ||
                 !session.requestDispatchMaterializationGraphPhase.isDefined()
@@ -45,7 +56,7 @@ internal class DefaultSingleRequestMaterializationOrchestratorService(
                 """materialize_value_in_session: 
                 |[ status: failed ] 
                 |session has not been updated with a 
-                |request_materialization_graph or dispatched requests; 
+                |request_materialization_graph or di spatched requests; 
                 |a key processing step has been skipped!""".flatten()
             )
             return Try.failure(
@@ -57,7 +68,7 @@ internal class DefaultSingleRequestMaterializationOrchestratorService(
                 )
             )
         }
-        val currentFieldPathWithoutIndexing =
+        val currentFieldPathWithoutListIndexing =
             SchematicPath.of {
                 pathSegments(session.dataFetchingEnvironment.executionStepInfo.path.keysOnly)
             }
@@ -66,41 +77,42 @@ internal class DefaultSingleRequestMaterializationOrchestratorService(
                 .toOption()
                 .map { rp -> rp.toString().split("/").asSequence().filter { s -> s.isNotEmpty() } }
                 .map { sSeq -> SchematicPath.of { pathSegments(sSeq.toList()) } }
-                .getOrElse { currentFieldPathWithoutIndexing }
+                .getOrElse { currentFieldPathWithoutListIndexing }
         logger.info(
-            "current_field_path_without_indexing: ${currentFieldPathWithoutIndexing}, \ncurrent_field_path: ${currentFieldPath}"
+            "current_field_path_without_list_indexing: ${currentFieldPathWithoutListIndexing}"
         )
+        logger.info("current_field_path_with_list_indexing: ${currentFieldPath}")
         return when {
-                currentFieldPathWithoutIndexing in
+                currentFieldPathWithoutListIndexing in
                     session.requestDispatchMaterializationGraphPhase
                         .orNull()!!
                         .multipleSourceIndexRequestDispatchesBySourceIndexPath -> {
                     session.requestDispatchMaterializationGraphPhase
                         .flatMap { phase ->
                             phase.multipleSourceIndexRequestDispatchesBySourceIndexPath.getOrNone(
-                                currentFieldPathWithoutIndexing
+                                currentFieldPathWithoutListIndexing
                             )
                         }
                         .map { mr ->
                             mr.dispatchedMultipleIndexRequest.map { deferredResultMap ->
-                                deferredResultMap.getOrNone(currentFieldPathWithoutIndexing)
+                                deferredResultMap.getOrNone(currentFieldPathWithoutListIndexing)
                             }
                         }
                 }
-                currentFieldPathWithoutIndexing in
+                currentFieldPathWithoutListIndexing in
                     session.requestDispatchMaterializationGraphPhase
                         .orNull()!!
                         .cacheableSingleSourceIndexRequestDispatchesBySourceIndexPath -> {
                     session.requestDispatchMaterializationGraphPhase.flatMap { phase ->
                         phase.cacheableSingleSourceIndexRequestDispatchesBySourceIndexPath
-                            .getOrNone(currentFieldPathWithoutIndexing)
+                            .getOrNone(currentFieldPathWithoutListIndexing)
                             .map { sr -> sr.dispatchedSingleIndexCacheRequest }
                     }
                 }
                 else -> {
                     session.requestParameterMaterializationGraphPhase.flatMap { graphPhase ->
                         graphPhase.requestGraph
-                            .getEdgesTo(currentFieldPathWithoutIndexing)
+                            .getEdgesTo(currentFieldPathWithoutListIndexing)
                             .filter { edge ->
                                 edge is RequestParameterEdge.DependentValueRequestParameterEdge
                             }
@@ -129,7 +141,7 @@ internal class DefaultSingleRequestMaterializationOrchestratorService(
                                                     )
                                             )
                                             logger.info("edge_for_extraction: [ id: {} ]", edge.id)
-                                            resultMap.getOrNone(currentFieldPath)
+                                            edge.extractionFunction.invoke(resultMap)
                                         }
                                     }
                             }

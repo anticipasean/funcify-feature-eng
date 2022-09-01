@@ -20,6 +20,7 @@ import funcify.feature.datasource.graphql.schema.GraphQLSourceIndexFactory
 import funcify.feature.datasource.graphql.sdl.GraphQLSourceIndexBasedSDLDefinitionImplementationStrategy
 import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionImplementationStrategy
 import funcify.feature.json.JsonMapper
+import java.util.concurrent.Executor
 import org.springframework.beans.factory.ObjectProvider
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
@@ -127,8 +128,12 @@ class GraphQLDataSourceConfiguration {
     @ConditionalOnMissingBean(value = [GraphQLDataSourceJsonRetrievalStrategyProvider::class])
     @Bean
     fun graphQLDataSourceJsonRetrievalStrategyProvider(
+        asyncExecutor: Executor,
         jsonMapper: JsonMapper
     ): GraphQLDataSourceJsonRetrievalStrategyProvider {
-        return DefaultGraphQLDataSourceJsonRetrievalStrategyProvider(jsonMapper = jsonMapper)
+        return DefaultGraphQLDataSourceJsonRetrievalStrategyProvider(
+            asyncExecutor = asyncExecutor,
+            jsonMapper = jsonMapper
+        )
     }
 }

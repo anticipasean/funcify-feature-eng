@@ -13,11 +13,13 @@ import funcify.feature.schema.vertex.SourceLeafVertex
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flatten
+import java.util.concurrent.Executor
 import kotlin.reflect.full.isSubclassOf
 import kotlinx.collections.immutable.ImmutableSet
 import org.slf4j.Logger
 
 internal class DefaultGraphQLDataSourceJsonRetrievalStrategyProvider(
+    private val asyncExecutor: Executor,
     private val jsonMapper: JsonMapper
 ) : GraphQLDataSourceJsonRetrievalStrategyProvider {
 
@@ -46,10 +48,11 @@ internal class DefaultGraphQLDataSourceJsonRetrievalStrategyProvider(
         )
         return Try.attempt {
             DefaultGraphQLDataSourceJsonRetrievalStrategy(
-                jsonMapper,
-                dataSource as GraphQLApiDataSource,
-                parameterVertices,
-                sourceVertices
+                asyncExecutor = asyncExecutor,
+                jsonMapper = jsonMapper,
+                graphQLDataSource = dataSource as GraphQLApiDataSource,
+                parameterVertices = parameterVertices,
+                sourceVertices = sourceVertices
             )
         }
     }
