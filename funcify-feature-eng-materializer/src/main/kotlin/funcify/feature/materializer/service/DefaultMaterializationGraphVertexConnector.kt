@@ -2,6 +2,7 @@ package funcify.feature.materializer.service
 
 import arrow.core.*
 import com.fasterxml.jackson.databind.JsonNode
+import funcify.feature.datasource.graphql.schema.GraphQLOutputFieldsContainerTypeExtractor
 import funcify.feature.json.JsonMapper
 import funcify.feature.materializer.context.MaterializationGraphVertexContext
 import funcify.feature.materializer.error.MaterializerErrorResponse
@@ -21,6 +22,7 @@ import funcify.feature.schema.vertex.SourceLeafVertex
 import funcify.feature.schema.vertex.SourceRootVertex
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.OptionExtensions.recurse
+import funcify.feature.tools.extensions.SequenceExtensions.recurse
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.extensions.TryExtensions.successIfDefined
 import graphql.language.Argument
@@ -28,7 +30,11 @@ import graphql.language.NullValue
 import graphql.language.Value
 import graphql.schema.FieldCoordinates
 import graphql.schema.GraphQLArgument
+import graphql.schema.GraphQLList
+import graphql.schema.GraphQLNonNull
+import graphql.schema.GraphQLSchema
 import kotlinx.collections.immutable.ImmutableSet
+import kotlinx.collections.immutable.toPersistentList
 import kotlinx.collections.immutable.toPersistentSet
 import org.slf4j.Logger
 
@@ -137,7 +143,12 @@ internal class DefaultMaterializationGraphVertexConnector(
                                                 context.path
                                             )
                                             .dependentExtractionFunction { resultMap ->
-                                                resultMap.getOrNone(context.path)
+                                                resultMap.getOrNone(
+                                                    getVertexPathWithListIndexingIfDescendentOfListNode(
+                                                        context.currentVertex,
+                                                        context.graphQLSchema
+                                                    )
+                                                )
                                             }
                                             .build()
                                     )
@@ -246,6 +257,61 @@ internal class DefaultMaterializationGraphVertexConnector(
         }
     }
 
+    // TODO: This operation and its results can be cached separately
+    private fun <V : SourceAttributeVertex> getVertexPathWithListIndexingIfDescendentOfListNode(
+        vertex: V,
+        graphQLSchema: GraphQLSchema
+    ): SchematicPath {
+        return vertex.path
+            .toOption()
+            .flatMap { sp ->
+                sp.pathSegments.firstOrNone().flatMap { n ->
+                    graphQLSchema.queryType.getFieldDefinition(n).toOption().map { gfd ->
+                        sp.pathSegments.toPersistentList().removeAt(0) to gfd
+                    }
+                }
+            }
+            .fold(::emptySequence, ::sequenceOf)
+            .recurse { (ps, gqlf) ->
+                when (gqlf.type) {
+                    is GraphQLNonNull -> {
+                        if ((gqlf.type as GraphQLNonNull).wrappedType is GraphQLList) {
+                            sequenceOf(
+                                StringBuilder(gqlf.name)
+                                    .append('[')
+                                    .append(0)
+                                    .append(']')
+                                    .toString()
+                                    .right()
+                            )
+                        } else {
+                            sequenceOf(gqlf.name.right())
+                        }
+                    }
+                    is GraphQLList -> {
+                        sequenceOf(
+                            StringBuilder(gqlf.name)
+                                .append('[')
+                                .append(0)
+                                .append(']')
+                                .toString()
+                                .right()
+                        )
+                    }
+                    else -> {
+                        sequenceOf(gqlf.name.right())
+                    }
+                }.plus(
+                    GraphQLOutputFieldsContainerTypeExtractor.invoke(gqlf.type)
+                        .zip(ps.firstOrNone())
+                        .flatMap { (c, n) -> c.getFieldDefinition(n).toOption() }
+                        .map { f -> (ps.removeAt(0) to f).left() }
+                        .fold(::emptySequence, ::sequenceOf)
+                )
+            }
+            .let { sSeq -> SchematicPath.of { pathSegments(sSeq.toList()) } }
+    }
+
     private fun <
         V : SourceAttributeVertex
     > createNearestLastUpdatedAttributeEdgeIfNotPresentInExpectedAncestorSpec(
@@ -281,7 +347,12 @@ internal class DefaultMaterializationGraphVertexConnector(
                             .builder()
                             .fromPathToPath(ancestorPath, sav.path)
                             .dependentExtractionFunction { resultMap ->
-                                resultMap.getOrNone(sav.path)
+                                resultMap.getOrNone(
+                                    getVertexPathWithListIndexingIfDescendentOfListNode(
+                                        sav,
+                                        context.graphQLSchema
+                                    )
+                                )
                             }
                             .build()
                     }
@@ -355,9 +426,11 @@ internal class DefaultMaterializationGraphVertexConnector(
                                             )
                                             .dependentExtractionFunction { resultMap ->
                                                 resultMap.getOrNone(
-                                                    sourceAttributeVertexWithSameNameOrAlias
-                                                        .orNull()!!
-                                                        .path
+                                                    getVertexPathWithListIndexingIfDescendentOfListNode(
+                                                        sourceAttributeVertexWithSameNameOrAlias
+                                                            .orNull()!!,
+                                                        context.graphQLSchema
+                                                    )
                                                 )
                                             }
                                             .build()

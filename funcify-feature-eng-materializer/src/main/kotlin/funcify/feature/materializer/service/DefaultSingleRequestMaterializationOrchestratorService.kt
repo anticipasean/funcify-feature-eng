@@ -3,10 +3,7 @@ package funcify.feature.materializer.service
 import arrow.core.Option
 import arrow.core.getOrElse
 import arrow.core.getOrNone
-import arrow.core.left
 import arrow.core.none
-import arrow.core.right
-import arrow.core.some
 import arrow.core.toOption
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.node.JsonNodeType
@@ -19,13 +16,10 @@ import funcify.feature.schema.path.SchematicPath
 import funcify.feature.tools.container.async.KFuture
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
-import funcify.feature.tools.extensions.OptionExtensions.recurse
 import funcify.feature.tools.extensions.OptionExtensions.toOption
 import funcify.feature.tools.extensions.StreamExtensions.flatMapOptions
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.extensions.TryExtensions.successIfDefined
-import graphql.execution.ResultPath
-import java.util.*
 import org.slf4j.Logger
 
 internal class DefaultSingleRequestMaterializationOrchestratorService(
@@ -70,21 +64,11 @@ internal class DefaultSingleRequestMaterializationOrchestratorService(
         val currentFieldPath: SchematicPath =
             session.dataFetchingEnvironment.executionStepInfo.path
                 .toOption()
-                .map { rp -> rp to LinkedList<String>() }
-                .recurse { (rp, ll) ->
-                    when (rp) {
-                        ResultPath.rootPath() -> ll.right().some()
-                        else -> {
-                            (rp.parent to ll.apply { offerFirst(rp.toString()) })
-                                .left()
-                                .some()
-                        }
-                    }
-                }
-                .map { ps -> SchematicPath.of { pathSegments(ps) } }
+                .map { rp -> rp.toString().split("/").asSequence().filter { s -> s.isNotEmpty() } }
+                .map { sSeq -> SchematicPath.of { pathSegments(sSeq.toList()) } }
                 .getOrElse { currentFieldPathWithoutIndexing }
         logger.info(
-            "current_field_path_without_indexing: ${currentFieldPathWithoutIndexing}, current_field_path: ${currentFieldPath}"
+            "current_field_path_without_indexing: ${currentFieldPathWithoutIndexing}, \ncurrent_field_path: ${currentFieldPath}"
         )
         return when {
                 currentFieldPathWithoutIndexing in
