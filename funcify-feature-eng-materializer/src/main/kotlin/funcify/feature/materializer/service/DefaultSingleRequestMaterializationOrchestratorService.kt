@@ -1,23 +1,23 @@
 package funcify.feature.materializer.service
 
 import arrow.core.Option
+import arrow.core.filterIsInstance
 import arrow.core.getOrElse
 import arrow.core.getOrNone
 import arrow.core.none
+import arrow.core.orElse
 import arrow.core.toOption
 import com.fasterxml.jackson.databind.JsonNode
-import com.fasterxml.jackson.databind.node.JsonNodeType
+import com.fasterxml.jackson.databind.node.ObjectNode
 import funcify.feature.json.JsonMapper
 import funcify.feature.materializer.error.MaterializerErrorResponse
 import funcify.feature.materializer.error.MaterializerException
 import funcify.feature.materializer.fetcher.SingleRequestFieldMaterializationSession
-import funcify.feature.materializer.schema.RequestParameterEdge
+import funcify.feature.materializer.json.JsonNodeToStandardValueConverter
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.tools.container.async.KFuture
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
-import funcify.feature.tools.extensions.OptionExtensions.toOption
-import funcify.feature.tools.extensions.StreamExtensions.flatMapOptions
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.extensions.TryExtensions.successIfDefined
 import org.slf4j.Logger
@@ -56,7 +56,7 @@ internal class DefaultSingleRequestMaterializationOrchestratorService(
                 """materialize_value_in_session: 
                 |[ status: failed ] 
                 |session has not been updated with a 
-                |request_materialization_graph or di spatched requests; 
+                |request_materialization_graph or dispatched requests; 
                 |a key processing step has been skipped!""".flatten()
             )
             return Try.failure(
@@ -83,104 +83,173 @@ internal class DefaultSingleRequestMaterializationOrchestratorService(
         )
         logger.info("current_field_path_with_list_indexing: ${currentFieldPath}")
         return when {
-                currentFieldPathWithoutListIndexing in
-                    session.requestDispatchMaterializationGraphPhase
-                        .orNull()!!
-                        .multipleSourceIndexRequestDispatchesBySourceIndexPath -> {
-                    session.requestDispatchMaterializationGraphPhase
-                        .flatMap { phase ->
-                            phase.multipleSourceIndexRequestDispatchesBySourceIndexPath.getOrNone(
-                                currentFieldPathWithoutListIndexing
-                            )
+            currentFieldPathWithoutListIndexing in
+                session.requestDispatchMaterializationGraphPhase
+                    .orNull()!!
+                    .multipleSourceIndexRequestDispatchesBySourceIndexPath -> {
+                session.requestDispatchMaterializationGraphPhase
+                    .flatMap { phase ->
+                        phase.multipleSourceIndexRequestDispatchesBySourceIndexPath.getOrNone(
+                            currentFieldPathWithoutListIndexing
+                        )
+                    }
+                    .map { mr ->
+                        mr.dispatchedMultipleIndexRequest.map { deferredResultMap ->
+                            deferredResultMap.getOrNone(currentFieldPathWithoutListIndexing)
                         }
-                        .map { mr ->
-                            mr.dispatchedMultipleIndexRequest.map { deferredResultMap ->
-                                deferredResultMap.getOrNone(currentFieldPathWithoutListIndexing)
-                            }
+                    }
+                    .map { df ->
+                        df.map { jsonNodeOpt ->
+                            jsonNodeOpt
+                                .zip(
+                                    session.fieldOutputType.toOption().orElse {
+                                        session.dataFetchingEnvironment.fieldDefinition.type
+                                            .toOption()
+                                    }
+                                )
+                                .flatMap { (jn, gqlOutputType) ->
+                                    JsonNodeToStandardValueConverter.invoke(jn, gqlOutputType)
+                                }
                         }
-                }
-                currentFieldPathWithoutListIndexing in
-                    session.requestDispatchMaterializationGraphPhase
-                        .orNull()!!
-                        .cacheableSingleSourceIndexRequestDispatchesBySourceIndexPath -> {
-                    session.requestDispatchMaterializationGraphPhase.flatMap { phase ->
+                    }
+                    .map { df -> session to df }
+                    .successIfDefined { ->
+                        MaterializerException(
+                            MaterializerErrorResponse.UNEXPECTED_ERROR,
+                            "unable to map current_field_path to multiple_source_index_request: [ field_path: ${currentFieldPath} ]"
+                        )
+                    }
+            }
+            currentFieldPathWithoutListIndexing in
+                session.requestDispatchMaterializationGraphPhase
+                    .orNull()!!
+                    .cacheableSingleSourceIndexRequestDispatchesBySourceIndexPath -> {
+                session.requestDispatchMaterializationGraphPhase
+                    .flatMap { phase ->
                         phase.cacheableSingleSourceIndexRequestDispatchesBySourceIndexPath
                             .getOrNone(currentFieldPathWithoutListIndexing)
                             .map { sr -> sr.dispatchedSingleIndexCacheRequest }
                     }
-                }
-                else -> {
-                    session.requestParameterMaterializationGraphPhase.flatMap { graphPhase ->
-                        graphPhase.requestGraph
-                            .getEdgesTo(currentFieldPathWithoutListIndexing)
-                            .filter { edge ->
-                                edge is RequestParameterEdge.DependentValueRequestParameterEdge
-                            }
-                            .map { edge ->
-                                edge as RequestParameterEdge.DependentValueRequestParameterEdge
-                            }
-                            .map { edge ->
-                                session.requestDispatchMaterializationGraphPhase
-                                    .flatMap { dispatchPhase ->
-                                        dispatchPhase
-                                            .multipleSourceIndexRequestDispatchesBySourceIndexPath[
-                                                edge.id.first]
+                    .map { df ->
+                        df.map { jsonNodeOpt ->
+                            jsonNodeOpt
+                                .zip(
+                                    session.fieldOutputType.toOption().orElse {
+                                        session.dataFetchingEnvironment.fieldDefinition.type
                                             .toOption()
                                     }
-                                    .map { mr ->
-                                        mr.dispatchedMultipleIndexRequest.map { resultMap ->
-                                            logger.info(
-                                                "dispatched_multi_index_request.result_map: [ {} ]",
-                                                resultMap
-                                                    .asSequence()
-                                                    .joinToString(
-                                                        ",\n",
-                                                        "{ ",
-                                                        " }",
-                                                        transform = { (k, v) -> "$k: $v" }
-                                                    )
-                                            )
-                                            logger.info("edge_for_extraction: [ id: {} ]", edge.id)
-                                            edge.extractionFunction.invoke(resultMap)
-                                        }
-                                    }
-                            }
-                            .flatMapOptions()
-                            .findFirst()
-                            .toOption()
+                                )
+                                .flatMap { (jn, gqlOutputType) ->
+                                    JsonNodeToStandardValueConverter.invoke(jn, gqlOutputType)
+                                }
+                        }
                     }
-                }
+                    .successIfDefined { ->
+                        MaterializerException(
+                            MaterializerErrorResponse.UNEXPECTED_ERROR,
+                            "unable to map field_path to cacheable_single_source_index_request: [ field_path: ${currentFieldPath} ]"
+                        )
+                    }
+                    .map { df -> session to df }
             }
-            .successIfDefined({ ->
-                MaterializerException(
-                    MaterializerErrorResponse.UNEXPECTED_ERROR,
-                    "could not find dispatched_request for source_index_path: ${currentFieldPath}"
-                )
-            })
-            .map { df ->
-                df.map { jsonNodeOpt -> jsonNodeOpt.flatMap { jn -> jsonNodeToScalarValue(jn) } }
-            }
-            .map { df -> session to df }
-    }
+            session.dataFetchingEnvironment
+                .getSource<Any>()
+                .toOption()
+                .filterIsInstance<Map<String, JsonNode>>()
+                .isDefined() -> {
 
-    fun jsonNodeToScalarValue(jsonNode: JsonNode): Option<Any> {
-        return when (jsonNode.nodeType) {
-            JsonNodeType.MISSING,
-            JsonNodeType.NULL -> none()
-            JsonNodeType.BOOLEAN,
-            JsonNodeType.NUMBER,
-            JsonNodeType.BINARY,
-            JsonNodeType.STRING -> {
-                jsonMapper.fromJsonNode(jsonNode).toKotlinObject(Any::class).getSuccess()
+                session.dataFetchingEnvironment
+                    .getSource<Map<String, JsonNode>>()
+                    .toOption()
+                    .flatMap { m -> m.getOrNone(session.dataFetchingEnvironment.field.name) }
+                    .zip(
+                        session.dataFetchingEnvironment.fieldType.toOption().orElse {
+                            session.dataFetchingEnvironment.fieldDefinition.type.toOption()
+                        }
+                    )
+                    .map { (jn, gqlType) -> JsonNodeToStandardValueConverter.invoke(jn, gqlType) }
+                    .successIfDefined {
+                        MaterializerException(
+                            MaterializerErrorResponse.UNEXPECTED_ERROR,
+                            "unable to map field_path to child entry of json_node map source: [ field_path: ${currentFieldPath} ]"
+                        )
+                    }
+                    .map { resultOpt -> session to KFuture.completed(resultOpt) }
             }
-            JsonNodeType.ARRAY -> {
-                jsonMapper.fromJsonNode(jsonNode).toKotlinObject(List::class).getSuccess()
+            session.dataFetchingEnvironment
+                .getSource<Any>()
+                .toOption()
+                .filterIsInstance<List<JsonNode>>()
+                .isDefined() -> {
+
+                session.dataFetchingEnvironment
+                    .getSource<List<JsonNode>>()
+                    .toOption()
+                    .zip(
+                        session.dataFetchingEnvironment.executionStepInfo.path.toOption().map { rp
+                            ->
+                            if (rp.isListSegment) {
+                                rp.segmentIndex
+                            } else {
+                                0
+                            }
+                        }
+                    )
+                    .flatMap { (resultList, index) ->
+                        if (index < resultList.size) {
+                            resultList[index].toOption()
+                        } else {
+                            none()
+                        }
+                    }
+                    .zip(
+                        session.dataFetchingEnvironment.fieldType.toOption().orElse {
+                            session.dataFetchingEnvironment.fieldDefinition.type.toOption()
+                        }
+                    )
+                    .map { (jn, gqlType) -> JsonNodeToStandardValueConverter.invoke(jn, gqlType) }
+                    .successIfDefined {
+                        MaterializerException(
+                            MaterializerErrorResponse.UNEXPECTED_ERROR,
+                            "unable to map field_path to index of json_node list source: [ field_path: ${currentFieldPath} ]"
+                        )
+                    }
+                    .map { resultOpt -> session to KFuture.completed(resultOpt) }
             }
-            JsonNodeType.OBJECT,
-            JsonNodeType.POJO -> {
-                jsonMapper.fromJsonNode(jsonNode).toKotlinObject(Map::class).getSuccess()
+            session.dataFetchingEnvironment
+                .getSource<Any>()
+                .toOption()
+                .filterIsInstance<JsonNode>()
+                .isDefined() -> {
+                session.dataFetchingEnvironment
+                    .getSource<JsonNode>()
+                    .toOption()
+                    .filterIsInstance<ObjectNode>()
+                    .filter { on -> on.has(session.dataFetchingEnvironment.field.name) }
+                    .map { on -> on.get(session.dataFetchingEnvironment.field.name) }
+                    .orElse { session.dataFetchingEnvironment.getSource<JsonNode>().toOption() }
+                    .zip(
+                        session.dataFetchingEnvironment.fieldType.toOption().orElse {
+                            session.dataFetchingEnvironment.fieldDefinition.type.toOption()
+                        }
+                    )
+                    .map { (jn, gqlType) -> JsonNodeToStandardValueConverter.invoke(jn, gqlType) }
+                    .successIfDefined { ->
+                        MaterializerException(
+                            MaterializerErrorResponse.UNEXPECTED_ERROR,
+                            "unable to map field_path to json_node source: [ field_path: ${currentFieldPath} ]"
+                        )
+                    }
+                    .map { resultOpt -> session to KFuture.completed(resultOpt) }
             }
-            else -> none()
+            else -> {
+                Try.failure(
+                    MaterializerException(
+                        MaterializerErrorResponse.UNEXPECTED_ERROR,
+                        "unable to resolve value for field_path: [ field_path: ${currentFieldPath} ]"
+                    )
+                )
+            }
         }
     }
 }
