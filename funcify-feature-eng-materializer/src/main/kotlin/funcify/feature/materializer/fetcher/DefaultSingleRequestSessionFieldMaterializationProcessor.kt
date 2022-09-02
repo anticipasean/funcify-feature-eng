@@ -21,9 +21,6 @@ import org.slf4j.Logger
  */
 internal class DefaultSingleRequestSessionFieldMaterializationProcessor(
     private val asyncExecutor: Executor,
-    private val singleRequestMaterializationGraphService: SingleRequestMaterializationGraphService,
-    private val singleRequestMaterializationPreprocessingService:
-        SingleRequestMaterializationDispatchService,
     private val singleRequestMaterializationOrchestratorService:
         SingleRequestMaterializationOrchestratorService
 ) : SingleRequestSessionFieldMaterializationProcessor {
@@ -48,14 +45,6 @@ internal class DefaultSingleRequestSessionFieldMaterializationProcessor(
             |field.type: $fieldTypeName }
             |]""".flatten()
         )
-        return singleRequestMaterializationGraphService
-            .createRequestMaterializationGraphForSession(session)
-            .flatMap { s ->
-                singleRequestMaterializationPreprocessingService
-                    .dispatchRequestsInMaterializationGraphInSession(s)
-            }
-            .flatMap { s ->
-                singleRequestMaterializationOrchestratorService.materializeValueInSession(s)
-            }
+        return singleRequestMaterializationOrchestratorService.materializeValueInSession(session)
     }
 }

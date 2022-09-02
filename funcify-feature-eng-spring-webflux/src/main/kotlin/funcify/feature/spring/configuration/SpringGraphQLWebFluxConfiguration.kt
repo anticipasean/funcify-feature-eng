@@ -13,6 +13,7 @@ import funcify.feature.spring.service.GraphQLSingleRequestExecutor
 import funcify.feature.spring.service.SpringGraphQLSingleRequestExecutor
 import funcify.feature.spring.session.SpringGraphQLSingleRequestSessionCoordinator
 import funcify.feature.spring.session.SpringGraphQLSingleRequestSessionFactory
+import graphql.execution.ExecutionStrategy
 import java.util.concurrent.Executor
 import org.springframework.beans.factory.ObjectProvider
 import org.springframework.beans.factory.annotation.Value
@@ -49,12 +50,14 @@ class SpringGraphQLWebFluxConfiguration {
     fun springGraphQLSingleRequestSessionCoordinator(
         asyncExecutor: Executor,
         serializedGraphQLResponseFactory: SerializedGraphQLResponseFactory,
-        materializationPreparsedDocumentProvider: MaterializationPreparsedDocumentProvider
+        materializationPreparsedDocumentProvider: MaterializationPreparsedDocumentProvider,
+        materializationExecutionStrategy: ExecutionStrategy
     ): GraphQLSingleRequestSessionCoordinator {
         return SpringGraphQLSingleRequestSessionCoordinator(
             asyncExecutor = asyncExecutor,
             serializedGraphQLResponseFactory = serializedGraphQLResponseFactory,
             materializationPreparsedDocumentProvider = materializationPreparsedDocumentProvider,
+            materializationExecutionStrategy = materializationExecutionStrategy
         )
     }
 

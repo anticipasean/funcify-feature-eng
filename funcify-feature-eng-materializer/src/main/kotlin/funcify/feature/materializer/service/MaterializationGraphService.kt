@@ -2,7 +2,6 @@ package funcify.feature.materializer.service
 
 import funcify.feature.materializer.session.MaterializationSession
 import funcify.feature.tools.container.attempt.Try
-import funcify.feature.tools.container.async.KFuture
 
 /**
  *
@@ -12,5 +11,4 @@ import funcify.feature.tools.container.async.KFuture
 interface MaterializationGraphService<M : MaterializationSession> {
 
     fun createRequestMaterializationGraphForSession(session: M): Try<M>
-
 }

@@ -9,10 +9,10 @@ import funcify.feature.datasource.retrieval.SchematicPathBasedJsonRetrievalFunct
 import funcify.feature.datasource.retrieval.SingleSourceIndexJsonOptionCacheRetrievalFunction
 import funcify.feature.materializer.error.MaterializerErrorResponse
 import funcify.feature.materializer.error.MaterializerException
-import funcify.feature.materializer.fetcher.SingleRequestFieldMaterializationSession
 import funcify.feature.materializer.schema.RequestParameterEdge
 import funcify.feature.materializer.schema.RequestParameterEdge.*
 import funcify.feature.materializer.service.SourceIndexRequestDispatch.*
+import funcify.feature.materializer.session.GraphQLSingleRequestSession
 import funcify.feature.materializer.spec.RetrievalFunctionSpec
 import funcify.feature.naming.StandardNamingConventions
 import funcify.feature.schema.SchematicVertex
@@ -74,8 +74,8 @@ internal class DefaultSingleRequestMaterializationDispatchService(
     }
 
     override fun dispatchRequestsInMaterializationGraphInSession(
-        session: SingleRequestFieldMaterializationSession
-    ): Try<SingleRequestFieldMaterializationSession> {
+        session: GraphQLSingleRequestSession
+    ): Try<GraphQLSingleRequestSession> {
         logger.info(
             "dispatch_requests_in_materialization_graph_in_session: [ session.session_id: ${session.sessionId} ]"
         )
@@ -226,7 +226,7 @@ internal class DefaultSingleRequestMaterializationDispatchService(
     }
 
     private fun createAndDispatchFirstRoundOfRequestFunctionsForApplicableRetrievalFunctionSpecs(
-        session: SingleRequestFieldMaterializationSession,
+        session: GraphQLSingleRequestSession,
         phase: RequestParameterMaterializationGraphPhase,
         requestCreationContext: RequestCreationContext,
         sourceIndexPath: SchematicPath,
@@ -438,7 +438,7 @@ internal class DefaultSingleRequestMaterializationDispatchService(
 
     private fun checkWhetherRemainingCanBeResolved(
         reqCreationContext: RequestCreationContext,
-        session: SingleRequestFieldMaterializationSession,
+        session: GraphQLSingleRequestSession,
         phase: RequestParameterMaterializationGraphPhase,
     ): Try<RequestCreationContext> {
         var start: Int = 0
@@ -475,7 +475,7 @@ internal class DefaultSingleRequestMaterializationDispatchService(
     }
 
     private fun createDependentRetrievalFunctionsForApplicableRemainingRetrievalFunctionSpecs(
-        session: SingleRequestFieldMaterializationSession,
+        session: GraphQLSingleRequestSession,
         phase: RequestParameterMaterializationGraphPhase,
         requestCreationContext: RequestCreationContext,
         sourceIndexPath: SchematicPath,

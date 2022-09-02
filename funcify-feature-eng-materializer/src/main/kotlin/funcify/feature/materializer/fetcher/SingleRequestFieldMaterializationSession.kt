@@ -1,8 +1,5 @@
 package funcify.feature.materializer.fetcher
 
-import arrow.core.Option
-import funcify.feature.materializer.service.RequestDispatchMaterializationPhase
-import funcify.feature.materializer.service.RequestParameterMaterializationGraphPhase
 import funcify.feature.materializer.session.GraphQLSingleRequestSession
 import funcify.feature.materializer.session.MaterializationSession
 import funcify.feature.materializer.threadlocal.ThreadLocalContextKey
@@ -32,10 +29,6 @@ interface SingleRequestFieldMaterializationSession : MaterializationSession {
 
     val dataFetchingEnvironment: DataFetchingEnvironment
 
-    val requestParameterMaterializationGraphPhase: Option<RequestParameterMaterializationGraphPhase>
-
-    val requestDispatchMaterializationGraphPhase: Option<RequestDispatchMaterializationPhase>
-
     val singleRequestSession: GraphQLSingleRequestSession
 
     override val sessionId: UUID
@@ -64,14 +57,6 @@ interface SingleRequestFieldMaterializationSession : MaterializationSession {
     interface Builder {
 
         fun dataFetchingEnvironment(dataFetchingEnvironment: DataFetchingEnvironment): Builder
-
-        fun requestParameterMaterializationGraphPhase(
-            requestParameterMaterializationGraphPhase: RequestParameterMaterializationGraphPhase
-        ): Builder
-
-        fun requestDispatchMaterializationPhase(
-            requestDispatchMaterializationPhase: RequestDispatchMaterializationPhase
-        ): Builder
 
         fun build(): SingleRequestFieldMaterializationSession
     }

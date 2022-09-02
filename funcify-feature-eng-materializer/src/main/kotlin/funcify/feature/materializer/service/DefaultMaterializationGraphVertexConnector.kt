@@ -597,19 +597,6 @@ internal class DefaultMaterializationGraphVertexConnector(
                     .toOption()
             }
             .flatMap { vd ->
-                // TODO: Add additional handling for variable refs of type (non-null wrapped
-                // possibly) list
-                logger.info(
-                    "query_variables: {}",
-                    context.queryVariables
-                        .asSequence()
-                        .joinToString(
-                            ",\n",
-                            "{\n",
-                            " }",
-                            transform = { (k, v) -> "$k: { value: $v, type: ${v::class.qualifiedName} }" }
-                        )
-                )
                 context.queryVariables
                     .getOrNone(vd.name)
                     .flatMap { anyValue ->

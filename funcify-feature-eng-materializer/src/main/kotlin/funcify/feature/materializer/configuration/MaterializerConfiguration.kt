@@ -34,6 +34,7 @@ import funcify.feature.schema.factory.MetamodelGraphFactory
 import funcify.feature.schema.strategy.SchematicVertexGraphRemappingStrategy
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flatten
+import graphql.execution.ExecutionStrategy
 import graphql.schema.GraphQLSchema
 import graphql.schema.idl.SchemaPrinter
 import java.util.concurrent.Executor
@@ -186,16 +187,11 @@ class MaterializerConfiguration {
     @Bean
     fun singleRequestFieldMaterializationDataFetcherFactory(
         asyncExecutor: Executor,
-        singleRequestMaterializationGraphService: SingleRequestMaterializationGraphService,
-        singleRequestMaterializationDispatchService: SingleRequestMaterializationDispatchService,
         singleRequestMaterializationOrchestratorService:
             SingleRequestMaterializationOrchestratorService
     ): SingleRequestFieldMaterializationDataFetcherFactory {
         return DefaultSingleRequestFieldMaterializationDataFetcherFactory(
             asyncExecutor = asyncExecutor,
-            singleRequestMaterializationGraphService = singleRequestMaterializationGraphService,
-            singleRequestMaterializationPreprocessingService =
-                singleRequestMaterializationDispatchService,
             singleRequestMaterializationOrchestratorService =
                 singleRequestMaterializationOrchestratorService
         )
@@ -286,5 +282,18 @@ class MaterializerConfiguration {
             )
         )
         return broker
+    }
+
+    @ConditionalOnMissingBean(value = [ExecutionStrategy::class])
+    @Bean
+    fun graphQLMaterializationExecutionStrategy(
+        singleRequestMaterializationGraphService: SingleRequestMaterializationGraphService,
+        singleRequestMaterializationDispatchService: SingleRequestMaterializationDispatchService
+    ): ExecutionStrategy {
+        return GraphQLSingleRequestMaterializationExecutionStrategy(
+            singleRequestMaterializationGraphService = singleRequestMaterializationGraphService,
+            singleRequestMaterializationPreprocessingService =
+                singleRequestMaterializationDispatchService
+        )
     }
 }

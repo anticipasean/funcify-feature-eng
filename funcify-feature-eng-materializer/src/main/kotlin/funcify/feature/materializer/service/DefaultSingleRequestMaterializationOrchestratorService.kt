@@ -49,8 +49,8 @@ internal class DefaultSingleRequestMaterializationOrchestratorService(
             session.dataFetchingEnvironment.getSource<Any>()
         )
         if (
-            !session.requestParameterMaterializationGraphPhase.isDefined() ||
-                !session.requestDispatchMaterializationGraphPhase.isDefined()
+            !session.singleRequestSession.requestParameterMaterializationGraphPhase.isDefined() ||
+                !session.singleRequestSession.requestDispatchMaterializationGraphPhase.isDefined()
         ) {
             logger.error(
                 """materialize_value_in_session: 
@@ -84,10 +84,10 @@ internal class DefaultSingleRequestMaterializationOrchestratorService(
         logger.info("current_field_path_with_list_indexing: ${currentFieldPath}")
         return when {
             currentFieldPathWithoutListIndexing in
-                session.requestDispatchMaterializationGraphPhase
+                session.singleRequestSession.requestDispatchMaterializationGraphPhase
                     .orNull()!!
                     .multipleSourceIndexRequestDispatchesBySourceIndexPath -> {
-                session.requestDispatchMaterializationGraphPhase
+                session.singleRequestSession.requestDispatchMaterializationGraphPhase
                     .flatMap { phase ->
                         phase.multipleSourceIndexRequestDispatchesBySourceIndexPath.getOrNone(
                             currentFieldPathWithoutListIndexing
@@ -133,10 +133,10 @@ internal class DefaultSingleRequestMaterializationOrchestratorService(
                     }
             }
             currentFieldPathWithoutListIndexing in
-                session.requestDispatchMaterializationGraphPhase
+                session.singleRequestSession.requestDispatchMaterializationGraphPhase
                     .orNull()!!
                     .cacheableSingleSourceIndexRequestDispatchesBySourceIndexPath -> {
-                session.requestDispatchMaterializationGraphPhase
+                session.singleRequestSession.requestDispatchMaterializationGraphPhase
                     .flatMap { phase ->
                         phase.cacheableSingleSourceIndexRequestDispatchesBySourceIndexPath
                             .getOrNone(currentFieldPathWithoutListIndexing)

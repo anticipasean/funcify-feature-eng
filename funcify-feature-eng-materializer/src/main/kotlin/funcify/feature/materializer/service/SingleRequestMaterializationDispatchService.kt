@@ -1,8 +1,7 @@
 package funcify.feature.materializer.service
 
-import funcify.feature.materializer.fetcher.SingleRequestFieldMaterializationSession
+import funcify.feature.materializer.session.GraphQLSingleRequestSession
 import funcify.feature.tools.container.attempt.Try
-import funcify.feature.tools.container.async.KFuture
 
 /**
  *
@@ -10,9 +9,9 @@ import funcify.feature.tools.container.async.KFuture
  * @created 2022-08-24
  */
 interface SingleRequestMaterializationDispatchService :
-    MaterializationRequestDispatchService<SingleRequestFieldMaterializationSession> {
+    MaterializationRequestDispatchService<GraphQLSingleRequestSession> {
 
     override fun dispatchRequestsInMaterializationGraphInSession(
-        session: SingleRequestFieldMaterializationSession
-    ): Try<SingleRequestFieldMaterializationSession>
+        session: GraphQLSingleRequestSession
+    ): Try<GraphQLSingleRequestSession>
 }

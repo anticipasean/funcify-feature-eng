@@ -17,9 +17,6 @@ import org.slf4j.Logger
 
 internal class DefaultSingleRequestFieldMaterializationDataFetcherFactory(
     private val asyncExecutor: Executor,
-    private val singleRequestMaterializationGraphService: SingleRequestMaterializationGraphService,
-    private val singleRequestMaterializationPreprocessingService:
-        SingleRequestMaterializationDispatchService,
     private val singleRequestMaterializationOrchestratorService:
         SingleRequestMaterializationOrchestratorService
 ) : SingleRequestFieldMaterializationDataFetcherFactory {
@@ -50,9 +47,6 @@ internal class DefaultSingleRequestFieldMaterializationDataFetcherFactory(
         return DefaultSingleRequestContextDecoratingFieldMaterializationDataFetcher<Any?>(
             DefaultSingleRequestSessionFieldMaterializationProcessor(
                 asyncExecutor = asyncExecutor,
-                singleRequestMaterializationGraphService = singleRequestMaterializationGraphService,
-                singleRequestMaterializationPreprocessingService =
-                    singleRequestMaterializationPreprocessingService,
                 singleRequestMaterializationOrchestratorService =
                     singleRequestMaterializationOrchestratorService
             )

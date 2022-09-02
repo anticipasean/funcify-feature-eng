@@ -12,7 +12,7 @@ import funcify.feature.materializer.context.MaterializationGraphVertexContext
 import funcify.feature.materializer.context.MaterializationGraphVertexContextFactory
 import funcify.feature.materializer.error.MaterializerErrorResponse
 import funcify.feature.materializer.error.MaterializerException
-import funcify.feature.materializer.fetcher.SingleRequestFieldMaterializationSession
+import funcify.feature.materializer.session.GraphQLSingleRequestSession
 import funcify.feature.schema.SchematicVertex
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.schema.vertex.ParameterJunctionVertex
@@ -66,8 +66,8 @@ internal class DefaultSingleRequestMaterializationGraphService(
     }
 
     override fun createRequestMaterializationGraphForSession(
-        session: SingleRequestFieldMaterializationSession
-    ): Try<SingleRequestFieldMaterializationSession> {
+        session: GraphQLSingleRequestSession
+    ): Try<GraphQLSingleRequestSession> {
         logger.debug(
             "create_request_materialization_graph_for_session: [ session.session_id: ${session.sessionId} ]"
         )
@@ -76,6 +76,16 @@ internal class DefaultSingleRequestMaterializationGraphService(
         if (session.requestParameterMaterializationGraphPhase.isDefined()) {
             return Try.success(session)
         }
+        if (!session.document.isDefined() || !session.operationDefinition.isDefined()) {
+            return Try.failure(
+                MaterializerException(
+                    MaterializerErrorResponse.UNEXPECTED_ERROR,
+                    """both document and operation_definition for graphql 
+                        |must be defined before creating request_materialization_graph""".flatten()
+                )
+            )
+        }
+
         return traverseOperationDefinitionInSessionCreatingMaterializationGraph(session).map { ctx
             ->
             session.update {
@@ -94,30 +104,18 @@ internal class DefaultSingleRequestMaterializationGraphService(
     }
 
     private fun traverseOperationDefinitionInSessionCreatingMaterializationGraph(
-        session: SingleRequestFieldMaterializationSession
+        session: GraphQLSingleRequestSession
     ): Try<MaterializationGraphVertexContext<*>> {
         logger.debug(
             "traverse_operation_definition_in_session_creating_materialization_graph: [ session.session_id: {} ]",
             session.sessionId
-        )
-        logger.info(
-            "arguments: {}",
-            session.dataFetchingEnvironment.arguments
-                .asSequence()
-                .joinToString(
-                    ",\n",
-                    "{\n",
-                    " }",
-                    transform = { (k, v) -> "$k: ${v::class.qualifiedName}" }
-                )
         )
         return session.metamodelGraph.pathBasedGraph
             .getVertex(SchematicPath.getRootPath())
             .filterIsInstance<SourceRootVertex>()
             .successIfDefined(sourceVertexNotFoundExceptionSupplier(SchematicPath.getRootPath()))
             .map { sourceRootVertex: SourceRootVertex ->
-                session.dataFetchingEnvironment.operationDefinition
-                    .toOption()
+                session.operationDefinition
                     .mapNotNull { opDef: OperationDefinition -> opDef.selectionSet }
                     .mapNotNull { ss: SelectionSet -> ss.selections }
                     .map { sList: List<Selection<*>> -> sList.asSequence() }
@@ -150,8 +148,8 @@ internal class DefaultSingleRequestMaterializationGraphService(
                                 sourceRootVertex,
                                 session.metamodelGraph,
                                 session.materializationSchema,
-                                session.dataFetchingEnvironment.operationDefinition,
-                                session.dataFetchingEnvironment.variables
+                                session.operationDefinition.orNull()!!,
+                                session.processedQueryVariables
                             )
                         )
                     ) {
@@ -191,7 +189,7 @@ internal class DefaultSingleRequestMaterializationGraphService(
     private fun resolveSourceVertexForField(
         field: Field,
         fieldOrArgCtx: FieldOrArgumentGraphContext,
-        session: SingleRequestFieldMaterializationSession,
+        session: GraphQLSingleRequestSession,
     ): Sequence<Either<FieldOrArgumentGraphContext, ResolvedSourceVertexContext>> {
         logger.debug("resolve_source_vertex_for_field: [ field.name: ${field.name} ]")
         val vertexPath: SchematicPath =
@@ -243,7 +241,7 @@ internal class DefaultSingleRequestMaterializationGraphService(
     private fun resolveParameterVertexForArgument(
         argument: Argument,
         fieldOrArgCtx: FieldOrArgumentGraphContext,
-        session: SingleRequestFieldMaterializationSession,
+        session: GraphQLSingleRequestSession,
     ): Sequence<Either<FieldOrArgumentGraphContext, ResolvedParameterVertexContext>> {
         logger.debug("resolve_parameter_vertex_for_argument: [ argument.name: ${argument.name} ]")
         val vertexPath: SchematicPath =
