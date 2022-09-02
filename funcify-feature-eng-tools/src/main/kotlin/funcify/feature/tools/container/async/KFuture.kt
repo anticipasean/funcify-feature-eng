@@ -454,7 +454,7 @@ interface KFuture<out T> : Publisher<@UnsafeVariance T> {
             executorOpt.fold(
                 {
                     of(
-                        completionStage.thenCompose { t: T ->
+                        completionStage.thenComposeAsync { t: T ->
                             mapper.invoke(t).fold<CompletionStage<out R>> { cs, _ -> cs }
                         }
                     )
@@ -503,7 +503,7 @@ interface KFuture<out T> : Publisher<@UnsafeVariance T> {
     fun <R> flatMapCompletionStage(mapper: (T) -> CompletionStage<out R>): KFuture<R> {
         return fold { completionStage: CompletionStage<out T>, executorOpt: Option<Executor> ->
             executorOpt.fold(
-                { of(completionStage.thenCompose { t: T -> mapper.invoke(t) }) },
+                { of(completionStage.thenComposeAsync { t: T -> mapper.invoke(t) }) },
                 { exec: Executor ->
                     of(completionStage.thenComposeAsync({ t: T -> mapper.invoke(t) }, exec), exec)
                 }
@@ -567,7 +567,7 @@ interface KFuture<out T> : Publisher<@UnsafeVariance T> {
                         )
                     }
                     else -> {
-                        of(thisStage.thenCombine(otherStage, zipper))
+                        of(thisStage.thenCombineAsync(otherStage, zipper))
                     }
                 }
             }

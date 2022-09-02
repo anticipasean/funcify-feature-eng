@@ -14,7 +14,9 @@ import funcify.feature.schema.vertex.SourceLeafVertex
 import funcify.feature.tools.container.graph.PathBasedGraph
 import graphql.language.Argument
 import graphql.language.Field
+import graphql.language.OperationDefinition
 import graphql.schema.GraphQLSchema
+import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.PersistentSet
 
@@ -28,6 +30,10 @@ sealed interface MaterializationGraphVertexContext<V : SchematicVertex> {
     val graphQLSchema: GraphQLSchema
 
     val metamodelGraph: MetamodelGraph
+
+    val operationDefinition: OperationDefinition
+
+    val queryVariables: ImmutableMap<String, Any>
 
     val requestParameterGraph: PathBasedGraph<SchematicPath, SchematicVertex, RequestParameterEdge>
 

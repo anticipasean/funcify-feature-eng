@@ -100,6 +100,17 @@ internal class DefaultSingleRequestMaterializationGraphService(
             "traverse_operation_definition_in_session_creating_materialization_graph: [ session.session_id: {} ]",
             session.sessionId
         )
+        logger.info(
+            "arguments: {}",
+            session.dataFetchingEnvironment.arguments
+                .asSequence()
+                .joinToString(
+                    ",\n",
+                    "{\n",
+                    " }",
+                    transform = { (k, v) -> "$k: ${v::class.qualifiedName}" }
+                )
+        )
         return session.metamodelGraph.pathBasedGraph
             .getVertex(SchematicPath.getRootPath())
             .filterIsInstance<SourceRootVertex>()
@@ -138,7 +149,9 @@ internal class DefaultSingleRequestMaterializationGraphService(
                             materializationGraphVertexContextFactory.createSourceRootVertexContext(
                                 sourceRootVertex,
                                 session.metamodelGraph,
-                                session.materializationSchema
+                                session.materializationSchema,
+                                session.dataFetchingEnvironment.operationDefinition,
+                                session.dataFetchingEnvironment.variables
                             )
                         )
                     ) {

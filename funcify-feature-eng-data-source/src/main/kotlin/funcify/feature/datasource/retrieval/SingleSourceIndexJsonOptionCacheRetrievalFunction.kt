@@ -7,8 +7,8 @@ import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.schema.vertex.SourceJunctionVertex
 import funcify.feature.schema.vertex.SourceLeafVertex
-import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.container.async.KFuture
+import funcify.feature.tools.container.attempt.Try
 import kotlinx.collections.immutable.ImmutableMap
 
 /**
@@ -25,6 +25,9 @@ interface SingleSourceIndexJsonOptionCacheRetrievalFunction :
     val cacheForDataSource: DataSource<*>
 
     val sourceIndexPath: SchematicPath
+        get() = sourceJunctionOrLeafVertex.fold(SourceJunctionVertex::path, SourceLeafVertex::path)
+
+    val sourceJunctionOrLeafVertex: Either<SourceJunctionVertex, SourceLeafVertex>
 
     override fun invoke(
         contextParameterValuesByPath: ImmutableMap<SchematicPath, JsonNode>

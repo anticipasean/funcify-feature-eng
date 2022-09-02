@@ -18,7 +18,6 @@ import funcify.feature.spring.service.GraphQLSingleRequestExecutor
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.container.attempt.Try.Companion.flatMapFailure
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
-import funcify.feature.tools.extensions.PersistentMapExtensions.reduceEntriesToPersistentMap
 import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentMap
 import funcify.feature.tools.extensions.StreamExtensions.flatMapOptions
 import funcify.feature.tools.extensions.StringExtensions.flatten
@@ -33,7 +32,6 @@ import org.springframework.http.MediaType
 import org.springframework.web.reactive.function.server.HandlerFunction
 import org.springframework.web.reactive.function.server.ServerRequest
 import org.springframework.web.reactive.function.server.ServerResponse
-
 import reactor.core.publisher.Mono
 
 /**
@@ -230,7 +228,12 @@ internal class GraphQLWebFluxHandlerFunction(
             .findPath(GRAPHQL_REQUEST_VARIABLES_KEY)
             .toOption()
             .filter(JsonNode::isObject)
-            .map { jn -> jn.fields().reduceEntriesToPersistentMap() }
+            .flatMap { jn ->
+                jsonMapper
+                    .fromJsonNode(jn)
+                    .toKotlinObject(STR_KEY_MAP_PARAMETERIZED_TYPE_REF)
+                    .getSuccess()
+            }
             .getOrElse { persistentMapOf<String, Any?>() }
     }
 

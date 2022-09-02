@@ -97,13 +97,19 @@ internal class SpringGraphQLSingleRequestSessionCoordinator(
                 |""".flatten()
         )
         return Mono.fromCompletionStage(
-                GraphQL.newGraphQL(session.materializationSchema)
-                    .preparsedDocumentProvider(materializationPreparsedDocumentProvider)
-                    .defaultDataFetcherExceptionHandler(
-                        SpringGraphQLSingleRequestDataFetcherExceptionHandler
+                CompletableFuture.supplyAsync(
+                        { ->
+                            GraphQL.newGraphQL(session.materializationSchema)
+                                .preparsedDocumentProvider(materializationPreparsedDocumentProvider)
+                                .defaultDataFetcherExceptionHandler(
+                                    SpringGraphQLSingleRequestDataFetcherExceptionHandler
+                                )
+                                .build()
+                                .executeAsync(executionInputBuilderUpdater(session))
+                        },
+                        asyncExecutor
                     )
-                    .build()
-                    .executeAsync(executionInputBuilderUpdater(session)),
+                    .thenComposeAsync { cs -> cs }
             )
             .map { er: ExecutionResult ->
                 serializedGraphQLResponseFactory.builder().executionResult(er).build()

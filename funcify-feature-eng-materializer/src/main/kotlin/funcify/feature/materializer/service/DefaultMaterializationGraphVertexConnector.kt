@@ -28,6 +28,7 @@ import funcify.feature.tools.extensions.TryExtensions.successIfDefined
 import graphql.language.Argument
 import graphql.language.NullValue
 import graphql.language.Value
+import graphql.language.VariableReference
 import graphql.schema.FieldCoordinates
 import graphql.schema.GraphQLArgument
 import graphql.schema.GraphQLList
@@ -143,12 +144,16 @@ internal class DefaultMaterializationGraphVertexConnector(
                                                 context.path
                                             )
                                             .dependentExtractionFunction { resultMap ->
-                                                resultMap.getOrNone(
+                                                val path =
                                                     getVertexPathWithListIndexingIfDescendentOfListNode(
                                                         context.currentVertex,
                                                         context.graphQLSchema
                                                     )
+                                                logger.info(
+                                                    "extracting path: [ path_to_extract: {} ]",
+                                                    path
                                                 )
+                                                resultMap.getOrNone(path)
                                             }
                                             .build()
                                     )
@@ -347,12 +352,13 @@ internal class DefaultMaterializationGraphVertexConnector(
                             .builder()
                             .fromPathToPath(ancestorPath, sav.path)
                             .dependentExtractionFunction { resultMap ->
-                                resultMap.getOrNone(
+                                val path =
                                     getVertexPathWithListIndexingIfDescendentOfListNode(
                                         sav,
                                         context.graphQLSchema
                                     )
-                                )
+                                logger.info("extracting_path: [ path: {} ]", path)
+                                resultMap.getOrNone(path)
                             }
                             .build()
                     }
@@ -386,6 +392,11 @@ internal class DefaultMaterializationGraphVertexConnector(
                                 GraphQLValueToJsonNodeConverter.invoke(
                                         context.argument.orNull()!!.value
                                     )
+                                    .orElse {
+                                        extractValueForVariableIfArgumentIsVariableReference(
+                                            context
+                                        )
+                                    }
                                     .successIfDefined(
                                         argumentValueNotResolvedIntoJsonExceptionSupplier(
                                             context.path,
@@ -425,13 +436,14 @@ internal class DefaultMaterializationGraphVertexConnector(
                                                 context.path
                                             )
                                             .dependentExtractionFunction { resultMap ->
-                                                resultMap.getOrNone(
+                                                val path =
                                                     getVertexPathWithListIndexingIfDescendentOfListNode(
                                                         sourceAttributeVertexWithSameNameOrAlias
                                                             .orNull()!!,
                                                         context.graphQLSchema
                                                     )
-                                                )
+                                                logger.info("extracting_path: [ path: {} ]", path)
+                                                resultMap.getOrNone(path)
                                             }
                                             .build()
                                     )
@@ -445,7 +457,9 @@ internal class DefaultMaterializationGraphVertexConnector(
                                                 }
                                             )
                                             .dependentExtractionFunction { resultMap ->
-                                                resultMap.getOrNone(context.path)
+                                                val path = context.path
+                                                logger.info("extracting_path: [ path: {} ]", path)
+                                                resultMap.getOrNone(path)
                                             }
                                             .build()
                                     )
@@ -566,6 +580,47 @@ internal class DefaultMaterializationGraphVertexConnector(
                 }
             }
         }
+    }
+
+    private fun <V : ParameterAttributeVertex> extractValueForVariableIfArgumentIsVariableReference(
+        context: MaterializationGraphVertexContext<V>
+    ): Option<JsonNode> {
+        return context.argument
+            .map { a -> a.value }
+            .filterIsInstance<VariableReference>()
+            .map { vr -> vr.name }
+            .flatMap { vName ->
+                context.operationDefinition.variableDefinitions
+                    .asSequence()
+                    .filter { vd -> vd.name == vName }
+                    .firstOrNull()
+                    .toOption()
+            }
+            .flatMap { vd ->
+                // TODO: Add additional handling for variable refs of type (non-null wrapped
+                // possibly) list
+                logger.info(
+                    "query_variables: {}",
+                    context.queryVariables
+                        .asSequence()
+                        .joinToString(
+                            ",\n",
+                            "{\n",
+                            " }",
+                            transform = { (k, v) -> "$k: { value: $v, type: ${v::class.qualifiedName} }" }
+                        )
+                )
+                context.queryVariables
+                    .getOrNone(vd.name)
+                    .flatMap { anyValue ->
+                        jsonMapper.fromKotlinObject(anyValue).toJsonNode().getSuccess()
+                    }
+                    .orElse {
+                        vd.defaultValue.toOption().flatMap { defaultVariableValue ->
+                            GraphQLValueToJsonNodeConverter.invoke(defaultVariableValue)
+                        }
+                    }
+            }
     }
 
     private fun <

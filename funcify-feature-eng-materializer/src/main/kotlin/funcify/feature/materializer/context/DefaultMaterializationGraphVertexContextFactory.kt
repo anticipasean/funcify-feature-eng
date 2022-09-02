@@ -2,10 +2,10 @@ package funcify.feature.materializer.context
 
 import arrow.core.*
 import com.fasterxml.jackson.databind.JsonNode
+import funcify.feature.materializer.context.MaterializationGraphVertexContext.Builder
 import funcify.feature.materializer.error.MaterializerErrorResponse
 import funcify.feature.materializer.error.MaterializerException
 import funcify.feature.materializer.schema.RequestParameterEdge
-import funcify.feature.materializer.context.MaterializationGraphVertexContext.Builder
 import funcify.feature.materializer.spec.DefaultRetrievalFunctionSpec
 import funcify.feature.materializer.spec.RetrievalFunctionSpec
 import funcify.feature.schema.MetamodelGraph
@@ -26,19 +26,25 @@ import funcify.feature.tools.extensions.SequenceExtensions.flatMapOptions
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import graphql.language.Argument
 import graphql.language.Field
+import graphql.language.OperationDefinition
 import graphql.schema.GraphQLSchema
+import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.PersistentSet
 import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.persistentSetOf
+import kotlinx.collections.immutable.toPersistentMap
 
-internal class DefaultMaterializationGraphVertexContextFactory : MaterializationGraphVertexContextFactory {
+internal class DefaultMaterializationGraphVertexContextFactory :
+    MaterializationGraphVertexContextFactory {
 
     companion object {
 
         internal data class DefaultMaterializationGraphVertexContext<V : SchematicVertex>(
             override val graphQLSchema: GraphQLSchema,
             override val metamodelGraph: MetamodelGraph,
+            override val operationDefinition: OperationDefinition,
+            override val queryVariables: ImmutableMap<String, Any> = persistentMapOf(),
             override val requestParameterGraph:
                 PathBasedGraph<SchematicPath, SchematicVertex, RequestParameterEdge> =
                 PathBasedGraph.emptyTwoToOnePathsToEdgeGraph(),
@@ -492,6 +498,8 @@ internal class DefaultMaterializationGraphVertexContextFactory : Materialization
                 return DefaultMaterializationGraphVertexContext<V>(
                     graphQLSchema = existingContext.graphQLSchema,
                     metamodelGraph = existingContext.metamodelGraph,
+                    operationDefinition = existingContext.operationDefinition,
+                    queryVariables = existingContext.queryVariables,
                     requestParameterGraph = graph,
                     materializedParameterValuesByPath = materializedParameterValuesByPath.build(),
                     parameterIndexPathsBySourceIndexPath =
@@ -500,7 +508,7 @@ internal class DefaultMaterializationGraphVertexContextFactory : Materialization
                         retrievalFunctionSpecByTopSourceIndexPath.build(),
                     currentVertex = vertex,
                     field = field.toOption(),
-                    argument = argument.toOption()
+                    argument = argument.toOption(),
                 )
             }
         }
@@ -509,14 +517,17 @@ internal class DefaultMaterializationGraphVertexContextFactory : Materialization
     override fun createSourceRootVertexContext(
         sourceRootVertex: SourceRootVertex,
         metamodelGraph: MetamodelGraph,
-        materializationSchema: GraphQLSchema
+        materializationSchema: GraphQLSchema,
+        operationDefinition: OperationDefinition,
+        queryVariables: Map<String, Any>
     ): MaterializationGraphVertexContext<SourceRootVertex> {
         return DefaultMaterializationGraphVertexContext<SourceRootVertex>(
             graphQLSchema = materializationSchema,
             metamodelGraph = metamodelGraph,
+            operationDefinition = operationDefinition,
+            queryVariables = queryVariables.toPersistentMap(),
             requestParameterGraph = PathBasedGraph.emptyTwoToOnePathsToEdgeGraph(),
             currentVertex = sourceRootVertex
         )
     }
-
 }

@@ -27,6 +27,7 @@ import funcify.feature.tools.extensions.SequenceExtensions.flatMapOptions
 import funcify.feature.tools.extensions.StreamExtensions.flatMapOptions
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.extensions.TryExtensions.successIfDefined
+import java.util.concurrent.Executor
 import java.util.stream.Stream.empty
 import kotlin.streams.asSequence
 import kotlinx.collections.immutable.ImmutableMap
@@ -37,6 +38,7 @@ import kotlinx.collections.immutable.persistentMapOf
 import org.slf4j.Logger
 
 internal class DefaultSingleRequestMaterializationDispatchService(
+    private val asyncExecutor: Executor,
     private val schematicPathBasedJsonRetrievalFunctionFactory:
         SchematicPathBasedJsonRetrievalFunctionFactory,
     private val sourceIndexRequestDispatchFactory: SourceIndexRequestDispatchFactory =
@@ -178,6 +180,11 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                     createRequestDispatchPhaseString(
                         updatedSession.requestDispatchMaterializationGraphPhase.orNull()!!
                     )
+                )
+            }
+            .peekIfFailure { thr ->
+                logger.error(
+                    "unable to create request_dispatch_phase: [ type: ${thr::class.qualifiedName}, message: ${thr.message} ]"
                 )
             }
     }
@@ -333,9 +340,14 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                                     .dispatchedSingleValueKFutureResponsesBySourceIndexPath
                                     .put(
                                         sourceIndexPath,
-                                        singleSrcIndCacheRetrFunc.invoke(
-                                            phase.materializedParameterValuesByPath
-                                        )
+                                        singleSrcIndCacheRetrFunc
+                                            .invoke(phase.materializedParameterValuesByPath)
+                                            .map { cachedValue ->
+                                                logger.info(
+                                                    "before_link_with backup_retrieval_function: [ source_index_path: ${sourceIndexPath}, cached_value: ${cachedValue} ]"
+                                                )
+                                                cachedValue
+                                            }
                                     )
                         )
                     }
@@ -379,6 +391,18 @@ internal class DefaultSingleRequestMaterializationDispatchService(
         multiSrcIndJsonRetrFunc: MultipleSourceIndicesJsonRetrievalFunction
     ): BackupSingleSourceIndexJsonOptionRetrievalFunction {
         return BackupSingleSourceIndexJsonOptionRetrievalFunction { dispatchedParams ->
+            logger.info(
+                "before_combine_sequence: [ source_index_path: {}, dispatched_params: {} ]",
+                sourceIndexPath,
+                dispatchedParams
+                    .asSequence()
+                    .joinToString(
+                        separator = ",\n",
+                        prefix = "{\n",
+                        postfix = " }",
+                        transform = { (k, v) -> "$k: $v" }
+                    )
+            )
             KFuture.combineSequenceOf(
                     dispatchedParams.asSequence().map { (p, jnOptDef) ->
                         jnOptDef.map { jnOpt ->
@@ -478,7 +502,6 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                             .getOrNone(sourceIndexPath)
                             .map(PersistentSet<SchematicPath>::stream)
                             .fold(::empty, ::identity)
-                            .parallel()
                             .flatMap { paramPath ->
                                 phase.requestGraph
                                     .getEdgesTo(paramPath)
@@ -597,47 +620,51 @@ internal class DefaultSingleRequestMaterializationDispatchService(
         requestParameterMaterializationGraphPhase: RequestParameterMaterializationGraphPhase,
         requestCreationContext: RequestCreationContext
     ): Try<RequestCreationContext> {
-        return Try.attemptSequence(
-                requestCreationContext.singleSrcIndexCacheFunctionBySourceIndexPath
-                    .asSequence()
-                    .sortedWith(
-                        dependentFunctionsResolvedLastComparator(
-                            requestParameterMaterializationGraphPhase,
-                            requestCreationContext
-                        )
-                    )
-                    .map { (path, singSrcIndCachFunc) ->
-                        requestCreationContext
-                            .dispatchedSingleValueKFutureResponsesBySourceIndexPath[path]
-                            .toOption()
-                            .zip(
-                                requestCreationContext.multiSrcIndexFunctionBySourceIndexPath[path]
-                                    .toOption(),
-                                requestCreationContext
-                                    .singleSrcIndexBackupFunctionBySourceIndexPath[path]
-                                    .toOption()
-                            ) { deferredResult, multiSrcIndRetrFunc, backupFunc ->
-                                dispatchSingleSourceIndexCacheRetrievalWithBackupFollowup(
-                                    requestParameterMaterializationGraphPhase,
-                                    requestCreationContext,
-                                    deferredResult,
-                                    singSrcIndCachFunc,
-                                    multiSrcIndRetrFunc,
-                                    backupFunc
-                                )
-                            }
-                            .successIfDefined(
-                                singleSourceIndexCacheFunctionMissingOtherComponentsExceptionSupplier()
-                            )
-                            .map { updatedKFutureResult -> path to updatedKFutureResult }
-                    }
+        var index: Int = 0
+        return requestCreationContext.singleSrcIndexCacheFunctionBySourceIndexPath
+            .asSequence()
+            .sortedWith(
+                dependentFunctionsResolvedLastComparator(
+                    requestParameterMaterializationGraphPhase,
+                    requestCreationContext
+                )
             )
-            .map { updatedPathToKFutureResultPairs ->
-                updatedPathToKFutureResultPairs.fold(requestCreationContext) { ctx, (p, dr) ->
-                    ctx.copy(
-                        dispatchedSingleValueKFutureResponsesBySourceIndexPath =
-                            ctx.dispatchedSingleValueKFutureResponsesBySourceIndexPath.put(p, dr)
-                    )
+            .fold(Try.success(requestCreationContext)) {
+                requestCreationContextUpdateAttempt,
+                (path, singSrcIndCachFunc) ->
+                logger.info(
+                    "wire_backup_functions_to_cached_single_value_request_dispatches: [{}]: path: {}",
+                    index++,
+                    path
+                )
+                requestCreationContextUpdateAttempt.flatMap { ctx ->
+                    ctx.dispatchedSingleValueKFutureResponsesBySourceIndexPath[path]
+                        .toOption()
+                        .zip(
+                            ctx.multiSrcIndexFunctionBySourceIndexPath[path].toOption(),
+                            ctx.singleSrcIndexBackupFunctionBySourceIndexPath[path].toOption()
+                        ) { deferredResult, multiSrcIndRetrFunc, backupFunc ->
+                            dispatchSingleSourceIndexCacheRetrievalWithBackupFollowup(
+                                requestParameterMaterializationGraphPhase,
+                                requestCreationContext,
+                                deferredResult,
+                                singSrcIndCachFunc,
+                                multiSrcIndRetrFunc,
+                                backupFunc
+                            )
+                        }
+                        .successIfDefined(
+                            singleSourceIndexCacheFunctionMissingOtherComponentsExceptionSupplier()
+                        )
+                        .map { updatedKFutureResult ->
+                            ctx.copy(
+                                dispatchedSingleValueKFutureResponsesBySourceIndexPath =
+                                    ctx.dispatchedSingleValueKFutureResponsesBySourceIndexPath.put(
+                                        path,
+                                        updatedKFutureResult
+                                    )
+                            )
+                        }
                 }
             }
     }
@@ -701,9 +728,13 @@ internal class DefaultSingleRequestMaterializationDispatchService(
         backupSingleSourceIndexJsonOptionRetrievalFunction:
             BackupSingleSourceIndexJsonOptionRetrievalFunction
     ): KFuture<Option<JsonNode>> {
-        val deferredParameterValuesByParamPath = { ->
+        val deferredParameterValuesByParamPath:
+            ImmutableMap<SchematicPath, KFuture<Option<JsonNode>>> =
             multipleSourceIndicesJsonRetrievalFunction.parameterPaths
-                .parallelStream()
+                .stream()
+                // TODO: handle other edge types that could be mapped to params: materialized value
+                // edges
+                // currently no use cases have them
                 .flatMap { paramPath -> phase.requestGraph.getEdgesTo(paramPath) }
                 .filter { edge -> edge is DependentValueRequestParameterEdge }
                 .map { edge -> edge as DependentValueRequestParameterEdge }
@@ -721,7 +752,26 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                                     .containsKey(p) -> {
                                     requestCreationContext
                                         .dispatchedSingleValueKFutureResponsesBySourceIndexPath[p]!!
+                                        .map { resultOpt ->
+                                            logger.info(
+                                                "extraction: [ target_source_path: {}, path_to_extract: {}, result: {} ]",
+                                                singleSourceIndexJsonOptionCacheRetrievalFunction
+                                                    .sourceIndexPath,
+                                                edge.id.first,
+                                                resultOpt
+                                            )
+                                            resultOpt
+                                        }
                                         .left()
+                                        .tapLeft { kf ->
+                                            logger.info(
+                                                "parameter_single_value_kfuture: [ target_source_path: {}, kfuture_path: {}, kfuture: {} ]",
+                                                singleSourceIndexJsonOptionCacheRetrievalFunction
+                                                    .sourceIndexPath,
+                                                edge.id.first,
+                                                kf
+                                            )
+                                        }
                                         .some()
                                 }
                                 requestCreationContext
@@ -732,12 +782,41 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                                         .right()
                                         .map { multiValueKFutureResult ->
                                             multiValueKFutureResult.map { resultMap ->
-                                                edge.extractionFunction.invoke(resultMap)
+                                                logger.info(
+                                                    "extraction: [ target_source_path: {}, path_to_extract: {}, dependent_result_map: {} ]",
+                                                    singleSourceIndexJsonOptionCacheRetrievalFunction
+                                                        .sourceIndexPath,
+                                                    edge.id.first,
+                                                    resultMap
+                                                        .asSequence()
+                                                        .joinToString(
+                                                            ",\n",
+                                                            "{ ",
+                                                            " }",
+                                                            transform = { (k, v) -> "$k: $v" }
+                                                        )
+                                                )
+                                                val resultOpt =
+                                                    edge.extractionFunction.invoke(resultMap)
+                                                logger.info(
+                                                    "extraction_result for [ path_to_extract: {} ] [ result: {} ]",
+                                                    p,
+                                                    resultOpt
+                                                )
+                                                resultOpt
                                             }
                                         }
                                         .some()
                                 }
-                                else -> none()
+                                else -> {
+                                    logger.warn(
+                                        """edge: [ ${edge.id} ] could not be applied for 
+                                        |wiring a parameter value to a function 
+                                        |[ path: ${p} ] potentially impacting retrieval/calculation of 
+                                        |[ ${singleSourceIndexJsonOptionCacheRetrievalFunction.sourceIndexPath} ]""".flatten()
+                                    )
+                                    none()
+                                }
                             }
                         }
                         .flatMapOptions()
@@ -746,14 +825,35 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                         }
                 }
                 .reducePairsToPersistentMap()
-        }
-        return dispatchedCacheSingleValueRequest.flatMap { cachedValue ->
+        logger.info(
+            "before_addition_to_dispatched_request: [ source_index_path: ${singleSourceIndexJsonOptionCacheRetrievalFunction.sourceIndexPath} ] deferred_params_by_param_path: {}",
+            deferredParameterValuesByParamPath
+                .asSequence()
+                .joinToString(
+                    separator = ",\n",
+                    prefix = "{\n",
+                    postfix = " }",
+                    transform = { (k, v) -> "$k: $v" }
+                )
+        )
+
+        return dispatchedCacheSingleValueRequest.flatMap(asyncExecutor) { cachedValue ->
             if (cachedValue.isDefined()) {
                 KFuture.completed(cachedValue)
             } else {
-                backupSingleSourceIndexJsonOptionRetrievalFunction.invoke(
-                    deferredParameterValuesByParamPath.invoke()
+                logger.info(
+                    "after_link: [ source_index_path: ${singleSourceIndexJsonOptionCacheRetrievalFunction.sourceIndexPath} ] deferred_params_by_param_path: {}",
+                    deferredParameterValuesByParamPath
+                        .asSequence()
+                        .joinToString(
+                            separator = ",\n",
+                            prefix = "{ ",
+                            postfix = " }",
+                            transform = { (k, v) -> "$k: $v" }
+                        )
                 )
+                KFuture.defer(asyncExecutor) { deferredParameterValuesByParamPath }
+                    .flatMap { dp -> backupSingleSourceIndexJsonOptionRetrievalFunction.invoke(dp) }
             }
         }
     }

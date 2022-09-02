@@ -95,6 +95,18 @@ internal class DefaultSingleRequestMaterializationOrchestratorService(
                     }
                     .map { mr ->
                         mr.dispatchedMultipleIndexRequest.map { deferredResultMap ->
+                            logger.info(
+                                "extracting {} from result_map: {}",
+                                currentFieldPathWithoutListIndexing,
+                                deferredResultMap
+                                    .asSequence()
+                                    .joinToString(
+                                        ",\n",
+                                        "{ ",
+                                        " }",
+                                        transform = { (k, v) -> "$k: $v" }
+                                    )
+                            )
                             deferredResultMap.getOrNone(currentFieldPathWithoutListIndexing)
                         }
                     }

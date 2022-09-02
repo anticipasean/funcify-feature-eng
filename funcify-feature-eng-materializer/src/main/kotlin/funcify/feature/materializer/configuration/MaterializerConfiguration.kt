@@ -220,10 +220,12 @@ class MaterializerConfiguration {
     @ConditionalOnMissingBean(value = [SingleRequestMaterializationDispatchService::class])
     @Bean
     fun singleRequestMaterializationDispatchService(
+        asyncExecutor: Executor,
         schematicPathBasedJsonRetrievalFunctionFactory:
             SchematicPathBasedJsonRetrievalFunctionFactory
     ): SingleRequestMaterializationDispatchService {
         return DefaultSingleRequestMaterializationDispatchService(
+            asyncExecutor = asyncExecutor,
             schematicPathBasedJsonRetrievalFunctionFactory =
                 schematicPathBasedJsonRetrievalFunctionFactory
         )
