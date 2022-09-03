@@ -15,6 +15,7 @@ import funcify.feature.datasource.graphql.schema.DefaultGraphQLSourceIndexFactor
 import funcify.feature.datasource.graphql.schema.GraphQLSourceAttribute
 import funcify.feature.datasource.graphql.schema.GraphQLSourceContainerType
 import funcify.feature.json.JsonObjectMappingConfiguration
+import funcify.feature.tools.extensions.MonoExtensions.toTry
 import funcify.feature.tools.extensions.OptionExtensions.stream
 import graphql.schema.GraphQLSchema
 import org.junit.jupiter.api.Assertions
@@ -35,7 +36,7 @@ internal class GraphQLApiSourceMetadataReaderTest {
         val graphQLSchema: GraphQLSchema =
             MockGraphQLApiSourceMetadataProvider(objectMapper)
                 .provideMetadata(fakeService)
-                .get()
+                .toTry()
                 .fold({ gqls: GraphQLSchema -> gqls }, { t: Throwable -> Assertions.fail(t) })
         val sourceMetamodel =
             ComprehensiveGraphQLApiSourceMetadataReader(

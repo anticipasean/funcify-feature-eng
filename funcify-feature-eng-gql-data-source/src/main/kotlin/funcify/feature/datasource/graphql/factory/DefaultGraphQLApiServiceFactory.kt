@@ -10,7 +10,6 @@ import funcify.feature.datasource.graphql.GraphQLApiService
 import funcify.feature.datasource.graphql.error.GQLDataSourceErrorResponse
 import funcify.feature.datasource.graphql.error.GQLDataSourceErrorResponse.GRAPHQL_DATA_SOURCE_CREATION_ERROR
 import funcify.feature.datasource.graphql.error.GQLDataSourceException
-import funcify.feature.tools.container.async.KFuture
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import io.netty.handler.codec.http.HttpScheme
 import java.util.stream.Collectors
@@ -186,7 +185,7 @@ internal class DefaultGraphQLApiServiceFactory(
             query: String,
             variables: Map<String, Any>,
             operationName: String?
-        ): KFuture<JsonNode> {
+        ): Mono<JsonNode> {
             logger.debug(
                 """execute_single_query: 
                     |[ query.length: ${query.length}, 
@@ -229,33 +228,31 @@ internal class DefaultGraphQLApiServiceFactory(
                             )
                         )
                     }
-            return KFuture.fromMono(
-                webClient
-                    .post()
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .accept(MediaType.APPLICATION_JSON)
-                    .acceptCharset(Charsets.UTF_8)
-                    .body(queryBodySupplierMono, JsonNode::class.java)
-                    .exchangeToMono<JsonNode> { cr: ClientResponse ->
-                        if (cr.statusCode().isError) {
-                            cr.bodyToMono(String::class.java).flatMap { responseBody: String ->
-                                Mono.error<JsonNode>(
-                                    GQLDataSourceException(
-                                        GQLDataSourceErrorResponse.CLIENT_ERROR,
-                                        """
+            return webClient
+                .post()
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON)
+                .acceptCharset(Charsets.UTF_8)
+                .body(queryBodySupplierMono, JsonNode::class.java)
+                .exchangeToMono<JsonNode> { cr: ClientResponse ->
+                    if (cr.statusCode().isError) {
+                        cr.bodyToMono(String::class.java).flatMap { responseBody: String ->
+                            Mono.error<JsonNode>(
+                                GQLDataSourceException(
+                                    GQLDataSourceErrorResponse.CLIENT_ERROR,
+                                    """
                                         |client_response.status: 
                                         |[ code: ${cr.statusCode().value()}, 
                                         |reason: ${cr.statusCode().reasonPhrase} ] 
                                         |[ body: "$responseBody" ]
                                     """.flatten()
-                                    )
                                 )
-                            }
-                        } else {
-                            cr.bodyToMono(JsonNode::class.java)
+                            )
                         }
+                    } else {
+                        cr.bodyToMono(JsonNode::class.java)
                     }
-            )
+                }
         }
     }
 }

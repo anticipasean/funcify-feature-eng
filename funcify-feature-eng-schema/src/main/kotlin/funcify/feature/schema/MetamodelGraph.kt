@@ -17,6 +17,7 @@ import funcify.feature.tools.container.async.KFuture
 import funcify.feature.tools.container.graph.PathBasedGraph
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.ImmutableSet
+import reactor.core.publisher.Mono
 
 /**
  *
@@ -72,6 +73,6 @@ interface MetamodelGraph {
             strategy: SchematicVertexGraphRemappingStrategy<MetamodelGraphCreationContext>
         ): Builder
 
-        fun build(): KFuture<MetamodelGraph>
+        fun build(): Mono<MetamodelGraph>
     }
 }

@@ -10,15 +10,15 @@ import funcify.feature.schema.error.SchemaException
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.schema.strategy.CompositeSchematicVertexGraphRemappingStrategy
 import funcify.feature.schema.strategy.SchematicVertexGraphRemappingStrategy
-import funcify.feature.tools.container.async.KFuture
-import funcify.feature.tools.container.async.KFuture.Companion.flatMapFailure
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
+import funcify.feature.tools.extensions.MonoExtensions.widen
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.extensions.ThrowableExtensions.possiblyNestedHeadStackTraceElement
 import funcify.feature.tools.extensions.TryExtensions.successIfNonNull
 import kotlinx.collections.immutable.persistentListOf
 import org.slf4j.Logger
+import reactor.core.publisher.Mono
 
 /**
  *
@@ -26,7 +26,7 @@ import org.slf4j.Logger
  * @created 2022-07-25
  */
 internal class DefaultMetamodelGraphCreationStrategy() :
-    MetamodelGraphCreationStrategyTemplate<KFuture<MetamodelGraphCreationContext>> {
+    MetamodelGraphCreationStrategyTemplate<Mono<MetamodelGraphCreationContext>> {
 
     companion object {
         private val logger: Logger = loggerFor<DefaultMetamodelGraphCreationStrategy>()
@@ -34,8 +34,8 @@ internal class DefaultMetamodelGraphCreationStrategy() :
 
     override fun <SI : SourceIndex<SI>> addDataSource(
         dataSource: DataSource<SI>,
-        contextContainer: KFuture<MetamodelGraphCreationContext>,
-    ): KFuture<MetamodelGraphCreationContext> {
+        contextContainer: Mono<MetamodelGraphCreationContext>,
+    ): Mono<MetamodelGraphCreationContext> {
         val methodTag: String = "add_data_source"
         logger.debug("${methodTag}: [ datasource.name: ${dataSource.name} ]")
         return contextContainer.flatMap { context ->
@@ -44,7 +44,7 @@ internal class DefaultMetamodelGraphCreationStrategy() :
                     """data_source already added by same name: 
                        |[ name: ${dataSource.name} ]
                        |""".flatten()
-                KFuture.completed(
+                Mono.just(
                     context.update {
                         addError(
                             SchemaException(
@@ -64,7 +64,7 @@ internal class DefaultMetamodelGraphCreationStrategy() :
                             SchematicPath.comparator()
                         )
                     )
-                    .fold(KFuture.completed(context.update { addDataSource(dataSource) })) {
+                    .fold(Mono.just(context.update { addDataSource(dataSource) })) {
                         ctxDef,
                         (path, sourceIndex) ->
                         createNewOrUpdateExistingSchematicVertex(
@@ -88,7 +88,7 @@ internal class DefaultMetamodelGraphCreationStrategy() :
                                            |]""".flatten()
                                     }
                                 )
-                            KFuture.failed(
+                            Mono.error(
                                 SchemaException(
                                     SchemaErrorResponse.METAMODEL_CREATION_ERROR,
                                     """one or more errors occurred during metamodel_graph creation 
@@ -97,7 +97,7 @@ internal class DefaultMetamodelGraphCreationStrategy() :
                                 )
                             )
                         } else {
-                            KFuture.completed(updatedContext)
+                            Mono.just(updatedContext)
                         }
                     }
             }
@@ -106,8 +106,8 @@ internal class DefaultMetamodelGraphCreationStrategy() :
     override fun <SI : SourceIndex<SI>> addAttributeAliasProviderForDataSource(
         attributeAliasProvider: DataSourceAttributeAliasProvider<SI>,
         dataSource: DataSource<SI>,
-        contextContainer: KFuture<MetamodelGraphCreationContext>,
-    ): KFuture<MetamodelGraphCreationContext> {
+        contextContainer: Mono<MetamodelGraphCreationContext>,
+    ): Mono<MetamodelGraphCreationContext> {
         val methodTag: String = "add_attribute_alias_provider_for_data_source"
         logger.debug(
             "${methodTag}: [ attribute_alias_provider.type: ${attributeAliasProvider::class.simpleName}, datasource.name: ${dataSource.name} ]"
@@ -124,7 +124,7 @@ internal class DefaultMetamodelGraphCreationStrategy() :
                 fetchAliasesForDataSourceFromProvider(
                     dataSource,
                     attributeAliasProvider,
-                    KFuture.completed(context)
+                    Mono.just(context)
                 )
             }
     }
@@ -132,8 +132,8 @@ internal class DefaultMetamodelGraphCreationStrategy() :
     override fun <SI : SourceIndex<SI>> addLastUpdatedAttributeProviderForDataSource(
         lastUpdatedAttributeProvider: DataSourceAttributeLastUpdatedProvider<SI>,
         dataSource: DataSource<SI>,
-        contextContainer: KFuture<MetamodelGraphCreationContext>,
-    ): KFuture<MetamodelGraphCreationContext> {
+        contextContainer: Mono<MetamodelGraphCreationContext>,
+    ): Mono<MetamodelGraphCreationContext> {
         val methodTag: String = "add_last_updated_attribute_provider_for_data_source"
         logger.debug(
             "${methodTag}: [ datasource.name: ${dataSource.name}, last_updated_attribute_provider.type: ${lastUpdatedAttributeProvider::class.qualifiedName} ]"
@@ -150,7 +150,7 @@ internal class DefaultMetamodelGraphCreationStrategy() :
                 fetchLastUpdatedTemporalAttributesForDataSourceFromProvider(
                     dataSource,
                     lastUpdatedAttributeProvider,
-                    KFuture.completed(context)
+                    Mono.just(context)
                 )
             }
     }
@@ -159,8 +159,8 @@ internal class DefaultMetamodelGraphCreationStrategy() :
         dataSource: DataSource<SI>,
         sourcePath: SchematicPath,
         sourceIndex: SI,
-        contextContainer: KFuture<MetamodelGraphCreationContext>,
-    ): KFuture<MetamodelGraphCreationContext> {
+        contextContainer: Mono<MetamodelGraphCreationContext>,
+    ): Mono<MetamodelGraphCreationContext> {
         val methodTag: String = "create_new_or_update_existing_schematic_vertex"
         logger.debug(
             "${methodTag}: [ source_path: ${sourcePath}, source_index: ${sourceIndex.name} ]"
@@ -192,8 +192,8 @@ internal class DefaultMetamodelGraphCreationStrategy() :
     override fun <SI : SourceIndex<SI>> fetchAliasesForDataSourceFromProvider(
         dataSource: DataSource<SI>,
         aliasProvider: DataSourceAttributeAliasProvider<SI>,
-        contextContainer: KFuture<MetamodelGraphCreationContext>,
-    ): KFuture<MetamodelGraphCreationContext> {
+        contextContainer: Mono<MetamodelGraphCreationContext>,
+    ): Mono<MetamodelGraphCreationContext> {
         val methodTag: String = "fetch_aliases_for_data_source_from_provider"
         logger.debug(
             "${methodTag}: [ datasource.name: ${dataSource.name}, alias_provider.type: ${aliasProvider::class.qualifiedName} ]"
@@ -218,8 +218,8 @@ internal class DefaultMetamodelGraphCreationStrategy() :
                     }
                 }
                 .map { updatedRegistry -> context.update { aliasRegistry(updatedRegistry) } }
-                .flatMapFailure { throwable: Throwable ->
-                    KFuture.completed(context.update { addError(throwable) })
+                .onErrorResume { throwable: Throwable ->
+                    Mono.just(context.update { addError(throwable) })
                 }
         }
     }
@@ -227,8 +227,8 @@ internal class DefaultMetamodelGraphCreationStrategy() :
     override fun <SI : SourceIndex<SI>> fetchLastUpdatedTemporalAttributesForDataSourceFromProvider(
         dataSource: DataSource<SI>,
         lastUpdatedProvider: DataSourceAttributeLastUpdatedProvider<SI>,
-        contextContainer: KFuture<MetamodelGraphCreationContext>,
-    ): KFuture<MetamodelGraphCreationContext> {
+        contextContainer: Mono<MetamodelGraphCreationContext>,
+    ): Mono<MetamodelGraphCreationContext> {
         val methodTag: String =
             "fetch_last_updated_temporal_attributes_for_data_source_from_provider"
         logger.debug(
@@ -249,14 +249,14 @@ internal class DefaultMetamodelGraphCreationStrategy() :
                 .map { lastUpdReg ->
                     context.update { lastUpdatedTemporalAttributePathRegistry(lastUpdReg) }
                 }
-                .flatMapFailure { thr -> KFuture.completed(context.update { addError(thr) }) }
+                .onErrorResume { thr -> Mono.just(context.update { addError(thr) }) }
         }
     }
 
     override fun addSchematicVertexGraphRemappingStrategy(
         strategy: SchematicVertexGraphRemappingStrategy<MetamodelGraphCreationContext>,
-        contextContainer: KFuture<MetamodelGraphCreationContext>,
-    ): KFuture<MetamodelGraphCreationContext> {
+        contextContainer: Mono<MetamodelGraphCreationContext>,
+    ): Mono<MetamodelGraphCreationContext> {
         val methodTag: String = "add_schematic_vertex_graph_remapping_strategy"
         logger.debug("${methodTag}: [ strategy.type: ${strategy::class.qualifiedName} ]")
         return contextContainer.map { context ->
@@ -276,8 +276,8 @@ internal class DefaultMetamodelGraphCreationStrategy() :
     override fun applySchematicVertexGraphRemappingStrategy(
         schematicVertexGraphRemappingStrategy:
             SchematicVertexGraphRemappingStrategy<MetamodelGraphCreationContext>,
-        contextContainer: KFuture<MetamodelGraphCreationContext>,
-    ): KFuture<MetamodelGraphCreationContext> {
+        contextContainer: Mono<MetamodelGraphCreationContext>,
+    ): Mono<MetamodelGraphCreationContext> {
         val methodTag: String = "apply_schematic_vertex_graph_remapping_strategy"
         logger.debug(
             """${methodTag}: [ schematic_vertex_graph_remapping_strategy.type: 
@@ -301,10 +301,9 @@ internal class DefaultMetamodelGraphCreationStrategy() :
                         }
                     }
                 }
-                .toKFuture()
-                .flatMapFailure { t: Throwable ->
-                    KFuture.completed(context.update { addError(t) })
-                }
+                .toMono()
+                .widen()
+                .onErrorResume { t: Throwable -> Mono.just(context.update { addError(t) }) }
         }
     }
 }

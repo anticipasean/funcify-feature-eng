@@ -1,14 +1,13 @@
 package funcify.feature.materializer.service
 
-import arrow.core.Option
 import com.fasterxml.jackson.databind.JsonNode
 import funcify.feature.datasource.retrieval.BackupSingleSourceIndexJsonOptionRetrievalFunction
 import funcify.feature.datasource.retrieval.MultipleSourceIndicesJsonRetrievalFunction
 import funcify.feature.datasource.retrieval.SingleSourceIndexJsonOptionCacheRetrievalFunction
 import funcify.feature.materializer.spec.RetrievalFunctionSpec
 import funcify.feature.schema.path.SchematicPath
-import funcify.feature.tools.container.async.KFuture
 import kotlinx.collections.immutable.ImmutableMap
+import reactor.core.publisher.Mono
 
 interface SourceIndexRequestDispatch {
 
@@ -35,7 +34,7 @@ interface SourceIndexRequestDispatch {
     interface CacheableSingleSourceIndexRetrievalSpec {
 
         fun dispatchedSingleIndexCacheRequest(
-            dispatch: KFuture<Option<JsonNode>>
+            dispatch: Mono<JsonNode>
         ): CacheableSingleSourceIndexRetrievalSpec
 
         fun backupBaseMultipleSourceIndicesJsonRetrievalFunction(
@@ -52,7 +51,7 @@ interface SourceIndexRequestDispatch {
     interface MultipleSourceIndexRetrievalSpec {
 
         fun dispatchedMultipleIndexRequest(
-            dispatch: KFuture<ImmutableMap<SchematicPath, JsonNode>>
+            dispatch: Mono<ImmutableMap<SchematicPath, JsonNode>>
         ): MultipleSourceIndexRetrievalSpec
 
         fun build(): DispatchedMultiSourceIndexRetrieval
@@ -63,7 +62,7 @@ interface SourceIndexRequestDispatch {
         val singleSourceIndexJsonOptionCacheRetrievalFunction:
             SingleSourceIndexJsonOptionCacheRetrievalFunction
 
-        val dispatchedSingleIndexCacheRequest: KFuture<Option<JsonNode>>
+        val dispatchedSingleIndexCacheRequest: Mono<JsonNode>
 
         val backupBaseMultipleSourceIndicesJsonRetrievalFunction:
             MultipleSourceIndicesJsonRetrievalFunction
@@ -76,6 +75,6 @@ interface SourceIndexRequestDispatch {
 
         val multipleSourceIndicesJsonRetrievalFunction: MultipleSourceIndicesJsonRetrievalFunction
 
-        val dispatchedMultipleIndexRequest: KFuture<ImmutableMap<SchematicPath, JsonNode>>
+        val dispatchedMultipleIndexRequest: Mono<ImmutableMap<SchematicPath, JsonNode>>
     }
 }

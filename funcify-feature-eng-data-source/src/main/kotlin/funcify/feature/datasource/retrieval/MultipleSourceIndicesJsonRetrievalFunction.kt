@@ -9,9 +9,9 @@ import funcify.feature.schema.vertex.ParameterLeafVertex
 import funcify.feature.schema.vertex.SourceJunctionVertex
 import funcify.feature.schema.vertex.SourceLeafVertex
 import funcify.feature.tools.container.attempt.Try
-import funcify.feature.tools.container.async.KFuture
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.ImmutableSet
+import reactor.core.publisher.Mono
 
 /**
  *
@@ -19,7 +19,7 @@ import kotlinx.collections.immutable.ImmutableSet
  * @created 2022-08-11
  */
 interface MultipleSourceIndicesJsonRetrievalFunction :
-    (ImmutableMap<SchematicPath, JsonNode>) -> KFuture<ImmutableMap<SchematicPath, JsonNode>> {
+    (ImmutableMap<SchematicPath, JsonNode>) -> Mono<ImmutableMap<SchematicPath, JsonNode>> {
 
     val dataSourceKey: DataSource.Key<*>
         get() = dataSource.key
@@ -32,7 +32,7 @@ interface MultipleSourceIndicesJsonRetrievalFunction :
 
     override fun invoke(
         valuesByParameterPaths: ImmutableMap<SchematicPath, JsonNode>
-    ): KFuture<ImmutableMap<SchematicPath, JsonNode>>
+    ): Mono<ImmutableMap<SchematicPath, JsonNode>>
 
     interface Builder {
 

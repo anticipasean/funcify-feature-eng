@@ -1,6 +1,6 @@
 package funcify.feature.datasource.metadata.provider
 
-import funcify.feature.tools.container.async.KFuture
+import reactor.core.publisher.Mono
 
 /**
  *
@@ -13,5 +13,5 @@ import funcify.feature.tools.container.async.KFuture
  */
 fun interface DataSourceMetadataProvider<S, MD> {
 
-    fun provideMetadata(service: S): KFuture<MD>
+    fun provideMetadata(service: S): Mono<MD>
 }

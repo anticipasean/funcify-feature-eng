@@ -37,6 +37,7 @@ import funcify.feature.schema.factory.MetamodelGraphCreationContext
 import funcify.feature.schema.factory.MetamodelGraphFactory
 import funcify.feature.schema.strategy.SchematicVertexGraphRemappingStrategy
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
+import funcify.feature.tools.extensions.MonoExtensions.toTry
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import graphql.execution.ExecutionStrategy
 import graphql.schema.GraphQLSchema
@@ -98,30 +99,29 @@ class MaterializerConfiguration {
                 }
             }
             .build()
-            .peek(
-                { mmg: MetamodelGraph ->
-                    val firstVertexPath: String =
-                        mmg.toOption()
-                            .filter { m -> m.pathBasedGraph.vertices.size > 0 }
-                            .map { m -> m.pathBasedGraph.vertices[0].path.toString() }
-                            .getOrElse { "<NA>" }
-                    logger.info(
-                        """metamodel_graph: [ status: success ] 
+            .doOnNext { mmg: MetamodelGraph ->
+                val firstVertexPath: String =
+                    mmg.toOption()
+                        .filter { m -> m.pathBasedGraph.vertices.size > 0 }
+                        .map { m -> m.pathBasedGraph.vertices[0].path.toString() }
+                        .getOrElse { "<NA>" }
+                logger.info(
+                    """metamodel_graph: [ status: success ] 
                             |[ metamodel_graph [ vertices.size: ${mmg.pathBasedGraph.vertices.size}, 
                             |vertices[0].path: $firstVertexPath ] ]
                             |""".flatten()
-                    )
-                },
-                { t: Throwable ->
-                    logger.error(
-                        """metamodel_graph: [ status: failed ] 
-                           |[ message: ${t.message} ]
-                           |""".flatten(),
-                        t
-                    )
-                }
-            )
-            .getOrElseThrow { t: Throwable ->
+                )
+            }
+            .doOnError { t: Throwable ->
+                logger.error(
+                    """metamodel_graph: [ status: failed ] 
+                    |[ message: ${t.message} ]
+                    |""".flatten(),
+                    t
+                )
+            }
+            .toTry()
+            .orElseThrow { t: Throwable ->
                 when (t) {
                     is FeatureEngCommonException -> t
                     else -> {

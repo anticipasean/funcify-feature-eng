@@ -8,7 +8,6 @@ import com.fasterxml.jackson.module.kotlin.treeToValue
 import funcify.feature.datasource.graphql.GraphQLApiService
 import funcify.feature.datasource.graphql.error.GQLDataSourceErrorResponse
 import funcify.feature.datasource.graphql.error.GQLDataSourceException
-import funcify.feature.tools.container.async.KFuture
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.PersistentListExtensions.reduceToPersistentList
 import funcify.feature.tools.extensions.StreamExtensions.flatMapOptions
@@ -25,6 +24,7 @@ import graphql.schema.idl.TypeDefinitionRegistry
 import kotlinx.collections.immutable.PersistentList
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
+import reactor.core.publisher.Mono
 
 internal class DefaultGraphQLApiSourceMetadataProvider(private val objectMapper: ObjectMapper) :
     GraphQLApiSourceMetadataProvider {
@@ -36,7 +36,7 @@ internal class DefaultGraphQLApiSourceMetadataProvider(private val objectMapper:
             LoggerFactory.getLogger(DefaultGraphQLApiSourceMetadataProvider::class.java)
     }
 
-    override fun provideMetadata(service: GraphQLApiService): KFuture<GraphQLSchema> {
+    override fun provideMetadata(service: GraphQLApiService): Mono<GraphQLSchema> {
         logger.debug(
             """provide_metadata: [ service: 
                 |{ name: ${service.serviceName}, 
@@ -45,40 +45,38 @@ internal class DefaultGraphQLApiSourceMetadataProvider(private val objectMapper:
                 |context_path: ${service.serviceContextPath} } ]
                 |""".flatten()
         )
-        return KFuture.fromAttempt(
-            service
-                .executeSingleQuery(service.metadataQuery)
-                .get()
-                .flatMap { jn: JsonNode ->
-                    when {
-                        jn.has(GRAPHQL_RESPONSE_DATA_KEY) -> {
-                            Try.success(jn.get(GRAPHQL_RESPONSE_DATA_KEY))
-                        }
-                        jn.has(GRAPHQL_RESPONSE_ERRORS_KEY) -> {
-                            Try.failure(
-                                GQLDataSourceException(
-                                    GQLDataSourceErrorResponse.CLIENT_ERROR,
-                                    "reported_graphql_errors: [ ${jn.get(
+
+        return service
+            .executeSingleQuery(service.metadataQuery)
+            .flatMap { jn: JsonNode ->
+                when {
+                    jn.has(GRAPHQL_RESPONSE_DATA_KEY) -> {
+                        Mono.just(jn.get(GRAPHQL_RESPONSE_DATA_KEY))
+                    }
+                    jn.has(GRAPHQL_RESPONSE_ERRORS_KEY) -> {
+                        Mono.error(
+                            GQLDataSourceException(
+                                GQLDataSourceErrorResponse.CLIENT_ERROR,
+                                "reported_graphql_errors: [ ${jn.get(
                                         GRAPHQL_RESPONSE_ERRORS_KEY)} ]"
-                                )
                             )
-                        }
-                        else -> {
-                            val message =
-                                "json_node is not in expected format i.e. has element with key [ \"data\" ]"
-                            Try.failure(
-                                GQLDataSourceException(
-                                    GQLDataSourceErrorResponse.MALFORMED_CONTENT_RECEIVED,
-                                    message
-                                )
+                        )
+                    }
+                    else -> {
+                        val message =
+                            "json_node is not in expected format i.e. has element with key [ \"data\" ]"
+                        Mono.error(
+                            GQLDataSourceException(
+                                GQLDataSourceErrorResponse.MALFORMED_CONTENT_RECEIVED,
+                                message
                             )
-                        }
+                        )
                     }
                 }
-                .flatMap { schemaNode: JsonNode ->
-                    convertJsonNodeIntoGraphQLSchemaInstance(schemaNode)
-                }
-        )
+            }
+            .flatMap { schemaNode: JsonNode ->
+                convertJsonNodeIntoGraphQLSchemaInstance(schemaNode).toMono()
+            }
     }
 
     private fun convertJsonNodeIntoGraphQLSchemaInstance(

@@ -1,13 +1,12 @@
 package funcify.feature.materializer.fetcher
 
 import arrow.core.Option
+import arrow.core.none
+import arrow.core.toOption
 import funcify.feature.materializer.error.MaterializerErrorResponse
 import funcify.feature.materializer.error.MaterializerException
+import funcify.feature.materializer.service.SingleRequestMaterializationOrchestratorService
 import funcify.feature.materializer.session.GraphQLSingleRequestSession
-import funcify.feature.tools.container.async.KFuture
-import funcify.feature.tools.container.async.KFuture.Companion.completed
-import funcify.feature.tools.container.async.KFuture.Companion.flatMapFailure
-import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.extensions.ThrowableExtensions.possiblyNestedHeadStackTraceElement
@@ -19,11 +18,15 @@ import graphql.schema.DataFetchingEnvironment
 import graphql.schema.GraphQLNamedOutputType
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CompletionStage
+import java.util.concurrent.Executor
 import org.slf4j.Logger
+import reactor.core.publisher.Mono
+import reactor.core.scheduler.Schedulers
 
 internal class DefaultSingleRequestContextDecoratingFieldMaterializationDataFetcher<R>(
-    private val singleRequestSessionFieldMaterializationProcessor:
-        SingleRequestSessionFieldMaterializationProcessor
+    private val asyncExecutor: Executor,
+    private val singleRequestMaterializationOrchestratorService:
+        SingleRequestMaterializationOrchestratorService
 ) : SingleRequestContextDecoratingFieldMaterializationDataFetcher<R> {
 
     companion object {
@@ -70,25 +73,23 @@ internal class DefaultSingleRequestContextDecoratingFieldMaterializationDataFetc
                 SingleRequestFieldMaterializationSession
                     .SINGLE_REQUEST_FIELD_MATERIALIZATION_SESSION_KEY
             ) -> {
-                unwrapCompletionStageAndFoldMaterializedValueOptionIntoDataFetcherResult(
+                foldResultPublisherIntoDataFetcherResult(
                     environment,
-                    singleRequestSessionFieldMaterializationProcessor
-                        .materializeFieldValueInSession(
-                            environment.graphQlContext
-                                .get<SingleRequestFieldMaterializationSession>(
-                                    SingleRequestFieldMaterializationSession
-                                        .SINGLE_REQUEST_FIELD_MATERIALIZATION_SESSION_KEY
-                                )
-                                .update { dataFetchingEnvironment(environment) }
-                        )
+                    singleRequestMaterializationOrchestratorService.materializeValueInSession(
+                        environment.graphQlContext
+                            .get<SingleRequestFieldMaterializationSession>(
+                                SingleRequestFieldMaterializationSession
+                                    .SINGLE_REQUEST_FIELD_MATERIALIZATION_SESSION_KEY
+                            )
+                            .update { dataFetchingEnvironment(environment) }
+                    )
                 )
             }
             else -> {
-                unwrapCompletionStageAndFoldMaterializedValueOptionIntoDataFetcherResult(
+                foldResultPublisherIntoDataFetcherResult<R>(
                     environment,
-                    singleRequestSessionFieldMaterializationProcessor
-                        .materializeFieldValueInSession(
-                            DefaultSingleRequestFieldMaterializationSession(
+                    singleRequestMaterializationOrchestratorService.materializeValueInSession(
+                        DefaultSingleRequestFieldMaterializationSession(
                                 dataFetchingEnvironment = environment,
                                 singleRequestSession =
                                     environment.graphQlContext.get<GraphQLSingleRequestSession>(
@@ -96,58 +97,62 @@ internal class DefaultSingleRequestContextDecoratingFieldMaterializationDataFetc
                                             .GRAPHQL_SINGLE_REQUEST_SESSION_KEY
                                     )
                             )
-                        )
+                            .let { session ->
+                                environment.graphQlContext.put(
+                                    SingleRequestFieldMaterializationSession
+                                        .SINGLE_REQUEST_FIELD_MATERIALIZATION_SESSION_KEY,
+                                    session
+                                )
+                                session
+                            }
+                    )
                 )
             }
         }
     }
 
-    private fun <R> unwrapCompletionStageAndFoldMaterializedValueOptionIntoDataFetcherResult(
+    private fun <R> foldResultPublisherIntoDataFetcherResult(
         environment: DataFetchingEnvironment,
-        sessionAndMaterializedValuePairFuture:
-            Try<Pair<SingleRequestFieldMaterializationSession, KFuture<Option<Any>>>>
+        resultPublisher: Mono<Any>
     ): CompletionStage<out DataFetcherResult<R>> {
         // Unwrap completion_stage and fold materialized_value_option in
         // data_fetcher_result creation to avoid use of null within kfuture
-        return sessionAndMaterializedValuePairFuture.fold(
-            { (session, deferredResult) ->
-                environment.graphQlContext.put(
-                    SingleRequestFieldMaterializationSession
-                        .SINGLE_REQUEST_FIELD_MATERIALIZATION_SESSION_KEY,
-                    session
-                )
-                deferredResult
-                    .map { o ->
+        val resultFuture: CompletableFuture<DataFetcherResult<R>> = CompletableFuture()
+        resultPublisher
+            .subscribeOn(Schedulers.fromExecutor(asyncExecutor))
+            .subscribe(
+                { resultValue ->
+                    resultFuture.complete(
                         foldUntypedMaterializedValueOptionIntoTypedDataFetcherResult<R>(
                             environment,
-                            session,
-                            o
+                            resultValue.toOption()
                         )
-                    }
-                    .flatMapFailure { throwable: Throwable ->
-                        completed<DataFetcherResult<R>>(
-                            renderGraphQLErrorDataFetcherResultFromThrowableAndEnvironment<R>(
-                                throwable,
-                                environment
-                            )
-                        )
-                    }
-                    .toCompletionStage()
-            },
-            { throwable: Throwable ->
-                CompletableFuture.completedStage(
-                    renderGraphQLErrorDataFetcherResultFromThrowableAndEnvironment<R>(
-                        throwable,
-                        environment
                     )
-                )
-            }
-        )
+                },
+                { throwable ->
+                    resultFuture.complete(
+                        renderGraphQLErrorDataFetcherResultFromThrowableAndEnvironment<R>(
+                            throwable,
+                            environment
+                        )
+                    )
+                },
+                { ->
+                    // if result_future is empty when on_complete is called, then the publisher was
+                    // empty
+                    if (!resultFuture.isDone) {
+                        foldUntypedMaterializedValueOptionIntoTypedDataFetcherResult<R>(
+                            environment,
+                            none()
+                        )
+                    }
+                }
+            )
+        return resultFuture
     }
 
     private fun <R> foldUntypedMaterializedValueOptionIntoTypedDataFetcherResult(
         environment: DataFetchingEnvironment,
-        session: SingleRequestFieldMaterializationSession,
         materializedValueOption: Option<Any>
     ): DataFetcherResult<R> {
         return try {

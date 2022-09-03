@@ -8,6 +8,7 @@ import java.util.*
 import java.util.stream.Stream
 import kotlinx.collections.immutable.PersistentSet
 import kotlinx.collections.immutable.persistentSetOf
+import reactor.core.publisher.Mono
 
 /**
  *
@@ -34,6 +35,17 @@ object OptionExtensions {
             this.isEmpty -> none()
             else -> {
                 Option.fromNullable(this.get())
+            }
+        }
+    }
+
+    fun <T> Option<T>?.toMono(): Mono<T> {
+        return when {
+            this == null -> {
+                Mono.empty<T>()
+            }
+            else -> {
+                this.fold({ Mono.empty<T>() }, { t: T? -> Mono.justOrEmpty(t) })
             }
         }
     }

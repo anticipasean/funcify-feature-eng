@@ -10,8 +10,8 @@ import funcify.feature.datasource.graphql.GraphQLApiService
 import funcify.feature.datasource.graphql.error.GQLDataSourceErrorResponse
 import funcify.feature.datasource.graphql.error.GQLDataSourceException
 import funcify.feature.datasource.graphql.metadata.provider.GraphQLApiSourceMetadataProvider
-import funcify.feature.tools.container.async.KFuture
 import funcify.feature.tools.container.attempt.Try
+import funcify.feature.tools.extensions.MonoExtensions.widen
 import funcify.feature.tools.extensions.PersistentListExtensions.reduceToPersistentList
 import funcify.feature.tools.extensions.StreamExtensions.flatMapOptions
 import graphql.ExecutionResult
@@ -28,6 +28,7 @@ import graphql.schema.idl.SchemaGenerator
 import graphql.schema.idl.SchemaParser
 import graphql.schema.idl.TypeDefinitionRegistry
 import kotlinx.collections.immutable.PersistentList
+import reactor.core.publisher.Mono
 
 /**
  *
@@ -107,18 +108,17 @@ class MockGraphQLApiSourceMetadataProvider(val objectMapper: ObjectMapper) :
                     query: String,
                     variables: Map<String, Any>,
                     operationName: String?
-                ): KFuture<JsonNode> {
-                    return KFuture.completed(JsonNodeFactory.instance.nullNode())
+                ): Mono<JsonNode> {
+                    return Mono.just(JsonNodeFactory.instance.nullNode())
                 }
             }
     }
 
-    override fun provideMetadata(service: GraphQLApiService): KFuture<GraphQLSchema> {
-        return KFuture.fromAttempt(
-            mimicIntrospectionQueryAgainstGraphQLAPIServerOnParsedSchema().flatMap { jn ->
-                convertJsonNodeIntoGraphQLSchemaInstance(jn)
-            }
-        )
+    override fun provideMetadata(service: GraphQLApiService): Mono<GraphQLSchema> {
+        return mimicIntrospectionQueryAgainstGraphQLAPIServerOnParsedSchema()
+            .flatMap { jn -> convertJsonNodeIntoGraphQLSchemaInstance(jn) }
+            .toMono()
+            .widen()
     }
 
     private fun mimicIntrospectionQueryAgainstGraphQLAPIServerOnParsedSchema(): Try<JsonNode> {

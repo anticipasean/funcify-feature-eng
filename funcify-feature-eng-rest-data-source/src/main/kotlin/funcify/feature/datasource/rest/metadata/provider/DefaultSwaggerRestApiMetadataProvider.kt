@@ -8,7 +8,6 @@ import funcify.feature.datasource.rest.swagger.SwaggerSchemaEndpoint
 import funcify.feature.datasource.rest.swagger.SwaggerSchemaEndpointRegistry
 import funcify.feature.json.JsonMapper
 import funcify.feature.tools.container.attempt.Try
-import funcify.feature.tools.container.async.KFuture
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.extensions.TryExtensions.successIfDefined
@@ -39,7 +38,7 @@ internal class DefaultSwaggerRestApiMetadataProvider(
         private val logger: Logger = loggerFor<DefaultSwaggerRestApiMetadataProvider>()
     }
 
-    override fun provideMetadata(service: RestApiService): KFuture<OpenAPI> {
+    override fun provideMetadata(service: RestApiService): Mono<OpenAPI> {
         logger.info(
             """provide_metadata: [ service: 
             |{ name: ${service.serviceName}, 
@@ -47,25 +46,24 @@ internal class DefaultSwaggerRestApiMetadataProvider(
             |port: ${service.port} } ]
             |""".flatten()
         )
-        return KFuture.fromAttempt(
-                swaggerSchemaEndpointRegistry
-                    .getSwaggerSchemaEndpointForRestApiService(service)
-                    .successIfDefined {
-                        RestApiDataSourceException(
-                            RestApiErrorResponse.REST_API_DATA_SOURCE_CREATION_ERROR,
-                            """${SwaggerSchemaEndpoint::class.qualifiedName} not found  
+        return swaggerSchemaEndpointRegistry
+            .getSwaggerSchemaEndpointForRestApiService(service)
+            .successIfDefined {
+                RestApiDataSourceException(
+                    RestApiErrorResponse.REST_API_DATA_SOURCE_CREATION_ERROR,
+                    """${SwaggerSchemaEndpoint::class.qualifiedName} not found  
                             |for rest_api_service: [ name: ${service.serviceName} ]
                             |""".flatten()
-                        )
-                    }
-            )
-            .flatMapMono { swaggerSchemaEndpoint ->
+                )
+            }
+            .toMono()
+            .flatMap { swaggerSchemaEndpoint ->
                 requestSwaggerSchemaFromRestServiceOnSwaggerSchemaEndpoint(
                     service,
                     swaggerSchemaEndpoint
                 )
             }
-            .flatMapMono { swaggerJsonNode ->
+            .flatMap { swaggerJsonNode ->
                 extractOpenAPISchemaFromJsonNodeResponseBody(swaggerJsonNode, service)
             }
     }

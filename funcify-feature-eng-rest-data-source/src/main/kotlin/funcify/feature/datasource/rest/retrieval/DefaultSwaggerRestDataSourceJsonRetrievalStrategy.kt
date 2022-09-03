@@ -21,7 +21,6 @@ import funcify.feature.schema.vertex.ParameterJunctionVertex
 import funcify.feature.schema.vertex.ParameterLeafVertex
 import funcify.feature.schema.vertex.SourceJunctionVertex
 import funcify.feature.schema.vertex.SourceLeafVertex
-import funcify.feature.tools.container.async.KFuture
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.container.attempt.Try.Companion.filterInstanceOf
 import funcify.feature.tools.extensions.FunctionExtensions.compose
@@ -281,12 +280,12 @@ internal class DefaultSwaggerRestDataSourceJsonRetrievalStrategy(
 
     override fun invoke(
         valuesByParameterPaths: ImmutableMap<SchematicPath, JsonNode>
-    ): KFuture<ImmutableMap<SchematicPath, JsonNode>> {
+    ): Mono<ImmutableMap<SchematicPath, JsonNode>> {
         val parameterPathsAsString = valuesByParameterPaths.keys.joinToString(", ", "{ ", " }")
         logger.debug("invoke: [ values_by_parameter_paths.keys: $parameterPathsAsString ] ]")
         return attemptToCreateRequestJsonObjectFromValuesByParameterPaths(valuesByParameterPaths)
-            .toKFuture()
-            .flatMap(asyncExecutor, makeRequestToRestApiDataSourceWithJsonPayload())
+            .toMono()
+            .flatMap(makeRequestToRestApiDataSourceWithJsonPayload())
             .flatMap(applyResponsePostProcessingStrategy())
     }
 
@@ -364,7 +363,7 @@ internal class DefaultSwaggerRestDataSourceJsonRetrievalStrategy(
         }
     }
 
-    private fun makeRequestToRestApiDataSourceWithJsonPayload(): (JsonNode) -> KFuture<JsonNode> {
+    private fun makeRequestToRestApiDataSourceWithJsonPayload(): (JsonNode) -> Mono<JsonNode> {
         return { requestBodyJson: JsonNode ->
             parentVertexPathToSwaggerSourceAttribute.second.servicePathItemName
                 .successIfDefined {
@@ -376,8 +375,8 @@ internal class DefaultSwaggerRestDataSourceJsonRetrievalStrategy(
                             |]""".flatten()
                     )
                 }
-                .toKFuture()
-                .flatMapMono { pathString ->
+                .toMono()
+                .flatMap { pathString ->
                     dataSource.restApiService
                         .getWebClient()
                         .post()
@@ -414,7 +413,7 @@ internal class DefaultSwaggerRestDataSourceJsonRetrievalStrategy(
     }
 
     private fun applyResponsePostProcessingStrategy():
-        (JsonNode) -> KFuture<ImmutableMap<SchematicPath, JsonNode>> {
+        (JsonNode) -> Mono<ImmutableMap<SchematicPath, JsonNode>> {
         return { responseJsonNode: JsonNode ->
             postProcessingStrategy.postProcessRestApiJsonResponse(
                 DefaultSwaggerRestApiJsonResponsePostProcessingContext(

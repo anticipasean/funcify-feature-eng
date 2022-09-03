@@ -1,15 +1,14 @@
 package funcify.feature.datasource.retrieval
 
 import arrow.core.Either
-import arrow.core.Option
 import com.fasterxml.jackson.databind.JsonNode
 import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.schema.vertex.SourceJunctionVertex
 import funcify.feature.schema.vertex.SourceLeafVertex
-import funcify.feature.tools.container.async.KFuture
 import funcify.feature.tools.container.attempt.Try
 import kotlinx.collections.immutable.ImmutableMap
+import reactor.core.publisher.Mono
 
 /**
  *
@@ -17,7 +16,7 @@ import kotlinx.collections.immutable.ImmutableMap
  * @created 2022-08-24
  */
 interface SingleSourceIndexJsonOptionCacheRetrievalFunction :
-    (ImmutableMap<SchematicPath, JsonNode>) -> KFuture<Option<JsonNode>> {
+    (ImmutableMap<SchematicPath, JsonNode>) -> Mono<JsonNode> {
 
     val cacheForDataSourceKey: DataSource.Key<*>
         get() = cacheForDataSource.key
@@ -31,7 +30,7 @@ interface SingleSourceIndexJsonOptionCacheRetrievalFunction :
 
     override fun invoke(
         contextParameterValuesByPath: ImmutableMap<SchematicPath, JsonNode>
-    ): KFuture<Option<JsonNode>>
+    ): Mono<JsonNode>
 
     interface Builder {
 

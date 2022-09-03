@@ -2,8 +2,6 @@ package funcify.feature.materializer.fetcher
 
 import arrow.core.filterIsInstance
 import arrow.core.toOption
-import funcify.feature.materializer.service.SingleRequestMaterializationDispatchService
-import funcify.feature.materializer.service.SingleRequestMaterializationGraphService
 import funcify.feature.materializer.service.SingleRequestMaterializationOrchestratorService
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flatten
@@ -45,11 +43,8 @@ internal class DefaultSingleRequestFieldMaterializationDataFetcherFactory(
             |} ] ]""".flatten()
         )
         return DefaultSingleRequestContextDecoratingFieldMaterializationDataFetcher<Any?>(
-            DefaultSingleRequestSessionFieldMaterializationProcessor(
-                asyncExecutor = asyncExecutor,
-                singleRequestMaterializationOrchestratorService =
-                    singleRequestMaterializationOrchestratorService
-            )
+            asyncExecutor,
+            singleRequestMaterializationOrchestratorService
         )
     }
 }

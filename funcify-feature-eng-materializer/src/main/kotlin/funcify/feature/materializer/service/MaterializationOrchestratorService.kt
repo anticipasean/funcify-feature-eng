@@ -1,9 +1,7 @@
 package funcify.feature.materializer.service
 
-import arrow.core.Option
 import funcify.feature.materializer.session.MaterializationSession
-import funcify.feature.tools.container.attempt.Try
-import funcify.feature.tools.container.async.KFuture
+import reactor.core.publisher.Mono
 
 /**
  *
@@ -12,5 +10,5 @@ import funcify.feature.tools.container.async.KFuture
  */
 interface MaterializationOrchestratorService<M : MaterializationSession> {
 
-    fun materializeValueInSession(session: M): Try<Pair<M, KFuture<Option<Any>>>>
+    fun materializeValueInSession(session: M): Mono<Any>
 }

@@ -1,9 +1,7 @@
 package funcify.feature.materializer.service
 
-import arrow.core.Option
 import funcify.feature.materializer.fetcher.SingleRequestFieldMaterializationSession
-import funcify.feature.tools.container.attempt.Try
-import funcify.feature.tools.container.async.KFuture
+import reactor.core.publisher.Mono
 
 /**
  *
@@ -15,5 +13,5 @@ interface SingleRequestMaterializationOrchestratorService :
 
     override fun materializeValueInSession(
         session: SingleRequestFieldMaterializationSession
-    ): Try<Pair<SingleRequestFieldMaterializationSession, KFuture<Option<Any>>>>
+    ): Mono<Any>
 }

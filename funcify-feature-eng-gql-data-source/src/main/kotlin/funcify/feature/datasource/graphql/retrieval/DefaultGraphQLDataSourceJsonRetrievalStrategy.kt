@@ -21,7 +21,6 @@ import funcify.feature.schema.vertex.ParameterJunctionVertex
 import funcify.feature.schema.vertex.ParameterLeafVertex
 import funcify.feature.schema.vertex.SourceJunctionVertex
 import funcify.feature.schema.vertex.SourceLeafVertex
-import funcify.feature.tools.container.async.KFuture
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentMap
@@ -37,6 +36,7 @@ import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toPersistentSet
 import org.slf4j.Logger
+import reactor.core.publisher.Mono
 
 /**
  *
@@ -230,26 +230,25 @@ internal class DefaultGraphQLDataSourceJsonRetrievalStrategy(
 
     override fun invoke(
         valuesByParameterPaths: ImmutableMap<SchematicPath, JsonNode>
-    ): KFuture<ImmutableMap<SchematicPath, JsonNode>> {
+    ): Mono<ImmutableMap<SchematicPath, JsonNode>> {
         val parameterPathsSetStr = valuesByParameterPaths.keys.joinToString(",", "{ ", " }")
         logger.debug("invoke: [ values_by_parameter_paths.keys: $parameterPathsSetStr ]")
-        return KFuture.fromAttempt(
-                attemptToCreateGraphQLQueryStringFromValuesByParameterPathsInput(
-                    valuesByParameterPaths
-                        .asSequence()
-                        .map { (vertexPath, jsonValue) ->
-                            graphQLDataSourceIndexPathByParameterVertexPath[vertexPath]
-                                .toOption()
-                                .map { graphQLDataSourceParameterPath ->
-                                    graphQLDataSourceParameterPath to jsonValue
-                                }
-                        }
-                        .flatMapOptions()
-                        .reducePairsToPersistentMap(),
-                    parameterPathsSetStr
-                )
+        return attemptToCreateGraphQLQueryStringFromValuesByParameterPathsInput(
+                valuesByParameterPaths
+                    .asSequence()
+                    .map { (vertexPath, jsonValue) ->
+                        graphQLDataSourceIndexPathByParameterVertexPath[vertexPath]
+                            .toOption()
+                            .map { graphQLDataSourceParameterPath ->
+                                graphQLDataSourceParameterPath to jsonValue
+                            }
+                    }
+                    .flatMapOptions()
+                    .reducePairsToPersistentMap(),
+                parameterPathsSetStr
             )
-            .flatMap(asyncExecutor) { queryString ->
+            .toMono()
+            .flatMap { queryString ->
                 graphQLDataSource.graphQLApiService.executeSingleQuery(queryString)
             }
             .flatMap(convertResponseJsonIntoThrowableIfErrorsPresent())
@@ -283,7 +282,8 @@ internal class DefaultGraphQLDataSourceJsonRetrievalStrategy(
             }
     }
 
-    private fun convertResponseJsonIntoThrowableIfErrorsPresent(): (JsonNode) -> KFuture<JsonNode> {
+    private fun convertResponseJsonIntoThrowableIfErrorsPresent():
+        (JsonNode) -> Mono<out JsonNode> {
         return { responseJson: JsonNode ->
             responseJson
                 .toOption()
@@ -331,12 +331,12 @@ internal class DefaultGraphQLDataSourceJsonRetrievalStrategy(
                             .fold(Try.Companion::failure, Try.Companion::failure)
                     }
                 )
-                .toKFuture()
+                .toMono()
         }
     }
 
     private fun convertResponseJsonIntoJsonValuesBySchematicPathMap():
-        (JsonNode) -> KFuture<ImmutableMap<SchematicPath, JsonNode>> {
+        (JsonNode) -> Mono<out ImmutableMap<SchematicPath, JsonNode>> {
         return { responseJson: JsonNode ->
             Try.success(responseJson)
                 .filter(
@@ -369,7 +369,7 @@ internal class DefaultGraphQLDataSourceJsonRetrievalStrategy(
                             )
                     )
                 }
-                .toKFuture()
+                .toMono()
         }
     }
 }

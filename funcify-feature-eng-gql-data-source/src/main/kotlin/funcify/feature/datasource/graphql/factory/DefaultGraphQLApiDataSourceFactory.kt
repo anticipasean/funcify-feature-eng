@@ -12,6 +12,7 @@ import funcify.feature.schema.datasource.DataSourceType
 import funcify.feature.schema.datasource.RawDataSourceType
 import funcify.feature.schema.datasource.SourceMetamodel
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
+import funcify.feature.tools.extensions.MonoExtensions.toKFuture
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import graphql.schema.GraphQLSchema
 import kotlin.reflect.KClass
@@ -62,6 +63,7 @@ internal class DefaultGraphQLApiDataSourceFactory(
                     key = dataSourceKey
                 )
             }
+            .toKFuture()
             .getOrElseThrow { t: Throwable ->
                 GQLDataSourceException(
                     GQLDataSourceErrorResponse.UNEXPECTED_ERROR,

@@ -18,6 +18,7 @@ import funcify.feature.spring.service.GraphQLSingleRequestExecutor
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.container.attempt.Try.Companion.flatMapFailure
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
+import funcify.feature.tools.extensions.MonoExtensions.widen
 import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentMap
 import funcify.feature.tools.extensions.StreamExtensions.flatMapOptions
 import funcify.feature.tools.extensions.StringExtensions.flatten
@@ -80,10 +81,6 @@ internal class GraphQLWebFluxHandlerFunction(
                     )
                 }
         }
-
-        private fun <T> Mono<out T>.narrow(): Mono<T> {
-            return this.map(::identity)
-        }
     }
 
     override fun handle(request: ServerRequest): Mono<ServerResponse> {
@@ -98,7 +95,7 @@ internal class GraphQLWebFluxHandlerFunction(
                 { commonException -> convertCommonExceptionTypeIntoServerResponse(commonException) }
             )
             .onErrorResume(convertAnyUnhandledExceptionsIntoServerResponse(request))
-            .narrow()
+            .widen()
     }
 
     private fun convertServerRequestIntoRawGraphQLRequest(

@@ -6,7 +6,6 @@ import com.fasterxml.jackson.databind.node.JsonNodeFactory
 import com.fasterxml.jackson.databind.node.ObjectNode
 import com.jayway.jsonpath.JsonPath
 import funcify.feature.datasource.rest.RestApiService
-import funcify.feature.tools.container.async.KFuture
 import io.swagger.v3.oas.models.OpenAPI
 import io.swagger.v3.parser.OpenAPIV3Parser
 import java.net.URI
@@ -15,6 +14,7 @@ import org.springframework.boot.web.reactive.function.client.WebClientCustomizer
 import org.springframework.http.HttpMethod
 import org.springframework.web.reactive.function.client.WebClient
 import org.springframework.web.util.UriBuilder
+import reactor.core.publisher.Mono
 
 /**
  * Represents an endpoint specification for [RestApiService]s that support [OpenAPI] models of their
@@ -62,7 +62,7 @@ interface SwaggerSchemaEndpoint {
      * @default_value: a function that creates an empty [ObjectNode] and publisher for it
      */
     fun requestBodyCreator(): () -> Publisher<JsonNode> {
-        return { -> KFuture.completed<JsonNode>(JsonNodeFactory.instance.objectNode()) }
+        return { -> Mono.just<JsonNode>(JsonNodeFactory.instance.objectNode()) }
     }
 
     /**

@@ -12,6 +12,7 @@ import funcify.feature.schema.datasource.DataSourceType
 import funcify.feature.schema.datasource.RawDataSourceType
 import funcify.feature.schema.datasource.SourceMetamodel
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
+import funcify.feature.tools.extensions.MonoExtensions.toTry
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import kotlin.reflect.KClass
 import org.slf4j.Logger
@@ -66,7 +67,8 @@ internal class DefaultRestApiDataSourceFactory<MD>(
                     key = sourceMetamodelPair.first
                 )
             }
-            .getOrElseThrow { t: Throwable ->
+            .toTry()
+            .orElseThrow { t: Throwable ->
                 RestApiDataSourceException(
                     RestApiErrorResponse.UNEXPECTED_ERROR,
                     """error when retrieving or processing metadata 

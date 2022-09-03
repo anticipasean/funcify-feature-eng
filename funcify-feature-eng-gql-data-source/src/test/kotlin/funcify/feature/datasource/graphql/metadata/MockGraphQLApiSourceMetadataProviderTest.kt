@@ -3,6 +3,7 @@ package funcify.feature.datasource.graphql.metadata
 import com.fasterxml.jackson.databind.ObjectMapper
 import funcify.feature.datasource.graphql.metadata.MockGraphQLApiSourceMetadataProvider.Companion.fakeService
 import funcify.feature.json.JsonObjectMappingConfiguration
+import funcify.feature.tools.extensions.MonoExtensions.toTry
 import graphql.schema.GraphQLSchema
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
@@ -20,7 +21,7 @@ internal class MockGraphQLApiSourceMetadataProviderTest {
     fun provideMockMetadataTest() {
         MockGraphQLApiSourceMetadataProvider(objectMapper)
             .provideMetadata(fakeService)
-            .get()
+            .toTry()
             .fold(
                 { gqlSchema: GraphQLSchema ->
                     Assertions.assertEquals(

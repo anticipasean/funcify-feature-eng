@@ -59,7 +59,7 @@ sealed interface Try<out S> : Iterable<S> {
         }
 
         @JvmStatic
-        fun <S> nullableSuccess(successfulResult: S): Try<S> {
+        fun <S> nullableSuccess(successfulResult: S?): Try<S> {
             return nullableSuccess(successfulResult) { NoSuchElementException("result is null") }
         }
 

@@ -24,6 +24,7 @@ import funcify.feature.schema.vertex.SourceJunctionVertex
 import funcify.feature.schema.vertex.SourceLeafVertex
 import funcify.feature.schema.vertex.SourceRootVertex
 import funcify.feature.tools.container.attempt.Try
+import funcify.feature.tools.extensions.MonoExtensions.toTry
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
@@ -85,7 +86,7 @@ internal class DefaultGraphQLApiDataSourceFactoryTest {
                     .builder()
                     .addDataSource(graphQLApiDataSource)
                     .build()
-                    .get()
+                    .toTry()
             } catch (t: Throwable) {
                 Assertions.fail<Try<MetamodelGraph>>(
                     "throwable was not caught in creation of metamodel graph",

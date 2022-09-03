@@ -1,15 +1,14 @@
 package funcify.feature.datasource.retrieval
 
 import arrow.core.Either
-import arrow.core.Option
 import com.fasterxml.jackson.databind.JsonNode
 import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.datasource.SourceIndex
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.schema.vertex.SourceJunctionVertex
 import funcify.feature.schema.vertex.SourceLeafVertex
-import funcify.feature.tools.container.async.KFuture
 import kotlinx.collections.immutable.ImmutableMap
+import reactor.core.publisher.Mono
 
 /**
  * Strategy for retrieval of a single value for a single [SchematicPath] from a cache acting on
@@ -29,5 +28,5 @@ interface DataSourceCacheJsonRetrievalStrategy<SI : SourceIndex<SI>> :
 
     override fun invoke(
         contextParameterValuesByPath: ImmutableMap<SchematicPath, JsonNode>
-    ): KFuture<Option<JsonNode>>
+    ): Mono<JsonNode>
 }
