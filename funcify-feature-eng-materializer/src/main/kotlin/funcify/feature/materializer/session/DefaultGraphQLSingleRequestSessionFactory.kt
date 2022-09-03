@@ -1,9 +1,7 @@
-package funcify.feature.spring.session
+package funcify.feature.materializer.session
 
 import funcify.feature.materializer.request.RawGraphQLRequest
 import funcify.feature.materializer.schema.MaterializationMetamodelBroker
-import funcify.feature.materializer.session.GraphQLSingleRequestSession
-import funcify.feature.materializer.session.GraphQLSingleRequestSessionFactory
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import org.slf4j.Logger
@@ -14,12 +12,12 @@ import reactor.core.publisher.Mono
  * @author smccarron
  * @created 2/20/22
  */
-internal class SpringGraphQLSingleRequestSessionFactory(
+internal class DefaultGraphQLSingleRequestSessionFactory(
     private val materializationMetamodelBroker: MaterializationMetamodelBroker
 ) : GraphQLSingleRequestSessionFactory {
 
     companion object {
-        private val logger: Logger = loggerFor<SpringGraphQLSingleRequestSessionFactory>()
+        private val logger: Logger = loggerFor<DefaultGraphQLSingleRequestSessionFactory>()
     }
 
     override fun createSessionForSingleRequest(
@@ -33,7 +31,7 @@ internal class SpringGraphQLSingleRequestSessionFactory(
         return materializationMetamodelBroker
             .fetchLatestMaterializationMetamodel()
             .map { materializationMetamodel ->
-                DefaultSpringGraphQLSingleRequestSession(
+                DefaultGraphQLSingleRequestSession(
                     materializationSchema = materializationMetamodel.materializationGraphQLSchema,
                     metamodelGraph = materializationMetamodel.metamodelGraph,
                     rawGraphQLRequest = rawGraphQLRequest

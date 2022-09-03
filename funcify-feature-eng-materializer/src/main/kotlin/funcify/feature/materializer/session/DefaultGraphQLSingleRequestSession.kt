@@ -1,4 +1,4 @@
-package funcify.feature.spring.session
+package funcify.feature.materializer.session
 
 import arrow.core.Option
 import arrow.core.none
@@ -8,7 +8,6 @@ import funcify.feature.materializer.request.RawGraphQLRequest
 import funcify.feature.materializer.response.SerializedGraphQLResponse
 import funcify.feature.materializer.service.RequestDispatchMaterializationPhase
 import funcify.feature.materializer.service.RequestParameterMaterializationGraphPhase
-import funcify.feature.materializer.session.GraphQLSingleRequestSession
 import funcify.feature.schema.MetamodelGraph
 import graphql.language.Document
 import graphql.language.OperationDefinition
@@ -22,7 +21,7 @@ import kotlinx.collections.immutable.toPersistentMap
  * @author smccarron
  * @created 2/20/22
  */
-internal data class DefaultSpringGraphQLSingleRequestSession(
+internal data class DefaultGraphQLSingleRequestSession(
     override val materializationSchema: GraphQLSchema,
     override val metamodelGraph: MetamodelGraph,
     override val rawGraphQLRequest: RawGraphQLRequest,
@@ -37,12 +36,12 @@ internal data class DefaultSpringGraphQLSingleRequestSession(
         none(),
     override val serializedGraphQLResponse: Option<SerializedGraphQLResponse> =
         none<SerializedGraphQLResponse>(),
-) : SpringGraphQLSingleRequestSession {
+) : GraphQLSingleRequestSession {
 
     companion object {
 
         internal data class DefaultBuilder(
-            private val currentSession: DefaultSpringGraphQLSingleRequestSession,
+            private val currentSession: DefaultGraphQLSingleRequestSession,
             private var document: Option<Document> = currentSession.document,
             private var operationDefinition: Option<OperationDefinition> =
                 currentSession.operationDefinition,

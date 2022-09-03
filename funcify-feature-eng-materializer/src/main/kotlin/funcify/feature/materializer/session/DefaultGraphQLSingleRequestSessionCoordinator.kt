@@ -1,12 +1,10 @@
-package funcify.feature.spring.session
+package funcify.feature.materializer.session
 
 import funcify.feature.materializer.request.GraphQLExecutionInputCustomizer
 import funcify.feature.materializer.response.SerializedGraphQLResponse
 import funcify.feature.materializer.response.SerializedGraphQLResponseFactory
 import funcify.feature.materializer.service.GraphQLSingleRequestMaterializationQueryExecutionStrategy
 import funcify.feature.materializer.service.MaterializationPreparsedDocumentProvider
-import funcify.feature.materializer.session.GraphQLSingleRequestSession
-import funcify.feature.materializer.session.GraphQLSingleRequestSessionCoordinator
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import graphql.ExecutionInput
@@ -21,7 +19,7 @@ import reactor.core.publisher.Mono
  * @author smccarron
  * @created 2/19/22
  */
-internal class SpringGraphQLSingleRequestSessionCoordinator(
+internal class DefaultGraphQLSingleRequestSessionCoordinator(
     private val asyncExecutor: Executor,
     private val serializedGraphQLResponseFactory: SerializedGraphQLResponseFactory,
     private val materializationPreparsedDocumentProvider: MaterializationPreparsedDocumentProvider,
@@ -30,7 +28,7 @@ internal class SpringGraphQLSingleRequestSessionCoordinator(
 ) : GraphQLSingleRequestSessionCoordinator {
 
     companion object {
-        private val logger: Logger = loggerFor<SpringGraphQLSingleRequestSessionCoordinator>()
+        private val logger: Logger = loggerFor<DefaultGraphQLSingleRequestSessionCoordinator>()
     }
 
     override fun conductSingleRequestSession(

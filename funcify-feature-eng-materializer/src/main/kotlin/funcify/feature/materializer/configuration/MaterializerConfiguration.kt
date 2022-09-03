@@ -27,6 +27,10 @@ import funcify.feature.materializer.schema.DefaultRequestParameterEdgeFactory
 import funcify.feature.materializer.schema.MaterializationGraphQLSchemaFactory
 import funcify.feature.materializer.schema.MaterializationMetamodelBroker
 import funcify.feature.materializer.service.*
+import funcify.feature.materializer.session.DefaultGraphQLSingleRequestSessionCoordinator
+import funcify.feature.materializer.session.DefaultGraphQLSingleRequestSessionFactory
+import funcify.feature.materializer.session.GraphQLSingleRequestSessionCoordinator
+import funcify.feature.materializer.session.GraphQLSingleRequestSessionFactory
 import funcify.feature.scalar.registry.ScalarTypeRegistry
 import funcify.feature.schema.MetamodelGraph
 import funcify.feature.schema.factory.MetamodelGraphCreationContext
@@ -282,6 +286,31 @@ class MaterializerConfiguration {
             )
         )
         return broker
+    }
+
+    @Bean
+    fun graphQLSingleRequestSessionFactory(
+        materializationMetamodelBroker: MaterializationMetamodelBroker
+    ): GraphQLSingleRequestSessionFactory {
+        return DefaultGraphQLSingleRequestSessionFactory(
+            materializationMetamodelBroker = materializationMetamodelBroker
+        )
+    }
+
+    @Bean
+    fun graphQLSingleRequestSessionCoordinator(
+        asyncExecutor: Executor,
+        serializedGraphQLResponseFactory: SerializedGraphQLResponseFactory,
+        materializationPreparsedDocumentProvider: MaterializationPreparsedDocumentProvider,
+        materializationQueryExecutionStrategy:
+            GraphQLSingleRequestMaterializationQueryExecutionStrategy
+    ): GraphQLSingleRequestSessionCoordinator {
+        return DefaultGraphQLSingleRequestSessionCoordinator(
+            asyncExecutor = asyncExecutor,
+            serializedGraphQLResponseFactory = serializedGraphQLResponseFactory,
+            materializationPreparsedDocumentProvider = materializationPreparsedDocumentProvider,
+            materializationQueryExecutionStrategy = materializationQueryExecutionStrategy
+        )
     }
 
     @ConditionalOnMissingBean(value = [ExecutionStrategy::class])
