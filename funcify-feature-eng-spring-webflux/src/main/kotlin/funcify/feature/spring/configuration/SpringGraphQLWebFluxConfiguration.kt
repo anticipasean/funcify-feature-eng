@@ -5,6 +5,7 @@ import funcify.feature.materializer.request.GraphQLExecutionInputCustomizer
 import funcify.feature.materializer.request.RawGraphQLRequestFactory
 import funcify.feature.materializer.response.SerializedGraphQLResponseFactory
 import funcify.feature.materializer.schema.MaterializationMetamodelBroker
+import funcify.feature.materializer.service.GraphQLSingleRequestMaterializationQueryExecutionStrategy
 import funcify.feature.materializer.service.MaterializationPreparsedDocumentProvider
 import funcify.feature.materializer.session.GraphQLSingleRequestSessionCoordinator
 import funcify.feature.materializer.session.GraphQLSingleRequestSessionFactory
@@ -13,7 +14,6 @@ import funcify.feature.spring.service.GraphQLSingleRequestExecutor
 import funcify.feature.spring.service.SpringGraphQLSingleRequestExecutor
 import funcify.feature.spring.session.SpringGraphQLSingleRequestSessionCoordinator
 import funcify.feature.spring.session.SpringGraphQLSingleRequestSessionFactory
-import graphql.execution.ExecutionStrategy
 import java.util.concurrent.Executor
 import org.springframework.beans.factory.ObjectProvider
 import org.springframework.beans.factory.annotation.Value
@@ -51,13 +51,14 @@ class SpringGraphQLWebFluxConfiguration {
         asyncExecutor: Executor,
         serializedGraphQLResponseFactory: SerializedGraphQLResponseFactory,
         materializationPreparsedDocumentProvider: MaterializationPreparsedDocumentProvider,
-        materializationExecutionStrategy: ExecutionStrategy
+        materializationQueryExecutionStrategy:
+            GraphQLSingleRequestMaterializationQueryExecutionStrategy
     ): GraphQLSingleRequestSessionCoordinator {
         return SpringGraphQLSingleRequestSessionCoordinator(
             asyncExecutor = asyncExecutor,
             serializedGraphQLResponseFactory = serializedGraphQLResponseFactory,
             materializationPreparsedDocumentProvider = materializationPreparsedDocumentProvider,
-            materializationExecutionStrategy = materializationExecutionStrategy
+            materializationQueryExecutionStrategy = materializationQueryExecutionStrategy
         )
     }
 

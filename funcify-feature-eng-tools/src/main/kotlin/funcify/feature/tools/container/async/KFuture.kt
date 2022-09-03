@@ -100,9 +100,7 @@ interface KFuture<out T> : Publisher<@UnsafeVariance T> {
                     futures.asSequence().fold(persistentListOf()) { pl, kf ->
                         kf.fold { cs, _ -> pl.add(cs.toCompletableFuture()) }
                     }
-                val aggregateFuture =
-                    CompletableFuture.allOf(*futuresList.toTypedArray<CompletableFuture<out T>>())
-                aggregateFuture.join()
+                CompletableFuture.allOf(*futuresList.toTypedArray()).join()
                 futuresList
                     .stream()
                     .map { cf: CompletableFuture<out T> -> cf.join() }
@@ -121,9 +119,7 @@ interface KFuture<out T> : Publisher<@UnsafeVariance T> {
                     futures.asSequence().fold(persistentListOf()) { pl, kf ->
                         kf.fold { cs, _ -> pl.add(cs.toCompletableFuture()) }
                     }
-                val aggregateFuture =
-                    CompletableFuture.allOf(*futuresList.toTypedArray<CompletableFuture<out T>>())
-                aggregateFuture.join()
+                CompletableFuture.allOf(*futuresList.toTypedArray()).join()
                 futuresList
                     .stream()
                     .map { cf: CompletableFuture<out T> -> cf.join() }
@@ -141,9 +137,7 @@ interface KFuture<out T> : Publisher<@UnsafeVariance T> {
                     futures.asSequence().fold(persistentListOf()) { pl, kf ->
                         kf.fold { cs, _ -> pl.add(cs.toCompletableFuture()) }
                     }
-                val aggregateFuture =
-                    CompletableFuture.allOf(*futuresList.toTypedArray<CompletableFuture<out T>>())
-                aggregateFuture.join()
+                CompletableFuture.allOf(*futuresList.toTypedArray()).join()
                 futuresList
                     .stream()
                     .map { cf: CompletableFuture<out T> -> cf.join() }
@@ -162,9 +156,7 @@ interface KFuture<out T> : Publisher<@UnsafeVariance T> {
                     futures.asSequence().fold(persistentListOf()) { pl, kf ->
                         kf.fold { cs, _ -> pl.add(cs.toCompletableFuture()) }
                     }
-                val aggregateFuture =
-                    CompletableFuture.allOf(*futuresList.toTypedArray<CompletableFuture<out T>>())
-                aggregateFuture.join()
+                CompletableFuture.allOf(*futuresList.toTypedArray()).join()
                 futuresList
                     .stream()
                     .map { cf: CompletableFuture<out T> -> cf.join() }
@@ -182,9 +174,8 @@ interface KFuture<out T> : Publisher<@UnsafeVariance T> {
                     futuresSequence.fold(persistentListOf()) { pl, kf ->
                         kf.fold { cs, _ -> pl.add(cs.toCompletableFuture()) }
                     }
-                val aggregateFuture =
-                    CompletableFuture.allOf(*futuresList.toTypedArray<CompletableFuture<out T>>())
-                aggregateFuture.join()
+
+                CompletableFuture.allOf(*futuresList.toTypedArray()).join()
                 futuresList
                     .stream()
                     .map { cf: CompletableFuture<out T> -> cf.join() }
@@ -203,9 +194,7 @@ interface KFuture<out T> : Publisher<@UnsafeVariance T> {
                     futuresSequence.fold(persistentListOf()) { pl, kf ->
                         kf.fold { cs, _ -> pl.add(cs.toCompletableFuture()) }
                     }
-                val aggregateFuture =
-                    CompletableFuture.allOf(*futuresList.toTypedArray<CompletableFuture<out T>>())
-                aggregateFuture.join()
+                CompletableFuture.allOf(*futuresList.toTypedArray()).join()
                 futuresList
                     .stream()
                     .map { cf: CompletableFuture<out T> -> cf.join() }
@@ -225,9 +214,7 @@ interface KFuture<out T> : Publisher<@UnsafeVariance T> {
                         { pl, kf -> kf.fold { cs, _ -> pl.add(cs.toCompletableFuture()) } },
                         { pl1, pl2 -> pl1.addAll(pl2) }
                     )
-                val aggregateFuture =
-                    CompletableFuture.allOf(*futuresList.toTypedArray<CompletableFuture<out T>>())
-                aggregateFuture.join()
+                CompletableFuture.allOf(*futuresList.toTypedArray()).join()
                 futuresList
                     .stream()
                     .map { cf: CompletableFuture<out T> -> cf.join() }
@@ -248,9 +235,7 @@ interface KFuture<out T> : Publisher<@UnsafeVariance T> {
                         { pl, kf -> kf.fold { cs, _ -> pl.add(cs.toCompletableFuture()) } },
                         { pl1, pl2 -> pl1.addAll(pl2) }
                     )
-                val aggregateFuture =
-                    CompletableFuture.allOf(*futuresList.toTypedArray<CompletableFuture<out T>>())
-                aggregateFuture.join()
+                CompletableFuture.allOf(*futuresList.toTypedArray()).join()
                 futuresList
                     .stream()
                     .map { cf: CompletableFuture<out T> -> cf.join() }
@@ -269,7 +254,11 @@ interface KFuture<out T> : Publisher<@UnsafeVariance T> {
         inline fun <reified T> KFuture<T>.mapFailure(
             crossinline mapper: (Throwable) -> T
         ): KFuture<T> {
-            return this.flatMapFailure { thr: Throwable -> completed(mapper.invoke(thr)) }
+            return this.flatMapFailure { thr: Throwable ->
+                WrappedCompletionStageAndExecutor(
+                    CompletableFuture.completedFuture(mapper.invoke(thr))
+                )
+            }
         }
 
         /**
@@ -301,15 +290,16 @@ interface KFuture<out T> : Publisher<@UnsafeVariance T> {
                             WrappedCompletionStageAndExecutor(
                                 this.completionStage
                                     .handleAsync(handleFunctionCall, this.executorOpt.orNull()!!)
-                                    .thenComposeAsync { kf -> kf.toCompletionStage() },
+                                    .thenCompose { kf -> kf.toCompletionStage() },
                                 this.executorOpt
                             )
                         }
                         else -> {
                             WrappedCompletionStageAndExecutor(
-                                this.completionStage
-                                    .handleAsync(handleFunctionCall)
-                                    .thenComposeAsync { kf -> kf.toCompletionStage() },
+                                this.completionStage.handleAsync(handleFunctionCall).thenCompose {
+                                    kf ->
+                                    kf.toCompletionStage()
+                                },
                                 none()
                             )
                         }
@@ -350,15 +340,16 @@ interface KFuture<out T> : Publisher<@UnsafeVariance T> {
                             WrappedCompletionStageAndExecutor(
                                 this.completionStage
                                     .handleAsync(handleFunctionCall, this.executorOpt.orNull()!!)
-                                    .thenComposeAsync { kf -> kf.toCompletionStage() },
+                                    .thenCompose { kf -> kf.toCompletionStage() },
                                 this.executorOpt
                             )
                         }
                         else -> {
                             WrappedCompletionStageAndExecutor(
-                                this.completionStage
-                                    .handleAsync(handleFunctionCall)
-                                    .thenComposeAsync { kf -> kf.toCompletionStage() },
+                                this.completionStage.handleAsync(handleFunctionCall).thenCompose {
+                                    kf ->
+                                    kf.toCompletionStage()
+                                },
                                 none()
                             )
                         }
@@ -454,7 +445,7 @@ interface KFuture<out T> : Publisher<@UnsafeVariance T> {
             executorOpt.fold(
                 {
                     of(
-                        completionStage.thenComposeAsync { t: T ->
+                        completionStage.thenCompose { t: T ->
                             mapper.invoke(t).fold<CompletionStage<out R>> { cs, _ -> cs }
                         }
                     )
@@ -503,7 +494,7 @@ interface KFuture<out T> : Publisher<@UnsafeVariance T> {
     fun <R> flatMapCompletionStage(mapper: (T) -> CompletionStage<out R>): KFuture<R> {
         return fold { completionStage: CompletionStage<out T>, executorOpt: Option<Executor> ->
             executorOpt.fold(
-                { of(completionStage.thenComposeAsync { t: T -> mapper.invoke(t) }) },
+                { of(completionStage.thenCompose { t: T -> mapper.invoke(t) }) },
                 { exec: Executor ->
                     of(completionStage.thenComposeAsync({ t: T -> mapper.invoke(t) }, exec), exec)
                 }
@@ -536,7 +527,7 @@ interface KFuture<out T> : Publisher<@UnsafeVariance T> {
     fun <R> flatMapMono(mapper: (T) -> Mono<out R>): KFuture<R> {
         return fold { completionStage: CompletionStage<out T>, executorOpt: Option<Executor> ->
             executorOpt.fold(
-                { of(completionStage.thenComposeAsync { t: T -> mapper.invoke(t).toFuture() }) },
+                { of(completionStage.thenCompose { t: T -> mapper.invoke(t).toFuture() }) },
                 { exec: Executor ->
                     of(
                         completionStage.thenComposeAsync(
@@ -567,7 +558,7 @@ interface KFuture<out T> : Publisher<@UnsafeVariance T> {
                         )
                     }
                     else -> {
-                        of(thisStage.thenCombineAsync(otherStage, zipper))
+                        of(thisStage.thenCombine(otherStage, zipper))
                     }
                 }
             }
@@ -590,9 +581,7 @@ interface KFuture<out T> : Publisher<@UnsafeVariance T> {
                         val thisFuture = thisStage.toCompletableFuture()
                         val otherFuture1 = otherStage1.toCompletableFuture()
                         val otherFuture2 = otherStage2.toCompletableFuture()
-                        val cfs: CompletableFuture<Void> =
-                            CompletableFuture.allOf(thisFuture, otherFuture1, otherFuture2)
-                        cfs.join()
+                        CompletableFuture.allOf(thisFuture, otherFuture1, otherFuture2).join()
                         zipper.invoke(thisFuture.join(), otherFuture1.join(), otherFuture2.join())
                     }
                     when {
@@ -645,9 +634,7 @@ interface KFuture<out T> : Publisher<@UnsafeVariance T> {
                         val thisFuture = thisStage.toCompletableFuture()
                         val otherFuture1 = otherStage1.toCompletableFuture()
                         val otherFuture2 = otherStage2.toCompletableFuture()
-                        val cfs: CompletableFuture<Void> =
-                            CompletableFuture.allOf(thisFuture, otherFuture1, otherFuture2)
-                        cfs.join()
+                        CompletableFuture.allOf(thisFuture, otherFuture1, otherFuture2).join()
                         zipper.invoke(thisFuture.join(), otherFuture1.join(), otherFuture2.join())
                     }
                     of(CompletableFuture.supplyAsync(awaitAllAndZipFunction, executor), executor)
@@ -673,14 +660,13 @@ interface KFuture<out T> : Publisher<@UnsafeVariance T> {
                             val otherFuture1 = otherStage1.toCompletableFuture()
                             val otherFuture2 = otherStage2.toCompletableFuture()
                             val otherFuture3 = otherStage3.toCompletableFuture()
-                            val cfs: CompletableFuture<Void> =
-                                CompletableFuture.allOf(
+                            CompletableFuture.allOf(
                                     thisFuture,
                                     otherFuture1,
                                     otherFuture2,
                                     otherFuture3
                                 )
-                            cfs.join()
+                                .join()
                             zipper.invoke(
                                 thisFuture.join(),
                                 otherFuture1.join(),

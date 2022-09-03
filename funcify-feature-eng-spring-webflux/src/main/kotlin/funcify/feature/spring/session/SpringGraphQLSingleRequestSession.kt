@@ -21,4 +21,5 @@ interface SpringGraphQLSingleRequestSession : GraphQLSingleRequestSession {
     override val rawGraphQLRequest: RawGraphQLRequest
 
     override val serializedGraphQLResponse: Option<SerializedGraphQLResponse>
+
 }

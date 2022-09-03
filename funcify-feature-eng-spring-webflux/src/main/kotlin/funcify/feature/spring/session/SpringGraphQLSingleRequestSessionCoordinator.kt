@@ -3,6 +3,7 @@ package funcify.feature.spring.session
 import funcify.feature.materializer.request.GraphQLExecutionInputCustomizer
 import funcify.feature.materializer.response.SerializedGraphQLResponse
 import funcify.feature.materializer.response.SerializedGraphQLResponseFactory
+import funcify.feature.materializer.service.GraphQLSingleRequestMaterializationQueryExecutionStrategy
 import funcify.feature.materializer.service.MaterializationPreparsedDocumentProvider
 import funcify.feature.materializer.session.GraphQLSingleRequestSession
 import funcify.feature.materializer.session.GraphQLSingleRequestSessionCoordinator
@@ -11,7 +12,6 @@ import funcify.feature.tools.extensions.StringExtensions.flatten
 import graphql.ExecutionInput
 import graphql.ExecutionResult
 import graphql.GraphQL
-import graphql.execution.ExecutionStrategy
 import java.util.concurrent.Executor
 import org.slf4j.Logger
 import reactor.core.publisher.Mono
@@ -25,7 +25,8 @@ internal class SpringGraphQLSingleRequestSessionCoordinator(
     private val asyncExecutor: Executor,
     private val serializedGraphQLResponseFactory: SerializedGraphQLResponseFactory,
     private val materializationPreparsedDocumentProvider: MaterializationPreparsedDocumentProvider,
-    private val materializationExecutionStrategy: ExecutionStrategy
+    private val materializationQueryExecutionStrategy:
+        GraphQLSingleRequestMaterializationQueryExecutionStrategy
 ) : GraphQLSingleRequestSessionCoordinator {
 
     companion object {
@@ -43,7 +44,7 @@ internal class SpringGraphQLSingleRequestSessionCoordinator(
         return Mono.fromCompletionStage(
                 GraphQL.newGraphQL(session.materializationSchema)
                     .preparsedDocumentProvider(materializationPreparsedDocumentProvider)
-                    .queryExecutionStrategy(materializationExecutionStrategy)
+                    .queryExecutionStrategy(materializationQueryExecutionStrategy)
                     .build()
                     .executeAsync(executionInputBuilderUpdater(session))
             )

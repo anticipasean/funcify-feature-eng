@@ -286,11 +286,11 @@ class MaterializerConfiguration {
 
     @ConditionalOnMissingBean(value = [ExecutionStrategy::class])
     @Bean
-    fun graphQLMaterializationExecutionStrategy(
+    fun graphQLSingleRequestMaterializationQueryExecutionStrategy(
         singleRequestMaterializationGraphService: SingleRequestMaterializationGraphService,
         singleRequestMaterializationDispatchService: SingleRequestMaterializationDispatchService
-    ): ExecutionStrategy {
-        return GraphQLSingleRequestMaterializationExecutionStrategy(
+    ): GraphQLSingleRequestMaterializationQueryExecutionStrategy {
+        return DefaultGraphQLSingleRequestMaterializationQueryExecutionStrategy(
             singleRequestMaterializationGraphService = singleRequestMaterializationGraphService,
             singleRequestMaterializationPreprocessingService =
                 singleRequestMaterializationDispatchService

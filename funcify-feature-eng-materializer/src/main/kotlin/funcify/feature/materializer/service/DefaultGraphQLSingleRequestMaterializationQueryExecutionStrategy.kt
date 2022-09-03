@@ -1,6 +1,8 @@
 package funcify.feature.materializer.service
 
+import arrow.core.Option
 import arrow.core.getOrElse
+import arrow.core.identity
 import arrow.core.left
 import arrow.core.right
 import arrow.core.some
@@ -10,6 +12,7 @@ import funcify.feature.materializer.error.MaterializerException
 import funcify.feature.materializer.session.GraphQLSingleRequestSession
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.OptionExtensions.recurse
+import funcify.feature.tools.extensions.OptionExtensions.toOption
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import graphql.ExceptionWhileDataFetching
 import graphql.ExecutionResult
@@ -19,6 +22,10 @@ import graphql.execution.*
 import graphql.execution.instrumentation.ExecutionStrategyInstrumentationContext
 import graphql.execution.instrumentation.Instrumentation
 import graphql.execution.instrumentation.parameters.InstrumentationExecutionStrategyParameters
+import graphql.language.Field
+import graphql.language.OperationDefinition
+import graphql.language.Selection
+import graphql.language.SelectionSet
 import graphql.language.SourceLocation
 import java.util.concurrent.CompletableFuture
 import java.util.function.BiConsumer
@@ -29,25 +36,25 @@ import org.slf4j.Logger
  * @author smccarron
  * @created 2022-09-02
  */
-internal class GraphQLSingleRequestMaterializationExecutionStrategy(
+internal class DefaultGraphQLSingleRequestMaterializationQueryExecutionStrategy(
     private val exceptionHandler: DataFetcherExceptionHandler =
         GraphQLSingleRequestDataFetcherExceptionHandler,
     private val singleRequestMaterializationGraphService: SingleRequestMaterializationGraphService,
     private val singleRequestMaterializationPreprocessingService:
         SingleRequestMaterializationDispatchService
-) : AsyncExecutionStrategy(exceptionHandler) {
+) : GraphQLSingleRequestMaterializationQueryExecutionStrategy(exceptionHandler) {
 
     companion object {
         private val logger: Logger =
-            loggerFor<GraphQLSingleRequestMaterializationExecutionStrategy>()
-
+            loggerFor<DefaultGraphQLSingleRequestMaterializationQueryExecutionStrategy>()
+        private const val INTROSPECTION_FIELD_NAME_PREFIX = "__"
         private object GraphQLSingleRequestDataFetcherExceptionHandler :
             DataFetcherExceptionHandler {
 
             override fun handleException(
                 handlerParameters: DataFetcherExceptionHandlerParameters
             ): CompletableFuture<DataFetcherExceptionHandlerResult> {
-                val rootCause =
+                val rootCause: Option<Throwable> =
                     handlerParameters
                         .toOption()
                         .mapNotNull { hp -> hp.exception }
@@ -62,9 +69,10 @@ internal class GraphQLSingleRequestMaterializationExecutionStrategy(
                                 }
                             }
                         }
-                val sourceLocation =
+                val sourceLocation: Option<SourceLocation> =
                     handlerParameters.toOption().mapNotNull { hp -> hp.sourceLocation }
-                val path = handlerParameters.toOption().mapNotNull { hp -> hp.path }
+                val path: Option<ResultPath> =
+                    handlerParameters.toOption().mapNotNull { hp -> hp.path }
                 return CompletableFuture.completedFuture(
                     DataFetcherExceptionHandlerResult.newResult(
                             ExceptionWhileDataFetching(
@@ -92,7 +100,19 @@ internal class GraphQLSingleRequestMaterializationExecutionStrategy(
         logger.info("execute: [ execution_context.execution_id: {} ]", executionContext.executionId)
 
         when {
-            executionContext.operationDefinition.name == "IntrospectionQuery" -> {
+            executionContext.operationDefinition.name == "IntrospectionQuery" ||
+                executionContext.operationDefinition
+                    .toOption()
+                    .mapNotNull { od: OperationDefinition -> od.selectionSet }
+                    .mapNotNull { ss: SelectionSet -> ss.selections }
+                    .fold(::emptyList, ::identity)
+                    .asSequence()
+                    .filter { s: Selection<*> ->
+                        s is Field && s.name.startsWith(INTROSPECTION_FIELD_NAME_PREFIX)
+                    }
+                    .firstOrNull()
+                    .toOption()
+                    .isDefined() -> {
                 return super.execute(executionContext, parameters)
             }
             !executionContext.graphQLContext.hasKey(
@@ -113,6 +133,18 @@ internal class GraphQLSingleRequestMaterializationExecutionStrategy(
                     MaterializerException(MaterializerErrorResponse.UNEXPECTED_ERROR, message)
                 )
             }
+            executionContext.graphQLContext
+                .getOrEmpty<GraphQLSingleRequestSession>(
+                    GraphQLSingleRequestSession.GRAPHQL_SINGLE_REQUEST_SESSION_KEY
+                )
+                .toOption()
+                .filter { session ->
+                    session.requestDispatchMaterializationGraphPhase.isDefined() &&
+                        session.requestDispatchMaterializationGraphPhase.isDefined()
+                }
+                .isDefined() -> {
+                // Do nothing
+            }
             else -> {
                 val graphQLSingleRequestSession: GraphQLSingleRequestSession =
                     executionContext.graphQLContext.get<GraphQLSingleRequestSession>(
@@ -128,9 +160,9 @@ internal class GraphQLSingleRequestMaterializationExecutionStrategy(
                                         .processedQueryVariables(executionContext.variables)
                                 }
                         )
-                        .flatMap { s ->
+                        .flatMap { session: GraphQLSingleRequestSession ->
                             singleRequestMaterializationPreprocessingService
-                                .dispatchRequestsInMaterializationGraphInSession(session = s)
+                                .dispatchRequestsInMaterializationGraphInSession(session = session)
                         }
                 if (mappedAndDispatchedSessionAttempt.isFailure()) {
                     val exceptionTypeName =
