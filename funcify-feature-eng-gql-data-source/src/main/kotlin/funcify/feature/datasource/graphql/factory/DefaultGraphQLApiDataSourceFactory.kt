@@ -12,11 +12,15 @@ import funcify.feature.schema.datasource.DataSourceType
 import funcify.feature.schema.datasource.RawDataSourceType
 import funcify.feature.schema.datasource.SourceMetamodel
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
-import funcify.feature.tools.extensions.MonoExtensions.toKFuture
+import funcify.feature.tools.extensions.OptionExtensions.toOption
 import funcify.feature.tools.extensions.StringExtensions.flatten
+import funcify.feature.tools.extensions.TryExtensions.successIfDefined
 import graphql.schema.GraphQLSchema
+import java.time.Duration
 import kotlin.reflect.KClass
 import org.slf4j.Logger
+import reactor.core.scheduler.Schedulers
+import reactor.kotlin.extra.retry.retryExponentialBackoff
 
 internal class DefaultGraphQLApiDataSourceFactory(
     private val graphQLApiSourceMetadataProvider: GraphQLApiSourceMetadataProvider,
@@ -49,6 +53,26 @@ internal class DefaultGraphQLApiDataSourceFactory(
         logger.info("create_graphql_api_data_source: [ name: $name ]")
         return graphQLApiSourceMetadataProvider
             .provideMetadata(graphQLApiService)
+            .cache()
+            .retryExponentialBackoff(times = 3, first = Duration.ofSeconds(4))
+            .subscribeOn(Schedulers.immediate())
+            .onErrorMap { t: Throwable ->
+                GQLDataSourceException(
+                    GQLDataSourceErrorResponse.UNEXPECTED_ERROR,
+                    """error occurred when retrieving metadata 
+                        |from graphql_api_data_source""".flatten(),
+                    t
+                )
+            }
+            .blockOptional()
+            .toOption()
+            .successIfDefined {
+                GQLDataSourceException(
+                    GQLDataSourceErrorResponse.UNEXPECTED_ERROR,
+                    """no metadata received [ type: ${GraphQLSchema::class.qualifiedName} ]
+                        |from graphql_api_data_source""".flatten(),
+                )
+            }
             .map { gqlSchema: GraphQLSchema ->
                 val dataSourceKey = DefaultGraphQLApiDataSourceKey(name = name)
                 DefaultGraphQLApiDataSource(
@@ -63,14 +87,6 @@ internal class DefaultGraphQLApiDataSourceFactory(
                     key = dataSourceKey
                 )
             }
-            .toKFuture()
-            .getOrElseThrow { t: Throwable ->
-                GQLDataSourceException(
-                    GQLDataSourceErrorResponse.UNEXPECTED_ERROR,
-                    """error occurred when retrieving or processing metadata 
-                        |from graphql_api_data_source""".flatten(),
-                    t
-                )
-            }
+            .orElseThrow()
     }
 }
