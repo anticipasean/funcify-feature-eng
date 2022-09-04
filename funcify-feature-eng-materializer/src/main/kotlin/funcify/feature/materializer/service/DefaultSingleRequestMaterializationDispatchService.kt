@@ -267,17 +267,19 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                                     .dispatchedMultiValueResponsesBySourceIndexPath
                                     .put(
                                         sourceIndexPath,
-                                        multiSrcIndJsonRetrFunc.invoke(
-                                            retrievalFunctionSpec.parameterVerticesByPath.keys
-                                                .asSequence()
-                                                .map { p ->
-                                                    phase.materializedParameterValuesByPath[p]
-                                                        .toOption()
-                                                        .map { jn -> p to jn }
-                                                }
-                                                .flatMapOptions()
-                                                .reducePairsToPersistentMap()
-                                        )
+                                        multiSrcIndJsonRetrFunc
+                                            .invoke(
+                                                retrievalFunctionSpec.parameterVerticesByPath.keys
+                                                    .asSequence()
+                                                    .map { p ->
+                                                        phase.materializedParameterValuesByPath[p]
+                                                            .toOption()
+                                                            .map { jn -> p to jn }
+                                                    }
+                                                    .flatMapOptions()
+                                                    .reducePairsToPersistentMap()
+                                            )
+                                            .cache()
                                     )
                         )
                     }
