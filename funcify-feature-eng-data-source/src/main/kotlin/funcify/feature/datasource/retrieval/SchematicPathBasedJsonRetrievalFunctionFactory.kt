@@ -13,13 +13,12 @@ interface SchematicPathBasedJsonRetrievalFunctionFactory {
         dataSourceKey: DataSource.Key<*>
     ): Boolean
 
-    fun canBuildSingleSourceIndexJsonOptionCacheRetrievalFunctionForDataSource(
+    fun canBuildTrackableValueJsonRetrievalFunctionOnBehalfOfDataSource(
         dataSourceKey: DataSource.Key<*>
     ): Boolean
 
     fun multipleSourceIndicesJsonRetrievalFunctionBuilder():
         MultipleSourceIndicesJsonRetrievalFunction.Builder
 
-    fun singleSourceIndexCacheRetrievalFunctionBuilder():
-        SingleSourceIndexJsonOptionCacheRetrievalFunction.Builder
+    fun trackableValueJsonRetrievalFunctionBuilder(): TrackableValueJsonRetrievalFunction.Builder
 }

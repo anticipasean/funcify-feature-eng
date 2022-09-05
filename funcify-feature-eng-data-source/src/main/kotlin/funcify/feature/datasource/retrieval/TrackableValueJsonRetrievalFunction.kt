@@ -15,8 +15,8 @@ import reactor.core.publisher.Mono
  * @author smccarron
  * @created 2022-08-24
  */
-interface SingleSourceIndexJsonOptionCacheRetrievalFunction :
-    (ImmutableMap<SchematicPath, JsonNode>) -> Mono<JsonNode> {
+interface TrackableValueJsonRetrievalFunction :
+    (ImmutableMap<SchematicPath, JsonNode>) -> Mono<TrackableValue<JsonNode>> {
 
     val cacheForDataSourceKey: DataSource.Key<*>
         get() = cacheForDataSource.key
@@ -30,7 +30,7 @@ interface SingleSourceIndexJsonOptionCacheRetrievalFunction :
 
     override fun invoke(
         contextParameterValuesByPath: ImmutableMap<SchematicPath, JsonNode>
-    ): Mono<JsonNode>
+    ): Mono<TrackableValue<JsonNode>>
 
     interface Builder {
 
@@ -44,6 +44,6 @@ interface SingleSourceIndexJsonOptionCacheRetrievalFunction :
 
         fun sourceTarget(sourceLeafVertex: SourceLeafVertex): Builder
 
-        fun build(): Try<SingleSourceIndexJsonOptionCacheRetrievalFunction>
+        fun build(): Try<TrackableValueJsonRetrievalFunction>
     }
 }

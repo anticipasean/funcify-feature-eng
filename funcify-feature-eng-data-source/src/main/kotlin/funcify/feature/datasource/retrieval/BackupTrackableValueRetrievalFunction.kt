@@ -10,10 +10,10 @@ import reactor.core.publisher.Mono
  * @author smccarron
  * @created 2022-08-28
  */
-fun interface BackupSingleSourceIndexJsonOptionRetrievalFunction :
-    (ImmutableMap<SchematicPath, Mono<JsonNode>>) -> Mono<JsonNode> {
+fun interface BackupTrackableValueRetrievalFunction :
+    (ImmutableMap<SchematicPath, Mono<JsonNode>>) -> Mono<TrackableValue<JsonNode>> {
 
     override fun invoke(
         parameterValuesByPath: ImmutableMap<SchematicPath, Mono<JsonNode>>
-    ): Mono<JsonNode>
+    ): Mono<TrackableValue<JsonNode>>
 }

@@ -12,14 +12,14 @@ import funcify.feature.tools.container.attempt.Try
  * @author smccarron
  * @created 2022-08-15
  */
-interface DataSourceCacheJsonRetrievalStrategyProvider<SI : SourceIndex<SI>> {
+interface TrackableValueJsonRetrievalStrategyProvider<SI : SourceIndex<SI>> {
 
     fun providesJsonRetrievalFunctionsForVerticesWithSourceIndicesIn(
         dataSourceKey: DataSource.Key<*>
     ): Boolean
 
-    fun createSingleSourceIndexJsonOptionRetrievalFunctionForCacheFor(
+    fun createTrackableValueJsonRetrievalFunctionOnBehalfOf(
         dataSource: DataSource<SI>,
         sourceJunctionOrLeafVertex: Either<SourceJunctionVertex, SourceLeafVertex>
-    ): Try<SingleSourceIndexJsonOptionCacheRetrievalFunction>
+    ): Try<TrackableValueJsonRetrievalFunction>
 }

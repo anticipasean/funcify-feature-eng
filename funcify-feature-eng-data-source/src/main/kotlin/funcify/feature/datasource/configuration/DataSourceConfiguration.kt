@@ -1,6 +1,6 @@
 package funcify.feature.datasource.configuration
 
-import funcify.feature.datasource.retrieval.DataSourceCacheJsonRetrievalStrategyProvider
+import funcify.feature.datasource.retrieval.TrackableValueJsonRetrievalStrategyProvider
 import funcify.feature.datasource.retrieval.DataSourceRepresentativeJsonRetrievalStrategyProvider
 import funcify.feature.datasource.retrieval.DefaultSchematicPathBasedJsonRetrievalFunctionFactory
 import funcify.feature.datasource.retrieval.DefaultTrackableValueFactory
@@ -34,14 +34,14 @@ class DataSourceConfiguration {
     fun schematicPathBasedJsonRetrievalFunctionFactory(
         dataSourceRepresentativeJsonRetrievalStrategyProviders:
             ObjectProvider<DataSourceRepresentativeJsonRetrievalStrategyProvider<*>>,
-        dataSourceCacheJsonRetrievalStrategyProviders:
-            ObjectProvider<DataSourceCacheJsonRetrievalStrategyProvider<*>>
+        trackableValueJsonRetrievalStrategyProviders:
+            ObjectProvider<TrackableValueJsonRetrievalStrategyProvider<*>>
     ): SchematicPathBasedJsonRetrievalFunctionFactory {
         return DefaultSchematicPathBasedJsonRetrievalFunctionFactory(
             dataSourceRepresentativeJsonRetrievalStrategyProviders =
                 dataSourceRepresentativeJsonRetrievalStrategyProviders.toPersistentSet(),
-            dataSourceCacheJsonRetrievalStrategyProviders =
-                dataSourceCacheJsonRetrievalStrategyProviders.toPersistentSet()
+            trackableValueJsonRetrievalStrategyProviders =
+                trackableValueJsonRetrievalStrategyProviders.toPersistentSet()
         )
     }
 

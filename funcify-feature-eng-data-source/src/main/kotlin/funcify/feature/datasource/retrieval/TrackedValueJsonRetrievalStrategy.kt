@@ -11,14 +11,14 @@ import kotlinx.collections.immutable.ImmutableMap
 import reactor.core.publisher.Mono
 
 /**
- * Strategy for retrieval of a single value for a single [SchematicPath] from a cache acting on
- * behalf of a representative [DataSource]
+ * Strategy for retrieval of a single value for a single [SchematicPath] from tracked value storage
+ * acting on behalf of a representative [DataSource]
  *
  * @author smccarron
  * @created 2022-08-24
  */
-interface DataSourceCacheJsonRetrievalStrategy<SI : SourceIndex<SI>> :
-    SingleSourceIndexJsonOptionCacheRetrievalFunction {
+interface TrackedValueJsonRetrievalStrategy<SI : SourceIndex<SI>> :
+    TrackableValueJsonRetrievalFunction {
 
     override val cacheForDataSource: DataSource<*>
 
@@ -28,5 +28,5 @@ interface DataSourceCacheJsonRetrievalStrategy<SI : SourceIndex<SI>> :
 
     override fun invoke(
         contextParameterValuesByPath: ImmutableMap<SchematicPath, JsonNode>
-    ): Mono<JsonNode>
+    ): Mono<TrackableValue<JsonNode>>
 }

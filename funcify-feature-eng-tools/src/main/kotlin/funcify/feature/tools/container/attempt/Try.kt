@@ -712,6 +712,10 @@ sealed interface Try<out S> : Iterable<S> {
         return zip(fromOption<A>(option), combiner)
     }
 
+    fun <A> zip(option: Option<A>): Try<Pair<S, A>> {
+        return zip(fromOption<A>(option)) { s, a -> s to a }
+    }
+
     fun <A, B, R> zip2(option1: Option<A>, option2: Option<B>, combiner: (S, A, B) -> R): Try<R> {
         return zip2(fromOption<A>(option1), fromOption<B>(option2), combiner)
     }

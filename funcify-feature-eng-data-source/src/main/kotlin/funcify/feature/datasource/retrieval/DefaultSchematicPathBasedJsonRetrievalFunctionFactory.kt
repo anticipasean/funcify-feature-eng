@@ -29,8 +29,8 @@ internal class DefaultSchematicPathBasedJsonRetrievalFunctionFactory(
     private val dataSourceRepresentativeJsonRetrievalStrategyProviders:
         ImmutableSet<DataSourceRepresentativeJsonRetrievalStrategyProvider<*>> =
         persistentSetOf(),
-    private val dataSourceCacheJsonRetrievalStrategyProviders:
-        ImmutableSet<DataSourceCacheJsonRetrievalStrategyProvider<*>> =
+    private val trackableValueJsonRetrievalStrategyProviders:
+        ImmutableSet<TrackableValueJsonRetrievalStrategyProvider<*>> =
         persistentSetOf()
 ) : SchematicPathBasedJsonRetrievalFunctionFactory {
 
@@ -169,24 +169,24 @@ internal class DefaultSchematicPathBasedJsonRetrievalFunctionFactory(
         }
 
         internal class DefaultSingleSourceIndexCacheRetrievalFunctionBuilder(
-            private val dataSourceCacheJsonRetrievalStrategyProviders:
-                ImmutableSet<DataSourceCacheJsonRetrievalStrategyProvider<*>> =
+            private val trackableValueJsonRetrievalStrategyProviders:
+                ImmutableSet<TrackableValueJsonRetrievalStrategyProvider<*>> =
                 persistentSetOf(),
             private var dataSource: DataSource<*>? = null,
             private var sourceJunctionVertex: SourceJunctionVertex? = null,
             private var sourceLeafVertex: SourceLeafVertex? = null
-        ) : SingleSourceIndexJsonOptionCacheRetrievalFunction.Builder {
+        ) : TrackableValueJsonRetrievalFunction.Builder {
 
             override fun cacheForDataSource(
                 dataSource: DataSource<*>
-            ): SingleSourceIndexJsonOptionCacheRetrievalFunction.Builder {
+            ): TrackableValueJsonRetrievalFunction.Builder {
                 this.dataSource = dataSource
                 return this
             }
 
             override fun sourceTarget(
                 sourceJunctionOrLeafVertex: Either<SourceJunctionVertex, SourceLeafVertex>
-            ): SingleSourceIndexJsonOptionCacheRetrievalFunction.Builder {
+            ): TrackableValueJsonRetrievalFunction.Builder {
                 sourceJunctionOrLeafVertex.fold(
                     { sjv -> this.sourceJunctionVertex = sjv },
                     { slv -> this.sourceLeafVertex = slv }
@@ -196,25 +196,25 @@ internal class DefaultSchematicPathBasedJsonRetrievalFunctionFactory(
 
             override fun sourceTarget(
                 sourceJunctionVertex: SourceJunctionVertex
-            ): SingleSourceIndexJsonOptionCacheRetrievalFunction.Builder {
+            ): TrackableValueJsonRetrievalFunction.Builder {
                 this.sourceJunctionVertex = sourceJunctionVertex
                 return this
             }
 
             override fun sourceTarget(
                 sourceLeafVertex: SourceLeafVertex
-            ): SingleSourceIndexJsonOptionCacheRetrievalFunction.Builder {
+            ): TrackableValueJsonRetrievalFunction.Builder {
                 this.sourceLeafVertex = sourceLeafVertex
                 return this
             }
 
-            override fun build(): Try<SingleSourceIndexJsonOptionCacheRetrievalFunction> {
+            override fun build(): Try<TrackableValueJsonRetrievalFunction> {
                 return when {
                     dataSource == null -> {
                         DataSourceException(
                                 DataSourceErrorResponse.MISSING_PARAMETER,
                                 """data_source has not been provided 
-                                |for ${SingleSourceIndexJsonOptionCacheRetrievalFunction::class.qualifiedName} 
+                                |for ${TrackableValueJsonRetrievalFunction::class.qualifiedName} 
                                 |creation""".flatten()
                             )
                             .failure()
@@ -224,12 +224,12 @@ internal class DefaultSchematicPathBasedJsonRetrievalFunctionFactory(
                                 DataSourceErrorResponse.MISSING_PARAMETER,
                                 """at least one source_vertex must be supplied 
                                 |for the return value of this 
-                                |${SingleSourceIndexJsonOptionCacheRetrievalFunction::class.qualifiedName} 
+                                |${TrackableValueJsonRetrievalFunction::class.qualifiedName} 
                                 |to have any mappings""".flatten()
                             )
                             .failure()
                     }
-                    dataSourceCacheJsonRetrievalStrategyProviders.none { strategyProvider ->
+                    trackableValueJsonRetrievalStrategyProviders.none { strategyProvider ->
                         strategyProvider
                             .providesJsonRetrievalFunctionsForVerticesWithSourceIndicesIn(
                                 dataSource!!.key
@@ -237,7 +237,7 @@ internal class DefaultSchematicPathBasedJsonRetrievalFunctionFactory(
                     } -> {
                         DataSourceException(
                                 DataSourceErrorResponse.STRATEGY_MISSING,
-                                """no ${DataSourceCacheJsonRetrievalStrategyProvider::class.qualifiedName} 
+                                """no ${TrackableValueJsonRetrievalStrategyProvider::class.qualifiedName} 
                                     |found that supports this type of data_source: 
                                     |[ actual: ${dataSource!!.key}  
                                     |]""".flatten()
@@ -246,7 +246,7 @@ internal class DefaultSchematicPathBasedJsonRetrievalFunctionFactory(
                     }
                     else -> {
                         Try.fromOption(
-                                dataSourceCacheJsonRetrievalStrategyProviders.firstOrNone {
+                                trackableValueJsonRetrievalStrategyProviders.firstOrNone {
                                     strategyProvider ->
                                     strategyProvider
                                         .providesJsonRetrievalFunctionsForVerticesWithSourceIndicesIn(
@@ -276,15 +276,15 @@ internal class DefaultSchematicPathBasedJsonRetrievalFunctionFactory(
             }
 
             private fun <SI : SourceIndex<SI>> createTypedDataSourceCacheJsonRetrievalStrategyFor(
-                provider: DataSourceCacheJsonRetrievalStrategyProvider<SI>,
+                provider: TrackableValueJsonRetrievalStrategyProvider<SI>,
                 dataSource: DataSource<*>,
                 sourceVertex: Either<SourceJunctionVertex, SourceLeafVertex>
-            ): Try<SingleSourceIndexJsonOptionCacheRetrievalFunction> {
+            ): Try<TrackableValueJsonRetrievalFunction> {
                 // If already assessed as acceptable in earlier check, then this datasource must be
                 // of this source_index type
                 @Suppress("UNCHECKED_CAST")
                 val typedDataSource: DataSource<SI> = dataSource as DataSource<SI>
-                return provider.createSingleSourceIndexJsonOptionRetrievalFunctionForCacheFor(
+                return provider.createTrackableValueJsonRetrievalFunctionOnBehalfOf(
                     typedDataSource,
                     sourceVertex
                 )
@@ -300,10 +300,10 @@ internal class DefaultSchematicPathBasedJsonRetrievalFunctionFactory(
         }
     }
 
-    override fun canBuildSingleSourceIndexJsonOptionCacheRetrievalFunctionForDataSource(
+    override fun canBuildTrackableValueJsonRetrievalFunctionOnBehalfOfDataSource(
         dataSourceKey: DataSource.Key<*>
     ): Boolean {
-        return dataSourceCacheJsonRetrievalStrategyProviders.any { provider ->
+        return trackableValueJsonRetrievalStrategyProviders.any { provider ->
             provider.providesJsonRetrievalFunctionsForVerticesWithSourceIndicesIn(dataSourceKey)
         }
     }
@@ -315,11 +315,11 @@ internal class DefaultSchematicPathBasedJsonRetrievalFunctionFactory(
         )
     }
 
-    override fun singleSourceIndexCacheRetrievalFunctionBuilder():
-        SingleSourceIndexJsonOptionCacheRetrievalFunction.Builder {
+    override fun trackableValueJsonRetrievalFunctionBuilder():
+        TrackableValueJsonRetrievalFunction.Builder {
         return DefaultSingleSourceIndexCacheRetrievalFunctionBuilder(
-            dataSourceCacheJsonRetrievalStrategyProviders =
-                dataSourceCacheJsonRetrievalStrategyProviders
+            trackableValueJsonRetrievalStrategyProviders =
+                trackableValueJsonRetrievalStrategyProviders
         )
     }
 }

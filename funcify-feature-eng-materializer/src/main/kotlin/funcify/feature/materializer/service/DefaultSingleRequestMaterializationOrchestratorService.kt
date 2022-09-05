@@ -7,8 +7,8 @@ import arrow.core.none
 import arrow.core.orElse
 import arrow.core.toOption
 import com.fasterxml.jackson.databind.JsonNode
-import com.fasterxml.jackson.databind.node.JsonNodeFactory
 import com.fasterxml.jackson.databind.node.ObjectNode
+import funcify.feature.datasource.retrieval.TrackableValue
 import funcify.feature.json.JsonMapper
 import funcify.feature.materializer.error.MaterializerErrorResponse
 import funcify.feature.materializer.error.MaterializerException
@@ -21,7 +21,6 @@ import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.extensions.TryExtensions.successIfDefined
 import org.slf4j.Logger
 import reactor.core.publisher.Mono
-import reactor.kotlin.core.publisher.switchIfEmpty
 
 internal class DefaultSingleRequestMaterializationOrchestratorService(
     private val jsonMapper: JsonMapper
@@ -143,7 +142,7 @@ internal class DefaultSingleRequestMaterializationOrchestratorService(
                     .flatMap { phase ->
                         phase.cacheableSingleSourceIndexRequestDispatchesBySourceIndexPath
                             .getOrNone(currentFieldPathWithoutListIndexing)
-                            .map { sr -> sr.dispatchedSingleIndexCacheRequest }
+                            .map { sr -> sr.dispatchedTrackableValueRequest }
                     }
                     .successIfDefined { ->
                         MaterializerException(
@@ -153,20 +152,29 @@ internal class DefaultSingleRequestMaterializationOrchestratorService(
                     }
                     .toMono()
                     .flatMap { df ->
-                        df.switchIfEmpty { Mono.just(JsonNodeFactory.instance.nullNode()) }
-                            .flatMap { jn ->
-                                jn.toOption()
-                                    .zip(
-                                        session.fieldOutputType.toOption().orElse {
-                                            session.dataFetchingEnvironment.fieldDefinition.type
-                                                .toOption()
-                                        }
-                                    )
-                                    .flatMap { (jn, gqlOutputType) ->
-                                        JsonNodeToStandardValueConverter.invoke(jn, gqlOutputType)
+                        df.flatMap { trackableJsonValue ->
+                            logger.info("trackable_json_value: [ {} ]", trackableJsonValue)
+                            trackableJsonValue
+                                .toOption()
+                                .filterIsInstance<TrackableValue.CalculatedValue<JsonNode>>()
+                                .map { cv -> cv.calculatedValue }
+                                .orElse {
+                                    trackableJsonValue
+                                        .toOption()
+                                        .filterIsInstance<TrackableValue.TrackedValue<JsonNode>>()
+                                        .map { tv -> tv.trackedValue }
+                                }
+                                .zip(
+                                    session.fieldOutputType.toOption().orElse {
+                                        session.dataFetchingEnvironment.fieldDefinition.type
+                                            .toOption()
                                     }
-                                    .toMono()
-                            }
+                                )
+                                .flatMap { (jn, gqlOutputType) ->
+                                    JsonNodeToStandardValueConverter.invoke(jn, gqlOutputType)
+                                }
+                                .toMono()
+                        }
                     }
             }
             session.dataFetchingEnvironment

@@ -1,9 +1,10 @@
 package funcify.feature.materializer.service
 
 import com.fasterxml.jackson.databind.JsonNode
-import funcify.feature.datasource.retrieval.BackupSingleSourceIndexJsonOptionRetrievalFunction
+import funcify.feature.datasource.retrieval.BackupTrackableValueRetrievalFunction
 import funcify.feature.datasource.retrieval.MultipleSourceIndicesJsonRetrievalFunction
-import funcify.feature.datasource.retrieval.SingleSourceIndexJsonOptionCacheRetrievalFunction
+import funcify.feature.datasource.retrieval.TrackableValue
+import funcify.feature.datasource.retrieval.TrackableValueJsonRetrievalFunction
 import funcify.feature.materializer.spec.RetrievalFunctionSpec
 import funcify.feature.schema.path.SchematicPath
 import kotlinx.collections.immutable.ImmutableMap
@@ -21,29 +22,28 @@ interface SourceIndexRequestDispatch {
 
         fun retrievalFunctionSpec(retrievalFunctionSpec: RetrievalFunctionSpec): Builder
 
-        fun singleSourceIndexJsonOptionCacheRetrievalFunction(
-            singleSourceIndexJsonOptionCacheRetrievalFunction:
-                SingleSourceIndexJsonOptionCacheRetrievalFunction
-        ): CacheableSingleSourceIndexRetrievalSpec
+        fun trackableValueJsonRetrievalFunction(
+            trackableValueJsonRetrievalFunction: TrackableValueJsonRetrievalFunction
+        ): TrackableValueSourceIndexRetrievalSpec
 
         fun multipleSourceIndicesJsonRetrievalFunction(
             multipleSourceIndicesJsonRetrievalFunction: MultipleSourceIndicesJsonRetrievalFunction
         ): MultipleSourceIndexRetrievalSpec
     }
 
-    interface CacheableSingleSourceIndexRetrievalSpec {
+    interface TrackableValueSourceIndexRetrievalSpec {
 
-        fun dispatchedSingleIndexCacheRequest(
-            dispatch: Mono<JsonNode>
-        ): CacheableSingleSourceIndexRetrievalSpec
+        fun dispatchedTrackableValueJsonRequest(
+            dispatch: Mono<TrackableValue<JsonNode>>
+                                               ): TrackableValueSourceIndexRetrievalSpec
 
         fun backupBaseMultipleSourceIndicesJsonRetrievalFunction(
             multipleSourceIndicesJsonRetrievalFunction: MultipleSourceIndicesJsonRetrievalFunction
-        ): CacheableSingleSourceIndexRetrievalSpec
+        ): TrackableValueSourceIndexRetrievalSpec
 
         fun backupSingleSourceIndexJsonOptionRetrievalFunction(
-            backupFunction: BackupSingleSourceIndexJsonOptionRetrievalFunction
-        ): CacheableSingleSourceIndexRetrievalSpec
+            backupFunction: BackupTrackableValueRetrievalFunction
+        ): TrackableValueSourceIndexRetrievalSpec
 
         fun build(): DispatchedCacheableSingleSourceIndexRetrieval
     }
@@ -59,16 +59,15 @@ interface SourceIndexRequestDispatch {
 
     interface DispatchedCacheableSingleSourceIndexRetrieval : SourceIndexRequestDispatch {
 
-        val singleSourceIndexJsonOptionCacheRetrievalFunction:
-            SingleSourceIndexJsonOptionCacheRetrievalFunction
+        val trackableValueJsonRetrievalFunction: TrackableValueJsonRetrievalFunction
 
-        val dispatchedSingleIndexCacheRequest: Mono<JsonNode>
+        val dispatchedTrackableValueRequest: Mono<TrackableValue<JsonNode>>
 
         val backupBaseMultipleSourceIndicesJsonRetrievalFunction:
             MultipleSourceIndicesJsonRetrievalFunction
 
-        val backupSingleSourceIndexJsonOptionRetrievalFunction:
-            BackupSingleSourceIndexJsonOptionRetrievalFunction
+        val backupTrackableValueRetrievalFunction:
+            BackupTrackableValueRetrievalFunction
     }
 
     interface DispatchedMultiSourceIndexRetrieval : SourceIndexRequestDispatch {
