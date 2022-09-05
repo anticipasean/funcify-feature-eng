@@ -39,7 +39,7 @@ object OptionExtensions {
         }
     }
 
-    fun <T> Option<T>?.toMono(): Mono<T> {
+    fun <T> Option<T?>?.toMono(): Mono<T> {
         return when {
             this == null -> {
                 Mono.empty<T>()

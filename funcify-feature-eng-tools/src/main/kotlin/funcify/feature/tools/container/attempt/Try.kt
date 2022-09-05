@@ -240,6 +240,14 @@ sealed interface Try<out S> : Iterable<S> {
         }
 
         @JvmStatic
+        fun <S> fromResult(result: Result<S>): Try<S> {
+            return result.fold(
+                { s -> TryFactory.Success(s) },
+                { t: Throwable -> TryFactory.Failure<S>(t) }
+            )
+        }
+
+        @JvmStatic
         fun <S> attemptRetryable(numberOfRetries: Int, function: () -> S): Try<S> {
             if (numberOfRetries < 0) {
                 val message =
@@ -807,14 +815,6 @@ sealed interface Try<out S> : Iterable<S> {
         return fold({ result: S -> sequenceOf(result) }, { _: Throwable -> emptySequence() })
     }
 
-    /**
-     * Right is used to represent the success value per tradition since chained operations are
-     * typically performed on the right value more often than the left value in an Either monad
-     */
-    fun toEither(): Either<Throwable, S> {
-        return fold({ result: S -> result.right() }) { throwable: Throwable -> throwable.left() }
-    }
-
     fun peek(successObserver: (S) -> Unit, failureObserver: (Throwable) -> Unit): Try<S> {
         return fold(
             { result: S ->
@@ -849,6 +849,21 @@ sealed interface Try<out S> : Iterable<S> {
             .iterator()
     }
 
+    /**
+     * Right is used to represent the success value per tradition since chained operations are
+     * typically performed on the right value more often than the left value in an Either monad
+     */
+    fun toEither(): Either<Throwable, S> {
+        return fold({ result: S -> result.right() }) { throwable: Throwable -> throwable.left() }
+    }
+
+    fun toResult(): Result<S> {
+        return fold(
+            { result: S -> Result.success(result) },
+            { throwable: Throwable -> Result.failure(throwable) }
+        )
+    }
+
     fun toMono(): Mono<out S> {
         return fold({ s: S -> Mono.just(s) }, { t: Throwable -> Mono.error(t) })
     }
@@ -869,7 +884,9 @@ sealed interface Try<out S> : Iterable<S> {
      * side of the functional parameter set for folds, here, the success handler is placed to the
      * left of the failure handler since typically in the method bodies where this is used, the
      * success case and its return value is of more significance than the failure case and its
-     * return value
+     * return value. Type inference will therefore attempt to extract the type information from the
+     * left return value before the right return value and would otherwise prompt the caller to add
+     * `Try.failure<SUCCESS_TYPE_PARAMETER>` to the failure case if the two positions were swapped
      */
     fun <R> fold(successHandler: (S) -> R, failureHandler: (Throwable) -> R): R
 }
