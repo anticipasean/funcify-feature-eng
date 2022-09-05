@@ -154,6 +154,7 @@ internal class DefaultSingleRequestMaterializationOrchestratorService(
                     .flatMap { df ->
                         df.flatMap { trackableJsonValue ->
                             logger.info("trackable_json_value: [ {} ]", trackableJsonValue)
+                            //TODO: Add when expression and handle case when value still "planned"
                             trackableJsonValue
                                 .toOption()
                                 .filterIsInstance<TrackableValue.CalculatedValue<JsonNode>>()

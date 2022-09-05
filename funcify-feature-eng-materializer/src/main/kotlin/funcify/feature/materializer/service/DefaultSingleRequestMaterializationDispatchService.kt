@@ -431,7 +431,6 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                             }
                         }
                         .toMono()
-                        .widen()
                 }
         }
     }
@@ -863,18 +862,12 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                     transform = { (k, v) -> "$k: $v" }
                 )
         )
-        val desiredCount: Long = deferredParameterValuesByParamPath.size.toLong()
+
         return dispatchedTrackableValueRequest
-            .delaySubscription(
-                Flux.merge(deferredParameterValuesByParamPath.values).count().delayUntil { c ->
-                    when (c) {
-                        desiredCount -> Mono.just(true)
-                        else -> Mono.empty<Boolean>()
-                    }
-                }
-            )
+            .cache()
+            .filter { tv -> tv.isCalculated() || tv.isTracked() }
             .switchIfEmpty {
-                backupTrackableValueRetrievalFunction.invoke(deferredParameterValuesByParamPath)
+                backupTrackableValueRetrievalFunction(deferredParameterValuesByParamPath).widen()
             }
             .cache()
     }

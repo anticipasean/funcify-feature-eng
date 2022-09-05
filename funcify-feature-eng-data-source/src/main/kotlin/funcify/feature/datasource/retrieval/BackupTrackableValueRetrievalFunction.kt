@@ -11,9 +11,9 @@ import reactor.core.publisher.Mono
  * @created 2022-08-28
  */
 fun interface BackupTrackableValueRetrievalFunction :
-    (ImmutableMap<SchematicPath, Mono<JsonNode>>) -> Mono<TrackableValue<JsonNode>> {
+    (ImmutableMap<SchematicPath, Mono<JsonNode>>) -> Mono<out TrackableValue<JsonNode>> {
 
     override fun invoke(
         parameterValuesByPath: ImmutableMap<SchematicPath, Mono<JsonNode>>
-    ): Mono<TrackableValue<JsonNode>>
+    ): Mono<out TrackableValue<JsonNode>>
 }
