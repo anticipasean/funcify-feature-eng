@@ -762,7 +762,8 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                                                 resultOpt
                                             )
                                             resultOpt
-                                        }.log("single_value_mono: $p")
+                                        }
+                                        .log("single_value_mono: $p")
                                         .left()
                                         .tapLeft { kf ->
                                             logger.info(
@@ -823,6 +824,9 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                         .flatMapOptions()
                         .map { deferredSingleValueResult ->
                             edge.id.second to deferredSingleValueResult.fold(::identity, ::identity)
+                        }
+                        .peek { selectedPair ->
+                            logger.info("target: ${singleSourceIndexJsonOptionCacheRetrievalFunction.sourceIndexPath}, selected_source_path: ${selectedPair.first} ]")
                         }
                 }
                 .reducePairsToPersistentMap()

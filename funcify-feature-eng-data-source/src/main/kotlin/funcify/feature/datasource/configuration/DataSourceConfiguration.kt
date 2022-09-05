@@ -3,7 +3,9 @@ package funcify.feature.datasource.configuration
 import funcify.feature.datasource.retrieval.DataSourceCacheJsonRetrievalStrategyProvider
 import funcify.feature.datasource.retrieval.DataSourceRepresentativeJsonRetrievalStrategyProvider
 import funcify.feature.datasource.retrieval.DefaultSchematicPathBasedJsonRetrievalFunctionFactory
+import funcify.feature.datasource.retrieval.DefaultTrackableValueFactory
 import funcify.feature.datasource.retrieval.SchematicPathBasedJsonRetrievalFunctionFactory
+import funcify.feature.datasource.retrieval.TrackableValueFactory
 import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionCreationContextFactory
 import funcify.feature.datasource.sdl.impl.DefaultSchematicVertexSDLDefinitionCreationContextFactory
 import kotlinx.collections.immutable.toPersistentSet
@@ -41,5 +43,11 @@ class DataSourceConfiguration {
             dataSourceCacheJsonRetrievalStrategyProviders =
                 dataSourceCacheJsonRetrievalStrategyProviders.toPersistentSet()
         )
+    }
+
+    @ConditionalOnMissingBean(value = [TrackableValueFactory::class])
+    @Bean
+    fun trackableValueFactory(): TrackableValueFactory {
+        return DefaultTrackableValueFactory()
     }
 }
