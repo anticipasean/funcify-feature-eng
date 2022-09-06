@@ -8,7 +8,7 @@ import arrow.core.orElse
 import arrow.core.toOption
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.node.ObjectNode
-import funcify.feature.datasource.retrieval.TrackableValue
+import funcify.feature.datasource.tracking.TrackableValue
 import funcify.feature.json.JsonMapper
 import funcify.feature.materializer.error.MaterializerErrorResponse
 import funcify.feature.materializer.error.MaterializerException

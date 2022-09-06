@@ -7,7 +7,7 @@ import funcify.feature.datasource.graphql.metadata.alias.GraphQLApiDataSourceAli
 import funcify.feature.datasource.graphql.metadata.temporal.GraphQLApiDataSourceLastUpdatedAttributeProvider
 import funcify.feature.datasource.rest.RestApiDataSource
 import funcify.feature.datasource.retrieval.SchematicPathBasedJsonRetrievalFunctionFactory
-import funcify.feature.datasource.retrieval.TrackableValueFactory
+import funcify.feature.datasource.tracking.TrackableValueFactory
 import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionCreationContextFactory
 import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionImplementationStrategy
 import funcify.feature.error.FeatureEngCommonException

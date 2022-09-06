@@ -2,6 +2,7 @@ package funcify.feature.datasource.retrieval
 
 import arrow.core.Either
 import com.fasterxml.jackson.databind.JsonNode
+import funcify.feature.datasource.tracking.TrackableValue
 import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.schema.vertex.SourceJunctionVertex

@@ -3,7 +3,7 @@ package funcify.feature.materializer.service
 import com.fasterxml.jackson.databind.JsonNode
 import funcify.feature.datasource.retrieval.BackupTrackableValueRetrievalFunction
 import funcify.feature.datasource.retrieval.MultipleSourceIndicesJsonRetrievalFunction
-import funcify.feature.datasource.retrieval.TrackableValue
+import funcify.feature.datasource.tracking.TrackableValue
 import funcify.feature.datasource.retrieval.TrackableValueJsonRetrievalFunction
 import funcify.feature.materializer.spec.RetrievalFunctionSpec
 import funcify.feature.schema.path.SchematicPath

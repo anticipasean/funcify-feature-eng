@@ -1,4 +1,4 @@
-package funcify.feature.datasource.retrieval
+package funcify.feature.datasource.tracking
 
 import com.fasterxml.jackson.databind.JsonNode
 import funcify.feature.schema.path.SchematicPath
@@ -11,7 +11,7 @@ import kotlinx.collections.immutable.ImmutableMap
  * @author smccarron
  * @created 2022-09-01
  */
-sealed interface TrackableValue<V> {
+sealed interface TrackableValue<out V> {
 
     val sourceIndexPath: SchematicPath
 
@@ -30,20 +30,28 @@ sealed interface TrackableValue<V> {
     }
 
     fun <R> fold(
-        planned: (PlannedValue<V>) -> R,
-        calculated: (CalculatedValue<V>) -> R,
-        tracked: (TrackedValue<V>) -> R
+        planned: (PlannedValue<@UnsafeVariance V>) -> R,
+        calculated: (CalculatedValue<@UnsafeVariance V>) -> R,
+        tracked: (TrackedValue<@UnsafeVariance V>) -> R
     ): R
 
     interface PlannedValue<V> : TrackableValue<V> {
 
-        fun transitionToCalculated(
-            mapper: CalculatedValue.Builder<V>.() -> CalculatedValue.Builder<V>
-        ): TrackableValue<V>
+        /**
+         * @return [CalculatedValue] if both required parameters provided else the current
+         * [PlannedValue]
+         */
+        fun <R> transitionToCalculated(
+            mapper: CalculatedValue.Builder<V>.() -> CalculatedValue.Builder<R>
+        ): TrackableValue<R>
 
-        fun transitionToTracked(
-            mapper: TrackedValue.Builder<V>.() -> TrackedValue.Builder<V>
-        ): TrackableValue<V>
+        /**
+         * @return [TrackedValue] if both required parameters provided else the current
+         * [PlannedValue]
+         */
+        fun <R> transitionToTracked(
+            mapper: TrackedValue.Builder<V>.() -> TrackedValue.Builder<R>
+        ): TrackableValue<R>
 
         override fun <R> fold(
             planned: (PlannedValue<V>) -> R,
@@ -94,9 +102,13 @@ sealed interface TrackableValue<V> {
 
         val calculatedTimestamp: Instant
 
-        fun transitionToTracked(
-            mapper: TrackedValue.Builder<V>.() -> TrackedValue.Builder<V>
-        ): TrackableValue<V>
+        /**
+         * @return [TrackedValue] if both required parameters provided else the current
+         * [CalculatedValue]
+         */
+        fun <R> transitionToTracked(
+            mapper: TrackedValue.Builder<V>.() -> TrackedValue.Builder<R>
+        ): TrackableValue<R>
 
         override fun <R> fold(
             planned: (PlannedValue<V>) -> R,

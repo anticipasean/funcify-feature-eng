@@ -1,11 +1,11 @@
-package funcify.feature.datasource.retrieval
+package funcify.feature.datasource.tracking
 
 import com.fasterxml.jackson.databind.JsonNode
 import funcify.feature.datasource.error.DataSourceErrorResponse
 import funcify.feature.datasource.error.DataSourceException
-import funcify.feature.datasource.retrieval.TrackableValue.CalculatedValue
-import funcify.feature.datasource.retrieval.TrackableValue.PlannedValue
-import funcify.feature.datasource.retrieval.TrackableValue.TrackedValue
+import funcify.feature.datasource.tracking.TrackableValue.CalculatedValue
+import funcify.feature.datasource.tracking.TrackableValue.PlannedValue
+import funcify.feature.datasource.tracking.TrackableValue.TrackedValue
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.StringExtensions.flatten
@@ -209,16 +209,16 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
             override val contextualParameters: ImmutableMap<SchematicPath, JsonNode>
         ) : PlannedValue<V> {
 
-            override fun transitionToCalculated(
-                mapper: CalculatedValue.Builder<V>.() -> CalculatedValue.Builder<V>
-            ): TrackableValue<V> {
+            override fun <R> transitionToCalculated(
+                mapper: CalculatedValue.Builder<V>.() -> CalculatedValue.Builder<R>
+            ): TrackableValue<R> {
                 val builder: CalculatedValue.Builder<V> = DefaultCalculatedValueBuilder<V>(this)
                 return mapper(builder).build()
             }
 
-            override fun transitionToTracked(
-                mapper: TrackedValue.Builder<V>.() -> TrackedValue.Builder<V>
-            ): TrackableValue<V> {
+            override fun <R> transitionToTracked(
+                mapper: TrackedValue.Builder<V>.() -> TrackedValue.Builder<R>
+            ): TrackableValue<R> {
                 val builder: TrackedValue.Builder<V> = DefaultTrackedValueBuilder<V>(this)
                 return mapper(builder).build()
             }
@@ -231,9 +231,9 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
             override val calculatedTimestamp: Instant
         ) : CalculatedValue<V> {
 
-            override fun transitionToTracked(
-                mapper: TrackedValue.Builder<V>.() -> TrackedValue.Builder<V>
-            ): TrackableValue<V> {
+            override fun <R> transitionToTracked(
+                mapper: TrackedValue.Builder<V>.() -> TrackedValue.Builder<R>
+            ): TrackableValue<R> {
                 val builder: TrackedValue.Builder<V> = DefaultTrackedValueBuilder<V>(null, this)
                 return mapper(builder).build()
             }
