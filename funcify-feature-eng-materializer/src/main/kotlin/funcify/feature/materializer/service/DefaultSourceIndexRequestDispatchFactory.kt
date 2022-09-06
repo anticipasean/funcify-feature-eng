@@ -90,7 +90,7 @@ internal class DefaultSourceIndexRequestDispatchFactory : SourceIndexRequestDisp
             }
 
             override fun build():
-                SourceIndexRequestDispatch.DispatchedCacheableSingleSourceIndexRetrieval {
+                SourceIndexRequestDispatch.DispatchedTrackableSingleSourceIndexRetrieval {
                 return when {
                     sourceIndexPath == null ||
                         retrievalFunctionSpec == null ||
@@ -103,14 +103,14 @@ internal class DefaultSourceIndexRequestDispatchFactory : SourceIndexRequestDisp
                         )
                     }
                     else -> {
-                        DefaultDispatchedCacheableSingleSourceIndexRetrieval(
+                        DefaultDispatchedTrackableSingleSourceIndexRetrieval(
                             sourceIndexPath,
                             retrievalFunctionSpec,
                             trackableValueJsonRetrievalFunction,
                             dispatchedSingleIndexCacheRequest!!,
                             backupBaseMultipleSourceIndicesJsonRetrievalFunction!!,
                             backupFunction!!
-                        )
+                                                                            )
                     }
                 }
             }
@@ -155,7 +155,7 @@ internal class DefaultSourceIndexRequestDispatchFactory : SourceIndexRequestDisp
             }
         }
 
-        internal data class DefaultDispatchedCacheableSingleSourceIndexRetrieval(
+        internal data class DefaultDispatchedTrackableSingleSourceIndexRetrieval(
             override val sourceIndexPath: SchematicPath,
             override val retrievalFunctionSpec: RetrievalFunctionSpec,
             override val trackableValueJsonRetrievalFunction: TrackableValueJsonRetrievalFunction,
@@ -164,7 +164,7 @@ internal class DefaultSourceIndexRequestDispatchFactory : SourceIndexRequestDisp
                 MultipleSourceIndicesJsonRetrievalFunction,
             override val backupTrackableValueRetrievalFunction:
                 BackupTrackableValueRetrievalFunction
-        ) : SourceIndexRequestDispatch.DispatchedCacheableSingleSourceIndexRetrieval {}
+                                                                                ) : SourceIndexRequestDispatch.DispatchedTrackableSingleSourceIndexRetrieval {}
 
         internal data class DefaultDispatchedMultiSourceIndexRetrieval(
             override val sourceIndexPath: SchematicPath,

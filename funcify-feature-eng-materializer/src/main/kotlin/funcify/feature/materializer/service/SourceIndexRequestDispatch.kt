@@ -3,8 +3,8 @@ package funcify.feature.materializer.service
 import com.fasterxml.jackson.databind.JsonNode
 import funcify.feature.datasource.retrieval.BackupTrackableValueRetrievalFunction
 import funcify.feature.datasource.retrieval.MultipleSourceIndicesJsonRetrievalFunction
-import funcify.feature.datasource.tracking.TrackableValue
 import funcify.feature.datasource.retrieval.TrackableValueJsonRetrievalFunction
+import funcify.feature.datasource.tracking.TrackableValue
 import funcify.feature.materializer.spec.RetrievalFunctionSpec
 import funcify.feature.schema.path.SchematicPath
 import kotlinx.collections.immutable.ImmutableMap
@@ -35,7 +35,7 @@ interface SourceIndexRequestDispatch {
 
         fun dispatchedTrackableValueJsonRequest(
             dispatch: Mono<TrackableValue<JsonNode>>
-                                               ): TrackableValueSourceIndexRetrievalSpec
+        ): TrackableValueSourceIndexRetrievalSpec
 
         fun backupBaseMultipleSourceIndicesJsonRetrievalFunction(
             multipleSourceIndicesJsonRetrievalFunction: MultipleSourceIndicesJsonRetrievalFunction
@@ -45,7 +45,7 @@ interface SourceIndexRequestDispatch {
             backupFunction: BackupTrackableValueRetrievalFunction
         ): TrackableValueSourceIndexRetrievalSpec
 
-        fun build(): DispatchedCacheableSingleSourceIndexRetrieval
+        fun build(): DispatchedTrackableSingleSourceIndexRetrieval
     }
 
     interface MultipleSourceIndexRetrievalSpec {
@@ -57,7 +57,7 @@ interface SourceIndexRequestDispatch {
         fun build(): DispatchedMultiSourceIndexRetrieval
     }
 
-    interface DispatchedCacheableSingleSourceIndexRetrieval : SourceIndexRequestDispatch {
+    interface DispatchedTrackableSingleSourceIndexRetrieval : SourceIndexRequestDispatch {
 
         val trackableValueJsonRetrievalFunction: TrackableValueJsonRetrievalFunction
 
@@ -66,8 +66,7 @@ interface SourceIndexRequestDispatch {
         val backupBaseMultipleSourceIndicesJsonRetrievalFunction:
             MultipleSourceIndicesJsonRetrievalFunction
 
-        val backupTrackableValueRetrievalFunction:
-            BackupTrackableValueRetrievalFunction
+        val backupTrackableValueRetrievalFunction: BackupTrackableValueRetrievalFunction
     }
 
     interface DispatchedMultiSourceIndexRetrieval : SourceIndexRequestDispatch {

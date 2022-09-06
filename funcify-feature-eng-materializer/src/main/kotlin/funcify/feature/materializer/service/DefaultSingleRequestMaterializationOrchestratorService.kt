@@ -9,6 +9,7 @@ import arrow.core.toOption
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.node.ObjectNode
 import funcify.feature.datasource.tracking.TrackableValue
+import funcify.feature.datasource.tracking.TrackedJsonValuePublisherProvider
 import funcify.feature.json.JsonMapper
 import funcify.feature.materializer.error.MaterializerErrorResponse
 import funcify.feature.materializer.error.MaterializerException
@@ -21,9 +22,11 @@ import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.extensions.TryExtensions.successIfDefined
 import org.slf4j.Logger
 import reactor.core.publisher.Mono
+import reactor.core.scheduler.Schedulers
 
 internal class DefaultSingleRequestMaterializationOrchestratorService(
-    private val jsonMapper: JsonMapper
+    private val jsonMapper: JsonMapper,
+    private val trackedJsonValuePublisherProvider: TrackedJsonValuePublisherProvider
 ) : SingleRequestMaterializationOrchestratorService {
 
     companion object {
@@ -86,6 +89,61 @@ internal class DefaultSingleRequestMaterializationOrchestratorService(
             currentFieldPathWithoutListIndexing in
                 session.singleRequestSession.requestDispatchMaterializationGraphPhase
                     .orNull()!!
+                    .trackableSingleValueRequestDispatchesBySourceIndexPath -> {
+                session.singleRequestSession.requestDispatchMaterializationGraphPhase
+                    .flatMap { phase ->
+                        phase.trackableSingleValueRequestDispatchesBySourceIndexPath
+                            .getOrNone(currentFieldPathWithoutListIndexing)
+                            .tap { dr ->
+                                trackedJsonValuePublisherProvider
+                                    .getTrackedValuePublisherForDataSource(
+                                        dr.trackableValueJsonRetrievalFunction.cacheForDataSourceKey
+                                    )
+                                    .map { publisher ->
+                                        dr.dispatchedTrackableValueRequest
+                                            .subscribeOn(Schedulers.boundedElastic())
+                                            .subscribe { tv -> publisher.publishTrackedValue(tv) }
+                                    }
+                            }
+                            .map { sr -> sr.dispatchedTrackableValueRequest }
+                    }
+                    .successIfDefined { ->
+                        MaterializerException(
+                            MaterializerErrorResponse.UNEXPECTED_ERROR,
+                            "unable to map field_path to cacheable_single_source_index_request: [ field_path: ${currentFieldPath} ]"
+                        )
+                    }
+                    .toMono()
+                    .flatMap { df ->
+                        df.flatMap { trackableJsonValue ->
+                            logger.info("trackable_json_value: [ {} ]", trackableJsonValue)
+                            // TODO: Add when expression and handle case when value still "planned"
+                            trackableJsonValue
+                                .toOption()
+                                .filterIsInstance<TrackableValue.CalculatedValue<JsonNode>>()
+                                .map { cv -> cv.calculatedValue }
+                                .orElse {
+                                    trackableJsonValue
+                                        .toOption()
+                                        .filterIsInstance<TrackableValue.TrackedValue<JsonNode>>()
+                                        .map { tv -> tv.trackedValue }
+                                }
+                                .zip(
+                                    session.fieldOutputType.toOption().orElse {
+                                        session.dataFetchingEnvironment.fieldDefinition.type
+                                            .toOption()
+                                    }
+                                )
+                                .flatMap { (jn, gqlOutputType) ->
+                                    JsonNodeToStandardValueConverter.invoke(jn, gqlOutputType)
+                                }
+                                .toMono()
+                        }
+                    }
+            }
+            currentFieldPathWithoutListIndexing in
+                session.singleRequestSession.requestDispatchMaterializationGraphPhase
+                    .orNull()!!
                     .multipleSourceIndexRequestDispatchesBySourceIndexPath -> {
                 session.singleRequestSession.requestDispatchMaterializationGraphPhase
                     .flatMap { phase ->
@@ -95,18 +153,6 @@ internal class DefaultSingleRequestMaterializationOrchestratorService(
                     }
                     .map { mr ->
                         mr.dispatchedMultipleIndexRequest.map { deferredResultMap ->
-                            logger.info(
-                                "extracting {} from result_map: {}",
-                                currentFieldPathWithoutListIndexing,
-                                deferredResultMap
-                                    .asSequence()
-                                    .joinToString(
-                                        ",\n",
-                                        "{ ",
-                                        " }",
-                                        transform = { (k, v) -> "$k: $v" }
-                                    )
-                            )
                             deferredResultMap.getOrNone(currentFieldPathWithoutListIndexing)
                         }
                     }
@@ -133,50 +179,6 @@ internal class DefaultSingleRequestMaterializationOrchestratorService(
                     }
                     .toMono()
                     .flatMap { nestedMono -> nestedMono }
-            }
-            currentFieldPathWithoutListIndexing in
-                session.singleRequestSession.requestDispatchMaterializationGraphPhase
-                    .orNull()!!
-                    .cacheableSingleSourceIndexRequestDispatchesBySourceIndexPath -> {
-                session.singleRequestSession.requestDispatchMaterializationGraphPhase
-                    .flatMap { phase ->
-                        phase.cacheableSingleSourceIndexRequestDispatchesBySourceIndexPath
-                            .getOrNone(currentFieldPathWithoutListIndexing)
-                            .map { sr -> sr.dispatchedTrackableValueRequest }
-                    }
-                    .successIfDefined { ->
-                        MaterializerException(
-                            MaterializerErrorResponse.UNEXPECTED_ERROR,
-                            "unable to map field_path to cacheable_single_source_index_request: [ field_path: ${currentFieldPath} ]"
-                        )
-                    }
-                    .toMono()
-                    .flatMap { df ->
-                        df.flatMap { trackableJsonValue ->
-                            logger.info("trackable_json_value: [ {} ]", trackableJsonValue)
-                            //TODO: Add when expression and handle case when value still "planned"
-                            trackableJsonValue
-                                .toOption()
-                                .filterIsInstance<TrackableValue.CalculatedValue<JsonNode>>()
-                                .map { cv -> cv.calculatedValue }
-                                .orElse {
-                                    trackableJsonValue
-                                        .toOption()
-                                        .filterIsInstance<TrackableValue.TrackedValue<JsonNode>>()
-                                        .map { tv -> tv.trackedValue }
-                                }
-                                .zip(
-                                    session.fieldOutputType.toOption().orElse {
-                                        session.dataFetchingEnvironment.fieldDefinition.type
-                                            .toOption()
-                                    }
-                                )
-                                .flatMap { (jn, gqlOutputType) ->
-                                    JsonNodeToStandardValueConverter.invoke(jn, gqlOutputType)
-                                }
-                                .toMono()
-                        }
-                    }
             }
             session.dataFetchingEnvironment
                 .getSource<Any>()

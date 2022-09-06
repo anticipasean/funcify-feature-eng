@@ -6,9 +6,9 @@ import com.fasterxml.jackson.databind.node.JsonNodeFactory
 import funcify.feature.datasource.retrieval.BackupTrackableValueRetrievalFunction
 import funcify.feature.datasource.retrieval.MultipleSourceIndicesJsonRetrievalFunction
 import funcify.feature.datasource.retrieval.SchematicPathBasedJsonRetrievalFunctionFactory
+import funcify.feature.datasource.retrieval.TrackableValueJsonRetrievalFunction
 import funcify.feature.datasource.tracking.TrackableValue
 import funcify.feature.datasource.tracking.TrackableValueFactory
-import funcify.feature.datasource.retrieval.TrackableValueJsonRetrievalFunction
 import funcify.feature.materializer.error.MaterializerErrorResponse
 import funcify.feature.materializer.error.MaterializerException
 import funcify.feature.materializer.schema.RequestParameterEdge
@@ -218,7 +218,7 @@ internal class DefaultSingleRequestMaterializationDispatchService(
             .joinToString(",\n", "multi_src_ind_request_dispatches: { \n", "\n}\n") +
             "\n" +
             requestDispatchMaterializationPhase
-                .cacheableSingleSourceIndexRequestDispatchesBySourceIndexPath
+                .trackableSingleValueRequestDispatchesBySourceIndexPath
                 .asSequence()
                 .map { (p, s) ->
                     "path: $p, single_src_ind_request_dispatch: { source_indices: %s, param_indices: %s ]".format(
@@ -567,7 +567,7 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                                     }
                             }
                             .flatMap { inputMap ->
-                                multiSrcIndJsonRetrievalFunction.invoke(inputMap)
+                                multiSrcIndJsonRetrievalFunction.invoke(inputMap).cache()
                             }
                             .let { deferredResult ->
                                 requestCreationContext.copy(
@@ -772,12 +772,6 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                                     requestCreationContext
                                         .dispatchedTrackableValueResponsesBySourceIndexPath[p]!!
                                         .flatMap { resultOpt ->
-                                            logger.info(
-                                                "extraction: [ target_source_path: {}, path_to_extract: {}, result: {} ]",
-                                                trackableValueJsonRetrievalFunction.sourceIndexPath,
-                                                edge.id.first,
-                                                resultOpt
-                                            )
                                             resultOpt.fold(
                                                 { pv -> Mono.empty() },
                                                 { cv -> Mono.justOrEmpty(cv.calculatedValue) },
@@ -785,14 +779,6 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                                             )
                                         }
                                         .left()
-                                        .tapLeft { kf ->
-                                            logger.info(
-                                                "parameter_single_value_mono: [ target_source_path: {}, mono_path: {}, mono: {} ]",
-                                                trackableValueJsonRetrievalFunction.sourceIndexPath,
-                                                p,
-                                                kf
-                                            )
-                                        }
                                         .some()
                                 }
                                 requestCreationContext
@@ -803,28 +789,7 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                                         .right()
                                         .map { multiSrcIndexDeferredResult ->
                                             multiSrcIndexDeferredResult.flatMap { resultMap ->
-                                                logger.info(
-                                                    "extraction: [ target_source_path: {}, path_to_extract: {}, dependent_result_map: {} ]",
-                                                    trackableValueJsonRetrievalFunction
-                                                        .sourceIndexPath,
-                                                    edge.id.first,
-                                                    resultMap
-                                                        .asSequence()
-                                                        .joinToString(
-                                                            ",\n",
-                                                            "{ ",
-                                                            " }",
-                                                            transform = { (k, v) -> "$k: $v" }
-                                                        )
-                                                )
-                                                val resultOpt =
-                                                    edge.extractionFunction.invoke(resultMap)
-                                                logger.info(
-                                                    "extraction_result for [ path_to_extract: {} ] [ result: {} ]",
-                                                    edge.id.first,
-                                                    resultOpt
-                                                )
-                                                resultOpt.toMono()
+                                                edge.extractionFunction.invoke(resultMap).toMono()
                                             }
                                         }
                                         .some()
@@ -843,11 +808,6 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                         .flatMapOptions()
                         .map { deferredSingleValueResult ->
                             edge.id.second to deferredSingleValueResult.fold(::identity, ::identity)
-                        }
-                        .peek { selectedPair ->
-                            logger.info(
-                                "target: ${trackableValueJsonRetrievalFunction.sourceIndexPath}, selected_source_path: ${selectedPair.first} ]"
-                            )
                         }
                 }
                 .reducePairsToPersistentMap()
@@ -878,7 +838,7 @@ internal class DefaultSingleRequestMaterializationDispatchService(
         return requestCreationContext.processedRetrievalFunctionSpecsBySourceIndexPath
             .asSequence()
             .fold(
-                persistentListOf<DispatchedCacheableSingleSourceIndexRetrieval>() to
+                persistentListOf<DispatchedTrackableSingleSourceIndexRetrieval>() to
                     persistentListOf<DispatchedMultiSourceIndexRetrieval>()
             ) { plPair, (sourceIndexPath, retrievalSpec) ->
                 when {

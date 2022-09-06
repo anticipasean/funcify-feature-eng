@@ -1,7 +1,7 @@
 package funcify.feature.materializer.service
 
-import funcify.feature.materializer.service.SourceIndexRequestDispatch.DispatchedCacheableSingleSourceIndexRetrieval
 import funcify.feature.materializer.service.SourceIndexRequestDispatch.DispatchedMultiSourceIndexRetrieval
+import funcify.feature.materializer.service.SourceIndexRequestDispatch.DispatchedTrackableSingleSourceIndexRetrieval
 import funcify.feature.schema.path.SchematicPath
 import kotlinx.collections.immutable.ImmutableMap
 
@@ -12,10 +12,9 @@ import kotlinx.collections.immutable.ImmutableMap
  */
 interface RequestDispatchMaterializationPhase : MaterializationPhase {
 
-    val cacheableSingleSourceIndexRequestDispatchesBySourceIndexPath:
-        ImmutableMap<SchematicPath, DispatchedCacheableSingleSourceIndexRetrieval>
+    val trackableSingleValueRequestDispatchesBySourceIndexPath:
+        ImmutableMap<SchematicPath, DispatchedTrackableSingleSourceIndexRetrieval>
 
     val multipleSourceIndexRequestDispatchesBySourceIndexPath:
         ImmutableMap<SchematicPath, DispatchedMultiSourceIndexRetrieval>
-
 }

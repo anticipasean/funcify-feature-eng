@@ -7,9 +7,10 @@ import funcify.feature.datasource.graphql.metadata.alias.GraphQLApiDataSourceAli
 import funcify.feature.datasource.graphql.metadata.temporal.GraphQLApiDataSourceLastUpdatedAttributeProvider
 import funcify.feature.datasource.rest.RestApiDataSource
 import funcify.feature.datasource.retrieval.SchematicPathBasedJsonRetrievalFunctionFactory
-import funcify.feature.datasource.tracking.TrackableValueFactory
 import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionCreationContextFactory
 import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionImplementationStrategy
+import funcify.feature.datasource.tracking.TrackableValueFactory
+import funcify.feature.datasource.tracking.TrackedJsonValuePublisherProvider
 import funcify.feature.error.FeatureEngCommonException
 import funcify.feature.json.JsonMapper
 import funcify.feature.materializer.context.DefaultMaterializationGraphVertexContextFactory
@@ -237,9 +238,16 @@ class MaterializerConfiguration {
     @ConditionalOnMissingBean(value = [SingleRequestMaterializationOrchestratorService::class])
     @Bean
     fun singleRequestMaterializationOrchestratorService(
-        jsonMapper: JsonMapper
+        jsonMapper: JsonMapper,
+        trackedJsonValuePublisherProvider: ObjectProvider<TrackedJsonValuePublisherProvider>
     ): SingleRequestMaterializationOrchestratorService {
-        return DefaultSingleRequestMaterializationOrchestratorService(jsonMapper = jsonMapper)
+        return DefaultSingleRequestMaterializationOrchestratorService(
+            jsonMapper = jsonMapper,
+            trackedJsonValuePublisherProvider =
+                trackedJsonValuePublisherProvider.getIfAvailable {
+                    TrackedJsonValuePublisherProvider.NO_OP_PROVIDER
+                }
+        )
     }
 
     @ConditionalOnMissingBean(value = [MaterializationPreparsedDocumentProvider::class])

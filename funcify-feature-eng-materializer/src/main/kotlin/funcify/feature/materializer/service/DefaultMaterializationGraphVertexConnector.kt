@@ -144,16 +144,12 @@ internal class DefaultMaterializationGraphVertexConnector(
                                                 context.path
                                             )
                                             .dependentExtractionFunction { resultMap ->
-                                                val path =
+                                                resultMap.getOrNone(
                                                     getVertexPathWithListIndexingIfDescendentOfListNode(
                                                         context.currentVertex,
                                                         context.graphQLSchema
                                                     )
-                                                logger.info(
-                                                    "extracting path: [ path_to_extract: {} ]",
-                                                    path
                                                 )
-                                                resultMap.getOrNone(path)
                                             }
                                             .build()
                                     )
@@ -352,13 +348,12 @@ internal class DefaultMaterializationGraphVertexConnector(
                             .builder()
                             .fromPathToPath(ancestorPath, sav.path)
                             .dependentExtractionFunction { resultMap ->
-                                val path =
+                                resultMap.getOrNone(
                                     getVertexPathWithListIndexingIfDescendentOfListNode(
                                         sav,
                                         context.graphQLSchema
                                     )
-                                logger.info("extracting_path: [ path: {} ]", path)
-                                resultMap.getOrNone(path)
+                                )
                             }
                             .build()
                     }
@@ -436,14 +431,13 @@ internal class DefaultMaterializationGraphVertexConnector(
                                                 context.path
                                             )
                                             .dependentExtractionFunction { resultMap ->
-                                                val path =
+                                                resultMap.getOrNone(
                                                     getVertexPathWithListIndexingIfDescendentOfListNode(
                                                         sourceAttributeVertexWithSameNameOrAlias
                                                             .orNull()!!,
                                                         context.graphQLSchema
                                                     )
-                                                logger.info("extracting_path: [ path: {} ]", path)
-                                                resultMap.getOrNone(path)
+                                                )
                                             }
                                             .build()
                                     )
@@ -457,9 +451,7 @@ internal class DefaultMaterializationGraphVertexConnector(
                                                 }
                                             )
                                             .dependentExtractionFunction { resultMap ->
-                                                val path = context.path
-                                                logger.info("extracting_path: [ path: {} ]", path)
-                                                resultMap.getOrNone(path)
+                                                resultMap.getOrNone(context.path)
                                             }
                                             .build()
                                     )
