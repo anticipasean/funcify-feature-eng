@@ -1,13 +1,9 @@
 package funcify.feature.materializer.service
 
-import arrow.core.filterIsInstance
-import arrow.core.getOrElse
-import arrow.core.getOrNone
-import arrow.core.none
-import arrow.core.orElse
-import arrow.core.toOption
+import arrow.core.*
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.node.ObjectNode
+import funcify.feature.datasource.graphql.schema.GraphQLOutputFieldsContainerTypeExtractor
 import funcify.feature.datasource.tracking.TrackableValue
 import funcify.feature.datasource.tracking.TrackedJsonValuePublisherProvider
 import funcify.feature.json.JsonMapper
@@ -17,10 +13,23 @@ import funcify.feature.materializer.fetcher.SingleRequestFieldMaterializationSes
 import funcify.feature.materializer.json.JsonNodeToStandardValueConverter
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
+import funcify.feature.tools.extensions.MonoExtensions.widen
 import funcify.feature.tools.extensions.OptionExtensions.toMono
+import funcify.feature.tools.extensions.OptionExtensions.toOption
+import funcify.feature.tools.extensions.SequenceExtensions.flatMapOptions
+import funcify.feature.tools.extensions.SequenceExtensions.recurse
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.extensions.TryExtensions.successIfDefined
+import graphql.schema.GraphQLList
+import graphql.schema.GraphQLNonNull
+import graphql.schema.GraphQLSchema
+import java.time.Instant
+import java.time.OffsetDateTime
+import kotlinx.collections.immutable.ImmutableMap
+import kotlinx.collections.immutable.persistentMapOf
+import kotlinx.collections.immutable.toPersistentList
 import org.slf4j.Logger
+import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.core.scheduler.Schedulers
 
@@ -95,15 +104,11 @@ internal class DefaultSingleRequestMaterializationOrchestratorService(
                         phase.trackableSingleValueRequestDispatchesBySourceIndexPath
                             .getOrNone(currentFieldPathWithoutListIndexing)
                             .tap { dr ->
-                                trackedJsonValuePublisherProvider
-                                    .getTrackedValuePublisherForDataSource(
-                                        dr.trackableValueJsonRetrievalFunction.cacheForDataSourceKey
-                                    )
-                                    .map { publisher ->
-                                        dr.dispatchedTrackableValueRequest
-                                            .subscribeOn(Schedulers.boundedElastic())
-                                            .subscribe { tv -> publisher.publishTrackedValue(tv) }
-                                    }
+                                publishTrackableValueIfApplicable(
+                                    currentFieldPathWithoutListIndexing,
+                                    dr,
+                                    session
+                                )
                             }
                             .map { sr -> sr.dispatchedTrackableValueRequest }
                     }
@@ -282,5 +287,186 @@ internal class DefaultSingleRequestMaterializationOrchestratorService(
                 )
             }
         }
+    }
+
+    private fun publishTrackableValueIfApplicable(
+        sourceIndexPath: SchematicPath,
+        dispatchedTrackableSingleSourceIndexRetrieval:
+            SourceIndexRequestDispatch.DispatchedTrackableSingleSourceIndexRetrieval,
+        session: SingleRequestFieldMaterializationSession
+    ) {
+        trackedJsonValuePublisherProvider
+            .getTrackedValuePublisherForDataSource(
+                dispatchedTrackableSingleSourceIndexRetrieval.trackableValueJsonRetrievalFunction
+                    .cacheForDataSourceKey
+            )
+            .map { publisher ->
+                dispatchedTrackableSingleSourceIndexRetrieval.dispatchedTrackableValueRequest
+                    .subscribeOn(Schedulers.boundedElastic())
+                    .zipWith(
+                        findAnyLastUpdatedFieldValuesRelatedToThisField(
+                            sourceIndexPath,
+                            dispatchedTrackableSingleSourceIndexRetrieval,
+                            session
+                        )
+                    ) { tv, lastUpdatedFields -> tv to lastUpdatedFields }
+                    .flatMap { (tv, relatedLastUpdatedFieldPathValues) ->
+                        tv.fold({ none() }, { cv -> cv.calculatedTimestamp.some() }, { none() })
+                            .flatMap { currentTimestamp ->
+                                sequenceOf(currentTimestamp)
+                                    .plus(relatedLastUpdatedFieldPathValues.values)
+                                    .minOrNull()
+                                    .toOption()
+                            }
+                            .fold(
+                                { Mono.empty() },
+                                { earliestInstant ->
+                                    tv.fold(
+                                        { Mono.empty() },
+                                        { cv ->
+                                            // only submit for publishing if it's a calculated value
+                                            // being transitioned to a tracked_value
+                                            Mono.just(
+                                                cv.transitionToTracked {
+                                                    valueAtTimestamp(earliestInstant)
+                                                        .trackedValue(cv.calculatedValue)
+                                                }
+                                            )
+                                        },
+                                        { Mono.empty() }
+                                    )
+                                }
+                            )
+                    }
+                    .subscribe { tv -> publisher.publishTrackedValue(tv) }
+            }
+    }
+
+    private fun findAnyLastUpdatedFieldValuesRelatedToThisField(
+        sourceIndexPath: SchematicPath,
+        dispatchedTrackableSingleSourceIndexRetrieval:
+            SourceIndexRequestDispatch.DispatchedTrackableSingleSourceIndexRetrieval,
+        session: SingleRequestFieldMaterializationSession
+    ): Mono<ImmutableMap<SchematicPath, Instant>> {
+        return dispatchedTrackableSingleSourceIndexRetrieval
+            .backupBaseMultipleSourceIndicesJsonRetrievalFunction
+            .parameterPaths
+            .asSequence()
+            .map { paramPath ->
+                session.singleRequestSession.requestParameterMaterializationGraphPhase
+                    .flatMap { phase ->
+                        phase.requestGraph
+                            .getEdgesTo(paramPath)
+                            .map { edge -> edge.id.first }
+                            .findFirst()
+                            .toOption()
+                    }
+                    .flatMap { dependentSourceIndex ->
+                        session.metamodelGraph.lastUpdatedTemporalAttributePathRegistry
+                            .findNearestLastUpdatedTemporalAttributePathRelative(
+                                dependentSourceIndex
+                            )
+                    }
+            }
+            .flatMapOptions()
+            .distinct()
+            .map { relatedLastUpdatedFieldPath ->
+                session.singleRequestSession.requestDispatchMaterializationGraphPhase.flatMap {
+                    phase ->
+                    phase.multipleSourceIndexRequestDispatchesBySourceIndexPath
+                        .asSequence()
+                        .filter { (_, retr) ->
+                            retr.multipleSourceIndicesJsonRetrievalFunction.sourcePaths.contains(
+                                relatedLastUpdatedFieldPath
+                            )
+                        }
+                        .firstOrNull()
+                        .toOption()
+                        .zip(
+                            getVertexPathWithListIndexingIfDescendentOfListNode(
+                                    relatedLastUpdatedFieldPath,
+                                    session.materializationSchema
+                                )
+                                .toOption()
+                        )
+                        .map { (retrEntry, lastUpdatedWithListInd) ->
+                            retrEntry.value.dispatchedMultipleIndexRequest
+                                .mapNotNull { resultMap -> resultMap[lastUpdatedWithListInd] }
+                                .map { jn -> relatedLastUpdatedFieldPath to jn!! }
+                        }
+                }
+            }
+            .flatMapOptions()
+            .map { lastUpdatedAttrJsonMono ->
+                lastUpdatedAttrJsonMono.flatMap { (p, jn) ->
+                    // TODO: Add type info fetching and separate temporal type assessment for
+                    // applicability to other temporal types
+                    jsonMapper
+                        .fromJsonNode(jn)
+                        .toKotlinObject(OffsetDateTime::class)
+                        .map { odt -> p to odt.toInstant() }
+                        .toMono()
+                }
+            }
+            .let { lastUpdatedAttrMonoSeq ->
+                Flux.merge(lastUpdatedAttrMonoSeq.asIterable()).reduce(
+                    persistentMapOf<SchematicPath, Instant>()
+                ) { pm, (k, v) -> pm.put(k, v) }
+            }
+            .widen()
+    }
+
+    private fun getVertexPathWithListIndexingIfDescendentOfListNode(
+        sourceIndexPath: SchematicPath,
+        graphQLSchema: GraphQLSchema
+    ): SchematicPath {
+        return sourceIndexPath
+            .toOption()
+            .flatMap { sp ->
+                sp.pathSegments.firstOrNone().flatMap { n ->
+                    graphQLSchema.queryType.getFieldDefinition(n).toOption().map { gfd ->
+                        sp.pathSegments.toPersistentList().removeAt(0) to gfd
+                    }
+                }
+            }
+            .fold(::emptySequence, ::sequenceOf)
+            .recurse { (ps, gqlf) ->
+                when (gqlf.type) {
+                    is GraphQLNonNull -> {
+                        if ((gqlf.type as GraphQLNonNull).wrappedType is GraphQLList) {
+                            sequenceOf(
+                                StringBuilder(gqlf.name)
+                                    .append('[')
+                                    .append(0)
+                                    .append(']')
+                                    .toString()
+                                    .right()
+                            )
+                        } else {
+                            sequenceOf(gqlf.name.right())
+                        }
+                    }
+                    is GraphQLList -> {
+                        sequenceOf(
+                            StringBuilder(gqlf.name)
+                                .append('[')
+                                .append(0)
+                                .append(']')
+                                .toString()
+                                .right()
+                        )
+                    }
+                    else -> {
+                        sequenceOf(gqlf.name.right())
+                    }
+                }.plus(
+                    GraphQLOutputFieldsContainerTypeExtractor.invoke(gqlf.type)
+                        .zip(ps.firstOrNone())
+                        .flatMap { (c, n) -> c.getFieldDefinition(n).toOption() }
+                        .map { f -> (ps.removeAt(0) to f).left() }
+                        .fold(::emptySequence, ::sequenceOf)
+                )
+            }
+            .let { sSeq -> SchematicPath.of { pathSegments(sSeq.toList()) } }
     }
 }
