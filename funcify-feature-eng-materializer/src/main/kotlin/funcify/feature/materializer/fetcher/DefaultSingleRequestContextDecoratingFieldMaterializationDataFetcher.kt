@@ -119,7 +119,6 @@ internal class DefaultSingleRequestContextDecoratingFieldMaterializationDataFetc
         // data_fetcher_result creation to avoid use of null within kfuture
         val resultFuture: CompletableFuture<DataFetcherResult<R>> = CompletableFuture()
         resultPublisher
-            .subscribeOn(Schedulers.fromExecutor(asyncExecutor))
             .subscribe(
                 { resultValue ->
                     resultFuture.complete(

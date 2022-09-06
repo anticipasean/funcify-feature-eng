@@ -35,6 +35,7 @@ import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.extensions.TryExtensions.successIfDefined
 import graphql.schema.FieldCoordinates
 import graphql.schema.GraphQLFieldDefinition
+import java.time.Duration
 import java.time.Instant
 import java.util.concurrent.Executor
 import java.util.stream.Stream.empty
@@ -60,7 +61,9 @@ internal class DefaultSingleRequestMaterializationDispatchService(
 
     companion object {
         private val logger: Logger = loggerFor<DefaultSingleRequestMaterializationDispatchService>()
-
+        private const val DEFAULT_EXTERNAL_CALL_TIMEOUT_SECONDS: Int = 4
+        private val DEFAULT_EXTERNAL_CALL_TIMEOUT_DURATION: Duration =
+            Duration.ofSeconds(DEFAULT_EXTERNAL_CALL_TIMEOUT_SECONDS.toLong())
         private data class RequestCreationContext(
             val processedRetrievalFunctionSpecsBySourceIndexPath:
                 PersistentMap<SchematicPath, RetrievalFunctionSpec> =
@@ -290,6 +293,7 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                                                     .reducePairsToPersistentMap()
                                             )
                                             .cache()
+                                            .timeout(DEFAULT_EXTERNAL_CALL_TIMEOUT_DURATION)
                                     )
                         )
                     }
@@ -359,6 +363,7 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                                         singleSrcIndCacheRetrFunc
                                             .invoke(phase.materializedParameterValuesByPath)
                                             .cache()
+                                            .timeout(DEFAULT_EXTERNAL_CALL_TIMEOUT_DURATION)
                                     )
                         )
                     }
@@ -458,7 +463,12 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                         .asIterable()
                 )
                 .reduce(persistentMapOf<SchematicPath, JsonNode>()) { pm, (k, v) -> pm.put(k, v) }
-                .flatMap { inputMap -> multiSrcIndJsonRetrFunc.invoke(inputMap).cache() }
+                .flatMap { inputMap ->
+                    multiSrcIndJsonRetrFunc
+                        .invoke(inputMap)
+                        .cache()
+                        .timeout(DEFAULT_EXTERNAL_CALL_TIMEOUT_DURATION)
+                }
                 .flatMap { resultMap -> Mono.justOrEmpty(resultMap[sourceIndexPath]) }
                 .zipWith(sourceIndexGraphQLOutputTypeAttempt.toMono()) { resultMap, outputType ->
                     resultMap to outputType
@@ -478,6 +488,7 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                         }
                         .toMono()
                 }
+                .cache()
         }
     }
 
@@ -613,7 +624,10 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                                     }
                             }
                             .flatMap { inputMap ->
-                                multiSrcIndJsonRetrievalFunction.invoke(inputMap).cache()
+                                multiSrcIndJsonRetrievalFunction
+                                    .invoke(inputMap)
+                                    .cache()
+                                    .timeout(DEFAULT_EXTERNAL_CALL_TIMEOUT_DURATION)
                             }
                             .let { deferredResult ->
                                 requestCreationContext.copy(

@@ -18,15 +18,7 @@ import graphql.ExceptionWhileDataFetching
 import graphql.ExecutionResult
 import graphql.ExecutionResultImpl
 import graphql.GraphQLError
-import graphql.execution.DataFetcherExceptionHandler
-import graphql.execution.DataFetcherExceptionHandlerParameters
-import graphql.execution.DataFetcherExceptionHandlerResult
-import graphql.execution.ExecutionContext
-import graphql.execution.ExecutionStrategyParameters
-import graphql.execution.FieldValueInfo
-import graphql.execution.MergedField
-import graphql.execution.MergedSelectionSet
-import graphql.execution.ResultPath
+import graphql.execution.*
 import graphql.execution.instrumentation.ExecutionStrategyInstrumentationContext
 import graphql.execution.instrumentation.Instrumentation
 import graphql.execution.instrumentation.parameters.InstrumentationExecutionStrategyParameters
@@ -35,6 +27,7 @@ import graphql.language.OperationDefinition
 import graphql.language.Selection
 import graphql.language.SelectionSet
 import graphql.language.SourceLocation
+import java.time.Duration
 import java.util.concurrent.CompletableFuture
 import kotlinx.collections.immutable.persistentMapOf
 import org.slf4j.Logger
@@ -58,7 +51,9 @@ internal class DefaultGraphQLSingleRequestMaterializationQueryExecutionStrategy(
         private val logger: Logger =
             loggerFor<DefaultGraphQLSingleRequestMaterializationQueryExecutionStrategy>()
         private const val INTROSPECTION_FIELD_NAME_PREFIX = "__"
-
+        private const val DEFAULT_GLOBAL_DATA_FETCHER_TIMEOUT_SECONDS: Long = 4
+        private val DEFAULT_GLOBAL_DATA_FETCHER_TIMEOUT_DURATION =
+            Duration.ofSeconds(DEFAULT_GLOBAL_DATA_FETCHER_TIMEOUT_SECONDS)
         private fun Throwable?.unnestAnyPossibleGraphQLErrorThrowable(): Option<Throwable> {
             return this.toOption().recurse { x ->
                 when (x) {
@@ -106,7 +101,6 @@ internal class DefaultGraphQLSingleRequestMaterializationQueryExecutionStrategy(
         }
     }
 
-    /** More or less same as in its parent except for pre-wiring of graph creation */
     override fun execute(
         executionContext: ExecutionContext,
         parameters: ExecutionStrategyParameters,
@@ -258,6 +252,13 @@ internal class DefaultGraphQLSingleRequestMaterializationQueryExecutionStrategy(
             .onErrorMap { throwable: Throwable ->
                 throwable.unnestAnyPossibleGraphQLErrorThrowable().getOrElse { throwable }
             }
+            .timeout(
+                DEFAULT_GLOBAL_DATA_FETCHER_TIMEOUT_DURATION,
+                globalExternalRequestTimeoutReachedExceptionCreator(
+                    fieldNames,
+                    DEFAULT_GLOBAL_DATA_FETCHER_TIMEOUT_DURATION
+                )
+            )
             .subscribe(
                 { executionResults: MutableList<ExecutionResult> ->
                     resultsHandler.invoke(executionResults, null)
@@ -390,5 +391,24 @@ internal class DefaultGraphQLSingleRequestMaterializationQueryExecutionStrategy(
                     .format(expectedFieldNamesSetAsString, receivedFieldNamesSetAsString)
             )
         )
+    }
+
+    private fun <T> globalExternalRequestTimeoutReachedExceptionCreator(
+        fieldNames: Set<String>,
+        globalTimeoutDuration: Duration
+    ): Mono<T> {
+        return Mono.fromSupplier<String> {
+                fieldNames.asSequence().sorted().joinToString(", ", "{ ", " }")
+            }
+            .flatMap { fieldNameSetAsStr ->
+                Mono.error<T>(
+                    AbortExecutionException(
+                        """materialization of the following fields has exceeded 
+                        |the global timeout [ ${globalTimeoutDuration.toMillis()} ms ] 
+                        |and has been terminated: 
+                        |[ fields: $fieldNameSetAsStr ]""".flatten()
+                    )
+                )
+            }
     }
 }
