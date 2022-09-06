@@ -19,6 +19,9 @@ import funcify.feature.materializer.spec.RetrievalFunctionSpec
 import funcify.feature.naming.StandardNamingConventions
 import funcify.feature.schema.SchematicVertex
 import funcify.feature.schema.path.SchematicPath
+import funcify.feature.schema.vertex.SourceContainerTypeVertex
+import funcify.feature.schema.vertex.SourceJunctionVertex
+import funcify.feature.schema.vertex.SourceLeafVertex
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.container.graph.PathBasedGraph
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
@@ -30,6 +33,8 @@ import funcify.feature.tools.extensions.SequenceExtensions.flatMapOptions
 import funcify.feature.tools.extensions.StreamExtensions.flatMapOptions
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.extensions.TryExtensions.successIfDefined
+import graphql.schema.FieldCoordinates
+import graphql.schema.GraphQLFieldDefinition
 import java.time.Instant
 import java.util.concurrent.Executor
 import java.util.stream.Stream.empty
@@ -327,7 +332,8 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                                 sourceIndexPath,
                                 retrievalFunctionSpec,
                                 multiSrcIndJsonRetrFunc,
-                                phase.materializedParameterValuesByPath
+                                phase.materializedParameterValuesByPath,
+                                session
                             )
                         requestCreationContext.copy(
                             processedRetrievalFunctionSpecsBySourceIndexPath =
@@ -394,8 +400,44 @@ internal class DefaultSingleRequestMaterializationDispatchService(
         sourceIndexPath: SchematicPath,
         retrievalSpec: RetrievalFunctionSpec,
         multiSrcIndJsonRetrFunc: MultipleSourceIndicesJsonRetrievalFunction,
-        materializedParameterValuesByPath: PersistentMap<SchematicPath, JsonNode>
+        materializedParameterValuesByPath: PersistentMap<SchematicPath, JsonNode>,
+        session: GraphQLSingleRequestSession
     ): BackupTrackableValueRetrievalFunction {
+        val sourceIndexGraphQLOutputTypeAttempt =
+            retrievalSpec.sourceVerticesByPath[sourceIndexPath]
+                .toOption()
+                .flatMap { sjvOrSlv ->
+                    sourceIndexPath
+                        .getParentPath()
+                        .flatMap { pp -> session.metamodelGraph.pathBasedGraph.getVertex(pp) }
+                        .filterIsInstance<SourceContainerTypeVertex>()
+                        .map { sct -> sct.compositeContainerType.conventionalName.qualifiedForm }
+                        .zip(
+                            sjvOrSlv
+                                .fold(
+                                    SourceJunctionVertex::compositeAttribute,
+                                    SourceLeafVertex::compositeAttribute
+                                )
+                                .conventionalName
+                                .qualifiedForm
+                                .some()
+                        )
+                        .flatMap { (parentTypeName, childAttributeName) ->
+                            FieldCoordinates.coordinates(parentTypeName, childAttributeName)
+                                .toOption()
+                                .flatMap { fc ->
+                                    session.materializationSchema.getFieldDefinition(fc).toOption()
+                                }
+                                .map(GraphQLFieldDefinition::getType)
+                        }
+                }
+                .successIfDefined {
+                    MaterializerException(
+                        MaterializerErrorResponse.UNEXPECTED_ERROR,
+                        "could not find graphql_output_type for path: ${sourceIndexPath}"
+                    )
+                }
+
         return BackupTrackableValueRetrievalFunction { dispatchedParams ->
             logger.info(
                 "before_combine_sequence: [ source_index_path: {}, dispatched_params: {} ]",
@@ -418,11 +460,15 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                 .reduce(persistentMapOf<SchematicPath, JsonNode>()) { pm, (k, v) -> pm.put(k, v) }
                 .flatMap { inputMap -> multiSrcIndJsonRetrFunc.invoke(inputMap).cache() }
                 .flatMap { resultMap -> Mono.justOrEmpty(resultMap[sourceIndexPath]) }
-                .flatMap { resultJson ->
+                .zipWith(sourceIndexGraphQLOutputTypeAttempt.toMono()) { resultMap, outputType ->
+                    resultMap to outputType
+                }
+                .flatMap { (resultJson, outputType) ->
                     trackableValueFactory
                         .builder<JsonNode>()
                         .sourceIndexPath(sourceIndexPath)
                         .addContextualParameters(materializedParameterValuesByPath)
+                        .graphQLOutputType(outputType)
                         .build()
                         .zip(resultJson.toOption())
                         .map { (plannedValue, json) ->

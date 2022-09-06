@@ -3,6 +3,7 @@ package funcify.feature.datasource.tracking
 import com.fasterxml.jackson.databind.JsonNode
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.tools.container.attempt.Try
+import graphql.schema.GraphQLOutputType
 import java.time.Instant
 import kotlinx.collections.immutable.ImmutableMap
 
@@ -16,6 +17,8 @@ sealed interface TrackableValue<out V> {
     val sourceIndexPath: SchematicPath
 
     val contextualParameters: ImmutableMap<SchematicPath, JsonNode>
+
+    val graphQLOutputType: GraphQLOutputType
 
     fun isPlanned(): Boolean {
         return fold({ true }, { false }, { false })
@@ -87,6 +90,8 @@ sealed interface TrackableValue<out V> {
             fun addContextualParameters(
                 contextualParameters: Map<SchematicPath, JsonNode>
             ): Builder<V>
+
+            fun graphQLOutputType(graphQLOutputType: GraphQLOutputType): Builder<V>
 
             /**
              * Success<PlannedValue<V>> if one can be built, else Failure<PlannedValue<V>> with an

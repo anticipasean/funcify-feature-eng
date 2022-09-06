@@ -10,6 +10,7 @@ import funcify.feature.schema.path.SchematicPath
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.extensions.TryExtensions.successIfNonNull
+import graphql.schema.GraphQLOutputType
 import java.time.Instant
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.PersistentMap
@@ -28,7 +29,8 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
         internal class DefaultPlannedValueBuilder<V>(
             private var sourceIndexPath: SchematicPath? = null,
             private var contextualParameters: PersistentMap.Builder<SchematicPath, JsonNode> =
-                persistentMapOf<SchematicPath, JsonNode>().builder()
+                persistentMapOf<SchematicPath, JsonNode>().builder(),
+            private var graphQLOutputType: GraphQLOutputType? = null,
         ) : PlannedValue.Builder<V> {
 
             override fun sourceIndexPath(sourceIndexPath: SchematicPath): PlannedValue.Builder<V> {
@@ -80,6 +82,13 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
                 return this
             }
 
+            override fun graphQLOutputType(
+                graphQLOutputType: GraphQLOutputType
+            ): PlannedValue.Builder<V> {
+                this.graphQLOutputType = graphQLOutputType
+                return this
+            }
+
             override fun build(): Try<PlannedValue<V>> {
                 return when {
                     sourceIndexPath == null -> {
@@ -100,10 +109,19 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
                             )
                         )
                     }
+                    graphQLOutputType == null -> {
+                        Try.failure(
+                            DataSourceException(
+                                DataSourceErrorResponse.MISSING_PARAMETER,
+                                """graphql_output_type must be provided for planned_value""".flatten()
+                            )
+                        )
+                    }
                     else -> {
                         DefaultPlannedValue<V>(
                                 sourceIndexPath = sourceIndexPath!!,
-                                contextualParameters = contextualParameters.build()
+                                contextualParameters = contextualParameters.build(),
+                                graphQLOutputType = graphQLOutputType!!,
                             )
                             .successIfNonNull()
                     }
@@ -141,6 +159,7 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
                         DefaultCalculatedValue<V>(
                             existingPlannedValue.sourceIndexPath,
                             existingPlannedValue.contextualParameters,
+                            existingPlannedValue.graphQLOutputType,
                             calculatedValue!!,
                             calculatedTimestamp!!
                         )
@@ -186,6 +205,7 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
                                 DefaultTrackedValue<V>(
                                     existingCalculatedValue!!.sourceIndexPath,
                                     existingCalculatedValue.contextualParameters,
+                                    existingCalculatedValue.graphQLOutputType,
                                     trackedValue!!,
                                     valueAtTimestamp!!
                                 )
@@ -194,6 +214,7 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
                                 DefaultTrackedValue<V>(
                                     existingPlannedValue.sourceIndexPath,
                                     existingPlannedValue.contextualParameters,
+                                    existingPlannedValue.graphQLOutputType,
                                     trackedValue!!,
                                     valueAtTimestamp!!
                                 )
@@ -206,7 +227,8 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
 
         internal data class DefaultPlannedValue<V>(
             override val sourceIndexPath: SchematicPath,
-            override val contextualParameters: ImmutableMap<SchematicPath, JsonNode>
+            override val contextualParameters: ImmutableMap<SchematicPath, JsonNode>,
+            override val graphQLOutputType: GraphQLOutputType
         ) : PlannedValue<V> {
 
             override fun <R> transitionToCalculated(
@@ -227,6 +249,7 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
         internal data class DefaultCalculatedValue<V>(
             override val sourceIndexPath: SchematicPath,
             override val contextualParameters: ImmutableMap<SchematicPath, JsonNode>,
+            override val graphQLOutputType: GraphQLOutputType,
             override val calculatedValue: V,
             override val calculatedTimestamp: Instant
         ) : CalculatedValue<V> {
@@ -242,6 +265,7 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
         internal data class DefaultTrackedValue<V>(
             override val sourceIndexPath: SchematicPath,
             override val contextualParameters: ImmutableMap<SchematicPath, JsonNode>,
+            override val graphQLOutputType: GraphQLOutputType,
             override val trackedValue: V,
             override val valueAtTimestamp: Instant
         ) : TrackedValue<V>
