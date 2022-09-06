@@ -18,7 +18,7 @@ internal class SchematicPathTest {
             path1.transform { pathSegment("pets").pathSegment("dogs").argument("alias", "canines") }
         Assertions.assertEquals(
             SchematicPath.GRAPHQL_SCHEMATIC_PATH_SCHEME +
-                ":/pets/dogs?alias=${URICompatibleStringEncoder.invoke("\"canines\"")}",
+                ":/pets/dogs?alias=${URICompatibleStringEncoder.invoke("canines")}",
             path2.toString()
         )
     }

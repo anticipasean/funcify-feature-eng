@@ -222,7 +222,7 @@ internal data class DefaultSchematicPath(
                             if (value.isNull) {
                                 ucb.queryParam(key)
                             } else {
-                                ucb.queryParam(key, value)
+                                ucb.queryParam(key, value.asText(""))
                             }
                         }
                     ),
@@ -230,7 +230,7 @@ internal data class DefaultSchematicPath(
                     if (value.isEmpty()) {
                         ucb.fragment(key)
                     } else {
-                        ucb.fragment("${key}=${value}")
+                        ucb.fragment("${key}=${value.asText("")}")
                     }
                 }
             )

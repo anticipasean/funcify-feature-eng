@@ -25,7 +25,7 @@ interface SchematicPath : Comparable<SchematicPath> {
 
     companion object {
 
-        const val GRAPHQL_SCHEMATIC_PATH_SCHEME: String = "gqls"
+        const val GRAPHQL_SCHEMATIC_PATH_SCHEME: String = "mlfs"
 
         private val rootPath: SchematicPath = DefaultSchematicPath()
 
