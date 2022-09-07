@@ -47,6 +47,7 @@ import graphql.schema.idl.SchemaPrinter
 import java.util.concurrent.Executor
 import org.slf4j.Logger
 import org.springframework.beans.factory.ObjectProvider
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -327,10 +328,13 @@ class MaterializerConfiguration {
     @ConditionalOnMissingBean(value = [ExecutionStrategy::class])
     @Bean
     fun graphQLSingleRequestMaterializationQueryExecutionStrategy(
+        @Value("\${feature-eng-service.graphql.execution-strategy-timeout-millis:-1}")
+        globalExecutionStrategyTimeoutSeconds: Long,
         singleRequestMaterializationGraphService: SingleRequestMaterializationGraphService,
         singleRequestMaterializationDispatchService: SingleRequestMaterializationDispatchService
     ): GraphQLSingleRequestMaterializationQueryExecutionStrategy {
         return DefaultGraphQLSingleRequestMaterializationQueryExecutionStrategy(
+            globalExecutionStrategyTimeoutMilliseconds = globalExecutionStrategyTimeoutSeconds,
             singleRequestMaterializationGraphService = singleRequestMaterializationGraphService,
             singleRequestMaterializationPreprocessingService =
                 singleRequestMaterializationDispatchService

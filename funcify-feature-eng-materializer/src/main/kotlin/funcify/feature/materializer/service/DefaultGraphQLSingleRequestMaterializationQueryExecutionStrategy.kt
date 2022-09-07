@@ -42,6 +42,7 @@ import reactor.core.publisher.Mono
 internal class DefaultGraphQLSingleRequestMaterializationQueryExecutionStrategy(
     private val exceptionHandler: DataFetcherExceptionHandler =
         GraphQLSingleRequestDataFetcherExceptionHandler,
+    private val globalExecutionStrategyTimeoutMilliseconds: Long,
     private val singleRequestMaterializationGraphService: SingleRequestMaterializationGraphService,
     private val singleRequestMaterializationPreprocessingService:
         SingleRequestMaterializationDispatchService,
@@ -52,8 +53,6 @@ internal class DefaultGraphQLSingleRequestMaterializationQueryExecutionStrategy(
             loggerFor<DefaultGraphQLSingleRequestMaterializationQueryExecutionStrategy>()
         private const val INTROSPECTION_FIELD_NAME_PREFIX = "__"
         private const val DEFAULT_GLOBAL_DATA_FETCHER_TIMEOUT_SECONDS: Long = 4
-        private val DEFAULT_GLOBAL_DATA_FETCHER_TIMEOUT_DURATION =
-            Duration.ofSeconds(DEFAULT_GLOBAL_DATA_FETCHER_TIMEOUT_SECONDS)
         private fun Throwable?.unnestAnyPossibleGraphQLErrorThrowable(): Option<Throwable> {
             return this.toOption().recurse { x ->
                 when (x) {
@@ -99,6 +98,18 @@ internal class DefaultGraphQLSingleRequestMaterializationQueryExecutionStrategy(
                 )
             }
         }
+    }
+
+    private val validatedGlobalExecutionStrategyTimeoutMilliseconds: Long by lazy {
+        if (globalExecutionStrategyTimeoutMilliseconds < 0) {
+            DEFAULT_GLOBAL_DATA_FETCHER_TIMEOUT_SECONDS
+        } else {
+            globalExecutionStrategyTimeoutMilliseconds
+        }
+    }
+
+    private val globalExecutionStrategyTimeoutDuration: Duration by lazy {
+        Duration.ofMillis(validatedGlobalExecutionStrategyTimeoutMilliseconds)
     }
 
     override fun execute(
@@ -253,10 +264,10 @@ internal class DefaultGraphQLSingleRequestMaterializationQueryExecutionStrategy(
                 throwable.unnestAnyPossibleGraphQLErrorThrowable().getOrElse { throwable }
             }
             .timeout(
-                DEFAULT_GLOBAL_DATA_FETCHER_TIMEOUT_DURATION,
+                globalExecutionStrategyTimeoutDuration,
                 globalExternalRequestTimeoutReachedExceptionCreator(
                     fieldNames,
-                    DEFAULT_GLOBAL_DATA_FETCHER_TIMEOUT_DURATION
+                    globalExecutionStrategyTimeoutDuration
                 )
             )
             .subscribe(

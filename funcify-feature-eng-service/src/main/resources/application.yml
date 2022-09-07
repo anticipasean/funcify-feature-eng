@@ -17,3 +17,4 @@ feature-eng-service:
   system-default-time-zone: UTC
   graphql:
     path: ${spring.webflux.base-path}/graphql
+    execution-strategy-timeout-millis: 4
