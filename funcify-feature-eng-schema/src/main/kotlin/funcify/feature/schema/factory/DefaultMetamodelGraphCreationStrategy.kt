@@ -201,6 +201,7 @@ internal class DefaultMetamodelGraphCreationStrategy() :
         return contextContainer.flatMap { context ->
             aliasProvider
                 .provideAnyAliasesForAttributePathsInDataSource(dataSource)
+                .cache()
                 .map { aliasSetBySchematicPath ->
                     aliasSetBySchematicPath.asSequence().fold(context.aliasRegistry) {
                         areg,
@@ -239,6 +240,7 @@ internal class DefaultMetamodelGraphCreationStrategy() :
                 .provideTemporalAttributePathsInDataSourceForUseInLastUpdatedCalculations(
                     dataSource
                 )
+                .cache()
                 .map { pathsForTemporalAttrs ->
                     pathsForTemporalAttrs.fold(context.lastUpdatedTemporalAttributePathRegistry) {
                         reg,

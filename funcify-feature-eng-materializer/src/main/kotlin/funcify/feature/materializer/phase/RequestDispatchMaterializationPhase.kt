@@ -1,7 +1,8 @@
-package funcify.feature.materializer.service
+package funcify.feature.materializer.phase
 
-import funcify.feature.materializer.service.SourceIndexRequestDispatch.DispatchedMultiSourceIndexRetrieval
-import funcify.feature.materializer.service.SourceIndexRequestDispatch.DispatchedTrackableSingleSourceIndexRetrieval
+import funcify.feature.materializer.service.MaterializationPhase
+import funcify.feature.materializer.dispatch.SourceIndexRequestDispatch.DispatchedMultiSourceIndexRetrieval
+import funcify.feature.materializer.dispatch.SourceIndexRequestDispatch.DispatchedTrackableSingleSourceIndexRetrieval
 import funcify.feature.schema.path.SchematicPath
 import kotlinx.collections.immutable.ImmutableMap
 

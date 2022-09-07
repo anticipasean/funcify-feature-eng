@@ -1,10 +1,10 @@
-package funcify.feature.materializer.service
+package funcify.feature.materializer.dispatch
 
 import com.fasterxml.jackson.databind.JsonNode
 import funcify.feature.datasource.retrieval.BackupTrackableValueRetrievalFunction
 import funcify.feature.datasource.retrieval.MultipleSourceIndicesJsonRetrievalFunction
-import funcify.feature.datasource.tracking.TrackableValue
 import funcify.feature.datasource.retrieval.TrackableValueJsonRetrievalFunction
+import funcify.feature.datasource.tracking.TrackableValue
 import funcify.feature.materializer.error.MaterializerErrorResponse
 import funcify.feature.materializer.error.MaterializerException
 import funcify.feature.materializer.spec.RetrievalFunctionSpec
@@ -110,7 +110,7 @@ internal class DefaultSourceIndexRequestDispatchFactory : SourceIndexRequestDisp
                             dispatchedSingleIndexCacheRequest!!,
                             backupBaseMultipleSourceIndicesJsonRetrievalFunction!!,
                             backupFunction!!
-                                                                            )
+                        )
                     }
                 }
             }
@@ -164,7 +164,7 @@ internal class DefaultSourceIndexRequestDispatchFactory : SourceIndexRequestDisp
                 MultipleSourceIndicesJsonRetrievalFunction,
             override val backupTrackableValueRetrievalFunction:
                 BackupTrackableValueRetrievalFunction
-                                                                                ) : SourceIndexRequestDispatch.DispatchedTrackableSingleSourceIndexRetrieval {}
+        ) : SourceIndexRequestDispatch.DispatchedTrackableSingleSourceIndexRetrieval {}
 
         internal data class DefaultDispatchedMultiSourceIndexRetrieval(
             override val sourceIndexPath: SchematicPath,

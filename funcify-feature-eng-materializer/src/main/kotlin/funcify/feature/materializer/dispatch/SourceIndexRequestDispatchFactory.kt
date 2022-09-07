@@ -1,4 +1,4 @@
-package funcify.feature.materializer.service
+package funcify.feature.materializer.dispatch
 
 /**
  *
@@ -8,5 +8,4 @@ package funcify.feature.materializer.service
 interface SourceIndexRequestDispatchFactory {
 
     fun builder(): SourceIndexRequestDispatch.Builder
-
 }

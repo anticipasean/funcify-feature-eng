@@ -9,11 +9,16 @@ import funcify.feature.datasource.retrieval.SchematicPathBasedJsonRetrievalFunct
 import funcify.feature.datasource.retrieval.TrackableValueJsonRetrievalFunction
 import funcify.feature.datasource.tracking.TrackableValue
 import funcify.feature.datasource.tracking.TrackableValueFactory
+import funcify.feature.materializer.dispatch.DefaultSourceIndexRequestDispatchFactory
+import funcify.feature.materializer.dispatch.SourceIndexRequestDispatchFactory
 import funcify.feature.materializer.error.MaterializerErrorResponse
 import funcify.feature.materializer.error.MaterializerException
+import funcify.feature.materializer.phase.DefaultRequestDispatchMaterializationPhase
+import funcify.feature.materializer.phase.RequestDispatchMaterializationPhase
+import funcify.feature.materializer.phase.RequestParameterMaterializationGraphPhase
 import funcify.feature.materializer.schema.RequestParameterEdge
 import funcify.feature.materializer.schema.RequestParameterEdge.*
-import funcify.feature.materializer.service.SourceIndexRequestDispatch.*
+import funcify.feature.materializer.dispatch.SourceIndexRequestDispatch.*
 import funcify.feature.materializer.session.GraphQLSingleRequestSession
 import funcify.feature.materializer.spec.RetrievalFunctionSpec
 import funcify.feature.naming.StandardNamingConventions

@@ -1,4 +1,4 @@
-package funcify.feature.materializer.service
+package funcify.feature.materializer.phase
 
 import com.fasterxml.jackson.databind.JsonNode
 import funcify.feature.materializer.schema.RequestParameterEdge
@@ -14,11 +14,15 @@ import kotlinx.collections.immutable.PersistentSet
  * @author smccarron
  * @created 2022-08-25
  */
-internal data class DefaultRequestParameterMaterializationGraphPhase(
-    override val requestGraph: PathBasedGraph<SchematicPath, SchematicVertex, RequestParameterEdge>,
-    override val materializedParameterValuesByPath: PersistentMap<SchematicPath, JsonNode>,
-    override val parameterIndexPathsBySourceIndexPath:
-        PersistentMap<SchematicPath, PersistentSet<SchematicPath>>,
-    override val retrievalFunctionSpecByTopSourceIndexPath:
+interface RequestParameterMaterializationGraphPhase {
+
+    val requestGraph: PathBasedGraph<SchematicPath, SchematicVertex, RequestParameterEdge>
+
+    val materializedParameterValuesByPath: PersistentMap<SchematicPath, JsonNode>
+
+    val parameterIndexPathsBySourceIndexPath:
+        PersistentMap<SchematicPath, PersistentSet<SchematicPath>>
+
+    val retrievalFunctionSpecByTopSourceIndexPath:
         PersistentMap<SchematicPath, RetrievalFunctionSpec>
-) : RequestParameterMaterializationGraphPhase {}
+}

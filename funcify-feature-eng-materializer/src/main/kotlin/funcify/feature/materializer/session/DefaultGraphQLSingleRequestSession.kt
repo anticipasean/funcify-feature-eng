@@ -4,10 +4,10 @@ import arrow.core.Option
 import arrow.core.none
 import arrow.core.some
 import arrow.core.toOption
+import funcify.feature.materializer.phase.RequestDispatchMaterializationPhase
+import funcify.feature.materializer.phase.RequestParameterMaterializationGraphPhase
 import funcify.feature.materializer.request.RawGraphQLRequest
 import funcify.feature.materializer.response.SerializedGraphQLResponse
-import funcify.feature.materializer.service.RequestDispatchMaterializationPhase
-import funcify.feature.materializer.service.RequestParameterMaterializationGraphPhase
 import funcify.feature.schema.MetamodelGraph
 import graphql.language.Document
 import graphql.language.OperationDefinition

@@ -7,6 +7,7 @@ import funcify.feature.datasource.graphql.schema.GraphQLOutputFieldsContainerTyp
 import funcify.feature.datasource.tracking.TrackableValue
 import funcify.feature.datasource.tracking.TrackedJsonValuePublisherProvider
 import funcify.feature.json.JsonMapper
+import funcify.feature.materializer.dispatch.SourceIndexRequestDispatch
 import funcify.feature.materializer.error.MaterializerErrorResponse
 import funcify.feature.materializer.error.MaterializerException
 import funcify.feature.materializer.fetcher.SingleRequestFieldMaterializationSession
