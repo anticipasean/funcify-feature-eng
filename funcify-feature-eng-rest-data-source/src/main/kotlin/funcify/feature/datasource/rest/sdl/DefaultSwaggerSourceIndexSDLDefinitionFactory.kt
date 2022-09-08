@@ -235,7 +235,7 @@ internal class DefaultSwaggerSourceIndexSDLDefinitionFactory(
             else -> {
                 RestApiDataSourceException(
                         RestApiErrorResponse.UNEXPECTED_ERROR,
-                        """unhandled parameter_junction_vertex 
+                        """missing parent for or unhandled parameter_junction_vertex 
                         |sdl_definition_creation for [ path: ${parameterJunctionVertexContext.path}, 
                         |swagger_parameter_attribute.name: ${swaggerParameterAttribute.name} 
                         |]""".flatten()
@@ -310,7 +310,7 @@ internal class DefaultSwaggerSourceIndexSDLDefinitionFactory(
             else -> {
                 RestApiDataSourceException(
                         RestApiErrorResponse.UNEXPECTED_ERROR,
-                        """unhandled parameter_leaf_vertex  
+                        """missing parent for or unhandled parameter_leaf_vertex type 
                         |sdl_definition_creation for [ path: ${parameterLeafVertexContext.path}, 
                         |swagger_parameter_attribute.name: ${swaggerParameterAttribute.name} 
                         |]""".flatten()
