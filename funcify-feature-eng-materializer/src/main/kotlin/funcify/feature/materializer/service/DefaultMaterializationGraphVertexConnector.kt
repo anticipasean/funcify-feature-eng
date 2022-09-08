@@ -414,6 +414,14 @@ internal class DefaultMaterializationGraphVertexConnector(
                         .orElse {
                             findSourceAttributeVertexByAliasReferenceInDifferentDomain(context)
                         }
+                logger.info(
+                    "selected_source_attribute_vertex_with_same_name_or_alias: [ parameter_path: {} source_attribute_vertex: {} ]",
+                    context.path,
+                    sourceAttributeVertexWithSameNameOrAlias
+                        .map { sav -> sav.path }
+                        .map { sp -> sp.toDecodedURIString() }
+                        .getOrElse { "<NA>" }
+                )
                 when {
                     // case 2.1: source is another source_attribute_vertex by same name or alias
                     sourceAttributeVertexWithSameNameOrAlias.isDefined() -> {
@@ -687,16 +695,20 @@ internal class DefaultMaterializationGraphVertexConnector(
                             }
                     }
                     .flatMap { srcAttrs ->
-                        srcAttrs.firstOrNone { sav: SourceAttributeVertex ->
-                            context.path.pathSegments
-                                .firstOrNone()
-                                .filter { domainPathSegment ->
+                        context.path.pathSegments.firstOrNone().flatMap {
+                            currentParamPathDomainSegment ->
+                            srcAttrs
+                                .asSequence()
+                                .firstOrNull { sav ->
                                     sav.path.pathSegments
-                                        .firstOrNone { ps -> ps == domainPathSegment }
+                                        .firstOrNone()
+                                        .filter { sourceAttributeDomainPathSegment ->
+                                            currentParamPathDomainSegment ==
+                                                sourceAttributeDomainPathSegment
+                                        }
                                         .isDefined()
                                 }
                                 .toOption()
-                                .isDefined()
                         }
                     }
             }
@@ -738,16 +750,20 @@ internal class DefaultMaterializationGraphVertexConnector(
                             }
                     }
                     .flatMap { srcAttrs ->
-                        srcAttrs.firstOrNone { sav: SourceAttributeVertex ->
-                            context.path.pathSegments
-                                .firstOrNone()
-                                .filter { domainPathSegment ->
+                        context.path.pathSegments.firstOrNone().flatMap {
+                            currentParamPathDomainSegment ->
+                            srcAttrs
+                                .asSequence()
+                                .firstOrNull { sav ->
                                     sav.path.pathSegments
-                                        .firstOrNone { ps -> ps != domainPathSegment }
+                                        .firstOrNone()
+                                        .filter { sourceAttributeDomainPathSegment ->
+                                            currentParamPathDomainSegment !=
+                                                sourceAttributeDomainPathSegment
+                                        }
                                         .isDefined()
                                 }
                                 .toOption()
-                                .isDefined()
                         }
                     }
             }
