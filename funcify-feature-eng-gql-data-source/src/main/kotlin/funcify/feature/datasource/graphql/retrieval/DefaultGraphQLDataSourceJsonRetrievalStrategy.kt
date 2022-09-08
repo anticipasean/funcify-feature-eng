@@ -68,6 +68,25 @@ internal class DefaultGraphQLDataSourceJsonRetrievalStrategy(
         ImmutableMap<SchematicPath, SchematicPath> by lazy {
         sourceVertices
             .asSequence()
+            .filter { targetSjvOrSlv ->
+                /*
+                 * Any source_junction_vertex in the set must have at least one child source_leaf_vertex
+                 * in the set or else, an exception similar to "Validation error of type SubSelectionRequired:"
+                 * will be received on making the call to the graphql_api_data_source
+                 */
+                targetSjvOrSlv
+                    .mapLeft { sjv ->
+                        sourceVertices
+                            .asSequence()
+                            .filter { otherSjvOrSlv -> otherSjvOrSlv != targetSjvOrSlv }
+                            .any { otherSjvOrSlv ->
+                                otherSjvOrSlv
+                                    .fold(SourceJunctionVertex::path, SourceLeafVertex::path)
+                                    .isChildTo(sjv.path)
+                            }
+                    }
+                    .fold({ sjvWithChild -> sjvWithChild }, { _ -> true })
+            }
             .map { sjvOrSlv ->
                 sjvOrSlv
                     .fold({ sjv -> sjv.compositeAttribute }, { slv -> slv.compositeAttribute })
