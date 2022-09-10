@@ -733,7 +733,7 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                         ) { deferredResult, multiSrcIndRetrFunc, backupFunc ->
                             dispatchSingleSourceIndexCacheRetrievalWithBackupFollowup(
                                 requestParameterMaterializationGraphPhase,
-                                requestCreationContext,
+                                ctx,
                                 deferredResult,
                                 singSrcIndCachFunc,
                                 multiSrcIndRetrFunc,

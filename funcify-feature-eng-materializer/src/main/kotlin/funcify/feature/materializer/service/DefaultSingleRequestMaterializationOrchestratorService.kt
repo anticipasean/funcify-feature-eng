@@ -116,7 +116,7 @@ internal class DefaultSingleRequestMaterializationOrchestratorService(
                     .successIfDefined { ->
                         MaterializerException(
                             MaterializerErrorResponse.UNEXPECTED_ERROR,
-                            "unable to map field_path to cacheable_single_source_index_request: [ field_path: ${currentFieldPath} ]"
+                            "unable to map field_path to trackable_single_value_request: [ field_path: ${currentFieldPath} ]"
                         )
                     }
                     .toMono()
