@@ -9,6 +9,7 @@ internal class PutVertexDesign<SWT, P, V, E>(
     val path: P,
     val newVertex: V
 ) : PersistentGraphDesign<SWT, P, V, E> {
+
     override fun <WT> fold(
         template: PersistentGraphTemplate<WT>
     ): PersistentGraphContainer<WT, P, V, E> {
