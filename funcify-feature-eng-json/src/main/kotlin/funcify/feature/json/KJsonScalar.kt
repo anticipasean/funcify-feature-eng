@@ -12,7 +12,7 @@ interface KJsonScalar : KJson {
 
     fun isString(): Boolean
 
-    fun isNumeric(): Boolean
+    fun isNumber(): Boolean
 
     fun isBoolean(): Boolean
 
@@ -22,9 +22,9 @@ interface KJsonScalar : KJson {
 
     fun mapStringToObject(mapper: (String) -> Pair<String, String>): KJson
 
-    fun mapNumeric(mapper: (Number) -> Number): KJsonScalar
+    fun mapNumber(mapper: (Number) -> Number): KJsonScalar
 
-    fun mapNumericToObject(mapper: (Number) -> Pair<String, Number>): KJson
+    fun mapNumberToObject(mapper: (Number) -> Pair<String, Number>): KJson
 
     fun mapBoolean(mapper: (Boolean) -> Boolean): KJsonScalar
 
@@ -32,7 +32,7 @@ interface KJsonScalar : KJson {
 
     fun mapNullToString(supplier: () -> String): KJsonScalar
 
-    fun mapNullToNumeric(supplier: () -> Number): KJsonScalar
+    fun mapNullToNumber(supplier: () -> Number): KJsonScalar
 
     fun mapNullToBoolean(supplier: () -> Boolean): KJsonScalar
 
@@ -44,13 +44,13 @@ interface KJsonScalar : KJson {
 
     fun flatMapString(mapper: (String) -> KJson): KJson
 
-    fun flatMapNumeric(mapper: (Number) -> KJson): KJson
+    fun flatMapNumber(mapper: (Number) -> KJson): KJson
 
     fun flatMapBoolean(mapper: (Boolean) -> KJson): KJson
 
     fun filterString(condition: (String) -> Boolean): KJsonScalar
 
-    fun filterNumeric(condition: (Number) -> Boolean): KJsonScalar
+    fun filterNumber(condition: (Number) -> Boolean): KJsonScalar
 
     fun filterBoolean(condition: (Boolean) -> Boolean): KJsonScalar
 
@@ -60,11 +60,11 @@ interface KJsonScalar : KJson {
 
     fun getStringOrElseGet(supplier: () -> String): String
 
-    fun getNumeric(): Number?
+    fun getNumber(): Number?
 
-    fun getNumericOrElse(alternative: Number): Number
+    fun getNumberOrElse(alternative: Number): Number
 
-    fun getNumericOrElseGet(supplier: () -> Number): Number
+    fun getNumberOrElseGet(supplier: () -> Number): Number
 
     fun getBoolean(): Boolean?
 
@@ -74,7 +74,7 @@ interface KJsonScalar : KJson {
 
     fun <O> foldScalar(
         stringHandler: (String) -> O,
-        numericHandler: (Number) -> O,
+        numberHandler: (Number) -> O,
         booleanHandler: (Boolean) -> O,
         nullHandler: () -> O
     ): O

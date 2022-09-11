@@ -2,14 +2,14 @@ package funcify.feature.json.template
 
 import com.fasterxml.jackson.databind.node.JsonNodeFactory
 import com.fasterxml.jackson.databind.node.NumericNode
-import funcify.feature.json.container.KJsonNodeFactory
-import funcify.feature.json.container.KJsonNodeFactory.KJsonArrayNode
-import funcify.feature.json.container.KJsonNodeFactory.KJsonBooleanNode
-import funcify.feature.json.container.KJsonNodeFactory.KJsonNode
-import funcify.feature.json.container.KJsonNodeFactory.KJsonNullNode
-import funcify.feature.json.container.KJsonNodeFactory.KJsonNumericNode
-import funcify.feature.json.container.KJsonNodeFactory.KJsonObjectNode
-import funcify.feature.json.container.KJsonNodeFactory.KJsonStringNode
+import funcify.feature.json.container.JacksonJsonNodeBasedKJsonFactory
+import funcify.feature.json.container.JacksonJsonNodeBasedKJsonFactory.KJsonArrayNode
+import funcify.feature.json.container.JacksonJsonNodeBasedKJsonFactory.KJsonBooleanNode
+import funcify.feature.json.container.JacksonJsonNodeBasedKJsonFactory.KJsonNode
+import funcify.feature.json.container.JacksonJsonNodeBasedKJsonFactory.KJsonNullNode
+import funcify.feature.json.container.JacksonJsonNodeBasedKJsonFactory.KJsonNumericNode
+import funcify.feature.json.container.JacksonJsonNodeBasedKJsonFactory.KJsonObjectNode
+import funcify.feature.json.container.JacksonJsonNodeBasedKJsonFactory.KJsonStringNode
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import java.math.BigDecimal
 import java.math.BigInteger
@@ -17,7 +17,7 @@ import java.math.BigInteger
 internal interface KJsonTemplate<WT> {
 
     fun empty(): KJsonNullNode<WT> {
-        return KJsonNodeFactory.getNullNode()
+        return JacksonJsonNodeBasedKJsonFactory.getNullNode()
     }
 
     fun fromString(stringValue: String): KJsonStringNode<WT> {
@@ -28,24 +28,24 @@ internal interface KJsonTemplate<WT> {
         return KJsonBooleanNode(JsonNodeFactory.instance.booleanNode(booleanValue))
     }
 
-    fun fromNumeric(numericValue: Number): KJsonNumericNode<WT> {
+    fun fromNumber(numberValue: Number): KJsonNumericNode<WT> {
         return KJsonNumericNode(
-            when (numericValue) {
-                is Int -> JsonNodeFactory.instance.numberNode(numericValue)
-                is Float -> JsonNodeFactory.instance.numberNode(numericValue)
-                is Double -> JsonNodeFactory.instance.numberNode(numericValue)
-                is Long -> JsonNodeFactory.instance.numberNode(numericValue)
-                is BigInteger -> JsonNodeFactory.instance.numberNode(numericValue)
-                is BigDecimal -> JsonNodeFactory.instance.numberNode(numericValue)
-                is Short -> JsonNodeFactory.instance.numberNode(numericValue)
+            when (numberValue) {
+                is Int -> JsonNodeFactory.instance.numberNode(numberValue)
+                is Float -> JsonNodeFactory.instance.numberNode(numberValue)
+                is Double -> JsonNodeFactory.instance.numberNode(numberValue)
+                is Long -> JsonNodeFactory.instance.numberNode(numberValue)
+                is BigInteger -> JsonNodeFactory.instance.numberNode(numberValue)
+                is BigDecimal -> JsonNodeFactory.instance.numberNode(numberValue)
+                is Short -> JsonNodeFactory.instance.numberNode(numberValue)
                 else ->
                     throw IllegalStateException(
                         """unsupported numeric value type: 
-                            |[ type: ${numericValue::class.qualifiedName}, 
-                            |value: $numericValue ]""".flatten()
+                            |[ type: ${numberValue::class.qualifiedName}, 
+                            |value: $numberValue ]""".flatten()
                     )
-            } as
-                NumericNode
+            }
+                as NumericNode
         )
     }
 

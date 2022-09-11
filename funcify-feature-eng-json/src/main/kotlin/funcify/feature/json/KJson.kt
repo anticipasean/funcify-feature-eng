@@ -16,15 +16,21 @@ interface KJson {
 
     fun mapScalarToContainer(mapper: (KJsonScalar) -> KJsonContainer): KJsonContainer
 
+    fun mapScalarToArray(): KJsonContainer
+
     fun mapScalarToObject(mapper: (KJsonScalar) -> Pair<String, KJsonScalar>): KJsonContainer
 
     fun mapContainer(mapper: (KJsonContainer) -> KJsonContainer): KJson
 
     fun mapContainerToScalar(mapper: (KJsonContainer) -> KJsonScalar): KJsonScalar
 
+    fun map(mapper: (KJson) -> KJson): KJson
+
     fun flatMapScalar(mapper: (KJsonScalar) -> KJson): KJson
 
     fun flatMapContainer(mapper: (KJsonContainer) -> KJson): KJson
+
+    fun flatMap(mapper: (KJson) -> KJsonContainer): KJson
 
     fun getScalar(): KJsonScalar?
 

@@ -8,7 +8,7 @@ import com.fasterxml.jackson.databind.node.NumericNode
 import com.fasterxml.jackson.databind.node.ObjectNode
 import com.fasterxml.jackson.databind.node.TextNode
 
-internal object KJsonNodeFactory {
+internal object JacksonJsonNodeBasedKJsonFactory {
 
     private val nullNode: KJsonNullNode<Nothing> =
         KJsonNullNode<Nothing>(JsonNodeFactory.instance.nullNode())

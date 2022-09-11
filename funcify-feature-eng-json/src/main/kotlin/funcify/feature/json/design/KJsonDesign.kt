@@ -1,7 +1,7 @@
 package funcify.feature.json.design
 
 import funcify.feature.json.KJson
-import funcify.feature.json.container.KJsonNodeFactory.KJsonNode
+import funcify.feature.json.container.JacksonJsonNodeBasedKJsonFactory.KJsonNode
 import funcify.feature.json.template.KJsonTemplate
 
 internal interface KJsonDesign<SWT, I> : KJson {

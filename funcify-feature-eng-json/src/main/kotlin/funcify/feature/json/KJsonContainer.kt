@@ -26,7 +26,7 @@ interface KJsonContainer : KJson {
 
     fun <L : List<KJson>> flatMapArray(mapper: (Int, KJson) -> L): KJsonContainer
 
-    fun mapObjectToArray(mapper: (Int, String, KJson) -> Pair<Int, KJson>): KJsonContainer
+    fun mapObjectToArray(mapper: (Int, String, KJson) -> KJson): KJsonContainer
 
     fun mapArrayToObject(mapper: (Int, KJson) -> Pair<String, KJson>): KJsonContainer
 
