@@ -38,23 +38,52 @@ sealed interface TrackableValue<out V> {
         tracked: (TrackedValue<@UnsafeVariance V>) -> R
     ): R
 
+    interface Builder<B : Builder<B>> {
+
+        fun sourceIndexPath(sourceIndexPath: SchematicPath): B
+
+        /** Replaces all current contextual_parameters with this map */
+        fun contextualParameters(contextualParameters: ImmutableMap<SchematicPath, JsonNode>): B
+
+        fun addContextualParameter(parameterPath: SchematicPath, parameterValue: JsonNode): B
+
+        fun addContextualParameter(parameterPathValuePair: Pair<SchematicPath, JsonNode>): B
+
+        fun removeContextualParameter(parameterPath: SchematicPath): B
+
+        fun clearContextualParameters(): B
+
+        /** Adds all contextual_parameters to the existing map */
+        fun addContextualParameters(contextualParameters: Map<SchematicPath, JsonNode>): B
+
+        fun graphQLOutputType(graphQLOutputType: GraphQLOutputType): B
+    }
+
     interface PlannedValue<V> : TrackableValue<V> {
+
+        fun <B1, B2> update(
+            transformer: PlannedValue.Builder<B1>.() -> PlannedValue.Builder<B2>
+        ): PlannedValue<V> where B1 : Builder<B1>, B2 : Builder<B2>
 
         /**
          * @return [CalculatedValue] if both required parameters provided else the current
          * [PlannedValue]
          */
-        fun <R> transitionToCalculated(
-            mapper: CalculatedValue.Builder<V>.() -> CalculatedValue.Builder<R>
-        ): TrackableValue<R>
+        fun <B1, B2> transitionToCalculated(
+            mapper: CalculatedValue.Builder<B1, V>.() -> CalculatedValue.Builder<B2, V>
+        ): TrackableValue<V> where
+        B1 : CalculatedValue.Builder<B1, V>,
+        B2 : CalculatedValue.Builder<B2, V>
 
         /**
          * @return [TrackedValue] if both required parameters provided else the current
          * [PlannedValue]
          */
-        fun <R> transitionToTracked(
-            mapper: TrackedValue.Builder<V>.() -> TrackedValue.Builder<R>
-        ): TrackableValue<R>
+        fun <B1, B2> transitionToTracked(
+            mapper: TrackedValue.Builder<B1, V>.() -> TrackedValue.Builder<B2, V>
+        ): TrackableValue<V> where
+        B1 : TrackedValue.Builder<B1, V>,
+        B2 : TrackedValue.Builder<B2, V>
 
         override fun <R> fold(
             planned: (PlannedValue<V>) -> R,
@@ -64,40 +93,9 @@ sealed interface TrackableValue<out V> {
             return planned(this)
         }
 
-        interface Builder<V> {
+        interface Builder<B : Builder<B>> : TrackableValue.Builder<B> {
 
-            fun sourceIndexPath(sourceIndexPath: SchematicPath): Builder<V>
-
-            /** Replaces all current contextual_parameters with this map */
-            fun contextualParameters(
-                contextualParameters: ImmutableMap<SchematicPath, JsonNode>
-            ): Builder<V>
-
-            fun addContextualParameter(
-                parameterPath: SchematicPath,
-                parameterValue: JsonNode
-            ): Builder<V>
-
-            fun addContextualParameter(
-                parameterPathValuePair: Pair<SchematicPath, JsonNode>
-            ): Builder<V>
-
-            fun removeContextualParameter(parameterPath: SchematicPath): Builder<V>
-
-            fun clearContextualParameters(): Builder<V>
-
-            /** Adds all contextual_parameters to the existing map */
-            fun addContextualParameters(
-                contextualParameters: Map<SchematicPath, JsonNode>
-            ): Builder<V>
-
-            fun graphQLOutputType(graphQLOutputType: GraphQLOutputType): Builder<V>
-
-            /**
-             * Success<PlannedValue<V>> if one can be built, else Failure<PlannedValue<V>> with an
-             * error indicating what was missing or invalid
-             */
-            fun build(): Try<PlannedValue<V>>
+            fun <V> buildForTracking(): Try<PlannedValue<V>>
         }
     }
 
@@ -107,13 +105,21 @@ sealed interface TrackableValue<out V> {
 
         val calculatedTimestamp: Instant
 
+        fun <B1, B2> update(
+            transformer: CalculatedValue.Builder<B1, V>.() -> CalculatedValue.Builder<B2, V>
+        ): CalculatedValue<V> where
+        B1 : CalculatedValue.Builder<B1, V>,
+        B2 : CalculatedValue.Builder<B2, V>
+
         /**
          * @return [TrackedValue] if both required parameters provided else the current
          * [CalculatedValue]
          */
-        fun <R> transitionToTracked(
-            mapper: TrackedValue.Builder<V>.() -> TrackedValue.Builder<R>
-        ): TrackableValue<R>
+        fun <B1, B2> transitionToTracked(
+            mapper: TrackedValue.Builder<B1, V>.() -> TrackedValue.Builder<B2, V>
+        ): TrackableValue<V> where
+        B1 : TrackedValue.Builder<B1, V>,
+        B2 : TrackedValue.Builder<B2, V>
 
         override fun <R> fold(
             planned: (PlannedValue<V>) -> R,
@@ -123,13 +129,13 @@ sealed interface TrackableValue<out V> {
             return calculated(this)
         }
 
-        interface Builder<V> {
+        interface Builder<B : Builder<B, V>, V> : TrackableValue.Builder<B> {
 
-            fun calculatedValue(calculatedValue: V): Builder<V>
+            fun calculatedValue(calculatedValue: V): B
 
-            fun calculatedTimestamp(calculatedTimestamp: Instant): Builder<V>
+            fun calculatedTimestamp(calculatedTimestamp: Instant): B
 
-            fun build(): TrackableValue<V>
+            fun build(): Try<CalculatedValue<V>>
         }
     }
 
@@ -139,6 +145,10 @@ sealed interface TrackableValue<out V> {
 
         val valueAtTimestamp: Instant
 
+        fun <B1, B2> update(
+            transformer: TrackedValue.Builder<B1, V>.() -> TrackedValue.Builder<B2, V>
+        ): TrackedValue<V> where B1 : TrackedValue.Builder<B1, V>, B2 : TrackedValue.Builder<B2, V>
+
         override fun <R> fold(
             planned: (PlannedValue<V>) -> R,
             calculated: (CalculatedValue<V>) -> R,
@@ -147,13 +157,13 @@ sealed interface TrackableValue<out V> {
             return tracked(this)
         }
 
-        interface Builder<V> {
+        interface Builder<B : Builder<B, V>, V> : TrackableValue.Builder<B> {
 
-            fun trackedValue(trackedValue: V): Builder<V>
+            fun trackedValue(trackedValue: V): B
 
-            fun valueAtTimestamp(valueAtTimestamp: Instant): Builder<V>
+            fun valueAtTimestamp(valueAtTimestamp: Instant): B
 
-            fun build(): TrackableValue<V>
+            fun build(): Try<TrackedValue<V>>
         }
     }
 }

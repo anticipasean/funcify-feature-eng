@@ -7,6 +7,5 @@ package funcify.feature.datasource.tracking
  */
 interface TrackableValueFactory {
 
-    fun <V> builder(): TrackableValue.PlannedValue.Builder<V>
-
+    fun builder(): TrackableValue.PlannedValue.Builder<*>
 }

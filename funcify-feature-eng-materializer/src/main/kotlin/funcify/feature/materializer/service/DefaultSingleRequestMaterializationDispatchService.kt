@@ -10,6 +10,7 @@ import funcify.feature.datasource.retrieval.TrackableValueJsonRetrievalFunction
 import funcify.feature.datasource.tracking.TrackableValue
 import funcify.feature.datasource.tracking.TrackableValueFactory
 import funcify.feature.materializer.dispatch.DefaultSourceIndexRequestDispatchFactory
+import funcify.feature.materializer.dispatch.SourceIndexRequestDispatch.*
 import funcify.feature.materializer.dispatch.SourceIndexRequestDispatchFactory
 import funcify.feature.materializer.error.MaterializerErrorResponse
 import funcify.feature.materializer.error.MaterializerException
@@ -18,7 +19,6 @@ import funcify.feature.materializer.phase.RequestDispatchMaterializationPhase
 import funcify.feature.materializer.phase.RequestParameterMaterializationGraphPhase
 import funcify.feature.materializer.schema.RequestParameterEdge
 import funcify.feature.materializer.schema.RequestParameterEdge.*
-import funcify.feature.materializer.dispatch.SourceIndexRequestDispatch.*
 import funcify.feature.materializer.session.GraphQLSingleRequestSession
 import funcify.feature.materializer.spec.RetrievalFunctionSpec
 import funcify.feature.naming.StandardNamingConventions
@@ -28,6 +28,7 @@ import funcify.feature.schema.vertex.SourceContainerTypeVertex
 import funcify.feature.schema.vertex.SourceJunctionVertex
 import funcify.feature.schema.vertex.SourceLeafVertex
 import funcify.feature.tools.container.attempt.Try
+import funcify.feature.tools.container.attempt.Try.Companion.filterInstanceOf
 import funcify.feature.tools.container.graph.PathBasedGraph
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.MonoExtensions.widen
@@ -480,11 +481,11 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                 }
                 .flatMap { (resultJson, outputType) ->
                     trackableValueFactory
-                        .builder<JsonNode>()
+                        .builder()
                         .sourceIndexPath(sourceIndexPath)
                         .addContextualParameters(materializedParameterValuesByPath)
                         .graphQLOutputType(outputType)
-                        .build()
+                        .buildForTracking<JsonNode>()
                         .zip(resultJson.toOption())
                         .map { (plannedValue, json) ->
                             plannedValue.transitionToCalculated {

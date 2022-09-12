@@ -1,5 +1,7 @@
 package funcify.feature.datasource.tracking
 
+import arrow.core.orElse
+import arrow.core.toOption
 import com.fasterxml.jackson.databind.JsonNode
 import funcify.feature.datasource.error.DataSourceErrorResponse
 import funcify.feature.datasource.error.DataSourceException
@@ -8,6 +10,7 @@ import funcify.feature.datasource.tracking.TrackableValue.PlannedValue
 import funcify.feature.datasource.tracking.TrackableValue.TrackedValue
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.tools.container.attempt.Try
+import funcify.feature.tools.container.attempt.Try.Companion.filterInstanceOf
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.extensions.TryExtensions.successIfNonNull
 import graphql.schema.GraphQLOutputType
@@ -26,70 +29,88 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
 
     companion object {
 
-        internal class DefaultPlannedValueBuilder<V>(
-            private var sourceIndexPath: SchematicPath? = null,
-            private var contextualParameters: PersistentMap.Builder<SchematicPath, JsonNode> =
+        internal abstract class BaseBuilder<B : TrackableValue.Builder<B>, V>(
+            protected open var sourceIndexPath: SchematicPath? = null,
+            protected open var contextualParameters:
+                PersistentMap.Builder<SchematicPath, JsonNode> =
                 persistentMapOf<SchematicPath, JsonNode>().builder(),
-            private var graphQLOutputType: GraphQLOutputType? = null,
-        ) : PlannedValue.Builder<V> {
+            protected open var graphQLOutputType: GraphQLOutputType? = null,
+        ) : TrackableValue.Builder<B> {
 
-            override fun sourceIndexPath(sourceIndexPath: SchematicPath): PlannedValue.Builder<V> {
+            override fun sourceIndexPath(sourceIndexPath: SchematicPath): B {
                 this.sourceIndexPath = sourceIndexPath
-                return this
+                @Suppress("UNCHECKED_CAST") //
+                return this as B
             }
 
             override fun contextualParameters(
                 contextualParameters: ImmutableMap<SchematicPath, JsonNode>
-            ): PlannedValue.Builder<V> {
+            ): B {
                 this.contextualParameters = contextualParameters.toPersistentMap().builder()
-                return this
+                @Suppress("UNCHECKED_CAST") //
+                return this as B
             }
 
             override fun addContextualParameter(
                 parameterPath: SchematicPath,
                 parameterValue: JsonNode
-            ): PlannedValue.Builder<V> {
+            ): B {
                 this.contextualParameters.put(parameterPath, parameterValue)
-                return this
+                @Suppress("UNCHECKED_CAST") //
+                return this as B
             }
 
             override fun addContextualParameter(
                 parameterPathValuePair: Pair<SchematicPath, JsonNode>
-            ): PlannedValue.Builder<V> {
+            ): B {
                 this.contextualParameters.put(
                     parameterPathValuePair.first,
                     parameterPathValuePair.second
                 )
-                return this
+                @Suppress("UNCHECKED_CAST") //
+                return this as B
             }
 
-            override fun removeContextualParameter(
-                parameterPath: SchematicPath
-            ): PlannedValue.Builder<V> {
+            override fun removeContextualParameter(parameterPath: SchematicPath): B {
                 this.contextualParameters.remove(parameterPath)
-                return this
+                @Suppress("UNCHECKED_CAST") //
+                return this as B
             }
 
-            override fun clearContextualParameters(): PlannedValue.Builder<V> {
+            override fun clearContextualParameters(): B {
                 this.contextualParameters.clear()
-                return this
+                @Suppress("UNCHECKED_CAST") //
+                return this as B
             }
 
             override fun addContextualParameters(
                 contextualParameters: Map<SchematicPath, JsonNode>
-            ): PlannedValue.Builder<V> {
+            ): B {
                 this.contextualParameters.putAll(contextualParameters)
-                return this
+                @Suppress("UNCHECKED_CAST") //
+                return this as B
             }
 
-            override fun graphQLOutputType(
-                graphQLOutputType: GraphQLOutputType
-            ): PlannedValue.Builder<V> {
+            override fun graphQLOutputType(graphQLOutputType: GraphQLOutputType): B {
                 this.graphQLOutputType = graphQLOutputType
-                return this
+                @Suppress("UNCHECKED_CAST") //
+                return this as B
             }
+        }
 
-            override fun build(): Try<PlannedValue<V>> {
+        internal class DefaultPlannedValueBuilder<V>(
+            private val existingPlannedValue: PlannedValue<V>? = null
+        ) :
+            BaseBuilder<DefaultPlannedValueBuilder<V>, V>(
+                sourceIndexPath = existingPlannedValue?.sourceIndexPath,
+                contextualParameters =
+                    existingPlannedValue?.contextualParameters?.toPersistentMap()?.builder()
+                        ?: persistentMapOf<SchematicPath, JsonNode>().builder(),
+                graphQLOutputType = existingPlannedValue?.graphQLOutputType
+            ),
+            PlannedValue.Builder<DefaultPlannedValueBuilder<V>> {
+
+            override fun <V> buildForTracking(): Try<PlannedValue<V>> {
                 return when {
                     sourceIndexPath == null -> {
                         Try.failure(
@@ -130,39 +151,81 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
         }
 
         internal class DefaultCalculatedValueBuilder<V>(
-            private val existingPlannedValue: PlannedValue<V>,
+            private val existingPlannedValue: PlannedValue<V>?,
+            override var sourceIndexPath: SchematicPath? = existingPlannedValue?.sourceIndexPath,
+            override var contextualParameters: PersistentMap.Builder<SchematicPath, JsonNode> =
+                existingPlannedValue?.contextualParameters?.toPersistentMap()?.builder()
+                    ?: persistentMapOf<SchematicPath, JsonNode>().builder(),
+            override var graphQLOutputType: GraphQLOutputType? =
+                existingPlannedValue?.graphQLOutputType,
             private var calculatedValue: V? = null,
             private var calculatedTimestamp: Instant? = null,
-        ) : CalculatedValue.Builder<V> {
+        ) :
+            BaseBuilder<DefaultCalculatedValueBuilder<V>, V>(
+                sourceIndexPath = sourceIndexPath,
+                contextualParameters = contextualParameters,
+                graphQLOutputType = graphQLOutputType
+            ),
+            CalculatedValue.Builder<DefaultCalculatedValueBuilder<V>, V> {
 
-            override fun calculatedValue(calculatedValue: V): CalculatedValue.Builder<V> {
+            override fun calculatedValue(calculatedValue: V): DefaultCalculatedValueBuilder<V> {
                 this.calculatedValue = calculatedValue
                 return this
             }
 
             override fun calculatedTimestamp(
                 calculatedTimestamp: Instant
-            ): CalculatedValue.Builder<V> {
+            ): DefaultCalculatedValueBuilder<V> {
                 this.calculatedTimestamp = calculatedTimestamp
                 return this
             }
 
-            override fun build(): TrackableValue<V> {
+            override fun build(): Try<CalculatedValue<V>> {
                 return when {
-                    calculatedValue == null -> {
-                        existingPlannedValue
+                    sourceIndexPath == null -> {
+                        Try.failure(
+                            DataSourceException(
+                                DataSourceErrorResponse.MISSING_PARAMETER,
+                                "source_index_path has not been set for calculated_value"
+                            )
+                        )
                     }
-                    calculatedTimestamp == null -> {
-                        existingPlannedValue
+                    contextualParameters.isEmpty() -> {
+                        Try.failure(
+                            DataSourceException(
+                                DataSourceErrorResponse.MISSING_PARAMETER,
+                                """at least one contextual_parameter 
+                                    |must be provided for association and/or identification 
+                                    |of the calculated_value""".flatten()
+                            )
+                        )
+                    }
+                    graphQLOutputType == null -> {
+                        Try.failure(
+                            DataSourceException(
+                                DataSourceErrorResponse.MISSING_PARAMETER,
+                                """graphql_output_type must be provided for calculated_value""".flatten()
+                            )
+                        )
+                    }
+                    calculatedValue == null || calculatedTimestamp == null -> {
+                        Try.failure(
+                            DataSourceException(
+                                DataSourceErrorResponse.MISSING_PARAMETER,
+                                """calculated_value and calculated_timestamp 
+                                    |must be provided for calculated_value creation""".flatten()
+                            )
+                        )
                     }
                     else -> {
                         DefaultCalculatedValue<V>(
-                            existingPlannedValue.sourceIndexPath,
-                            existingPlannedValue.contextualParameters,
-                            existingPlannedValue.graphQLOutputType,
-                            calculatedValue!!,
-                            calculatedTimestamp!!
-                        )
+                                sourceIndexPath!!,
+                                contextualParameters.build(),
+                                graphQLOutputType!!,
+                                calculatedValue!!,
+                                calculatedTimestamp!!
+                            )
+                            .successIfNonNull()
                     }
                 }
             }
@@ -171,55 +234,104 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
         internal class DefaultTrackedValueBuilder<V>(
             private val existingPlannedValue: PlannedValue<V>? = null,
             private val existingCalculatedValue: CalculatedValue<V>? = null,
+            override var sourceIndexPath: SchematicPath? =
+                existingPlannedValue
+                    .toOption()
+                    .map(PlannedValue<V>::sourceIndexPath)
+                    .orElse {
+                        existingCalculatedValue.toOption().map(CalculatedValue<V>::sourceIndexPath)
+                    }
+                    .orNull(),
+            override var contextualParameters: PersistentMap.Builder<SchematicPath, JsonNode> =
+                existingPlannedValue
+                    .toOption()
+                    .map(PlannedValue<V>::contextualParameters)
+                    .orElse {
+                        existingCalculatedValue
+                            .toOption()
+                            .map(CalculatedValue<V>::contextualParameters)
+                    }
+                    .map { m -> m.toPersistentMap().builder() }
+                    .orNull()
+                    ?: persistentMapOf<SchematicPath, JsonNode>().builder(),
+            override var graphQLOutputType: GraphQLOutputType? =
+                existingPlannedValue
+                    .toOption()
+                    .map(PlannedValue<V>::graphQLOutputType)
+                    .orElse {
+                        existingCalculatedValue
+                            .toOption()
+                            .map(CalculatedValue<V>::graphQLOutputType)
+                    }
+                    .orNull(),
             private var trackedValue: V? = null,
             private var valueAtTimestamp: Instant? = null,
-        ) : TrackedValue.Builder<V> {
+        ) :
+            BaseBuilder<DefaultTrackedValueBuilder<V>, V>(
+                sourceIndexPath = sourceIndexPath,
+                contextualParameters = contextualParameters,
+                graphQLOutputType = graphQLOutputType
+            ),
+            TrackedValue.Builder<DefaultTrackedValueBuilder<V>, V> {
 
-            override fun trackedValue(trackedValue: V): TrackedValue.Builder<V> {
+            override fun trackedValue(trackedValue: V): DefaultTrackedValueBuilder<V> {
                 this.trackedValue = trackedValue
                 return this
             }
 
-            override fun valueAtTimestamp(valueAtTimestamp: Instant): TrackedValue.Builder<V> {
+            override fun valueAtTimestamp(
+                valueAtTimestamp: Instant
+            ): DefaultTrackedValueBuilder<V> {
                 this.valueAtTimestamp = valueAtTimestamp
                 return this
             }
 
-            override fun build(): TrackableValue<V> {
+            override fun build(): Try<TrackedValue<V>> {
                 return when {
-                    existingPlannedValue == null && existingCalculatedValue == null -> {
-                        throw IllegalStateException(
-                            """either a planned value or a calculated value must exist 
-                            |and be provided before use of the tracked_value_builder""".flatten()
+                    sourceIndexPath == null -> {
+                        Try.failure(
+                            DataSourceException(
+                                DataSourceErrorResponse.MISSING_PARAMETER,
+                                "source_index_path has not been set for planned_value"
+                            )
+                        )
+                    }
+                    contextualParameters.isEmpty() -> {
+                        Try.failure(
+                            DataSourceException(
+                                DataSourceErrorResponse.MISSING_PARAMETER,
+                                """at least one contextual_parameter 
+                                    |must be provided for association and/or identification 
+                                    |of the planned_value""".flatten()
+                            )
+                        )
+                    }
+                    graphQLOutputType == null -> {
+                        Try.failure(
+                            DataSourceException(
+                                DataSourceErrorResponse.MISSING_PARAMETER,
+                                """graphql_output_type must be provided for planned_value""".flatten()
+                            )
                         )
                     }
                     trackedValue == null || valueAtTimestamp == null -> {
-                        when (existingPlannedValue) {
-                            null -> existingCalculatedValue!!
-                            else -> existingPlannedValue
-                        }
+                        Try.failure(
+                            DataSourceException(
+                                DataSourceErrorResponse.MISSING_PARAMETER,
+                                """both a tracked_value and value_at_timestamp 
+                                |must be provided for creation of a tracked_value""".flatten()
+                            )
+                        )
                     }
                     else -> {
-                        when (existingPlannedValue) {
-                            null -> {
-                                DefaultTrackedValue<V>(
-                                    existingCalculatedValue!!.sourceIndexPath,
-                                    existingCalculatedValue.contextualParameters,
-                                    existingCalculatedValue.graphQLOutputType,
-                                    trackedValue!!,
-                                    valueAtTimestamp!!
-                                )
-                            }
-                            else -> {
-                                DefaultTrackedValue<V>(
-                                    existingPlannedValue.sourceIndexPath,
-                                    existingPlannedValue.contextualParameters,
-                                    existingPlannedValue.graphQLOutputType,
-                                    trackedValue!!,
-                                    valueAtTimestamp!!
-                                )
-                            }
-                        }
+                        DefaultTrackedValue<V>(
+                                sourceIndexPath!!,
+                                contextualParameters.build(),
+                                graphQLOutputType!!,
+                                trackedValue!!,
+                                valueAtTimestamp!!
+                            )
+                            .successIfNonNull()
                     }
                 }
             }
@@ -231,18 +343,42 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
             override val graphQLOutputType: GraphQLOutputType
         ) : PlannedValue<V> {
 
-            override fun <R> transitionToCalculated(
-                mapper: CalculatedValue.Builder<V>.() -> CalculatedValue.Builder<R>
-            ): TrackableValue<R> {
-                val builder: CalculatedValue.Builder<V> = DefaultCalculatedValueBuilder<V>(this)
-                return mapper(builder).build()
+            override fun <B1, B2> update(
+                transformer: PlannedValue.Builder<B1>.() -> PlannedValue.Builder<B2>
+            ): PlannedValue<V> where B1 : PlannedValue.Builder<B1>, B2 : PlannedValue.Builder<B2> {
+                @Suppress("UNCHECKED_CAST") //
+                return transformer(
+                        DefaultPlannedValueBuilder<V>(existingPlannedValue = this)
+                            as PlannedValue.Builder<B1>
+                    )
+                    .buildForTracking<V>()
+                    .orElse(this)
             }
 
-            override fun <R> transitionToTracked(
-                mapper: TrackedValue.Builder<V>.() -> TrackedValue.Builder<R>
-            ): TrackableValue<R> {
-                val builder: TrackedValue.Builder<V> = DefaultTrackedValueBuilder<V>(this)
-                return mapper(builder).build()
+            override fun <B1, B2> transitionToCalculated(
+                mapper: CalculatedValue.Builder<B1, V>.() -> CalculatedValue.Builder<B2, V>
+            ): TrackableValue<V> where
+            B1 : CalculatedValue.Builder<B1, V>,
+            B2 : CalculatedValue.Builder<B2, V> {
+                @Suppress("UNCHECKED_CAST") //
+                return mapper(
+                        DefaultCalculatedValueBuilder<V>(this) as CalculatedValue.Builder<B1, V>
+                    )
+                    .build()
+                    .filterInstanceOf<TrackableValue<V>>()
+                    .orElseGet { this }
+            }
+
+            override fun <B1, B2> transitionToTracked(
+                mapper: TrackedValue.Builder<B1, V>.() -> TrackedValue.Builder<B2, V>
+            ): TrackableValue<V> where
+            B1 : TrackedValue.Builder<B1, V>,
+            B2 : TrackedValue.Builder<B2, V> {
+                @Suppress("UNCHECKED_CAST") //
+                return mapper(DefaultTrackedValueBuilder<V>(this) as TrackedValue.Builder<B1, V>)
+                    .build()
+                    .filterInstanceOf<TrackableValue<V>>()
+                    .orElseGet { this }
             }
         }
 
@@ -254,11 +390,39 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
             override val calculatedTimestamp: Instant
         ) : CalculatedValue<V> {
 
-            override fun <R> transitionToTracked(
-                mapper: TrackedValue.Builder<V>.() -> TrackedValue.Builder<R>
-            ): TrackableValue<R> {
-                val builder: TrackedValue.Builder<V> = DefaultTrackedValueBuilder<V>(null, this)
-                return mapper(builder).build()
+            override fun <B1, B2> update(
+                transformer: CalculatedValue.Builder<B1, V>.() -> CalculatedValue.Builder<B2, V>
+            ): CalculatedValue<V> where
+            B1 : CalculatedValue.Builder<B1, V>,
+            B2 : CalculatedValue.Builder<B2, V> {
+                @Suppress("UNCHECKED_CAST") //
+                return transformer(
+                        DefaultCalculatedValueBuilder<V>(
+                            existingPlannedValue = null,
+                            sourceIndexPath = sourceIndexPath,
+                            contextualParameters = contextualParameters.toPersistentMap().builder(),
+                            graphQLOutputType = graphQLOutputType,
+                            calculatedValue = calculatedValue,
+                            calculatedTimestamp = calculatedTimestamp
+                        )
+                            as CalculatedValue.Builder<B1, V>
+                    )
+                    .build()
+                    .orElse(this)
+            }
+
+            override fun <B1, B2> transitionToTracked(
+                mapper: TrackedValue.Builder<B1, V>.() -> TrackedValue.Builder<B2, V>
+            ): TrackableValue<V> where
+            B1 : TrackedValue.Builder<B1, V>,
+            B2 : TrackedValue.Builder<B2, V> {
+                @Suppress("UNCHECKED_CAST") //
+                return mapper(
+                        DefaultTrackedValueBuilder<V>(null, this) as TrackedValue.Builder<B1, V>
+                    )
+                    .build()
+                    .filterInstanceOf<TrackableValue<V>>()
+                    .orElse(this)
             }
         }
 
@@ -268,10 +432,33 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
             override val graphQLOutputType: GraphQLOutputType,
             override val trackedValue: V,
             override val valueAtTimestamp: Instant
-        ) : TrackedValue<V>
+        ) : TrackedValue<V> {
+
+            override fun <B1, B2> update(
+                transformer: TrackedValue.Builder<B1, V>.() -> TrackedValue.Builder<B2, V>
+            ): TrackedValue<V> where
+            B1 : TrackedValue.Builder<B1, V>,
+            B2 : TrackedValue.Builder<B2, V> {
+                @Suppress("UNCHECKED_CAST") //
+                return transformer(
+                        DefaultTrackedValueBuilder<V>(
+                            null,
+                            null,
+                            sourceIndexPath,
+                            contextualParameters.toPersistentMap().builder(),
+                            graphQLOutputType,
+                            trackedValue,
+                            valueAtTimestamp
+                        )
+                            as TrackedValue.Builder<B1, V>
+                    )
+                    .build()
+                    .orElse(this)
+            }
+        }
     }
 
-    override fun <V> builder(): PlannedValue.Builder<V> {
-        return DefaultPlannedValueBuilder<V>()
+    override fun builder(): PlannedValue.Builder<*> {
+        return DefaultPlannedValueBuilder<Any>()
     }
 }
