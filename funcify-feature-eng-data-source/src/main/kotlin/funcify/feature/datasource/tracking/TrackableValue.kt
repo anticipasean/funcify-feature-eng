@@ -38,6 +38,13 @@ sealed interface TrackableValue<out V> {
         tracked: (TrackedValue<@UnsafeVariance V>) -> R
     ): R
 
+    /**
+     * Base builder type with methods applicable to all subtypes of [TrackableValue] building and
+     * updates
+     *
+     * Note: The type variable is recursive so subtype builders may return instances of themselves
+     * and still preserve the fluent interface of the builder (=> method chaining) type setup
+     */
     interface Builder<B : Builder<B>> {
 
         fun sourceIndexPath(sourceIndexPath: SchematicPath): B
@@ -61,6 +68,10 @@ sealed interface TrackableValue<out V> {
 
     interface PlannedValue<V> : TrackableValue<V> {
 
+        /**
+         * @return a new [PlannedValue] instance with the updates if the changes made are valid else
+         * the current instance
+         */
         fun <B1, B2> update(
             transformer: PlannedValue.Builder<B1>.() -> PlannedValue.Builder<B2>
         ): PlannedValue<V> where B1 : Builder<B1>, B2 : Builder<B2>
@@ -105,6 +116,10 @@ sealed interface TrackableValue<out V> {
 
         val calculatedTimestamp: Instant
 
+        /**
+         * @return a new [CalculatedValue] instance with the updates if the changes made are valid
+         * else the current instance
+         */
         fun <B1, B2> update(
             transformer: CalculatedValue.Builder<B1, V>.() -> CalculatedValue.Builder<B2, V>
         ): CalculatedValue<V> where
@@ -145,6 +160,10 @@ sealed interface TrackableValue<out V> {
 
         val valueAtTimestamp: Instant
 
+        /**
+         * @return a new [TrackedValue] instance with the updates if the changes made are valid else
+         * the current instance
+         */
         fun <B1, B2> update(
             transformer: TrackedValue.Builder<B1, V>.() -> TrackedValue.Builder<B2, V>
         ): TrackedValue<V> where B1 : TrackedValue.Builder<B1, V>, B2 : TrackedValue.Builder<B2, V>

@@ -151,7 +151,7 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
         }
 
         internal class DefaultCalculatedValueBuilder<V>(
-            private val existingPlannedValue: PlannedValue<V>?,
+            private val existingPlannedValue: PlannedValue<V>? = null,
             override var sourceIndexPath: SchematicPath? = existingPlannedValue?.sourceIndexPath,
             override var contextualParameters: PersistentMap.Builder<SchematicPath, JsonNode> =
                 existingPlannedValue?.contextualParameters?.toPersistentMap()?.builder()
