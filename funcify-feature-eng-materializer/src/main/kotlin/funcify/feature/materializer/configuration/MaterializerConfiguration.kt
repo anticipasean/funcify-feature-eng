@@ -236,18 +236,31 @@ class MaterializerConfiguration {
         )
     }
 
-    @ConditionalOnMissingBean(value = [SingleRequestMaterializationOrchestratorService::class])
+    @ConditionalOnMissingBean(value = [MaterializedTrackableValuePublishingService::class])
     @Bean
-    fun singleRequestMaterializationOrchestratorService(
+    fun materializedTrackableValuePublishingService(
         jsonMapper: JsonMapper,
         trackedJsonValuePublisherProvider: ObjectProvider<TrackedJsonValuePublisherProvider>
-    ): SingleRequestMaterializationOrchestratorService {
-        return DefaultSingleRequestMaterializationOrchestratorService(
+    ): MaterializedTrackableValuePublishingService {
+        return DefaultMaterializedTrackableValuePublishingService(
             jsonMapper = jsonMapper,
             trackedJsonValuePublisherProvider =
                 trackedJsonValuePublisherProvider.getIfAvailable {
                     TrackedJsonValuePublisherProvider.NO_OP_PROVIDER
                 }
+        )
+    }
+
+    @ConditionalOnMissingBean(value = [SingleRequestMaterializationOrchestratorService::class])
+    @Bean
+    fun singleRequestMaterializationOrchestratorService(
+        jsonMapper: JsonMapper,
+        materializedTrackableValuePublishingService: MaterializedTrackableValuePublishingService
+    ): SingleRequestMaterializationOrchestratorService {
+        return DefaultSingleRequestMaterializationOrchestratorService(
+            jsonMapper = jsonMapper,
+            materializedTrackableValuePublishingService =
+                materializedTrackableValuePublishingService
         )
     }
 
