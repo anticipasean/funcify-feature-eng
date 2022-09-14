@@ -28,7 +28,6 @@ import funcify.feature.schema.vertex.SourceContainerTypeVertex
 import funcify.feature.schema.vertex.SourceJunctionVertex
 import funcify.feature.schema.vertex.SourceLeafVertex
 import funcify.feature.tools.container.attempt.Try
-import funcify.feature.tools.container.attempt.Try.Companion.filterInstanceOf
 import funcify.feature.tools.container.graph.PathBasedGraph
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.MonoExtensions.widen
@@ -482,10 +481,10 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                 .flatMap { (resultJson, outputType) ->
                     trackableValueFactory
                         .builder()
-                        .sourceIndexPath(sourceIndexPath)
+                        .canonicalPath(sourceIndexPath)
                         .addContextualParameters(materializedParameterValuesByPath)
                         .graphQLOutputType(outputType)
-                        .buildForTracking<JsonNode>()
+                        .buildForInstanceOf<JsonNode>()
                         .zip(resultJson.toOption())
                         .map { (plannedValue, json) ->
                             plannedValue.transitionToCalculated {

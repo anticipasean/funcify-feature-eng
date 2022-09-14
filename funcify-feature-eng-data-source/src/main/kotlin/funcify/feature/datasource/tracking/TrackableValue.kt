@@ -6,6 +6,7 @@ import funcify.feature.tools.container.attempt.Try
 import graphql.schema.GraphQLOutputType
 import java.time.Instant
 import kotlinx.collections.immutable.ImmutableMap
+import kotlinx.collections.immutable.ImmutableSet
 
 /**
  *
@@ -14,7 +15,9 @@ import kotlinx.collections.immutable.ImmutableMap
  */
 sealed interface TrackableValue<out V> {
 
-    val sourceIndexPath: SchematicPath
+    val canonicalPath: SchematicPath
+
+    val referencePaths: ImmutableSet<SchematicPath>
 
     val contextualParameters: ImmutableMap<SchematicPath, JsonNode>
 
@@ -47,7 +50,19 @@ sealed interface TrackableValue<out V> {
      */
     interface Builder<B : Builder<B>> {
 
-        fun sourceIndexPath(sourceIndexPath: SchematicPath): B
+        fun canonicalPath(canonicalPath: SchematicPath): B
+
+        /** Replaces all current reference_paths with this set */
+        fun referencePaths(referencePaths: ImmutableSet<SchematicPath>): B
+
+        fun addReferencePath(referencePath: SchematicPath): B
+
+        fun removeReferencePath(referencePath: SchematicPath): B
+
+        fun clearReferencePaths(): B
+
+        /** Adds all reference_paths to the existing set */
+        fun addReferencePaths(referencePaths: Iterable<SchematicPath>): B
 
         /** Replaces all current contextual_parameters with this map */
         fun contextualParameters(contextualParameters: ImmutableMap<SchematicPath, JsonNode>): B
@@ -106,7 +121,7 @@ sealed interface TrackableValue<out V> {
 
         interface Builder<B : Builder<B>> : TrackableValue.Builder<B> {
 
-            fun <V> buildForTracking(): Try<PlannedValue<V>>
+            fun <V> buildForInstanceOf(): Try<PlannedValue<V>>
         }
     }
 

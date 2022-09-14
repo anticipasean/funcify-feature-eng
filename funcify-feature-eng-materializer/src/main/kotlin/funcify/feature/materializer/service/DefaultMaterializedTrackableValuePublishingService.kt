@@ -70,12 +70,12 @@ internal class DefaultMaterializedTrackableValuePublishingService(
                 .filterIsInstance<KClass<*>>()
                 .map(KClass<*>::simpleName)
                 .orNull(),
-            materializedTrackableJsonValue.sourceIndexPath
+            materializedTrackableJsonValue.canonicalPath
         )
         session.singleRequestSession.requestDispatchMaterializationGraphPhase
             .flatMap { phase: RequestDispatchMaterializationPhase ->
                 phase.trackableSingleValueRequestDispatchesBySourceIndexPath.getOrNone(
-                    materializedTrackableJsonValue.sourceIndexPath
+                    materializedTrackableJsonValue.canonicalPath
                 )
             }
             .flatMap {
@@ -109,7 +109,7 @@ internal class DefaultMaterializedTrackableValuePublishingService(
                                 )
                                 .zipWith(
                                     findAnyLastUpdatedFieldValuesRelatedToThisField(
-                                        calculatedValue.sourceIndexPath,
+                                        calculatedValue.canonicalPath,
                                         dispatchedRequest,
                                         session
                                     )
@@ -117,7 +117,7 @@ internal class DefaultMaterializedTrackableValuePublishingService(
                         }
                         else -> {
                             findAnyLastUpdatedFieldValuesRelatedToThisField(
-                                calculatedValue.sourceIndexPath,
+                                calculatedValue.canonicalPath,
                                 dispatchedRequest,
                                 session
                             )
@@ -215,7 +215,7 @@ internal class DefaultMaterializedTrackableValuePublishingService(
                 dependentTrackableValueDispatchedRequest.dispatchedTrackableValueRequest
                     .filter { otherTrackableValue -> otherTrackableValue.isTracked() }
                     .map { otherTrackableValue ->
-                        otherTrackableValue.sourceIndexPath to
+                        otherTrackableValue.canonicalPath to
                             (otherTrackableValue as TrackableValue.TrackedValue<JsonNode>)
                                 .valueAtTimestamp
                     }
