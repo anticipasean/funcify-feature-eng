@@ -3,10 +3,10 @@ package funcify.feature.materializer.service
 import arrow.core.*
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.node.JsonNodeFactory
-import funcify.feature.datasource.retrieval.BackupTrackableValueRetrievalFunction
-import funcify.feature.datasource.retrieval.MultipleSourceIndicesJsonRetrievalFunction
+import funcify.feature.datasource.retrieval.BackupExternalDataSourceCalculatedJsonValueRetriever
+import funcify.feature.datasource.retrieval.ExternalDataSourceJsonValuesRetriever
 import funcify.feature.datasource.retrieval.SchematicPathBasedJsonRetrievalFunctionFactory
-import funcify.feature.datasource.retrieval.TrackableValueJsonRetrievalFunction
+import funcify.feature.datasource.retrieval.TrackableJsonValueRetriever
 import funcify.feature.datasource.tracking.TrackableValue
 import funcify.feature.datasource.tracking.TrackableValueFactory
 import funcify.feature.materializer.dispatch.DefaultSourceIndexRequestDispatchFactory
@@ -24,13 +24,13 @@ import funcify.feature.materializer.spec.RetrievalFunctionSpec
 import funcify.feature.naming.StandardNamingConventions
 import funcify.feature.schema.SchematicVertex
 import funcify.feature.schema.path.SchematicPath
+import funcify.feature.schema.vertex.SourceAttributeVertex
 import funcify.feature.schema.vertex.SourceContainerTypeVertex
 import funcify.feature.schema.vertex.SourceJunctionVertex
 import funcify.feature.schema.vertex.SourceLeafVertex
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.container.graph.PathBasedGraph
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
-import funcify.feature.tools.extensions.MonoExtensions.widen
 import funcify.feature.tools.extensions.OptionExtensions.toMono
 import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentMap
 import funcify.feature.tools.extensions.PersistentMapExtensions.streamPairs
@@ -40,6 +40,7 @@ import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.extensions.TryExtensions.successIfDefined
 import graphql.schema.FieldCoordinates
 import graphql.schema.GraphQLFieldDefinition
+import graphql.schema.GraphQLOutputType
 import java.time.Duration
 import java.time.Instant
 import java.util.concurrent.Executor
@@ -50,10 +51,10 @@ import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.PersistentSet
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentMapOf
+import kotlinx.collections.immutable.toPersistentSet
 import org.slf4j.Logger
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
-import reactor.kotlin.core.publisher.switchIfEmpty
 
 internal class DefaultSingleRequestMaterializationDispatchService(
     private val asyncExecutor: Executor,
@@ -77,13 +78,13 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                 PersistentMap<SchematicPath, RetrievalFunctionSpec> =
                 persistentMapOf(),
             val multiSrcIndexFunctionBySourceIndexPath:
-                PersistentMap<SchematicPath, MultipleSourceIndicesJsonRetrievalFunction> =
+                PersistentMap<SchematicPath, ExternalDataSourceJsonValuesRetriever> =
                 persistentMapOf(),
             val singleSrcIndexCacheFunctionBySourceIndexPath:
-                PersistentMap<SchematicPath, TrackableValueJsonRetrievalFunction> =
+                PersistentMap<SchematicPath, TrackableJsonValueRetriever> =
                 persistentMapOf(),
             val singleSrcIndexBackupFunctionBySourceIndexPath:
-                PersistentMap<SchematicPath, BackupTrackableValueRetrievalFunction> =
+                PersistentMap<SchematicPath, BackupExternalDataSourceCalculatedJsonValueRetriever> =
                 persistentMapOf(),
             val dispatchedMultiValueResponsesBySourceIndexPath:
                 PersistentMap<SchematicPath, Mono<ImmutableMap<SchematicPath, JsonNode>>> =
@@ -214,14 +215,14 @@ internal class DefaultSingleRequestMaterializationDispatchService(
         requestDispatchMaterializationPhase: RequestDispatchMaterializationPhase
     ): String {
         return requestDispatchMaterializationPhase
-            .multipleSourceIndexRequestDispatchesBySourceIndexPath
+            .externalDataSourceJsonValuesRequestDispatchesByAncestorSourceIndexPath
             .asSequence()
             .map { (p, m) ->
                 "path: $p, multiple_src_ind_request_dispatch: { source_indices: %s, param_indices: %s ]".format(
-                    m.multipleSourceIndicesJsonRetrievalFunction.sourcePaths
+                    m.externalDataSourceJsonValuesRetriever.sourcePaths
                         .asSequence()
                         .joinToString(", ", "{ ", " }"),
-                    m.multipleSourceIndicesJsonRetrievalFunction.parameterPaths.joinToString(
+                    m.externalDataSourceJsonValuesRetriever.parameterPaths.joinToString(
                         ", ",
                         "{ ",
                         " }"
@@ -235,10 +236,10 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                 .asSequence()
                 .map { (p, s) ->
                     "path: $p, single_src_ind_request_dispatch: { source_indices: %s, param_indices: %s ]".format(
-                        s.backupBaseMultipleSourceIndicesJsonRetrievalFunction.sourcePaths
+                        s.backupBaseExternalDataSourceJsonValuesRetriever.sourcePaths
                             .asSequence()
                             .joinToString(", ", "{ ", " }"),
-                        s.backupBaseMultipleSourceIndicesJsonRetrievalFunction.parameterPaths
+                        s.backupBaseExternalDataSourceJsonValuesRetriever.parameterPaths
                             .asSequence()
                             .joinToString(", ", "{ ", " }")
                     )
@@ -248,7 +249,7 @@ internal class DefaultSingleRequestMaterializationDispatchService(
 
     private fun createAndDispatchFirstRoundOfRequestFunctionsForApplicableRetrievalFunctionSpecs(
         session: GraphQLSingleRequestSession,
-        phase: RequestParameterMaterializationGraphPhase,
+        graphPhase: RequestParameterMaterializationGraphPhase,
         requestCreationContext: RequestCreationContext,
         sourceIndexPath: SchematicPath,
         retrievalFunctionSpec: RetrievalFunctionSpec,
@@ -260,13 +261,13 @@ internal class DefaultSingleRequestMaterializationDispatchService(
             // case 1: all parameters expected for this function_spec have materialized values (=>
             // input values supplied by caller) and a function can be built for this datasource
             retrievalFunctionSpec.parameterVerticesByPath.all { (p, _) ->
-                p in phase.materializedParameterValuesByPath
+                p in graphPhase.materializedParameterValuesByPath
             } &&
                 schematicPathBasedJsonRetrievalFunctionFactory
-                    .canBuildMultipleSourceIndicesJsonRetrievalFunctionForDataSource(
+                    .canBuildExternalDataSourceJsonValuesRetrieverForDataSource(
                         retrievalFunctionSpec.dataSource.key
                     ) -> {
-                createMultipleSourceIndicesJsonRetrievalFunctionForRetrievalFunctionSpec(
+                createExternalDataSourceJsonValuesRetrieverForRetrievalFunctionSpec(
                         retrievalFunctionSpec
                     )
                     .map { multiSrcIndJsonRetrFunc ->
@@ -290,7 +291,8 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                                                 retrievalFunctionSpec.parameterVerticesByPath.keys
                                                     .asSequence()
                                                     .map { p ->
-                                                        phase.materializedParameterValuesByPath[p]
+                                                        graphPhase
+                                                            .materializedParameterValuesByPath[p]
                                                             .toOption()
                                                             .map { jn -> p to jn }
                                                     }
@@ -304,44 +306,43 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                     }
             }
             // case 2: source_index_path represents a single scalar or list (non-object) value that
-            // may be provided
-            // by a caching function and a function can be built for this datasource/ datasource
-            // caching service
+            // may be tracked (cached, require special consideration or calculation, etc.)
             retrievalFunctionSpec.sourceVerticesByPath
                 .asIterable()
                 .singleOrNone()
                 .filter { (_, srcJunctionOrLeafVertex) -> srcJunctionOrLeafVertex.isRight() }
                 .isDefined() &&
                 schematicPathBasedJsonRetrievalFunctionFactory
-                    .canBuildTrackableValueJsonRetrievalFunctionOnBehalfOfDataSource(
+                    .canBuildTrackableJsonValueRetrieverOnBehalfOfDataSource(
                         retrievalFunctionSpec.dataSource.key
                     ) -> {
-                Try.fromOption(
-                        retrievalFunctionSpec.sourceVerticesByPath.asIterable().singleOrNone()
-                    )
-                    .flatMap { (_, srcJunctionOrLeafVertex) ->
-                        schematicPathBasedJsonRetrievalFunctionFactory
-                            .trackableValueJsonRetrievalFunctionBuilder()
-                            .cacheForDataSource(retrievalFunctionSpec.dataSource)
-                            .sourceTarget(srcJunctionOrLeafVertex)
-                            .build()
-                    }
-                    .zip(
-                        createMultipleSourceIndicesJsonRetrievalFunctionForRetrievalFunctionSpec(
+                schematicPathBasedJsonRetrievalFunctionFactory
+                    .trackableValueJsonRetrievalFunctionBuilder()
+                    .cacheForDataSource(retrievalFunctionSpec.dataSource)
+                    .build()
+                    .zip2(
+                        createExternalDataSourceJsonValuesRetrieverForRetrievalFunctionSpec(
                             retrievalFunctionSpec
+                        ),
+                        createPlannedValueForSourceIndexPath(
+                            sourceIndexPath,
+                            retrievalFunctionSpec,
+                            graphPhase,
+                            session
                         )
                     )
                     .map {
                         (
-                            singleSrcIndCacheRetrFunc: TrackableValueJsonRetrievalFunction,
-                            multiSrcIndJsonRetrFunc: MultipleSourceIndicesJsonRetrievalFunction
+                            singleSrcIndCacheRetrFunc: TrackableJsonValueRetriever,
+                            multiSrcIndJsonRetrFunc: ExternalDataSourceJsonValuesRetriever,
+                            plannedValue: TrackableValue.PlannedValue<JsonNode>
                         ) ->
-                        val backupFunction: BackupTrackableValueRetrievalFunction =
+                        val backupFunction: BackupExternalDataSourceCalculatedJsonValueRetriever =
                             createBackupSingleSourceIndexJsonOptionRetrievalFunctionFor(
                                 sourceIndexPath,
                                 retrievalFunctionSpec,
                                 multiSrcIndJsonRetrFunc,
-                                phase.materializedParameterValuesByPath,
+                                graphPhase.materializedParameterValuesByPath,
                                 session
                             )
                         requestCreationContext.copy(
@@ -366,7 +367,7 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                                     .put(
                                         sourceIndexPath,
                                         singleSrcIndCacheRetrFunc
-                                            .invoke(phase.materializedParameterValuesByPath)
+                                            .invoke(plannedValue)
                                             .cache()
                                             .timeout(DEFAULT_EXTERNAL_CALL_TIMEOUT_DURATION)
                                     )
@@ -387,15 +388,101 @@ internal class DefaultSingleRequestMaterializationDispatchService(
         }
     }
 
-    private fun createMultipleSourceIndicesJsonRetrievalFunctionForRetrievalFunctionSpec(
+    private fun createPlannedValueForSourceIndexPath(
+        sourceIndexPath: SchematicPath,
+        retrievalFunctionSpec: RetrievalFunctionSpec,
+        graphPhase: RequestParameterMaterializationGraphPhase,
+        session: GraphQLSingleRequestSession
+    ): Try<TrackableValue.PlannedValue<JsonNode>> {
+        return retrievalFunctionSpec.sourceVerticesByPath[sourceIndexPath]
+            .toOption()
+            .flatMap { sjvOrSlv ->
+                sourceIndexPath
+                    .getParentPath()
+                    .flatMap { pp -> session.metamodelGraph.pathBasedGraph.getVertex(pp) }
+                    .filterIsInstance<SourceContainerTypeVertex>()
+                    .map { sct -> sct.compositeContainerType.conventionalName.qualifiedForm }
+                    .zip(
+                        sjvOrSlv
+                            .fold(
+                                SourceJunctionVertex::compositeAttribute,
+                                SourceLeafVertex::compositeAttribute
+                            )
+                            .conventionalName
+                            .qualifiedForm
+                            .some()
+                    )
+            }
+            .successIfDefined {
+                MaterializerException(
+                    MaterializerErrorResponse.UNEXPECTED_ERROR,
+                    "could not find parent_type_name and child_attribute_name for path: [ source_index_path: ${sourceIndexPath} ]"
+                )
+            }
+            .flatMap { (parentTypeName, childAttributeName) ->
+                val canonicalAndReferenceVertices: Set<SourceAttributeVertex> =
+                    session.metamodelGraph
+                        .sourceAttributeVerticesWithParentTypeAttributeQualifiedNamePair
+                        .getOrNone(parentTypeName to childAttributeName)
+                        .fold(::emptySet, ::identity)
+                val canonicalPath: Try<SchematicPath> =
+                    canonicalAndReferenceVertices
+                        .asSequence()
+                        .map { sav -> sav.path }
+                        .minOrNull()
+                        .toOption()
+                        .successIfDefined {
+                            MaterializerException(
+                                MaterializerErrorResponse.UNEXPECTED_ERROR,
+                                "could not determine canonical_path: [ source_index_path: %s ]".format(
+                                    sourceIndexPath
+                                )
+                            )
+                        }
+                val referencePaths: Sequence<SchematicPath> =
+                    canonicalAndReferenceVertices
+                        .asSequence()
+                        .filter { sav -> sav.path != canonicalPath.orNull() }
+                        .map { sav -> sav.path }
+                val graphQLOutputType: Try<GraphQLOutputType> =
+                    FieldCoordinates.coordinates(parentTypeName, childAttributeName)
+                        .toOption()
+                        .flatMap { fc: FieldCoordinates ->
+                            session.materializationSchema.getFieldDefinition(fc).toOption()
+                        }
+                        .map(GraphQLFieldDefinition::getType)
+                        .successIfDefined {
+                            MaterializerException(
+                                MaterializerErrorResponse.UNEXPECTED_ERROR,
+                                """could not find graphql_output_type for field_coordinates: 
+                                    |[ parent_type_name: %s, 
+                                    |child_attribute_name: %s 
+                                    |]"""
+                                    .flatten()
+                                    .format(parentTypeName, childAttributeName)
+                            )
+                        }
+                canonicalPath.zip(graphQLOutputType).flatMap { (cp, gqlt) ->
+                    trackableValueFactory
+                        .builder()
+                        .canonicalPath(cp)
+                        .referencePaths(referencePaths.toPersistentSet())
+                        .contextualParameters(graphPhase.materializedParameterValuesByPath)
+                        .graphQLOutputType(gqlt)
+                        .buildForInstanceOf<JsonNode>()
+                }
+            }
+    }
+
+    private fun createExternalDataSourceJsonValuesRetrieverForRetrievalFunctionSpec(
         retrievalFunctionSpec: RetrievalFunctionSpec
-    ): Try<MultipleSourceIndicesJsonRetrievalFunction> {
+    ): Try<ExternalDataSourceJsonValuesRetriever> {
         return retrievalFunctionSpec.sourceVerticesByPath
             .asSequence()
             .fold(
                 retrievalFunctionSpec.parameterVerticesByPath.asSequence().fold(
                     schematicPathBasedJsonRetrievalFunctionFactory
-                        .multipleSourceIndicesJsonRetrievalFunctionBuilder()
+                        .externalDataSourceJsonValuesRetrieverBuilder()
                         .dataSource(retrievalFunctionSpec.dataSource)
                 ) { retrievalFunctionBuilder, (_, paramVert) ->
                     retrievalFunctionBuilder.addRequestParameter(paramVert)
@@ -409,58 +496,13 @@ internal class DefaultSingleRequestMaterializationDispatchService(
     private fun createBackupSingleSourceIndexJsonOptionRetrievalFunctionFor(
         sourceIndexPath: SchematicPath,
         retrievalSpec: RetrievalFunctionSpec,
-        multiSrcIndJsonRetrFunc: MultipleSourceIndicesJsonRetrievalFunction,
+        multiSrcIndJsonRetrFunc: ExternalDataSourceJsonValuesRetriever,
         materializedParameterValuesByPath: PersistentMap<SchematicPath, JsonNode>,
         session: GraphQLSingleRequestSession
-    ): BackupTrackableValueRetrievalFunction {
-        val sourceIndexGraphQLOutputTypeAttempt =
-            retrievalSpec.sourceVerticesByPath[sourceIndexPath]
-                .toOption()
-                .flatMap { sjvOrSlv ->
-                    sourceIndexPath
-                        .getParentPath()
-                        .flatMap { pp -> session.metamodelGraph.pathBasedGraph.getVertex(pp) }
-                        .filterIsInstance<SourceContainerTypeVertex>()
-                        .map { sct -> sct.compositeContainerType.conventionalName.qualifiedForm }
-                        .zip(
-                            sjvOrSlv
-                                .fold(
-                                    SourceJunctionVertex::compositeAttribute,
-                                    SourceLeafVertex::compositeAttribute
-                                )
-                                .conventionalName
-                                .qualifiedForm
-                                .some()
-                        )
-                        .flatMap { (parentTypeName, childAttributeName) ->
-                            FieldCoordinates.coordinates(parentTypeName, childAttributeName)
-                                .toOption()
-                                .flatMap { fc ->
-                                    session.materializationSchema.getFieldDefinition(fc).toOption()
-                                }
-                                .map(GraphQLFieldDefinition::getType)
-                        }
-                }
-                .successIfDefined {
-                    MaterializerException(
-                        MaterializerErrorResponse.UNEXPECTED_ERROR,
-                        "could not find graphql_output_type for path: ${sourceIndexPath}"
-                    )
-                }
-
-        return BackupTrackableValueRetrievalFunction { dispatchedParams ->
-            logger.info(
-                "before_combine_sequence: [ source_index_path: {}, dispatched_params: {} ]",
-                sourceIndexPath,
-                dispatchedParams
-                    .asSequence()
-                    .joinToString(
-                        separator = ",\n",
-                        prefix = "{\n",
-                        postfix = " }",
-                        transform = { (k, v) -> "$k: $v" }
-                    )
-            )
+    ): BackupExternalDataSourceCalculatedJsonValueRetriever {
+        return BackupExternalDataSourceCalculatedJsonValueRetriever {
+            trackableValue: TrackableValue<JsonNode>,
+            dispatchedParams: ImmutableMap<SchematicPath, Mono<JsonNode>> ->
             Flux.merge(
                     dispatchedParams
                         .asSequence()
@@ -475,23 +517,15 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                         .timeout(DEFAULT_EXTERNAL_CALL_TIMEOUT_DURATION)
                 }
                 .flatMap { resultMap -> Mono.justOrEmpty(resultMap[sourceIndexPath]) }
-                .zipWith(sourceIndexGraphQLOutputTypeAttempt.toMono()) { resultMap, outputType ->
-                    resultMap to outputType
-                }
-                .flatMap { (resultJson, outputType) ->
-                    trackableValueFactory
-                        .builder()
-                        .canonicalPath(sourceIndexPath)
-                        .addContextualParameters(materializedParameterValuesByPath)
-                        .graphQLOutputType(outputType)
-                        .buildForInstanceOf<JsonNode>()
-                        .zip(resultJson.toOption())
-                        .map { (plannedValue, json) ->
-                            plannedValue.transitionToCalculated {
-                                calculatedValue(json).calculatedTimestamp(Instant.now())
+                .map { resultJson ->
+                    when (trackableValue) {
+                        is TrackableValue.PlannedValue ->
+                            trackableValue.transitionToCalculated {
+                                calculatedValue(resultJson!!).calculatedTimestamp(Instant.now())
                             }
-                        }
-                        .toMono()
+                        is TrackableValue.CalculatedValue -> trackableValue
+                        is TrackableValue.TrackedValue -> trackableValue
+                    }
                 }
                 .cache()
         }
@@ -572,10 +606,10 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                     .any { spec -> spec.sourceVerticesByPath.containsKey(p) }
             } &&
                 schematicPathBasedJsonRetrievalFunctionFactory
-                    .canBuildMultipleSourceIndicesJsonRetrievalFunctionForDataSource(
+                    .canBuildExternalDataSourceJsonValuesRetrieverForDataSource(
                         retrievalFunctionSpec.dataSource.key
                     ) -> {
-                createMultipleSourceIndicesJsonRetrievalFunctionForRetrievalFunctionSpec(
+                createExternalDataSourceJsonValuesRetrieverForRetrievalFunctionSpec(
                         retrievalFunctionSpec
                     )
                     .map { multiSrcIndJsonRetrievalFunction ->
@@ -759,7 +793,7 @@ internal class DefaultSingleRequestMaterializationDispatchService(
     private fun dependentFunctionsResolvedLastComparator(
         requestParameterMaterializationGraphPhase: RequestParameterMaterializationGraphPhase,
         requestCreationContext: RequestCreationContext
-    ): Comparator<Map.Entry<SchematicPath, TrackableValueJsonRetrievalFunction>> {
+    ): Comparator<Map.Entry<SchematicPath, TrackableJsonValueRetriever>> {
         return Comparator { e1, e2 ->
             requestCreationContext.multiSrcIndexFunctionBySourceIndexPath[e1.key]
                 .toOption()
@@ -809,12 +843,13 @@ internal class DefaultSingleRequestMaterializationDispatchService(
         phase: RequestParameterMaterializationGraphPhase,
         requestCreationContext: RequestCreationContext,
         dispatchedTrackableValueRequest: Mono<TrackableValue<JsonNode>>,
-        trackableValueJsonRetrievalFunction: TrackableValueJsonRetrievalFunction,
-        multipleSourceIndicesJsonRetrievalFunction: MultipleSourceIndicesJsonRetrievalFunction,
-        backupTrackableValueRetrievalFunction: BackupTrackableValueRetrievalFunction
+        trackableJsonValueRetriever: TrackableJsonValueRetriever,
+        externalDataSourceJsonValuesRetriever: ExternalDataSourceJsonValuesRetriever,
+        backupExternalDataSourceCalculatedJsonValueRetriever:
+            BackupExternalDataSourceCalculatedJsonValueRetriever
     ): Mono<TrackableValue<JsonNode>> {
         val deferredParameterValuesByParamPath: ImmutableMap<SchematicPath, Mono<JsonNode>> =
-            multipleSourceIndicesJsonRetrievalFunction.parameterPaths
+            externalDataSourceJsonValuesRetriever.parameterPaths
                 .stream()
                 // TODO: handle other edge types that could be mapped to params: materialized value
                 // edges
@@ -864,7 +899,7 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                                         """edge: [ ${edge.id} ] could not be applied for 
                                         |wiring a parameter value to a function 
                                         |[ path: ${p} ] potentially impacting retrieval/calculation of 
-                                        |[ ${trackableValueJsonRetrievalFunction.sourceIndexPath} ]""".flatten()
+                                        |[ ${srcIndPath} ]""".flatten()
                                     )
                                     none()
                                 }
@@ -876,23 +911,19 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                         }
                 }
                 .reducePairsToPersistentMap()
-        logger.info(
-            "before_addition_to_dispatched_request: [ source_index_path: ${trackableValueJsonRetrievalFunction.sourceIndexPath} ] deferred_params_by_param_path: {}",
-            deferredParameterValuesByParamPath
-                .asSequence()
-                .joinToString(
-                    separator = ",\n",
-                    prefix = "{\n",
-                    postfix = " }",
-                    transform = { (k, v) -> "$k: $v" }
-                )
-        )
-
         return dispatchedTrackableValueRequest
             .cache()
-            .filter { tv -> tv.isCalculated() || tv.isTracked() }
-            .switchIfEmpty {
-                backupTrackableValueRetrievalFunction(deferredParameterValuesByParamPath).widen()
+            .flatMap { tv: TrackableValue<JsonNode> ->
+                when (tv) {
+                    is TrackableValue.PlannedValue -> {
+                        backupExternalDataSourceCalculatedJsonValueRetriever.invoke(
+                            tv,
+                            deferredParameterValuesByParamPath
+                        )
+                    }
+                    is TrackableValue.CalculatedValue -> Mono.just(tv)
+                    is TrackableValue.TrackedValue -> Mono.just(tv)
+                }
             }
             .cache()
     }
@@ -903,8 +934,8 @@ internal class DefaultSingleRequestMaterializationDispatchService(
         return requestCreationContext.processedRetrievalFunctionSpecsBySourceIndexPath
             .asSequence()
             .fold(
-                persistentListOf<DispatchedTrackableSingleSourceIndexRetrieval>() to
-                    persistentListOf<DispatchedMultiSourceIndexRetrieval>()
+                persistentListOf<TrackableSingleJsonValueDispatch>() to
+                    persistentListOf<ExternalDataSourceValuesDispatch>()
             ) { plPair, (sourceIndexPath, retrievalSpec) ->
                 when {
                     sourceIndexPath in
@@ -915,12 +946,12 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                                 .builder()
                                 .sourceIndexPath(sourceIndexPath)
                                 .retrievalFunctionSpec(retrievalSpec)
-                                .trackableValueJsonRetrievalFunction(
+                                .trackableJsonValueRetriever(
                                     requestCreationContext
                                         .singleSrcIndexCacheFunctionBySourceIndexPath[
                                             sourceIndexPath]!!
                                 )
-                                .backupSingleSourceIndexJsonOptionRetrievalFunction(
+                                .backUpExternalDataSourceCalculatedJsonValueRetriever(
                                     requestCreationContext
                                         .singleSrcIndexBackupFunctionBySourceIndexPath[
                                             sourceIndexPath]!!
@@ -930,7 +961,7 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                                         .dispatchedTrackableValueResponsesBySourceIndexPath[
                                             sourceIndexPath]!!
                                 )
-                                .backupBaseMultipleSourceIndicesJsonRetrievalFunction(
+                                .backupBaseExternalDataSourceJsonValuesRetriever(
                                     requestCreationContext.multiSrcIndexFunctionBySourceIndexPath[
                                             sourceIndexPath]!!
                                 )
@@ -945,7 +976,7 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                                     .builder()
                                     .sourceIndexPath(sourceIndexPath)
                                     .retrievalFunctionSpec(retrievalSpec)
-                                    .multipleSourceIndicesJsonRetrievalFunction(
+                                    .externalDataSourceJsonValuesRetriever(
                                         requestCreationContext
                                             .multiSrcIndexFunctionBySourceIndexPath[
                                                 sourceIndexPath]!!

@@ -17,13 +17,13 @@ import kotlinx.collections.immutable.ImmutableSet
  */
 interface DataSourceRepresentativeJsonRetrievalStrategyProvider<SI : SourceIndex<SI>> {
 
-    fun providesJsonRetrievalFunctionsForVerticesWithSourceIndicesIn(
+    fun providesJsonValueRetrieversForVerticesWithSourceIndicesIn(
         dataSourceKey: DataSource.Key<*>
     ): Boolean
 
-    fun createMultipleSourceIndicesJsonRetrievalFunctionFor(
+    fun createExternalDataSourceJsonValuesRetrieverFor(
         dataSource: DataSource<SI>,
         sourceVertices: ImmutableSet<Either<SourceJunctionVertex, SourceLeafVertex>>,
         parameterVertices: ImmutableSet<Either<ParameterJunctionVertex, ParameterLeafVertex>>
-    ): Try<MultipleSourceIndicesJsonRetrievalFunction>
+    ): Try<ExternalDataSourceJsonValuesRetriever>
 }

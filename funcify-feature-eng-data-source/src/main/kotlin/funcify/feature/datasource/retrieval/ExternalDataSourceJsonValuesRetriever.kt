@@ -18,7 +18,7 @@ import reactor.core.publisher.Mono
  * @author smccarron
  * @created 2022-08-11
  */
-interface MultipleSourceIndicesJsonRetrievalFunction :
+interface ExternalDataSourceJsonValuesRetriever :
     (ImmutableMap<SchematicPath, JsonNode>) -> Mono<ImmutableMap<SchematicPath, JsonNode>> {
 
     val dataSourceKey: DataSource.Key<*>
@@ -54,6 +54,6 @@ interface MultipleSourceIndicesJsonRetrievalFunction :
 
         fun addSourceTarget(sourceLeafVertex: SourceLeafVertex): Builder
 
-        fun build(): Try<MultipleSourceIndicesJsonRetrievalFunction>
+        fun build(): Try<ExternalDataSourceJsonValuesRetriever>
     }
 }

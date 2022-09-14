@@ -17,7 +17,7 @@ import kotlinx.collections.immutable.toImmutableSet
  * @created 2022-08-12
  */
 interface DataSourceRepresentativeJsonRetrievalStrategy<SI : SourceIndex<SI>> :
-    MultipleSourceIndicesJsonRetrievalFunction {
+    ExternalDataSourceJsonValuesRetriever {
 
     override val dataSource: DataSource<SI>
 

@@ -1,9 +1,9 @@
 package funcify.feature.materializer.dispatch
 
 import com.fasterxml.jackson.databind.JsonNode
-import funcify.feature.datasource.retrieval.BackupTrackableValueRetrievalFunction
-import funcify.feature.datasource.retrieval.MultipleSourceIndicesJsonRetrievalFunction
-import funcify.feature.datasource.retrieval.TrackableValueJsonRetrievalFunction
+import funcify.feature.datasource.retrieval.BackupExternalDataSourceCalculatedJsonValueRetriever
+import funcify.feature.datasource.retrieval.ExternalDataSourceJsonValuesRetriever
+import funcify.feature.datasource.retrieval.TrackableJsonValueRetriever
 import funcify.feature.datasource.tracking.TrackableValue
 import funcify.feature.materializer.spec.RetrievalFunctionSpec
 import funcify.feature.schema.path.SchematicPath
@@ -22,12 +22,12 @@ interface SourceIndexRequestDispatch {
 
         fun retrievalFunctionSpec(retrievalFunctionSpec: RetrievalFunctionSpec): Builder
 
-        fun trackableValueJsonRetrievalFunction(
-            trackableValueJsonRetrievalFunction: TrackableValueJsonRetrievalFunction
+        fun trackableJsonValueRetriever(
+            trackableJsonValueRetriever: TrackableJsonValueRetriever
         ): TrackableValueSourceIndexRetrievalSpec
 
-        fun multipleSourceIndicesJsonRetrievalFunction(
-            multipleSourceIndicesJsonRetrievalFunction: MultipleSourceIndicesJsonRetrievalFunction
+        fun externalDataSourceJsonValuesRetriever(
+            externalDataSourceJsonValuesRetriever: ExternalDataSourceJsonValuesRetriever
         ): MultipleSourceIndexRetrievalSpec
     }
 
@@ -37,15 +37,16 @@ interface SourceIndexRequestDispatch {
             dispatch: Mono<TrackableValue<JsonNode>>
         ): TrackableValueSourceIndexRetrievalSpec
 
-        fun backupBaseMultipleSourceIndicesJsonRetrievalFunction(
-            multipleSourceIndicesJsonRetrievalFunction: MultipleSourceIndicesJsonRetrievalFunction
+        fun backupBaseExternalDataSourceJsonValuesRetriever(
+            externalDataSourceJsonValuesRetriever: ExternalDataSourceJsonValuesRetriever
         ): TrackableValueSourceIndexRetrievalSpec
 
-        fun backupSingleSourceIndexJsonOptionRetrievalFunction(
-            backupFunction: BackupTrackableValueRetrievalFunction
+        fun backUpExternalDataSourceCalculatedJsonValueRetriever(
+            backupExternalDataSourceCalculatedJsonValueRetriever:
+                BackupExternalDataSourceCalculatedJsonValueRetriever
         ): TrackableValueSourceIndexRetrievalSpec
 
-        fun build(): DispatchedTrackableSingleSourceIndexRetrieval
+        fun build(): TrackableSingleJsonValueDispatch
     }
 
     interface MultipleSourceIndexRetrievalSpec {
@@ -54,24 +55,24 @@ interface SourceIndexRequestDispatch {
             dispatch: Mono<ImmutableMap<SchematicPath, JsonNode>>
         ): MultipleSourceIndexRetrievalSpec
 
-        fun build(): DispatchedMultiSourceIndexRetrieval
+        fun build(): ExternalDataSourceValuesDispatch
     }
 
-    interface DispatchedTrackableSingleSourceIndexRetrieval : SourceIndexRequestDispatch {
+    interface TrackableSingleJsonValueDispatch : SourceIndexRequestDispatch {
 
-        val trackableValueJsonRetrievalFunction: TrackableValueJsonRetrievalFunction
+        val trackableJsonValueRetriever: TrackableJsonValueRetriever
 
         val dispatchedTrackableValueRequest: Mono<TrackableValue<JsonNode>>
 
-        val backupBaseMultipleSourceIndicesJsonRetrievalFunction:
-            MultipleSourceIndicesJsonRetrievalFunction
+        val backupBaseExternalDataSourceJsonValuesRetriever: ExternalDataSourceJsonValuesRetriever
 
-        val backupTrackableValueRetrievalFunction: BackupTrackableValueRetrievalFunction
+        val backupExternalDataSourceCalculatedJsonValueRetriever:
+            BackupExternalDataSourceCalculatedJsonValueRetriever
     }
 
-    interface DispatchedMultiSourceIndexRetrieval : SourceIndexRequestDispatch {
+    interface ExternalDataSourceValuesDispatch : SourceIndexRequestDispatch {
 
-        val multipleSourceIndicesJsonRetrievalFunction: MultipleSourceIndicesJsonRetrievalFunction
+        val externalDataSourceJsonValuesRetriever: ExternalDataSourceJsonValuesRetriever
 
         val dispatchedMultipleIndexRequest: Mono<ImmutableMap<SchematicPath, JsonNode>>
     }

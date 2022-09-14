@@ -1,13 +1,14 @@
 package funcify.feature.materializer.dispatch
 
 import com.fasterxml.jackson.databind.JsonNode
-import funcify.feature.datasource.retrieval.BackupTrackableValueRetrievalFunction
-import funcify.feature.datasource.retrieval.MultipleSourceIndicesJsonRetrievalFunction
-import funcify.feature.datasource.retrieval.TrackableValueJsonRetrievalFunction
+import funcify.feature.datasource.retrieval.BackupExternalDataSourceCalculatedJsonValueRetriever
+import funcify.feature.datasource.retrieval.ExternalDataSourceJsonValuesRetriever
+import funcify.feature.datasource.retrieval.TrackableJsonValueRetriever
 import funcify.feature.datasource.tracking.TrackableValue
 import funcify.feature.materializer.error.MaterializerErrorResponse
 import funcify.feature.materializer.error.MaterializerException
 import funcify.feature.materializer.spec.RetrievalFunctionSpec
+import funcify.feature.naming.StandardNamingConventions
 import funcify.feature.schema.path.SchematicPath
 import kotlinx.collections.immutable.ImmutableMap
 import reactor.core.publisher.Mono
@@ -33,24 +34,23 @@ internal class DefaultSourceIndexRequestDispatchFactory : SourceIndexRequestDisp
                 return this
             }
 
-            override fun trackableValueJsonRetrievalFunction(
-                trackableValueJsonRetrievalFunction: TrackableValueJsonRetrievalFunction
+            override fun trackableJsonValueRetriever(
+                trackableJsonValueRetriever: TrackableJsonValueRetriever
             ): SourceIndexRequestDispatch.TrackableValueSourceIndexRetrievalSpec {
                 return DefaultTrackableValueSourceIndexRetrievalSpec(
                     sourceIndexPath,
                     retrievalFunctionSpec,
-                    trackableValueJsonRetrievalFunction
+                    trackableJsonValueRetriever
                 )
             }
 
-            override fun multipleSourceIndicesJsonRetrievalFunction(
-                multipleSourceIndicesJsonRetrievalFunction:
-                    MultipleSourceIndicesJsonRetrievalFunction
+            override fun externalDataSourceJsonValuesRetriever(
+                externalDataSourceJsonValuesRetriever: ExternalDataSourceJsonValuesRetriever
             ): SourceIndexRequestDispatch.MultipleSourceIndexRetrievalSpec {
                 return DefaultMultipleSourceIndexRetrievalSpec(
                     sourceIndexPath,
                     retrievalFunctionSpec,
-                    multipleSourceIndicesJsonRetrievalFunction
+                    externalDataSourceJsonValuesRetriever
                 )
             }
         }
@@ -58,12 +58,12 @@ internal class DefaultSourceIndexRequestDispatchFactory : SourceIndexRequestDisp
         internal class DefaultTrackableValueSourceIndexRetrievalSpec(
             private val sourceIndexPath: SchematicPath?,
             private val retrievalFunctionSpec: RetrievalFunctionSpec?,
-            private val trackableValueJsonRetrievalFunction: TrackableValueJsonRetrievalFunction,
+            private val trackableJsonValueRetriever: TrackableJsonValueRetriever,
             private var dispatchedSingleIndexCacheRequest: Mono<TrackableValue<JsonNode>>? = null,
-            private var backupBaseMultipleSourceIndicesJsonRetrievalFunction:
-                MultipleSourceIndicesJsonRetrievalFunction? =
+            private var backupBaseExternalDataSourceJsonValuesRetriever:
+                ExternalDataSourceJsonValuesRetriever? =
                 null,
-            private var backupFunction: BackupTrackableValueRetrievalFunction? = null
+            private var backupFunction: BackupExternalDataSourceCalculatedJsonValueRetriever? = null
         ) : SourceIndexRequestDispatch.TrackableValueSourceIndexRetrievalSpec {
 
             override fun dispatchedTrackableValueJsonRequest(
@@ -73,42 +73,49 @@ internal class DefaultSourceIndexRequestDispatchFactory : SourceIndexRequestDisp
                 return this
             }
 
-            override fun backupBaseMultipleSourceIndicesJsonRetrievalFunction(
-                multipleSourceIndicesJsonRetrievalFunction:
-                    MultipleSourceIndicesJsonRetrievalFunction
+            override fun backupBaseExternalDataSourceJsonValuesRetriever(
+                externalDataSourceJsonValuesRetriever: ExternalDataSourceJsonValuesRetriever
             ): SourceIndexRequestDispatch.TrackableValueSourceIndexRetrievalSpec {
-                this.backupBaseMultipleSourceIndicesJsonRetrievalFunction =
-                    multipleSourceIndicesJsonRetrievalFunction
+                this.backupBaseExternalDataSourceJsonValuesRetriever =
+                    externalDataSourceJsonValuesRetriever
                 return this
             }
 
-            override fun backupSingleSourceIndexJsonOptionRetrievalFunction(
-                backupFunction: BackupTrackableValueRetrievalFunction
+            override fun backUpExternalDataSourceCalculatedJsonValueRetriever(
+                backupExternalDataSourceCalculatedJsonValueRetriever:
+                    BackupExternalDataSourceCalculatedJsonValueRetriever
             ): SourceIndexRequestDispatch.TrackableValueSourceIndexRetrievalSpec {
-                this.backupFunction = backupFunction
+                this.backupFunction = backupExternalDataSourceCalculatedJsonValueRetriever
                 return this
             }
 
-            override fun build():
-                SourceIndexRequestDispatch.DispatchedTrackableSingleSourceIndexRetrieval {
+            override fun build(): SourceIndexRequestDispatch.TrackableSingleJsonValueDispatch {
                 return when {
                     sourceIndexPath == null ||
                         retrievalFunctionSpec == null ||
                         dispatchedSingleIndexCacheRequest == null ||
-                        backupBaseMultipleSourceIndicesJsonRetrievalFunction == null ||
+                        backupBaseExternalDataSourceJsonValuesRetriever == null ||
                         backupFunction == null -> {
+                        val conventionalName =
+                            StandardNamingConventions.SNAKE_CASE.deriveName(
+                                SourceIndexRequestDispatch.TrackableSingleJsonValueDispatch::class
+                                    .simpleName
+                                    ?: "<NA>"
+                            )
                         throw MaterializerException(
                             MaterializerErrorResponse.UNEXPECTED_ERROR,
-                            "one or more required parameters is missing for dispatched_cacheable_single_source_index_retrieval instance creation"
+                            "one or more required parameters is missing for %s instance creation".format(
+                                conventionalName
+                            )
                         )
                     }
                     else -> {
-                        DefaultDispatchedTrackableSingleSourceIndexRetrieval(
+                        DefaultTrackableSingleJsonValueDispatch(
                             sourceIndexPath,
                             retrievalFunctionSpec,
-                            trackableValueJsonRetrievalFunction,
+                            trackableJsonValueRetriever,
                             dispatchedSingleIndexCacheRequest!!,
-                            backupBaseMultipleSourceIndicesJsonRetrievalFunction!!,
+                            backupBaseExternalDataSourceJsonValuesRetriever!!,
                             backupFunction!!
                         )
                     }
@@ -119,8 +126,8 @@ internal class DefaultSourceIndexRequestDispatchFactory : SourceIndexRequestDisp
         internal class DefaultMultipleSourceIndexRetrievalSpec(
             private val sourceIndexPath: SchematicPath?,
             private val retrievalFunctionSpec: RetrievalFunctionSpec?,
-            private val multipleSourceIndicesJsonRetrievalFunction:
-                MultipleSourceIndicesJsonRetrievalFunction,
+            private val externalDataSourceJsonValuesRetriever:
+                ExternalDataSourceJsonValuesRetriever,
             private var dispatchedMultipleIndexRequest:
                 Mono<ImmutableMap<SchematicPath, JsonNode>>? =
                 null
@@ -133,21 +140,29 @@ internal class DefaultSourceIndexRequestDispatchFactory : SourceIndexRequestDisp
                 return this
             }
 
-            override fun build(): SourceIndexRequestDispatch.DispatchedMultiSourceIndexRetrieval {
+            override fun build(): SourceIndexRequestDispatch.ExternalDataSourceValuesDispatch {
                 return when {
                     sourceIndexPath == null ||
                         retrievalFunctionSpec == null ||
                         dispatchedMultipleIndexRequest == null -> {
+                        val conventionalName =
+                            StandardNamingConventions.SNAKE_CASE.deriveName(
+                                SourceIndexRequestDispatch.ExternalDataSourceValuesDispatch::class
+                                    .simpleName
+                                    ?: "<NA>"
+                            )
                         throw MaterializerException(
                             MaterializerErrorResponse.UNEXPECTED_ERROR,
-                            "one or more required parameters is missing for dispatched_multi_source_index_retrieval instance creation"
+                            "one or more required parameters is missing for %s instance creation".format(
+                                conventionalName
+                            )
                         )
                     }
                     else -> {
-                        DefaultDispatchedMultiSourceIndexRetrieval(
+                        DefaultExternalDataSourceValuesDispatch(
                             sourceIndexPath,
                             retrievalFunctionSpec,
-                            multipleSourceIndicesJsonRetrievalFunction,
+                            externalDataSourceJsonValuesRetriever,
                             dispatchedMultipleIndexRequest!!
                         )
                     }
@@ -155,24 +170,24 @@ internal class DefaultSourceIndexRequestDispatchFactory : SourceIndexRequestDisp
             }
         }
 
-        internal data class DefaultDispatchedTrackableSingleSourceIndexRetrieval(
+        internal data class DefaultTrackableSingleJsonValueDispatch(
             override val sourceIndexPath: SchematicPath,
             override val retrievalFunctionSpec: RetrievalFunctionSpec,
-            override val trackableValueJsonRetrievalFunction: TrackableValueJsonRetrievalFunction,
+            override val trackableJsonValueRetriever: TrackableJsonValueRetriever,
             override val dispatchedTrackableValueRequest: Mono<TrackableValue<JsonNode>>,
-            override val backupBaseMultipleSourceIndicesJsonRetrievalFunction:
-                MultipleSourceIndicesJsonRetrievalFunction,
-            override val backupTrackableValueRetrievalFunction:
-                BackupTrackableValueRetrievalFunction
-        ) : SourceIndexRequestDispatch.DispatchedTrackableSingleSourceIndexRetrieval {}
+            override val backupBaseExternalDataSourceJsonValuesRetriever:
+                ExternalDataSourceJsonValuesRetriever,
+            override val backupExternalDataSourceCalculatedJsonValueRetriever:
+                BackupExternalDataSourceCalculatedJsonValueRetriever
+        ) : SourceIndexRequestDispatch.TrackableSingleJsonValueDispatch {}
 
-        internal data class DefaultDispatchedMultiSourceIndexRetrieval(
+        internal data class DefaultExternalDataSourceValuesDispatch(
             override val sourceIndexPath: SchematicPath,
             override val retrievalFunctionSpec: RetrievalFunctionSpec,
-            override val multipleSourceIndicesJsonRetrievalFunction:
-                MultipleSourceIndicesJsonRetrievalFunction,
+            override val externalDataSourceJsonValuesRetriever:
+                ExternalDataSourceJsonValuesRetriever,
             override val dispatchedMultipleIndexRequest: Mono<ImmutableMap<SchematicPath, JsonNode>>
-        ) : SourceIndexRequestDispatch.DispatchedMultiSourceIndexRetrieval {}
+        ) : SourceIndexRequestDispatch.ExternalDataSourceValuesDispatch {}
     }
 
     override fun builder(): SourceIndexRequestDispatch.Builder {

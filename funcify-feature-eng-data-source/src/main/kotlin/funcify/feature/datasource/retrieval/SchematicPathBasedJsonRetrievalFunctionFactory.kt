@@ -9,16 +9,16 @@ import funcify.feature.schema.datasource.DataSource
  */
 interface SchematicPathBasedJsonRetrievalFunctionFactory {
 
-    fun canBuildMultipleSourceIndicesJsonRetrievalFunctionForDataSource(
+    fun canBuildExternalDataSourceJsonValuesRetrieverForDataSource(
         dataSourceKey: DataSource.Key<*>
     ): Boolean
 
-    fun canBuildTrackableValueJsonRetrievalFunctionOnBehalfOfDataSource(
+    fun canBuildTrackableJsonValueRetrieverOnBehalfOfDataSource(
         dataSourceKey: DataSource.Key<*>
     ): Boolean
 
-    fun multipleSourceIndicesJsonRetrievalFunctionBuilder():
-        MultipleSourceIndicesJsonRetrievalFunction.Builder
+    fun externalDataSourceJsonValuesRetrieverBuilder():
+        ExternalDataSourceJsonValuesRetriever.Builder
 
-    fun trackableValueJsonRetrievalFunctionBuilder(): TrackableValueJsonRetrievalFunction.Builder
+    fun trackableValueJsonRetrievalFunctionBuilder(): TrackableJsonValueRetriever.Builder
 }

@@ -1,8 +1,8 @@
 package funcify.feature.materializer.phase
 
+import funcify.feature.materializer.dispatch.SourceIndexRequestDispatch.ExternalDataSourceValuesDispatch
+import funcify.feature.materializer.dispatch.SourceIndexRequestDispatch.TrackableSingleJsonValueDispatch
 import funcify.feature.materializer.service.MaterializationPhase
-import funcify.feature.materializer.dispatch.SourceIndexRequestDispatch.DispatchedMultiSourceIndexRetrieval
-import funcify.feature.materializer.dispatch.SourceIndexRequestDispatch.DispatchedTrackableSingleSourceIndexRetrieval
 import funcify.feature.schema.path.SchematicPath
 import kotlinx.collections.immutable.ImmutableMap
 
@@ -14,8 +14,8 @@ import kotlinx.collections.immutable.ImmutableMap
 interface RequestDispatchMaterializationPhase : MaterializationPhase {
 
     val trackableSingleValueRequestDispatchesBySourceIndexPath:
-        ImmutableMap<SchematicPath, DispatchedTrackableSingleSourceIndexRetrieval>
+        ImmutableMap<SchematicPath, TrackableSingleJsonValueDispatch>
 
-    val multipleSourceIndexRequestDispatchesBySourceIndexPath:
-        ImmutableMap<SchematicPath, DispatchedMultiSourceIndexRetrieval>
+    val externalDataSourceJsonValuesRequestDispatchesByAncestorSourceIndexPath:
+        ImmutableMap<SchematicPath, ExternalDataSourceValuesDispatch>
 }

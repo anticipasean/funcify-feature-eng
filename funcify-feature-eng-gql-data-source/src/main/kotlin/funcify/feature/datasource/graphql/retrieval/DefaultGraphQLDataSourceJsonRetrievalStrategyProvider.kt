@@ -3,7 +3,7 @@ package funcify.feature.datasource.graphql.retrieval
 import arrow.core.Either
 import funcify.feature.datasource.graphql.GraphQLApiDataSource
 import funcify.feature.datasource.graphql.schema.GraphQLSourceIndex
-import funcify.feature.datasource.retrieval.MultipleSourceIndicesJsonRetrievalFunction
+import funcify.feature.datasource.retrieval.ExternalDataSourceJsonValuesRetriever
 import funcify.feature.json.JsonMapper
 import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.vertex.ParameterJunctionVertex
@@ -28,17 +28,17 @@ internal class DefaultGraphQLDataSourceJsonRetrievalStrategyProvider(
             loggerFor<DefaultGraphQLDataSourceJsonRetrievalStrategyProvider>()
     }
 
-    override fun providesJsonRetrievalFunctionsForVerticesWithSourceIndicesIn(
+    override fun providesJsonValueRetrieversForVerticesWithSourceIndicesIn(
         dataSourceKey: DataSource.Key<*>
     ): Boolean {
         return dataSourceKey.sourceIndexType.isSubclassOf(GraphQLSourceIndex::class)
     }
 
-    override fun createMultipleSourceIndicesJsonRetrievalFunctionFor(
+    override fun createExternalDataSourceJsonValuesRetrieverFor(
         dataSource: DataSource<GraphQLSourceIndex>,
         sourceVertices: ImmutableSet<Either<SourceJunctionVertex, SourceLeafVertex>>,
         parameterVertices: ImmutableSet<Either<ParameterJunctionVertex, ParameterLeafVertex>>,
-    ): Try<MultipleSourceIndicesJsonRetrievalFunction> {
+    ): Try<ExternalDataSourceJsonValuesRetriever> {
         logger.debug(
             """create_schematic_path_based_json_retrieval_function_for: [ 
             |data_source: ${dataSource.key}, 

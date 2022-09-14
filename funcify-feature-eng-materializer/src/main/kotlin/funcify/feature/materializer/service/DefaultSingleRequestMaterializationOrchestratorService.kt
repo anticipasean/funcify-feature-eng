@@ -140,12 +140,12 @@ internal class DefaultSingleRequestMaterializationOrchestratorService(
             currentFieldPathWithoutListIndexing in
                 session.singleRequestSession.requestDispatchMaterializationGraphPhase
                     .orNull()!!
-                    .multipleSourceIndexRequestDispatchesBySourceIndexPath -> {
+                    .externalDataSourceJsonValuesRequestDispatchesByAncestorSourceIndexPath -> {
                 session.singleRequestSession.requestDispatchMaterializationGraphPhase
                     .flatMap { phase ->
-                        phase.multipleSourceIndexRequestDispatchesBySourceIndexPath.getOrNone(
+                        phase.externalDataSourceJsonValuesRequestDispatchesByAncestorSourceIndexPath.getOrNone(
                             currentFieldPathWithoutListIndexing
-                        )
+                                                                                                              )
                     }
                     .map { mr ->
                         mr.dispatchedMultipleIndexRequest.map { deferredResultMap ->

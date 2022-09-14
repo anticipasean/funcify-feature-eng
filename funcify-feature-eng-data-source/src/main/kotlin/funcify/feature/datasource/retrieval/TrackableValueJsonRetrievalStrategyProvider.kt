@@ -1,10 +1,7 @@
 package funcify.feature.datasource.retrieval
 
-import arrow.core.Either
 import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.datasource.SourceIndex
-import funcify.feature.schema.vertex.SourceJunctionVertex
-import funcify.feature.schema.vertex.SourceLeafVertex
 import funcify.feature.tools.container.attempt.Try
 
 /**
@@ -19,7 +16,6 @@ interface TrackableValueJsonRetrievalStrategyProvider<SI : SourceIndex<SI>> {
     ): Boolean
 
     fun createTrackableValueJsonRetrievalFunctionOnBehalfOf(
-        dataSource: DataSource<SI>,
-        sourceJunctionOrLeafVertex: Either<SourceJunctionVertex, SourceLeafVertex>
-    ): Try<TrackableValueJsonRetrievalFunction>
+        dataSource: DataSource<SI>
+    ): Try<TrackableJsonValueRetriever>
 }

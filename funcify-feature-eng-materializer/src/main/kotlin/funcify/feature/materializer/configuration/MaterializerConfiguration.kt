@@ -9,8 +9,8 @@ import funcify.feature.datasource.rest.RestApiDataSource
 import funcify.feature.datasource.retrieval.SchematicPathBasedJsonRetrievalFunctionFactory
 import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionCreationContextFactory
 import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionImplementationStrategy
+import funcify.feature.datasource.tracking.TrackableJsonValuePublisherProvider
 import funcify.feature.datasource.tracking.TrackableValueFactory
-import funcify.feature.datasource.tracking.TrackedJsonValuePublisherProvider
 import funcify.feature.error.FeatureEngCommonException
 import funcify.feature.json.JsonMapper
 import funcify.feature.materializer.context.DefaultMaterializationGraphVertexContextFactory
@@ -240,13 +240,13 @@ class MaterializerConfiguration {
     @Bean
     fun materializedTrackableValuePublishingService(
         jsonMapper: JsonMapper,
-        trackedJsonValuePublisherProvider: ObjectProvider<TrackedJsonValuePublisherProvider>
+        trackableJsonValuePublisherProvider: ObjectProvider<TrackableJsonValuePublisherProvider>
     ): MaterializedTrackableValuePublishingService {
         return DefaultMaterializedTrackableValuePublishingService(
             jsonMapper = jsonMapper,
-            trackedJsonValuePublisherProvider =
-                trackedJsonValuePublisherProvider.getIfAvailable {
-                    TrackedJsonValuePublisherProvider.NO_OP_PROVIDER
+            trackableJsonValuePublisherProvider =
+                trackableJsonValuePublisherProvider.getIfAvailable {
+                    TrackableJsonValuePublisherProvider.NO_OP_PROVIDER
                 }
         )
     }

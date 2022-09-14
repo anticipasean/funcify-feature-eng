@@ -10,7 +10,7 @@ import arrow.core.toOption
 import com.fasterxml.jackson.databind.JsonNode
 import funcify.feature.datasource.graphql.schema.GraphQLOutputFieldsContainerTypeExtractor
 import funcify.feature.datasource.tracking.TrackableValue
-import funcify.feature.datasource.tracking.TrackedJsonValuePublisherProvider
+import funcify.feature.datasource.tracking.TrackableJsonValuePublisherProvider
 import funcify.feature.json.JsonMapper
 import funcify.feature.materializer.dispatch.SourceIndexRequestDispatch
 import funcify.feature.materializer.fetcher.SingleRequestFieldMaterializationSession
@@ -45,7 +45,7 @@ import reactor.core.scheduler.Schedulers
  */
 internal class DefaultMaterializedTrackableValuePublishingService(
     private val jsonMapper: JsonMapper,
-    private val trackedJsonValuePublisherProvider: TrackedJsonValuePublisherProvider
+    private val trackableJsonValuePublisherProvider: TrackableJsonValuePublisherProvider
 ) : MaterializedTrackableValuePublishingService {
 
     companion object {
@@ -79,15 +79,15 @@ internal class DefaultMaterializedTrackableValuePublishingService(
                 )
             }
             .flatMap {
-                dispatchedTrackableSingleSourceIndexRetrieval:
-                    SourceIndexRequestDispatch.DispatchedTrackableSingleSourceIndexRetrieval ->
-                trackedJsonValuePublisherProvider
-                    .getTrackedValuePublisherForDataSource(
-                        dispatchedTrackableSingleSourceIndexRetrieval
-                            .trackableValueJsonRetrievalFunction
+                    trackableSingleJsonValueDispatch:
+                    SourceIndexRequestDispatch.TrackableSingleJsonValueDispatch ->
+                trackableJsonValuePublisherProvider
+                    .getTrackableJsonValuePublisherForDataSource(
+                        trackableSingleJsonValueDispatch
+                            .trackableJsonValueRetriever
                             .cacheForDataSourceKey
-                    )
-                    .map { publisher -> dispatchedTrackableSingleSourceIndexRetrieval to publisher }
+                                                                )
+                    .map { publisher -> trackableSingleJsonValueDispatch to publisher }
             }
             .zip(
                 materializedTrackableJsonValue
@@ -141,7 +141,7 @@ internal class DefaultMaterializedTrackableValuePublishingService(
                     .filter { tv: TrackableValue<JsonNode> -> tv.isTracked() }
                     .subscribe(
                         { trackedValue: TrackableValue<JsonNode> ->
-                            publisher.publishTrackedValue(trackedValue)
+                            publisher.publishTrackableJsonValue(trackedValue)
                         },
                         { t: Throwable ->
                             logger.error(
@@ -157,11 +157,11 @@ internal class DefaultMaterializedTrackableValuePublishingService(
     }
 
     private fun dispatchedRequestForCalculatedValueDependentOnOtherTrackableValues(
-        dispatchedRequest: SourceIndexRequestDispatch.DispatchedTrackableSingleSourceIndexRetrieval,
+        dispatchedRequest: SourceIndexRequestDispatch.TrackableSingleJsonValueDispatch,
         calculatedValue: TrackableValue.CalculatedValue<JsonNode>,
         session: SingleRequestFieldMaterializationSession
     ): Boolean {
-        return dispatchedRequest.backupBaseMultipleSourceIndicesJsonRetrievalFunction.parameterPaths
+        return dispatchedRequest.backupBaseExternalDataSourceJsonValuesRetriever.parameterPaths
             .asSequence()
             .filter { paramPath ->
                 session.singleRequestSession.requestParameterMaterializationGraphPhase
@@ -185,11 +185,11 @@ internal class DefaultMaterializedTrackableValuePublishingService(
     }
 
     private fun gatherAnyValueAtTimestampsFromTrackedValuesUsedAsInputForCalculatedValue(
-        dispatchedRequest: SourceIndexRequestDispatch.DispatchedTrackableSingleSourceIndexRetrieval,
+        dispatchedRequest: SourceIndexRequestDispatch.TrackableSingleJsonValueDispatch,
         calculatedValue: TrackableValue.CalculatedValue<JsonNode>,
         session: SingleRequestFieldMaterializationSession
     ): Mono<ImmutableMap<SchematicPath, Instant>> {
-        return dispatchedRequest.backupBaseMultipleSourceIndicesJsonRetrievalFunction.parameterPaths
+        return dispatchedRequest.backupBaseExternalDataSourceJsonValuesRetriever.parameterPaths
             .asSequence()
             .map { paramPath ->
                 session.singleRequestSession.requestParameterMaterializationGraphPhase.flatMap {
@@ -239,12 +239,12 @@ internal class DefaultMaterializedTrackableValuePublishingService(
 
     private fun findAnyLastUpdatedFieldValuesRelatedToThisField(
         sourceIndexPath: SchematicPath,
-        dispatchedTrackableSingleSourceIndexRetrieval:
-            SourceIndexRequestDispatch.DispatchedTrackableSingleSourceIndexRetrieval,
+        trackableSingleJsonValueDispatch:
+            SourceIndexRequestDispatch.TrackableSingleJsonValueDispatch,
         session: SingleRequestFieldMaterializationSession
     ): Mono<ImmutableMap<SchematicPath, Instant>> {
-        return dispatchedTrackableSingleSourceIndexRetrieval
-            .backupBaseMultipleSourceIndicesJsonRetrievalFunction
+        return trackableSingleJsonValueDispatch
+            .backupBaseExternalDataSourceJsonValuesRetriever
             .parameterPaths
             .asSequence()
             .map { paramPath ->
@@ -268,12 +268,12 @@ internal class DefaultMaterializedTrackableValuePublishingService(
             .map { relatedLastUpdatedFieldPath ->
                 session.singleRequestSession.requestDispatchMaterializationGraphPhase.flatMap {
                     phase ->
-                    phase.multipleSourceIndexRequestDispatchesBySourceIndexPath
+                    phase.externalDataSourceJsonValuesRequestDispatchesByAncestorSourceIndexPath
                         .asSequence()
                         .filter { (_, retr) ->
-                            retr.multipleSourceIndicesJsonRetrievalFunction.sourcePaths.contains(
+                            retr.externalDataSourceJsonValuesRetriever.sourcePaths.contains(
                                 relatedLastUpdatedFieldPath
-                            )
+                                                                                           )
                         }
                         .firstOrNull()
                         .toOption()
