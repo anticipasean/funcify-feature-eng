@@ -7,6 +7,8 @@ import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.datasource.SourceIndex
 import funcify.feature.schema.directive.alias.AttributeAliasRegistry
 import funcify.feature.schema.directive.alias.DataSourceAttributeAliasProvider
+import funcify.feature.schema.directive.entity.DataSourceEntityIdentifiersProvider
+import funcify.feature.schema.directive.entity.EntityRegistry
 import funcify.feature.schema.directive.temporal.DataSourceAttributeLastUpdatedProvider
 import funcify.feature.schema.directive.temporal.LastUpdatedTemporalAttributePathRegistry
 import funcify.feature.schema.error.SchemaErrorResponse
@@ -70,6 +72,19 @@ internal class DefaultMetamodelGraphFactory(val schematicVertexFactory: Schemati
                 return this
             }
 
+            override fun <SI : SourceIndex<SI>> addEntityIdentifiersProviderForDataSource(
+                entityIdentifiersProvider: DataSourceEntityIdentifiersProvider<SI>,
+                dataSource: DataSource<SI>,
+            ): MetamodelGraph.Builder {
+                deferredMetamodelGraphCreationContext =
+                    creationFactory.addEntityIdentifiersProviderForDataSource(
+                        entityIdentifiersProvider,
+                        dataSource,
+                        deferredMetamodelGraphCreationContext
+                    )
+                return this
+            }
+
             override fun addRemappingStrategyForPostProcessingSchematicVertices(
                 strategy: SchematicVertexGraphRemappingStrategy<MetamodelGraphCreationContext>
             ): MetamodelGraph.Builder {
@@ -121,7 +136,8 @@ internal class DefaultMetamodelGraphFactory(val schematicVertexFactory: Schemati
                                             SchematicPath, SchematicVertex, SchematicEdge>()
                                         .putAllVertices(context.schematicVerticesByPath),
                                     context.aliasRegistry,
-                                    context.lastUpdatedTemporalAttributePathRegistry
+                                    context.lastUpdatedTemporalAttributePathRegistry,
+                                    context.entityRegistry
                                 )
                             )
                         }
@@ -139,7 +155,8 @@ internal class DefaultMetamodelGraphFactory(val schematicVertexFactory: Schemati
                         CompositeSchematicVertexGraphRemappingStrategy(),
                     aliasRegistry = AttributeAliasRegistry.newRegistry(),
                     lastUpdatedTemporalAttributePathRegistry =
-                        LastUpdatedTemporalAttributePathRegistry.newRegistry()
+                        LastUpdatedTemporalAttributePathRegistry.newRegistry(),
+                    entityRegistry = EntityRegistry.newRegistry()
                 )
             )
         )

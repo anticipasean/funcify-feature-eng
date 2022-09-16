@@ -6,6 +6,7 @@ import funcify.feature.schema.SchematicEdge
 import funcify.feature.schema.SchematicVertex
 import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.directive.alias.AttributeAliasRegistry
+import funcify.feature.schema.directive.entity.EntityRegistry
 import funcify.feature.schema.directive.temporal.LastUpdatedTemporalAttributePathRegistry
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.schema.vertex.ParameterAttributeVertex
@@ -31,7 +32,8 @@ internal data class DefaultMetamodelGraph(
     override val pathBasedGraph: PathBasedGraph<SchematicPath, SchematicVertex, SchematicEdge> =
         PathBasedGraph.emptyTwoToOnePathsToEdgeGraph(),
     override val attributeAliasRegistry: AttributeAliasRegistry,
-    override val lastUpdatedTemporalAttributePathRegistry: LastUpdatedTemporalAttributePathRegistry
+    override val lastUpdatedTemporalAttributePathRegistry: LastUpdatedTemporalAttributePathRegistry,
+    override val entityRegistry: EntityRegistry
 ) : MetamodelGraph {
     companion object {}
 

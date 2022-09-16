@@ -5,6 +5,8 @@ import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.datasource.SourceIndex
 import funcify.feature.schema.directive.alias.AttributeAliasRegistry
 import funcify.feature.schema.directive.alias.DataSourceAttributeAliasProvider
+import funcify.feature.schema.directive.entity.DataSourceEntityIdentifiersProvider
+import funcify.feature.schema.directive.entity.EntityRegistry
 import funcify.feature.schema.directive.temporal.DataSourceAttributeLastUpdatedProvider
 import funcify.feature.schema.directive.temporal.LastUpdatedTemporalAttributePathRegistry
 import funcify.feature.schema.path.SchematicPath
@@ -35,6 +37,11 @@ interface MetamodelGraphCreationContext {
     val lastUpdatedProvidersByDataSourceName:
         ImmutableMap<String, DataSourceAttributeLastUpdatedProvider<*>>
 
+    val entityRegistry: EntityRegistry
+
+    val entityIdentifiersProvidersByDataSourceName:
+        ImmutableMap<String, DataSourceEntityIdentifiersProvider<*>>
+
     val schematicVerticesByPath: ImmutableMap<SchematicPath, SchematicVertex>
 
     val errors: ImmutableList<Throwable>
@@ -50,21 +57,28 @@ interface MetamodelGraphCreationContext {
                 SchematicVertexGraphRemappingStrategy<MetamodelGraphCreationContext>
         ): Builder
 
-        fun aliasRegistry(aliasRegistry: AttributeAliasRegistry): Builder
-
         fun <SI : SourceIndex<SI>> addDataSource(dataSource: DataSource<SI>): Builder
 
-        fun lastUpdatedTemporalAttributePathRegistry(
-            lastUpdatedTemporalAttributePathRegistry: LastUpdatedTemporalAttributePathRegistry
-        ): Builder
+        fun aliasRegistry(aliasRegistry: AttributeAliasRegistry): Builder
 
         fun <SI : SourceIndex<SI>> addAliasProviderForDataSource(
             dataSource: DataSource<SI>,
             aliasProvider: DataSourceAttributeAliasProvider<SI>
         ): Builder
 
+        fun lastUpdatedTemporalAttributePathRegistry(
+            lastUpdatedTemporalAttributePathRegistry: LastUpdatedTemporalAttributePathRegistry
+        ): Builder
+
         fun <SI : SourceIndex<SI>> addLastUpdatedProviderForDataSource(
             lastUpdatedProvider: DataSourceAttributeLastUpdatedProvider<SI>,
+            dataSource: DataSource<SI>
+        ): Builder
+
+        fun entityRegistry(entityRegistry: EntityRegistry): Builder
+
+        fun <SI : SourceIndex<SI>> addEntityIdentifiersProviderForDataSource(
+            entityIdentifiersProvider: DataSourceEntityIdentifiersProvider<SI>,
             dataSource: DataSource<SI>
         ): Builder
 

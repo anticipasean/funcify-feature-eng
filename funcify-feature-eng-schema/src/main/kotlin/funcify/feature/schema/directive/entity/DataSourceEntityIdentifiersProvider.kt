@@ -1,4 +1,4 @@
-package funcify.feature.schema.directive.temporal
+package funcify.feature.schema.directive.entity
 
 import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.datasource.SourceIndex
@@ -9,11 +9,12 @@ import reactor.core.publisher.Mono
 /**
  *
  * @author smccarron
- * @created 2022-07-24
+ * @created 2022-09-16
  */
-fun interface DataSourceAttributeLastUpdatedProvider<SI : SourceIndex<SI>> {
+fun interface DataSourceEntityIdentifiersProvider<SI : SourceIndex<SI>> {
 
-    fun provideTemporalAttributePathsInDataSourceForUseInLastUpdatedCalculations(
+    fun provideEntityIdentifierSourceAttributePathsInDataSource(
         dataSource: DataSource<SI>
     ): Mono<ImmutableSet<SchematicPath>>
+
 }

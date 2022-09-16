@@ -5,6 +5,8 @@ import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.datasource.SourceIndex
 import funcify.feature.schema.directive.alias.AttributeAliasRegistry
 import funcify.feature.schema.directive.alias.DataSourceAttributeAliasProvider
+import funcify.feature.schema.directive.entity.DataSourceEntityIdentifiersProvider
+import funcify.feature.schema.directive.entity.EntityRegistry
 import funcify.feature.schema.directive.temporal.DataSourceAttributeLastUpdatedProvider
 import funcify.feature.schema.directive.temporal.LastUpdatedTemporalAttributePathRegistry
 import funcify.feature.schema.factory.MetamodelGraphCreationContext.Builder
@@ -21,12 +23,16 @@ internal data class DefaultMetamodelGraphCreationContext(
         SchematicVertexGraphRemappingStrategy<MetamodelGraphCreationContext>,
     override val aliasRegistry: AttributeAliasRegistry,
     override val lastUpdatedTemporalAttributePathRegistry: LastUpdatedTemporalAttributePathRegistry,
+    override val entityRegistry: EntityRegistry,
     override val dataSourcesByName: PersistentMap<String, DataSource<*>> = persistentMapOf(),
     override val aliasProvidersByDataSourceName:
         PersistentMap<String, DataSourceAttributeAliasProvider<*>> =
         persistentMapOf(),
     override val lastUpdatedProvidersByDataSourceName:
         PersistentMap<String, DataSourceAttributeLastUpdatedProvider<*>> =
+        persistentMapOf(),
+    override val entityIdentifiersProvidersByDataSourceName:
+        PersistentMap<String, DataSourceEntityIdentifiersProvider<*>> =
         persistentMapOf(),
     override val schematicVerticesByPath: PersistentMap<SchematicPath, SchematicVertex> =
         persistentMapOf(),
@@ -41,11 +47,14 @@ internal data class DefaultMetamodelGraphCreationContext(
             private var aliasRegistry: AttributeAliasRegistry,
             private var lastUpdatedTemporalAttributePathRegistry:
                 LastUpdatedTemporalAttributePathRegistry,
+            private var entityRegistry: EntityRegistry,
             private var dataSourcesByName: PersistentMap.Builder<String, DataSource<*>>,
             private var aliasProvidersByDataSourceName:
                 PersistentMap.Builder<String, DataSourceAttributeAliasProvider<*>>,
             private var lastUpdatedProvidersByDataSourceName:
                 PersistentMap.Builder<String, DataSourceAttributeLastUpdatedProvider<*>>,
+            private var entityIdentifiersProvidersByDataSourceName:
+                PersistentMap.Builder<String, DataSourceEntityIdentifiersProvider<*>>,
             private var schematicVerticesByPath:
                 PersistentMap.Builder<SchematicPath, SchematicVertex>,
             private var errors: PersistentList.Builder<Throwable>
@@ -84,6 +93,11 @@ internal data class DefaultMetamodelGraphCreationContext(
                 return this
             }
 
+            override fun entityRegistry(entityRegistry: EntityRegistry): Builder {
+                this.entityRegistry = entityRegistry
+                return this
+            }
+
             override fun <SI : SourceIndex<SI>> addAliasProviderForDataSource(
                 dataSource: DataSource<SI>,
                 aliasProvider: DataSourceAttributeAliasProvider<SI>,
@@ -97,6 +111,17 @@ internal data class DefaultMetamodelGraphCreationContext(
                 dataSource: DataSource<SI>,
             ): Builder {
                 this.lastUpdatedProvidersByDataSourceName.put(dataSource.name, lastUpdatedProvider)
+                return this
+            }
+
+            override fun <SI : SourceIndex<SI>> addEntityIdentifiersProviderForDataSource(
+                entityIdentifiersProvider: DataSourceEntityIdentifiersProvider<SI>,
+                dataSource: DataSource<SI>,
+            ): Builder {
+                this.entityIdentifiersProvidersByDataSourceName.put(
+                    dataSource.name,
+                    entityIdentifiersProvider
+                )
                 return this
             }
 
@@ -123,12 +148,15 @@ internal data class DefaultMetamodelGraphCreationContext(
                     schematicVertexFactory = schematicVertexFactory,
                     schematicVertexGraphRemappingStrategy = schematicVertexGraphRemappingStrategy,
                     dataSourcesByName = dataSourcesByName.build(),
-                    aliasProvidersByDataSourceName = aliasProvidersByDataSourceName.build(),
                     aliasRegistry = aliasRegistry,
                     lastUpdatedTemporalAttributePathRegistry =
                         lastUpdatedTemporalAttributePathRegistry,
+                    entityRegistry = entityRegistry,
+                    aliasProvidersByDataSourceName = aliasProvidersByDataSourceName.build(),
                     lastUpdatedProvidersByDataSourceName =
                         lastUpdatedProvidersByDataSourceName.build(),
+                    entityIdentifiersProvidersByDataSourceName =
+                        entityIdentifiersProvidersByDataSourceName.build(),
                     schematicVerticesByPath = schematicVerticesByPath.build(),
                     errors = errors.build()
                 )
@@ -143,10 +171,13 @@ internal data class DefaultMetamodelGraphCreationContext(
                 schematicVertexGraphRemappingStrategy = schematicVertexGraphRemappingStrategy,
                 aliasRegistry = aliasRegistry,
                 lastUpdatedTemporalAttributePathRegistry = lastUpdatedTemporalAttributePathRegistry,
+                entityRegistry = entityRegistry,
                 dataSourcesByName = dataSourcesByName.builder(),
                 aliasProvidersByDataSourceName = aliasProvidersByDataSourceName.builder(),
                 lastUpdatedProvidersByDataSourceName =
                     lastUpdatedProvidersByDataSourceName.builder(),
+                entityIdentifiersProvidersByDataSourceName =
+                    entityIdentifiersProvidersByDataSourceName.builder(),
                 schematicVerticesByPath = schematicVerticesByPath.builder(),
                 errors = errors.builder()
             )

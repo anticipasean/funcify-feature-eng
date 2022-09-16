@@ -15,6 +15,8 @@ import kotlinx.collections.immutable.ImmutableSet
  */
 sealed interface TrackableValue<out V> {
 
+    val targetSourceIndexPath: SchematicPath
+
     val canonicalPath: SchematicPath
 
     val referencePaths: ImmutableSet<SchematicPath>
@@ -49,6 +51,8 @@ sealed interface TrackableValue<out V> {
      * and still preserve the fluent interface of the builder (=> method chaining) type setup
      */
     interface Builder<B : Builder<B>> {
+
+        fun targetSourceIndexPath(targetSourceIndexPath: SchematicPath): B
 
         fun canonicalPath(canonicalPath: SchematicPath): B
 

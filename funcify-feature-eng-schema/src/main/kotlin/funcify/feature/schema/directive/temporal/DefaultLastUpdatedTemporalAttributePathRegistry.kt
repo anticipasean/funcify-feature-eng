@@ -11,6 +11,8 @@ import funcify.feature.schema.path.SchematicPath
 import funcify.feature.tools.extensions.OptionExtensions.recurse
 import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentMap
 import funcify.feature.tools.extensions.SequenceExtensions.flatMapOptions
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ConcurrentMap
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.PersistentSet
@@ -35,10 +37,20 @@ internal data class DefaultLastUpdatedTemporalAttributePathRegistry(
             .reducePairsToPersistentMap()
     }
 
+    private val nearestLastUpdatedTemporalAttributeRelativeMemoizer:
+        (SchematicPath) -> Option<SchematicPath> by lazy {
+        val cache: ConcurrentMap<SchematicPath, SchematicPath> = ConcurrentHashMap()
+        ({ path: SchematicPath ->
+            cache
+                .computeIfAbsent(path, nearestLastUpdatedTemporalAttributeRelativeCalculator())
+                .toOption()
+        })
+    }
+
     override fun registerSchematicPathAsMappingToLastUpdatedTemporalAttributeVertex(
         path: SchematicPath
     ): LastUpdatedTemporalAttributePathRegistry {
-        return copy(
+        return DefaultLastUpdatedTemporalAttributePathRegistry(
             lastUpdatedTemporalAttributePathsSet = lastUpdatedTemporalAttributePathsSet.add(path)
         )
     }
@@ -61,34 +73,42 @@ internal data class DefaultLastUpdatedTemporalAttributePathRegistry(
     override fun findNearestLastUpdatedTemporalAttributePathRelative(
         path: SchematicPath
     ): Option<SchematicPath> {
-        return when {
-            path.isRoot() -> {
-                none()
-            }
-            // closest relative is itself
-            path in lastUpdatedTemporalAttributePathsSet -> {
-                path.some()
-            }
-            else -> {
-                path
-                    .some()
-                    .filter { p -> p.arguments.isEmpty() && p.directives.isEmpty() }
-                    .orElse { path.transform { clearArguments().clearDirectives() }.some() }
-                    .recurse { p ->
-                        p.getParentPath()
-                            .flatMap { pp ->
-                                // sibling if parent is the same, cousin if grandparent is the same,
-                                // etc.
-                                lastUpdatedTemporalAttributePathByParentPath[pp].toOption()
-                            }
-                            .fold(
-                                { p.getParentPath().map { pp -> pp.left() } },
-                                { lastUpdatedTemporalAttributePath ->
-                                    lastUpdatedTemporalAttributePath.right().some()
+        return nearestLastUpdatedTemporalAttributeRelativeMemoizer(path)
+    }
+
+    private fun nearestLastUpdatedTemporalAttributeRelativeCalculator():
+        (SchematicPath) -> SchematicPath? {
+        return { path: SchematicPath ->
+            when {
+                path.isRoot() -> {
+                    none()
+                } // closest relative is itself
+                path in lastUpdatedTemporalAttributePathsSet -> {
+                    path.some()
+                }
+                else -> {
+                    path
+                        .some()
+                        .filter { p -> p.arguments.isEmpty() && p.directives.isEmpty() }
+                        .orElse { path.transform { clearArguments().clearDirectives() }.some() }
+                        .recurse { p ->
+                            p.getParentPath()
+                                .flatMap { pp
+                                    -> // sibling if parent is the same, cousin if grandparent is
+                                    // the
+                                    // same,
+                                    // etc.
+                                    lastUpdatedTemporalAttributePathByParentPath[pp].toOption()
                                 }
-                            )
-                    }
-            }
+                                .fold(
+                                    { p.getParentPath().map { pp -> pp.left() } },
+                                    { lastUpdatedTemporalAttributePath ->
+                                        lastUpdatedTemporalAttributePath.right().some()
+                                    }
+                                )
+                        }
+                }
+            }.orNull()
         }
     }
 }

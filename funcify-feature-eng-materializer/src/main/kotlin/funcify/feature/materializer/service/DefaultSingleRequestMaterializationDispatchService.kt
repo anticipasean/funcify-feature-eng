@@ -462,16 +462,33 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                                     .format(parentTypeName, childAttributeName)
                             )
                         }
+                val targetPathRelatedMaterializedParameterValues =
+                    filterMaterializedParameterValuesByPathRelatedToTargetSourceIndexPath(
+                        sourceIndexPath,
+                        retrievalFunctionSpec,
+                        graphPhase,
+                        session
+                    )
                 canonicalPath.zip(graphQLOutputType).flatMap { (cp, gqlt) ->
                     trackableValueFactory
                         .builder()
+                        .targetSourceIndexPath(sourceIndexPath)
                         .canonicalPath(cp)
                         .referencePaths(referencePaths.toPersistentSet())
-                        .contextualParameters(graphPhase.materializedParameterValuesByPath)
+                        .contextualParameters(targetPathRelatedMaterializedParameterValues)
                         .graphQLOutputType(gqlt)
                         .buildForInstanceOf<JsonNode>()
                 }
             }
+    }
+
+    private fun filterMaterializedParameterValuesByPathRelatedToTargetSourceIndexPath(
+        sourceIndexPath: SchematicPath,
+        retrievalFunctionSpec: RetrievalFunctionSpec,
+        graphPhase: RequestParameterMaterializationGraphPhase,
+        session: GraphQLSingleRequestSession
+    ): ImmutableMap<SchematicPath, JsonNode> {
+        return graphPhase.materializedParameterValuesByPath
     }
 
     private fun createExternalDataSourceJsonValuesRetrieverForRetrievalFunctionSpec(

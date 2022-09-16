@@ -14,6 +14,7 @@ interface AttributeAliasRegistry {
 
     companion object {
 
+        @JvmStatic
         fun newRegistry(): AttributeAliasRegistry {
             return DefaultAttributeAliasRegistry()
         }

@@ -9,8 +9,8 @@ import arrow.core.right
 import arrow.core.toOption
 import com.fasterxml.jackson.databind.JsonNode
 import funcify.feature.datasource.graphql.schema.GraphQLOutputFieldsContainerTypeExtractor
-import funcify.feature.datasource.tracking.TrackableValue
 import funcify.feature.datasource.tracking.TrackableJsonValuePublisherProvider
+import funcify.feature.datasource.tracking.TrackableValue
 import funcify.feature.json.JsonMapper
 import funcify.feature.materializer.dispatch.SourceIndexRequestDispatch
 import funcify.feature.materializer.fetcher.SingleRequestFieldMaterializationSession
@@ -79,14 +79,13 @@ internal class DefaultMaterializedTrackableValuePublishingService(
                 )
             }
             .flatMap {
-                    trackableSingleJsonValueDispatch:
+                trackableSingleJsonValueDispatch:
                     SourceIndexRequestDispatch.TrackableSingleJsonValueDispatch ->
                 trackableJsonValuePublisherProvider
                     .getTrackableJsonValuePublisherForDataSource(
-                        trackableSingleJsonValueDispatch
-                            .trackableJsonValueRetriever
+                        trackableSingleJsonValueDispatch.trackableJsonValueRetriever
                             .cacheForDataSourceKey
-                                                                )
+                    )
                     .map { publisher -> trackableSingleJsonValueDispatch to publisher }
             }
             .zip(
@@ -131,7 +130,7 @@ internal class DefaultMaterializedTrackableValuePublishingService(
                         calculatedValue.transitionToTracked {
                             valueAtTimestamp(
                                     relevantTimestampsByPath.values
-                                        .minOrNull()
+                                        .maxOrNull()
                                         .toOption()
                                         .getOrElse { calculatedValue.calculatedTimestamp }
                                 )
@@ -243,8 +242,7 @@ internal class DefaultMaterializedTrackableValuePublishingService(
             SourceIndexRequestDispatch.TrackableSingleJsonValueDispatch,
         session: SingleRequestFieldMaterializationSession
     ): Mono<ImmutableMap<SchematicPath, Instant>> {
-        return trackableSingleJsonValueDispatch
-            .backupBaseExternalDataSourceJsonValuesRetriever
+        return trackableSingleJsonValueDispatch.backupBaseExternalDataSourceJsonValuesRetriever
             .parameterPaths
             .asSequence()
             .map { paramPath ->
@@ -273,7 +271,7 @@ internal class DefaultMaterializedTrackableValuePublishingService(
                         .filter { (_, retr) ->
                             retr.externalDataSourceJsonValuesRetriever.sourcePaths.contains(
                                 relatedLastUpdatedFieldPath
-                                                                                           )
+                            )
                         }
                         .firstOrNull()
                         .toOption()

@@ -4,6 +4,8 @@ import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.datasource.SourceIndex
 import funcify.feature.schema.directive.alias.AttributeAliasRegistry
 import funcify.feature.schema.directive.alias.DataSourceAttributeAliasProvider
+import funcify.feature.schema.directive.entity.DataSourceEntityIdentifiersProvider
+import funcify.feature.schema.directive.entity.EntityRegistry
 import funcify.feature.schema.directive.temporal.DataSourceAttributeLastUpdatedProvider
 import funcify.feature.schema.directive.temporal.LastUpdatedTemporalAttributePathRegistry
 import funcify.feature.schema.factory.MetamodelGraphCreationContext
@@ -13,7 +15,6 @@ import funcify.feature.schema.vertex.ParameterAttributeVertex
 import funcify.feature.schema.vertex.ParameterContainerTypeVertex
 import funcify.feature.schema.vertex.SourceAttributeVertex
 import funcify.feature.schema.vertex.SourceContainerTypeVertex
-import funcify.feature.tools.container.async.KFuture
 import funcify.feature.tools.container.graph.PathBasedGraph
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.ImmutableSet
@@ -33,6 +34,8 @@ interface MetamodelGraph {
     val attributeAliasRegistry: AttributeAliasRegistry
 
     val lastUpdatedTemporalAttributePathRegistry: LastUpdatedTemporalAttributePathRegistry
+
+    val entityRegistry: EntityRegistry
 
     val sourceAttributeVerticesByQualifiedName:
         ImmutableMap<String, ImmutableSet<SourceAttributeVertex>>
@@ -66,6 +69,11 @@ interface MetamodelGraph {
 
         fun <SI : SourceIndex<SI>> addLastUpdatedAttributeProviderForDataSource(
             lastUpdatedAttributeProvider: DataSourceAttributeLastUpdatedProvider<SI>,
+            dataSource: DataSource<SI>
+        ): Builder
+
+        fun <SI : SourceIndex<SI>> addEntityIdentifiersProviderForDataSource(
+            entityIdentifiersProvider: DataSourceEntityIdentifiersProvider<SI>,
             dataSource: DataSource<SI>
         ): Builder
 

@@ -4,6 +4,7 @@ import funcify.feature.schema.SchematicVertex
 import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.datasource.SourceIndex
 import funcify.feature.schema.directive.alias.DataSourceAttributeAliasProvider
+import funcify.feature.schema.directive.entity.DataSourceEntityIdentifiersProvider
 import funcify.feature.schema.directive.temporal.DataSourceAttributeLastUpdatedProvider
 import funcify.feature.schema.error.SchemaErrorResponse
 import funcify.feature.schema.error.SchemaException
@@ -155,6 +156,32 @@ internal class DefaultMetamodelGraphCreationStrategy() :
             }
     }
 
+    override fun <SI : SourceIndex<SI>> addEntityIdentifiersProviderForDataSource(
+        entityIdentifiersProvider: DataSourceEntityIdentifiersProvider<SI>,
+        dataSource: DataSource<SI>,
+        contextContainer: Mono<MetamodelGraphCreationContext>,
+    ): Mono<MetamodelGraphCreationContext> {
+        val methodTag: String = "add_entity_identifiers_provider_for_data_source"
+        logger.debug(
+            "${methodTag}: [ datasource.name: ${dataSource.name}, entity_identifiers_provider.type: ${entityIdentifiersProvider::class.qualifiedName} ]"
+        )
+        return contextContainer
+            .flatMap { context ->
+                if (context.dataSourcesByName.containsKey(dataSource.name)) {
+                    contextContainer
+                } else {
+                    addDataSource(dataSource, contextContainer)
+                }
+            }
+            .flatMap { context ->
+                fetchEntityIdentifierAttributesForDataSourceFromProvider(
+                    dataSource,
+                    entityIdentifiersProvider,
+                    Mono.just(context)
+                )
+            }
+    }
+
     override fun <SI : SourceIndex<SI>> createNewOrUpdateExistingSchematicVertex(
         dataSource: DataSource<SI>,
         sourcePath: SchematicPath,
@@ -250,6 +277,33 @@ internal class DefaultMetamodelGraphCreationStrategy() :
                 }
                 .map { lastUpdReg ->
                     context.update { lastUpdatedTemporalAttributePathRegistry(lastUpdReg) }
+                }
+                .onErrorResume { thr -> Mono.just(context.update { addError(thr) }) }
+        }
+    }
+
+    override fun <SI : SourceIndex<SI>> fetchEntityIdentifierAttributesForDataSourceFromProvider(
+        dataSource: DataSource<SI>,
+        entityIdentifiersProvider: DataSourceEntityIdentifiersProvider<SI>,
+        contextContainer: Mono<MetamodelGraphCreationContext>,
+    ): Mono<MetamodelGraphCreationContext> {
+        val methodTag: String = "fetch_entity_identifier_attributes_for_data_source_from_provider"
+        logger.debug(
+            "${methodTag}: [ datasource.name: ${dataSource.name}, entity_identifiers_provider.type: ${entityIdentifiersProvider::class.qualifiedName} ]"
+        )
+        return contextContainer.flatMap { context ->
+            entityIdentifiersProvider
+                .provideEntityIdentifierSourceAttributePathsInDataSource(dataSource)
+                .cache()
+                .map { pathsForEntityIdAttrs ->
+                    pathsForEntityIdAttrs.fold(context.entityRegistry) {
+                        reg,
+                        path ->
+                        reg.registerSchematicPathAsMappingToEntityIdentifierAttributeVertex(path)
+                    }
+                }
+                .map { entityReg ->
+                    context.update { entityRegistry(entityReg) }
                 }
                 .onErrorResume { thr -> Mono.just(context.update { addError(thr) }) }
         }

@@ -34,6 +34,7 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
     companion object {
 
         internal abstract class BaseBuilder<B : TrackableValue.Builder<B>, V>(
+            protected open var targetSourceIndexPath: SchematicPath? = null,
             protected open var canonicalPath: SchematicPath? = null,
             protected open var referencePaths: PersistentSet.Builder<SchematicPath> =
                 persistentSetOf<SchematicPath>().builder(),
@@ -42,6 +43,12 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
                 persistentMapOf<SchematicPath, JsonNode>().builder(),
             protected open var graphQLOutputType: GraphQLOutputType? = null,
         ) : TrackableValue.Builder<B> {
+
+            override fun targetSourceIndexPath(targetSourceIndexPath: SchematicPath): B {
+                this.targetSourceIndexPath = targetSourceIndexPath
+                @Suppress("UNCHECKED_CAST") //
+                return this as B
+            }
 
             override fun canonicalPath(canonicalPath: SchematicPath): B {
                 this.canonicalPath = canonicalPath
@@ -138,6 +145,7 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
             private val existingPlannedValue: PlannedValue<V>? = null
         ) :
             BaseBuilder<DefaultPlannedValueBuilder<V>, V>(
+                targetSourceIndexPath = existingPlannedValue?.targetSourceIndexPath,
                 canonicalPath = existingPlannedValue?.canonicalPath,
                 referencePaths = existingPlannedValue?.referencePaths?.toPersistentSet()?.builder()
                         ?: persistentSetOf<SchematicPath>().builder(),
@@ -150,6 +158,14 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
 
             override fun <V> buildForInstanceOf(): Try<PlannedValue<V>> {
                 return when {
+                    targetSourceIndexPath == null -> {
+                        Try.failure(
+                            DataSourceException(
+                                DataSourceErrorResponse.MISSING_PARAMETER,
+                                "target_source_index_path has not been set for planned_value"
+                            )
+                        )
+                    }
                     canonicalPath == null -> {
                         Try.failure(
                             DataSourceException(
@@ -178,6 +194,7 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
                     }
                     else -> {
                         DefaultPlannedValue<V>(
+                                targetSourceIndexPath = targetSourceIndexPath!!,
                                 canonicalPath = canonicalPath!!,
                                 referencePaths = referencePaths.build(),
                                 contextualParameters = contextualParameters.build(),
@@ -191,6 +208,8 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
 
         internal class DefaultCalculatedValueBuilder<V>(
             private val existingPlannedValue: PlannedValue<V>? = null,
+            override var targetSourceIndexPath: SchematicPath? =
+                existingPlannedValue?.targetSourceIndexPath,
             override var canonicalPath: SchematicPath? = existingPlannedValue?.canonicalPath,
             override var referencePaths: PersistentSet.Builder<SchematicPath> =
                 existingPlannedValue?.referencePaths?.toPersistentSet()?.builder()
@@ -204,6 +223,7 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
             private var calculatedTimestamp: Instant? = null,
         ) :
             BaseBuilder<DefaultCalculatedValueBuilder<V>, V>(
+                targetSourceIndexPath = targetSourceIndexPath,
                 canonicalPath = canonicalPath,
                 referencePaths = referencePaths,
                 contextualParameters = contextualParameters,
@@ -225,6 +245,14 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
 
             override fun build(): Try<CalculatedValue<V>> {
                 return when {
+                    targetSourceIndexPath == null -> {
+                        Try.failure(
+                            DataSourceException(
+                                DataSourceErrorResponse.MISSING_PARAMETER,
+                                "target_source_index_path has not been set for calculated_value"
+                            )
+                        )
+                    }
                     canonicalPath == null -> {
                         Try.failure(
                             DataSourceException(
@@ -262,6 +290,7 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
                     }
                     else -> {
                         DefaultCalculatedValue<V>(
+                                targetSourceIndexPath!!,
                                 canonicalPath!!,
                                 referencePaths.build(),
                                 contextualParameters.build(),
@@ -278,6 +307,16 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
         internal class DefaultTrackedValueBuilder<V>(
             private val existingPlannedValue: PlannedValue<V>? = null,
             private val existingCalculatedValue: CalculatedValue<V>? = null,
+            override var targetSourceIndexPath: SchematicPath? =
+                existingPlannedValue
+                    .toOption()
+                    .map(PlannedValue<V>::targetSourceIndexPath)
+                    .orElse {
+                        existingCalculatedValue
+                            .toOption()
+                            .map(CalculatedValue<V>::targetSourceIndexPath)
+                    }
+                    .orNull(),
             override var canonicalPath: SchematicPath? =
                 existingPlannedValue
                     .toOption()
@@ -322,6 +361,7 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
             private var valueAtTimestamp: Instant? = null,
         ) :
             BaseBuilder<DefaultTrackedValueBuilder<V>, V>(
+                targetSourceIndexPath = targetSourceIndexPath,
                 canonicalPath = canonicalPath,
                 referencePaths = referencePaths,
                 contextualParameters = contextualParameters,
@@ -343,11 +383,19 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
 
             override fun build(): Try<TrackedValue<V>> {
                 return when {
+                    targetSourceIndexPath == null -> {
+                        Try.failure(
+                            DataSourceException(
+                                DataSourceErrorResponse.MISSING_PARAMETER,
+                                "target_source_index_path has not been set for tracked_value"
+                            )
+                        )
+                    }
                     canonicalPath == null -> {
                         Try.failure(
                             DataSourceException(
                                 DataSourceErrorResponse.MISSING_PARAMETER,
-                                "canonical_path has not been set for planned_value"
+                                "canonical_path has not been set for tracked_value"
                             )
                         )
                     }
@@ -357,7 +405,7 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
                                 DataSourceErrorResponse.MISSING_PARAMETER,
                                 """at least one contextual_parameter 
                                     |must be provided for association and/or identification 
-                                    |of the planned_value""".flatten()
+                                    |of the tracked_value""".flatten()
                             )
                         )
                     }
@@ -365,7 +413,7 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
                         Try.failure(
                             DataSourceException(
                                 DataSourceErrorResponse.MISSING_PARAMETER,
-                                """graphql_output_type must be provided for planned_value""".flatten()
+                                """graphql_output_type must be provided for tracked_value""".flatten()
                             )
                         )
                     }
@@ -380,6 +428,7 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
                     }
                     else -> {
                         DefaultTrackedValue<V>(
+                                targetSourceIndexPath!!,
                                 canonicalPath!!,
                                 referencePaths.build(),
                                 contextualParameters.build(),
@@ -394,6 +443,7 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
         }
 
         internal data class DefaultPlannedValue<V>(
+            override val targetSourceIndexPath: SchematicPath,
             override val canonicalPath: SchematicPath,
             override val referencePaths: ImmutableSet<SchematicPath>,
             override val contextualParameters: ImmutableMap<SchematicPath, JsonNode>,
@@ -444,6 +494,7 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
         }
 
         internal data class DefaultCalculatedValue<V>(
+            override val targetSourceIndexPath: SchematicPath,
             override val canonicalPath: SchematicPath,
             override val referencePaths: ImmutableSet<SchematicPath>,
             override val contextualParameters: ImmutableMap<SchematicPath, JsonNode>,
@@ -461,6 +512,7 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
                 return transformer(
                         DefaultCalculatedValueBuilder<V>(
                             existingPlannedValue = null,
+                            targetSourceIndexPath = targetSourceIndexPath,
                             canonicalPath = canonicalPath,
                             referencePaths = referencePaths.toPersistentSet().builder(),
                             contextualParameters = contextualParameters.toPersistentMap().builder(),
@@ -490,6 +542,7 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
         }
 
         internal data class DefaultTrackedValue<V>(
+            override val targetSourceIndexPath: SchematicPath,
             override val canonicalPath: SchematicPath,
             override val referencePaths: ImmutableSet<SchematicPath>,
             override val contextualParameters: ImmutableMap<SchematicPath, JsonNode>,
@@ -508,6 +561,7 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
                         DefaultTrackedValueBuilder<V>(
                             null,
                             null,
+                            targetSourceIndexPath,
                             canonicalPath,
                             referencePaths.toPersistentSet().builder(),
                             contextualParameters.toPersistentMap().builder(),
