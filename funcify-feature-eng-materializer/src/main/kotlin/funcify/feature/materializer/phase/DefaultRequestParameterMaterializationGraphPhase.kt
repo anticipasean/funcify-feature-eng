@@ -1,7 +1,7 @@
 package funcify.feature.materializer.phase
 
 import com.fasterxml.jackson.databind.JsonNode
-import funcify.feature.materializer.schema.RequestParameterEdge
+import funcify.feature.materializer.schema.edge.RequestParameterEdge
 import funcify.feature.materializer.spec.RetrievalFunctionSpec
 import funcify.feature.schema.SchematicVertex
 import funcify.feature.schema.path.SchematicPath

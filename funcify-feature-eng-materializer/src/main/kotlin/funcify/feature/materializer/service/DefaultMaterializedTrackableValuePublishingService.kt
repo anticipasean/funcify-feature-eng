@@ -1,29 +1,25 @@
 package funcify.feature.materializer.service
 
+import arrow.core.Option
 import arrow.core.filterIsInstance
 import arrow.core.firstOrNone
 import arrow.core.getOrElse
 import arrow.core.getOrNone
-import arrow.core.left
-import arrow.core.right
 import arrow.core.toOption
 import com.fasterxml.jackson.databind.JsonNode
-import funcify.feature.datasource.graphql.schema.GraphQLOutputFieldsContainerTypeExtractor
 import funcify.feature.datasource.tracking.TrackableJsonValuePublisherProvider
 import funcify.feature.datasource.tracking.TrackableValue
 import funcify.feature.json.JsonMapper
 import funcify.feature.materializer.dispatch.SourceIndexRequestDispatch
 import funcify.feature.materializer.fetcher.SingleRequestFieldMaterializationSession
 import funcify.feature.materializer.phase.RequestDispatchMaterializationPhase
+import funcify.feature.materializer.schema.path.ListIndexedSchematicPathGraphQLSchemaBasedCalculator
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.MonoExtensions.widen
 import funcify.feature.tools.extensions.OptionExtensions.toOption
 import funcify.feature.tools.extensions.SequenceExtensions.flatMapOptions
-import funcify.feature.tools.extensions.SequenceExtensions.recurse
 import funcify.feature.tools.extensions.StringExtensions.flatten
-import graphql.schema.GraphQLList
-import graphql.schema.GraphQLNonNull
 import graphql.schema.GraphQLSchema
 import java.time.Instant
 import java.time.OffsetDateTime
@@ -31,7 +27,6 @@ import kotlin.reflect.KClass
 import kotlin.reflect.KType
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.persistentMapOf
-import kotlinx.collections.immutable.toPersistentList
 import kotlinx.collections.immutable.toPersistentMap
 import org.slf4j.Logger
 import reactor.core.publisher.Flux
@@ -277,10 +272,9 @@ internal class DefaultMaterializedTrackableValuePublishingService(
                         .toOption()
                         .zip(
                             getVertexPathWithListIndexingIfDescendentOfListNode(
-                                    relatedLastUpdatedFieldPath,
-                                    session.materializationSchema
-                                )
-                                .toOption()
+                                relatedLastUpdatedFieldPath,
+                                session.materializationSchema
+                            )
                         )
                         .map { (retrEntry, lastUpdatedWithListInd) ->
                             retrEntry.value.dispatchedMultipleIndexRequest
@@ -312,54 +306,7 @@ internal class DefaultMaterializedTrackableValuePublishingService(
     private fun getVertexPathWithListIndexingIfDescendentOfListNode(
         sourceIndexPath: SchematicPath,
         graphQLSchema: GraphQLSchema
-    ): SchematicPath {
-        return sourceIndexPath
-            .toOption()
-            .flatMap { sp ->
-                sp.pathSegments.firstOrNone().flatMap { n ->
-                    graphQLSchema.queryType.getFieldDefinition(n).toOption().map { gfd ->
-                        sp.pathSegments.toPersistentList().removeAt(0) to gfd
-                    }
-                }
-            }
-            .fold(::emptySequence, ::sequenceOf)
-            .recurse { (ps, gqlf) ->
-                when (gqlf.type) {
-                    is GraphQLNonNull -> {
-                        if ((gqlf.type as GraphQLNonNull).wrappedType is GraphQLList) {
-                            sequenceOf(
-                                StringBuilder(gqlf.name)
-                                    .append('[')
-                                    .append(0)
-                                    .append(']')
-                                    .toString()
-                                    .right()
-                            )
-                        } else {
-                            sequenceOf(gqlf.name.right())
-                        }
-                    }
-                    is GraphQLList -> {
-                        sequenceOf(
-                            StringBuilder(gqlf.name)
-                                .append('[')
-                                .append(0)
-                                .append(']')
-                                .toString()
-                                .right()
-                        )
-                    }
-                    else -> {
-                        sequenceOf(gqlf.name.right())
-                    }
-                }.plus(
-                    GraphQLOutputFieldsContainerTypeExtractor.invoke(gqlf.type)
-                        .zip(ps.firstOrNone())
-                        .flatMap { (c, n) -> c.getFieldDefinition(n).toOption() }
-                        .map { f -> (ps.removeAt(0) to f).left() }
-                        .fold(::emptySequence, ::sequenceOf)
-                )
-            }
-            .let { sSeq -> SchematicPath.of { pathSegments(sSeq.toList()) } }
+    ): Option<SchematicPath> {
+        return ListIndexedSchematicPathGraphQLSchemaBasedCalculator(sourceIndexPath, graphQLSchema)
     }
 }

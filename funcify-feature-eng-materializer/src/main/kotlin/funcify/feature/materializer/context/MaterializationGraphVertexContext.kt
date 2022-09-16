@@ -3,7 +3,7 @@ package funcify.feature.materializer.context
 import arrow.core.Either
 import arrow.core.Option
 import com.fasterxml.jackson.databind.JsonNode
-import funcify.feature.materializer.schema.RequestParameterEdge
+import funcify.feature.materializer.schema.edge.RequestParameterEdge
 import funcify.feature.materializer.spec.RetrievalFunctionSpec
 import funcify.feature.schema.MetamodelGraph
 import funcify.feature.schema.SchematicVertex

@@ -5,7 +5,7 @@ import com.fasterxml.jackson.databind.JsonNode
 import funcify.feature.materializer.context.MaterializationGraphVertexContext.Builder
 import funcify.feature.materializer.error.MaterializerErrorResponse
 import funcify.feature.materializer.error.MaterializerException
-import funcify.feature.materializer.schema.RequestParameterEdge
+import funcify.feature.materializer.schema.edge.RequestParameterEdge
 import funcify.feature.materializer.spec.DefaultRetrievalFunctionSpec
 import funcify.feature.materializer.spec.RetrievalFunctionSpec
 import funcify.feature.schema.MetamodelGraph

@@ -2,14 +2,14 @@ package funcify.feature.materializer.service
 
 import arrow.core.*
 import com.fasterxml.jackson.databind.JsonNode
-import funcify.feature.datasource.graphql.schema.GraphQLOutputFieldsContainerTypeExtractor
 import funcify.feature.json.JsonMapper
 import funcify.feature.materializer.context.MaterializationGraphVertexContext
 import funcify.feature.materializer.error.MaterializerErrorResponse
 import funcify.feature.materializer.error.MaterializerException
 import funcify.feature.materializer.json.GraphQLValueToJsonNodeConverter
-import funcify.feature.materializer.schema.RequestParameterEdge
-import funcify.feature.materializer.schema.RequestParameterEdgeFactory
+import funcify.feature.materializer.schema.edge.RequestParameterEdge
+import funcify.feature.materializer.schema.edge.RequestParameterEdgeFactory
+import funcify.feature.materializer.schema.path.ListIndexedSchematicPathGraphQLSchemaBasedCalculator
 import funcify.feature.schema.MetamodelGraph
 import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.index.CompositeSourceAttribute
@@ -22,7 +22,7 @@ import funcify.feature.schema.vertex.SourceLeafVertex
 import funcify.feature.schema.vertex.SourceRootVertex
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.OptionExtensions.recurse
-import funcify.feature.tools.extensions.SequenceExtensions.recurse
+import funcify.feature.tools.extensions.SequenceExtensions.flatMapOptions
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.extensions.TryExtensions.successIfDefined
 import graphql.language.Argument
@@ -31,11 +31,8 @@ import graphql.language.Value
 import graphql.language.VariableReference
 import graphql.schema.FieldCoordinates
 import graphql.schema.GraphQLArgument
-import graphql.schema.GraphQLList
-import graphql.schema.GraphQLNonNull
 import graphql.schema.GraphQLSchema
 import kotlinx.collections.immutable.ImmutableSet
-import kotlinx.collections.immutable.toPersistentList
 import kotlinx.collections.immutable.toPersistentSet
 import org.slf4j.Logger
 
@@ -93,9 +90,15 @@ internal class DefaultMaterializationGraphVertexConnector(
                         selectedDatasource.key,
                         context.metamodelGraph
                     )
-                val nearestLastUpdatedAttributeEdge: Option<RequestParameterEdge> =
-                    createNearestLastUpdatedAttributeEdgeIfNotPresentInExpectedAncestorSpec(context)
-                // case 2.1: source_index does not have a retrieval_function_spec but does not have
+                val additionalEdgesUpdater:
+                    (
+                        MaterializationGraphVertexContext.Builder<V>
+                    ) -> MaterializationGraphVertexContext.Builder<V> =
+                    createAdditionalEdgesContextBuilderUpdaterForEntityIdentifiersAndLastUpdatedAttributeSupport(
+                        context
+                    )
+                // case 2.1: source_index does not have a retrieval_function_spec but does not
+                // have
                 // an ancestor that shares the same datasource and therefore must have its own
                 // retrieval_function_spec
                 // --> create retrieval_function_spec and connect any parameter_vertices associated
@@ -111,12 +114,7 @@ internal class DefaultMaterializationGraphVertexConnector(
                                         sourceJunctionOrLeafVertex,
                                         selectedDatasource
                                     )
-                                    .let { bldr ->
-                                        nearestLastUpdatedAttributeEdge.tap { edge ->
-                                            bldr.addRequestParameterEdge(edge)
-                                        }
-                                        bldr
-                                    }
+                                    .let { bldr -> additionalEdgesUpdater(bldr) }
                             } as MaterializationGraphVertexContext<*>
                         ) { ctx, parameterAttributeVertex ->
                             connectSchematicVertex(
@@ -153,12 +151,7 @@ internal class DefaultMaterializationGraphVertexConnector(
                                             }
                                             .build()
                                     )
-                                    .let { bldr ->
-                                        nearestLastUpdatedAttributeEdge.tap { edge ->
-                                            bldr.addRequestParameterEdge(edge)
-                                        }
-                                        bldr
-                                    }
+                                    .let { bldr -> additionalEdgesUpdater(bldr) }
                             } as MaterializationGraphVertexContext<*>
                         ) { ctx, parameterAttributeVertex ->
                             connectSchematicVertex(
@@ -167,6 +160,23 @@ internal class DefaultMaterializationGraphVertexConnector(
                         }
                 }
             }
+        }
+    }
+
+    private fun <
+        V : SourceAttributeVertex
+    > createAdditionalEdgesContextBuilderUpdaterForEntityIdentifiersAndLastUpdatedAttributeSupport(
+        context: MaterializationGraphVertexContext<V>
+    ): (MaterializationGraphVertexContext.Builder<V>) -> MaterializationGraphVertexContext.Builder<
+            V> {
+        val nearestLastUpdatedAttributeEdge: Option<RequestParameterEdge> =
+            createNearestLastUpdatedAttributeEdgeIfNotPresentInExpectedAncestorSpec(context)
+        val nearestIdentifierAttributeEdges: Sequence<RequestParameterEdge> =
+            createNearestIdentifierAttributeEdgesIfNotPresentInExpectedAncestorSpec(context)
+        return { builder: MaterializationGraphVertexContext.Builder<V> ->
+            nearestIdentifierAttributeEdges
+                .plus(nearestLastUpdatedAttributeEdge.fold(::emptySequence, ::sequenceOf))
+                .fold(builder) { bldr, re -> bldr.addRequestParameterEdge(re) }
         }
     }
 
@@ -263,54 +273,14 @@ internal class DefaultMaterializationGraphVertexConnector(
         vertex: V,
         graphQLSchema: GraphQLSchema
     ): SchematicPath {
-        return vertex.path
-            .toOption()
-            .flatMap { sp ->
-                sp.pathSegments.firstOrNone().flatMap { n ->
-                    graphQLSchema.queryType.getFieldDefinition(n).toOption().map { gfd ->
-                        sp.pathSegments.toPersistentList().removeAt(0) to gfd
-                    }
-                }
-            }
-            .fold(::emptySequence, ::sequenceOf)
-            .recurse { (ps, gqlf) ->
-                when (gqlf.type) {
-                    is GraphQLNonNull -> {
-                        if ((gqlf.type as GraphQLNonNull).wrappedType is GraphQLList) {
-                            sequenceOf(
-                                StringBuilder(gqlf.name)
-                                    .append('[')
-                                    .append(0)
-                                    .append(']')
-                                    .toString()
-                                    .right()
-                            )
-                        } else {
-                            sequenceOf(gqlf.name.right())
-                        }
-                    }
-                    is GraphQLList -> {
-                        sequenceOf(
-                            StringBuilder(gqlf.name)
-                                .append('[')
-                                .append(0)
-                                .append(']')
-                                .toString()
-                                .right()
-                        )
-                    }
-                    else -> {
-                        sequenceOf(gqlf.name.right())
-                    }
-                }.plus(
-                    GraphQLOutputFieldsContainerTypeExtractor.invoke(gqlf.type)
-                        .zip(ps.firstOrNone())
-                        .flatMap { (c, n) -> c.getFieldDefinition(n).toOption() }
-                        .map { f -> (ps.removeAt(0) to f).left() }
-                        .fold(::emptySequence, ::sequenceOf)
+        return ListIndexedSchematicPathGraphQLSchemaBasedCalculator(vertex.path, graphQLSchema)
+            .successIfDefined {
+                MaterializerException(
+                    MaterializerErrorResponse.UNEXPECTED_ERROR,
+                    """unable to calculate list-indexed version of path [ vertex.path: ${vertex.path} ]""".flatten()
                 )
             }
-            .let { sSeq -> SchematicPath.of { pathSegments(sSeq.toList()) } }
+            .orElseThrow()
     }
 
     private fun <
@@ -358,6 +328,57 @@ internal class DefaultMaterializationGraphVertexConnector(
                             .build()
                     }
             }
+    }
+
+    private fun <
+        V : SourceAttributeVertex
+    > createNearestIdentifierAttributeEdgesIfNotPresentInExpectedAncestorSpec(
+        context: MaterializationGraphVertexContext<V>
+    ): Sequence<RequestParameterEdge> {
+        return context.metamodelGraph.entityRegistry
+            .findNearestEntityIdentifierPathRelatives(context.path)
+            .asSequence()
+            .flatMap { entityIdentifierPath ->
+                context.metamodelGraph.pathBasedGraph
+                    .getVertex(entityIdentifierPath)
+                    .fold(::emptySequence, ::sequenceOf)
+            }
+            .filterIsInstance<SourceAttributeVertex>()
+            .map { sav: SourceAttributeVertex ->
+                sav.compositeAttribute
+                    .getSourceAttributeByDataSource()
+                    .keys
+                    .singleOrNone()
+                    .map { dsKey ->
+                        findAncestorOrKeepCurrentWithSameDataSource(
+                            sav.path,
+                            dsKey,
+                            context.metamodelGraph
+                        )
+                    }
+                    .filter { ancestorOrCurrentPath -> ancestorOrCurrentPath != sav.path }
+                    .flatMap { ancestorPath ->
+                        context.retrievalFunctionSpecByTopSourceIndexPath
+                            .getOrNone(ancestorPath)
+                            .filter { spec -> !spec.sourceVerticesByPath.containsKey(sav.path) }
+                            .map { spec -> ancestorPath to spec }
+                    }
+                    .map { (ancestorPath, _) ->
+                        requestParameterEdgeFactory
+                            .builder()
+                            .fromPathToPath(ancestorPath, sav.path)
+                            .dependentExtractionFunction { resultMap ->
+                                resultMap.getOrNone(
+                                    getVertexPathWithListIndexingIfDescendentOfListNode(
+                                        sav,
+                                        context.graphQLSchema
+                                    )
+                                )
+                            }
+                            .build()
+                    }
+            }
+            .flatMapOptions()
     }
 
     override fun <V : ParameterAttributeVertex> connectParameterJunctionOrLeafVertex(

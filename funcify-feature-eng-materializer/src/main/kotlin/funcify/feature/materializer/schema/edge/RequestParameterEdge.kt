@@ -1,4 +1,4 @@
-package funcify.feature.materializer.schema
+package funcify.feature.materializer.schema.edge
 
 import arrow.core.Option
 import com.fasterxml.jackson.databind.JsonNode

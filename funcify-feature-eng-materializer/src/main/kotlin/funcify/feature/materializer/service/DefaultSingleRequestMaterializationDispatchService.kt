@@ -17,8 +17,8 @@ import funcify.feature.materializer.error.MaterializerException
 import funcify.feature.materializer.phase.DefaultRequestDispatchMaterializationPhase
 import funcify.feature.materializer.phase.RequestDispatchMaterializationPhase
 import funcify.feature.materializer.phase.RequestParameterMaterializationGraphPhase
-import funcify.feature.materializer.schema.RequestParameterEdge
-import funcify.feature.materializer.schema.RequestParameterEdge.*
+import funcify.feature.materializer.schema.edge.RequestParameterEdge
+import funcify.feature.materializer.schema.edge.RequestParameterEdge.*
 import funcify.feature.materializer.session.GraphQLSingleRequestSession
 import funcify.feature.materializer.spec.RetrievalFunctionSpec
 import funcify.feature.naming.StandardNamingConventions
