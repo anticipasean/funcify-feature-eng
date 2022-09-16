@@ -7,6 +7,9 @@ import funcify.feature.datasource.graphql.factory.GraphQLApiDataSourceFactory
 import funcify.feature.datasource.graphql.factory.GraphQLApiServiceFactory
 import funcify.feature.datasource.graphql.metadata.filter.CompositeGraphQLApiSourceMetadataFilter
 import funcify.feature.datasource.graphql.metadata.filter.GraphQLApiSourceMetadataFilter
+import funcify.feature.datasource.graphql.metadata.identifier.CompositeGraphQLApiDataSourceEntityIdentifiersProvider
+import funcify.feature.datasource.graphql.metadata.identifier.GraphQLApiDataSourceEntityIdentifiersProvider
+import funcify.feature.datasource.graphql.metadata.identifier.GraphQLIdScalarTypeEntityIdentifiersProvider
 import funcify.feature.datasource.graphql.metadata.provider.DefaultGraphQLApiSourceMetadataProvider
 import funcify.feature.datasource.graphql.metadata.provider.GraphQLApiSourceMetadataProvider
 import funcify.feature.datasource.graphql.metadata.reader.ComprehensiveGraphQLApiSourceMetadataReader
@@ -102,6 +105,20 @@ class GraphQLDataSourceConfiguration {
         filters: ObjectProvider<GraphQLApiSourceMetadataFilter>
     ): CompositeGraphQLApiSourceMetadataFilter {
         return CompositeGraphQLApiSourceMetadataFilter(filtersProvider = filters)
+    }
+
+    @ConditionalOnMissingBean(value = [GraphQLApiDataSourceEntityIdentifiersProvider::class])
+    @Bean
+    fun graphQLApiDataSourceEntityIdentifiersProvider(
+        graphQLApiDataSourceEntityIdentifiersProviders:
+            ObjectProvider<GraphQLApiDataSourceEntityIdentifiersProvider>
+    ): GraphQLApiDataSourceEntityIdentifiersProvider {
+        return CompositeGraphQLApiDataSourceEntityIdentifiersProvider(
+            graphQLApiDataSourceEntityIdentifiersProvider =
+                graphQLApiDataSourceEntityIdentifiersProviders.toList().ifEmpty {
+                    listOf(GraphQLIdScalarTypeEntityIdentifiersProvider())
+                }
+        )
     }
 
     @ConditionalOnMissingBean(value = [GraphQLApiSourceMetadataReader::class])

@@ -1,4 +1,4 @@
-package funcify.feature.schema.directive.entity
+package funcify.feature.schema.directive.identifier
 
 import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.datasource.SourceIndex

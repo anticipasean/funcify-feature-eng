@@ -6,7 +6,7 @@ import funcify.feature.schema.SchematicEdge
 import funcify.feature.schema.SchematicVertex
 import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.directive.alias.AttributeAliasRegistry
-import funcify.feature.schema.directive.entity.EntityRegistry
+import funcify.feature.schema.directive.identifier.EntityRegistry
 import funcify.feature.schema.directive.temporal.LastUpdatedTemporalAttributePathRegistry
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.schema.vertex.ParameterAttributeVertex

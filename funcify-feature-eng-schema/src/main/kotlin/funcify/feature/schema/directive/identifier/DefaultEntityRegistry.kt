@@ -1,4 +1,4 @@
-package funcify.feature.schema.directive.entity
+package funcify.feature.schema.directive.identifier
 
 import arrow.core.Option
 import arrow.core.getOrElse

@@ -4,7 +4,7 @@ import funcify.feature.schema.SchematicVertex
 import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.datasource.SourceIndex
 import funcify.feature.schema.directive.alias.DataSourceAttributeAliasProvider
-import funcify.feature.schema.directive.entity.DataSourceEntityIdentifiersProvider
+import funcify.feature.schema.directive.identifier.DataSourceEntityIdentifiersProvider
 import funcify.feature.schema.directive.temporal.DataSourceAttributeLastUpdatedProvider
 import funcify.feature.schema.error.SchemaErrorResponse
 import funcify.feature.schema.error.SchemaException
@@ -296,15 +296,11 @@ internal class DefaultMetamodelGraphCreationStrategy() :
                 .provideEntityIdentifierSourceAttributePathsInDataSource(dataSource)
                 .cache()
                 .map { pathsForEntityIdAttrs ->
-                    pathsForEntityIdAttrs.fold(context.entityRegistry) {
-                        reg,
-                        path ->
+                    pathsForEntityIdAttrs.fold(context.entityRegistry) { reg, path ->
                         reg.registerSchematicPathAsMappingToEntityIdentifierAttributeVertex(path)
                     }
                 }
-                .map { entityReg ->
-                    context.update { entityRegistry(entityReg) }
-                }
+                .map { entityReg -> context.update { entityRegistry(entityReg) } }
                 .onErrorResume { thr -> Mono.just(context.update { addError(thr) }) }
         }
     }

@@ -3,7 +3,7 @@ package funcify.feature.schema.factory
 import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.datasource.SourceIndex
 import funcify.feature.schema.directive.alias.DataSourceAttributeAliasProvider
-import funcify.feature.schema.directive.entity.DataSourceEntityIdentifiersProvider
+import funcify.feature.schema.directive.identifier.DataSourceEntityIdentifiersProvider
 import funcify.feature.schema.directive.temporal.DataSourceAttributeLastUpdatedProvider
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.schema.strategy.SchematicVertexGraphRemappingStrategy
