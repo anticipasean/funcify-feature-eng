@@ -1,6 +1,5 @@
 package funcify.feature.graph
 
-import arrow.core.Tuple5
 import java.util.stream.Stream
 
 interface ImmutableGraph<P, out V, out E> {
@@ -112,7 +111,7 @@ interface ImmutableGraph<P, out V, out E> {
 
     fun getCyclesAsStream(): Stream<out Pair<Triple<P, P, E>, Triple<P, P, E>>>
 
-    fun depthFirstSearchOnPath(path: P): Stream<out Tuple5<V, P, E, P, V>>
+    //    fun depthFirstSearchOnPath(path: P): Stream<out Tuple5<V, P, E, P, V>>
 
     fun successorVertices(vertexPath: P): Iterable<Pair<P, V>>
 

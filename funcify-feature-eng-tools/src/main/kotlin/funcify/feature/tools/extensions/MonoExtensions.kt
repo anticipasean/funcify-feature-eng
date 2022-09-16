@@ -1,6 +1,5 @@
 package funcify.feature.tools.extensions
 
-import arrow.core.identity
 import funcify.feature.tools.container.async.KFuture
 import funcify.feature.tools.container.attempt.Try
 import java.util.concurrent.CompletableFuture
@@ -44,7 +43,13 @@ object MonoExtensions {
         }
     }
 
-    fun <T> Mono<out T>.widen(): Mono<T> {
-        return this.map(::identity)
+    /** @return [Mono<W>] where W is a widened type from the narrow N */
+    fun <N : W, W> Mono<N>.widen(): Mono<W> {
+        return try {
+            @Suppress("UNCHECKED_CAST") //
+            this as Mono<W>
+        } catch (cce: ClassCastException) {
+            this.map { n -> n }
+        }
     }
 }

@@ -1,6 +1,5 @@
 package funcify.feature.graph.design
 
-import arrow.core.Tuple5
 import funcify.feature.graph.PersistentGraph
 import funcify.feature.graph.container.PersistentGraphContainer
 import funcify.feature.graph.container.PersistentGraphContainerFactory
@@ -170,9 +169,7 @@ internal interface PersistentGraphDesign<CWT, P, V, E> : PersistentGraph<P, V, E
     override fun edgeCount(): Int {
         return when (val container: PersistentGraphContainer<CWT, P, V, E> = this.fold(template)) {
             is PersistentGraphContainerFactory.TwoToManyPathToEdgeGraph ->
-                container
-                    .edgesSetByPathPair
-                    .values
+                container.edgesSetByPathPair.values
                     .stream()
                     .mapToInt { set: PersistentSet<E> -> set.size }
                     .sum()
@@ -275,16 +272,12 @@ internal interface PersistentGraphDesign<CWT, P, V, E> : PersistentGraph<P, V, E
     override fun hasCycles(): Boolean {
         return when (val container: PersistentGraphContainer<CWT, P, V, E> = this.fold(template)) {
             is PersistentGraphContainerFactory.TwoToManyPathToEdgeGraph ->
-                container
-                    .edgesSetByPathPair
-                    .keys
+                container.edgesSetByPathPair.keys
                     .parallelStream()
                     .map { pathPair: Pair<P, P> -> pathPair.second to pathPair.first }
                     .anyMatch { pathPair -> pathPair in container.edgesSetByPathPair }
             is PersistentGraphContainerFactory.TwoToOnePathToEdgeGraph ->
-                container
-                    .edgesByPathPair
-                    .keys
+                container.edgesByPathPair.keys
                     .parallelStream()
                     .map { pathPair: Pair<P, P> -> pathPair.second to pathPair.first }
                     .anyMatch { pathPair -> pathPair in container.edgesByPathPair }
@@ -305,13 +298,11 @@ internal interface PersistentGraphDesign<CWT, P, V, E> : PersistentGraph<P, V, E
             is PersistentGraphContainerFactory.TwoToManyPathToEdgeGraph ->
                 container.edgesSetByPathPair.keys.parallelStream().flatMap { pathPair: Pair<P, P> ->
                     val reversedPair = pathPair.second to pathPair.first
-                    container
-                        .edgesSetByPathPair
+                    container.edgesSetByPathPair
                         .getOrElse(pathPair) { -> persistentSetOf() }
                         .stream()
                         .flatMap { e1: E ->
-                            container
-                                .edgesSetByPathPair
+                            container.edgesSetByPathPair
                                 .getOrElse(reversedPair) { -> persistentSetOf() }
                                 .stream()
                                 .map { e2: E ->
@@ -339,10 +330,6 @@ internal interface PersistentGraphDesign<CWT, P, V, E> : PersistentGraph<P, V, E
                 )
             }
         }
-    }
-
-    override fun depthFirstSearchOnPath(path: P): Stream<out Tuple5<V, P, E, P, V>> {
-        TODO("Not yet implemented")
     }
 
     override fun successorVertices(vertexPath: P): Iterable<Pair<P, V>> {

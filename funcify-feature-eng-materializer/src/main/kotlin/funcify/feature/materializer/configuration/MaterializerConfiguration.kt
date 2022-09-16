@@ -4,6 +4,7 @@ import arrow.core.getOrElse
 import arrow.core.toOption
 import funcify.feature.datasource.graphql.GraphQLApiDataSource
 import funcify.feature.datasource.graphql.metadata.alias.GraphQLApiDataSourceAliasProvider
+import funcify.feature.datasource.graphql.metadata.identifier.GraphQLApiDataSourceEntityIdentifiersProvider
 import funcify.feature.datasource.graphql.metadata.temporal.GraphQLApiDataSourceLastUpdatedAttributeProvider
 import funcify.feature.datasource.rest.RestApiDataSource
 import funcify.feature.datasource.retrieval.SchematicPathBasedJsonRetrievalFunctionFactory
@@ -66,6 +67,8 @@ class MaterializerConfiguration {
         graphQLApiDataSourceAliasProviders: ObjectProvider<GraphQLApiDataSourceAliasProvider>,
         graphQLApiDataSourceLastUpdatedAttributeProviders:
             ObjectProvider<GraphQLApiDataSourceLastUpdatedAttributeProvider>,
+        graphQLApiDataSourceEntityIdentifiersProviders:
+            ObjectProvider<GraphQLApiDataSourceEntityIdentifiersProvider>,
         restApiDataSources: ObjectProvider<RestApiDataSource>,
         schematicVertexGraphRemappingStrategyProvider:
             ObjectProvider<SchematicVertexGraphRemappingStrategy<MetamodelGraphCreationContext>>
@@ -75,18 +78,17 @@ class MaterializerConfiguration {
             .fold(metamodelGraphFactory.builder()) { builder, ds ->
                 when (ds) {
                     is GraphQLApiDataSource -> {
-                        // first, add datasource
-                        // then, any alias providers
-                        // last, any last_updated temporal attribute providers
-                        graphQLApiDataSourceLastUpdatedAttributeProviders.fold(
-                            graphQLApiDataSourceAliasProviders.fold(builder.addDataSource(ds)) {
-                                bldr,
-                                prov ->
-                                bldr.addAttributeAliasProviderForDataSource(prov, ds)
+                        graphQLApiDataSourceEntityIdentifiersProviders.fold(
+                            graphQLApiDataSourceLastUpdatedAttributeProviders.fold(
+                                graphQLApiDataSourceAliasProviders.fold(
+                                    builder.addDataSource(ds)
+                                ) { bldr, prov ->
+                                    bldr.addAttributeAliasProviderForDataSource(prov, ds)
+                                }
+                            ) { bldr, prov ->
+                                bldr.addLastUpdatedAttributeProviderForDataSource(prov, ds)
                             }
-                        ) { bldr, prov ->
-                            bldr.addLastUpdatedAttributeProviderForDataSource(prov, ds)
-                        }
+                        ) { bldr, prov -> bldr.addEntityIdentifiersProviderForDataSource(prov, ds) }
                     }
                     // break out any other datasource specific providers into separate cases or
                     // create generic function to add the other providers when support for them
