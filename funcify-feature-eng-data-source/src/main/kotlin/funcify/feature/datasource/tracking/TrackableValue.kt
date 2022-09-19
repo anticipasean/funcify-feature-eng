@@ -1,5 +1,6 @@
 package funcify.feature.datasource.tracking
 
+import arrow.core.Option
 import com.fasterxml.jackson.databind.JsonNode
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.tools.container.attempt.Try
@@ -157,7 +158,7 @@ sealed interface TrackableValue<out V> {
 
     interface TrackedValue<V> : TrackableValue<V> {
 
-        val canonicalPath: SchematicPath
+        val canonicalPath: Option<SchematicPath>
 
         val referencePaths: ImmutableSet<SchematicPath>
 

@@ -1,5 +1,6 @@
 package funcify.feature.datasource.tracking
 
+import arrow.core.Option
 import arrow.core.orElse
 import arrow.core.toOption
 import com.fasterxml.jackson.databind.JsonNode
@@ -346,14 +347,6 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
                             )
                         )
                     }
-                    canonicalPath == null -> {
-                        Try.failure(
-                            DataSourceException(
-                                DataSourceErrorResponse.MISSING_PARAMETER,
-                                "canonical_path has not been set for tracked_value"
-                            )
-                        )
-                    }
                     contextualParameters.isEmpty() -> {
                         Try.failure(
                             DataSourceException(
@@ -384,7 +377,7 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
                     else -> {
                         DefaultTrackedValue<V>(
                                 targetSourceIndexPath!!,
-                                canonicalPath!!,
+                                canonicalPath.toOption(),
                                 referencePaths.build(),
                                 contextualParameters.build(),
                                 graphQLOutputType!!,
@@ -492,7 +485,7 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
 
         internal data class DefaultTrackedValue<V>(
             override val targetSourceIndexPath: SchematicPath,
-            override val canonicalPath: SchematicPath,
+            override val canonicalPath: Option<SchematicPath>,
             override val referencePaths: ImmutableSet<SchematicPath>,
             override val contextualParameters: ImmutableMap<SchematicPath, JsonNode>,
             override val graphQLOutputType: GraphQLOutputType,
@@ -513,7 +506,7 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
                             targetSourceIndexPath,
                             contextualParameters.toPersistentMap().builder(),
                             graphQLOutputType,
-                            canonicalPath,
+                            canonicalPath.orNull(),
                             referencePaths.toPersistentSet().builder(),
                             trackedValue,
                             valueAtTimestamp
