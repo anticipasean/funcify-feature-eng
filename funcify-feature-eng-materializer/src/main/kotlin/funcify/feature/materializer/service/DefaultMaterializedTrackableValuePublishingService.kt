@@ -189,10 +189,12 @@ internal class DefaultMaterializedTrackableValuePublishingService(
                                     )
                                 }
                                 .orElseThrow()
+                        val canonicalPathWithoutContext: SchematicPath =
+                            canonicalPath.transform { clearArguments() }
                         val referencePaths: PersistentSet<SchematicPath> =
                             canonicalAndReferenceVertices
                                 .asSequence()
-                                .filter { sav -> sav.path != canonicalPath }
+                                .filter { sav -> sav.path != canonicalPathWithoutContext }
                                 .map { sav -> sav.path }
                                 .map { refPath ->
                                     decoratePathWithRelevantContextualEntityIdentifiers(
