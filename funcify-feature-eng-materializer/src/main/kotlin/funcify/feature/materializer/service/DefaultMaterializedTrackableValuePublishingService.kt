@@ -1,34 +1,28 @@
 package funcify.feature.materializer.service
 
-import arrow.core.Option
-import arrow.core.filterIsInstance
-import arrow.core.firstOrNone
-import arrow.core.getOrElse
-import arrow.core.getOrNone
-import arrow.core.identity
-import arrow.core.orElse
-import arrow.core.toOption
+import arrow.core.*
 import com.fasterxml.jackson.databind.JsonNode
 import funcify.feature.datasource.tracking.TrackableJsonValuePublisherProvider
 import funcify.feature.datasource.tracking.TrackableValue
 import funcify.feature.json.JsonMapper
 import funcify.feature.materializer.dispatch.SourceIndexRequestDispatch
+import funcify.feature.materializer.error.MaterializerErrorResponse
+import funcify.feature.materializer.error.MaterializerException
 import funcify.feature.materializer.fetcher.SingleRequestFieldMaterializationSession
 import funcify.feature.materializer.phase.RequestDispatchMaterializationPhase
 import funcify.feature.materializer.schema.path.ListIndexedSchematicPathGraphQLSchemaBasedCalculator
-import funcify.feature.naming.ConventionalName
-import funcify.feature.schema.index.CompositeSourceAttribute
 import funcify.feature.schema.path.SchematicPath
-import funcify.feature.schema.vertex.ParameterAttributeVertex
 import funcify.feature.schema.vertex.SourceAttributeVertex
+import funcify.feature.schema.vertex.SourceContainerTypeVertex
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.MonoExtensions.widen
-import funcify.feature.tools.extensions.OptionExtensions.stream
 import funcify.feature.tools.extensions.OptionExtensions.toMono
 import funcify.feature.tools.extensions.OptionExtensions.toOption
+import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentMap
 import funcify.feature.tools.extensions.SequenceExtensions.flatMapOptions
 import funcify.feature.tools.extensions.StreamExtensions.flatMapOptions
 import funcify.feature.tools.extensions.StringExtensions.flatten
+import funcify.feature.tools.extensions.TryExtensions.successIfDefined
 import graphql.schema.GraphQLSchema
 import java.time.Instant
 import java.time.OffsetDateTime
@@ -37,8 +31,10 @@ import kotlin.reflect.KClass
 import kotlin.reflect.KType
 import kotlin.streams.toList
 import kotlinx.collections.immutable.ImmutableMap
+import kotlinx.collections.immutable.PersistentSet
 import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.toPersistentMap
+import kotlinx.collections.immutable.toPersistentSet
 import org.slf4j.Logger
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
@@ -146,8 +142,77 @@ internal class DefaultMaterializedTrackableValuePublishingService(
                                 .asSequence()
                                 .joinToString(", ", transform = { (k, v) -> "${k}: $v" })
                         )
+                        val parentTypeName: String =
+                            calculatedValue.targetSourceIndexPath
+                                .getParentPath()
+                                .flatMap { pp ->
+                                    session.metamodelGraph.pathBasedGraph
+                                        .getVertex(pp)
+                                        .filterIsInstance<SourceContainerTypeVertex>()
+                                }
+                                .map { sct ->
+                                    sct.compositeContainerType.conventionalName.qualifiedForm
+                                }
+                                .successIfDefined {
+                                    MaterializerException(
+                                        MaterializerErrorResponse.UNEXPECTED_ERROR,
+                                        "could not find parent_type_name for [ path: ${calculatedValue.targetSourceIndexPath} ]"
+                                    )
+                                }
+                                .orElseThrow()
+                        val canonicalAndReferenceVertices: Set<SourceAttributeVertex> =
+                            session.metamodelGraph
+                                .sourceAttributeVerticesWithParentTypeAttributeQualifiedNamePair
+                                .getOrNone(parentTypeName to session.field.name)
+                                .fold(::emptySet, ::identity)
+                        val canonicalPath: SchematicPath =
+                            canonicalAndReferenceVertices
+                                .asSequence()
+                                .map { sav -> sav.path }
+                                .minOrNull()
+                                .toOption()
+                                .map { sp ->
+                                    decoratePathWithRelevantContextualEntityIdentifiers(
+                                        sp,
+                                        relevantIdsByPath,
+                                        calculatedValue,
+                                        dispatchedRequest,
+                                        session
+                                    )
+                                }
+                                .successIfDefined {
+                                    MaterializerException(
+                                        MaterializerErrorResponse.UNEXPECTED_ERROR,
+                                        "could not determine canonical_path: [ source_index_path: %s ]".format(
+                                            calculatedValue.targetSourceIndexPath
+                                        )
+                                    )
+                                }
+                                .orElseThrow()
+                        val referencePaths: PersistentSet<SchematicPath> =
+                            canonicalAndReferenceVertices
+                                .asSequence()
+                                .filter { sav -> sav.path != canonicalPath }
+                                .map { sav -> sav.path }
+                                .map { refPath ->
+                                    decoratePathWithRelevantContextualEntityIdentifiers(
+                                        refPath,
+                                        relevantIdsByPath,
+                                        calculatedValue,
+                                        dispatchedRequest,
+                                        session
+                                    )
+                                }
+                                .toPersistentSet()
+                        logger.info("canonical_path: {}", canonicalPath)
+                        logger.info(
+                            "reference_paths: {}",
+                            referencePaths.asSequence().joinToString(", ", "{ ", " }")
+                        )
                         calculatedValue.transitionToTracked {
-                            contextualParameters(relevantIdsByPath)
+                            canonicalPath(canonicalPath)
+                                .referencePaths(referencePaths)
+                                .contextualParameters(relevantIdsByPath)
                                 .valueAtTimestamp(
                                     relevantTimestampsByPath.values
                                         .maxOrNull()
@@ -173,6 +238,82 @@ internal class DefaultMaterializedTrackableValuePublishingService(
                         }
                     )
             }
+    }
+
+    private fun decoratePathWithRelevantContextualEntityIdentifiers(
+        canonicalOrReferencePath: SchematicPath,
+        relevantIdsByPath: ImmutableMap<SchematicPath, JsonNode>,
+        calculatedValue: TrackableValue.CalculatedValue<JsonNode>,
+        dispatchedRequest: SourceIndexRequestDispatch.TrackableSingleJsonValueDispatch,
+        session: SingleRequestFieldMaterializationSession,
+    ): SchematicPath {
+        return when {
+            // current relevant contextual parameters have already been determined for the
+            // current path
+            canonicalOrReferencePath == calculatedValue.targetSourceIndexPath -> {
+                canonicalOrReferencePath.transform {
+                    clearArguments()
+                    arguments(
+                        calculatedValue.contextualParameters
+                            .asSequence()
+                            .filter { (paramPath, _) -> paramPath.arguments.isNotEmpty() }
+                            .map { (paramPath, paramVal) ->
+                                paramPath.arguments.asIterable().firstOrNone().map { (argName, _) ->
+                                    argName to paramVal
+                                }
+                            }
+                            .flatMapOptions()
+                            .sortedBy(Pair<String, JsonNode>::first)
+                            .reducePairsToPersistentMap()
+                    )
+                }
+            }
+            else -> {
+                canonicalOrReferencePath.transform {
+                    clearArguments()
+                    arguments(
+                        calculatedValue.contextualParameters
+                            .asSequence()
+                            .map { (p, jn) ->
+                                p.arguments.asIterable().firstOrNone().map { (argName, _) ->
+                                    argName to jn
+                                }
+                            }
+                            .flatMapOptions()
+                            .plus(
+                                relevantIdsByPath
+                                    .asSequence()
+                                    .filter { (sp, _) ->
+                                        session.metamodelGraph.pathBasedGraph
+                                            .getVertex(sp)
+                                            .filterIsInstance<SourceAttributeVertex>()
+                                            .flatMap { sav: SourceAttributeVertex ->
+                                                session.metamodelGraph
+                                                    .parameterAttributeVerticesByQualifiedName
+                                                    .getOrNone(
+                                                        sav.compositeAttribute.conventionalName
+                                                            .qualifiedForm
+                                                    )
+                                            }
+                                            .filter { paramAttrVertices ->
+                                                paramAttrVertices.isNotEmpty()
+                                            }
+                                            .isDefined()
+                                    }
+                                    .map { (sp, jn) ->
+                                        sp.pathSegments.lastOrNone().map { lastPathSegment ->
+                                            lastPathSegment to jn
+                                        }
+                                    }
+                                    .flatMapOptions()
+                            )
+                            .distinct()
+                            .sortedBy(Pair<String, JsonNode>::first)
+                            .reducePairsToPersistentMap()
+                    )
+                }
+            }
+        }
     }
 
     private fun findAnyEntityIdentifierValuesRelatedToThisField(
@@ -307,7 +448,7 @@ internal class DefaultMaterializedTrackableValuePublishingService(
                 dependentTrackableValueDispatchedRequest.dispatchedTrackableValueRequest
                     .filter { otherTrackableValue -> otherTrackableValue.isTracked() }
                     .map { otherTrackableValue ->
-                        otherTrackableValue.canonicalPath to
+                        otherTrackableValue.targetSourceIndexPath to
                             (otherTrackableValue as TrackableValue.TrackedValue<JsonNode>)
                                 .valueAtTimestamp
                     }

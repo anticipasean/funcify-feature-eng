@@ -24,7 +24,6 @@ import funcify.feature.materializer.spec.RetrievalFunctionSpec
 import funcify.feature.naming.StandardNamingConventions
 import funcify.feature.schema.SchematicVertex
 import funcify.feature.schema.path.SchematicPath
-import funcify.feature.schema.vertex.SourceAttributeVertex
 import funcify.feature.schema.vertex.SourceContainerTypeVertex
 import funcify.feature.schema.vertex.SourceJunctionVertex
 import funcify.feature.schema.vertex.SourceLeafVertex
@@ -40,7 +39,6 @@ import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.extensions.TryExtensions.successIfDefined
 import graphql.schema.FieldCoordinates
 import graphql.schema.GraphQLFieldDefinition
-import graphql.schema.GraphQLOutputType
 import java.time.Duration
 import java.time.Instant
 import java.util.concurrent.Executor
@@ -51,7 +49,6 @@ import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.PersistentSet
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentMapOf
-import kotlinx.collections.immutable.toPersistentSet
 import org.slf4j.Logger
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
@@ -416,75 +413,44 @@ internal class DefaultSingleRequestMaterializationDispatchService(
             .successIfDefined {
                 MaterializerException(
                     MaterializerErrorResponse.UNEXPECTED_ERROR,
-                    "could not find parent_type_name and child_attribute_name for path: [ source_index_path: ${sourceIndexPath} ]"
+                    """could not find parent_type_name 
+                        |and child_attribute_name for path: 
+                        |[ source_index_path: ${sourceIndexPath} ]""".trimMargin()
                 )
             }
             .flatMap { (parentTypeName, childAttributeName) ->
-                val canonicalAndReferenceVertices: Set<SourceAttributeVertex> =
-                    session.metamodelGraph
-                        .sourceAttributeVerticesWithParentTypeAttributeQualifiedNamePair
-                        .getOrNone(parentTypeName to childAttributeName)
-                        .fold(::emptySet, ::identity)
-                val canonicalPath: Try<SchematicPath> =
-                    canonicalAndReferenceVertices
-                        .asSequence()
-                        .map { sav -> sav.path }
-                        .minOrNull()
-                        .toOption()
-                        .successIfDefined {
-                            MaterializerException(
-                                MaterializerErrorResponse.UNEXPECTED_ERROR,
-                                "could not determine canonical_path: [ source_index_path: %s ]".format(
-                                    sourceIndexPath
-                                )
+                FieldCoordinates.coordinates(parentTypeName, childAttributeName)
+                    .toOption()
+                    .flatMap { fc: FieldCoordinates ->
+                        session.materializationSchema.getFieldDefinition(fc).toOption()
+                    }
+                    .map(GraphQLFieldDefinition::getType)
+                    .successIfDefined {
+                        MaterializerException(
+                            MaterializerErrorResponse.UNEXPECTED_ERROR,
+                            """could not find graphql_output_type for field_coordinates: 
+                               |[ parent_type_name: %s, 
+                               |child_attribute_name: %s 
+                               |]"""
+                                .flatten()
+                                .format(parentTypeName, childAttributeName)
+                        )
+                    }
+                    .flatMap { gqlt ->
+                        val targetPathRelatedMaterializedParameterValues =
+                            filterMaterializedParameterValuesByPathRelatedToTargetSourceIndexPath(
+                                sourceIndexPath,
+                                retrievalFunctionSpec,
+                                graphPhase,
+                                session
                             )
-                        }
-                val referencePaths: Sequence<SchematicPath> =
-                    canonicalAndReferenceVertices
-                        .asSequence()
-                        .filter { sav -> sav.path != canonicalPath.orNull() }
-                        .map { sav -> sav.path }
-                val graphQLOutputType: Try<GraphQLOutputType> =
-                    FieldCoordinates.coordinates(parentTypeName, childAttributeName)
-                        .toOption()
-                        .flatMap { fc: FieldCoordinates ->
-                            session.materializationSchema.getFieldDefinition(fc).toOption()
-                        }
-                        .map(GraphQLFieldDefinition::getType)
-                        .successIfDefined {
-                            MaterializerException(
-                                MaterializerErrorResponse.UNEXPECTED_ERROR,
-                                """could not find graphql_output_type for field_coordinates: 
-                                    |[ parent_type_name: %s, 
-                                    |child_attribute_name: %s 
-                                    |]"""
-                                    .flatten()
-                                    .format(parentTypeName, childAttributeName)
-                            )
-                        }
-                val targetPathRelatedMaterializedParameterValues =
-                    filterMaterializedParameterValuesByPathRelatedToTargetSourceIndexPath(
-                        sourceIndexPath,
-                        retrievalFunctionSpec,
-                        graphPhase,
-                        session
-                    )
-                logger.info(
-                    "calculated_target_path_related_materialized_parameter_values: [ {} ]",
-                    targetPathRelatedMaterializedParameterValues
-                        .asSequence()
-                        .joinToString(",\n", transform = { (k, v) -> "${k}: ${v}" })
-                )
-                canonicalPath.zip(graphQLOutputType).flatMap { (cp, gqlt) ->
-                    trackableValueFactory
-                        .builder()
-                        .targetSourceIndexPath(sourceIndexPath)
-                        .canonicalPath(cp)
-                        .referencePaths(referencePaths.toPersistentSet())
-                        .contextualParameters(targetPathRelatedMaterializedParameterValues)
-                        .graphQLOutputType(gqlt)
-                        .buildForInstanceOf<JsonNode>()
-                }
+                        trackableValueFactory
+                            .builder()
+                            .targetSourceIndexPath(sourceIndexPath)
+                            .contextualParameters(targetPathRelatedMaterializedParameterValues)
+                            .graphQLOutputType(gqlt)
+                            .buildForInstanceOf<JsonNode>()
+                    }
             }
     }
 

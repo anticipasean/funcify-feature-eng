@@ -10,6 +10,7 @@ import funcify.feature.materializer.json.GraphQLValueToJsonNodeConverter
 import funcify.feature.materializer.schema.edge.RequestParameterEdge
 import funcify.feature.materializer.schema.edge.RequestParameterEdgeFactory
 import funcify.feature.materializer.schema.path.ListIndexedSchematicPathGraphQLSchemaBasedCalculator
+import funcify.feature.materializer.schema.vertex.ParameterToSourceAttributeVertexMatcher
 import funcify.feature.schema.MetamodelGraph
 import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.index.CompositeSourceAttribute
@@ -429,12 +430,7 @@ internal class DefaultMaterializationGraphVertexConnector(
             // retrieved through some other source--if possible
             else -> {
                 val sourceAttributeVertexWithSameNameOrAlias: Option<SourceAttributeVertex> =
-                    findSourceAttributeVertexWithSameNameInSameDomain(context)
-                        .orElse { findSourceAttributeVertexByAliasReferenceInSameDomain(context) }
-                        .orElse { findSourceAttributeVertexWithSameNameInDifferentDomain(context) }
-                        .orElse {
-                            findSourceAttributeVertexByAliasReferenceInDifferentDomain(context)
-                        }
+                    ParameterToSourceAttributeVertexMatcher(context.path, context.metamodelGraph)
                 logger.info(
                     "selected_source_attribute_vertex_with_same_name_or_alias: [ parameter_path: {} source_attribute_vertex: {} ]",
                     context.path,
@@ -626,165 +622,6 @@ internal class DefaultMaterializationGraphVertexConnector(
                     .orElse {
                         vd.defaultValue.toOption().flatMap { defaultVariableValue ->
                             GraphQLValueToJsonNodeConverter.invoke(defaultVariableValue)
-                        }
-                    }
-            }
-    }
-
-    private fun <
-        V : ParameterAttributeVertex> findSourceAttributeVertexWithSameNameInDifferentDomain(
-        context: MaterializationGraphVertexContext<V>
-    ): Option<SourceAttributeVertex> {
-        return context.currentVertex.compositeParameterAttribute.conventionalName.qualifiedForm
-            .toOption()
-            .flatMap { name ->
-                context.metamodelGraph.sourceAttributeVerticesByQualifiedName[name].toOption()
-            }
-            .flatMap { srcAttrs ->
-                context.path.pathSegments.firstOrNone().flatMap { domainPathSegment ->
-                    srcAttrs
-                        .asSequence()
-                        .firstOrNull { sav: SourceAttributeVertex ->
-                            sav.path.pathSegments
-                                .firstOrNone { firstPathSegment ->
-                                    firstPathSegment != domainPathSegment
-                                }
-                                .isDefined()
-                        }
-                        .toOption()
-                }
-            }
-    }
-
-    private fun <V : ParameterAttributeVertex> findSourceAttributeVertexWithSameNameInSameDomain(
-        context: MaterializationGraphVertexContext<V>
-    ): Option<SourceAttributeVertex> {
-        return context.currentVertex.compositeParameterAttribute.conventionalName.qualifiedForm
-            .toOption()
-            .flatMap { name ->
-                context.metamodelGraph.sourceAttributeVerticesByQualifiedName[name].toOption()
-            }
-            .flatMap { srcAttrs ->
-                context.path.pathSegments.firstOrNone().flatMap { domainPathSegment ->
-                    srcAttrs
-                        .asSequence()
-                        .firstOrNull { sav: SourceAttributeVertex ->
-                            sav.path.pathSegments
-                                .firstOrNone { firstPathSegment ->
-                                    firstPathSegment == domainPathSegment
-                                }
-                                .isDefined()
-                        }
-                        .toOption()
-                }
-            }
-    }
-
-    private fun <
-        V : ParameterAttributeVertex> findSourceAttributeVertexByAliasReferenceInSameDomain(
-        context: MaterializationGraphVertexContext<V>
-    ): Option<SourceAttributeVertex> {
-        return context.currentVertex.compositeParameterAttribute.conventionalName.qualifiedForm
-            .toOption()
-            .flatMap { name ->
-                context.metamodelGraph.attributeAliasRegistry
-                    .getSourceVertexPathWithSimilarNameOrAlias(name)
-            }
-            .flatMap { srcAttrPath ->
-                srcAttrPath
-                    .getParentPath()
-                    .flatMap { pp ->
-                        context.metamodelGraph.pathBasedGraph
-                            .getVertex(pp)
-                            .filterIsInstance<SourceContainerTypeVertex>()
-                            .map { sct: SourceContainerTypeVertex ->
-                                sct.compositeContainerType.conventionalName.qualifiedForm
-                            }
-                            .zip(
-                                context.metamodelGraph.pathBasedGraph
-                                    .getVertex(srcAttrPath)
-                                    .filterIsInstance<SourceAttributeVertex>()
-                                    .map { sav: SourceAttributeVertex ->
-                                        sav.compositeAttribute.conventionalName.qualifiedForm
-                                    }
-                            )
-                            .flatMap { parentTypeSrcAttrName ->
-                                context.metamodelGraph
-                                    .sourceAttributeVerticesWithParentTypeAttributeQualifiedNamePair[
-                                        parentTypeSrcAttrName]
-                                    .toOption()
-                            }
-                    }
-                    .flatMap { srcAttrs ->
-                        context.path.pathSegments.firstOrNone().flatMap {
-                            currentParamPathDomainSegment ->
-                            srcAttrs
-                                .asSequence()
-                                .firstOrNull { sav ->
-                                    sav.path.pathSegments
-                                        .firstOrNone()
-                                        .filter { sourceAttributeDomainPathSegment ->
-                                            currentParamPathDomainSegment ==
-                                                sourceAttributeDomainPathSegment
-                                        }
-                                        .isDefined()
-                                }
-                                .toOption()
-                        }
-                    }
-            }
-    }
-
-    private fun <
-        V : ParameterAttributeVertex> findSourceAttributeVertexByAliasReferenceInDifferentDomain(
-        context: MaterializationGraphVertexContext<V>
-    ): Option<SourceAttributeVertex> {
-        return context.currentVertex.compositeParameterAttribute.conventionalName.qualifiedForm
-            .toOption()
-            .flatMap { name ->
-                context.metamodelGraph.attributeAliasRegistry
-                    .getSourceVertexPathWithSimilarNameOrAlias(name)
-            }
-            .flatMap { srcAttrPath ->
-                srcAttrPath
-                    .getParentPath()
-                    .flatMap { pp ->
-                        context.metamodelGraph.pathBasedGraph
-                            .getVertex(pp)
-                            .filterIsInstance<SourceContainerTypeVertex>()
-                            .map { sct: SourceContainerTypeVertex ->
-                                sct.compositeContainerType.conventionalName.qualifiedForm
-                            }
-                            .zip(
-                                context.metamodelGraph.pathBasedGraph
-                                    .getVertex(srcAttrPath)
-                                    .filterIsInstance<SourceAttributeVertex>()
-                                    .map { sav: SourceAttributeVertex ->
-                                        sav.compositeAttribute.conventionalName.qualifiedForm
-                                    }
-                            )
-                            .flatMap { parentTypeSrcAttrName ->
-                                context.metamodelGraph
-                                    .sourceAttributeVerticesWithParentTypeAttributeQualifiedNamePair[
-                                        parentTypeSrcAttrName]
-                                    .toOption()
-                            }
-                    }
-                    .flatMap { srcAttrs ->
-                        context.path.pathSegments.firstOrNone().flatMap {
-                            currentParamPathDomainSegment ->
-                            srcAttrs
-                                .asSequence()
-                                .firstOrNull { sav ->
-                                    sav.path.pathSegments
-                                        .firstOrNone()
-                                        .filter { sourceAttributeDomainPathSegment ->
-                                            currentParamPathDomainSegment !=
-                                                sourceAttributeDomainPathSegment
-                                        }
-                                        .isDefined()
-                                }
-                                .toOption()
                         }
                     }
             }

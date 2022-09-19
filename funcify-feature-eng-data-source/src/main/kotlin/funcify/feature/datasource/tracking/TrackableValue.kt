@@ -17,10 +17,6 @@ sealed interface TrackableValue<out V> {
 
     val targetSourceIndexPath: SchematicPath
 
-    val canonicalPath: SchematicPath
-
-    val referencePaths: ImmutableSet<SchematicPath>
-
     val contextualParameters: ImmutableMap<SchematicPath, JsonNode>
 
     val graphQLOutputType: GraphQLOutputType
@@ -53,20 +49,6 @@ sealed interface TrackableValue<out V> {
     interface Builder<B : Builder<B>> {
 
         fun targetSourceIndexPath(targetSourceIndexPath: SchematicPath): B
-
-        fun canonicalPath(canonicalPath: SchematicPath): B
-
-        /** Replaces all current reference_paths with this set */
-        fun referencePaths(referencePaths: ImmutableSet<SchematicPath>): B
-
-        fun addReferencePath(referencePath: SchematicPath): B
-
-        fun removeReferencePath(referencePath: SchematicPath): B
-
-        fun clearReferencePaths(): B
-
-        /** Adds all reference_paths to the existing set */
-        fun addReferencePaths(referencePaths: Iterable<SchematicPath>): B
 
         /** Replaces all current contextual_parameters with this map */
         fun contextualParameters(contextualParameters: ImmutableMap<SchematicPath, JsonNode>): B
@@ -175,6 +157,10 @@ sealed interface TrackableValue<out V> {
 
     interface TrackedValue<V> : TrackableValue<V> {
 
+        val canonicalPath: SchematicPath
+
+        val referencePaths: ImmutableSet<SchematicPath>
+
         val trackedValue: V
 
         val valueAtTimestamp: Instant
@@ -196,6 +182,20 @@ sealed interface TrackableValue<out V> {
         }
 
         interface Builder<B : Builder<B, V>, V> : TrackableValue.Builder<B> {
+
+            fun canonicalPath(canonicalPath: SchematicPath): B
+
+            /** Replaces all current reference_paths with this set */
+            fun referencePaths(referencePaths: ImmutableSet<SchematicPath>): B
+
+            fun addReferencePath(referencePath: SchematicPath): B
+
+            fun removeReferencePath(referencePath: SchematicPath): B
+
+            fun clearReferencePaths(): B
+
+            /** Adds all reference_paths to the existing set */
+            fun addReferencePaths(referencePaths: Iterable<SchematicPath>): B
 
             fun trackedValue(trackedValue: V): B
 

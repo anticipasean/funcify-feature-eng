@@ -15,7 +15,7 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentMap
 import kotlinx.collections.immutable.toPersistentList
 
-object ListIndexedSchematicPathGraphQLSchemaBasedCalculator :
+internal object ListIndexedSchematicPathGraphQLSchemaBasedCalculator :
     (SchematicPath, GraphQLSchema) -> Option<SchematicPath> {
 
     private val listIndexedSchematicPathUsingGraphQLSchemaMemoizer:

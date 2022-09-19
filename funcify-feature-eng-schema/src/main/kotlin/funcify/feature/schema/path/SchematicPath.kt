@@ -110,8 +110,8 @@ interface SchematicPath : Comparable<SchematicPath> {
      *         messageBody
      *     }
      * }
-     * ``` in GraphQL query form
      * ```
+     * in GraphQL query form
      */
     val pathSegments: ImmutableList<String>
 

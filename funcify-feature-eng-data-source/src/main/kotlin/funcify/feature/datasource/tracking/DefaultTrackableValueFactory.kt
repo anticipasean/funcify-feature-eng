@@ -35,9 +35,6 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
 
         internal abstract class BaseBuilder<B : TrackableValue.Builder<B>, V>(
             protected open var targetSourceIndexPath: SchematicPath? = null,
-            protected open var canonicalPath: SchematicPath? = null,
-            protected open var referencePaths: PersistentSet.Builder<SchematicPath> =
-                persistentSetOf<SchematicPath>().builder(),
             protected open var contextualParameters:
                 PersistentMap.Builder<SchematicPath, JsonNode> =
                 persistentMapOf<SchematicPath, JsonNode>().builder(),
@@ -46,42 +43,6 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
 
             override fun targetSourceIndexPath(targetSourceIndexPath: SchematicPath): B {
                 this.targetSourceIndexPath = targetSourceIndexPath
-                @Suppress("UNCHECKED_CAST") //
-                return this as B
-            }
-
-            override fun canonicalPath(canonicalPath: SchematicPath): B {
-                this.canonicalPath = canonicalPath
-                @Suppress("UNCHECKED_CAST") //
-                return this as B
-            }
-
-            override fun referencePaths(referencePaths: ImmutableSet<SchematicPath>): B {
-                this.referencePaths = referencePaths.toPersistentSet().builder()
-                @Suppress("UNCHECKED_CAST") //
-                return this as B
-            }
-
-            override fun addReferencePath(referencePath: SchematicPath): B {
-                this.referencePaths.add(referencePath)
-                @Suppress("UNCHECKED_CAST") //
-                return this as B
-            }
-
-            override fun removeReferencePath(referencePath: SchematicPath): B {
-                this.referencePaths.remove(referencePath)
-                @Suppress("UNCHECKED_CAST") //
-                return this as B
-            }
-
-            override fun clearReferencePaths(): B {
-                this.referencePaths.clear()
-                @Suppress("UNCHECKED_CAST") //
-                return this as B
-            }
-
-            override fun addReferencePaths(referencePaths: Iterable<SchematicPath>): B {
-                this.referencePaths.addAll(referencePaths)
                 @Suppress("UNCHECKED_CAST") //
                 return this as B
             }
@@ -146,9 +107,6 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
         ) :
             BaseBuilder<DefaultPlannedValueBuilder<V>, V>(
                 targetSourceIndexPath = existingPlannedValue?.targetSourceIndexPath,
-                canonicalPath = existingPlannedValue?.canonicalPath,
-                referencePaths = existingPlannedValue?.referencePaths?.toPersistentSet()?.builder()
-                        ?: persistentSetOf<SchematicPath>().builder(),
                 contextualParameters =
                     existingPlannedValue?.contextualParameters?.toPersistentMap()?.builder()
                         ?: persistentMapOf<SchematicPath, JsonNode>().builder(),
@@ -163,14 +121,6 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
                             DataSourceException(
                                 DataSourceErrorResponse.MISSING_PARAMETER,
                                 "target_source_index_path has not been set for planned_value"
-                            )
-                        )
-                    }
-                    canonicalPath == null -> {
-                        Try.failure(
-                            DataSourceException(
-                                DataSourceErrorResponse.MISSING_PARAMETER,
-                                "canonical_path has not been set for planned_value"
                             )
                         )
                     }
@@ -195,8 +145,6 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
                     else -> {
                         DefaultPlannedValue<V>(
                                 targetSourceIndexPath = targetSourceIndexPath!!,
-                                canonicalPath = canonicalPath!!,
-                                referencePaths = referencePaths.build(),
                                 contextualParameters = contextualParameters.build(),
                                 graphQLOutputType = graphQLOutputType!!,
                             )
@@ -210,10 +158,6 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
             private val existingPlannedValue: PlannedValue<V>? = null,
             override var targetSourceIndexPath: SchematicPath? =
                 existingPlannedValue?.targetSourceIndexPath,
-            override var canonicalPath: SchematicPath? = existingPlannedValue?.canonicalPath,
-            override var referencePaths: PersistentSet.Builder<SchematicPath> =
-                existingPlannedValue?.referencePaths?.toPersistentSet()?.builder()
-                    ?: persistentSetOf<SchematicPath>().builder(),
             override var contextualParameters: PersistentMap.Builder<SchematicPath, JsonNode> =
                 existingPlannedValue?.contextualParameters?.toPersistentMap()?.builder()
                     ?: persistentMapOf<SchematicPath, JsonNode>().builder(),
@@ -224,8 +168,6 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
         ) :
             BaseBuilder<DefaultCalculatedValueBuilder<V>, V>(
                 targetSourceIndexPath = targetSourceIndexPath,
-                canonicalPath = canonicalPath,
-                referencePaths = referencePaths,
                 contextualParameters = contextualParameters,
                 graphQLOutputType = graphQLOutputType
             ),
@@ -250,14 +192,6 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
                             DataSourceException(
                                 DataSourceErrorResponse.MISSING_PARAMETER,
                                 "target_source_index_path has not been set for calculated_value"
-                            )
-                        )
-                    }
-                    canonicalPath == null -> {
-                        Try.failure(
-                            DataSourceException(
-                                DataSourceErrorResponse.MISSING_PARAMETER,
-                                "canonical_path has not been set for calculated_value"
                             )
                         )
                     }
@@ -291,8 +225,6 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
                     else -> {
                         DefaultCalculatedValue<V>(
                                 targetSourceIndexPath!!,
-                                canonicalPath!!,
-                                referencePaths.build(),
                                 contextualParameters.build(),
                                 graphQLOutputType!!,
                                 calculatedValue!!,
@@ -317,24 +249,6 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
                             .map(CalculatedValue<V>::targetSourceIndexPath)
                     }
                     .orNull(),
-            override var canonicalPath: SchematicPath? =
-                existingPlannedValue
-                    .toOption()
-                    .map(PlannedValue<V>::canonicalPath)
-                    .orElse {
-                        existingCalculatedValue.toOption().map(CalculatedValue<V>::canonicalPath)
-                    }
-                    .orNull(),
-            override var referencePaths: PersistentSet.Builder<SchematicPath> =
-                existingPlannedValue
-                    .toOption()
-                    .map(PlannedValue<V>::referencePaths)
-                    .orElse {
-                        existingCalculatedValue.toOption().map(CalculatedValue<V>::referencePaths)
-                    }
-                    .map { s -> s.toPersistentSet().builder() }
-                    .orNull()
-                    ?: persistentSetOf<SchematicPath>().builder(),
             override var contextualParameters: PersistentMap.Builder<SchematicPath, JsonNode> =
                 existingPlannedValue
                     .toOption()
@@ -357,17 +271,58 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
                             .map(CalculatedValue<V>::graphQLOutputType)
                     }
                     .orNull(),
+            private var canonicalPath: SchematicPath? = null,
+            private var referencePaths: PersistentSet.Builder<SchematicPath> =
+                persistentSetOf<SchematicPath>().builder(),
             private var trackedValue: V? = null,
             private var valueAtTimestamp: Instant? = null,
         ) :
             BaseBuilder<DefaultTrackedValueBuilder<V>, V>(
                 targetSourceIndexPath = targetSourceIndexPath,
-                canonicalPath = canonicalPath,
-                referencePaths = referencePaths,
                 contextualParameters = contextualParameters,
                 graphQLOutputType = graphQLOutputType
             ),
             TrackedValue.Builder<DefaultTrackedValueBuilder<V>, V> {
+
+            override fun canonicalPath(
+                canonicalPath: SchematicPath
+            ): DefaultTrackedValueBuilder<V> {
+                this.canonicalPath = canonicalPath
+                return this
+            }
+
+            override fun referencePaths(
+                referencePaths: ImmutableSet<SchematicPath>
+            ): DefaultTrackedValueBuilder<V> {
+                this.referencePaths = referencePaths.toPersistentSet().builder()
+                return this
+            }
+
+            override fun addReferencePath(
+                referencePath: SchematicPath
+            ): DefaultTrackedValueBuilder<V> {
+                this.referencePaths.add(referencePath)
+                return this
+            }
+
+            override fun removeReferencePath(
+                referencePath: SchematicPath
+            ): DefaultTrackedValueBuilder<V> {
+                this.referencePaths.remove(referencePath)
+                return this
+            }
+
+            override fun clearReferencePaths(): DefaultTrackedValueBuilder<V> {
+                this.referencePaths.clear()
+                return this
+            }
+
+            override fun addReferencePaths(
+                referencePaths: Iterable<SchematicPath>
+            ): DefaultTrackedValueBuilder<V> {
+                this.referencePaths.addAll(referencePaths)
+                return this
+            }
 
             override fun trackedValue(trackedValue: V): DefaultTrackedValueBuilder<V> {
                 this.trackedValue = trackedValue
@@ -444,8 +399,6 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
 
         internal data class DefaultPlannedValue<V>(
             override val targetSourceIndexPath: SchematicPath,
-            override val canonicalPath: SchematicPath,
-            override val referencePaths: ImmutableSet<SchematicPath>,
             override val contextualParameters: ImmutableMap<SchematicPath, JsonNode>,
             override val graphQLOutputType: GraphQLOutputType
         ) : PlannedValue<V> {
@@ -495,8 +448,6 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
 
         internal data class DefaultCalculatedValue<V>(
             override val targetSourceIndexPath: SchematicPath,
-            override val canonicalPath: SchematicPath,
-            override val referencePaths: ImmutableSet<SchematicPath>,
             override val contextualParameters: ImmutableMap<SchematicPath, JsonNode>,
             override val graphQLOutputType: GraphQLOutputType,
             override val calculatedValue: V,
@@ -513,8 +464,6 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
                         DefaultCalculatedValueBuilder<V>(
                             existingPlannedValue = null,
                             targetSourceIndexPath = targetSourceIndexPath,
-                            canonicalPath = canonicalPath,
-                            referencePaths = referencePaths.toPersistentSet().builder(),
                             contextualParameters = contextualParameters.toPersistentMap().builder(),
                             graphQLOutputType = graphQLOutputType,
                             calculatedValue = calculatedValue,
@@ -562,10 +511,10 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
                             null,
                             null,
                             targetSourceIndexPath,
-                            canonicalPath,
-                            referencePaths.toPersistentSet().builder(),
                             contextualParameters.toPersistentMap().builder(),
                             graphQLOutputType,
+                            canonicalPath,
+                            referencePaths.toPersistentSet().builder(),
                             trackedValue,
                             valueAtTimestamp
                         )
