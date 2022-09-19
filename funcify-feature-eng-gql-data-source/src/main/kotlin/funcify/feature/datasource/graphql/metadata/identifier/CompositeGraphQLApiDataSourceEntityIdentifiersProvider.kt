@@ -33,10 +33,11 @@ internal class CompositeGraphQLApiDataSourceEntityIdentifiersProvider(
             "provide_entity_identifier_source_attribute_paths_in_data_source: [ data_source.key.name: {} ]",
             dataSource.key.name
         )
-        return Flux.fromIterable(graphQLApiDataSourceEntityIdentifiersProvider)
-            .flatMap { prov ->
-                prov.provideEntityIdentifierSourceAttributePathsInDataSource(dataSource)
-            }
+        return Flux.merge(
+                graphQLApiDataSourceEntityIdentifiersProvider.map { prov ->
+                    prov.provideEntityIdentifierSourceAttributePathsInDataSource(dataSource)
+                }
+            )
             .reduce(persistentSetOf<SchematicPath>()) { ps, entIdSet -> ps.addAll(entIdSet) }
             .cache()
             .widen()

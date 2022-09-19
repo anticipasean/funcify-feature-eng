@@ -469,6 +469,12 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                         graphPhase,
                         session
                     )
+                logger.info(
+                    "calculated_target_path_related_materialized_parameter_values: [ {} ]",
+                    targetPathRelatedMaterializedParameterValues
+                        .asSequence()
+                        .joinToString(",\n", transform = { (k, v) -> "${k}: ${v}" })
+                )
                 canonicalPath.zip(graphQLOutputType).flatMap { (cp, gqlt) ->
                     trackableValueFactory
                         .builder()
@@ -488,7 +494,25 @@ internal class DefaultSingleRequestMaterializationDispatchService(
         graphPhase: RequestParameterMaterializationGraphPhase,
         session: GraphQLSingleRequestSession
     ): ImmutableMap<SchematicPath, JsonNode> {
-        return graphPhase.materializedParameterValuesByPath
+        return retrievalFunctionSpec.parameterVerticesByPath.keys
+            .parallelStream()
+            .flatMap { paramPath -> graphPhase.requestGraph.getEdgesTo(paramPath) }
+            .map { edge -> edge.id.first }
+            .flatMap { srcIndPath -> graphPhase.requestGraph.getEdgesTo(srcIndPath) }
+            .map { edge -> edge.id.first }
+            .map { topSrcIndPath ->
+                graphPhase.retrievalFunctionSpecByTopSourceIndexPath.getOrNone(topSrcIndPath)
+            }
+            .flatMapOptions()
+            .flatMap { retrievFuncSpec -> retrievFuncSpec.parameterVerticesByPath.keys.stream() }
+            .distinct()
+            .map { topParamPath ->
+                graphPhase.materializedParameterValuesByPath.getOrNone(topParamPath).map { jn ->
+                    topParamPath to jn
+                }
+            }
+            .flatMapOptions()
+            .reducePairsToPersistentMap()
     }
 
     private fun createExternalDataSourceJsonValuesRetrieverForRetrievalFunctionSpec(

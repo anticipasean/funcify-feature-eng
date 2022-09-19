@@ -5,6 +5,8 @@ import arrow.core.filterIsInstance
 import arrow.core.firstOrNone
 import arrow.core.getOrElse
 import arrow.core.getOrNone
+import arrow.core.identity
+import arrow.core.orElse
 import arrow.core.toOption
 import com.fasterxml.jackson.databind.JsonNode
 import funcify.feature.datasource.tracking.TrackableJsonValuePublisherProvider
@@ -14,17 +16,26 @@ import funcify.feature.materializer.dispatch.SourceIndexRequestDispatch
 import funcify.feature.materializer.fetcher.SingleRequestFieldMaterializationSession
 import funcify.feature.materializer.phase.RequestDispatchMaterializationPhase
 import funcify.feature.materializer.schema.path.ListIndexedSchematicPathGraphQLSchemaBasedCalculator
+import funcify.feature.naming.ConventionalName
+import funcify.feature.schema.index.CompositeSourceAttribute
 import funcify.feature.schema.path.SchematicPath
+import funcify.feature.schema.vertex.ParameterAttributeVertex
+import funcify.feature.schema.vertex.SourceAttributeVertex
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.MonoExtensions.widen
+import funcify.feature.tools.extensions.OptionExtensions.stream
+import funcify.feature.tools.extensions.OptionExtensions.toMono
 import funcify.feature.tools.extensions.OptionExtensions.toOption
 import funcify.feature.tools.extensions.SequenceExtensions.flatMapOptions
+import funcify.feature.tools.extensions.StreamExtensions.flatMapOptions
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import graphql.schema.GraphQLSchema
 import java.time.Instant
 import java.time.OffsetDateTime
+import java.util.stream.Stream.empty
 import kotlin.reflect.KClass
 import kotlin.reflect.KType
+import kotlin.streams.toList
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.toPersistentMap
@@ -65,12 +76,12 @@ internal class DefaultMaterializedTrackableValuePublishingService(
                 .filterIsInstance<KClass<*>>()
                 .map(KClass<*>::simpleName)
                 .orNull(),
-            materializedTrackableJsonValue.canonicalPath
+            materializedTrackableJsonValue.targetSourceIndexPath
         )
         session.singleRequestSession.requestDispatchMaterializationGraphPhase
             .flatMap { phase: RequestDispatchMaterializationPhase ->
                 phase.trackableSingleValueRequestDispatchesBySourceIndexPath.getOrNone(
-                    materializedTrackableJsonValue.canonicalPath
+                    materializedTrackableJsonValue.targetSourceIndexPath
                 )
             }
             .flatMap {
@@ -103,7 +114,7 @@ internal class DefaultMaterializedTrackableValuePublishingService(
                                 )
                                 .zipWith(
                                     findAnyLastUpdatedFieldValuesRelatedToThisField(
-                                        calculatedValue.canonicalPath,
+                                        calculatedValue.targetSourceIndexPath,
                                         dispatchedRequest,
                                         session
                                     )
@@ -111,19 +122,33 @@ internal class DefaultMaterializedTrackableValuePublishingService(
                         }
                         else -> {
                             findAnyLastUpdatedFieldValuesRelatedToThisField(
-                                calculatedValue.canonicalPath,
+                                calculatedValue.targetSourceIndexPath,
                                 dispatchedRequest,
                                 session
                             )
                         }
                     }
+                    .zipWith(
+                        findAnyEntityIdentifierValuesRelatedToThisField(
+                            calculatedValue,
+                            dispatchedRequest,
+                            session
+                        )
+                    ) { ts, ids -> ts to ids }
                     .subscribeOn(Schedulers.boundedElastic())
                     .zipWith(
                         jsonMapper.fromKotlinObject(materializedValue).toJsonNode().toMono()
-                    ) { ts, jn -> ts to jn }
-                    .map { (relevantTimestampsByPath, materializedJsonValue) ->
+                    ) { (ts, ids), jn -> Triple(ts, ids, jn) }
+                    .map { (relevantTimestampsByPath, relevantIdsByPath, materializedJsonValue) ->
+                        logger.info(
+                            "relevant_ids_by_path: [ {} ]",
+                            relevantIdsByPath
+                                .asSequence()
+                                .joinToString(", ", transform = { (k, v) -> "${k}: $v" })
+                        )
                         calculatedValue.transitionToTracked {
-                            valueAtTimestamp(
+                            contextualParameters(relevantIdsByPath)
+                                .valueAtTimestamp(
                                     relevantTimestampsByPath.values
                                         .maxOrNull()
                                         .toOption()
@@ -147,6 +172,79 @@ internal class DefaultMaterializedTrackableValuePublishingService(
                             )
                         }
                     )
+            }
+    }
+
+    private fun findAnyEntityIdentifierValuesRelatedToThisField(
+        calculatedValue: TrackableValue.CalculatedValue<JsonNode>,
+        dispatchedRequest: SourceIndexRequestDispatch.TrackableSingleJsonValueDispatch,
+        session: SingleRequestFieldMaterializationSession,
+    ): Mono<ImmutableMap<SchematicPath, JsonNode>> {
+        return dispatchedRequest.retrievalFunctionSpec.parameterVerticesByPath.keys
+            .parallelStream()
+            .flatMap { sp ->
+                session.singleRequestSession.requestParameterMaterializationGraphPhase
+                    .map { phase -> phase.requestGraph.getEdgesTo(sp) }
+                    .fold(::empty, ::identity)
+            }
+            .map { edge -> edge.id.first }
+            .flatMap { dependentSourceIndPath ->
+                session.metamodelGraph.entityRegistry
+                    .findNearestEntityIdentifierPathRelatives(dependentSourceIndPath)
+                    .stream()
+            }
+            .distinct()
+            .map { entityIdParamPath ->
+                session.singleRequestSession.requestParameterMaterializationGraphPhase
+                    .flatMap { phase ->
+                        phase.materializedParameterValuesByPath.getOrNone(entityIdParamPath)
+                    }
+                    .map { resultJson -> Mono.just(entityIdParamPath to resultJson) }
+                    .orElse {
+                        session.singleRequestSession.requestParameterMaterializationGraphPhase
+                            .map { phase -> phase.requestGraph.getEdgesTo(entityIdParamPath) }
+                            .fold(::empty, ::identity)
+                            .map { edge -> edge.id.first }
+                            .map { topSrcIndexPath ->
+                                session.singleRequestSession
+                                    .requestDispatchMaterializationGraphPhase
+                                    .zip(
+                                        ListIndexedSchematicPathGraphQLSchemaBasedCalculator(
+                                            entityIdParamPath,
+                                            session.materializationSchema
+                                        )
+                                    )
+                                    .flatMap { (phase, listIndexedEntityIdPath) ->
+                                        phase
+                                            .externalDataSourceJsonValuesRequestDispatchesByAncestorSourceIndexPath
+                                            .getOrNone(topSrcIndexPath)
+                                            .map { dispatch ->
+                                                dispatch.dispatchedMultipleIndexRequest
+                                                    .map { resultMap ->
+                                                        resultMap
+                                                            .getOrNone(listIndexedEntityIdPath)
+                                                            .map { resultJson ->
+                                                                entityIdParamPath to resultJson
+                                                            }
+                                                    }
+                                                    .flatMap { pairOpt -> pairOpt.toMono() }
+                                            }
+                                    }
+                            }
+                            .flatMapOptions()
+                            .findFirst()
+                            .orElseGet { Mono.empty() }
+                            .toOption()
+                    }
+            }
+            .flatMapOptions()
+            .toList()
+            .let { entityIdPathToValueMonos ->
+                Flux.merge(entityIdPathToValueMonos)
+                    .reduce(persistentMapOf<SchematicPath, JsonNode>()) { pm, (k, v) ->
+                        pm.put(k, v)
+                    }
+                    .widen()
             }
     }
 

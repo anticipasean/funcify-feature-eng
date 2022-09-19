@@ -42,6 +42,7 @@ import kotlinx.collections.immutable.PersistentList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toPersistentList
 import org.slf4j.Logger
+import kotlin.reflect.KClass
 
 internal class DefaultMaterializationGraphQLSchemaFactory(
     private val jsonMapper: JsonMapper,
@@ -137,9 +138,10 @@ internal class DefaultMaterializationGraphQLSchemaFactory(
                 v::class
                     .supertypes
                     .asSequence()
-                    .map { kType: KType -> kType.jvmErasure.simpleName }
+                    .filterIsInstance<KClass<*>>()
                     .firstOrNull()
                     .toOption()
+                    .mapNotNull { kcls -> kcls.simpleName }
                     .getOrElse { v::class.simpleName ?: "<NA>" }
             }
         val vertexNameExtractor: (Pair<SchematicPath, SchematicVertex>) -> String = { (_, v) ->
