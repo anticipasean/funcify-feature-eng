@@ -13,6 +13,7 @@ import funcify.feature.schema.path.SchematicPath
 import funcify.feature.schema.strategy.SchematicVertexGraphRemappingStrategy
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableMap
+import kotlinx.collections.immutable.ImmutableSet
 
 /**
  *
@@ -43,6 +44,9 @@ interface MetamodelGraphCreationContext {
         ImmutableMap<String, DataSourceEntityIdentifiersProvider<*>>
 
     val schematicVerticesByPath: ImmutableMap<SchematicPath, SchematicVertex>
+
+    val childAttributeVerticesByParentTypeAndChildAttributeNamePair:
+        ImmutableMap<Pair<String, String>, ImmutableSet<SchematicVertex>>
 
     val errors: ImmutableList<Throwable>
 

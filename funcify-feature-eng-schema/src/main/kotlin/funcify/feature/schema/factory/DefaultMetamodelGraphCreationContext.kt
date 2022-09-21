@@ -1,5 +1,9 @@
 package funcify.feature.schema.factory
 
+import arrow.core.filterIsInstance
+import arrow.core.getOrNone
+import arrow.core.none
+import arrow.core.some
 import funcify.feature.schema.SchematicVertex
 import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.datasource.SourceIndex
@@ -12,6 +16,14 @@ import funcify.feature.schema.directive.temporal.LastUpdatedTemporalAttributePat
 import funcify.feature.schema.factory.MetamodelGraphCreationContext.Builder
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.schema.strategy.SchematicVertexGraphRemappingStrategy
+import funcify.feature.schema.vertex.ParameterAttributeVertex
+import funcify.feature.schema.vertex.ParameterContainerTypeVertex
+import funcify.feature.schema.vertex.SourceAttributeVertex
+import funcify.feature.schema.vertex.SourceContainerTypeVertex
+import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentSetValueMap
+import funcify.feature.tools.extensions.StreamExtensions.flatMapOptions
+import kotlinx.collections.immutable.ImmutableMap
+import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.PersistentList
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.persistentListOf
@@ -162,6 +174,43 @@ internal data class DefaultMetamodelGraphCreationContext(
                 )
             }
         }
+    }
+
+    override val childAttributeVerticesByParentTypeAndChildAttributeNamePair:
+        ImmutableMap<Pair<String, String>, ImmutableSet<SchematicVertex>> by lazy {
+        schematicVerticesByPath.entries
+            .parallelStream()
+            .map { (p, v) ->
+                when (v) {
+                    is SourceAttributeVertex -> {
+                        p.getParentPath()
+                            .flatMap { pp -> schematicVerticesByPath.getOrNone(pp) }
+                            .filterIsInstance<SourceContainerTypeVertex>()
+                            .map { sct ->
+                                sct.compositeContainerType.conventionalName.qualifiedForm
+                            }
+                            .zip(v.compositeAttribute.conventionalName.qualifiedForm.some())
+                            .map { parentTypeChildAttrNamePair -> parentTypeChildAttrNamePair to v }
+                    }
+                    is ParameterAttributeVertex -> {
+                        p.getParentPath()
+                            .flatMap { pp -> schematicVerticesByPath.getOrNone(pp) }
+                            .filterIsInstance<ParameterContainerTypeVertex>()
+                            .map { pct ->
+                                pct.compositeParameterContainerType.conventionalName.qualifiedForm
+                            }
+                            .zip(
+                                v.compositeParameterAttribute.conventionalName.qualifiedForm.some()
+                            )
+                            .map { parentTypeChildAttrNamePair -> parentTypeChildAttrNamePair to v }
+                    }
+                    else -> {
+                        none()
+                    }
+                }
+            }
+            .flatMapOptions()
+            .reducePairsToPersistentSetValueMap()
     }
 
     override fun update(transformer: Builder.() -> Builder): MetamodelGraphCreationContext {
