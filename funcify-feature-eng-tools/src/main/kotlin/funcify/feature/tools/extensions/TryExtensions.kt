@@ -14,6 +14,14 @@ object TryExtensions {
         }
     }
 
+    fun <T : Any> T?.successIfNonNull(ifNull: () -> Throwable): Try<T> {
+        return if (this == null) {
+            TryFactory.Failure<T>(ifNull.invoke())
+        } else {
+            TryFactory.Success<T>(this)
+        }
+    }
+
     fun <S : Any> Option<S>.successIfDefined(): Try<S> {
         return this.successIfDefined { NoSuchElementException("result is not defined") }
     }

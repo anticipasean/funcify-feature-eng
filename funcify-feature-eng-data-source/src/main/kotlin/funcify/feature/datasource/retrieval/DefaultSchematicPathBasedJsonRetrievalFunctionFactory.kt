@@ -250,7 +250,7 @@ internal class DefaultSchematicPathBasedJsonRetrievalFunctionFactory(
 
     override fun canBuildTrackableJsonValueRetrieverOnBehalfOfDataSource(
         dataSourceKey: DataSource.Key<*>
-                                                                        ): Boolean {
+    ): Boolean {
         return trackableValueJsonRetrievalStrategyProviders.any { provider ->
             provider.providesJsonRetrievalFunctionsForVerticesWithSourceIndicesIn(dataSourceKey)
         }

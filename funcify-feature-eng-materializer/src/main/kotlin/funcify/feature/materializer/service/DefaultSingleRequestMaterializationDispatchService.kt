@@ -35,13 +35,16 @@ import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPer
 import funcify.feature.tools.extensions.PersistentMapExtensions.streamPairs
 import funcify.feature.tools.extensions.SequenceExtensions.flatMapOptions
 import funcify.feature.tools.extensions.StreamExtensions.flatMapOptions
+import funcify.feature.tools.extensions.StreamExtensions.recurse
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.extensions.TryExtensions.successIfDefined
+import funcify.feature.tools.extensions.TryExtensions.successIfNonNull
 import graphql.schema.FieldCoordinates
 import graphql.schema.GraphQLFieldDefinition
 import java.time.Duration
 import java.time.Instant
 import java.util.concurrent.Executor
+import java.util.stream.Stream
 import java.util.stream.Stream.empty
 import kotlin.streams.asSequence
 import kotlinx.collections.immutable.ImmutableMap
@@ -317,22 +320,15 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                     .trackableValueJsonRetrievalFunctionBuilder()
                     .cacheForDataSource(retrievalFunctionSpec.dataSource)
                     .build()
-                    .zip2(
+                    .zip(
                         createExternalDataSourceJsonValuesRetrieverForRetrievalFunctionSpec(
                             retrievalFunctionSpec
-                        ),
-                        createPlannedValueForSourceIndexPath(
-                            sourceIndexPath,
-                            retrievalFunctionSpec,
-                            graphPhase,
-                            session
                         )
                     )
                     .map {
                         (
                             singleSrcIndCacheRetrFunc: TrackableJsonValueRetriever,
-                            multiSrcIndJsonRetrFunc: ExternalDataSourceJsonValuesRetriever,
-                            plannedValue: TrackableValue.PlannedValue<JsonNode>
+                            multiSrcIndJsonRetrFunc: ExternalDataSourceJsonValuesRetriever
                         ) ->
                         val backupFunction: BackupExternalDataSourceCalculatedJsonValueRetriever =
                             createBackupSingleSourceIndexJsonOptionRetrievalFunctionFor(
@@ -363,10 +359,18 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                                     .dispatchedTrackableValueResponsesBySourceIndexPath
                                     .put(
                                         sourceIndexPath,
-                                        singleSrcIndCacheRetrFunc
-                                            .invoke(plannedValue)
-                                            .cache()
-                                            .timeout(DEFAULT_EXTERNAL_CALL_TIMEOUT_DURATION)
+                                        createPlannedValueForSourceIndexPath(
+                                                sourceIndexPath,
+                                                retrievalFunctionSpec,
+                                                graphPhase,
+                                                session
+                                            )
+                                            .flatMap { plannedValue ->
+                                                singleSrcIndCacheRetrFunc
+                                                    .invoke(plannedValue)
+                                                    .cache()
+                                                    .timeout(DEFAULT_EXTERNAL_CALL_TIMEOUT_DURATION)
+                                            }
                                     )
                         )
                     }
@@ -390,9 +394,19 @@ internal class DefaultSingleRequestMaterializationDispatchService(
         retrievalFunctionSpec: RetrievalFunctionSpec,
         graphPhase: RequestParameterMaterializationGraphPhase,
         session: GraphQLSingleRequestSession
-    ): Try<TrackableValue.PlannedValue<JsonNode>> {
+    ): Mono<TrackableValue.PlannedValue<JsonNode>> {
         return retrievalFunctionSpec.sourceVerticesByPath[sourceIndexPath]
-            .toOption()
+            .successIfNonNull {
+                MaterializerException(
+                    MaterializerErrorResponse.UNEXPECTED_ERROR,
+                    """target_source_index_path not present 
+                       |within expected retrieval_function_spec 
+                       |output source indices 
+                       |[ target_source_index_path: %s ]"""
+                        .format(sourceIndexPath)
+                        .flatten()
+                )
+            }
             .flatMap { sjvOrSlv ->
                 sourceIndexPath
                     .getParentPath()
@@ -409,15 +423,16 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                             .qualifiedForm
                             .some()
                     )
+                    .successIfDefined {
+                        MaterializerException(
+                            MaterializerErrorResponse.UNEXPECTED_ERROR,
+                            """could not find parent_type_name 
+                               |and child_attribute_name for path: 
+                               |[ source_index_path: ${sourceIndexPath} ]""".trimMargin()
+                        )
+                    }
             }
-            .successIfDefined {
-                MaterializerException(
-                    MaterializerErrorResponse.UNEXPECTED_ERROR,
-                    """could not find parent_type_name 
-                        |and child_attribute_name for path: 
-                        |[ source_index_path: ${sourceIndexPath} ]""".trimMargin()
-                )
-            }
+            .toMono()
             .flatMap { (parentTypeName, childAttributeName) ->
                 FieldCoordinates.coordinates(parentTypeName, childAttributeName)
                     .toOption()
@@ -436,22 +451,26 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                                 .format(parentTypeName, childAttributeName)
                         )
                     }
+                    .toMono()
                     .flatMap { gqlt ->
-                        val targetPathRelatedMaterializedParameterValues =
-                            filterMaterializedParameterValuesByPathRelatedToTargetSourceIndexPath(
+                        filterMaterializedParameterValuesByPathRelatedToTargetSourceIndexPath(
                                 sourceIndexPath,
                                 retrievalFunctionSpec,
                                 graphPhase,
                                 session
                             )
-                        trackableValueFactory
-                            .builder()
-                            .targetSourceIndexPath(sourceIndexPath)
-                            .contextualParameters(targetPathRelatedMaterializedParameterValues)
-                            .graphQLOutputType(gqlt)
-                            .buildForInstanceOf<JsonNode>()
+                            .flatMap { filteredContextParameterValues ->
+                                trackableValueFactory
+                                    .builder()
+                                    .targetSourceIndexPath(sourceIndexPath)
+                                    .contextualParameters(filteredContextParameterValues)
+                                    .graphQLOutputType(gqlt)
+                                    .buildForInstanceOf<JsonNode>()
+                                    .toMono()
+                            }
                     }
             }
+            .cache()
     }
 
     private fun filterMaterializedParameterValuesByPathRelatedToTargetSourceIndexPath(
@@ -459,26 +478,34 @@ internal class DefaultSingleRequestMaterializationDispatchService(
         retrievalFunctionSpec: RetrievalFunctionSpec,
         graphPhase: RequestParameterMaterializationGraphPhase,
         session: GraphQLSingleRequestSession
-    ): ImmutableMap<SchematicPath, JsonNode> {
-        return retrievalFunctionSpec.parameterVerticesByPath.keys
-            .parallelStream()
-            .flatMap { paramPath -> graphPhase.requestGraph.getEdgesTo(paramPath) }
-            .map { edge -> edge.id.first }
-            .flatMap { srcIndPath -> graphPhase.requestGraph.getEdgesTo(srcIndPath) }
-            .map { edge -> edge.id.first }
-            .map { topSrcIndPath ->
-                graphPhase.retrievalFunctionSpecByTopSourceIndexPath.getOrNone(topSrcIndPath)
-            }
-            .flatMapOptions()
-            .flatMap { retrievFuncSpec -> retrievFuncSpec.parameterVerticesByPath.keys.stream() }
-            .distinct()
-            .map { topParamPath ->
-                graphPhase.materializedParameterValuesByPath.getOrNone(topParamPath).map { jn ->
-                    topParamPath to jn
+    ): Mono<ImmutableMap<SchematicPath, JsonNode>> {
+        return Mono.fromSupplier {
+            retrievalFunctionSpec.parameterVerticesByPath.keys
+                .parallelStream()
+                .flatMap { paramPath -> graphPhase.requestGraph.getEdgesTo(paramPath) }
+                .map { edge -> edge.id.first }
+                .flatMap { sourceIndPath -> graphPhase.requestGraph.getEdgesTo(sourceIndPath) }
+                .recurse { edge ->
+                    when {
+                        graphPhase.materializedParameterValuesByPath.containsKey(edge.id.first) -> {
+                            Stream.of(edge.id.first.right())
+                        }
+                        else -> {
+                            graphPhase.requestGraph.getEdgesTo(edge.id.first).map { parentEdge ->
+                                parentEdge.left()
+                            }
+                        }
+                    }
                 }
-            }
-            .flatMapOptions()
-            .reducePairsToPersistentMap()
+                .map { paramPath ->
+                    graphPhase.materializedParameterValuesByPath.getOrNone(paramPath).map { jn ->
+                        paramPath to jn
+                    }
+                }
+                .flatMapOptions()
+                .sorted(Comparator.comparing(Pair<SchematicPath, JsonNode>::first))
+                .reducePairsToPersistentMap()
+        }
     }
 
     private fun createExternalDataSourceJsonValuesRetrieverForRetrievalFunctionSpec(
@@ -647,8 +674,8 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                                         requestCreationContext
                                             .dispatchedMultiValueResponsesBySourceIndexPath
                                             .getOrNone(srcIndPath)
-                                            .map { resultKFuture ->
-                                                resultKFuture.map { resultMap ->
+                                            .map { dispatchedMultiValueResponse ->
+                                                dispatchedMultiValueResponse.map { resultMap ->
                                                     dependentValueRequestParameterEdge.id.second to
                                                         dependentValueRequestParameterEdge
                                                             .extractionFunction
@@ -661,9 +688,10 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                                     }
                             }
                             .flatMapOptions()
-                            .let { pairStream ->
-                                Flux.fromStream(pairStream)
-                                    .flatMap { pairMono -> pairMono }
+                            .let { entryPublisherStream ->
+                                Flux.fromStream(entryPublisherStream)
+                                    .collectList()
+                                    .flatMapMany { entryPublishers -> Flux.merge(entryPublishers) }
                                     .reduce(persistentMapOf<SchematicPath, JsonNode>()) { pm, pair
                                         ->
                                         pm.put(pair.first, pair.second)

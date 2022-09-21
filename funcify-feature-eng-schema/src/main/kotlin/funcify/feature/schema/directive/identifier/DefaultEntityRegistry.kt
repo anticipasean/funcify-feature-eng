@@ -90,6 +90,12 @@ internal class DefaultEntityRegistry(
         return entityIdentifierAttributePathsByParentPath.containsKey(path)
     }
 
+    override fun getEntityIdentifierAttributeVerticesBelongingToSourceContainerIndexPath(
+        path: SchematicPath
+    ): ImmutableSet<SchematicPath> {
+        return entityIdentifierAttributePathsByParentPath[path] ?: persistentSetOf()
+    }
+
     override fun findNearestEntityIdentifierPathRelatives(
         path: SchematicPath
     ): ImmutableSet<SchematicPath> {

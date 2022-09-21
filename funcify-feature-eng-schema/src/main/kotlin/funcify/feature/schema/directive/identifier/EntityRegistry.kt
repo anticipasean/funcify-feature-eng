@@ -29,6 +29,10 @@ interface EntityRegistry {
 
     fun pathBelongsToEntitySourceContainerTypeVertex(path: SchematicPath): Boolean
 
+    fun getEntityIdentifierAttributeVerticesBelongingToSourceContainerIndexPath(
+        path: SchematicPath
+    ): ImmutableSet<SchematicPath>
+
     /**
      * Assumes entities could have _composite_ identifiers (=> more than one attribute is necessary
      * for identification of a specific instance)

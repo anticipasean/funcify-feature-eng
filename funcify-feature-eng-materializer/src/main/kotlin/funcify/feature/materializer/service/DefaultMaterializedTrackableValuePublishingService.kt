@@ -21,12 +21,15 @@ import funcify.feature.tools.extensions.OptionExtensions.toOption
 import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentMap
 import funcify.feature.tools.extensions.SequenceExtensions.flatMapOptions
 import funcify.feature.tools.extensions.StreamExtensions.flatMapOptions
+import funcify.feature.tools.extensions.StreamExtensions.recurse
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.extensions.TryExtensions.successIfDefined
 import graphql.schema.GraphQLSchema
 import java.time.Instant
 import java.time.OffsetDateTime
+import java.util.stream.Stream
 import java.util.stream.Stream.empty
+import java.util.stream.Stream.of
 import kotlin.reflect.KClass
 import kotlin.reflect.KType
 import kotlin.streams.toList
@@ -211,16 +214,20 @@ internal class DefaultMaterializedTrackableValuePublishingService(
                             "reference_paths: {}",
                             referencePaths.asSequence().joinToString(", ", "{ ", " }")
                         )
+                        val valueAtTimestamp =
+                            relevantTimestampsByPath.values.maxOrNull().toOption().getOrElse {
+                                calculatedValue.calculatedTimestamp
+                            }
+                        logger.info(
+                            "value_at_timestamp: [ inputs: {}, result: {} ]",
+                            relevantTimestampsByPath.asSequence().joinToString(", ", "{ ", " }"),
+                            valueAtTimestamp
+                        )
                         calculatedValue.transitionToTracked {
                             canonicalPath(canonicalPath)
                                 .referencePaths(referencePaths)
                                 .contextualParameters(relevantIdsByPath)
-                                .valueAtTimestamp(
-                                    relevantTimestampsByPath.values
-                                        .maxOrNull()
-                                        .toOption()
-                                        .getOrElse { calculatedValue.calculatedTimestamp }
-                                )
+                                .valueAtTimestamp(valueAtTimestamp)
                                 .trackedValue(materializedJsonValue)
                         }
                     }
@@ -276,6 +283,7 @@ internal class DefaultMaterializedTrackableValuePublishingService(
                     arguments(
                         calculatedValue.contextualParameters
                             .asSequence()
+                            .filter { (paramPath, _) -> paramPath.arguments.isNotEmpty() }
                             .map { (p, jn) ->
                                 p.arguments.asIterable().firstOrNone().map { (argName, _) ->
                                     argName to jn
@@ -286,21 +294,10 @@ internal class DefaultMaterializedTrackableValuePublishingService(
                                 relevantIdsByPath
                                     .asSequence()
                                     .filter { (sp, _) ->
-                                        session.metamodelGraph.pathBasedGraph
-                                            .getVertex(sp)
-                                            .filterIsInstance<SourceAttributeVertex>()
-                                            .flatMap { sav: SourceAttributeVertex ->
-                                                session.metamodelGraph
-                                                    .parameterAttributeVerticesByQualifiedName
-                                                    .getOrNone(
-                                                        sav.compositeAttribute.conventionalName
-                                                            .qualifiedForm
-                                                    )
-                                            }
-                                            .filter { paramAttrVertices ->
-                                                paramAttrVertices.isNotEmpty()
-                                            }
-                                            .isDefined()
+                                        pathBelongsToSourceAttributeVertexThatAlsoCanServeAsParameterAttributeVertex(
+                                            sp,
+                                            session
+                                        )
                                     }
                                     .map { (sp, jn) ->
                                         sp.pathSegments.lastOrNone().map { lastPathSegment ->
@@ -318,24 +315,117 @@ internal class DefaultMaterializedTrackableValuePublishingService(
         }
     }
 
+    private fun pathBelongsToSourceAttributeVertexThatAlsoCanServeAsParameterAttributeVertex(
+        path: SchematicPath,
+        session: SingleRequestFieldMaterializationSession,
+    ): Boolean {
+        return path
+            .getParentPath()
+            .flatMap { pp ->
+                session.metamodelGraph.pathBasedGraph
+                    .getVertex(pp)
+                    .filterIsInstance<SourceContainerTypeVertex>()
+                    .map { sct -> sct.compositeContainerType.conventionalName.qualifiedForm }
+                    .zip(
+                        session.metamodelGraph.pathBasedGraph
+                            .getVertex(path)
+                            .filterIsInstance<SourceAttributeVertex>()
+                            .map { sa -> sa.compositeAttribute.conventionalName.qualifiedForm }
+                    )
+            }
+            .flatMap { parentTypeChildAttrName ->
+                session.metamodelGraph
+                    .sourceAttributeVerticesWithParentTypeAttributeQualifiedNamePair
+                    .getOrNone(parentTypeChildAttrName)
+            }
+            .flatMap { childAttrs ->
+                childAttrs
+                    .asSequence()
+                    .minByOrNull { sav -> sav.path }
+                    .toOption()
+                    .map { sav -> sav.compositeAttribute.conventionalName.qualifiedForm }
+                    .flatMap { name ->
+                        session.metamodelGraph.parameterAttributeVerticesByQualifiedName.getOrNone(
+                            name
+                        )
+                    }
+            }
+            .filter { paramAttrVertices -> paramAttrVertices.isNotEmpty() }
+            .isDefined()
+    }
+
     private fun findAnyEntityIdentifierValuesRelatedToThisField(
         calculatedValue: TrackableValue.CalculatedValue<JsonNode>,
         dispatchedRequest: SourceIndexRequestDispatch.TrackableSingleJsonValueDispatch,
         session: SingleRequestFieldMaterializationSession,
     ): Mono<ImmutableMap<SchematicPath, JsonNode>> {
-        return dispatchedRequest.retrievalFunctionSpec.parameterVerticesByPath.keys
-            .parallelStream()
-            .flatMap { sp ->
-                session.singleRequestSession.requestParameterMaterializationGraphPhase
-                    .map { phase -> phase.requestGraph.getEdgesTo(sp) }
+        return Stream.concat(
+                dispatchedRequest.retrievalFunctionSpec.parameterVerticesByPath.keys
+                    .parallelStream()
+                    .flatMap { sp ->
+                        session.singleRequestSession.requestParameterMaterializationGraphPhase
+                            .map { phase -> phase.requestGraph.getEdgesTo(sp) }
+                            .fold(::empty, ::identity)
+                    }
+                    .map { edge -> edge.id.first }
+                    .flatMap { sourceIndPath ->
+                        session.singleRequestSession.requestParameterMaterializationGraphPhase
+                            .map { phase -> phase.requestGraph.getEdgesTo(sourceIndPath) }
+                            .fold(::empty, ::identity)
+                    }
+                    .recurse { edge ->
+                        when {
+                            session.singleRequestSession.requestParameterMaterializationGraphPhase
+                                .flatMap { phase ->
+                                    phase.materializedParameterValuesByPath[edge.id.first]
+                                        .toOption()
+                                }
+                                .isDefined() -> {
+                                session.singleRequestSession
+                                    .requestParameterMaterializationGraphPhase
+                                    .flatMap { phase ->
+                                        phase.retrievalFunctionSpecByTopSourceIndexPath[
+                                                edge.id.second]
+                                            .toOption()
+                                    }
+                                    .fold(::empty, ::of)
+                                    .map { spec -> edge.id.second.right() }
+                            }
+                            else -> {
+                                session.singleRequestSession
+                                    .requestParameterMaterializationGraphPhase
+                                    .map { phase -> phase.requestGraph.getEdgesTo(edge.id.first) }
+                                    .fold(::empty, ::identity)
+                                    .map { parentEdge -> parentEdge.left() }
+                            }
+                        }
+                    }
+                    .flatMap { topSrcIndPath ->
+                        when {
+                            session.metamodelGraph.entityRegistry
+                                .pathBelongsToEntitySourceContainerTypeVertex(topSrcIndPath) -> {
+                                session.metamodelGraph.entityRegistry
+                                    .getEntityIdentifierAttributeVerticesBelongingToSourceContainerIndexPath(
+                                        topSrcIndPath
+                                    )
+                                    .stream()
+                            }
+                            else -> {
+                                session.metamodelGraph.entityRegistry
+                                    .findNearestEntityIdentifierPathRelatives(topSrcIndPath)
+                                    .stream()
+                            }
+                        }
+                    },
+                dispatchedRequest.sourceIndexPath
+                    .toOption()
+                    .map { p ->
+                        session.metamodelGraph.entityRegistry
+                            .findNearestEntityIdentifierPathRelatives(p)
+                            .stream()
+                    }
                     .fold(::empty, ::identity)
-            }
-            .map { edge -> edge.id.first }
-            .flatMap { dependentSourceIndPath ->
-                session.metamodelGraph.entityRegistry
-                    .findNearestEntityIdentifierPathRelatives(dependentSourceIndPath)
-                    .stream()
-            }
+            )
             .distinct()
             .map { entityIdParamPath ->
                 session.singleRequestSession.requestParameterMaterializationGraphPhase
