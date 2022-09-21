@@ -1,6 +1,7 @@
 package funcify.feature.schema.directive.temporal
 
 import arrow.core.Option
+import arrow.core.getOrNone
 import arrow.core.left
 import arrow.core.none
 import arrow.core.orElse
@@ -68,6 +69,12 @@ internal data class DefaultLastUpdatedTemporalAttributePathRegistry(
         path: SchematicPath
     ): Boolean {
         return path in lastUpdatedTemporalAttributePathByParentPath
+    }
+
+    override fun getLastUpdatedTemporalAttributeChildPathOfParentPath(
+        path: SchematicPath
+    ): Option<SchematicPath> {
+        return lastUpdatedTemporalAttributePathByParentPath.getOrNone(path)
     }
 
     override fun findNearestLastUpdatedTemporalAttributePathRelative(

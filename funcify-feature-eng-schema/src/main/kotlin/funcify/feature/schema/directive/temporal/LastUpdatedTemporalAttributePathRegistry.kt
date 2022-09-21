@@ -29,5 +29,7 @@ interface LastUpdatedTemporalAttributePathRegistry {
 
     fun pathBelongsToLastUpdatedTemporalAttributeParentVertex(path: SchematicPath): Boolean
 
+    fun getLastUpdatedTemporalAttributeChildPathOfParentPath(path: SchematicPath): Option<SchematicPath>
+
     fun findNearestLastUpdatedTemporalAttributePathRelative(path: SchematicPath): Option<SchematicPath>
 }

@@ -17,7 +17,6 @@ import funcify.feature.schema.vertex.SourceContainerTypeVertex
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.MonoExtensions.widen
 import funcify.feature.tools.extensions.OptionExtensions.toMono
-import funcify.feature.tools.extensions.OptionExtensions.toOption
 import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentMap
 import funcify.feature.tools.extensions.SequenceExtensions.flatMapOptions
 import funcify.feature.tools.extensions.StreamExtensions.flatMapOptions
@@ -99,6 +98,14 @@ internal class DefaultMaterializedTrackableValuePublishingService(
                     .filter { tv: TrackableValue<JsonNode> -> tv.isCalculated() }
                     .filterIsInstance<TrackableValue.CalculatedValue<JsonNode>>()
             ) { (dr, pub), cv -> Triple(dr, pub, cv) }
+            .tapNone {
+                logger.info(
+                    """publish_materialized_trackable_json_value_if_applicable: [ 
+                        | status: trackable_json_value not eligible for publication ] 
+                        |[ source_index_path: {} ]""".flatten(),
+                    materializedTrackableJsonValue.targetSourceIndexPath
+                )
+            }
             .map { (dispatchedRequest, publisher, calculatedValue) ->
                 when {
                         dispatchedRequestForCalculatedValueDependentOnOtherTrackableValues(
@@ -209,9 +216,9 @@ internal class DefaultMaterializedTrackableValuePublishingService(
                                     )
                                 }
                                 .toPersistentSet()
-                        logger.info("canonical_path: {}", canonicalPath)
+                        logger.info("canonical_path_with_context: {}", canonicalPath)
                         logger.info(
-                            "reference_paths: {}",
+                            "reference_paths_with_context: {}",
                             referencePaths.asSequence().joinToString(", ", "{ ", " }")
                         )
                         val valueAtTimestamp =
@@ -234,6 +241,12 @@ internal class DefaultMaterializedTrackableValuePublishingService(
                     .filter { tv: TrackableValue<JsonNode> -> tv.isTracked() }
                     .subscribe(
                         { trackedValue: TrackableValue<JsonNode> ->
+                            logger.info(
+                                """publish_materialized_trackable_json_value_if_applicable: [ 
+                                   | status: attempting to publish trackable_json_value ] 
+                                   |[ source_index_path: {} ]""".flatten(),
+                                materializedTrackableJsonValue.targetSourceIndexPath
+                            )
                             publisher.publishTrackableJsonValue(trackedValue)
                         },
                         { t: Throwable ->
@@ -514,28 +527,23 @@ internal class DefaultMaterializedTrackableValuePublishingService(
         calculatedValue: TrackableValue.CalculatedValue<JsonNode>,
         session: SingleRequestFieldMaterializationSession
     ): Mono<ImmutableMap<SchematicPath, Instant>> {
-        return dispatchedRequest.backupBaseExternalDataSourceJsonValuesRetriever.parameterPaths
-            .asSequence()
-            .map { paramPath ->
-                session.singleRequestSession.requestParameterMaterializationGraphPhase.flatMap {
-                    phase ->
-                    phase.requestGraph
-                        .getEdgesTo(paramPath)
-                        .map { edge -> edge.id.first }
-                        .findFirst()
-                        .toOption()
-                }
+        return dispatchedRequest.retrievalFunctionSpec.parameterVerticesByPath.keys
+            .parallelStream()
+            .flatMap { paramPath ->
+                session.singleRequestSession.requestParameterMaterializationGraphPhase
+                    .map { phase -> phase.requestGraph.getEdgesTo(paramPath) }
+                    .fold(::empty, ::identity)
             }
-            .flatMapOptions()
-            .map { srcIndPath ->
-                session.singleRequestSession.requestDispatchMaterializationGraphPhase.flatMap {
-                    phase ->
-                    phase.trackableSingleValueRequestDispatchesBySourceIndexPath.getOrNone(
-                        srcIndPath
-                    )
-                }
+            .map { edge -> edge.id.first }
+            .flatMap { topSrcIndPath ->
+                session.singleRequestSession.requestDispatchMaterializationGraphPhase
+                    .flatMap { phase ->
+                        phase.trackableSingleValueRequestDispatchesBySourceIndexPath.getOrNone(
+                            topSrcIndPath
+                        )
+                    }
+                    .fold(::empty, ::of)
             }
-            .flatMapOptions()
             .map { dependentTrackableValueDispatchedRequest ->
                 dependentTrackableValueDispatchedRequest.dispatchedTrackableValueRequest
                     .filter { otherTrackableValue -> otherTrackableValue.isTracked() }
@@ -545,8 +553,12 @@ internal class DefaultMaterializedTrackableValuePublishingService(
                                 .valueAtTimestamp
                     }
             }
-            .let { valueAtTimestampByPathSequence ->
-                Flux.merge(valueAtTimestampByPathSequence.asIterable())
+            .let { valueAtTimestampByPathStream ->
+                Flux.fromStream(valueAtTimestampByPathStream)
+                    .collectList()
+                    .flatMapMany { valueAtTimestampEntryPublishers ->
+                        Flux.merge(valueAtTimestampEntryPublishers)
+                    }
                     .reduce(persistentMapOf<SchematicPath, Instant>()) { pm, (k, v) ->
                         pm.put(k, v)
                     }
@@ -568,49 +580,45 @@ internal class DefaultMaterializedTrackableValuePublishingService(
             SourceIndexRequestDispatch.TrackableSingleJsonValueDispatch,
         session: SingleRequestFieldMaterializationSession
     ): Mono<ImmutableMap<SchematicPath, Instant>> {
-        return trackableSingleJsonValueDispatch.backupBaseExternalDataSourceJsonValuesRetriever
-            .parameterPaths
-            .asSequence()
-            .map { paramPath ->
+        return trackableSingleJsonValueDispatch.retrievalFunctionSpec.parameterVerticesByPath.keys
+            .parallelStream()
+            .flatMap { sp ->
                 session.singleRequestSession.requestParameterMaterializationGraphPhase
-                    .flatMap { phase ->
-                        phase.requestGraph
-                            .getEdgesTo(paramPath)
-                            .map { edge -> edge.id.first }
-                            .findFirst()
-                            .toOption()
-                    }
-                    .flatMap { dependentSourceIndex ->
-                        session.metamodelGraph.lastUpdatedTemporalAttributePathRegistry
-                            .findNearestLastUpdatedTemporalAttributePathRelative(
-                                dependentSourceIndex
-                            )
-                    }
+                    .map { phase -> phase.requestGraph.getEdgesTo(sp) }
+                    .fold(::empty, ::identity)
+            }
+            .map { edge -> edge.id.first }
+            .map { sourceIndexForParamPath ->
+                session.metamodelGraph.lastUpdatedTemporalAttributePathRegistry
+                    .findNearestLastUpdatedTemporalAttributePathRelative(sourceIndexForParamPath)
             }
             .flatMapOptions()
             .distinct()
-            .map { relatedLastUpdatedFieldPath ->
+            .map { lastUpdatedPath ->
                 session.singleRequestSession.requestDispatchMaterializationGraphPhase.flatMap {
                     phase ->
                     phase.externalDataSourceJsonValuesRequestDispatchesByAncestorSourceIndexPath
-                        .asSequence()
-                        .filter { (_, retr) ->
-                            retr.externalDataSourceJsonValuesRetriever.sourcePaths.contains(
-                                relatedLastUpdatedFieldPath
+                        .asIterable()
+                        .firstOrNone { (_, dispatch) ->
+                            dispatch.retrievalFunctionSpec.sourceVerticesByPath.containsKey(
+                                lastUpdatedPath
                             )
                         }
-                        .firstOrNull()
-                        .toOption()
-                        .zip(
-                            getVertexPathWithListIndexingIfDescendentOfListNode(
-                                relatedLastUpdatedFieldPath,
-                                session.materializationSchema
-                            )
-                        )
-                        .map { (retrEntry, lastUpdatedWithListInd) ->
-                            retrEntry.value.dispatchedMultipleIndexRequest
-                                .mapNotNull { resultMap -> resultMap[lastUpdatedWithListInd] }
-                                .map { jn -> relatedLastUpdatedFieldPath to jn!! }
+                        .map { (_, dispatch) ->
+                            dispatch.dispatchedMultipleIndexRequest
+                                .map { resultMap ->
+                                    getVertexPathWithListIndexingIfDescendentOfListNode(
+                                            lastUpdatedPath,
+                                            session.materializationSchema
+                                        )
+                                        .flatMap { listIndexedLastUpdatedPath ->
+                                            resultMap.getOrNone(listIndexedLastUpdatedPath).map { jn
+                                                ->
+                                                listIndexedLastUpdatedPath to jn
+                                            }
+                                        }
+                                }
+                                .flatMap { pairOpt -> pairOpt.toMono() }
                         }
                 }
             }
@@ -627,9 +635,14 @@ internal class DefaultMaterializedTrackableValuePublishingService(
                 }
             }
             .let { lastUpdatedAttrMonoSeq ->
-                Flux.merge(lastUpdatedAttrMonoSeq.asIterable()).reduce(
-                    persistentMapOf<SchematicPath, Instant>()
-                ) { pm, (k, v) -> pm.put(k, v) }
+                Flux.fromStream(lastUpdatedAttrMonoSeq)
+                    .collectList()
+                    .flatMapMany { lastUpdatedAttrMonos ->
+                        Flux.merge(lastUpdatedAttrMonos).cache()
+                    }
+                    .reduce(persistentMapOf<SchematicPath, Instant>()) { pm, (k, v) ->
+                        pm.put(k, v)
+                    }
             }
             .widen()
     }
