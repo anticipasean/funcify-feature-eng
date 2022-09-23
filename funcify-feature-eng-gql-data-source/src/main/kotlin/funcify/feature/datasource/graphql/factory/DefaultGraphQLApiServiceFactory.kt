@@ -3,15 +3,16 @@ package funcify.feature.datasource.graphql.factory
 import arrow.core.foldLeft
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.fasterxml.jackson.databind.JsonNode
-import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.node.JsonNodeFactory
 import com.fasterxml.jackson.databind.node.ObjectNode
 import funcify.feature.datasource.graphql.GraphQLApiService
 import funcify.feature.datasource.graphql.error.GQLDataSourceErrorResponse
 import funcify.feature.datasource.graphql.error.GQLDataSourceErrorResponse.GRAPHQL_DATA_SOURCE_CREATION_ERROR
 import funcify.feature.datasource.graphql.error.GQLDataSourceException
+import funcify.feature.json.JsonMapper
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import io.netty.handler.codec.http.HttpScheme
+import java.time.Duration
 import java.util.stream.Collectors
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -32,7 +33,7 @@ import reactor.core.publisher.Mono
  * @created 4/10/22
  */
 internal class DefaultGraphQLApiServiceFactory(
-    private val objectMapper: ObjectMapper,
+    private val jsonMapper: JsonMapper,
     private val webClientCustomizerProvider: ObjectProvider<WebClientCustomizer>,
     private val codecCustomizerProvider: ObjectProvider<WebClientCodecCustomizer>
 ) : GraphQLApiServiceFactory {
@@ -41,6 +42,9 @@ internal class DefaultGraphQLApiServiceFactory(
         private const val UNSET_SERVICE_NAME: String = ""
         private const val UNSET_HOST_NAME: String = ""
         private const val UNSET_PORT: UInt = 0u
+        private const val DEFAULT_GRAPHQL_REQUEST_TIMEOUT_SECONDS: Long = 10
+        private val DEFAULT_GRAPHQL_REQUEST_TIMEOUT: Duration =
+            Duration.ofSeconds(DEFAULT_GRAPHQL_REQUEST_TIMEOUT_SECONDS)
         private const val DEFAULT_GRAPHQL_SERVER_CONTEXT_PATH: String = "/graphql"
     }
 
@@ -67,19 +71,20 @@ internal class DefaultGraphQLApiServiceFactory(
 
     override fun builder(): GraphQLApiService.Builder {
         return DefaultGraphQLApiServiceBuilder(
-            objectMapper = objectMapper,
+            jsonMapper = jsonMapper,
             webClientUpdater = webClientBuilderUpdater
         )
     }
 
     internal class DefaultGraphQLApiServiceBuilder(
-        private val objectMapper: ObjectMapper,
+        private val jsonMapper: JsonMapper,
         private val webClientUpdater: (WebClient.Builder) -> WebClient.Builder,
         private var sslTlsSupported: Boolean = true,
         private var serviceName: String = UNSET_SERVICE_NAME,
         private var hostName: String = UNSET_HOST_NAME,
         private var port: UInt = UNSET_PORT,
-        private var serviceContextPath: String = DEFAULT_GRAPHQL_SERVER_CONTEXT_PATH
+        private var serviceContextPath: String = DEFAULT_GRAPHQL_SERVER_CONTEXT_PATH,
+        private var timeoutAfter: Duration = DEFAULT_GRAPHQL_REQUEST_TIMEOUT,
     ) : GraphQLApiService.Builder {
 
         override fun sslTlsSupported(sslTlsSupported: Boolean): GraphQLApiService.Builder {
@@ -104,6 +109,11 @@ internal class DefaultGraphQLApiServiceFactory(
 
         override fun serviceContextPath(serviceContextPath: String): GraphQLApiService.Builder {
             this.serviceContextPath = serviceContextPath
+            return this
+        }
+
+        override fun timeoutAfter(elapsedTime: Duration): GraphQLApiService.Builder {
+            this.timeoutAfter = elapsedTime
             return this
         }
 
@@ -143,7 +153,8 @@ internal class DefaultGraphQLApiServiceFactory(
                         hostName = hostName,
                         port = validatedPort,
                         serviceContextPath = serviceContextPath,
-                        objectMapper = objectMapper,
+                        timeoutAfter = timeoutAfter,
+                        jsonMapper = jsonMapper,
                         webClientUpdater = webClientUpdater
                     )
                 }
@@ -153,13 +164,14 @@ internal class DefaultGraphQLApiServiceFactory(
 
     internal data class DefaultGraphQLApiService(
         @JsonProperty("ssl_tls_supported") override val sslTlsSupported: Boolean,
-        @JsonProperty("http_scheme") val httpScheme: HttpScheme,
+        @JsonProperty("http_scheme") private val httpScheme: HttpScheme,
         @JsonProperty("service_name") override val serviceName: String,
         @JsonProperty("host_name") override val hostName: String,
         @JsonProperty("port") override val port: UInt,
         @JsonProperty("service_context_path") override val serviceContextPath: String,
-        private val objectMapper: ObjectMapper,
-        private val webClientUpdater: (WebClient.Builder) -> WebClient.Builder
+        @JsonProperty("timeout_after") override val timeoutAfter: Duration,
+        private val jsonMapper: JsonMapper,
+        private val webClientUpdater: (WebClient.Builder) -> WebClient.Builder,
     ) : GraphQLApiService {
 
         companion object {
@@ -176,9 +188,7 @@ internal class DefaultGraphQLApiServiceFactory(
                     .path(serviceContextPath)
             val uriBuilderFactory: UriBuilderFactory =
                 DefaultUriBuilderFactory(uriComponentsBuilder)
-            webClientUpdater
-                .invoke(WebClient.builder().uriBuilderFactory(uriBuilderFactory))
-                .build()
+            webClientUpdater(WebClient.builder().uriBuilderFactory(uriBuilderFactory)).build()
         }
 
         override fun executeSingleQuery(
@@ -213,7 +223,10 @@ internal class DefaultGraphQLApiServiceFactory(
                                     else -> {
                                         objNod.set(
                                             entry.key,
-                                            objectMapper.valueToTree<JsonNode>(entry.value)
+                                            jsonMapper
+                                                .fromKotlinObject(entVal)
+                                                .toJsonNode()
+                                                .orElseThrow()
                                         )
                                     }
                                 }
@@ -252,6 +265,22 @@ internal class DefaultGraphQLApiServiceFactory(
                     } else {
                         cr.bodyToMono(JsonNode::class.java)
                     }
+                }
+                .timeout(timeoutAfter)
+                .timed()
+                .map { timedJson ->
+                    logger.info(
+                        "execute_single_query: [ status: success ] [ elapsed_time: {} ms ]",
+                        timedJson.elapsed().toMillis()
+                    )
+                    timedJson.get()
+                }
+                .doOnError { t: Throwable ->
+                    logger.error(
+                        "execute_single_query: [ status: failed ] [ type: {}, message: {} ]",
+                        t::class.simpleName,
+                        t.message
+                    )
                 }
         }
     }

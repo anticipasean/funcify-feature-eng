@@ -3,6 +3,7 @@ package funcify.feature.datasource.graphql
 import com.fasterxml.jackson.databind.JsonNode
 import graphql.introspection.IntrospectionQuery
 import reactor.core.publisher.Mono
+import java.time.Duration
 
 /**
  *
@@ -20,6 +21,8 @@ interface GraphQLApiService {
     val port: UInt
 
     val serviceContextPath: String
+
+    val timeoutAfter: Duration
 
     val metadataQuery: String
         get() = IntrospectionQuery.INTROSPECTION_QUERY
@@ -41,6 +44,8 @@ interface GraphQLApiService {
         fun port(port: UInt): Builder
 
         fun serviceContextPath(serviceContextPath: String): Builder
+
+        fun timeoutAfter(elapsedTime: Duration): Builder
 
         fun build(): GraphQLApiService
     }

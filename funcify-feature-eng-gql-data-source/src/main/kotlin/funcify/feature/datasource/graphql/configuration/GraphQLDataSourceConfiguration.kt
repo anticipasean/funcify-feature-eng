@@ -42,12 +42,12 @@ class GraphQLDataSourceConfiguration {
     @ConditionalOnMissingBean(value = [GraphQLApiServiceFactory::class])
     @Bean
     fun graphQLApiServiceFactory(
-        objectMapper: ObjectMapper,
+        jsonMapper: JsonMapper,
         webClientCustomizerProvider: ObjectProvider<WebClientCustomizer>,
         codecCustomizerProvider: ObjectProvider<WebClientCodecCustomizer>
     ): GraphQLApiServiceFactory {
         return DefaultGraphQLApiServiceFactory(
-            objectMapper = objectMapper,
+            jsonMapper = jsonMapper,
             webClientCustomizerProvider = webClientCustomizerProvider,
             codecCustomizerProvider = codecCustomizerProvider
         )
