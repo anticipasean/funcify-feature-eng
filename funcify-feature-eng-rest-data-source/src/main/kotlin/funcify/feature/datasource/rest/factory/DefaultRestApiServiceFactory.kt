@@ -2,7 +2,6 @@ package funcify.feature.datasource.rest.factory
 
 import arrow.core.compose
 import com.fasterxml.jackson.annotation.JsonProperty
-import com.fasterxml.jackson.databind.ObjectMapper
 import funcify.feature.datasource.rest.RestApiService
 import funcify.feature.datasource.rest.error.RestApiDataSourceException
 import funcify.feature.datasource.rest.error.RestApiErrorResponse
@@ -10,6 +9,7 @@ import funcify.feature.datasource.rest.error.RestApiErrorResponse.REST_API_DATA_
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import io.netty.handler.codec.http.HttpScheme
+import java.time.Duration
 import java.util.stream.Collectors
 import org.slf4j.Logger
 import org.springframework.beans.factory.ObjectProvider
@@ -21,7 +21,6 @@ import org.springframework.web.util.UriBuilderFactory
 import org.springframework.web.util.UriComponentsBuilder
 
 internal class DefaultRestApiServiceFactory(
-    private val objectMapper: ObjectMapper,
     private val webClientCustomizerProvider: ObjectProvider<WebClientCustomizer>,
     private val codecCustomizerProvider: ObjectProvider<WebClientCodecCustomizer>
 ) : RestApiServiceFactory {
@@ -32,9 +31,11 @@ internal class DefaultRestApiServiceFactory(
         private const val UNSET_HOST_NAME: String = ""
         private const val UNSET_PORT: UInt = 0u
         private const val UNSET_SERVICE_CONTEXT_PATH: String = ""
+        private const val DEFAULT_REST_API_REQUEST_TIMEOUT_MILLISECONDS: Long = 10000
+        private val DEFAULT_REST_API_REQUEST_TIMEOUT: Duration =
+            Duration.ofMillis(DEFAULT_REST_API_REQUEST_TIMEOUT_MILLISECONDS)
 
         internal class DefaultRestApiServiceBuilder(
-            private val objectMapper: ObjectMapper,
             private val webClientUpdater: (WebClient.Builder) -> WebClient.Builder,
             private var sslTlsSupported: Boolean = true,
             private var serviceName: String = UNSET_SERVICE_NAME,
@@ -42,7 +43,8 @@ internal class DefaultRestApiServiceFactory(
             private var port: UInt = UNSET_PORT,
             private var serviceContextPath: String = UNSET_SERVICE_CONTEXT_PATH,
             private var serviceSpecificWebClientCustomizers: MutableList<WebClientCustomizer> =
-                mutableListOf()
+                mutableListOf(),
+            private var timeoutAfter: Duration = DEFAULT_REST_API_REQUEST_TIMEOUT
         ) : RestApiService.Builder {
 
             override fun sslTlsSupported(sslTlsSupported: Boolean): RestApiService.Builder {
@@ -74,6 +76,11 @@ internal class DefaultRestApiServiceFactory(
                 webClientCustomizer: WebClientCustomizer
             ): RestApiService.Builder {
                 this.serviceSpecificWebClientCustomizers.add(webClientCustomizer)
+                return this
+            }
+
+            override fun timeoutAfter(elapsedTime: Duration): RestApiService.Builder {
+                this.timeoutAfter = elapsedTime
                 return this
             }
 
@@ -123,7 +130,7 @@ internal class DefaultRestApiServiceFactory(
                             hostName = hostName,
                             port = validatedPort,
                             serviceContextPath = serviceContextPath,
-                            objectMapper = objectMapper,
+                            timeoutAfter = timeoutAfter,
                             webClientUpdater = serviceSpecificWebClientUpdater
                         )
                     }
@@ -138,8 +145,8 @@ internal class DefaultRestApiServiceFactory(
             @JsonProperty("host_name") override val hostName: String,
             @JsonProperty("port") override val port: UInt,
             @JsonProperty("service_context_path") override val serviceContextPath: String,
-            val objectMapper: ObjectMapper,
-            val webClientUpdater: (WebClient.Builder) -> WebClient.Builder
+            @JsonProperty("timeout_after") override val timeoutAfter: Duration,
+            private val webClientUpdater: (WebClient.Builder) -> WebClient.Builder,
         ) : RestApiService {
 
             companion object {
@@ -195,9 +202,6 @@ internal class DefaultRestApiServiceFactory(
         }
 
     override fun builder(): RestApiService.Builder {
-        return DefaultRestApiServiceBuilder(
-            objectMapper = objectMapper,
-            webClientUpdater = webClientBuilderUpdater
-        )
+        return DefaultRestApiServiceBuilder(webClientUpdater = webClientBuilderUpdater)
     }
 }

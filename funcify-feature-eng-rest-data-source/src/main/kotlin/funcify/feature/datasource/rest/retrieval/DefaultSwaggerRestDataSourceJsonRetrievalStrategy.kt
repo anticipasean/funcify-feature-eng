@@ -29,7 +29,6 @@ import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPer
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.extensions.TryExtensions.successIfDefined
 import io.swagger.v3.oas.models.media.Schema
-import java.util.concurrent.Executor
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.ImmutableSet
 import org.slf4j.Logger
@@ -43,7 +42,6 @@ import reactor.core.publisher.Mono
  * @created 2022-08-15
  */
 internal class DefaultSwaggerRestDataSourceJsonRetrievalStrategy(
-    private val asyncExecutor: Executor,
     private val jsonMapper: JsonMapper,
     override val dataSource: RestApiDataSource,
     override val parameterVertices:
@@ -377,6 +375,11 @@ internal class DefaultSwaggerRestDataSourceJsonRetrievalStrategy(
                 }
                 .toMono()
                 .flatMap { pathString ->
+                    logger.info(
+                        "execute_single_rest_api_post_request: [ service_name: {}, path: {} ]",
+                        dataSource.restApiService.serviceName,
+                        dataSource.restApiService.serviceContextPath + pathString
+                    )
                     dataSource.restApiService
                         .getWebClient()
                         .post()
@@ -384,7 +387,7 @@ internal class DefaultSwaggerRestDataSourceJsonRetrievalStrategy(
                         .accept(MediaType.APPLICATION_JSON)
                         .contentType(MediaType.APPLICATION_JSON)
                         .body(
-                            jsonMapper.fromJsonNode(requestBodyJson).toJsonString().toKFuture(),
+                            jsonMapper.fromJsonNode(requestBodyJson).toJsonString().toMono(),
                             String::class.java
                         )
                         .exchangeToMono { clientResponse: ClientResponse ->
@@ -399,14 +402,31 @@ internal class DefaultSwaggerRestDataSourceJsonRetrievalStrategy(
                                     Mono.error(
                                         RestApiDataSourceException(
                                             RestApiErrorResponse.CLIENT_ERROR,
-                                            """client_response from service not successful: [ 
-                                                |status: ${clientResponse.statusCode()}, 
-                                                |message: ${errorMessage} 
-                                                |]""".flatten()
+                                            """client_response.status: 
+                                               |[ code: ${clientResponse.statusCode().value()}, 
+                                               |reason: ${clientResponse.statusCode().reasonPhrase} ] 
+                                               |[ body: "$errorMessage" ]
+                                        """.flatten()
                                         )
                                     )
                                 }
                             }
+                        }
+                        .timeout(dataSource.restApiService.timeoutAfter)
+                        .timed()
+                        .map { timedJson ->
+                            logger.info(
+                                "execute_single_rest_api_post_request: [ status: success ] [ elapsed_time: {} ms ]",
+                                timedJson.elapsed().toMillis()
+                            )
+                            timedJson.get()
+                        }
+                        .doOnError { t: Throwable ->
+                            logger.error(
+                                "execute_single_rest_api_post_request: [ status: failed ] [ type: {}, message: {} ]",
+                                t::class.simpleName,
+                                t.message
+                            )
                         }
                 }
         }

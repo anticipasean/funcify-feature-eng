@@ -1,5 +1,6 @@
 package funcify.feature.datasource.rest
 
+import java.time.Duration
 import org.springframework.boot.web.reactive.function.client.WebClientCustomizer
 import org.springframework.web.reactive.function.client.WebClient
 
@@ -20,6 +21,8 @@ interface RestApiService {
 
     val serviceContextPath: String
 
+    val timeoutAfter: Duration
+
     fun getWebClient(): WebClient
 
     interface Builder {
@@ -35,6 +38,8 @@ interface RestApiService {
         fun serviceContextPath(serviceContextPath: String): Builder
 
         fun serviceSpecificWebClientCustomizer(webClientCustomizer: WebClientCustomizer): Builder
+
+        fun timeoutAfter(elapsedTime: Duration): Builder
 
         fun build(): RestApiService
     }

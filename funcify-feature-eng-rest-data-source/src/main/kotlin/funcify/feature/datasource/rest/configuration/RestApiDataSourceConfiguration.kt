@@ -1,6 +1,5 @@
 package funcify.feature.datasource.rest.configuration
 
-import com.fasterxml.jackson.databind.ObjectMapper
 import funcify.feature.datasource.rest.RestApiDataSource
 import funcify.feature.datasource.rest.error.RestApiDataSourceException
 import funcify.feature.datasource.rest.error.RestApiErrorResponse
@@ -30,7 +29,6 @@ import funcify.feature.json.JsonMapper
 import funcify.feature.tools.extensions.PersistentListExtensions.toPersistentList
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import io.swagger.v3.oas.models.OpenAPI
-import java.util.concurrent.Executor
 import org.springframework.beans.factory.ObjectProvider
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.autoconfigure.web.reactive.function.client.WebClientCodecCustomizer
@@ -44,12 +42,10 @@ class RestApiDataSourceConfiguration {
     @ConditionalOnMissingBean(value = [RestApiServiceFactory::class])
     @Bean
     fun restApiServiceFactory(
-        objectMapper: ObjectMapper,
         webClientCustomizerProvider: ObjectProvider<WebClientCustomizer>,
         codecCustomizerProvider: ObjectProvider<WebClientCodecCustomizer>
     ): RestApiServiceFactory {
         return DefaultRestApiServiceFactory(
-            objectMapper = objectMapper,
             webClientCustomizerProvider = webClientCustomizerProvider,
             codecCustomizerProvider = codecCustomizerProvider
         )
@@ -139,13 +135,11 @@ class RestApiDataSourceConfiguration {
     @ConditionalOnMissingBean(value = [SwaggerRestApiJsonRetrievalStrategyProvider::class])
     @Bean
     fun swaggerRestApiJsonRetrievalStrategyProvider(
-        asyncExecutor: Executor,
         jsonMapper: JsonMapper,
         swaggerRestApiJsonResponsePostProcessingStrategyProvider:
             ObjectProvider<SwaggerRestApiJsonResponsePostProcessingStrategy>
     ): SwaggerRestApiJsonRetrievalStrategyProvider {
         return DefaultSwaggerRestApiJsonRetrievalStrategyProvider(
-            asyncExecutor = asyncExecutor,
             jsonMapper = jsonMapper,
             postProcessingStrategy =
                 swaggerRestApiJsonResponsePostProcessingStrategyProvider.getIfAvailable {

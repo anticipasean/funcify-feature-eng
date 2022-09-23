@@ -29,6 +29,7 @@ import graphql.schema.idl.SchemaParser
 import graphql.schema.idl.TypeDefinitionRegistry
 import kotlinx.collections.immutable.PersistentList
 import reactor.core.publisher.Mono
+import java.time.Duration
 
 /**
  *
@@ -103,6 +104,8 @@ class MockGraphQLApiSourceMetadataProvider(val objectMapper: ObjectMapper) :
                     get() = 443u
                 override val serviceContextPath: String
                     get() = "/graphql"
+                override val timeoutAfter: Duration
+                    get() = Duration.ofMillis(1000)
 
                 override fun executeSingleQuery(
                     query: String,

@@ -13,13 +13,11 @@ import funcify.feature.schema.vertex.SourceLeafVertex
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flatten
-import java.util.concurrent.Executor
 import kotlin.reflect.full.isSubclassOf
 import kotlinx.collections.immutable.ImmutableSet
 import org.slf4j.Logger
 
 internal class DefaultSwaggerRestApiJsonRetrievalStrategyProvider(
-    private val asyncExecutor: Executor,
     private val jsonMapper: JsonMapper,
     private val postProcessingStrategy: SwaggerRestApiJsonResponsePostProcessingStrategy
 ) : SwaggerRestApiJsonRetrievalStrategyProvider {
@@ -48,7 +46,6 @@ internal class DefaultSwaggerRestApiJsonRetrievalStrategyProvider(
         )
         return Try.attempt {
             DefaultSwaggerRestDataSourceJsonRetrievalStrategy(
-                asyncExecutor = asyncExecutor,
                 jsonMapper = jsonMapper,
                 dataSource = dataSource as RestApiDataSource,
                 parameterVertices = parameterVertices,
