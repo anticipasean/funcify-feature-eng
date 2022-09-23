@@ -55,6 +55,7 @@ import kotlinx.collections.immutable.persistentMapOf
 import org.slf4j.Logger
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
+import reactor.core.scheduler.Schedulers
 
 internal class DefaultSingleRequestMaterializationDispatchService(
     private val asyncExecutor: Executor,

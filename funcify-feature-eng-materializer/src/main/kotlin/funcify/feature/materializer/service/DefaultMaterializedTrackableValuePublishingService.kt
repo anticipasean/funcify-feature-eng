@@ -100,8 +100,8 @@ internal class DefaultMaterializedTrackableValuePublishingService(
             ) { (dr, pub), cv -> Triple(dr, pub, cv) }
             .tapNone {
                 logger.info(
-                    """publish_materialized_trackable_json_value_if_applicable: [ 
-                        | status: trackable_json_value not eligible for publication ] 
+                    """publish_materialized_trackable_json_value_if_applicable: 
+                        |[ status: trackable_json_value not eligible for publication ] 
                         |[ source_index_path: {} ]""".flatten(),
                     materializedTrackableJsonValue.targetSourceIndexPath
                 )
@@ -242,8 +242,8 @@ internal class DefaultMaterializedTrackableValuePublishingService(
                     .subscribe(
                         { trackedValue: TrackableValue<JsonNode> ->
                             logger.info(
-                                """publish_materialized_trackable_json_value_if_applicable: [ 
-                                   | status: attempting to publish trackable_json_value ] 
+                                """publish_materialized_trackable_json_value_if_applicable: 
+                                   |[ status: attempting to publish trackable_json_value ] 
                                    |[ source_index_path: {} ]""".flatten(),
                                 materializedTrackableJsonValue.targetSourceIndexPath
                             )
