@@ -28,15 +28,13 @@ internal class DefaultGraphQLSingleRequestSessionFactory(
                 |[ raw_graphql_request.request_id: ${rawGraphQLRequest.requestId} ]
                 |""".flatten()
         )
-        return materializationMetamodelBroker
-            .fetchLatestMaterializationMetamodel()
-            .map { materializationMetamodel ->
-                DefaultGraphQLSingleRequestSession(
-                    materializationSchema = materializationMetamodel.materializationGraphQLSchema,
-                    metamodelGraph = materializationMetamodel.metamodelGraph,
-                    rawGraphQLRequest = rawGraphQLRequest
-                )
-            }
-            .toMono()
+        return materializationMetamodelBroker.fetchLatestMaterializationMetamodel().map {
+            materializationMetamodel ->
+            DefaultGraphQLSingleRequestSession(
+                materializationSchema = materializationMetamodel.materializationGraphQLSchema,
+                metamodelGraph = materializationMetamodel.metamodelGraph,
+                rawGraphQLRequest = rawGraphQLRequest
+            )
+        }
     }
 }

@@ -20,7 +20,6 @@ import reactor.core.publisher.Mono
  * @created 2/19/22
  */
 internal class DefaultGraphQLSingleRequestSessionCoordinator(
-    private val asyncExecutor: Executor,
     private val serializedGraphQLResponseFactory: SerializedGraphQLResponseFactory,
     private val materializationPreparsedDocumentProvider: MaterializationPreparsedDocumentProvider,
     private val materializationQueryExecutionStrategy:

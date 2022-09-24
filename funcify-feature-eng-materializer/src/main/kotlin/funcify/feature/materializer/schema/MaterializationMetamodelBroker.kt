@@ -1,11 +1,10 @@
 package funcify.feature.materializer.schema
 
-import funcify.feature.tools.container.async.KFuture
+import reactor.core.publisher.Mono
 
 interface MaterializationMetamodelBroker {
 
     fun pushNewMaterializationMetamodel(materializationMetamodel: MaterializationMetamodel)
 
-    fun fetchLatestMaterializationMetamodel(): KFuture<MaterializationMetamodel>
-
+    fun fetchLatestMaterializationMetamodel(): Mono<MaterializationMetamodel>
 }

@@ -1,12 +1,10 @@
-package funcify.feature.materializer.schema
+package funcify.feature.materializer.schema.edge
 
 import arrow.core.Option
 import com.fasterxml.jackson.databind.JsonNode
-import funcify.feature.materializer.schema.edge.RequestParameterEdge
 import funcify.feature.materializer.schema.edge.RequestParameterEdge.Builder
 import funcify.feature.materializer.schema.edge.RequestParameterEdge.DependentValueRequestParameterEdge
 import funcify.feature.materializer.schema.edge.RequestParameterEdge.MaterializedValueRequestParameterEdge
-import funcify.feature.materializer.schema.edge.RequestParameterEdgeFactory
 import funcify.feature.schema.path.SchematicPath
 import kotlinx.collections.immutable.ImmutableMap
 

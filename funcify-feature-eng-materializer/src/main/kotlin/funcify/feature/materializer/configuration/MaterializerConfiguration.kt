@@ -26,9 +26,9 @@ import funcify.feature.materializer.response.SerializedGraphQLResponseFactory
 import funcify.feature.materializer.schema.DefaultMaterializationGraphQLSchemaFactory
 import funcify.feature.materializer.schema.DefaultMaterializationMetamodel
 import funcify.feature.materializer.schema.DefaultMaterializationMetamodelBroker
-import funcify.feature.materializer.schema.DefaultRequestParameterEdgeFactory
 import funcify.feature.materializer.schema.MaterializationGraphQLSchemaFactory
 import funcify.feature.materializer.schema.MaterializationMetamodelBroker
+import funcify.feature.materializer.schema.edge.DefaultRequestParameterEdgeFactory
 import funcify.feature.materializer.service.*
 import funcify.feature.materializer.session.DefaultGraphQLSingleRequestSessionCoordinator
 import funcify.feature.materializer.session.DefaultGraphQLSingleRequestSessionFactory
@@ -326,14 +326,12 @@ class MaterializerConfiguration {
 
     @Bean
     fun graphQLSingleRequestSessionCoordinator(
-        asyncExecutor: Executor,
         serializedGraphQLResponseFactory: SerializedGraphQLResponseFactory,
         materializationPreparsedDocumentProvider: MaterializationPreparsedDocumentProvider,
         materializationQueryExecutionStrategy:
             GraphQLSingleRequestMaterializationQueryExecutionStrategy
     ): GraphQLSingleRequestSessionCoordinator {
         return DefaultGraphQLSingleRequestSessionCoordinator(
-            asyncExecutor = asyncExecutor,
             serializedGraphQLResponseFactory = serializedGraphQLResponseFactory,
             materializationPreparsedDocumentProvider = materializationPreparsedDocumentProvider,
             materializationQueryExecutionStrategy = materializationQueryExecutionStrategy

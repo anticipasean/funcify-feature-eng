@@ -38,6 +38,7 @@ import org.springframework.web.reactive.function.server.ServerRequest
 import org.springframework.web.reactive.function.server.ServerResponse
 import reactor.core.publisher.Mono
 import reactor.core.publisher.Timed
+import reactor.core.scheduler.Schedulers
 
 /**
  *
@@ -89,7 +90,8 @@ internal class GraphQLWebFluxHandlerFunction(
 
     override fun handle(request: ServerRequest): Mono<ServerResponse> {
         logger.info("handle: [ request.path: ${request.path()} ]")
-        return convertServerRequestIntoRawGraphQLRequest(request)
+        return Mono.defer { convertServerRequestIntoRawGraphQLRequest(request) }
+            .publishOn(Schedulers.boundedElastic())
             .flatMap { rawReq: RawGraphQLRequest ->
                 graphQLSingleRequestExecutor.executeSingleRequest(rawReq)
             }
