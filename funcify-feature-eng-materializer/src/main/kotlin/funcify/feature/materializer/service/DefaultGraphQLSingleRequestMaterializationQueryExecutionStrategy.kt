@@ -33,6 +33,7 @@ import kotlinx.collections.immutable.persistentMapOf
 import org.slf4j.Logger
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
+import reactor.core.scheduler.Schedulers
 
 /**
  *
@@ -117,7 +118,6 @@ internal class DefaultGraphQLSingleRequestMaterializationQueryExecutionStrategy(
         parameters: ExecutionStrategyParameters,
     ): CompletableFuture<ExecutionResult> {
         logger.info("execute: [ execution_context.execution_id: {} ]", executionContext.executionId)
-
         when {
             executionContext.operationDefinition.name == "IntrospectionQuery" ||
                 executionContext.operationDefinition
@@ -231,13 +231,14 @@ internal class DefaultGraphQLSingleRequestMaterializationQueryExecutionStrategy(
             resolvedFields.add(fieldName)
             val fieldValueInfoMono: Mono<FieldValueInfo> =
                 Mono.fromCompletionStage { resolveFieldWithInfo(executionContext, newParameters) }
+                    .subscribeOn(Schedulers.boundedElastic())
             fieldValueInfoMonos.add(fieldValueInfoMono)
         }
 
         val overallResult: CompletableFuture<ExecutionResult> = CompletableFuture<ExecutionResult>()
         executionStrategyCtx.onDispatched(overallResult)
 
-        val resultsHandler: (MutableList<ExecutionResult>?, Throwable?) -> Unit =
+        val resultsHandler: (List<ExecutionResult>?, Throwable?) -> Unit =
             createResultsHandlerForExecutionResultsForFieldNames(
                 executionContext,
                 resolvedFields,
@@ -245,16 +246,17 @@ internal class DefaultGraphQLSingleRequestMaterializationQueryExecutionStrategy(
             )
         Flux.mergeSequential(fieldValueInfoMonos)
             .collectList()
-            .doOnNext { completeFieldValueInfos: MutableList<FieldValueInfo> ->
+            .doOnNext { completeFieldValueInfos: List<FieldValueInfo> ->
                 executionStrategyCtx.onFieldValuesInfo(completeFieldValueInfos)
             }
-            .flatMapMany { completeFieldValueInfos: MutableList<FieldValueInfo> ->
+            .flatMapMany { completeFieldValueInfos: List<FieldValueInfo> ->
                 Flux.mergeSequential(
                     completeFieldValueInfos
                         .asSequence()
                         .map { fieldValueInfo: FieldValueInfo -> fieldValueInfo.fieldValue }
                         .map { executionResultFuture ->
                             Mono.fromCompletionStage(executionResultFuture)
+                                .subscribeOn(Schedulers.boundedElastic())
                         }
                         .asIterable()
                 )
@@ -272,12 +274,12 @@ internal class DefaultGraphQLSingleRequestMaterializationQueryExecutionStrategy(
             )
             .subscribe(
                 { executionResults: MutableList<ExecutionResult> ->
-                    resultsHandler.invoke(executionResults, null)
+                    resultsHandler(executionResults, null)
                 },
                 { throwable: Throwable ->
                     executionStrategyCtx.onFieldValuesException()
                     overallResult.completeExceptionally(throwable)
-                    resultsHandler.invoke(null, throwable)
+                    resultsHandler(null, throwable)
                 }
             )
 

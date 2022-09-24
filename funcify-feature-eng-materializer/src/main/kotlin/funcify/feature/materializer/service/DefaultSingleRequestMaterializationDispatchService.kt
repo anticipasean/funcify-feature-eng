@@ -55,7 +55,6 @@ import kotlinx.collections.immutable.persistentMapOf
 import org.slf4j.Logger
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
-import reactor.core.scheduler.Schedulers
 
 internal class DefaultSingleRequestMaterializationDispatchService(
     private val asyncExecutor: Executor,
@@ -287,8 +286,7 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                                     .dispatchedMultiValueResponsesBySourceIndexPath
                                     .put(
                                         sourceIndexPath,
-                                        multiSrcIndJsonRetrFunc
-                                            .invoke(
+                                        multiSrcIndJsonRetrFunc(
                                                 retrievalFunctionSpec.parameterVerticesByPath.keys
                                                     .asSequence()
                                                     .map { p ->
@@ -367,8 +365,7 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                                                 session
                                             )
                                             .flatMap { plannedValue ->
-                                                singleSrcIndCacheRetrFunc
-                                                    .invoke(plannedValue)
+                                                singleSrcIndCacheRetrFunc(plannedValue)
                                                     .cache()
                                                     .timeout(DEFAULT_EXTERNAL_CALL_TIMEOUT_DURATION)
                                             }
@@ -546,8 +543,7 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                 )
                 .reduce(persistentMapOf<SchematicPath, JsonNode>()) { pm, (k, v) -> pm.put(k, v) }
                 .flatMap { inputMap ->
-                    multiSrcIndJsonRetrFunc
-                        .invoke(inputMap)
+                    multiSrcIndJsonRetrFunc(inputMap)
                         .cache()
                         .timeout(DEFAULT_EXTERNAL_CALL_TIMEOUT_DURATION)
                 }
@@ -699,8 +695,7 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                                     }
                             }
                             .flatMap { inputMap ->
-                                multiSrcIndJsonRetrievalFunction
-                                    .invoke(inputMap)
+                                multiSrcIndJsonRetrievalFunction(inputMap)
                                     .cache()
                                     .timeout(DEFAULT_EXTERNAL_CALL_TIMEOUT_DURATION)
                             }
@@ -952,7 +947,7 @@ internal class DefaultSingleRequestMaterializationDispatchService(
             .flatMap { tv: TrackableValue<JsonNode> ->
                 when (tv) {
                     is TrackableValue.PlannedValue -> {
-                        backupExternalDataSourceCalculatedJsonValueRetriever.invoke(
+                        backupExternalDataSourceCalculatedJsonValueRetriever(
                             tv,
                             deferredParameterValuesByParamPath
                         )

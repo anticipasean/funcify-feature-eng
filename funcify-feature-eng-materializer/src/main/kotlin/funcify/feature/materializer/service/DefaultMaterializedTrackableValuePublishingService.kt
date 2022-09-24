@@ -107,31 +107,35 @@ internal class DefaultMaterializedTrackableValuePublishingService(
                 )
             }
             .map { (dispatchedRequest, publisher, calculatedValue) ->
-                when {
-                        dispatchedRequestForCalculatedValueDependentOnOtherTrackableValues(
+                Mono.defer {
+                        findAnyLastUpdatedFieldValuesRelatedToThisField(
+                            calculatedValue.targetSourceIndexPath,
                             dispatchedRequest,
-                            calculatedValue,
                             session
-                        ) -> {
-                            gatherAnyValueAtTimestampsFromTrackedValuesUsedAsInputForCalculatedValue(
-                                    dispatchedRequest,
-                                    calculatedValue,
-                                    session
-                                )
-                                .zipWith(
-                                    findAnyLastUpdatedFieldValuesRelatedToThisField(
-                                        calculatedValue.targetSourceIndexPath,
+                        )
+                    }
+                    .subscribeOn(Schedulers.boundedElastic())
+                    .flatMap { lastUpdValuesByPath ->
+                        when {
+                            dispatchedRequestForCalculatedValueDependentOnOtherTrackableValues(
+                                dispatchedRequest,
+                                calculatedValue,
+                                session
+                            ) -> {
+                                gatherAnyValueAtTimestampsFromTrackedValuesUsedAsInputForCalculatedValue(
                                         dispatchedRequest,
+                                        calculatedValue,
                                         session
                                     )
-                                ) { m1, m2 -> m1.toPersistentMap().putAll(m2) }
-                        }
-                        else -> {
-                            findAnyLastUpdatedFieldValuesRelatedToThisField(
-                                calculatedValue.targetSourceIndexPath,
-                                dispatchedRequest,
-                                session
-                            )
+                                    .map { otherTimestampsByPath ->
+                                        lastUpdValuesByPath
+                                            .toPersistentMap()
+                                            .putAll(otherTimestampsByPath)
+                                    }
+                            }
+                            else -> {
+                                Mono.just(lastUpdValuesByPath)
+                            }
                         }
                     }
                     .zipWith(
@@ -141,7 +145,6 @@ internal class DefaultMaterializedTrackableValuePublishingService(
                             session
                         )
                     ) { ts, ids -> ts to ids }
-                    .subscribeOn(Schedulers.boundedElastic())
                     .zipWith(
                         jsonMapper.fromKotlinObject(materializedValue).toJsonNode().toMono()
                     ) { (ts, ids), jn -> Triple(ts, ids, jn) }

@@ -35,6 +35,7 @@ import org.slf4j.Logger
 import org.springframework.http.MediaType
 import org.springframework.web.reactive.function.client.ClientResponse
 import reactor.core.publisher.Mono
+import reactor.core.scheduler.Schedulers
 
 /**
  *
@@ -412,6 +413,7 @@ internal class DefaultSwaggerRestDataSourceJsonRetrievalStrategy(
                                 }
                             }
                         }
+                        .publishOn(Schedulers.boundedElastic())
                         .timeout(dataSource.restApiService.timeoutAfter)
                         .timed()
                         .map { timedJson ->

@@ -126,13 +126,14 @@ internal class DefaultSingleRequestMaterializationOrchestratorService(
                                     JsonNodeToStandardValueConverter.invoke(jn, gqlOutputType)
                                 }
                                 .toMono()
-                                .doOnNext { materializedValue ->
+                                .publish { materializedValue ->
                                     materializedTrackableValuePublishingService
                                         .publishMaterializedTrackableJsonValueIfApplicable(
                                             session,
                                             trackableJsonValue,
                                             materializedValue
                                         )
+                                    Mono.defer { materializedValue }
                                 }
                         }
                     }
@@ -143,9 +144,8 @@ internal class DefaultSingleRequestMaterializationOrchestratorService(
                     .externalDataSourceJsonValuesRequestDispatchesByAncestorSourceIndexPath -> {
                 session.singleRequestSession.requestDispatchMaterializationGraphPhase
                     .flatMap { phase ->
-                        phase.externalDataSourceJsonValuesRequestDispatchesByAncestorSourceIndexPath.getOrNone(
-                            currentFieldPathWithoutListIndexing
-                                                                                                              )
+                        phase.externalDataSourceJsonValuesRequestDispatchesByAncestorSourceIndexPath
+                            .getOrNone(currentFieldPathWithoutListIndexing)
                     }
                     .map { mr ->
                         mr.dispatchedMultipleIndexRequest.map { deferredResultMap ->

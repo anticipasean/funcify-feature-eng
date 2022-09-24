@@ -26,6 +26,7 @@ import org.springframework.web.util.DefaultUriBuilderFactory
 import org.springframework.web.util.UriBuilderFactory
 import org.springframework.web.util.UriComponentsBuilder
 import reactor.core.publisher.Mono
+import reactor.core.scheduler.Schedulers
 
 /**
  *
@@ -237,6 +238,7 @@ internal class DefaultGraphQLApiServiceFactory(
                             cr.bodyToMono(JsonNode::class.java)
                         }
                     }
+                    .publishOn(Schedulers.boundedElastic())
                     .timeout(timeoutAfter)
                     .timed()
                     .map { timedJson ->
