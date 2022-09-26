@@ -114,7 +114,7 @@ internal class GraphQLWebFluxHandlerFunction(
                         "failure"
                     }
                 logger.info(
-                    "handle: [ status: {}, elapsed_time: {} ms ] [ response_http_status: {} ]",
+                    "handle: [ status: {} ] [ elapsed_time: {} ms, response_http_status: {} ]",
                     successOrFailureStatus,
                     timedResponse.elapsedSinceSubscription().toMillis(),
                     timedResponse.get().statusCode()

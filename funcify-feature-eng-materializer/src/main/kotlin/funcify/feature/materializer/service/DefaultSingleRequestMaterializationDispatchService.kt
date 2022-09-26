@@ -430,7 +430,6 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                         )
                     }
             }
-            .toMono()
             .flatMap { (parentTypeName, childAttributeName) ->
                 FieldCoordinates.coordinates(parentTypeName, childAttributeName)
                     .toOption()
@@ -449,26 +448,26 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                                 .format(parentTypeName, childAttributeName)
                         )
                     }
-                    .toMono()
-                    .flatMap { gqlt ->
-                        filterMaterializedParameterValuesByPathRelatedToTargetSourceIndexPath(
-                                sourceIndexPath,
-                                retrievalFunctionSpec,
-                                graphPhase,
-                                session
-                            )
-                            .flatMap { filteredContextParameterValues ->
-                                trackableValueFactory
-                                    .builder()
-                                    .targetSourceIndexPath(sourceIndexPath)
-                                    .contextualParameters(filteredContextParameterValues)
-                                    .graphQLOutputType(gqlt)
-                                    .buildForInstanceOf<JsonNode>()
-                                    .toMono()
-                            }
-                    }
             }
-            .cache()
+            .toMono()
+            .flatMap { gqlt ->
+                filterMaterializedParameterValuesByPathRelatedToTargetSourceIndexPath(
+                        sourceIndexPath,
+                        retrievalFunctionSpec,
+                        graphPhase,
+                        session
+                    )
+                    .flatMap { filteredContextParameterValues ->
+                        trackableValueFactory
+                            .builder()
+                            .targetSourceIndexPath(sourceIndexPath)
+                            .contextualParameters(filteredContextParameterValues)
+                            .graphQLOutputType(gqlt)
+                            .buildForInstanceOf<JsonNode>()
+                            .toMono()
+                    }
+                    .cache()
+            }
     }
 
     private fun filterMaterializedParameterValuesByPathRelatedToTargetSourceIndexPath(
