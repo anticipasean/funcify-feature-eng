@@ -114,7 +114,7 @@ internal class DefaultMaterializedTrackableValuePublishingService(
                             session
                         )
                     }
-                    .subscribeOn(Schedulers.boundedElastic())
+                    .publishOn(Schedulers.boundedElastic())
                     .flatMap { lastUpdValuesByPath ->
                         when {
                             dispatchedRequestForCalculatedValueDependentOnOtherTrackableValues(
