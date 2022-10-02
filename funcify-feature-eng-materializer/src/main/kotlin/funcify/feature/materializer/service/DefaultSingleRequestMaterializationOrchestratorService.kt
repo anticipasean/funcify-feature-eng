@@ -27,8 +27,6 @@ import reactor.core.publisher.Mono
 
 internal class DefaultSingleRequestMaterializationOrchestratorService(
     private val jsonMapper: JsonMapper,
-    private val materializedTrackableValuePublishingService:
-        MaterializedTrackableValuePublishingService
 ) : SingleRequestMaterializationOrchestratorService {
 
     companion object {
@@ -79,9 +77,11 @@ internal class DefaultSingleRequestMaterializationOrchestratorService(
         val (currentFieldPath, currentFieldPathWithoutListIndexing) =
             getFieldSchematicPathWithAndWithoutListIndexing(session)
         logger.info(
-            "materialize_value_in_session: [ session_id: ${session.sessionId}, field.name: {}, current_field_path: {} ]",
-            session.dataFetchingEnvironment.field.name,
-            currentFieldPath
+            """materialize_value_in_session: [ 
+            |session_id: ${session.sessionId}, 
+            |field.name: ${session.dataFetchingEnvironment.field.name}, 
+            |current_field_path: ${currentFieldPath} 
+            |]""".flatten()
         )
         if (!sessionHasDefinedMaterializationPhases(session)) {
             return createMaterializationPhasesSkippedErrorPublisher()
@@ -194,7 +194,7 @@ internal class DefaultSingleRequestMaterializationOrchestratorService(
                     "unable to map field_path to child entry of json_node map source: [ field_path: ${currentFieldPath} ]"
                 )
             }
-            .map { (jn, gqlType) -> JsonNodeToStandardValueConverter.invoke(jn, gqlType) }
+            .map { (jn, gqlType) -> JsonNodeToStandardValueConverter(jn, gqlType) }
             .toMono()
             .flatMap { resultOpt -> resultOpt.toMono() }
     }
@@ -223,7 +223,7 @@ internal class DefaultSingleRequestMaterializationOrchestratorService(
                             }
                         )
                         .flatMap { (jn, gqlOutputType) ->
-                            JsonNodeToStandardValueConverter.invoke(jn, gqlOutputType)
+                            JsonNodeToStandardValueConverter(jn, gqlOutputType)
                         }
                         .toMono()
                 }
@@ -278,18 +278,9 @@ internal class DefaultSingleRequestMaterializationOrchestratorService(
                             }
                         )
                         .flatMap { (jn, gqlOutputType) ->
-                            JsonNodeToStandardValueConverter.invoke(jn, gqlOutputType)
+                            JsonNodeToStandardValueConverter(jn, gqlOutputType)
                         }
                         .toMono()
-                        .publish { materializedValue ->
-                            materializedTrackableValuePublishingService
-                                .publishMaterializedTrackableJsonValueIfApplicable(
-                                    session,
-                                    trackableJsonValue,
-                                    materializedValue
-                                )
-                            Mono.defer { materializedValue }
-                        }
                 }
             }
     }
@@ -302,8 +293,7 @@ internal class DefaultSingleRequestMaterializationOrchestratorService(
             .getSource<List<JsonNode>>()
             .toOption()
             .zip(
-                session.dataFetchingEnvironment.executionStepInfo.path.toOption().map { rp,
-                    ->
+                session.dataFetchingEnvironment.executionStepInfo.path.toOption().map { rp ->
                     if (rp.isListSegment) {
                         rp.segmentIndex
                     } else {
@@ -329,7 +319,7 @@ internal class DefaultSingleRequestMaterializationOrchestratorService(
                     "unable to map field_path to index of json_node list source: [ field_path: ${currentFieldPath} ]"
                 )
             }
-            .map { (jn, gqlType) -> JsonNodeToStandardValueConverter.invoke(jn, gqlType) }
+            .map { (jn, gqlType) -> JsonNodeToStandardValueConverter(jn, gqlType) }
             .toMono()
             .flatMap { resultOpt -> resultOpt.toMono() }
     }
@@ -356,7 +346,7 @@ internal class DefaultSingleRequestMaterializationOrchestratorService(
                     "unable to map field_path to json_node source: [ field_path: ${currentFieldPath} ]"
                 )
             }
-            .map { (jn, gqlType) -> JsonNodeToStandardValueConverter.invoke(jn, gqlType) }
+            .map { (jn, gqlType) -> JsonNodeToStandardValueConverter(jn, gqlType) }
             .toMono()
             .flatMap { resultOpt -> resultOpt.toMono() }
     }

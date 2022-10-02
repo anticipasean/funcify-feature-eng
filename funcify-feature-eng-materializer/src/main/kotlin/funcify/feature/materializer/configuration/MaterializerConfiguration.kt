@@ -228,13 +228,15 @@ class MaterializerConfiguration {
         asyncExecutor: Executor,
         schematicPathBasedJsonRetrievalFunctionFactory:
             SchematicPathBasedJsonRetrievalFunctionFactory,
-        trackableValueFactory: TrackableValueFactory
+        trackableValueFactory: TrackableValueFactory,
+        materializedTrackableValuePublishingService: MaterializedTrackableValuePublishingService
     ): SingleRequestMaterializationDispatchService {
         return DefaultSingleRequestMaterializationDispatchService(
             asyncExecutor = asyncExecutor,
             schematicPathBasedJsonRetrievalFunctionFactory =
                 schematicPathBasedJsonRetrievalFunctionFactory,
-            trackableValueFactory = trackableValueFactory
+            trackableValueFactory = trackableValueFactory,
+            materializedTrackableValuePublishingService = materializedTrackableValuePublishingService
         )
     }
 
@@ -260,9 +262,7 @@ class MaterializerConfiguration {
         materializedTrackableValuePublishingService: MaterializedTrackableValuePublishingService
     ): SingleRequestMaterializationOrchestratorService {
         return DefaultSingleRequestMaterializationOrchestratorService(
-            jsonMapper = jsonMapper,
-            materializedTrackableValuePublishingService =
-                materializedTrackableValuePublishingService
+            jsonMapper = jsonMapper
         )
     }
 

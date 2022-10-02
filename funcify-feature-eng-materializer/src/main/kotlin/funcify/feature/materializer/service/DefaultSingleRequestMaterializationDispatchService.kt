@@ -14,6 +14,7 @@ import funcify.feature.materializer.dispatch.SourceIndexRequestDispatch.*
 import funcify.feature.materializer.dispatch.SourceIndexRequestDispatchFactory
 import funcify.feature.materializer.error.MaterializerErrorResponse
 import funcify.feature.materializer.error.MaterializerException
+import funcify.feature.materializer.json.JsonNodeToStandardValueConverter
 import funcify.feature.materializer.phase.DefaultRequestDispatchMaterializationPhase
 import funcify.feature.materializer.phase.RequestDispatchMaterializationPhase
 import funcify.feature.materializer.phase.RequestParameterMaterializationGraphPhase
@@ -55,12 +56,16 @@ import kotlinx.collections.immutable.persistentMapOf
 import org.slf4j.Logger
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
+import reactor.core.scheduler.Schedulers
+import reactor.kotlin.core.publisher.ofType
 
 internal class DefaultSingleRequestMaterializationDispatchService(
     private val asyncExecutor: Executor,
     private val schematicPathBasedJsonRetrievalFunctionFactory:
         SchematicPathBasedJsonRetrievalFunctionFactory,
     private val trackableValueFactory: TrackableValueFactory,
+    private val materializedTrackableValuePublishingService:
+        MaterializedTrackableValuePublishingService,
     private val sourceIndexRequestDispatchFactory: SourceIndexRequestDispatchFactory =
         DefaultSourceIndexRequestDispatchFactory(),
 ) : SingleRequestMaterializationDispatchService {
@@ -196,6 +201,7 @@ internal class DefaultSingleRequestMaterializationDispatchService(
             .map { requestDispatchPhase ->
                 session.update { requestDispatchMaterializationPhase(requestDispatchPhase) }
             }
+            .flatMap { updatedSession -> publishAnyCalculatedValuesWhenReceived(updatedSession) }
             .peekIfSuccess { updatedSession ->
                 logger.info(
                     "request_dispatch_phase: {}",
@@ -956,6 +962,45 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                 }
             }
             .cache()
+    }
+
+    private fun publishAnyCalculatedValuesWhenReceived(
+        session: GraphQLSingleRequestSession,
+    ): Try<GraphQLSingleRequestSession> {
+        logger.info(
+            """publish_any_calculated_values_when_received: [ 
+            |session.request_dispatch_materialization_phase.
+            |trackable_single_value_request_dispatches_by_source_index_path.
+            |size: {} 
+            |]""".flatten(),
+            session.requestDispatchMaterializationGraphPhase
+                .map { phase -> phase.trackableSingleValueRequestDispatchesBySourceIndexPath.size }
+                .getOrElse { 0 }
+        )
+        session.requestDispatchMaterializationGraphPhase
+            .map { phase -> phase.trackableSingleValueRequestDispatchesBySourceIndexPath }
+            .toMono()
+            .flatMapMany { dispatchesByPath -> Flux.fromIterable(dispatchesByPath.entries) }
+            .publishOn(Schedulers.boundedElastic())
+            .flatMap { (srcIndPath, dispatch) ->
+                dispatch.dispatchedTrackableValueRequest
+                    .filter { tv -> tv.isCalculated() }
+                    .ofType<TrackableValue.CalculatedValue<JsonNode>>()
+                    .flatMap { tv ->
+                        JsonNodeToStandardValueConverter(tv.calculatedValue, tv.graphQLOutputType)
+                            .toMono()
+                            .map { materializedValue ->
+                                materializedTrackableValuePublishingService
+                                    .publishMaterializedTrackableJsonValueIfApplicable(
+                                        session,
+                                        tv,
+                                        materializedValue
+                                    )
+                            }
+                    }
+            }
+            .subscribe()
+        return Try.success(session)
     }
 
     private fun convertRequestCreationContextIntoRequestDispatchMaterializationPhase(

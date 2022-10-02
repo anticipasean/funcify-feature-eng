@@ -8,9 +8,9 @@ import funcify.feature.json.JsonMapper
 import funcify.feature.materializer.dispatch.SourceIndexRequestDispatch
 import funcify.feature.materializer.error.MaterializerErrorResponse
 import funcify.feature.materializer.error.MaterializerException
-import funcify.feature.materializer.fetcher.SingleRequestFieldMaterializationSession
 import funcify.feature.materializer.phase.RequestDispatchMaterializationPhase
 import funcify.feature.materializer.schema.path.ListIndexedSchematicPathGraphQLSchemaBasedCalculator
+import funcify.feature.materializer.session.GraphQLSingleRequestSession
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.schema.vertex.SourceAttributeVertex
 import funcify.feature.schema.vertex.SourceContainerTypeVertex
@@ -57,7 +57,7 @@ internal class DefaultMaterializedTrackableValuePublishingService(
     }
 
     override fun publishMaterializedTrackableJsonValueIfApplicable(
-        session: SingleRequestFieldMaterializationSession,
+        session: GraphQLSingleRequestSession,
         materializedTrackableJsonValue: TrackableValue<JsonNode>,
         materializedValue: Any,
     ) {
@@ -76,7 +76,7 @@ internal class DefaultMaterializedTrackableValuePublishingService(
                 .orNull(),
             materializedTrackableJsonValue.targetSourceIndexPath
         )
-        session.singleRequestSession.requestDispatchMaterializationGraphPhase
+        session.requestDispatchMaterializationGraphPhase
             .flatMap { phase: RequestDispatchMaterializationPhase ->
                 phase.trackableSingleValueRequestDispatchesBySourceIndexPath.getOrNone(
                     materializedTrackableJsonValue.targetSourceIndexPath
@@ -173,10 +173,27 @@ internal class DefaultMaterializedTrackableValuePublishingService(
                                     )
                                 }
                                 .orElseThrow()
+                        val childAttributeName: String =
+                            calculatedValue.targetSourceIndexPath
+                                .toOption()
+                                .flatMap { sp ->
+                                    session.metamodelGraph.pathBasedGraph.getVertex(sp)
+                                }
+                                .filterIsInstance<SourceAttributeVertex>()
+                                .map { sav ->
+                                    sav.compositeAttribute.conventionalName.qualifiedForm
+                                }
+                                .successIfDefined {
+                                    MaterializerException(
+                                        MaterializerErrorResponse.UNEXPECTED_ERROR,
+                                        "could not find attribute_name for [ path: ${calculatedValue.targetSourceIndexPath} ]"
+                                    )
+                                }
+                                .orElseThrow()
                         val canonicalAndReferenceVertices: Set<SourceAttributeVertex> =
                             session.metamodelGraph
                                 .sourceAttributeVerticesWithParentTypeAttributeQualifiedNamePair
-                                .getOrNone(parentTypeName to session.field.name)
+                                .getOrNone(parentTypeName to childAttributeName)
                                 .fold(::emptySet, ::identity)
                         val canonicalPath: SchematicPath =
                             canonicalAndReferenceVertices
@@ -185,7 +202,7 @@ internal class DefaultMaterializedTrackableValuePublishingService(
                                 .minOrNull()
                                 .toOption()
                                 .map { sp ->
-                                    decoratePathWithRelevantContextualEntityIdentifiers(
+                                    decorateCanonicalPathWithRelevantContextualEntityIdentifiers(
                                         sp,
                                         relevantIdsByPath,
                                         calculatedValue,
@@ -210,8 +227,9 @@ internal class DefaultMaterializedTrackableValuePublishingService(
                                 .filter { sav -> sav.path != canonicalPathWithoutContext }
                                 .map { sav -> sav.path }
                                 .map { refPath ->
-                                    decoratePathWithRelevantContextualEntityIdentifiers(
+                                    decorateReferencePathWithRelevantContextualEntityIdentifiers(
                                         refPath,
+                                        canonicalPathWithoutContext,
                                         relevantIdsByPath,
                                         calculatedValue,
                                         dispatchedRequest,
@@ -265,18 +283,18 @@ internal class DefaultMaterializedTrackableValuePublishingService(
             }
     }
 
-    private fun decoratePathWithRelevantContextualEntityIdentifiers(
-        canonicalOrReferencePath: SchematicPath,
+    private fun decorateCanonicalPathWithRelevantContextualEntityIdentifiers(
+        canonicalPath: SchematicPath,
         relevantIdsByPath: ImmutableMap<SchematicPath, JsonNode>,
         calculatedValue: TrackableValue.CalculatedValue<JsonNode>,
         dispatchedRequest: SourceIndexRequestDispatch.TrackableSingleJsonValueDispatch,
-        session: SingleRequestFieldMaterializationSession,
+        session: GraphQLSingleRequestSession
     ): SchematicPath {
         return when {
             // current relevant contextual parameters have already been determined for the
             // current path
-            canonicalOrReferencePath == calculatedValue.targetSourceIndexPath -> {
-                canonicalOrReferencePath.transform {
+            canonicalPath == calculatedValue.targetSourceIndexPath -> {
+                canonicalPath.transform {
                     clearArguments()
                     arguments(
                         calculatedValue.contextualParameters
@@ -294,34 +312,90 @@ internal class DefaultMaterializedTrackableValuePublishingService(
                 }
             }
             else -> {
-                canonicalOrReferencePath.transform {
+                canonicalPath.transform {
+                    clearArguments()
+                    arguments(
+                        relevantIdsByPath
+                            .asSequence()
+                            .filter { (sp, _) ->
+                                pathBelongsToSourceAttributeVertexThatAlsoCanServeAsParameterAttributeVertex(
+                                    sp,
+                                    session
+                                )
+                            }
+                            .map { (sp, jn) ->
+                                sp.pathSegments.lastOrNone().map { lastPathSegment ->
+                                    lastPathSegment to jn
+                                }
+                            }
+                            .flatMapOptions()
+                            .distinct()
+                            .sortedBy(Pair<String, JsonNode>::first)
+                            .reducePairsToPersistentMap()
+                    )
+                }
+            }
+        }
+    }
+
+    private fun decorateReferencePathWithRelevantContextualEntityIdentifiers(
+        referencePath: SchematicPath,
+        canonicalPathWithoutContext: SchematicPath,
+        relevantIdsByPath: ImmutableMap<SchematicPath, JsonNode>,
+        calculatedValue: TrackableValue.CalculatedValue<JsonNode>,
+        dispatchedRequest: SourceIndexRequestDispatch.TrackableSingleJsonValueDispatch,
+        session: GraphQLSingleRequestSession,
+    ): SchematicPath {
+        return when {
+            // current relevant contextual parameters have already been determined for the
+            // current path
+            referencePath == calculatedValue.targetSourceIndexPath -> {
+                referencePath.transform {
                     clearArguments()
                     arguments(
                         calculatedValue.contextualParameters
                             .asSequence()
                             .filter { (paramPath, _) -> paramPath.arguments.isNotEmpty() }
-                            .map { (p, jn) ->
-                                p.arguments.asIterable().firstOrNone().map { (argName, _) ->
-                                    argName to jn
+                            .map { (paramPath, paramVal) ->
+                                paramPath.arguments.asIterable().firstOrNone().map { (argName, _) ->
+                                    argName to paramVal
                                 }
                             }
                             .flatMapOptions()
-                            .plus(
-                                relevantIdsByPath
-                                    .asSequence()
-                                    .filter { (sp, _) ->
-                                        pathBelongsToSourceAttributeVertexThatAlsoCanServeAsParameterAttributeVertex(
-                                            sp,
-                                            session
-                                        )
-                                    }
-                                    .map { (sp, jn) ->
-                                        sp.pathSegments.lastOrNone().map { lastPathSegment ->
-                                            lastPathSegment to jn
+                            .sortedBy(Pair<String, JsonNode>::first)
+                            .reducePairsToPersistentMap()
+                    )
+                }
+            }
+            else -> {
+                referencePath.transform {
+                    clearArguments()
+                    arguments(
+                        relevantIdsByPath
+                            .asSequence()
+                            .filter { (sp, _) ->
+                                pathBelongsToSourceAttributeVertexThatAlsoCanServeAsParameterAttributeVertex(
+                                    sp,
+                                    session
+                                ) &&
+                                    !sp.pathSegments
+                                        .firstOrNone()
+                                        .filter { domainPathSegment ->
+                                            canonicalPathWithoutContext.pathSegments
+                                                .firstOrNone()
+                                                .map { canonicalDomainPathSegment ->
+                                                    domainPathSegment == canonicalDomainPathSegment
+                                                }
+                                                .isDefined()
                                         }
-                                    }
-                                    .flatMapOptions()
-                            )
+                                        .isDefined()
+                            }
+                            .map { (sp, jn) ->
+                                sp.pathSegments.lastOrNone().map { lastPathSegment ->
+                                    lastPathSegment to jn
+                                }
+                            }
+                            .flatMapOptions()
                             .distinct()
                             .sortedBy(Pair<String, JsonNode>::first)
                             .reducePairsToPersistentMap()
@@ -333,7 +407,7 @@ internal class DefaultMaterializedTrackableValuePublishingService(
 
     private fun pathBelongsToSourceAttributeVertexThatAlsoCanServeAsParameterAttributeVertex(
         path: SchematicPath,
-        session: SingleRequestFieldMaterializationSession,
+        session: GraphQLSingleRequestSession
     ): Boolean {
         return path
             .getParentPath()
@@ -373,32 +447,31 @@ internal class DefaultMaterializedTrackableValuePublishingService(
     private fun findAnyEntityIdentifierValuesRelatedToThisField(
         calculatedValue: TrackableValue.CalculatedValue<JsonNode>,
         dispatchedRequest: SourceIndexRequestDispatch.TrackableSingleJsonValueDispatch,
-        session: SingleRequestFieldMaterializationSession,
+        session: GraphQLSingleRequestSession,
     ): Mono<ImmutableMap<SchematicPath, JsonNode>> {
         return Stream.concat(
                 dispatchedRequest.retrievalFunctionSpec.parameterVerticesByPath.keys
                     .parallelStream()
                     .flatMap { sp ->
-                        session.singleRequestSession.requestParameterMaterializationGraphPhase
+                        session.requestParameterMaterializationGraphPhase
                             .map { phase -> phase.requestGraph.getEdgesTo(sp) }
                             .fold(::empty, ::identity)
                     }
                     .map { edge -> edge.id.first }
                     .flatMap { sourceIndPath ->
-                        session.singleRequestSession.requestParameterMaterializationGraphPhase
+                        session.requestParameterMaterializationGraphPhase
                             .map { phase -> phase.requestGraph.getEdgesTo(sourceIndPath) }
                             .fold(::empty, ::identity)
                     }
                     .recurse { edge ->
                         when {
-                            session.singleRequestSession.requestParameterMaterializationGraphPhase
+                            session.requestParameterMaterializationGraphPhase
                                 .flatMap { phase ->
                                     phase.materializedParameterValuesByPath[edge.id.first]
                                         .toOption()
                                 }
                                 .isDefined() -> {
-                                session.singleRequestSession
-                                    .requestParameterMaterializationGraphPhase
+                                session.requestParameterMaterializationGraphPhase
                                     .flatMap { phase ->
                                         phase.retrievalFunctionSpecByTopSourceIndexPath[
                                                 edge.id.second]
@@ -408,8 +481,7 @@ internal class DefaultMaterializedTrackableValuePublishingService(
                                     .map { spec -> edge.id.second.right() }
                             }
                             else -> {
-                                session.singleRequestSession
-                                    .requestParameterMaterializationGraphPhase
+                                session.requestParameterMaterializationGraphPhase
                                     .map { phase -> phase.requestGraph.getEdgesTo(edge.id.first) }
                                     .fold(::empty, ::identity)
                                     .map { parentEdge -> parentEdge.left() }
@@ -444,19 +516,18 @@ internal class DefaultMaterializedTrackableValuePublishingService(
             )
             .distinct()
             .map { entityIdParamPath ->
-                session.singleRequestSession.requestParameterMaterializationGraphPhase
+                session.requestParameterMaterializationGraphPhase
                     .flatMap { phase ->
                         phase.materializedParameterValuesByPath.getOrNone(entityIdParamPath)
                     }
                     .map { resultJson -> Mono.just(entityIdParamPath to resultJson) }
                     .orElse {
-                        session.singleRequestSession.requestParameterMaterializationGraphPhase
+                        session.requestParameterMaterializationGraphPhase
                             .map { phase -> phase.requestGraph.getEdgesTo(entityIdParamPath) }
                             .fold(::empty, ::identity)
                             .map { edge -> edge.id.first }
                             .map { topSrcIndexPath ->
-                                session.singleRequestSession
-                                    .requestDispatchMaterializationGraphPhase
+                                session.requestDispatchMaterializationGraphPhase
                                     .zip(
                                         ListIndexedSchematicPathGraphQLSchemaBasedCalculator(
                                             entityIdParamPath,
@@ -500,19 +571,18 @@ internal class DefaultMaterializedTrackableValuePublishingService(
     private fun dispatchedRequestForCalculatedValueDependentOnOtherTrackableValues(
         dispatchedRequest: SourceIndexRequestDispatch.TrackableSingleJsonValueDispatch,
         calculatedValue: TrackableValue.CalculatedValue<JsonNode>,
-        session: SingleRequestFieldMaterializationSession
+        session: GraphQLSingleRequestSession
     ): Boolean {
         return dispatchedRequest.backupBaseExternalDataSourceJsonValuesRetriever.parameterPaths
             .asSequence()
             .filter { paramPath ->
-                session.singleRequestSession.requestParameterMaterializationGraphPhase
+                session.requestParameterMaterializationGraphPhase
                     .filter { phase ->
                         phase.requestGraph
                             .getEdgesTo(paramPath)
                             .map { edge -> edge.id.first }
                             .anyMatch { sp ->
-                                session.singleRequestSession
-                                    .requestDispatchMaterializationGraphPhase
+                                session.requestDispatchMaterializationGraphPhase
                                     .filter { phase ->
                                         phase.trackableSingleValueRequestDispatchesBySourceIndexPath
                                             .containsKey(sp)
@@ -528,18 +598,18 @@ internal class DefaultMaterializedTrackableValuePublishingService(
     private fun gatherAnyValueAtTimestampsFromTrackedValuesUsedAsInputForCalculatedValue(
         dispatchedRequest: SourceIndexRequestDispatch.TrackableSingleJsonValueDispatch,
         calculatedValue: TrackableValue.CalculatedValue<JsonNode>,
-        session: SingleRequestFieldMaterializationSession
+        session: GraphQLSingleRequestSession
     ): Mono<ImmutableMap<SchematicPath, Instant>> {
         return dispatchedRequest.retrievalFunctionSpec.parameterVerticesByPath.keys
             .parallelStream()
             .flatMap { paramPath ->
-                session.singleRequestSession.requestParameterMaterializationGraphPhase
+                session.requestParameterMaterializationGraphPhase
                     .map { phase -> phase.requestGraph.getEdgesTo(paramPath) }
                     .fold(::empty, ::identity)
             }
             .map { edge -> edge.id.first }
             .flatMap { topSrcIndPath ->
-                session.singleRequestSession.requestDispatchMaterializationGraphPhase
+                session.requestDispatchMaterializationGraphPhase
                     .flatMap { phase ->
                         phase.trackableSingleValueRequestDispatchesBySourceIndexPath.getOrNone(
                             topSrcIndPath
@@ -581,12 +651,12 @@ internal class DefaultMaterializedTrackableValuePublishingService(
         sourceIndexPath: SchematicPath,
         trackableSingleJsonValueDispatch:
             SourceIndexRequestDispatch.TrackableSingleJsonValueDispatch,
-        session: SingleRequestFieldMaterializationSession
+        session: GraphQLSingleRequestSession
     ): Mono<ImmutableMap<SchematicPath, Instant>> {
         return trackableSingleJsonValueDispatch.retrievalFunctionSpec.parameterVerticesByPath.keys
             .parallelStream()
             .flatMap { sp ->
-                session.singleRequestSession.requestParameterMaterializationGraphPhase
+                session.requestParameterMaterializationGraphPhase
                     .map { phase -> phase.requestGraph.getEdgesTo(sp) }
                     .fold(::empty, ::identity)
             }
@@ -598,8 +668,7 @@ internal class DefaultMaterializedTrackableValuePublishingService(
             .flatMapOptions()
             .distinct()
             .map { lastUpdatedPath ->
-                session.singleRequestSession.requestDispatchMaterializationGraphPhase.flatMap {
-                    phase ->
+                session.requestDispatchMaterializationGraphPhase.flatMap { phase ->
                     phase.externalDataSourceJsonValuesRequestDispatchesByAncestorSourceIndexPath
                         .asIterable()
                         .firstOrNone { (_, dispatch) ->
