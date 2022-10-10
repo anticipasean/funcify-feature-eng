@@ -1,5 +1,6 @@
 package funcify.feature.materializer.service
 
+import funcify.feature.materializer.threadlocal.ThreadLocalContextKey
 import graphql.ExecutionInput
 import graphql.execution.preparsed.PreparsedDocumentEntry
 import graphql.execution.preparsed.PreparsedDocumentProvider
@@ -13,6 +14,14 @@ import reactor.core.publisher.Mono
  * @created 2022-08-08
  */
 interface MaterializationPreparsedDocumentProvider : PreparsedDocumentProvider {
+
+    companion object {
+        val EXPECTED_OUTPUT_FIELD_NAMES_KEY: ThreadLocalContextKey<List<String>> =
+            ThreadLocalContextKey.of(
+                MaterializationPreparsedDocumentProvider::class.qualifiedName +
+                    ".EXPECTED_OUTPUT_FIELD_NAMES"
+            )
+    }
 
     @Deprecated("Deprecated in Java")
     override fun getDocument(

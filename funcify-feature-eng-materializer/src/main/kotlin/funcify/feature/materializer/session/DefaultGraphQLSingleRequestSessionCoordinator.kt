@@ -10,7 +10,6 @@ import funcify.feature.tools.extensions.StringExtensions.flatten
 import graphql.ExecutionInput
 import graphql.ExecutionResult
 import graphql.GraphQL
-import java.util.concurrent.Executor
 import org.slf4j.Logger
 import reactor.core.publisher.Mono
 
@@ -65,10 +64,16 @@ internal class DefaultGraphQLSingleRequestSessionCoordinator(
                     .query(session.rawGraphQLRequest.rawGraphQLQueryText)
                     .variables(session.rawGraphQLRequest.variables)
                     .graphQLContext { ctxBuilder ->
-                        ctxBuilder.put(
-                            GraphQLSingleRequestSession.GRAPHQL_SINGLE_REQUEST_SESSION_KEY,
-                            session
-                        )
+                        ctxBuilder
+                            .put(
+                                GraphQLSingleRequestSession.GRAPHQL_SINGLE_REQUEST_SESSION_KEY,
+                                session
+                            )
+                            .put(
+                                MaterializationPreparsedDocumentProvider
+                                    .EXPECTED_OUTPUT_FIELD_NAMES_KEY,
+                                session.rawGraphQLRequest.expectedOutputFieldNames
+                            )
                     }
             ) { bldr: ExecutionInput.Builder, customizer: GraphQLExecutionInputCustomizer ->
                 customizer.invoke(bldr)
