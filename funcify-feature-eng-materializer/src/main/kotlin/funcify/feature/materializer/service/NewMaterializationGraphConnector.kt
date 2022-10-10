@@ -1,5 +1,8 @@
 package funcify.feature.materializer.service
 
+import arrow.core.Either
+import arrow.core.Option
+import arrow.core.none
 import funcify.feature.materializer.error.MaterializerErrorResponse
 import funcify.feature.materializer.error.MaterializerException
 import funcify.feature.materializer.newcontext.MaterializationGraphContext
@@ -11,6 +14,8 @@ import funcify.feature.schema.vertex.SourceAttributeVertex
 import funcify.feature.schema.vertex.SourceJunctionVertex
 import funcify.feature.schema.vertex.SourceLeafVertex
 import funcify.feature.schema.vertex.SourceRootVertex
+import graphql.language.Argument
+import graphql.language.Field
 
 /**
  *
@@ -20,6 +25,7 @@ import funcify.feature.schema.vertex.SourceRootVertex
 interface NewMaterializationGraphConnector {
 
     fun connectSchematicVertex(
+        fieldOrArgument: Option<Either<Field, Argument>> = none(),
         vertex: SchematicVertex,
         context: MaterializationGraphContext
     ): MaterializationGraphContext {
@@ -28,16 +34,32 @@ interface NewMaterializationGraphConnector {
                 connectSourceRootVertex(vertex, context)
             }
             is SourceJunctionVertex -> {
-                connectSourceJunctionOrLeafVertex(vertex, context)
+                connectSourceJunctionOrLeafVertex(
+                    fieldOrArgument.mapNotNull { fOrA -> fOrA.swap().orNull() },
+                    vertex,
+                    context
+                )
             }
             is SourceLeafVertex -> {
-                connectSourceJunctionOrLeafVertex(vertex, context)
+                connectSourceJunctionOrLeafVertex(
+                    fieldOrArgument.mapNotNull { fOrA -> fOrA.swap().orNull() },
+                    vertex,
+                    context
+                )
             }
             is ParameterJunctionVertex -> {
-                connectParameterJunctionOrLeafVertex(vertex, context)
+                connectParameterJunctionOrLeafVertex(
+                    fieldOrArgument.mapNotNull { fOrA -> fOrA.orNull() },
+                    vertex,
+                    context
+                )
             }
             is ParameterLeafVertex -> {
-                connectParameterJunctionOrLeafVertex(vertex, context)
+                connectParameterJunctionOrLeafVertex(
+                    fieldOrArgument.mapNotNull { fOrA -> fOrA.orNull() },
+                    vertex,
+                    context
+                )
             }
             else -> {
                 throw MaterializerException(
@@ -54,11 +76,13 @@ interface NewMaterializationGraphConnector {
     ): MaterializationGraphContext
 
     fun <V : SourceAttributeVertex> connectSourceJunctionOrLeafVertex(
+        field: Option<Field> = none(),
         vertex: V,
         context: MaterializationGraphContext
     ): MaterializationGraphContext
 
     fun <V : ParameterAttributeVertex> connectParameterJunctionOrLeafVertex(
+        argument: Option<Argument> = none(),
         vertex: V,
         context: MaterializationGraphContext
     ): MaterializationGraphContext
