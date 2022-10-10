@@ -14,26 +14,25 @@ internal class DefaultMaterializationMetamodelBroker() : MaterializationMetamode
         private val logger: Logger = loggerFor<DefaultMaterializationMetamodelBroker>()
     }
 
-    private val schemaAtTimestampHolder: AtomicRef<Pair<Long, MaterializationMetamodel>?> =
-        AtomicRef()
+    private val schemaAtTimestampHolder: AtomicRef<MaterializationMetamodel?> = AtomicRef()
 
     override fun pushNewMaterializationMetamodel(
         materializationMetamodel: MaterializationMetamodel
     ) {
         logger.info(
-            """push_new_materialization_metamodel: [ 
-                |materialization_metamodel.graphql_schema.query_type.field_definitions.size: 
-                |${materializationMetamodel.materializationGraphQLSchema.queryType.fieldDefinitions.size} 
-                |]""".flatten()
+            """push_new_materialization_metamodel: [ materialization_metamodel: { created: {}, 
+            |graphql_schema.query_type.field_definitions.size: {} 
+            |} ]""".flatten(),
+            materializationMetamodel.created,
+            materializationMetamodel.materializationGraphQLSchema.queryType.fieldDefinitions.size
         )
-        val pushTime = System.currentTimeMillis()
-        schemaAtTimestampHolder.getAndUpdate { storedTimestampAndSchema ->
-            if (storedTimestampAndSchema == null) {
-                pushTime to materializationMetamodel
-            } else if (storedTimestampAndSchema.first < pushTime) {
-                pushTime to materializationMetamodel
+        schemaAtTimestampHolder.getAndUpdate { metamodel ->
+            if (metamodel == null) {
+                materializationMetamodel
+            } else if (metamodel.created < materializationMetamodel.created) {
+                materializationMetamodel
             } else {
-                storedTimestampAndSchema
+                metamodel
             }
         }
     }
@@ -43,7 +42,7 @@ internal class DefaultMaterializationMetamodelBroker() : MaterializationMetamode
         return Mono.fromSupplier { ->
             when (
                 val materializationMetamodel: MaterializationMetamodel? =
-                    schemaAtTimestampHolder.get()?.second
+                    schemaAtTimestampHolder.get()
             ) {
                 null -> {
                     throw MaterializerException(
