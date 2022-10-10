@@ -1,11 +1,13 @@
 package funcify.feature.spring.router
 
+import arrow.core.filterIsInstance
 import arrow.core.getOrElse
 import arrow.core.identity
 import arrow.core.none
 import arrow.core.some
 import arrow.core.toOption
 import com.fasterxml.jackson.databind.JsonNode
+import com.fasterxml.jackson.databind.node.ArrayNode
 import com.fasterxml.jackson.databind.node.JsonNodeFactory
 import funcify.feature.error.FeatureEngCommonException
 import funcify.feature.json.JsonMapper
@@ -56,6 +58,7 @@ internal class GraphQLWebFluxHandlerFunction(
         private val logger: Logger = loggerFor<GraphQLWebFluxHandlerFunction>()
         private const val QUERY_KEY = "query"
         private const val GRAPHQL_REQUEST_VARIABLES_KEY = "variables"
+        private const val OUTPUT_KEY = "output"
         private const val OPERATION_NAME_KEY = "operationName"
         private const val MEDIA_TYPE_APPLICATION_GRAPHQL_VALUE = "application/graphql"
         private val STR_KEY_MAP_PARAMETERIZED_TYPE_REF =
@@ -166,6 +169,12 @@ internal class GraphQLWebFluxHandlerFunction(
                     )
                     .variables(extractGraphQLVariablesFromStringKeyValueMap(strKeyMap))
                     .locale(extractLocaleFromRequest(request))
+                    .expectedOutputFieldNames(
+                        strKeyMap[OUTPUT_KEY]
+                            .toOption()
+                            .filterIsInstance<List<String>>()
+                            .getOrElse { emptyList() }
+                    )
                     .executionInputCustomizers(graphQLExecutionInputCustomizers)
                     .build()
             }
@@ -190,6 +199,19 @@ internal class GraphQLWebFluxHandlerFunction(
                     .rawGraphQLQueryText(queryJson.findPath(QUERY_KEY).asText(""))
                     .variables(extractGraphQLVariablesFromJson(queryJson))
                     .locale(extractLocaleFromRequest(request))
+                    .expectedOutputFieldNames(
+                        queryJson
+                            .findPath(OUTPUT_KEY)
+                            .toOption()
+                            .filterIsInstance<ArrayNode>()
+                            .map { an ->
+                                an.asSequence()
+                                    .map { jn -> jn.asText("") }
+                                    .filterNot { s -> s.isBlank() }
+                                    .toList()
+                            }
+                            .getOrElse { emptyList() }
+                    )
                     .executionInputCustomizers(graphQLExecutionInputCustomizers)
                     .build()
             }

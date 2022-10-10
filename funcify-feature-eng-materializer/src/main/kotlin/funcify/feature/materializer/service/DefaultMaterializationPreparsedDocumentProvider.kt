@@ -3,6 +3,7 @@ package funcify.feature.materializer.service
 import arrow.core.identity
 import arrow.core.toOption
 import funcify.feature.json.JsonMapper
+import funcify.feature.materializer.schema.MaterializationMetamodelBroker
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.MonoExtensions.widen
@@ -17,8 +18,10 @@ import reactor.core.publisher.Mono
  * @author smccarron
  * @created 2022-08-08
  */
-internal class DefaultMaterializationPreparsedDocumentProvider(private val jsonMapper: JsonMapper) :
-    MaterializationPreparsedDocumentProvider {
+internal class DefaultMaterializationPreparsedDocumentProvider(
+    private val jsonMapper: JsonMapper,
+    private val materializationMetamodelBroker: MaterializationMetamodelBroker
+) : MaterializationPreparsedDocumentProvider {
 
     companion object {
         private val logger: Logger = loggerFor<DefaultMaterializationPreparsedDocumentProvider>()
