@@ -1,11 +1,11 @@
 package funcify.feature.materializer.service
 
-import funcify.feature.tools.container.async.KFuture
 import graphql.ExecutionInput
 import graphql.execution.preparsed.PreparsedDocumentEntry
 import graphql.execution.preparsed.PreparsedDocumentProvider
 import java.util.concurrent.CompletableFuture
 import java.util.function.Function
+import reactor.core.publisher.Mono
 
 /**
  *
@@ -22,7 +22,8 @@ interface MaterializationPreparsedDocumentProvider : PreparsedDocumentProvider {
         return getPreparsedDocument(executionInput) { ei: ExecutionInput ->
                 parseAndValidateFunction.apply(ei)
             }
-            .getOrElseThrow()
+            .toFuture()
+            .join()
     }
 
     override fun getDocumentAsync(
@@ -35,11 +36,11 @@ interface MaterializationPreparsedDocumentProvider : PreparsedDocumentProvider {
                     parseAndValidateFunction.apply(ei)
                 }
             )
-            .fold { stage, _ -> stage.toCompletableFuture().thenApply { pde -> pde } }
+            .toFuture()
     }
 
     fun getPreparsedDocument(
         executionInput: ExecutionInput,
         parseAndValidateFunction: (ExecutionInput) -> PreparsedDocumentEntry
-    ): KFuture<PreparsedDocumentEntry>
+    ): Mono<PreparsedDocumentEntry>
 }
