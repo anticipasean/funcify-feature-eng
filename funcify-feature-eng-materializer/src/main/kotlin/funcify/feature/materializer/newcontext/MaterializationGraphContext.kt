@@ -1,5 +1,6 @@
 package funcify.feature.materializer.newcontext
 
+import arrow.typeclasses.Semigroup
 import com.fasterxml.jackson.databind.JsonNode
 import funcify.feature.materializer.schema.MaterializationMetamodel
 import funcify.feature.materializer.schema.edge.RequestParameterEdge
@@ -10,7 +11,6 @@ import funcify.feature.schema.path.SchematicPath
 import funcify.feature.tools.container.graph.PathBasedGraph
 import graphql.language.OperationDefinition
 import graphql.schema.GraphQLSchema
-import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.PersistentSet
 
@@ -20,6 +20,13 @@ import kotlinx.collections.immutable.PersistentSet
  * @created 2022-10-08
  */
 interface MaterializationGraphContext {
+
+    companion object {
+        @JvmStatic
+        fun semigroup(): Semigroup<MaterializationGraphContext> {
+            return MaterializationGraphContextSemigroup
+        }
+    }
 
     val materializationMetamodel: MaterializationMetamodel
 
@@ -42,6 +49,8 @@ interface MaterializationGraphContext {
 
     val retrievalFunctionSpecByTopSourceIndexPath:
         PersistentMap<SchematicPath, RetrievalFunctionSpec>
+
+    fun update(transformer: Builder.() -> Builder): MaterializationGraphContext
 
     interface Builder {
 
