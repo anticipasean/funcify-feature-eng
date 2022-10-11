@@ -28,7 +28,7 @@ interface MaterializationPreparsedDocumentProvider : PreparsedDocumentProvider {
         executionInput: ExecutionInput,
         parseAndValidateFunction: Function<ExecutionInput, PreparsedDocumentEntry>,
     ): PreparsedDocumentEntry {
-        return getPreparsedDocument(executionInput) { ei: ExecutionInput ->
+        return getPreparsedDocumentEntry(executionInput) { ei: ExecutionInput ->
                 parseAndValidateFunction.apply(ei)
             }
             .toFuture()
@@ -39,7 +39,7 @@ interface MaterializationPreparsedDocumentProvider : PreparsedDocumentProvider {
         executionInput: ExecutionInput,
         parseAndValidateFunction: Function<ExecutionInput, PreparsedDocumentEntry>,
     ): CompletableFuture<PreparsedDocumentEntry> {
-        return getPreparsedDocument(
+        return getPreparsedDocumentEntry(
                 executionInput = executionInput,
                 parseAndValidateFunction = { ei: ExecutionInput ->
                     parseAndValidateFunction.apply(ei)
@@ -48,7 +48,7 @@ interface MaterializationPreparsedDocumentProvider : PreparsedDocumentProvider {
             .toFuture()
     }
 
-    fun getPreparsedDocument(
+    fun getPreparsedDocumentEntry(
         executionInput: ExecutionInput,
         parseAndValidateFunction: (ExecutionInput) -> PreparsedDocumentEntry
     ): Mono<PreparsedDocumentEntry>

@@ -8,10 +8,9 @@ import funcify.feature.materializer.phase.RequestDispatchMaterializationPhase
 import funcify.feature.materializer.phase.RequestParameterMaterializationGraphPhase
 import funcify.feature.materializer.request.RawGraphQLRequest
 import funcify.feature.materializer.response.SerializedGraphQLResponse
-import funcify.feature.schema.MetamodelGraph
+import funcify.feature.materializer.schema.MaterializationMetamodel
 import graphql.language.Document
 import graphql.language.OperationDefinition
-import graphql.schema.GraphQLSchema
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.toPersistentMap
@@ -22,8 +21,7 @@ import kotlinx.collections.immutable.toPersistentMap
  * @created 2/20/22
  */
 internal data class DefaultGraphQLSingleRequestSession(
-    override val materializationSchema: GraphQLSchema,
-    override val metamodelGraph: MetamodelGraph,
+    override val materializationMetamodel: MaterializationMetamodel,
     override val rawGraphQLRequest: RawGraphQLRequest,
     override val document: Option<Document> = none(),
     override val operationDefinition: Option<OperationDefinition> = none(),

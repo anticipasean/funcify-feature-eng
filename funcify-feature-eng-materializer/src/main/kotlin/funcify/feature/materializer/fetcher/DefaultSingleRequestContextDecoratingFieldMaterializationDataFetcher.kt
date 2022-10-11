@@ -24,7 +24,6 @@ import reactor.core.publisher.Mono
 import reactor.core.scheduler.Schedulers
 
 internal class DefaultSingleRequestContextDecoratingFieldMaterializationDataFetcher<R>(
-    private val asyncExecutor: Executor,
     private val singleRequestMaterializationOrchestratorService:
         SingleRequestMaterializationOrchestratorService
 ) : SingleRequestContextDecoratingFieldMaterializationDataFetcher<R> {

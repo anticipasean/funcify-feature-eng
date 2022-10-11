@@ -1,5 +1,6 @@
 package funcify.feature.materializer.fetcher
 
+import funcify.feature.materializer.schema.MaterializationMetamodel
 import funcify.feature.materializer.session.GraphQLSingleRequestSession
 import funcify.feature.materializer.session.MaterializationSession
 import funcify.feature.materializer.threadlocal.ThreadLocalContextKey
@@ -34,11 +35,8 @@ interface SingleRequestFieldMaterializationSession : MaterializationSession {
     override val sessionId: UUID
         get() = singleRequestSession.sessionId
 
-    override val materializationSchema: GraphQLSchema
-        get() = singleRequestSession.materializationSchema
-
-    override val metamodelGraph: MetamodelGraph
-        get() = singleRequestSession.metamodelGraph
+    override val materializationMetamodel: MaterializationMetamodel
+        get() = singleRequestSession.materializationMetamodel
 
     val graphQLContext: GraphQLContext
         get() = dataFetchingEnvironment.graphQlContext

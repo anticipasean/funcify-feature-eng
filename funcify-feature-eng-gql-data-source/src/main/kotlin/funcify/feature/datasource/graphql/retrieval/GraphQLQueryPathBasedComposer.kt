@@ -27,7 +27,7 @@ import kotlinx.collections.immutable.PersistentSet
 import kotlinx.collections.immutable.toPersistentSet
 import org.slf4j.Logger
 
-internal object GraphQLQueryPathBasedComposer {
+object GraphQLQueryPathBasedComposer {
 
     private val logger: Logger = loggerFor<GraphQLQueryPathBasedComposer>()
 

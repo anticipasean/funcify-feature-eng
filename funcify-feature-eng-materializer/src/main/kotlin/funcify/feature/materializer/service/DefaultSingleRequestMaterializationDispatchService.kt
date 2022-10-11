@@ -60,7 +60,6 @@ import reactor.core.scheduler.Schedulers
 import reactor.kotlin.core.publisher.ofType
 
 internal class DefaultSingleRequestMaterializationDispatchService(
-    private val asyncExecutor: Executor,
     private val schematicPathBasedJsonRetrievalFunctionFactory:
         SchematicPathBasedJsonRetrievalFunctionFactory,
     private val trackableValueFactory: TrackableValueFactory,

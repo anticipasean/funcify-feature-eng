@@ -5,6 +5,7 @@ import funcify.feature.materializer.phase.RequestDispatchMaterializationPhase
 import funcify.feature.materializer.phase.RequestParameterMaterializationGraphPhase
 import funcify.feature.materializer.request.RawGraphQLRequest
 import funcify.feature.materializer.response.SerializedGraphQLResponse
+import funcify.feature.materializer.schema.MaterializationMetamodel
 import funcify.feature.materializer.threadlocal.ThreadLocalContextKey
 import funcify.feature.schema.MetamodelGraph
 import graphql.language.Document
@@ -28,9 +29,13 @@ interface GraphQLSingleRequestSession : MaterializationSession {
     override val sessionId: UUID
         get() = rawGraphQLRequest.requestId
 
-    override val materializationSchema: GraphQLSchema
+    override val materializationMetamodel: MaterializationMetamodel
 
-    override val metamodelGraph: MetamodelGraph
+    val metamodelGraph: MetamodelGraph
+        get() = materializationMetamodel.metamodelGraph
+
+    val materializationSchema: GraphQLSchema
+        get() = materializationMetamodel.materializationGraphQLSchema
 
     val rawGraphQLRequest: RawGraphQLRequest
 

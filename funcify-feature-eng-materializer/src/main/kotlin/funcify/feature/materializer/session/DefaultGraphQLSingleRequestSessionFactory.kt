@@ -1,6 +1,7 @@
 package funcify.feature.materializer.session
 
 import funcify.feature.materializer.request.RawGraphQLRequest
+import funcify.feature.materializer.schema.MaterializationMetamodel
 import funcify.feature.materializer.schema.MaterializationMetamodelBroker
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flatten
@@ -29,10 +30,9 @@ internal class DefaultGraphQLSingleRequestSessionFactory(
                 |""".flatten()
         )
         return materializationMetamodelBroker.fetchLatestMaterializationMetamodel().map {
-            materializationMetamodel ->
+            materializationMetamodel: MaterializationMetamodel ->
             DefaultGraphQLSingleRequestSession(
-                materializationSchema = materializationMetamodel.materializationGraphQLSchema,
-                metamodelGraph = materializationMetamodel.metamodelGraph,
+                materializationMetamodel = materializationMetamodel,
                 rawGraphQLRequest = rawGraphQLRequest
             )
         }

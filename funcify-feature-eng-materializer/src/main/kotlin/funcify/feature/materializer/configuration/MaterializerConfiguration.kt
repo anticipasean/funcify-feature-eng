@@ -195,12 +195,10 @@ class MaterializerConfiguration {
     @ConditionalOnMissingBean(value = [SingleRequestFieldMaterializationDataFetcherFactory::class])
     @Bean
     fun singleRequestFieldMaterializationDataFetcherFactory(
-        asyncExecutor: Executor,
         singleRequestMaterializationOrchestratorService:
             SingleRequestMaterializationOrchestratorService
     ): SingleRequestFieldMaterializationDataFetcherFactory {
         return DefaultSingleRequestFieldMaterializationDataFetcherFactory(
-            asyncExecutor = asyncExecutor,
             singleRequestMaterializationOrchestratorService =
                 singleRequestMaterializationOrchestratorService
         )
@@ -225,14 +223,12 @@ class MaterializerConfiguration {
     @ConditionalOnMissingBean(value = [SingleRequestMaterializationDispatchService::class])
     @Bean
     fun singleRequestMaterializationDispatchService(
-        asyncExecutor: Executor,
         schematicPathBasedJsonRetrievalFunctionFactory:
             SchematicPathBasedJsonRetrievalFunctionFactory,
         trackableValueFactory: TrackableValueFactory,
         materializedTrackableValuePublishingService: MaterializedTrackableValuePublishingService
     ): SingleRequestMaterializationDispatchService {
         return DefaultSingleRequestMaterializationDispatchService(
-            asyncExecutor = asyncExecutor,
             schematicPathBasedJsonRetrievalFunctionFactory =
                 schematicPathBasedJsonRetrievalFunctionFactory,
             trackableValueFactory = trackableValueFactory,

@@ -14,7 +14,6 @@ import java.util.concurrent.Executor
 import org.slf4j.Logger
 
 internal class DefaultSingleRequestFieldMaterializationDataFetcherFactory(
-    private val asyncExecutor: Executor,
     private val singleRequestMaterializationOrchestratorService:
         SingleRequestMaterializationOrchestratorService
 ) : SingleRequestFieldMaterializationDataFetcherFactory {
@@ -43,7 +42,6 @@ internal class DefaultSingleRequestFieldMaterializationDataFetcherFactory(
             |} ] ]""".flatten()
         )
         return DefaultSingleRequestContextDecoratingFieldMaterializationDataFetcher<Any?>(
-            asyncExecutor,
             singleRequestMaterializationOrchestratorService
         )
     }
