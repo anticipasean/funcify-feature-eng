@@ -19,8 +19,11 @@ import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.OptionExtensions.recurse
 import graphql.language.*
 import java.util.*
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ConcurrentMap
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.ImmutableSet
+import kotlinx.collections.immutable.PersistentSet
 import kotlinx.collections.immutable.toPersistentSet
 import org.slf4j.Logger
 
@@ -28,38 +31,85 @@ internal object GraphQLQueryPathBasedComposer {
 
     private val logger: Logger = loggerFor<GraphQLQueryPathBasedComposer>()
 
+    private val queryOperationDefinitionComposerMemoizer:
+        (ImmutableSet<SchematicPath>) -> ((
+                ImmutableMap<SchematicPath, JsonNode>
+            ) -> OperationDefinition) by lazy {
+        val cache:
+            ConcurrentMap<
+                ImmutableSet<SchematicPath>,
+                (ImmutableMap<SchematicPath, JsonNode>) -> OperationDefinition
+            > =
+            ConcurrentHashMap();
+        { graphQLSourcePathsSet ->
+            cache.computeIfAbsent(graphQLSourcePathsSet, graphQLQueryComposerCalculator())
+        }
+    }
+
     fun createQueryOperationDefinitionComposerForParameterAttributePathsAndValuesForTheseSourceAttributes(
         graphQLSourcePaths: ImmutableSet<SchematicPath>
     ): (ImmutableMap<SchematicPath, JsonNode>) -> OperationDefinition {
-        val sourceAttributesOnlyOperationDefinition: OperationDefinition =
-            graphQLSourcePaths
-                .asSequence()
-                .sorted()
-                .filter { sp ->
-                    // currently root cannot take arguments in GraphQL: OperationDefinition does not
-                    // have Arguments field
-                    sp.pathSegments.size >= 1 && sp.arguments.isEmpty() && sp.directives.isEmpty()
-                }
-                .fold(
-                    OperationDefinition.newOperationDefinition()
-                        .operation(OperationDefinition.Operation.QUERY)
-                        .build()
-                ) { opDef, sourceAttributePath ->
-                    SourceAttributesQueryCompositionContext(
-                            operationDefinition = opDef,
-                            pathSegments = LinkedList(sourceAttributePath.pathSegments)
-                        )
-                        .some()
-                        .recurse { ctx -> createFieldsInContextForSourceAttributePathSegments(ctx) }
-                        .getOrElse { opDef }
-                }
-        val sourceAttributePathsSet =
-            graphQLSourcePaths
-                .asSequence()
-                .filter { sp ->
-                    sp.pathSegments.size >= 1 && sp.arguments.isEmpty() && sp.directives.isEmpty()
-                }
-                .toPersistentSet()
+        return queryOperationDefinitionComposerMemoizer(graphQLSourcePaths)
+    }
+
+    private fun graphQLQueryComposerCalculator():
+        (ImmutableSet<SchematicPath>) -> ((
+                ImmutableMap<SchematicPath, JsonNode>
+            ) -> OperationDefinition) {
+        return { graphQLSourcePaths: ImmutableSet<SchematicPath> ->
+            val sourceAttributePathsSet: PersistentSet<SchematicPath> =
+                extractAllSourceAttributePathsFromInputPathSet(graphQLSourcePaths)
+            val sourceAttributesOnlyOperationDefinition: OperationDefinition =
+                createSourceAttributesOnlyOperationDefinition(graphQLSourcePaths)
+            createQueryComposerFunction(
+                sourceAttributePathsSet,
+                sourceAttributesOnlyOperationDefinition
+            )
+        }
+    }
+
+    private fun extractAllSourceAttributePathsFromInputPathSet(
+        graphQLSourcePaths: ImmutableSet<SchematicPath>
+    ): PersistentSet<SchematicPath> {
+        return graphQLSourcePaths
+            .asSequence()
+            .filter { sp ->
+                sp.pathSegments.size >= 1 && sp.arguments.isEmpty() && sp.directives.isEmpty()
+            }
+            .toPersistentSet()
+    }
+
+    private fun createSourceAttributesOnlyOperationDefinition(
+        graphQLSourcePaths: ImmutableSet<SchematicPath>
+    ): OperationDefinition {
+        return graphQLSourcePaths
+            .asSequence()
+            .sorted()
+            .filter { sp ->
+                /* currently root cannot take arguments in GraphQL: OperationDefinition
+                 * does not have Arguments field
+                 */
+                sp.pathSegments.size >= 1 && sp.arguments.isEmpty() && sp.directives.isEmpty()
+            }
+            .fold(
+                OperationDefinition.newOperationDefinition()
+                    .operation(OperationDefinition.Operation.QUERY)
+                    .build()
+            ) { opDef, sourceAttributePath ->
+                SourceAttributesQueryCompositionContext(
+                        operationDefinition = opDef,
+                        pathSegments = LinkedList(sourceAttributePath.pathSegments)
+                    )
+                    .some()
+                    .recurse { ctx -> createFieldsInContextForSourceAttributePathSegments(ctx) }
+                    .getOrElse { opDef }
+            }
+    }
+
+    private fun createQueryComposerFunction(
+        sourceAttributePathsSet: PersistentSet<SchematicPath>,
+        sourceAttributesOnlyOperationDefinition: OperationDefinition,
+    ): (ImmutableMap<SchematicPath, JsonNode>) -> OperationDefinition {
         return { parameterValuesByVertexPath: ImmutableMap<SchematicPath, JsonNode> ->
             parameterValuesByVertexPath
                 .asSequence()
@@ -82,8 +132,8 @@ internal object GraphQLQueryPathBasedComposer {
                 }
                 .sortedBy { (sp, _) -> sp }
                 .fold(sourceAttributesOnlyOperationDefinition) {
-                    opDef,
-                    (parameterAttributePath, parameterAttributeValue) ->
+                    opDef: OperationDefinition,
+                    (parameterAttributePath: SchematicPath, parameterAttributeValue: JsonNode) ->
                     parameterAttributePath.arguments
                         .asSequence()
                         .firstOrNull()
