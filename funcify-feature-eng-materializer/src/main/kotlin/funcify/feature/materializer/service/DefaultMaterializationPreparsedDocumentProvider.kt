@@ -73,7 +73,7 @@ internal class DefaultMaterializationPreparsedDocumentProvider(private val jsonM
                     .peekIfSuccess(logPreparsedDocumentEntryCreationSuccess())
                     .toMono()
                     .doOnNext { entry: PreparsedDocumentEntry ->
-                        if (entry.errors.isEmpty()) {
+                        if (!entry.hasErrors()) {
                             documentByRawGraphQLQueryCache[executionInput.query] = entry.document
                         }
                     }
@@ -394,7 +394,7 @@ internal class DefaultMaterializationPreparsedDocumentProvider(private val jsonM
     private fun logPreparsedDocumentEntryCreationSuccess(): (PreparsedDocumentEntry) -> Unit {
         return { preparsedDocumentEntry: PreparsedDocumentEntry ->
             val methodTag: String = "get_preparsed_document_entry"
-            if (preparsedDocumentEntry.errors.isNotEmpty()) {
+            if (preparsedDocumentEntry.hasErrors()) {
                 val documentErrorsAsStr =
                     preparsedDocumentEntry.errors
                         .toOption()
