@@ -23,7 +23,9 @@ import graphql.ExecutionInput
 import graphql.GraphQLError
 import graphql.ParseAndValidate
 import graphql.execution.preparsed.PreparsedDocumentEntry
+import graphql.language.AstPrinter
 import graphql.language.Document
+import graphql.language.OperationDefinition
 import graphql.validation.ValidationError
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentMap
@@ -183,6 +185,39 @@ internal class DefaultMaterializationPreparsedDocumentProvider(private val jsonM
                         }
                         .map(::PreparsedDocumentEntry)
                         .switchIfEmpty { PreparsedDocumentEntry(doc).toMono() }
+                }
+                .doOnNext { entry ->
+                    val status: String =
+                        if (entry.hasErrors()) {
+                            "failed"
+                        } else {
+                            "success"
+                        }
+                    val output: String =
+                        if (entry.hasErrors()) {
+                            entry.errors.joinToString(
+                                separator = ",\n",
+                                prefix = "{ ",
+                                postfix = " }",
+                                transform = { e ->
+                                    "[ type: %s, message: %s ]".format(e.errorType, e.message)
+                                }
+                            )
+                        } else {
+                            "\n" +
+                                AstPrinter.printAst(
+                                    entry.document.definitions
+                                        .filterIsInstance<OperationDefinition>()
+                                        .firstOrNull()
+                                )
+                        }
+                    val message: String =
+                        """
+                        create_preparsed_document_entry_for_expected_output_
+                        |field_names_given_input_variables: [ status: ${status} ] 
+                        |[ output: {} ]
+                        |""".flatten()
+                    logger.info(message, output)
                 }
         }
     }
