@@ -312,24 +312,33 @@ internal class DefaultMaterializedTrackableValuePublishingService(
                 }
             }
             else -> {
+                val canonicalDomainPath: SchematicPath =
+                    SchematicPath.of {
+                        pathSegments(canonicalPath.pathSegments.firstOrNone().toList())
+                    }
+                // canonical_context = those used to retrieve some ref_path (i.e. the
+                // calculated_value.contextual_parameters) + the domain contextual path values
                 canonicalPath.transform {
                     clearArguments()
                     arguments(
-                        relevantIdsByPath
+                        calculatedValue.contextualParameters
                             .asSequence()
-                            .filter { (sp, _) ->
-                                pathBelongsToSourceAttributeVertexThatAlsoCanServeAsParameterAttributeVertex(
-                                    sp,
-                                    session
-                                )
-                            }
-                            .map { (sp, jn) ->
-                                sp.pathSegments.lastOrNone().map { lastPathSegment ->
-                                    lastPathSegment to jn
+                            .filter { (paramPath, _) -> paramPath.arguments.isNotEmpty() }
+                            .map { (paramPath, paramVal) ->
+                                paramPath.arguments.asIterable().firstOrNone().map { (argName, _) ->
+                                    argName to paramVal
                                 }
                             }
                             .flatMapOptions()
-                            .distinct()
+                            .plus(
+                                relevantIdsByPath
+                                    .asSequence()
+                                    .filter { (sp, _) -> canonicalDomainPath.isAncestorOf(sp) }
+                                    .map { (sp, jn) ->
+                                        sp.pathSegments.lastOrNone().map { ps -> ps to jn }
+                                    }
+                                    .flatMapOptions()
+                            )
                             .sortedBy(Pair<String, JsonNode>::first)
                             .reducePairsToPersistentMap()
                     )
@@ -368,35 +377,27 @@ internal class DefaultMaterializedTrackableValuePublishingService(
                 }
             }
             else -> {
+                val canonicalDomainPath: SchematicPath =
+                    SchematicPath.of {
+                        pathSegments(
+                            canonicalPathWithoutContext.pathSegments.firstOrNone().toList()
+                        )
+                    }
+                // reference_context = those used to retrieve the canonical_path (i.e. the
+                // calculated_value.contextual_parameters) - the domain contextual path values
                 referencePath.transform {
                     clearArguments()
                     arguments(
-                        relevantIdsByPath
+                        calculatedValue.contextualParameters
                             .asSequence()
-                            .filter { (sp, _) ->
-                                pathBelongsToSourceAttributeVertexThatAlsoCanServeAsParameterAttributeVertex(
-                                    sp,
-                                    session
-                                ) &&
-                                    !sp.pathSegments
-                                        .firstOrNone()
-                                        .filter { domainPathSegment ->
-                                            canonicalPathWithoutContext.pathSegments
-                                                .firstOrNone()
-                                                .map { canonicalDomainPathSegment ->
-                                                    domainPathSegment == canonicalDomainPathSegment
-                                                }
-                                                .isDefined()
-                                        }
-                                        .isDefined()
-                            }
-                            .map { (sp, jn) ->
-                                sp.pathSegments.lastOrNone().map { lastPathSegment ->
-                                    lastPathSegment to jn
+                            .filter { (paramPath, _) -> !canonicalDomainPath.isAncestorOf(paramPath) }
+                            .filter { (paramPath, _) -> paramPath.arguments.isNotEmpty() }
+                            .map { (paramPath, paramVal) ->
+                                paramPath.arguments.asIterable().firstOrNone().map { (argName, _) ->
+                                    argName to paramVal
                                 }
                             }
                             .flatMapOptions()
-                            .distinct()
                             .sortedBy(Pair<String, JsonNode>::first)
                             .reducePairsToPersistentMap()
                     )
