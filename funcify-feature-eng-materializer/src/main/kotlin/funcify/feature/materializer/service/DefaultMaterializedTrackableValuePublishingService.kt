@@ -2,12 +2,14 @@ package funcify.feature.materializer.service
 
 import arrow.core.*
 import com.fasterxml.jackson.databind.JsonNode
+import funcify.feature.datasource.tracking.TrackableJsonValuePublisher
 import funcify.feature.datasource.tracking.TrackableJsonValuePublisherProvider
 import funcify.feature.datasource.tracking.TrackableValue
 import funcify.feature.json.JsonMapper
 import funcify.feature.materializer.dispatch.SourceIndexRequestDispatch
 import funcify.feature.materializer.error.MaterializerErrorResponse
 import funcify.feature.materializer.error.MaterializerException
+import funcify.feature.materializer.json.JsonNodeToStandardValueConverter
 import funcify.feature.materializer.phase.RequestDispatchMaterializationPhase
 import funcify.feature.materializer.schema.path.ListIndexedSchematicPathGraphQLSchemaBasedCalculator
 import funcify.feature.materializer.session.GraphQLSingleRequestSession
@@ -38,9 +40,11 @@ import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.toPersistentMap
 import kotlinx.collections.immutable.toPersistentSet
 import org.slf4j.Logger
+import reactor.core.Disposable
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.core.scheduler.Schedulers
+import reactor.kotlin.core.publisher.switchIfEmpty
 
 /**
  *
@@ -58,8 +62,7 @@ internal class DefaultMaterializedTrackableValuePublishingService(
 
     override fun publishMaterializedTrackableJsonValueIfApplicable(
         session: GraphQLSingleRequestSession,
-        materializedTrackableJsonValue: TrackableValue<JsonNode>,
-        materializedValue: Any,
+        materializedTrackableJsonValue: TrackableValue<JsonNode>
     ) {
         logger.info(
             """publish_materialized_trackable_json_value_if_applicable: [ 
@@ -101,185 +104,264 @@ internal class DefaultMaterializedTrackableValuePublishingService(
             .tapNone {
                 logger.info(
                     """publish_materialized_trackable_json_value_if_applicable: 
-                        |[ status: trackable_json_value not eligible for publication ] 
-                        |[ source_index_path: {} ]""".flatten(),
+                    |[ status: trackable_json_value not eligible for publication ] 
+                    |[ source_index_path: {} ]""".flatten(),
                     materializedTrackableJsonValue.targetSourceIndexPath
                 )
             }
             .map { (dispatchedRequest, publisher, calculatedValue) ->
-                Mono.defer {
-                        findAnyLastUpdatedFieldValuesRelatedToThisField(
-                            calculatedValue.targetSourceIndexPath,
-                            dispatchedRequest,
-                            session
-                        )
-                    }
-                    .publishOn(Schedulers.boundedElastic())
-                    .flatMap { lastUpdValuesByPath ->
-                        when {
-                            dispatchedRequestForCalculatedValueDependentOnOtherTrackableValues(
+                transitionCalculatedToTrackedAndPublish(
+                    calculatedValue,
+                    dispatchedRequest,
+                    session,
+                    materializedTrackableJsonValue,
+                    publisher
+                )
+            }
+    }
+
+    private fun transitionCalculatedToTrackedAndPublish(
+        calculatedValue: TrackableValue.CalculatedValue<JsonNode>,
+        dispatchedRequest: SourceIndexRequestDispatch.TrackableSingleJsonValueDispatch,
+        session: GraphQLSingleRequestSession,
+        materializedTrackableJsonValue: TrackableValue<JsonNode>,
+        publisher: TrackableJsonValuePublisher,
+    ): Disposable {
+        return Mono.defer {
+                findAnyLastUpdatedFieldValuesRelatedToThisField(
+                    calculatedValue.targetSourceIndexPath,
+                    dispatchedRequest,
+                    session
+                )
+            }
+            .publishOn(Schedulers.boundedElastic())
+            .flatMap { lastUpdValuesByPath ->
+                when {
+                    dispatchedRequestForCalculatedValueDependentOnOtherTrackableValues(
+                        dispatchedRequest,
+                        calculatedValue,
+                        session
+                    ) -> {
+                        gatherAnyValueAtTimestampsFromTrackedValuesUsedAsInputForCalculatedValue(
                                 dispatchedRequest,
                                 calculatedValue,
                                 session
-                            ) -> {
-                                gatherAnyValueAtTimestampsFromTrackedValuesUsedAsInputForCalculatedValue(
-                                        dispatchedRequest,
-                                        calculatedValue,
-                                        session
-                                    )
-                                    .map { otherTimestampsByPath ->
-                                        lastUpdValuesByPath
-                                            .toPersistentMap()
-                                            .putAll(otherTimestampsByPath)
-                                    }
-                            }
-                            else -> {
-                                Mono.just(lastUpdValuesByPath)
-                            }
-                        }
-                    }
-                    .zipWith(
-                        findAnyEntityIdentifierValuesRelatedToThisField(
-                            calculatedValue,
-                            dispatchedRequest,
-                            session
-                        )
-                    ) { ts, ids -> ts to ids }
-                    .zipWith(
-                        jsonMapper.fromKotlinObject(materializedValue).toJsonNode().toMono()
-                    ) { (ts, ids), jn -> Triple(ts, ids, jn) }
-                    .map { (relevantTimestampsByPath, relevantIdsByPath, materializedJsonValue) ->
-                        logger.info(
-                            "relevant_ids_by_path: [ {} ]",
-                            relevantIdsByPath
-                                .asSequence()
-                                .joinToString(", ", transform = { (k, v) -> "${k}: $v" })
-                        )
-                        val parentTypeName: String =
-                            calculatedValue.targetSourceIndexPath
-                                .getParentPath()
-                                .flatMap { pp ->
-                                    session.metamodelGraph.pathBasedGraph
-                                        .getVertex(pp)
-                                        .filterIsInstance<SourceContainerTypeVertex>()
-                                }
-                                .map { sct ->
-                                    sct.compositeContainerType.conventionalName.qualifiedForm
-                                }
-                                .successIfDefined {
-                                    MaterializerException(
-                                        MaterializerErrorResponse.UNEXPECTED_ERROR,
-                                        "could not find parent_type_name for [ path: ${calculatedValue.targetSourceIndexPath} ]"
-                                    )
-                                }
-                                .orElseThrow()
-                        val childAttributeName: String =
-                            calculatedValue.targetSourceIndexPath
-                                .toOption()
-                                .flatMap { sp ->
-                                    session.metamodelGraph.pathBasedGraph.getVertex(sp)
-                                }
-                                .filterIsInstance<SourceAttributeVertex>()
-                                .map { sav ->
-                                    sav.compositeAttribute.conventionalName.qualifiedForm
-                                }
-                                .successIfDefined {
-                                    MaterializerException(
-                                        MaterializerErrorResponse.UNEXPECTED_ERROR,
-                                        "could not find attribute_name for [ path: ${calculatedValue.targetSourceIndexPath} ]"
-                                    )
-                                }
-                                .orElseThrow()
-                        val canonicalAndReferenceVertices: Set<SourceAttributeVertex> =
-                            session.metamodelGraph
-                                .sourceAttributeVerticesWithParentTypeAttributeQualifiedNamePair
-                                .getOrNone(parentTypeName to childAttributeName)
-                                .fold(::emptySet, ::identity)
-                        val canonicalPath: SchematicPath =
-                            canonicalAndReferenceVertices
-                                .asSequence()
-                                .map { sav -> sav.path }
-                                .minOrNull()
-                                .toOption()
-                                .map { sp ->
-                                    decorateCanonicalPathWithRelevantContextualEntityIdentifiers(
-                                        sp,
-                                        relevantIdsByPath,
-                                        calculatedValue,
-                                        dispatchedRequest,
-                                        session
-                                    )
-                                }
-                                .successIfDefined {
-                                    MaterializerException(
-                                        MaterializerErrorResponse.UNEXPECTED_ERROR,
-                                        "could not determine canonical_path: [ source_index_path: %s ]".format(
-                                            calculatedValue.targetSourceIndexPath
-                                        )
-                                    )
-                                }
-                                .orElseThrow()
-                        val canonicalPathWithoutContext: SchematicPath =
-                            canonicalPath.transform { clearArguments() }
-                        val referencePaths: PersistentSet<SchematicPath> =
-                            canonicalAndReferenceVertices
-                                .asSequence()
-                                .filter { sav -> sav.path != canonicalPathWithoutContext }
-                                .map { sav -> sav.path }
-                                .map { refPath ->
-                                    decorateReferencePathWithRelevantContextualEntityIdentifiers(
-                                        refPath,
-                                        canonicalPathWithoutContext,
-                                        relevantIdsByPath,
-                                        calculatedValue,
-                                        dispatchedRequest,
-                                        session
-                                    )
-                                }
-                                .toPersistentSet()
-                        logger.info("canonical_path_with_context: {}", canonicalPath)
-                        logger.info(
-                            "reference_paths_with_context: {}",
-                            referencePaths.asSequence().joinToString(", ", "{ ", " }")
-                        )
-                        val valueAtTimestamp =
-                            relevantTimestampsByPath.values.maxOrNull().toOption().getOrElse {
-                                calculatedValue.calculatedTimestamp
-                            }
-                        logger.info(
-                            "value_at_timestamp: [ inputs: {}, result: {} ]",
-                            relevantTimestampsByPath.asSequence().joinToString(", ", "{ ", " }"),
-                            valueAtTimestamp
-                        )
-                        calculatedValue.transitionToTracked {
-                            canonicalPath(canonicalPath)
-                                .referencePaths(referencePaths)
-                                .contextualParameters(relevantIdsByPath)
-                                .valueAtTimestamp(valueAtTimestamp)
-                                .trackedValue(materializedJsonValue)
-                        }
-                    }
-                    .filter { tv: TrackableValue<JsonNode> -> tv.isTracked() }
-                    .subscribe(
-                        { trackedValue: TrackableValue<JsonNode> ->
-                            logger.info(
-                                """publish_materialized_trackable_json_value_if_applicable: 
-                                   |[ status: attempting to publish trackable_json_value ] 
-                                   |[ source_index_path: {} ]""".flatten(),
-                                materializedTrackableJsonValue.targetSourceIndexPath
                             )
-                            publisher.publishTrackableJsonValue(trackedValue)
-                        },
-                        { t: Throwable ->
-                            logger.error(
-                                """publish_materialized_trackable_json_value_if_applicable: 
-                                |[ status: failed ] 
-                                |[ type: {}, message: {} ]""".flatten(),
-                                t::class.simpleName,
-                                t.message
+                            .map { otherTimestampsByPath ->
+                                lastUpdValuesByPath.toPersistentMap().putAll(otherTimestampsByPath)
+                            }
+                    }
+                    else -> {
+                        Mono.just(lastUpdValuesByPath)
+                    }
+                }
+            }
+            .zipWith(
+                findAnyEntityIdentifierValuesRelatedToThisField(
+                    calculatedValue,
+                    dispatchedRequest,
+                    session
+                )
+            ) { ts, ids -> ts to ids }
+            .zipWith(convertMaterializedCalculatedValueFromAndBackIntoJson(calculatedValue)) {
+                (ts, ids),
+                jn ->
+                Triple(ts, ids, jn)
+            }
+            .map { (relevantTimestampsByPath, relevantIdsByPath, materializedJsonValue) ->
+                logger.info(
+                    "relevant_ids_by_path: [ {} ]",
+                    relevantIdsByPath
+                        .asSequence()
+                        .joinToString(", ", transform = { (k, v) -> "${k}: $v" })
+                )
+                val parentTypeName: String =
+                    calculatedValue.targetSourceIndexPath
+                        .getParentPath()
+                        .flatMap { pp ->
+                            session.metamodelGraph.pathBasedGraph
+                                .getVertex(pp)
+                                .filterIsInstance<SourceContainerTypeVertex>()
+                        }
+                        .map { sct -> sct.compositeContainerType.conventionalName.qualifiedForm }
+                        .successIfDefined {
+                            MaterializerException(
+                                MaterializerErrorResponse.UNEXPECTED_ERROR,
+                                "could not find parent_type_name for [ path: ${calculatedValue.targetSourceIndexPath} ]"
                             )
                         }
+                        .orElseThrow()
+                val childAttributeName: String =
+                    calculatedValue.targetSourceIndexPath
+                        .toOption()
+                        .flatMap { sp -> session.metamodelGraph.pathBasedGraph.getVertex(sp) }
+                        .filterIsInstance<SourceAttributeVertex>()
+                        .map { sav -> sav.compositeAttribute.conventionalName.qualifiedForm }
+                        .successIfDefined {
+                            MaterializerException(
+                                MaterializerErrorResponse.UNEXPECTED_ERROR,
+                                "could not find attribute_name for [ path: ${calculatedValue.targetSourceIndexPath} ]"
+                            )
+                        }
+                        .orElseThrow()
+                val canonicalAndReferenceVertices: Set<SourceAttributeVertex> =
+                    session.metamodelGraph
+                        .sourceAttributeVerticesWithParentTypeAttributeQualifiedNamePair
+                        .getOrNone(parentTypeName to childAttributeName)
+                        .fold(::emptySet, ::identity)
+                val canonicalPath: SchematicPath =
+                    canonicalAndReferenceVertices
+                        .asSequence()
+                        .map { sav -> sav.path }
+                        .minOrNull()
+                        .toOption()
+                        .map { sp ->
+                            decorateCanonicalPathWithRelevantContextualEntityIdentifiers(
+                                sp,
+                                relevantIdsByPath,
+                                calculatedValue,
+                                dispatchedRequest,
+                                session
+                            )
+                        }
+                        .successIfDefined {
+                            MaterializerException(
+                                MaterializerErrorResponse.UNEXPECTED_ERROR,
+                                "could not determine canonical_path: [ source_index_path: %s ]".format(
+                                    calculatedValue.targetSourceIndexPath
+                                )
+                            )
+                        }
+                        .orElseThrow()
+                val canonicalPathWithoutContext: SchematicPath =
+                    canonicalPath.transform { clearArguments() }
+                val referencePaths: PersistentSet<SchematicPath> =
+                    canonicalAndReferenceVertices
+                        .asSequence()
+                        .filter { sav -> sav.path != canonicalPathWithoutContext }
+                        .map { sav -> sav.path }
+                        .map { refPath ->
+                            decorateReferencePathWithRelevantContextualEntityIdentifiers(
+                                refPath,
+                                canonicalPathWithoutContext,
+                                relevantIdsByPath,
+                                calculatedValue,
+                                dispatchedRequest,
+                                session
+                            )
+                        }
+                        .toPersistentSet()
+                logger.info("canonical_path_with_context: {}", canonicalPath)
+                logger.info(
+                    "reference_paths_with_context: {}",
+                    referencePaths.asSequence().joinToString(", ", "{ ", " }")
+                )
+                val valueAtTimestamp =
+                    relevantTimestampsByPath.values.maxOrNull().toOption().getOrElse {
+                        calculatedValue.calculatedTimestamp
+                    }
+                logger.info(
+                    "value_at_timestamp: [ inputs: {}, result: {} ]",
+                    relevantTimestampsByPath.asSequence().joinToString(", ", "{ ", " }"),
+                    valueAtTimestamp
+                )
+                calculatedValue.transitionToTracked {
+                    canonicalPath(canonicalPath)
+                        .referencePaths(referencePaths)
+                        .contextualParameters(relevantIdsByPath)
+                        .valueAtTimestamp(valueAtTimestamp)
+                        .trackedValue(materializedJsonValue)
+                }
+            }
+            .filter { tv: TrackableValue<JsonNode> -> tv.isTracked() }
+            .subscribe(
+                { trackedValue: TrackableValue<JsonNode> ->
+                    logger.info(
+                        """publish_materialized_trackable_json_value_if_applicable: 
+                        |[ status: attempting to publish trackable_json_value ] 
+                        |[ source_index_path: {} ]""".flatten(),
+                        materializedTrackableJsonValue.targetSourceIndexPath
                     )
+                    publisher.publishTrackableJsonValue(trackedValue)
+                },
+                { t: Throwable ->
+                    logger.error(
+                        """publish_materialized_trackable_json_value_if_applicable: 
+                        |[ status: failed ] 
+                        |[ type: {}, message: {} ]""".flatten(),
+                        t::class.simpleName,
+                        t.message
+                    )
+                }
+            )
+    }
+
+    private fun convertMaterializedCalculatedValueFromAndBackIntoJson(
+        calculatedValue: TrackableValue.CalculatedValue<JsonNode>
+    ): Mono<JsonNode> {
+        logger.info(
+            """convert_materialized_calculated_value_from_and_back_into_json: 
+            |[ target_source_index_path: {}, 
+            |calculated_value: {} ]
+            |""".flatten(),
+            calculatedValue.targetSourceIndexPath,
+            calculatedValue.calculatedValue
+        )
+        return calculatedValue.calculatedValue
+            .toOption()
+            .filter { jn -> jn.isNull }
+            .toMono()
+            .switchIfEmpty {
+                JsonNodeToStandardValueConverter(
+                        calculatedValue.calculatedValue,
+                        calculatedValue.graphQLOutputType
+                    )
+                    .successIfDefined {
+                        MaterializerException(
+                            MaterializerErrorResponse.UNEXPECTED_ERROR,
+                            """unable to convert calculated_value from 
+                            |json into expected_graphql_output_type: 
+                            |[ calculated_value: %s, graphql_output_type.name: %s ]"""
+                                .flatten()
+                                .format(
+                                    calculatedValue.calculatedValue,
+                                    calculatedValue.graphQLOutputType
+                                )
+                        )
+                    }
+                    .flatMap { standardValue ->
+                        jsonMapper.fromKotlinObject(standardValue).toJsonNode()
+                    }
+                    .mapFailure { t: Throwable ->
+                        MaterializerException(
+                            MaterializerErrorResponse.UNEXPECTED_ERROR,
+                            """unable to convert calculated_value from 
+                            |graphql_output_type into json due to: 
+                            |[ type: %s, message: %s ]"""
+                                .flatten()
+                                .format(t::class.qualifiedName, t.message)
+                        )
+                    }
+                    .toMono()
+                    .widen()
+            }
+            .doOnNext { jn ->
+                logger.info(
+                    """convert_materialized_calculated_value_from_and_back_into_json: 
+                    |[ status: success ] 
+                    |[ materialized_value: {} ]
+                    |""".flatten(),
+                    jn
+                )
+            }
+            .doOnError { t ->
+                logger.error(
+                    """convert_materialized_calculated_value_from_and_back_into_json: 
+                    |[ status: failed ] 
+                    |[ type: %s, message: %s ]""".flatten(),
+                    t::class.simpleName,
+                    t.message
+                )
             }
     }
 
@@ -390,7 +472,9 @@ internal class DefaultMaterializedTrackableValuePublishingService(
                     arguments(
                         calculatedValue.contextualParameters
                             .asSequence()
-                            .filter { (paramPath, _) -> !canonicalDomainPath.isAncestorOf(paramPath) }
+                            .filter { (paramPath, _) ->
+                                !canonicalDomainPath.isAncestorOf(paramPath)
+                            }
                             .filter { (paramPath, _) -> paramPath.arguments.isNotEmpty() }
                             .map { (paramPath, paramVal) ->
                                 paramPath.arguments.asIterable().firstOrNone().map { (argName, _) ->
@@ -404,45 +488,6 @@ internal class DefaultMaterializedTrackableValuePublishingService(
                 }
             }
         }
-    }
-
-    private fun pathBelongsToSourceAttributeVertexThatAlsoCanServeAsParameterAttributeVertex(
-        path: SchematicPath,
-        session: GraphQLSingleRequestSession
-    ): Boolean {
-        return path
-            .getParentPath()
-            .flatMap { pp ->
-                session.metamodelGraph.pathBasedGraph
-                    .getVertex(pp)
-                    .filterIsInstance<SourceContainerTypeVertex>()
-                    .map { sct -> sct.compositeContainerType.conventionalName.qualifiedForm }
-                    .zip(
-                        session.metamodelGraph.pathBasedGraph
-                            .getVertex(path)
-                            .filterIsInstance<SourceAttributeVertex>()
-                            .map { sa -> sa.compositeAttribute.conventionalName.qualifiedForm }
-                    )
-            }
-            .flatMap { parentTypeChildAttrName ->
-                session.metamodelGraph
-                    .sourceAttributeVerticesWithParentTypeAttributeQualifiedNamePair
-                    .getOrNone(parentTypeChildAttrName)
-            }
-            .flatMap { childAttrs ->
-                childAttrs
-                    .asSequence()
-                    .minByOrNull { sav -> sav.path }
-                    .toOption()
-                    .map { sav -> sav.compositeAttribute.conventionalName.qualifiedForm }
-                    .flatMap { name ->
-                        session.metamodelGraph.parameterAttributeVerticesByQualifiedName.getOrNone(
-                            name
-                        )
-                    }
-            }
-            .filter { paramAttrVertices -> paramAttrVertices.isNotEmpty() }
-            .isDefined()
     }
 
     private fun findAnyEntityIdentifierValuesRelatedToThisField(

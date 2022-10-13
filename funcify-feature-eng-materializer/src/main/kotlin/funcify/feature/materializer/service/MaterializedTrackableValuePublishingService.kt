@@ -14,7 +14,6 @@ fun interface MaterializedTrackableValuePublishingService {
 
     fun publishMaterializedTrackableJsonValueIfApplicable(
         session: GraphQLSingleRequestSession,
-        materializedTrackableJsonValue: TrackableValue<JsonNode>,
-        materializedValue: Any
+        materializedTrackableJsonValue: TrackableValue<JsonNode>
     )
 }

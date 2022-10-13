@@ -14,7 +14,6 @@ import funcify.feature.materializer.dispatch.SourceIndexRequestDispatch.*
 import funcify.feature.materializer.dispatch.SourceIndexRequestDispatchFactory
 import funcify.feature.materializer.error.MaterializerErrorResponse
 import funcify.feature.materializer.error.MaterializerException
-import funcify.feature.materializer.json.JsonNodeToStandardValueConverter
 import funcify.feature.materializer.phase.DefaultRequestDispatchMaterializationPhase
 import funcify.feature.materializer.phase.RequestDispatchMaterializationPhase
 import funcify.feature.materializer.phase.RequestParameterMaterializationGraphPhase
@@ -44,7 +43,6 @@ import graphql.schema.FieldCoordinates
 import graphql.schema.GraphQLFieldDefinition
 import java.time.Duration
 import java.time.Instant
-import java.util.concurrent.Executor
 import java.util.stream.Stream
 import java.util.stream.Stream.empty
 import kotlin.streams.asSequence
@@ -985,17 +983,9 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                 dispatch.dispatchedTrackableValueRequest
                     .filter { tv -> tv.isCalculated() }
                     .ofType<TrackableValue.CalculatedValue<JsonNode>>()
-                    .flatMap { tv ->
-                        JsonNodeToStandardValueConverter(tv.calculatedValue, tv.graphQLOutputType)
-                            .toMono()
-                            .map { materializedValue ->
-                                materializedTrackableValuePublishingService
-                                    .publishMaterializedTrackableJsonValueIfApplicable(
-                                        session,
-                                        tv,
-                                        materializedValue
-                                    )
-                            }
+                    .map { tv ->
+                        materializedTrackableValuePublishingService
+                            .publishMaterializedTrackableJsonValueIfApplicable(session, tv)
                     }
             }
             .subscribe()
