@@ -6,40 +6,47 @@ import arrow.core.firstOrNone
 import arrow.core.getOrElse
 import arrow.core.orElse
 import arrow.core.toOption
+import funcify.feature.materializer.schema.MaterializationMetamodel
 import funcify.feature.schema.MetamodelGraph
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.schema.vertex.ParameterAttributeVertex
 import funcify.feature.schema.vertex.SourceAttributeVertex
 import funcify.feature.schema.vertex.SourceContainerTypeVertex
+import java.time.Instant
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentMap
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentSetOf
 
 internal object ParameterToSourceAttributeVertexMatcher :
-    (SchematicPath, MetamodelGraph) -> Option<SourceAttributeVertex> {
+    (MaterializationMetamodel, SchematicPath) -> Option<SourceAttributeVertex> {
 
     private val parameterToSourceVertexMemoizer:
-        (SchematicPath, MetamodelGraph) -> Option<SourceAttributeVertex> by lazy {
-        val cache: ConcurrentMap<Pair<SchematicPath, MetamodelGraph>, SourceAttributeVertex> =
+        (MaterializationMetamodel, SchematicPath) -> Option<SourceAttributeVertex> by lazy {
+        val cache: ConcurrentMap<Pair<Instant, SchematicPath>, SourceAttributeVertex> =
             ConcurrentHashMap()
-        ({ paramPath, mmg ->
+        ({ mmg, paramPath ->
             cache
-                .computeIfAbsent(paramPath to mmg, sourceAttributeVertexWithSameNameCalculator())
+                .computeIfAbsent(
+                    mmg.created to paramPath,
+                    sourceAttributeVertexWithSameNameCalculator(mmg)
+                )
                 .toOption()
         })
     }
 
     override fun invoke(
-        parameterVertexPath: SchematicPath,
-        metamodelGraph: MetamodelGraph
+        materializationMetamodel: MaterializationMetamodel,
+        parameterVertexPath: SchematicPath
     ): Option<SourceAttributeVertex> {
-        return parameterToSourceVertexMemoizer(parameterVertexPath, metamodelGraph)
+        return parameterToSourceVertexMemoizer(materializationMetamodel, parameterVertexPath)
     }
 
-    private fun sourceAttributeVertexWithSameNameCalculator():
-        (Pair<SchematicPath, MetamodelGraph>) -> SourceAttributeVertex? {
-        return { (parameterPath: SchematicPath, metamodelGraph: MetamodelGraph) ->
+    private fun sourceAttributeVertexWithSameNameCalculator(
+        materializationMetamodel: MaterializationMetamodel
+    ): (Pair<Instant, SchematicPath>) -> SourceAttributeVertex? {
+        return { (materializationMetamodelCreated: Instant, parameterPath: SchematicPath) ->
+            val metamodelGraph: MetamodelGraph = materializationMetamodel.metamodelGraph
             parameterPath
                 .toOption()
                 .filter { paramPath -> paramPath.arguments.isNotEmpty() }

@@ -65,18 +65,34 @@ interface MaterializationGraphContext {
                 PathBasedGraph<SchematicPath, SchematicVertex, RequestParameterEdge>
         ): Builder
 
+        fun addVertexToRequestParameterGraph(vertex: SchematicVertex): Builder
+
+        fun addEdgeToRequestParameterGraph(edge: RequestParameterEdge): Builder
+
         fun materializedParameterValuesByPath(
             materializedParameterValuesByPath: PersistentMap<SchematicPath, JsonNode>
         ): Builder
+
+        fun addMaterializedParameterValueForPath(path: SchematicPath, value: JsonNode): Builder
 
         fun parameterIndexPathsBySourceIndexPath(
             parameterIndexPathsBySourceIndexPath:
                 PersistentMap<SchematicPath, PersistentSet<SchematicPath>>
         ): Builder
 
-        fun retrievalFunctionSpecByTopSourceIndexPath(
-            retrievalFunctionSpecByTopSourceIndexPath:
+        fun addParameterIndexPathForSourceIndexPath(
+            path: SchematicPath,
+            parameterIndexPath: SchematicPath
+        ): Builder
+
+        fun retrievalFunctionSpecsByTopSourceIndexPath(
+            retrievalFunctionSpecsByTopSourceIndexPath:
                 PersistentMap<SchematicPath, RetrievalFunctionSpec>
+        ): Builder
+
+        fun addRetrievalFunctionSpecForTopSourceIndexPath(
+            path: SchematicPath,
+            spec: RetrievalFunctionSpec
         ): Builder
 
         fun build(): MaterializationGraphContext

@@ -42,6 +42,19 @@ internal data class DefaultRetrievalFunctionSpec(
             }
 
             override fun addSourceVertex(
+                sourceJunctionOrLeafVertex: Either<SourceJunctionVertex, SourceLeafVertex>
+            ): RetrievalFunctionSpec.SpecBuilder {
+                this.sourceVerticesByPathBuilder.put(
+                    sourceJunctionOrLeafVertex.fold(
+                        SourceJunctionVertex::path,
+                        SourceLeafVertex::path
+                    ),
+                    sourceJunctionOrLeafVertex
+                )
+                return this
+            }
+
+            override fun addSourceVertex(
                 sourceJunctionVertex: SourceJunctionVertex
             ): RetrievalFunctionSpec.SpecBuilder {
                 this.sourceVerticesByPathBuilder.put(
@@ -57,6 +70,19 @@ internal data class DefaultRetrievalFunctionSpec(
                 this.sourceVerticesByPathBuilder.put(
                     sourceLeafVertex.path,
                     sourceLeafVertex.right()
+                )
+                return this
+            }
+
+            override fun addParameterVertex(
+                parameterJunctionOrLeafVertex: Either<ParameterJunctionVertex, ParameterLeafVertex>
+            ): RetrievalFunctionSpec.SpecBuilder {
+                this.parameterVerticesByPathBuilder.put(
+                    parameterJunctionOrLeafVertex.fold(
+                        ParameterJunctionVertex::path,
+                        ParameterLeafVertex::path
+                    ),
+                    parameterJunctionOrLeafVertex
                 )
                 return this
             }

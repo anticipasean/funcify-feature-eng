@@ -34,12 +34,12 @@ internal object MaterializationGraphContextSemigroup : Semigroup<Materialization
                         b.parameterIndexPathsBySourceIndexPath
                     )
                 )
-                .retrievalFunctionSpecByTopSourceIndexPath(
+                .retrievalFunctionSpecsByTopSourceIndexPath(
                     combineRetrievalSpecs(
                         a.retrievalFunctionSpecByTopSourceIndexPath,
                         b.retrievalFunctionSpecByTopSourceIndexPath
                     )
-                )
+                                                           )
         }
     }
 

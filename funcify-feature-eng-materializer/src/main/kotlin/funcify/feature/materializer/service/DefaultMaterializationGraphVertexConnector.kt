@@ -1,12 +1,15 @@
 package funcify.feature.materializer.service
 
 import arrow.core.*
+import arrow.core.continuations.AtomicRef
 import com.fasterxml.jackson.databind.JsonNode
 import funcify.feature.json.JsonMapper
 import funcify.feature.materializer.context.MaterializationGraphVertexContext
 import funcify.feature.materializer.error.MaterializerErrorResponse
 import funcify.feature.materializer.error.MaterializerException
 import funcify.feature.materializer.json.GraphQLValueToJsonNodeConverter
+import funcify.feature.materializer.schema.DefaultMaterializationMetamodel
+import funcify.feature.materializer.schema.MaterializationMetamodel
 import funcify.feature.materializer.schema.edge.RequestParameterEdge
 import funcify.feature.materializer.schema.edge.RequestParameterEdgeFactory
 import funcify.feature.materializer.schema.path.ListIndexedSchematicPathGraphQLSchemaBasedCalculator
@@ -50,6 +53,10 @@ internal class DefaultMaterializationGraphVertexConnector(
     companion object {
         private val logger: Logger = loggerFor<DefaultMaterializationGraphVertexConnector>()
     }
+
+    private val parameterToSourceAttributeVertexMatcher:
+        AtomicRef<(SchematicPath) -> Option<SourceAttributeVertex>> =
+        AtomicRef()
 
     override fun connectSourceRootVertex(
         context: MaterializationGraphVertexContext<SourceRootVertex>
@@ -430,7 +437,23 @@ internal class DefaultMaterializationGraphVertexConnector(
             // retrieved through some other source--if possible
             else -> {
                 val sourceAttributeVertexWithSameNameOrAlias: Option<SourceAttributeVertex> =
-                    ParameterToSourceAttributeVertexMatcher(context.path, context.metamodelGraph)
+                    if (parameterToSourceAttributeVertexMatcher.get() == null) {
+                        val materializationMetamodel: MaterializationMetamodel =
+                            DefaultMaterializationMetamodel(
+                                metamodelGraph = context.metamodelGraph,
+                                materializationGraphQLSchema = context.graphQLSchema
+                            )
+                        val matcher = { paramPath: SchematicPath ->
+                            ParameterToSourceAttributeVertexMatcher(
+                                materializationMetamodel,
+                                paramPath
+                            )
+                        }
+                        parameterToSourceAttributeVertexMatcher.set(matcher)
+                        matcher(context.path)
+                    } else {
+                        parameterToSourceAttributeVertexMatcher.get()(context.path)
+                    }
                 logger.info(
                     "selected_source_attribute_vertex_with_same_name_or_alias: [ parameter_path: {} source_attribute_vertex: {} ]",
                     context.path,

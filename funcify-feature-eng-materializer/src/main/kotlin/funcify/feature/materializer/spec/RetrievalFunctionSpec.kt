@@ -23,9 +23,13 @@ interface RetrievalFunctionSpec {
 
         fun dataSource(dataSource: DataSource<*>): SpecBuilder
 
+        fun addSourceVertex(sourceJunctionOrLeafVertex: Either<SourceJunctionVertex, SourceLeafVertex>): SpecBuilder
+
         fun addSourceVertex(sourceJunctionVertex: SourceJunctionVertex): SpecBuilder
 
         fun addSourceVertex(sourceLeafVertex: SourceLeafVertex): SpecBuilder
+
+        fun addParameterVertex(parameterJunctionOrLeafVertex: Either<ParameterJunctionVertex, ParameterLeafVertex>): SpecBuilder
 
         fun addParameterVertex(parameterJunctionVertex: ParameterJunctionVertex): SpecBuilder
 

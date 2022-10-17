@@ -87,10 +87,5 @@ interface NewMaterializationGraphConnector {
         context: MaterializationGraphContext
     ): MaterializationGraphContext
 
-    fun connectVertices(
-        vertex1: SchematicVertex,
-        vertex2: SchematicVertex,
-        context: MaterializationGraphContext
-    ): MaterializationGraphContext
 
 }

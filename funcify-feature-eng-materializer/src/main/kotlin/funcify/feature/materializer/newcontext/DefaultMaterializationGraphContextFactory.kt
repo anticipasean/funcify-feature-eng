@@ -15,6 +15,7 @@ import graphql.language.OperationDefinition
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.PersistentSet
 import kotlinx.collections.immutable.persistentMapOf
+import kotlinx.collections.immutable.persistentSetOf
 
 /**
  *
@@ -66,10 +67,50 @@ internal class DefaultMaterializationGraphContextFactory : MaterializationGraphC
                 return this
             }
 
+            override fun addVertexToRequestParameterGraph(vertex: SchematicVertex): Builder {
+                this.requestParameterGraph =
+                    requestParameterGraph.putVertex(vertex, SchematicVertex::path)
+                return this
+            }
+
+            override fun addEdgeToRequestParameterGraph(edge: RequestParameterEdge): Builder {
+                eagerEffect<String, RequestParameterEdge> {
+                        ensure(edge.id.first in requestParameterGraph.verticesByPath) {
+                            "first path in edge.id does not have corresponding vertex in request_parameter_graph"
+                        }
+                        ensure(edge.id.second in requestParameterGraph.verticesByPath) {
+                            "second path in edge.id does not have corresponding vertex in request_parameter_graph"
+                        }
+                        edge
+                    }
+                    .fold(
+                        { message ->
+                            throw MaterializerException(
+                                MaterializerErrorResponse.UNEXPECTED_ERROR,
+                                message
+                            )
+                        },
+                        { e ->
+                            this.requestParameterGraph =
+                                this.requestParameterGraph.putEdge(e, RequestParameterEdge::id)
+                        }
+                    )
+                return this
+            }
+
             override fun materializedParameterValuesByPath(
                 materializedParameterValuesByPath: PersistentMap<SchematicPath, JsonNode>
             ): Builder {
                 this.materializedParameterValuesByPath = materializedParameterValuesByPath
+                return this
+            }
+
+            override fun addMaterializedParameterValueForPath(
+                path: SchematicPath,
+                value: JsonNode
+            ): Builder {
+                this.materializedParameterValuesByPath =
+                    materializedParameterValuesByPath.put(path, value)
                 return this
             }
 
@@ -81,12 +122,35 @@ internal class DefaultMaterializationGraphContextFactory : MaterializationGraphC
                 return this
             }
 
-            override fun retrievalFunctionSpecByTopSourceIndexPath(
-                retrievalFunctionSpecByTopSourceIndexPath:
+            override fun addParameterIndexPathForSourceIndexPath(
+                path: SchematicPath,
+                parameterIndexPath: SchematicPath
+            ): Builder {
+                this.parameterIndexPathsBySourceIndexPath =
+                    parameterIndexPathsBySourceIndexPath.put(
+                        path,
+                        parameterIndexPathsBySourceIndexPath
+                            .getOrElse(path) { persistentSetOf() }
+                            .add(parameterIndexPath)
+                    )
+                return this
+            }
+
+            override fun retrievalFunctionSpecsByTopSourceIndexPath(
+                retrievalFunctionSpecsByTopSourceIndexPath:
                     PersistentMap<SchematicPath, RetrievalFunctionSpec>
             ): Builder {
                 this.retrievalFunctionSpecByTopSourceIndexPath =
-                    retrievalFunctionSpecByTopSourceIndexPath
+                    retrievalFunctionSpecsByTopSourceIndexPath
+                return this
+            }
+
+            override fun addRetrievalFunctionSpecForTopSourceIndexPath(
+                path: SchematicPath,
+                spec: RetrievalFunctionSpec
+            ): Builder {
+                this.retrievalFunctionSpecByTopSourceIndexPath =
+                    this.retrievalFunctionSpecByTopSourceIndexPath.put(path, spec)
                 return this
             }
 
