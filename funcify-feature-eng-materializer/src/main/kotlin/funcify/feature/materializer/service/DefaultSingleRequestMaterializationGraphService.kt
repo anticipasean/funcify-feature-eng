@@ -8,10 +8,10 @@ import arrow.core.none
 import arrow.core.right
 import arrow.core.some
 import arrow.core.toOption
-import funcify.feature.materializer.context.MaterializationGraphVertexContext
-import funcify.feature.materializer.context.MaterializationGraphVertexContextFactory
 import funcify.feature.materializer.error.MaterializerErrorResponse
 import funcify.feature.materializer.error.MaterializerException
+import funcify.feature.materializer.context.MaterializationGraphContext
+import funcify.feature.materializer.context.MaterializationGraphContextFactory
 import funcify.feature.materializer.phase.DefaultRequestParameterMaterializationGraphPhase
 import funcify.feature.materializer.session.GraphQLSingleRequestSession
 import funcify.feature.schema.SchematicVertex
@@ -31,6 +31,7 @@ import graphql.language.Field
 import graphql.language.OperationDefinition
 import graphql.language.Selection
 import graphql.language.SelectionSet
+import kotlinx.collections.immutable.toPersistentMap
 import org.slf4j.Logger
 
 /**
@@ -39,8 +40,8 @@ import org.slf4j.Logger
  * @created 2022-08-08
  */
 internal class DefaultSingleRequestMaterializationGraphService(
-    private val materializationGraphVertexContextFactory: MaterializationGraphVertexContextFactory,
-    private val materializationGraphVertexConnector: MaterializationGraphVertexConnector
+    private val materializationGraphContextFactory: MaterializationGraphContextFactory,
+    private val materializationGraphConnector: MaterializationGraphConnector
 ) : SingleRequestMaterializationGraphService {
 
     companion object {
@@ -87,17 +88,18 @@ internal class DefaultSingleRequestMaterializationGraphService(
             )
         }
 
-        return traverseOperationDefinitionInSessionCreatingMaterializationGraph(session).map { ctx
-            ->
+        return traverseOperationDefinitionInSessionCreatingMaterializationGraph(session).map {
+            context: MaterializationGraphContext ->
             session.update {
                 requestParameterMaterializationGraphPhase(
                     DefaultRequestParameterMaterializationGraphPhase(
-                        requestGraph = ctx.requestParameterGraph,
-                        materializedParameterValuesByPath = ctx.materializedParameterValuesByPath,
+                        requestGraph = context.requestParameterGraph,
+                        materializedParameterValuesByPath =
+                            context.materializedParameterValuesByPath,
                         parameterIndexPathsBySourceIndexPath =
-                            ctx.parameterIndexPathsBySourceIndexPath,
+                            context.parameterIndexPathsBySourceIndexPath,
                         retrievalFunctionSpecByTopSourceIndexPath =
-                            ctx.retrievalFunctionSpecByTopSourceIndexPath
+                            context.retrievalFunctionSpecByTopSourceIndexPath
                     )
                 )
             }
@@ -106,7 +108,7 @@ internal class DefaultSingleRequestMaterializationGraphService(
 
     private fun traverseOperationDefinitionInSessionCreatingMaterializationGraph(
         session: GraphQLSingleRequestSession
-    ): Try<MaterializationGraphVertexContext<*>> {
+    ): Try<MaterializationGraphContext> {
         logger.debug(
             "traverse_operation_definition_in_session_creating_materialization_graph: [ session.session_id: {} ]",
             session.sessionId
@@ -144,43 +146,38 @@ internal class DefaultSingleRequestMaterializationGraphService(
                         }
                     }
                     .fold(
-                        materializationGraphVertexConnector.connectSourceRootVertex(
-                            materializationGraphVertexContextFactory.createSourceRootVertexContext(
-                                sourceRootVertex,
-                                session.metamodelGraph,
-                                session.materializationSchema,
-                                session.operationDefinition.orNull()!!,
-                                session.processedQueryVariables
-                            )
+                        materializationGraphConnector.connectSourceRootVertex(
+                            sourceRootVertex,
+                            materializationGraphContextFactory
+                                .builder()
+                                .operationDefinition(session.operationDefinition.orNull()!!)
+                                .materializationMetamodel(session.materializationMetamodel)
+                                .queryVariables(session.processedQueryVariables.toPersistentMap())
+                                .build()
                         )
                     ) {
-                        matGraphVertContext: MaterializationGraphVertexContext<*>,
-                        resolvedFieldOrArgContext ->
+                            materializationGraphContext: MaterializationGraphContext,
+                            resolvedFieldOrArgContext: ResolvedVertexContext ->
                         when (resolvedFieldOrArgContext) {
                             is ResolvedSourceVertexContext -> {
-                                materializationGraphVertexConnector
-                                    .connectSourceJunctionOrLeafVertex(
-                                        matGraphVertContext.update {
-                                            nextVertex(
-                                                resolvedFieldOrArgContext.sourceJunctionOrLeafVertex
-                                                    .fold(::identity, ::identity),
-                                                resolvedFieldOrArgContext.field
-                                            )
-                                        }
-                                    )
+                                materializationGraphConnector.connectSourceJunctionOrLeafVertex(
+                                    resolvedFieldOrArgContext.field.toOption(),
+                                    resolvedFieldOrArgContext.sourceJunctionOrLeafVertex.fold(
+                                        ::identity,
+                                        ::identity
+                                    ),
+                                    materializationGraphContext
+                                )
                             }
                             is ResolvedParameterVertexContext -> {
-                                materializationGraphVertexConnector
-                                    .connectParameterJunctionOrLeafVertex(
-                                        matGraphVertContext.update {
-                                            nextVertex(
-                                                resolvedFieldOrArgContext
-                                                    .parameterJunctionOrLeafVertex
-                                                    .fold(::identity, ::identity),
-                                                resolvedFieldOrArgContext.argument
-                                            )
-                                        }
-                                    )
+                                materializationGraphConnector.connectParameterJunctionOrLeafVertex(
+                                    resolvedFieldOrArgContext.argument.toOption(),
+                                    resolvedFieldOrArgContext.parameterJunctionOrLeafVertex.fold(
+                                        ::identity,
+                                        ::identity
+                                    ),
+                                    materializationGraphContext
+                                )
                             }
                         }
                     }

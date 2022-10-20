@@ -6,13 +6,13 @@ import funcify.feature.json.JsonMapper
 import funcify.feature.materializer.error.MaterializerErrorResponse
 import funcify.feature.materializer.error.MaterializerException
 import funcify.feature.materializer.json.GraphQLValueToJsonNodeConverter
-import funcify.feature.materializer.newcontext.MaterializationGraphContext
+import funcify.feature.materializer.context.MaterializationGraphContext
 import funcify.feature.materializer.schema.edge.RequestParameterEdgeFactory
 import funcify.feature.materializer.schema.path.ListIndexedSchematicPathGraphQLSchemaBasedCalculator
 import funcify.feature.materializer.schema.path.SchematicPathFieldCoordinatesMatcher
 import funcify.feature.materializer.schema.path.SourceAttributeDataSourceAncestorPathFinder
 import funcify.feature.materializer.schema.vertex.ParameterToSourceAttributeVertexMatcher
-import funcify.feature.materializer.service.DefaultNewMaterializationGraphConnector.Companion.ContextUpdater
+import funcify.feature.materializer.service.DefaultMaterializationGraphConnector.Companion.ContextUpdater
 import funcify.feature.materializer.spec.DefaultRetrievalFunctionSpec
 import funcify.feature.schema.SchematicVertex
 import funcify.feature.schema.datasource.DataSource
@@ -48,15 +48,15 @@ import org.slf4j.Logger
  * @author smccarron
  * @created 2022-10-09
  */
-internal class DefaultNewMaterializationGraphConnector(
+internal class DefaultMaterializationGraphConnector(
     private val jsonMapper: JsonMapper,
     private val requestParameterEdgeFactory: RequestParameterEdgeFactory,
-) : NewMaterializationGraphConnector {
+                                                   ) : MaterializationGraphConnector {
 
     companion object {
-        private val logger: Logger = loggerFor<DefaultNewMaterializationGraphConnector>()
+        private val logger: Logger = loggerFor<DefaultMaterializationGraphConnector>()
         private fun interface ContextUpdater :
-            (MaterializationGraphContext.Builder) -> MaterializationGraphContext.Builder
+                (MaterializationGraphContext.Builder) -> MaterializationGraphContext.Builder
     }
     override fun connectSourceRootVertex(
         vertex: SourceRootVertex,

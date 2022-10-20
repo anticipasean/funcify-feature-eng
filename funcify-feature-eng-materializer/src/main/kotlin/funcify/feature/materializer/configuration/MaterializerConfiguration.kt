@@ -14,7 +14,7 @@ import funcify.feature.datasource.tracking.TrackableJsonValuePublisherProvider
 import funcify.feature.datasource.tracking.TrackableValueFactory
 import funcify.feature.error.FeatureEngCommonException
 import funcify.feature.json.JsonMapper
-import funcify.feature.materializer.context.DefaultMaterializationGraphVertexContextFactory
+import funcify.feature.materializer.context.DefaultMaterializationGraphContextFactory
 import funcify.feature.materializer.error.MaterializerErrorResponse
 import funcify.feature.materializer.error.MaterializerException
 import funcify.feature.materializer.fetcher.DefaultSingleRequestFieldMaterializationDataFetcherFactory
@@ -45,7 +45,6 @@ import funcify.feature.tools.extensions.StringExtensions.flatten
 import graphql.execution.ExecutionStrategy
 import graphql.schema.GraphQLSchema
 import graphql.schema.idl.SchemaPrinter
-import java.util.concurrent.Executor
 import org.slf4j.Logger
 import org.springframework.beans.factory.ObjectProvider
 import org.springframework.beans.factory.annotation.Value
@@ -210,10 +209,9 @@ class MaterializerConfiguration {
         jsonMapper: JsonMapper
     ): SingleRequestMaterializationGraphService {
         return DefaultSingleRequestMaterializationGraphService(
-            materializationGraphVertexContextFactory =
-                DefaultMaterializationGraphVertexContextFactory(),
-            materializationGraphVertexConnector =
-                DefaultMaterializationGraphVertexConnector(
+            materializationGraphContextFactory = DefaultMaterializationGraphContextFactory(),
+            materializationGraphConnector =
+                DefaultMaterializationGraphConnector(
                     jsonMapper = jsonMapper,
                     requestParameterEdgeFactory = DefaultRequestParameterEdgeFactory()
                 )
@@ -232,7 +230,8 @@ class MaterializerConfiguration {
             schematicPathBasedJsonRetrievalFunctionFactory =
                 schematicPathBasedJsonRetrievalFunctionFactory,
             trackableValueFactory = trackableValueFactory,
-            materializedTrackableValuePublishingService = materializedTrackableValuePublishingService
+            materializedTrackableValuePublishingService =
+                materializedTrackableValuePublishingService
         )
     }
 
@@ -257,9 +256,7 @@ class MaterializerConfiguration {
         jsonMapper: JsonMapper,
         materializedTrackableValuePublishingService: MaterializedTrackableValuePublishingService
     ): SingleRequestMaterializationOrchestratorService {
-        return DefaultSingleRequestMaterializationOrchestratorService(
-            jsonMapper = jsonMapper
-        )
+        return DefaultSingleRequestMaterializationOrchestratorService(jsonMapper = jsonMapper)
     }
 
     @ConditionalOnMissingBean(value = [MaterializationPreparsedDocumentProvider::class])

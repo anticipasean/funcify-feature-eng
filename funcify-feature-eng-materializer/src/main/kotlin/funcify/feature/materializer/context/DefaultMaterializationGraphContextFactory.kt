@@ -1,10 +1,10 @@
-package funcify.feature.materializer.newcontext
+package funcify.feature.materializer.context
 
 import arrow.core.continuations.eagerEffect
 import com.fasterxml.jackson.databind.JsonNode
 import funcify.feature.materializer.error.MaterializerErrorResponse
 import funcify.feature.materializer.error.MaterializerException
-import funcify.feature.materializer.newcontext.MaterializationGraphContext.Builder
+import funcify.feature.materializer.context.MaterializationGraphContext.Builder
 import funcify.feature.materializer.schema.MaterializationMetamodel
 import funcify.feature.materializer.schema.edge.RequestParameterEdge
 import funcify.feature.materializer.spec.RetrievalFunctionSpec

@@ -1,4 +1,4 @@
-package funcify.feature.materializer.newcontext
+package funcify.feature.materializer.context
 
 import arrow.typeclasses.Semigroup
 import funcify.feature.materializer.schema.MaterializationMetamodel
@@ -14,7 +14,7 @@ internal object MaterializationGraphContextSemigroup : Semigroup<Materialization
 
     override fun MaterializationGraphContext.combine(
         b: MaterializationGraphContext
-    ): MaterializationGraphContext {
+                                                    ): MaterializationGraphContext {
         val a: MaterializationGraphContext = this@combine
         return a.update {
             materializationMetamodel(chooseLatestMaterializationMetamodel(a, b))

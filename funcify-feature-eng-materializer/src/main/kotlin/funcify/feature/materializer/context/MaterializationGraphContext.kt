@@ -1,4 +1,4 @@
-package funcify.feature.materializer.newcontext
+package funcify.feature.materializer.context
 
 import arrow.typeclasses.Semigroup
 import com.fasterxml.jackson.databind.JsonNode

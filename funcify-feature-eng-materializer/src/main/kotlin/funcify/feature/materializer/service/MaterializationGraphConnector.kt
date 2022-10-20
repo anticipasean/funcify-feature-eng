@@ -5,7 +5,7 @@ import arrow.core.Option
 import arrow.core.none
 import funcify.feature.materializer.error.MaterializerErrorResponse
 import funcify.feature.materializer.error.MaterializerException
-import funcify.feature.materializer.newcontext.MaterializationGraphContext
+import funcify.feature.materializer.context.MaterializationGraphContext
 import funcify.feature.schema.SchematicVertex
 import funcify.feature.schema.vertex.ParameterAttributeVertex
 import funcify.feature.schema.vertex.ParameterJunctionVertex
@@ -22,7 +22,7 @@ import graphql.language.Field
  * @author smccarron
  * @created 2022-10-09
  */
-interface NewMaterializationGraphConnector {
+interface MaterializationGraphConnector {
 
     fun connectSchematicVertex(
         fieldOrArgument: Option<Either<Field, Argument>> = none(),
