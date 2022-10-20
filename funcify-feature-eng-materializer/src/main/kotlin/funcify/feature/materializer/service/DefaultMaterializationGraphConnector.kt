@@ -3,10 +3,10 @@ package funcify.feature.materializer.service
 import arrow.core.*
 import com.fasterxml.jackson.databind.JsonNode
 import funcify.feature.json.JsonMapper
+import funcify.feature.materializer.context.MaterializationGraphContext
 import funcify.feature.materializer.error.MaterializerErrorResponse
 import funcify.feature.materializer.error.MaterializerException
 import funcify.feature.materializer.json.GraphQLValueToJsonNodeConverter
-import funcify.feature.materializer.context.MaterializationGraphContext
 import funcify.feature.materializer.schema.edge.RequestParameterEdgeFactory
 import funcify.feature.materializer.schema.path.ListIndexedSchematicPathGraphQLSchemaBasedCalculator
 import funcify.feature.materializer.schema.path.SchematicPathFieldCoordinatesMatcher
@@ -14,6 +14,7 @@ import funcify.feature.materializer.schema.path.SourceAttributeDataSourceAncesto
 import funcify.feature.materializer.schema.vertex.ParameterToSourceAttributeVertexMatcher
 import funcify.feature.materializer.service.DefaultMaterializationGraphConnector.Companion.ContextUpdater
 import funcify.feature.materializer.spec.DefaultRetrievalFunctionSpec
+import funcify.feature.materializer.spec.RetrievalFunctionSpec
 import funcify.feature.schema.SchematicVertex
 import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.path.SchematicPath
@@ -39,6 +40,7 @@ import graphql.schema.GraphQLArgument
 import kotlin.reflect.KClass
 import kotlin.reflect.KType
 import kotlinx.collections.immutable.ImmutableSet
+import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.toPersistentSet
 import org.slf4j.Logger
@@ -51,12 +53,12 @@ import org.slf4j.Logger
 internal class DefaultMaterializationGraphConnector(
     private val jsonMapper: JsonMapper,
     private val requestParameterEdgeFactory: RequestParameterEdgeFactory,
-                                                   ) : MaterializationGraphConnector {
+) : MaterializationGraphConnector {
 
     companion object {
         private val logger: Logger = loggerFor<DefaultMaterializationGraphConnector>()
         private fun interface ContextUpdater :
-                (MaterializationGraphContext.Builder) -> MaterializationGraphContext.Builder
+            (MaterializationGraphContext.Builder) -> MaterializationGraphContext.Builder
     }
     override fun connectSourceRootVertex(
         vertex: SourceRootVertex,
@@ -77,9 +79,6 @@ internal class DefaultMaterializationGraphConnector(
             field.map { f -> f.name }.getOrElse { "<NA>" },
             vertex.path
         )
-        if (vertex.path in context.retrievalFunctionSpecByTopSourceIndexPath) {
-            return context
-        }
         val currentOrAncestorPathWithSameDataSource: SchematicPath =
             SourceAttributeDataSourceAncestorPathFinder(
                 context.materializationMetamodel,
@@ -106,15 +105,34 @@ internal class DefaultMaterializationGraphConnector(
         return selectDataSourceForSourceAttributeVertex(vertex, context)
             .zip(deriveSourceJunctionLeafVertexEither(vertex))
             .map { (selectedDatasource, sourceJunctionOrLeafVertex) ->
+                val newOrUpdatedSpec: RetrievalFunctionSpec =
+                    if (vertex.path in context.retrievalFunctionSpecByTopSourceIndexPath) {
+                        context.retrievalFunctionSpecByTopSourceIndexPath
+                            .getOrNone(vertex.path)
+                            .filter { spec -> spec.dataSource.key == selectedDatasource.key }
+                            .successIfDefined(
+                                specAlreadyDefinedForDifferentDataSourceExceptionSupplier(
+                                    vertex.path,
+                                    selectedDatasource.key,
+                                    context.retrievalFunctionSpecByTopSourceIndexPath
+                                )
+                            )
+                            .map { spec ->
+                                spec.updateSpec { addSourceVertex(sourceJunctionOrLeafVertex) }
+                            }
+                            .orNull()!!
+                    } else {
+                        DefaultRetrievalFunctionSpec(
+                            selectedDatasource,
+                            persistentMapOf(vertex.path to sourceJunctionOrLeafVertex)
+                        )
+                    }
                 val contextUpdaterFunc: ContextUpdater = ContextUpdater { bldr ->
                     bldr
                         .addVertexToRequestParameterGraph(vertex)
                         .addRetrievalFunctionSpecForTopSourceIndexPath(
                             vertex.path,
-                            DefaultRetrievalFunctionSpec(
-                                selectedDatasource,
-                                persistentMapOf(vertex.path to sourceJunctionOrLeafVertex)
-                            )
+                            newOrUpdatedSpec
                         )
                 }
                 context.update(contextUpdaterFunc)
@@ -226,6 +244,34 @@ internal class DefaultMaterializationGraphConnector(
         }
     }
 
+    private fun specAlreadyDefinedForDifferentDataSourceExceptionSupplier(
+        path: SchematicPath,
+        selectedDatasourceKey: DataSource.Key<*>,
+        retrievalFunctionSpecByTopSourceIndexPath:
+            PersistentMap<SchematicPath, RetrievalFunctionSpec>
+    ): () -> MaterializerException {
+        return { ->
+            MaterializerException(
+                MaterializerErrorResponse.UNEXPECTED_ERROR,
+                """a retrieval_function_spec has already been defined for 
+                    |[ path: %s ] 
+                    |but for a different datasource 
+                    |[ expected_datasource.key: %s, 
+                    | actual_datasource.key: %s ]"""
+                    .flatten()
+                    .format(
+                        path,
+                        selectedDatasourceKey,
+                        retrievalFunctionSpecByTopSourceIndexPath
+                            .getOrNone(path)
+                            .map(RetrievalFunctionSpec::dataSource)
+                            .map(DataSource<*>::key)
+                            .orNull()
+                    )
+            )
+        }
+    }
+
     private fun <V : SourceAttributeVertex> addSourceAttributeVertexUnderAncestorSpecInContext(
         vertex: V,
         ancestorPath: SchematicPath,
@@ -291,6 +337,10 @@ internal class DefaultMaterializationGraphConnector(
             context.metamodelGraph.entityRegistry
                 .findNearestEntityIdentifierPathRelatives(vertex.path)
                 .asSequence()
+                .filter { entityIdPath ->
+                    vertex.path != entityIdPath &&
+                        entityIdPath !in context.requestParameterGraph.verticesByPath
+                }
                 .map { entityIdPath ->
                     context.metamodelGraph.pathBasedGraph.getVertex(entityIdPath)
                 }
@@ -309,6 +359,10 @@ internal class DefaultMaterializationGraphConnector(
         return { context ->
             context.metamodelGraph.lastUpdatedTemporalAttributePathRegistry
                 .findNearestLastUpdatedTemporalAttributePathRelative(vertex.path)
+                .filter { lastUpdatedAttributePath ->
+                    vertex.path != lastUpdatedAttributePath &&
+                        lastUpdatedAttributePath !in context.requestParameterGraph.verticesByPath
+                }
                 .flatMap { lastUpdatedAttributePath ->
                     context.metamodelGraph.pathBasedGraph
                         .getVertex(lastUpdatedAttributePath)
@@ -329,6 +383,9 @@ internal class DefaultMaterializationGraphConnector(
                 .getOrNone(vertex.path)
                 .map(ImmutableSet<ParameterAttributeVertex>::asSequence)
                 .fold(::emptySequence, ::identity)
+                .filter { paramAttrVertex ->
+                    paramAttrVertex.path !in context.requestParameterGraph.verticesByPath
+                }
                 .fold(context) { ctx, paramAttrVertex ->
                     connectParameterJunctionOrLeafVertex(none(), paramAttrVertex, ctx)
                 }
@@ -570,32 +627,76 @@ internal class DefaultMaterializationGraphConnector(
                 context.materializationMetamodel,
                 sourceIndexPath
             )
-        return topLevelSourceIndexPath
-            .toOption()
-            .flatMap { ancestorPath ->
-                context.retrievalFunctionSpecByTopSourceIndexPath
-                    .getOrNone(ancestorPath)
-                    .and(context.toOption())
-            }
+        return context.retrievalFunctionSpecByTopSourceIndexPath
+            .getOrNone(topLevelSourceIndexPath)
+            .and(context.requestParameterGraph.getVertex(topLevelSourceIndexPath))
+            .and(context.requestParameterGraph.getVertex(sourceIndexPath))
+            .and(context.toOption())
             .orElse {
-                /*
-                 * vertex for corresponding source_index or its ancestor has not been added yet
-                 * (generating its corresponding retrieval_function_spec)
-                 * => connect the closest source_index_path ensuring it and possibly its ancestor
-                 * become connected and then reassess whether retrieval_function_spec has been added
-                 * for it
-                 * throw an error if no retrieval_function_spec has been added
-                 */
                 context.metamodelGraph.pathBasedGraph
-                    .getVertex(sourceIndexPath)
+                    .getVertex(topLevelSourceIndexPath)
                     .filterIsInstance<SourceAttributeVertex>()
-                    .map { sav: SourceAttributeVertex ->
-                        connectSourceJunctionOrLeafVertex(none(), sav, context)
+                    .flatMap { sav ->
+                        selectDataSourceForSourceAttributeVertex(sav, context).getSuccess()
                     }
-                    .flatMap { updatedContext ->
-                        updatedContext.retrievalFunctionSpecByTopSourceIndexPath
-                            .getOrNone(topLevelSourceIndexPath)
-                            .and(updatedContext.toOption())
+                    .zip(
+                        context.metamodelGraph.pathBasedGraph
+                            .getVertex(topLevelSourceIndexPath)
+                            .filterIsInstance<SourceAttributeVertex>()
+                            .mapNotNull { sav ->
+                                when (sav) {
+                                    is SourceJunctionVertex -> sav.left()
+                                    is SourceLeafVertex -> sav.right()
+                                    else -> null
+                                }
+                            },
+                        context.metamodelGraph.pathBasedGraph
+                            .getVertex(sourceIndexPath)
+                            .filterIsInstance<SourceAttributeVertex>()
+                            .mapNotNull { sav ->
+                                when (sav) {
+                                    is SourceJunctionVertex -> sav.left()
+                                    is SourceLeafVertex -> sav.right()
+                                    else -> null
+                                }
+                            },
+                        ::Triple
+                    )
+                    .map { (ds, topSjvOrSlv, sjvOrSlv) ->
+                        val contextUpdater: ContextUpdater = ContextUpdater { bldr ->
+                            bldr
+                                .addRetrievalFunctionSpecForTopSourceIndexPath(
+                                    topLevelSourceIndexPath,
+                                    DefaultRetrievalFunctionSpec(ds).updateSpec {
+                                        addSourceVertex(topSjvOrSlv).addSourceVertex(sjvOrSlv)
+                                    }
+                                )
+                                .addVertexToRequestParameterGraph(
+                                    topSjvOrSlv.fold(::identity, ::identity)
+                                )
+                                .addVertexToRequestParameterGraph(
+                                    sjvOrSlv.fold(::identity, ::identity)
+                                )
+                            if (topLevelSourceIndexPath != sourceIndexPath) {
+                                val listIndexedPath: SchematicPath =
+                                    getVertexPathWithListIndexingIfDescendentOfListNode(
+                                        sjvOrSlv.fold(::identity, ::identity),
+                                        context
+                                    )
+                                bldr.addEdgeToRequestParameterGraph(
+                                    requestParameterEdgeFactory
+                                        .builder()
+                                        .fromPathToPath(sourceIndexPath, topLevelSourceIndexPath)
+                                        .dependentExtractionFunction { resultMap ->
+                                            resultMap.getOrNone(listIndexedPath)
+                                        }
+                                        .build()
+                                )
+                            } else {
+                                bldr
+                            }
+                        }
+                        context.update(contextUpdater)
                     }
             }
             .successIfDefined(
