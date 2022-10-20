@@ -911,7 +911,11 @@ internal class DefaultMaterializationGraphConnector(
         return getCorrespondingFieldDefinitionArgumentInSchema(vertex, context)
             .filter { graphQLArgument: GraphQLArgument ->
                 graphQLArgument.hasSetDefaultValue() &&
-                    graphQLArgument.argumentDefaultValue.value != null
+                    when {
+                        graphQLArgument.argumentDefaultValue.isLiteral ->
+                            graphQLArgument.argumentDefaultValue.value !is NullValue
+                        else -> graphQLArgument.argumentDefaultValue.value != null
+                    }
             }
             .isDefined()
     }
@@ -941,8 +945,15 @@ internal class DefaultMaterializationGraphConnector(
             graphQLArgument: GraphQLArgument ->
             val defaultValueHolder = graphQLArgument.argumentDefaultValue
             when {
+                defaultValueHolder.isLiteral && defaultValueHolder.value is NullValue -> {
+                    none()
+                }
                 defaultValueHolder.isLiteral && defaultValueHolder.value is Value<*> -> {
                     GraphQLValueToJsonNodeConverter.invoke(defaultValueHolder.value as Value<*>)
+                }
+                (defaultValueHolder.isExternal || defaultValueHolder.isInternal) &&
+                    defaultValueHolder.value == null -> {
+                    none()
                 }
                 defaultValueHolder.isInternal -> {
                     jsonMapper.fromKotlinObject(defaultValueHolder.value).toJsonNode().getSuccess()
