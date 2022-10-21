@@ -2,9 +2,9 @@ package funcify.feature.materializer.context
 
 import arrow.core.continuations.eagerEffect
 import com.fasterxml.jackson.databind.JsonNode
+import funcify.feature.materializer.context.MaterializationGraphContext.Builder
 import funcify.feature.materializer.error.MaterializerErrorResponse
 import funcify.feature.materializer.error.MaterializerException
-import funcify.feature.materializer.context.MaterializationGraphContext.Builder
 import funcify.feature.materializer.schema.MaterializationMetamodel
 import funcify.feature.materializer.schema.edge.RequestParameterEdge
 import funcify.feature.materializer.spec.RetrievalFunctionSpec
@@ -96,6 +96,45 @@ internal class DefaultMaterializationGraphContextFactory : MaterializationGraphC
                         }
                     )
                 return this
+            }
+
+            override fun removeEdgesFromRequestParameterGraph(
+                edgeId: Pair<SchematicPath, SchematicPath>
+            ): Builder {
+                eagerEffect<String, Pair<SchematicPath, SchematicPath>> {
+                        ensure(edgeId.first in requestParameterGraph.verticesByPath) {
+                            "first path in edge.id does not have corresponding vertex in request_parameter_graph"
+                        }
+                        ensure(edgeId.second in requestParameterGraph.verticesByPath) {
+                            "second path in edge.id does not have corresponding vertex in request_parameter_graph"
+                        }
+                        ensure(requestParameterGraph.getEdgesFromPathToPath(edgeId).isNotEmpty()) {
+                            "no edges exist from [ path1: %s ] to [ path2: %s ]".format(
+                                edgeId.first,
+                                edgeId.second
+                            )
+                        }
+                        edgeId
+                    }
+                    .fold(
+                        { message ->
+                            throw MaterializerException(
+                                MaterializerErrorResponse.UNEXPECTED_ERROR,
+                                message
+                            )
+                        },
+                        { id ->
+                            this.requestParameterGraph = this.requestParameterGraph.removeEdges(id)
+                        }
+                    )
+                return this
+            }
+
+            override fun removeEdgesFromRequestParameterGraph(
+                path1: SchematicPath,
+                path2: SchematicPath
+            ): Builder {
+                return removeEdgesFromRequestParameterGraph(path1 to path2)
             }
 
             override fun materializedParameterValuesByPath(

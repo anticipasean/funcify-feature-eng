@@ -482,16 +482,18 @@ internal class DefaultSingleRequestMaterializationDispatchService(
         return Mono.fromSupplier {
             retrievalFunctionSpec.parameterVerticesByPath.keys
                 .parallelStream()
-                .flatMap { paramPath -> graphPhase.requestGraph.getEdgesTo(paramPath) }
-                .map { edge -> edge.id.first }
-                .flatMap { sourceIndPath -> graphPhase.requestGraph.getEdgesTo(sourceIndPath) }
+                .flatMap { paramPath -> graphPhase.requestGraph.getEdgesFrom(paramPath) }
+                .map { edge -> edge.id.second }
+                .flatMap { sourceIndPath -> graphPhase.requestGraph.getEdgesFrom(sourceIndPath) }
                 .recurse { edge ->
                     when {
-                        graphPhase.materializedParameterValuesByPath.containsKey(edge.id.first) -> {
-                            Stream.of(edge.id.first.right())
+                        graphPhase.materializedParameterValuesByPath.containsKey(
+                            edge.id.second
+                        ) -> {
+                            Stream.of(edge.id.second.right())
                         }
                         else -> {
-                            graphPhase.requestGraph.getEdgesTo(edge.id.first).map { parentEdge ->
+                            graphPhase.requestGraph.getEdgesFrom(edge.id.second).map { parentEdge ->
                                 parentEdge.left()
                             }
                         }
@@ -652,7 +654,7 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                             .fold(::empty, ::identity)
                             .flatMap { paramPath ->
                                 phase.requestGraph
-                                    .getEdgesTo(paramPath)
+                                    .getEdgesFrom(paramPath)
                                     .map { requestParameterEdge ->
                                         requestParameterEdge
                                             .some()
@@ -665,7 +667,7 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                                     .asSequence()
                                     .firstOrNull { (_, func) ->
                                         func.sourcePaths.contains(
-                                            dependentValueRequestParameterEdge.id.first
+                                            dependentValueRequestParameterEdge.id.second
                                         )
                                     }
                                     .toOption()
@@ -675,7 +677,7 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                                             .getOrNone(srcIndPath)
                                             .map { dispatchedMultiValueResponse ->
                                                 dispatchedMultiValueResponse.map { resultMap ->
-                                                    dependentValueRequestParameterEdge.id.second to
+                                                    dependentValueRequestParameterEdge.id.first to
                                                         dependentValueRequestParameterEdge
                                                             .extractionFunction
                                                             .invoke(resultMap)
@@ -838,7 +840,7 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                         m1.parameterPaths
                             .parallelStream()
                             .flatMap { paramPath ->
-                                requestParameterMaterializationGraphPhase.requestGraph.getEdgesTo(
+                                requestParameterMaterializationGraphPhase.requestGraph.getEdgesFrom(
                                     paramPath
                                 )
                             }
@@ -847,7 +849,7 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                         m2.parameterPaths
                             .parallelStream()
                             .flatMap { paramPath ->
-                                requestParameterMaterializationGraphPhase.requestGraph.getEdgesTo(
+                                requestParameterMaterializationGraphPhase.requestGraph.getEdgesFrom(
                                     paramPath
                                 )
                             }
@@ -887,10 +889,10 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                 // TODO: handle other edge types that could be mapped to params: materialized value
                 // edges
                 // currently no use cases have them
-                .flatMap { paramPath -> phase.requestGraph.getEdgesTo(paramPath) }
+                .flatMap { paramPath -> phase.requestGraph.getEdgesFrom(paramPath) }
                 .filter { edge -> edge is DependentValueRequestParameterEdge }
                 .map { edge -> edge as DependentValueRequestParameterEdge }
-                .map { edge -> edge.id.first to edge }
+                .map { edge -> edge.id.second to edge }
                 .flatMap { (srcIndPath, edge) ->
                     requestCreationContext.multiSrcIndexFunctionBySourceIndexPath
                         .streamPairs()
@@ -940,7 +942,7 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                         }
                         .flatMapOptions()
                         .map { deferredSingleValueResult ->
-                            edge.id.second to deferredSingleValueResult.fold(::identity, ::identity)
+                            edge.id.first to deferredSingleValueResult.fold(::identity, ::identity)
                         }
                 }
                 .reducePairsToPersistentMap()

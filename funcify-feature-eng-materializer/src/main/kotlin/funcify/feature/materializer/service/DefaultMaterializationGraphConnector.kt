@@ -7,6 +7,7 @@ import funcify.feature.materializer.context.MaterializationGraphContext
 import funcify.feature.materializer.error.MaterializerErrorResponse
 import funcify.feature.materializer.error.MaterializerException
 import funcify.feature.materializer.json.GraphQLValueToJsonNodeConverter
+import funcify.feature.materializer.schema.edge.RequestParameterEdge
 import funcify.feature.materializer.schema.edge.RequestParameterEdgeFactory
 import funcify.feature.materializer.schema.path.ListIndexedSchematicPathGraphQLSchemaBasedCalculator
 import funcify.feature.materializer.schema.path.SchematicPathFieldCoordinatesMatcher
@@ -39,6 +40,7 @@ import graphql.language.VariableReference
 import graphql.schema.GraphQLArgument
 import kotlin.reflect.KClass
 import kotlin.reflect.KType
+import kotlin.streams.asSequence
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.persistentMapOf
@@ -79,6 +81,9 @@ internal class DefaultMaterializationGraphConnector(
             field.map { f -> f.name }.getOrElse { "<NA>" },
             vertex.path
         )
+        if (sourceJunctionOrLeafVertexAlreadyConnected(vertex, context)) {
+            return context
+        }
         val currentOrAncestorPathWithSameDataSource: SchematicPath =
             SourceAttributeDataSourceAncestorPathFinder(
                 context.materializationMetamodel,
@@ -96,6 +101,13 @@ internal class DefaultMaterializationGraphConnector(
                 )
             }
         }
+    }
+
+    private fun <V : SourceAttributeVertex> sourceJunctionOrLeafVertexAlreadyConnected(
+        vertex: V,
+        context: MaterializationGraphContext
+    ): Boolean {
+        return context.requestParameterGraph.getEdgesFrom(vertex.path).count() > 0L
     }
 
     private fun <V : SourceAttributeVertex> addSourceAttributeVertexUnderOwnSpecInContext(
@@ -540,6 +552,23 @@ internal class DefaultMaterializationGraphConnector(
                                         addParameterVertex(parameterJunctionOrLeafVertex)
                                     }
                                 )
+                            if (
+                                updatedContext.requestParameterGraph
+                                    .getEdgesFrom(vertex.path)
+                                    .count() > 0
+                            ) {
+                                // This vertex should not "depend" on any other if a
+                                // materialized_value has been given for it
+                                updatedContext.requestParameterGraph
+                                    .getEdgesFrom(vertex.path)
+                                    .map(RequestParameterEdge::id)
+                                    .asSequence()
+                                    .fold(bldr) { b, edgeId ->
+                                        b.removeEdgesFromRequestParameterGraph(edgeId)
+                                    }
+                            } else {
+                                bldr
+                            }
                         }
                         updatedContext.update(contextUpdater)
                     }
@@ -766,6 +795,11 @@ internal class DefaultMaterializationGraphConnector(
                             .map { spec -> Triple(matchedSrcAttrVertex, spec, latestContext) }
                     }
                     .map { (matchedSrcAttrVertex, spec, latestContext) ->
+                        val listIndexedPath: SchematicPath =
+                            getVertexPathWithListIndexingIfDescendentOfListNode(
+                                matchedSrcAttrVertex,
+                                latestContext
+                            )
                         val contextUpdater: ContextUpdater = ContextUpdater { bldr ->
                             bldr
                                 .addVertexToRequestParameterGraph(vertex)
@@ -774,9 +808,7 @@ internal class DefaultMaterializationGraphConnector(
                                         .builder()
                                         .fromPathToPath(vertex.path, matchedSrcAttrVertex.path)
                                         .dependentExtractionFunction { resultMap ->
-                                            resultMap.asIterable().firstOrNone().map { (_, jn) ->
-                                                jn
-                                            }
+                                            resultMap.getOrNone(listIndexedPath)
                                         }
                                         .build()
                                 )

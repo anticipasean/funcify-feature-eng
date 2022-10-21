@@ -209,6 +209,24 @@ internal data class DefaultTwoToManyEdgePathBasedGraph<P, V, E>(
         )
     }
 
+    override fun removeEdges(connectedPaths: Pair<P, P>): PathBasedGraph<P, V, E> {
+        return DefaultTwoToManyEdgePathBasedGraph(
+            verticesByPath = verticesByPath,
+            edgesSetByPathPair = edgesSetByPathPair.remove(connectedPaths)
+        )
+    }
+
+    override fun <S : Set<Pair<P, P>>> removeAllEdges(connectedPaths: S): PathBasedGraph<P, V, E> {
+        return DefaultTwoToManyEdgePathBasedGraph(
+            verticesByPath = verticesByPath,
+            edgesSetByPathPair =
+                edgesSetByPathPair.entries
+                    .parallelStream()
+                    .filter { (edgeId, _) -> edgeId !in connectedPaths }
+                    .reduceEntriesToPersistentMap()
+        )
+    }
+
     override fun getEdgesFromPathToPath(path1: P, path2: P): ImmutableSet<E> {
         return edgesSetByPathPair.getOrDefault(Pair(path1, path2), persistentSetOf())
     }

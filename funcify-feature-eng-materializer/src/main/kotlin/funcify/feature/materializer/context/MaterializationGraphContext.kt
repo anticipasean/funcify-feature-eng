@@ -69,6 +69,10 @@ interface MaterializationGraphContext {
 
         fun addEdgeToRequestParameterGraph(edge: RequestParameterEdge): Builder
 
+        fun removeEdgesFromRequestParameterGraph(edgeId: Pair<SchematicPath, SchematicPath>): Builder
+
+        fun removeEdgesFromRequestParameterGraph(path1: SchematicPath, path2: SchematicPath): Builder
+
         fun materializedParameterValuesByPath(
             materializedParameterValuesByPath: PersistentMap<SchematicPath, JsonNode>
         ): Builder

@@ -139,6 +139,10 @@ interface PathBasedGraph<P, V, E> : PersistentGraph<V, E>, Iterable<Tuple5<V, P,
         edges: M
     ): PathBasedGraph<P, V, E>
 
+    fun removeEdges(connectedPaths: Pair<P, P>): PathBasedGraph<P, V, E>
+
+    fun <S: Set<Pair<P, P>>> removeAllEdges(connectedPaths: S): PathBasedGraph<P, V, E>
+
     fun getEdgesFromPathToPath(path1: P, path2: P): ImmutableSet<E>
 
     fun getEdgesFromPathToPath(connectedPaths: Pair<P, P>): ImmutableSet<E>

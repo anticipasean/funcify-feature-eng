@@ -8,10 +8,10 @@ import arrow.core.none
 import arrow.core.right
 import arrow.core.some
 import arrow.core.toOption
-import funcify.feature.materializer.error.MaterializerErrorResponse
-import funcify.feature.materializer.error.MaterializerException
 import funcify.feature.materializer.context.MaterializationGraphContext
 import funcify.feature.materializer.context.MaterializationGraphContextFactory
+import funcify.feature.materializer.error.MaterializerErrorResponse
+import funcify.feature.materializer.error.MaterializerException
 import funcify.feature.materializer.phase.DefaultRequestParameterMaterializationGraphPhase
 import funcify.feature.materializer.session.GraphQLSingleRequestSession
 import funcify.feature.schema.SchematicVertex
@@ -156,8 +156,8 @@ internal class DefaultSingleRequestMaterializationGraphService(
                                 .build()
                         )
                     ) {
-                            materializationGraphContext: MaterializationGraphContext,
-                            resolvedFieldOrArgContext: ResolvedVertexContext ->
+                        materializationGraphContext: MaterializationGraphContext,
+                        resolvedFieldOrArgContext: ResolvedVertexContext ->
                         when (resolvedFieldOrArgContext) {
                             is ResolvedSourceVertexContext -> {
                                 materializationGraphConnector.connectSourceJunctionOrLeafVertex(
@@ -216,13 +216,13 @@ internal class DefaultSingleRequestMaterializationGraphService(
                 }
                 .successIfDefined(sourceJunctionOrLeafVertexUnresolvedExceptionSupplier(vertexPath))
                 .orElseThrow()
-        return field.arguments
-            .asSequence()
-            .map { argument: Argument ->
-                FieldOrArgumentGraphContext(vertexPath, argument.right()).left()
-            }
-            .plus(
+        return sequenceOf(
                 ResolvedSourceVertexContext(vertexPath, sourceJunctionOrLeafVertex, field).right()
+            )
+            .plus(
+                field.arguments.asSequence().map { argument: Argument ->
+                    FieldOrArgumentGraphContext(vertexPath, argument.right()).left()
+                }
             )
             .plus(
                 field
