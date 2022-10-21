@@ -461,6 +461,13 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                         session
                     )
                     .flatMap { filteredContextParameterValues ->
+                        logger.info(
+                            "filtered_context_parameter_values.keys: {}",
+                            filteredContextParameterValues.keys
+                                .asSequence()
+                                .sorted()
+                                .joinToString(", ", "{ ", " }")
+                        )
                         trackableValueFactory
                             .builder()
                             .targetSourceIndexPath(sourceIndexPath)

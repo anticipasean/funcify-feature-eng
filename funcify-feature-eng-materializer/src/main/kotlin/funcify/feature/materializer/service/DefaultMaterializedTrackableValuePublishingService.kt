@@ -500,35 +500,35 @@ internal class DefaultMaterializedTrackableValuePublishingService(
                     .parallelStream()
                     .flatMap { sp ->
                         session.requestParameterMaterializationGraphPhase
-                            .map { phase -> phase.requestGraph.getEdgesTo(sp) }
+                            .map { phase -> phase.requestGraph.getEdgesFrom(sp) }
                             .fold(::empty, ::identity)
                     }
-                    .map { edge -> edge.id.first }
+                    .map { edge -> edge.id.second }
                     .flatMap { sourceIndPath ->
                         session.requestParameterMaterializationGraphPhase
-                            .map { phase -> phase.requestGraph.getEdgesTo(sourceIndPath) }
+                            .map { phase -> phase.requestGraph.getEdgesFrom(sourceIndPath) }
                             .fold(::empty, ::identity)
                     }
                     .recurse { edge ->
                         when {
                             session.requestParameterMaterializationGraphPhase
                                 .flatMap { phase ->
-                                    phase.materializedParameterValuesByPath[edge.id.first]
+                                    phase.materializedParameterValuesByPath[edge.id.second]
                                         .toOption()
                                 }
                                 .isDefined() -> {
                                 session.requestParameterMaterializationGraphPhase
                                     .flatMap { phase ->
                                         phase.retrievalFunctionSpecByTopSourceIndexPath[
-                                                edge.id.second]
+                                                edge.id.first]
                                             .toOption()
                                     }
                                     .fold(::empty, ::of)
-                                    .map { spec -> edge.id.second.right() }
+                                    .map { spec -> edge.id.first.right() }
                             }
                             else -> {
                                 session.requestParameterMaterializationGraphPhase
-                                    .map { phase -> phase.requestGraph.getEdgesTo(edge.id.first) }
+                                    .map { phase -> phase.requestGraph.getEdgesFrom(edge.id.second) }
                                     .fold(::empty, ::identity)
                                     .map { parentEdge -> parentEdge.left() }
                             }
@@ -569,9 +569,9 @@ internal class DefaultMaterializedTrackableValuePublishingService(
                     .map { resultJson -> Mono.just(entityIdParamPath to resultJson) }
                     .orElse {
                         session.requestParameterMaterializationGraphPhase
-                            .map { phase -> phase.requestGraph.getEdgesTo(entityIdParamPath) }
+                            .map { phase -> phase.requestGraph.getEdgesFrom(entityIdParamPath) }
                             .fold(::empty, ::identity)
-                            .map { edge -> edge.id.first }
+                            .map { edge -> edge.id.second }
                             .map { topSrcIndexPath ->
                                 session.requestDispatchMaterializationGraphPhase
                                     .zip(
@@ -625,8 +625,8 @@ internal class DefaultMaterializedTrackableValuePublishingService(
                 session.requestParameterMaterializationGraphPhase
                     .filter { phase ->
                         phase.requestGraph
-                            .getEdgesTo(paramPath)
-                            .map { edge -> edge.id.first }
+                            .getEdgesFrom(paramPath)
+                            .map { edge -> edge.id.second }
                             .anyMatch { sp ->
                                 session.requestDispatchMaterializationGraphPhase
                                     .filter { phase ->
@@ -650,10 +650,10 @@ internal class DefaultMaterializedTrackableValuePublishingService(
             .parallelStream()
             .flatMap { paramPath ->
                 session.requestParameterMaterializationGraphPhase
-                    .map { phase -> phase.requestGraph.getEdgesTo(paramPath) }
+                    .map { phase -> phase.requestGraph.getEdgesFrom(paramPath) }
                     .fold(::empty, ::identity)
             }
-            .map { edge -> edge.id.first }
+            .map { edge -> edge.id.second }
             .flatMap { topSrcIndPath ->
                 session.requestDispatchMaterializationGraphPhase
                     .flatMap { phase ->
@@ -703,10 +703,10 @@ internal class DefaultMaterializedTrackableValuePublishingService(
             .parallelStream()
             .flatMap { sp ->
                 session.requestParameterMaterializationGraphPhase
-                    .map { phase -> phase.requestGraph.getEdgesTo(sp) }
+                    .map { phase -> phase.requestGraph.getEdgesFrom(sp) }
                     .fold(::empty, ::identity)
             }
-            .map { edge -> edge.id.first }
+            .map { edge -> edge.id.second }
             .map { sourceIndexForParamPath ->
                 session.metamodelGraph.lastUpdatedTemporalAttributePathRegistry
                     .findNearestLastUpdatedTemporalAttributePathRelative(sourceIndexForParamPath)

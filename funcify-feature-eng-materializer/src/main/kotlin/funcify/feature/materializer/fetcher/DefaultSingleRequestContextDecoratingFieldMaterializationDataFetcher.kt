@@ -18,10 +18,8 @@ import graphql.schema.DataFetchingEnvironment
 import graphql.schema.GraphQLNamedOutputType
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CompletionStage
-import java.util.concurrent.Executor
 import org.slf4j.Logger
 import reactor.core.publisher.Mono
-import reactor.core.scheduler.Schedulers
 
 internal class DefaultSingleRequestContextDecoratingFieldMaterializationDataFetcher<R>(
     private val singleRequestMaterializationOrchestratorService:
@@ -117,35 +115,39 @@ internal class DefaultSingleRequestContextDecoratingFieldMaterializationDataFetc
         // Unwrap completion_stage and fold materialized_value_option in
         // data_fetcher_result creation to avoid use of null within kfuture
         val resultFuture: CompletableFuture<DataFetcherResult<R>> = CompletableFuture()
-        resultPublisher
-            .subscribe(
-                { resultValue ->
-                    resultFuture.complete(
-                        foldUntypedMaterializedValueOptionIntoTypedDataFetcherResult<R>(
-                            environment,
-                            resultValue.toOption()
-                        )
+        resultPublisher.subscribe(
+            { resultValue ->
+                resultFuture.complete(
+                    foldUntypedMaterializedValueOptionIntoTypedDataFetcherResult<R>(
+                        environment,
+                        resultValue.toOption()
                     )
-                },
-                { throwable ->
-                    resultFuture.complete(
-                        renderGraphQLErrorDataFetcherResultFromThrowableAndEnvironment<R>(
-                            throwable,
-                            environment
-                        )
+                )
+            },
+            { throwable ->
+                resultFuture.complete(
+                    renderGraphQLErrorDataFetcherResultFromThrowableAndEnvironment<R>(
+                        throwable,
+                        environment
                     )
-                },
-                { ->
-                    // if result_future is empty when on_complete is called, then the publisher was
-                    // empty
-                    if (!resultFuture.isDone) {
+                )
+            },
+            { ->
+                // if result_future is NOT done when on_complete is called, then the
+                // result_publisher is an empty publisher indicating that a NULL value should be
+                // returned for the materialized_value assuming the type was scalar
+                // empty collection types e.g. empty lists, sets, maps, etc. are preferred over
+                // NULL values where possible
+                if (!resultFuture.isDone) {
+                    resultFuture.complete(
                         foldUntypedMaterializedValueOptionIntoTypedDataFetcherResult<R>(
                             environment,
                             none()
                         )
-                    }
+                    )
                 }
-            )
+            }
+        )
         return resultFuture
     }
 
