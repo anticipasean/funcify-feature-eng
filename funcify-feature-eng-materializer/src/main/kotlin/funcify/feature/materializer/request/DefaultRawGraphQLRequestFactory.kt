@@ -137,10 +137,11 @@ internal class DefaultRawGraphQLRequestFactory : RawGraphQLRequestFactory {
                         executionId
                     }
                 return when {
-                    rawGraphQLQueryText == UNSET_RAW_GRAPHQL_QUERY_TEXT -> {
+                    rawGraphQLQueryText == UNSET_RAW_GRAPHQL_QUERY_TEXT &&
+                        expectedOutputFieldNames.isEmpty() -> {
                         throw MaterializerException(
                             MaterializerErrorResponse.INVALID_GRAPHQL_REQUEST,
-                            "raw_graphql_query_text is empty"
+                            "either raw_graphql_query_text or expected_output_field_names must be provided"
                         )
                     }
                     uri == UNSET_URI -> {
