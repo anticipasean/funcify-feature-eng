@@ -12,6 +12,7 @@ import funcify.feature.materializer.error.MaterializerException
 import funcify.feature.materializer.json.JsonNodeToStandardValueConverter
 import funcify.feature.materializer.phase.RequestDispatchMaterializationPhase
 import funcify.feature.materializer.schema.path.ListIndexedSchematicPathGraphQLSchemaBasedCalculator
+import funcify.feature.materializer.schema.path.SchematicPathFieldCoordinatesMatcher
 import funcify.feature.materializer.session.GraphQLSingleRequestSession
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.schema.vertex.SourceAttributeVertex
@@ -25,6 +26,7 @@ import funcify.feature.tools.extensions.StreamExtensions.flatMapOptions
 import funcify.feature.tools.extensions.StreamExtensions.recurse
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.extensions.TryExtensions.successIfDefined
+import graphql.schema.FieldCoordinates
 import graphql.schema.GraphQLSchema
 import java.time.Instant
 import java.time.OffsetDateTime
@@ -528,7 +530,9 @@ internal class DefaultMaterializedTrackableValuePublishingService(
                             }
                             else -> {
                                 session.requestParameterMaterializationGraphPhase
-                                    .map { phase -> phase.requestGraph.getEdgesFrom(edge.id.second) }
+                                    .map { phase ->
+                                        phase.requestGraph.getEdgesFrom(edge.id.second)
+                                    }
                                     .fold(::empty, ::identity)
                                     .map { parentEdge -> parentEdge.left() }
                             }
@@ -561,22 +565,24 @@ internal class DefaultMaterializedTrackableValuePublishingService(
                     .fold(::empty, ::identity)
             )
             .distinct()
-            .map { entityIdParamPath ->
+            .map { entityIdSourceIndexPath ->
                 session.requestParameterMaterializationGraphPhase
                     .flatMap { phase ->
-                        phase.materializedParameterValuesByPath.getOrNone(entityIdParamPath)
+                        phase.materializedParameterValuesByPath.getOrNone(entityIdSourceIndexPath)
                     }
-                    .map { resultJson -> Mono.just(entityIdParamPath to resultJson) }
+                    .map { resultJson -> Mono.just(entityIdSourceIndexPath to resultJson) }
                     .orElse {
                         session.requestParameterMaterializationGraphPhase
-                            .map { phase -> phase.requestGraph.getEdgesFrom(entityIdParamPath) }
+                            .map { phase ->
+                                phase.requestGraph.getEdgesFrom(entityIdSourceIndexPath)
+                            }
                             .fold(::empty, ::identity)
                             .map { edge -> edge.id.second }
                             .map { topSrcIndexPath ->
                                 session.requestDispatchMaterializationGraphPhase
                                     .zip(
                                         ListIndexedSchematicPathGraphQLSchemaBasedCalculator(
-                                            entityIdParamPath,
+                                            entityIdSourceIndexPath,
                                             session.materializationSchema
                                         )
                                     )
@@ -590,7 +596,8 @@ internal class DefaultMaterializedTrackableValuePublishingService(
                                                         resultMap
                                                             .getOrNone(listIndexedEntityIdPath)
                                                             .map { resultJson ->
-                                                                entityIdParamPath to resultJson
+                                                                entityIdSourceIndexPath to
+                                                                    resultJson
                                                             }
                                                     }
                                                     .flatMap { pairOpt -> pairOpt.toMono() }
@@ -604,6 +611,24 @@ internal class DefaultMaterializedTrackableValuePublishingService(
                     }
             }
             .flatMapOptions()
+            .map { entityIdPathToValuePublisher ->
+                // Fetch and replace with canonical path for entity identifier
+                entityIdPathToValuePublisher.map { (path, jv) ->
+                    SchematicPathFieldCoordinatesMatcher(session.materializationMetamodel, path)
+                        .flatMap { fc: FieldCoordinates ->
+                            session.metamodelGraph
+                                .sourceAttributeVerticesWithParentTypeAttributeQualifiedNamePair
+                                .getOrNone(fc.typeName to fc.fieldName)
+                        }
+                        .fold(::emptySet, ::identity)
+                        .asSequence()
+                        .filter { sav -> sav.path < path }
+                        .map { sav -> sav.path }
+                        .firstOrNull()
+                        .toOption()
+                        .getOrElse { path } to jv
+                }
+            }
             .toList()
             .let { entityIdPathToValueMonos ->
                 Flux.merge(entityIdPathToValueMonos)

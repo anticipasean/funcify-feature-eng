@@ -851,7 +851,7 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                                     paramPath
                                 )
                             }
-                            .map { edge -> edge.id.first }
+                            .map { edge -> edge.id.second }
                             .anyMatch { srcIndPath -> srcIndPath in m2.sourcePaths } -> 1
                         m2.parameterPaths
                             .parallelStream()
@@ -860,7 +860,7 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                                     paramPath
                                 )
                             }
-                            .map { edge -> edge.id.first }
+                            .map { edge -> edge.id.second }
                             .anyMatch { srcIndPath -> srcIndPath in m1.sourcePaths } -> -1
                         else -> 0
                     }
