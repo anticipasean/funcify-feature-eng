@@ -24,7 +24,7 @@ import java.util.concurrent.ConcurrentMap
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.PersistentSet
-import kotlinx.collections.immutable.toPersistentSet
+import kotlinx.collections.immutable.persistentSetOf
 import org.slf4j.Logger
 
 object GraphQLQueryPathBasedComposer {
@@ -60,7 +60,7 @@ object GraphQLQueryPathBasedComposer {
             val sourceAttributePathsSet: PersistentSet<SchematicPath> =
                 extractAllSourceAttributePathsFromInputPathSet(graphQLSourcePaths)
             val sourceAttributesOnlyOperationDefinition: OperationDefinition =
-                createSourceAttributesOnlyOperationDefinition(graphQLSourcePaths)
+                createSourceAttributesOnlyOperationDefinition(sourceAttributePathsSet)
             createQueryComposerFunction(
                 sourceAttributePathsSet,
                 sourceAttributesOnlyOperationDefinition
@@ -76,34 +76,38 @@ object GraphQLQueryPathBasedComposer {
             .filter { sp ->
                 sp.pathSegments.size >= 1 && sp.arguments.isEmpty() && sp.directives.isEmpty()
             }
-            .toPersistentSet()
+            .fold(persistentSetOf()) { sourceAttributePathSet, sourceIndexPath ->
+                if (sourceIndexPath in sourceAttributePathSet) {
+                    sourceAttributePathSet
+                } else {
+                    var currentPath: SchematicPath = sourceIndexPath
+                    val setBuilder: PersistentSet.Builder<SchematicPath> =
+                        sourceAttributePathSet.builder()
+                    while (!currentPath.isRoot() && currentPath !in sourceAttributePathSet) {
+                        setBuilder.add(currentPath)
+                        currentPath = currentPath.transform { dropPathSegment() }
+                    }
+                    setBuilder.build()
+                }
+            }
     }
 
     private fun createSourceAttributesOnlyOperationDefinition(
         graphQLSourcePaths: ImmutableSet<SchematicPath>
     ): OperationDefinition {
-        return graphQLSourcePaths
-            .asSequence()
-            .sorted()
-            .filter { sp ->
-                /* currently root cannot take arguments in GraphQL: OperationDefinition
-                 * does not have Arguments field
-                 */
-                sp.pathSegments.size >= 1 && sp.arguments.isEmpty() && sp.directives.isEmpty()
-            }
-            .fold(
-                OperationDefinition.newOperationDefinition()
-                    .operation(OperationDefinition.Operation.QUERY)
-                    .build()
-            ) { opDef, sourceAttributePath ->
-                SourceAttributesQueryCompositionContext(
-                        operationDefinition = opDef,
-                        pathSegments = LinkedList(sourceAttributePath.pathSegments)
-                    )
-                    .some()
-                    .recurse { ctx -> createFieldsInContextForSourceAttributePathSegments(ctx) }
-                    .getOrElse { opDef }
-            }
+        return graphQLSourcePaths.asSequence().sorted().fold(
+            OperationDefinition.newOperationDefinition()
+                .operation(OperationDefinition.Operation.QUERY)
+                .build()
+        ) { opDef, sourceAttributePath ->
+            SourceAttributesQueryCompositionContext(
+                    operationDefinition = opDef,
+                    pathSegments = LinkedList(sourceAttributePath.pathSegments)
+                )
+                .some()
+                .recurse { ctx -> createFieldsInContextForSourceAttributePathSegments(ctx) }
+                .getOrElse { opDef }
+        }
     }
 
     private fun createQueryComposerFunction(

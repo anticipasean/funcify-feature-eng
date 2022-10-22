@@ -10,6 +10,7 @@ import funcify.feature.datasource.graphql.retrieval.GraphQLQueryPathBasedCompose
 import funcify.feature.json.JsonMapper
 import funcify.feature.materializer.error.MaterializerErrorResponse
 import funcify.feature.materializer.error.MaterializerException
+import funcify.feature.materializer.schema.vertex.ParameterToSourceAttributeVertexMatcher
 import funcify.feature.materializer.session.GraphQLSingleRequestSession
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.schema.vertex.ParameterAttributeVertex
@@ -29,6 +30,7 @@ import graphql.language.OperationDefinition
 import graphql.validation.ValidationError
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentMap
+import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.PersistentSet
 import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.persistentSetOf
@@ -165,6 +167,12 @@ internal class DefaultMaterializationPreparsedDocumentProvider(private val jsonM
                                 session
                             )
                         )
+                        .concatWith(
+                            includeSourceAttributeVerticesMatchingGivenParameters(
+                                parameterMap,
+                                session
+                            )
+                        )
                         .reduce(persistentSetOf<SchematicPath>()) { ps, srcAttr ->
                             ps.add(srcAttr.path)
                         }
@@ -212,8 +220,7 @@ internal class DefaultMaterializationPreparsedDocumentProvider(private val jsonM
                                 )
                         }
                     val message: String =
-                        """
-                        create_preparsed_document_entry_for_expected_output_
+                        """create_preparsed_document_entry_for_expected_output_
                         |field_names_given_input_variables: [ status: ${status} ] 
                         |[ output: {} ]
                         |""".flatten()
@@ -394,6 +401,16 @@ internal class DefaultMaterializationPreparsedDocumentProvider(private val jsonM
                     )
                 }
             }
+        }
+    }
+
+    private fun includeSourceAttributeVerticesMatchingGivenParameters(
+        parameterMap: PersistentMap<SchematicPath, JsonNode>,
+        session: GraphQLSingleRequestSession
+    ): Flux<SourceAttributeVertex> {
+        return Flux.fromIterable(parameterMap.keys).flatMap { parameterPath ->
+            ParameterToSourceAttributeVertexMatcher(session.materializationMetamodel, parameterPath)
+                .toMono()
         }
     }
 
