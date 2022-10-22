@@ -36,13 +36,13 @@ internal class DefaultSingleRequestMaterializationOrchestratorService(
         private val resultPathToSchematicPathsMemoizer:
             (ResultPath) -> Pair<SchematicPath, SchematicPath> by lazy {
             val cache: ConcurrentMap<ResultPath, Pair<SchematicPath, SchematicPath>> =
-                ConcurrentHashMap()
-            ({ rp: ResultPath ->
+                ConcurrentHashMap();
+            { rp: ResultPath ->
                 cache.computeIfAbsent(
                     rp,
                     resultPathToFieldSchematicPathWithAndWithoutListIndexingCalculator()
                 )!!
-            })
+            }
         }
 
         private fun resultPathToFieldSchematicPathWithAndWithoutListIndexingCalculator():
@@ -80,7 +80,8 @@ internal class DefaultSingleRequestMaterializationOrchestratorService(
             """materialize_value_in_session: [ 
             |session_id: ${session.sessionId}, 
             |field.name: ${session.dataFetchingEnvironment.field.name}, 
-            |current_field_path: ${currentFieldPath} 
+            |current_field_path: ${currentFieldPath}, 
+            |current_field_path_without_list_indexing: ${currentFieldPathWithoutListIndexing} 
             |]""".flatten()
         )
         if (!sessionHasDefinedMaterializationPhases(session)) {
@@ -97,11 +98,11 @@ internal class DefaultSingleRequestMaterializationOrchestratorService(
                     currentFieldPath
                 )
             }
-            pathBelongsToTopLevelSourceIndexRequestDispatch(
+            pathBelongsToTopLevelSourceIndexOfExternalDataSourceValuesRequestDispatch(
                 currentFieldPathWithoutListIndexing,
                 session
             ) -> {
-                handleTopLevelSourceIndexRequestDispatch(
+                handleTopSourceIndexOfExternalDataSourceValuesRequestDispatch(
                     session,
                     currentFieldPathWithoutListIndexing,
                     currentFieldPath
@@ -165,7 +166,7 @@ internal class DefaultSingleRequestMaterializationOrchestratorService(
                 .trackableSingleValueRequestDispatchesBySourceIndexPath
     }
 
-    private fun pathBelongsToTopLevelSourceIndexRequestDispatch(
+    private fun pathBelongsToTopLevelSourceIndexOfExternalDataSourceValuesRequestDispatch(
         currentFieldPathWithoutListIndexing: SchematicPath,
         session: SingleRequestFieldMaterializationSession,
     ): Boolean {
@@ -183,23 +184,28 @@ internal class DefaultSingleRequestMaterializationOrchestratorService(
             .getSource<Map<String, JsonNode>>()
             .toOption()
             .flatMap { m -> m.getOrNone(session.dataFetchingEnvironment.field.name) }
-            .zip(
-                session.dataFetchingEnvironment.fieldType.toOption().orElse {
-                    session.dataFetchingEnvironment.fieldDefinition.type.toOption()
-                }
-            )
             .successIfDefined {
                 MaterializerException(
                     MaterializerErrorResponse.UNEXPECTED_ERROR,
-                    "unable to map field_path to child entry of json_node map source: [ field_path: ${currentFieldPath} ]"
+                    """could not find entry within source 
+                    |map for field [ name: %s, path: %s ]"""
+                        .flatten()
+                        .format(session.dataFetchingEnvironment.field.name, currentFieldPath)
                 )
             }
-            .map { (jn, gqlType) -> JsonNodeToStandardValueConverter(jn, gqlType) }
+            .zip(
+                session.dataFetchingEnvironment.fieldType
+                    .toOption()
+                    .orElse { session.dataFetchingEnvironment.fieldDefinition.type.toOption() }
+                    .successIfDefined(
+                        graphQLOutputTypeUndeterminedExceptionSupplier(currentFieldPath)
+                    )
+            )
             .toMono()
-            .flatMap { resultOpt -> resultOpt.toMono() }
+            .flatMap { (jn, gqlType) -> JsonNodeToStandardValueConverter(jn, gqlType).toMono() }
     }
 
-    private fun handleTopLevelSourceIndexRequestDispatch(
+    private fun handleTopSourceIndexOfExternalDataSourceValuesRequestDispatch(
         session: SingleRequestFieldMaterializationSession,
         currentFieldPathWithoutListIndexing: SchematicPath,
         currentFieldPath: SchematicPath,
@@ -214,28 +220,30 @@ internal class DefaultSingleRequestMaterializationOrchestratorService(
                     deferredResultMap.getOrNone(currentFieldPathWithoutListIndexing)
                 }
             }
-            .map { df ->
-                df.flatMap { jsonNodeOpt ->
-                    jsonNodeOpt
-                        .zip(
-                            session.fieldOutputType.toOption().orElse {
-                                session.dataFetchingEnvironment.fieldDefinition.type.toOption()
-                            }
-                        )
-                        .flatMap { (jn, gqlOutputType) ->
-                            JsonNodeToStandardValueConverter(jn, gqlOutputType)
-                        }
-                        .toMono()
-                }
-            }
             .successIfDefined { ->
                 MaterializerException(
                     MaterializerErrorResponse.UNEXPECTED_ERROR,
-                    "unable to map current_field_path to multiple_source_index_request: [ field_path: ${currentFieldPath} ]"
+                    """unable to map current_field_path to 
+                    |external_data_source_values_request: 
+                    |[ field_path: ${currentFieldPath} ]""".flatten()
                 )
             }
+            .zip(
+                session.fieldOutputType
+                    .toOption()
+                    .orElse { session.dataFetchingEnvironment.fieldDefinition.type.toOption() }
+                    .successIfDefined(
+                        graphQLOutputTypeUndeterminedExceptionSupplier(currentFieldPath)
+                    )
+            )
             .toMono()
-            .flatMap { nestedMono -> nestedMono }
+            .flatMap { (df, gqlOutputType) ->
+                df.flatMap { jnOpt ->
+                    jnOpt
+                        .flatMap { jn -> JsonNodeToStandardValueConverter(jn, gqlOutputType) }
+                        .toMono()
+                }
+            }
     }
 
     private fun handleTrackableSingleValueRequestDispatch(
@@ -308,20 +316,36 @@ internal class DefaultSingleRequestMaterializationOrchestratorService(
                     none()
                 }
             }
-            .zip(
-                session.dataFetchingEnvironment.fieldType.toOption().orElse {
-                    session.dataFetchingEnvironment.fieldDefinition.type.toOption()
-                }
-            )
             .successIfDefined {
                 MaterializerException(
                     MaterializerErrorResponse.UNEXPECTED_ERROR,
                     "unable to map field_path to index of json_node list source: [ field_path: ${currentFieldPath} ]"
                 )
             }
-            .map { (jn, gqlType) -> JsonNodeToStandardValueConverter(jn, gqlType) }
+            .zip(
+                session.dataFetchingEnvironment.fieldType
+                    .toOption()
+                    .orElse { session.dataFetchingEnvironment.fieldDefinition.type.toOption() }
+                    .successIfDefined(
+                        graphQLOutputTypeUndeterminedExceptionSupplier(currentFieldPath)
+                    )
+            )
             .toMono()
-            .flatMap { resultOpt -> resultOpt.toMono() }
+            .flatMap { (jn, gqlType) -> JsonNodeToStandardValueConverter(jn, gqlType).toMono() }
+    }
+
+    private fun graphQLOutputTypeUndeterminedExceptionSupplier(
+        currentFieldPath: SchematicPath
+    ): () -> MaterializerException {
+        return {
+            MaterializerException(
+                MaterializerErrorResponse.UNEXPECTED_ERROR,
+                """unable to determine graphql_output_type of 
+                |field: [ field_path: %s ]"""
+                    .flatten()
+                    .format(currentFieldPath)
+            )
+        }
     }
 
     private fun handleJsonNodeValue(
@@ -335,20 +359,22 @@ internal class DefaultSingleRequestMaterializationOrchestratorService(
             .filter { on -> on.has(session.dataFetchingEnvironment.field.name) }
             .map { on -> on.get(session.dataFetchingEnvironment.field.name) }
             .orElse { session.dataFetchingEnvironment.getSource<JsonNode>().toOption() }
-            .zip(
-                session.dataFetchingEnvironment.fieldType.toOption().orElse {
-                    session.dataFetchingEnvironment.fieldDefinition.type.toOption()
-                }
-            )
             .successIfDefined { ->
                 MaterializerException(
                     MaterializerErrorResponse.UNEXPECTED_ERROR,
                     "unable to map field_path to json_node source: [ field_path: ${currentFieldPath} ]"
                 )
             }
-            .map { (jn, gqlType) -> JsonNodeToStandardValueConverter(jn, gqlType) }
+            .zip(
+                session.dataFetchingEnvironment.fieldType
+                    .toOption()
+                    .orElse { session.dataFetchingEnvironment.fieldDefinition.type.toOption() }
+                    .successIfDefined(
+                        graphQLOutputTypeUndeterminedExceptionSupplier(currentFieldPath)
+                    )
+            )
             .toMono()
-            .flatMap { resultOpt -> resultOpt.toMono() }
+            .flatMap { (jn, gqlType) -> JsonNodeToStandardValueConverter(jn, gqlType).toMono() }
     }
 
     private fun createUnhandledFieldValueErrorPublisher(
