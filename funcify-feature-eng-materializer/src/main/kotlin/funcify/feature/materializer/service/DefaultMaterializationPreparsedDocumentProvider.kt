@@ -337,7 +337,13 @@ internal class DefaultMaterializationPreparsedDocumentProvider(private val jsonM
                 session.metamodelGraph.sourceAttributeVerticesByQualifiedName
                     .getOrNone(fieldName)
                     .filter { srcAttrSet -> srcAttrSet.size > 1 }
-                    .filter { srcAttrSet ->
+                    .flatMap { srcAttrSet ->
+                        /*
+                         * There exists _just_ one source_attribute with a
+                         * path that is a descendent of one of the top
+                         * source_index_paths and if more than one is within that set,
+                         * there exists one that is shorter than the others
+                         */
                         srcAttrSet
                             .asSequence()
                             .filter { srcAttr ->
@@ -345,18 +351,18 @@ internal class DefaultMaterializationPreparsedDocumentProvider(private val jsonM
                                     srcAttr.path.isDescendentOf(sp)
                                 }
                             }
-                            .count() == 1
+                            .minOfOrNull { srcAttr -> srcAttr.path }
+                            .toOption()
                     }
                     .isDefined() -> {
                     session.metamodelGraph.sourceAttributeVerticesByQualifiedName
                         .getOrNone(fieldName)
-                        .flatMap { srcAttrSet ->
-                            srcAttrSet.firstOrNone { srcAttr ->
-                                topLevelSrcIndexPathsSet.any { sp ->
-                                    srcAttr.path.isDescendentOf(sp)
-                                }
-                            }
+                        .fold(::persistentSetOf, ::identity)
+                        .asSequence()
+                        .filter { srcAttr ->
+                            topLevelSrcIndexPathsSet.any { sp -> srcAttr.path.isDescendentOf(sp) }
                         }
+                        .minByOrNull { srcAttr -> srcAttr.path }
                         .toMono()
                 }
                 else -> {
