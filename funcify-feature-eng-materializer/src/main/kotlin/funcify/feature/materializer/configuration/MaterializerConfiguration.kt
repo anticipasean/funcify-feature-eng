@@ -14,7 +14,8 @@ import funcify.feature.datasource.tracking.TrackableJsonValuePublisherProvider
 import funcify.feature.datasource.tracking.TrackableValueFactory
 import funcify.feature.error.FeatureEngCommonException
 import funcify.feature.json.JsonMapper
-import funcify.feature.materializer.context.DefaultMaterializationGraphContextFactory
+import funcify.feature.materializer.context.document.DefaultColumnarDocumentContextFactory
+import funcify.feature.materializer.context.graph.DefaultMaterializationGraphContextFactory
 import funcify.feature.materializer.error.MaterializerErrorResponse
 import funcify.feature.materializer.error.MaterializerException
 import funcify.feature.materializer.fetcher.DefaultSingleRequestFieldMaterializationDataFetcherFactory
@@ -264,7 +265,10 @@ class MaterializerConfiguration {
     fun materializationPreparsedDocumentProvider(
         jsonMapper: JsonMapper
     ): MaterializationPreparsedDocumentProvider {
-        return DefaultMaterializationPreparsedDocumentProvider(jsonMapper = jsonMapper)
+        return DefaultMaterializationPreparsedDocumentProvider(
+            jsonMapper = jsonMapper,
+            columnarDocumentContextFactory = DefaultColumnarDocumentContextFactory()
+        )
     }
 
     @ConditionalOnMissingBean(value = [GraphQLSchema::class])

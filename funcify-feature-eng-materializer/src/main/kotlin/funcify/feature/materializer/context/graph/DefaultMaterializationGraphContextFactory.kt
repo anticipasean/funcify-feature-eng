@@ -1,8 +1,8 @@
-package funcify.feature.materializer.context
+package funcify.feature.materializer.context.graph
 
 import arrow.core.continuations.eagerEffect
 import com.fasterxml.jackson.databind.JsonNode
-import funcify.feature.materializer.context.MaterializationGraphContext.Builder
+import funcify.feature.materializer.context.graph.MaterializationGraphContext.Builder
 import funcify.feature.materializer.error.MaterializerErrorResponse
 import funcify.feature.materializer.error.MaterializerException
 import funcify.feature.materializer.schema.MaterializationMetamodel

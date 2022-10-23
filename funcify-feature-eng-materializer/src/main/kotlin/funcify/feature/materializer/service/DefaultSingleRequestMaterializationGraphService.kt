@@ -8,8 +8,8 @@ import arrow.core.none
 import arrow.core.right
 import arrow.core.some
 import arrow.core.toOption
-import funcify.feature.materializer.context.MaterializationGraphContext
-import funcify.feature.materializer.context.MaterializationGraphContextFactory
+import funcify.feature.materializer.context.graph.MaterializationGraphContext
+import funcify.feature.materializer.context.graph.MaterializationGraphContextFactory
 import funcify.feature.materializer.error.MaterializerErrorResponse
 import funcify.feature.materializer.error.MaterializerException
 import funcify.feature.materializer.phase.DefaultRequestParameterMaterializationGraphPhase
@@ -156,8 +156,8 @@ internal class DefaultSingleRequestMaterializationGraphService(
                                 .build()
                         )
                     ) {
-                        materializationGraphContext: MaterializationGraphContext,
-                        resolvedFieldOrArgContext: ResolvedVertexContext ->
+                            materializationGraphContext: MaterializationGraphContext,
+                            resolvedFieldOrArgContext: ResolvedVertexContext ->
                         when (resolvedFieldOrArgContext) {
                             is ResolvedSourceVertexContext -> {
                                 materializationGraphConnector.connectSourceJunctionOrLeafVertex(

@@ -5,7 +5,7 @@ import arrow.core.Option
 import arrow.core.none
 import funcify.feature.materializer.error.MaterializerErrorResponse
 import funcify.feature.materializer.error.MaterializerException
-import funcify.feature.materializer.context.MaterializationGraphContext
+import funcify.feature.materializer.context.graph.MaterializationGraphContext
 import funcify.feature.schema.SchematicVertex
 import funcify.feature.schema.vertex.ParameterAttributeVertex
 import funcify.feature.schema.vertex.ParameterJunctionVertex

@@ -8,6 +8,7 @@ import arrow.core.toOption
 import com.fasterxml.jackson.databind.JsonNode
 import funcify.feature.datasource.graphql.retrieval.GraphQLQueryPathBasedComposer
 import funcify.feature.json.JsonMapper
+import funcify.feature.materializer.context.document.ColumnarDocumentContextFactory
 import funcify.feature.materializer.error.MaterializerErrorResponse
 import funcify.feature.materializer.error.MaterializerException
 import funcify.feature.materializer.schema.vertex.ParameterToSourceAttributeVertexMatcher
@@ -46,8 +47,10 @@ import reactor.kotlin.core.publisher.toMono
  * @author smccarron
  * @created 2022-08-08
  */
-internal class DefaultMaterializationPreparsedDocumentProvider(private val jsonMapper: JsonMapper) :
-    MaterializationPreparsedDocumentProvider {
+internal class DefaultMaterializationPreparsedDocumentProvider(
+    private val jsonMapper: JsonMapper,
+    private val columnarDocumentContextFactory: ColumnarDocumentContextFactory
+) : MaterializationPreparsedDocumentProvider {
 
     companion object {
         private val logger: Logger = loggerFor<DefaultMaterializationPreparsedDocumentProvider>()
@@ -103,8 +106,9 @@ internal class DefaultMaterializationPreparsedDocumentProvider(private val jsonM
                                 MaterializationPreparsedDocumentProvider
                                     .EXPECTED_OUTPUT_FIELD_NAMES_KEY
                             )
-                        )
-                    ) { s, e -> s to e }
+                        ),
+                        ::Pair
+                    )
                     .flatMap(
                         createPreparsedDocumentEntryForExpectedOutputFieldNamesGivenInputVariables(
                             executionInput
@@ -152,7 +156,7 @@ internal class DefaultMaterializationPreparsedDocumentProvider(private val jsonM
                     (paramAttr, paramJsonValue) ->
                     pm.put(paramAttr.path, paramJsonValue)
                 }
-                .flatMap { parameterMap ->
+                .flatMap { parameterMap: PersistentMap<SchematicPath, JsonNode> ->
                     val topLevelSrcIndexPathsSet: PersistentSet<SchematicPath> =
                         parameterMap
                             .asSequence()

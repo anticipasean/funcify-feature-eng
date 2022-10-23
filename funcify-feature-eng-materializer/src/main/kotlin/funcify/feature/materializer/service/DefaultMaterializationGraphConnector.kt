@@ -3,7 +3,7 @@ package funcify.feature.materializer.service
 import arrow.core.*
 import com.fasterxml.jackson.databind.JsonNode
 import funcify.feature.json.JsonMapper
-import funcify.feature.materializer.context.MaterializationGraphContext
+import funcify.feature.materializer.context.graph.MaterializationGraphContext
 import funcify.feature.materializer.error.MaterializerErrorResponse
 import funcify.feature.materializer.error.MaterializerException
 import funcify.feature.materializer.json.GraphQLValueToJsonNodeConverter
@@ -60,7 +60,7 @@ internal class DefaultMaterializationGraphConnector(
     companion object {
         private val logger: Logger = loggerFor<DefaultMaterializationGraphConnector>()
         private fun interface ContextUpdater :
-            (MaterializationGraphContext.Builder) -> MaterializationGraphContext.Builder
+                (MaterializationGraphContext.Builder) -> MaterializationGraphContext.Builder
     }
     override fun connectSourceRootVertex(
         vertex: SourceRootVertex,
