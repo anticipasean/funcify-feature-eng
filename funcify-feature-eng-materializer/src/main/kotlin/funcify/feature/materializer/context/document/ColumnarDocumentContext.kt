@@ -2,11 +2,12 @@ package funcify.feature.materializer.context.document
 
 import arrow.core.Option
 import com.fasterxml.jackson.databind.JsonNode
+import funcify.feature.materializer.threadlocal.ThreadLocalContextKey
 import funcify.feature.schema.path.SchematicPath
+import graphql.language.Document
 import graphql.language.OperationDefinition
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableMap
-import kotlinx.collections.immutable.PersistentList
 import kotlinx.collections.immutable.PersistentMap
 
 /**
@@ -15,6 +16,14 @@ import kotlinx.collections.immutable.PersistentMap
  * @created 2022-10-22
  */
 interface ColumnarDocumentContext {
+
+    companion object {
+
+        val COLUMNAR_DOCUMENT_CONTEXT_KEY: ThreadLocalContextKey<ColumnarDocumentContext> =
+            ThreadLocalContextKey.of(
+                ColumnarDocumentContext::class.qualifiedName + ".COLUMNAR_DOCUMENT_CONTEXT"
+            )
+    }
 
     val expectedFieldNames: ImmutableList<String>
 
@@ -25,11 +34,15 @@ interface ColumnarDocumentContext {
     val queryComposerFunction:
         Option<(ImmutableMap<SchematicPath, JsonNode>) -> OperationDefinition>
 
+    val operationDefinition: Option<OperationDefinition>
+
+    val document: Option<Document>
+
     fun update(transformer: Builder.() -> Builder): ColumnarDocumentContext
 
     interface Builder {
 
-        fun expectedFieldNames(expectedFieldNames: PersistentList<String>): Builder
+        fun expectedFieldNames(expectedFieldNames: List<String>): Builder
 
         fun parameterValuesByPath(
             parameterValuesByPath: PersistentMap<SchematicPath, JsonNode>
@@ -46,6 +59,10 @@ interface ColumnarDocumentContext {
         fun queryComposerFunction(
             function: (ImmutableMap<SchematicPath, JsonNode>) -> OperationDefinition
         ): Builder
+
+        fun operationDefinition(operationDefinition: OperationDefinition): Builder
+
+        fun document(document: Document): Builder
 
         fun build(): ColumnarDocumentContext
     }

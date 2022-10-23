@@ -5,12 +5,14 @@ import arrow.core.none
 import com.fasterxml.jackson.databind.JsonNode
 import funcify.feature.materializer.context.document.ColumnarDocumentContext.Builder
 import funcify.feature.schema.path.SchematicPath
+import graphql.language.Document
 import graphql.language.OperationDefinition
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.PersistentList
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentMapOf
+import kotlinx.collections.immutable.toPersistentList
 
 /**
  *
@@ -30,11 +32,20 @@ internal class DefaultColumnarDocumentContextFactory : ColumnarDocumentContextFa
                 persistentMapOf<String, SchematicPath>().builder(),
             private var queryComposerFunction:
                 Option<(ImmutableMap<SchematicPath, JsonNode>) -> OperationDefinition> =
-                none()
+                none(),
+            private var operationDefinition: Option<OperationDefinition> = none(),
+            private var document: Option<Document> = none()
         ) : Builder {
 
-            override fun expectedFieldNames(expectedFieldNames: PersistentList<String>): Builder {
-                this.expectedFieldNames = expectedFieldNames.builder()
+            override fun expectedFieldNames(expectedFieldNames: List<String>): Builder {
+                when (expectedFieldNames) {
+                    is PersistentList -> {
+                        this.expectedFieldNames = expectedFieldNames.builder()
+                    }
+                    else -> {
+                        this.expectedFieldNames = expectedFieldNames.toPersistentList().builder()
+                    }
+                }
                 return this
             }
 
@@ -75,12 +86,24 @@ internal class DefaultColumnarDocumentContextFactory : ColumnarDocumentContextFa
                 return this
             }
 
+            override fun operationDefinition(operationDefinition: OperationDefinition): Builder {
+                this.operationDefinition = Option(operationDefinition)
+                return this
+            }
+
+            override fun document(document: Document): Builder {
+                this.document = Option(document)
+                return this
+            }
+
             override fun build(): ColumnarDocumentContext {
                 return DefaultColumnarDocumentContext(
                     expectedFieldNames = expectedFieldNames.build(),
                     parameterValuesByPath = parameterValuesByPath.build(),
                     sourceIndexPathsByFieldName = sourceIndexPathsByFieldName.build(),
-                    queryComposerFunction = queryComposerFunction
+                    queryComposerFunction = queryComposerFunction,
+                    operationDefinition = operationDefinition,
+                    document = document
                 )
             }
         }
@@ -93,7 +116,9 @@ internal class DefaultColumnarDocumentContextFactory : ColumnarDocumentContextFa
                 persistentMapOf(),
             override val queryComposerFunction:
                 Option<(ImmutableMap<SchematicPath, JsonNode>) -> OperationDefinition> =
-                none()
+                none(),
+            override val operationDefinition: Option<OperationDefinition> = none(),
+            override val document: Option<Document> = none()
         ) : ColumnarDocumentContext {
 
             override fun update(transformer: Builder.() -> Builder): ColumnarDocumentContext {
@@ -102,7 +127,9 @@ internal class DefaultColumnarDocumentContextFactory : ColumnarDocumentContextFa
                             expectedFieldNames = expectedFieldNames.builder(),
                             parameterValuesByPath = parameterValuesByPath.builder(),
                             sourceIndexPathsByFieldName = sourceIndexPathsByFieldName.builder(),
-                            queryComposerFunction = queryComposerFunction
+                            queryComposerFunction = queryComposerFunction,
+                            operationDefinition = operationDefinition,
+                            document = document
                         )
                     )
                     .build()

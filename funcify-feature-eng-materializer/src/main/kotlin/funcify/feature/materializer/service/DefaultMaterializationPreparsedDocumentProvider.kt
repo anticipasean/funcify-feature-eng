@@ -8,6 +8,7 @@ import arrow.core.toOption
 import com.fasterxml.jackson.databind.JsonNode
 import funcify.feature.datasource.graphql.retrieval.GraphQLQueryPathBasedComposer
 import funcify.feature.json.JsonMapper
+import funcify.feature.materializer.context.document.ColumnarDocumentContext
 import funcify.feature.materializer.context.document.ColumnarDocumentContextFactory
 import funcify.feature.materializer.error.MaterializerErrorResponse
 import funcify.feature.materializer.error.MaterializerException
@@ -31,9 +32,8 @@ import graphql.language.OperationDefinition
 import graphql.validation.ValidationError
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentMap
-import kotlinx.collections.immutable.PersistentMap
+import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.PersistentSet
-import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toPersistentSet
 import org.slf4j.Logger
@@ -151,14 +151,17 @@ internal class DefaultMaterializationPreparsedDocumentProvider(
             Flux.fromIterable(executionInput.variables.entries)
                 .flatMap(determineMatchingParameterAttributeVertexForVariableEntry(session))
                 .flatMap(convertVariableValuesIntoJsonNodeValues())
-                .reduce(persistentMapOf<SchematicPath, JsonNode>()) {
-                    pm,
-                    (paramAttr, paramJsonValue) ->
-                    pm.put(paramAttr.path, paramJsonValue)
+                .reduce(
+                    columnarDocumentContextFactory
+                        .builder()
+                        .expectedFieldNames(expectedOutputFieldNames)
+                        .build()
+                ) { context, (paramAttr, paramJsonValue) ->
+                    context.update { addParameterValueForPath(paramAttr.path, paramJsonValue) }
                 }
-                .flatMap { parameterMap: PersistentMap<SchematicPath, JsonNode> ->
+                .flatMap { context: ColumnarDocumentContext ->
                     val topLevelSrcIndexPathsSet: PersistentSet<SchematicPath> =
-                        parameterMap
+                        context.parameterValuesByPath
                             .asSequence()
                             .map { (path, _) ->
                                 SchematicPath.of { pathSegments(path.pathSegments) }
@@ -171,14 +174,21 @@ internal class DefaultMaterializationPreparsedDocumentProvider(
                                 session
                             )
                         )
-                        .concatWith(
-                            includeSourceAttributeVerticesMatchingGivenParameters(
-                                parameterMap,
-                                session
-                            )
+                        .reduce(context) { ctx, (fieldName, srcAttrVertex) ->
+                            ctx.update {
+                                addSourceIndexPathForFieldName(fieldName, srcAttrVertex.path)
+                            }
+                        }
+                }
+                .flatMap { context: ColumnarDocumentContext ->
+                    gatherSourceAttributeVerticesMatchingGivenParameters(
+                            context.parameterValuesByPath,
+                            session
                         )
-                        .reduce(persistentSetOf<SchematicPath>()) { ps, srcAttr ->
-                            ps.add(srcAttr.path)
+                        .map { sav: SourceAttributeVertex -> sav.path }
+                        .concatWith(Flux.fromIterable(context.sourceIndexPathsByFieldName.values))
+                        .reduce(persistentSetOf<SchematicPath>()) { ps, srcAttrPath ->
+                            ps.add(srcAttrPath)
                         }
                         .map { sourceIndexPathsSet ->
                             GraphQLQueryPathBasedComposer
@@ -186,19 +196,46 @@ internal class DefaultMaterializationPreparsedDocumentProvider(
                                     sourceIndexPathsSet
                                 )
                         }
-                        .map { queryComposerFunction -> queryComposerFunction(parameterMap) }
+                        .map { queryComposerFunction ->
+                            context.update { queryComposerFunction(queryComposerFunction) }
+                        }
                 }
-                .map { opDef -> Document.newDocument().definition(opDef).build() }
-                .flatMap { doc ->
-                    ParseAndValidate.validate(session.materializationSchema, doc)
+                .flatMap { context: ColumnarDocumentContext ->
+                    context.queryComposerFunction
+                        .map { func -> func(context.parameterValuesByPath) }
+                        .map { operationDefinition: OperationDefinition ->
+                            context.update {
+                                operationDefinition(operationDefinition)
+                                document(
+                                    Document.newDocument().definition(operationDefinition).build()
+                                )
+                            }
+                        }
+                        .toMono()
+                }
+                .flatMap { context: ColumnarDocumentContext ->
+                    ParseAndValidate.validate(
+                            session.materializationSchema,
+                            context.document.orNull()!!
+                        )
                         .toMono()
                         .filter { validationErrors: MutableList<ValidationError> ->
                             validationErrors.isNotEmpty()
                         }
                         .map(::PreparsedDocumentEntry)
-                        .switchIfEmpty { PreparsedDocumentEntry(doc).toMono() }
+                        .switchIfEmpty {
+                            Mono.just(PreparsedDocumentEntry(context.document.orNull()!!))
+                        }
+                        .doOnNext { entry: PreparsedDocumentEntry ->
+                            if (!entry.hasErrors()) {
+                                executionInput.graphQLContext.put(
+                                    ColumnarDocumentContext.COLUMNAR_DOCUMENT_CONTEXT_KEY,
+                                    context
+                                )
+                            }
+                        }
                 }
-                .doOnNext { entry ->
+                .doOnNext { entry: PreparsedDocumentEntry ->
                     val status: String =
                         if (entry.hasErrors()) {
                             "failed"
@@ -225,10 +262,10 @@ internal class DefaultMaterializationPreparsedDocumentProvider(
                         }
                     val message: String =
                         """create_preparsed_document_entry_for_expected_output_
-                        |field_names_given_input_variables: [ status: ${status} ] 
+                        |field_names_given_input_variables: [ status: {} ]
                         |[ output: {} ]
                         |""".flatten()
-                    logger.info(message, output)
+                    logger.info(message, status, output)
                 }
         }
     }
@@ -322,7 +359,7 @@ internal class DefaultMaterializationPreparsedDocumentProvider(
     private fun determineMatchingSourceAttributeVertexForFieldNameGivenParameters(
         topLevelSrcIndexPathsSet: PersistentSet<SchematicPath>,
         session: GraphQLSingleRequestSession
-    ): (String) -> Mono<SourceAttributeVertex> {
+    ): (String) -> Mono<Pair<String, SourceAttributeVertex>> {
         return { fieldName ->
             when {
                 session.metamodelGraph.sourceAttributeVerticesByQualifiedName
@@ -333,6 +370,7 @@ internal class DefaultMaterializationPreparsedDocumentProvider(
                         .getOrNone(fieldName)
                         .flatMap { srcAttrSet -> srcAttrSet.firstOrNone() }
                         .toMono()
+                        .map { sav: SourceAttributeVertex -> fieldName to sav }
                 }
                 session.metamodelGraph.attributeAliasRegistry
                     .getSourceVertexPathWithSimilarNameOrAlias(fieldName)
@@ -344,6 +382,7 @@ internal class DefaultMaterializationPreparsedDocumentProvider(
                         }
                         .filterIsInstance<SourceAttributeVertex>()
                         .toMono()
+                        .map { sav: SourceAttributeVertex -> fieldName to sav }
                 }
                 session.metamodelGraph.sourceAttributeVerticesByQualifiedName
                     .getOrNone(fieldName)
@@ -375,6 +414,7 @@ internal class DefaultMaterializationPreparsedDocumentProvider(
                         }
                         .minByOrNull { srcAttr -> srcAttr.path }
                         .toMono()
+                        .map { sav: SourceAttributeVertex -> fieldName to sav }
                 }
                 else -> {
                     val message: String =
@@ -408,8 +448,8 @@ internal class DefaultMaterializationPreparsedDocumentProvider(
         }
     }
 
-    private fun includeSourceAttributeVerticesMatchingGivenParameters(
-        parameterMap: PersistentMap<SchematicPath, JsonNode>,
+    private fun gatherSourceAttributeVerticesMatchingGivenParameters(
+        parameterMap: ImmutableMap<SchematicPath, JsonNode>,
         session: GraphQLSingleRequestSession
     ): Flux<SourceAttributeVertex> {
         return Flux.fromIterable(parameterMap.keys).flatMap { parameterPath ->
