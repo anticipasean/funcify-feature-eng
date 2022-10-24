@@ -1,45 +1,25 @@
 package funcify.feature.materializer.service
 
-import arrow.core.filterIsInstance
-import arrow.core.firstOrNone
-import arrow.core.getOrNone
 import arrow.core.identity
 import arrow.core.toOption
-import com.fasterxml.jackson.databind.JsonNode
-import funcify.feature.datasource.graphql.retrieval.GraphQLQueryPathBasedComposer
 import funcify.feature.json.JsonMapper
-import funcify.feature.materializer.context.document.ColumnarDocumentContext
-import funcify.feature.materializer.context.document.ColumnarDocumentContextFactory
 import funcify.feature.materializer.error.MaterializerErrorResponse
 import funcify.feature.materializer.error.MaterializerException
-import funcify.feature.materializer.schema.vertex.ParameterToSourceAttributeVertexMatcher
 import funcify.feature.materializer.session.GraphQLSingleRequestSession
-import funcify.feature.schema.path.SchematicPath
-import funcify.feature.schema.vertex.ParameterAttributeVertex
-import funcify.feature.schema.vertex.SourceAttributeVertex
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.MonoExtensions.widen
-import funcify.feature.tools.extensions.OptionExtensions.toMono
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import graphql.ExecutionInput
 import graphql.GraphQLError
-import graphql.ParseAndValidate
 import graphql.execution.preparsed.PreparsedDocumentEntry
-import graphql.language.AstPrinter
 import graphql.language.Document
-import graphql.language.OperationDefinition
-import graphql.validation.ValidationError
+import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentMap
-import kotlinx.collections.immutable.ImmutableMap
-import kotlinx.collections.immutable.PersistentSet
-import kotlinx.collections.immutable.persistentSetOf
-import kotlinx.collections.immutable.toPersistentSet
+import java.util.stream.Collectors
 import org.slf4j.Logger
-import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
-import reactor.kotlin.core.publisher.switchIfEmpty
 import reactor.kotlin.core.publisher.toMono
 
 /**
@@ -49,7 +29,8 @@ import reactor.kotlin.core.publisher.toMono
  */
 internal class DefaultMaterializationPreparsedDocumentProvider(
     private val jsonMapper: JsonMapper,
-    private val columnarDocumentContextFactory: ColumnarDocumentContextFactory
+    private val singleRequestMaterializationColumnarDocumentPreprocessingService:
+        SingleRequestMaterializationColumnarDocumentPreprocessingService
 ) : MaterializationPreparsedDocumentProvider {
 
     companion object {
@@ -85,14 +66,10 @@ internal class DefaultMaterializationPreparsedDocumentProvider(
                     .widen()
             }
             executionInput.query.isBlank() &&
-                executionInput.graphQLContext
-                    .getOrEmpty<List<String>>(
-                        MaterializationPreparsedDocumentProvider.EXPECTED_OUTPUT_FIELD_NAMES_KEY
-                    )
-                    .orElseGet { emptyList<String>() }
-                    .isNotEmpty() &&
-                executionInput.variables.isEmpty() -> {
-                createExpectedOutputFieldNamesPresentWithoutVariablesErrorPublisher(executionInput)
+                !executionInput.graphQLContext.hasKey(
+                    GraphQLSingleRequestSession.GRAPHQL_SINGLE_REQUEST_SESSION_KEY
+                ) -> {
+                missingGraphQLSingleRequestSessionInContextErrorPublisher(executionInput)
             }
             else -> {
                 Mono.justOrEmpty(
@@ -100,361 +77,34 @@ internal class DefaultMaterializationPreparsedDocumentProvider(
                             GraphQLSingleRequestSession.GRAPHQL_SINGLE_REQUEST_SESSION_KEY
                         )
                     )
-                    .zipWith(
-                        Mono.justOrEmpty(
-                            executionInput.graphQLContext.get<List<String>>(
-                                MaterializationPreparsedDocumentProvider
-                                    .EXPECTED_OUTPUT_FIELD_NAMES_KEY
-                            )
-                        ),
-                        ::Pair
-                    )
-                    .flatMap(
-                        createPreparsedDocumentEntryForExpectedOutputFieldNamesGivenInputVariables(
-                            executionInput
-                        )
-                    )
-            }
-        }
-    }
-
-    private fun createExpectedOutputFieldNamesPresentWithoutVariablesErrorPublisher(
-        executionInput: ExecutionInput
-    ): Mono<PreparsedDocumentEntry> {
-        val expectedOutputFieldNames: List<String> =
-            executionInput.graphQLContext
-                .getOrEmpty<List<String>>(
-                    MaterializationPreparsedDocumentProvider.EXPECTED_OUTPUT_FIELD_NAMES_KEY
-                )
-                .orElseGet { emptyList<String>() }
-        return Mono.error(
-            MaterializerException(
-                MaterializerErrorResponse.INVALID_GRAPHQL_REQUEST,
-                """execution_input contains 
-                |expected_output_field_names [ size: %d, fields: %s ] but 
-                |does not have any "variables" that can be used as arguments 
-                |to fetch values for these fields 
-                |e.g. a user_id to fetch user_info instances"""
-                    .flatten()
-                    .format(
-                        expectedOutputFieldNames.size,
-                        expectedOutputFieldNames.joinToString(", ")
-                    )
-            )
-        )
-    }
-
-    private fun createPreparsedDocumentEntryForExpectedOutputFieldNamesGivenInputVariables(
-        executionInput: ExecutionInput
-    ): (Pair<GraphQLSingleRequestSession, List<String>>) -> Mono<PreparsedDocumentEntry> {
-        return { (session, expectedOutputFieldNames) ->
-            Flux.fromIterable(executionInput.variables.entries)
-                .flatMap(determineMatchingParameterAttributeVertexForVariableEntry(session))
-                .flatMap(convertVariableValuesIntoJsonNodeValues())
-                .reduce(
-                    columnarDocumentContextFactory
-                        .builder()
-                        .expectedFieldNames(expectedOutputFieldNames)
-                        .build()
-                ) { context, (paramAttr, paramJsonValue) ->
-                    context.update { addParameterValueForPath(paramAttr.path, paramJsonValue) }
-                }
-                .flatMap { context: ColumnarDocumentContext ->
-                    val topLevelSrcIndexPathsSet: PersistentSet<SchematicPath> =
-                        context.parameterValuesByPath
-                            .asSequence()
-                            .map { (path, _) ->
-                                SchematicPath.of { pathSegments(path.pathSegments) }
-                            }
-                            .toPersistentSet()
-                    Flux.fromIterable(expectedOutputFieldNames)
-                        .flatMap(
-                            determineMatchingSourceAttributeVertexForFieldNameGivenParameters(
-                                topLevelSrcIndexPathsSet,
-                                session
-                            )
-                        )
-                        .reduce(context) { ctx, (fieldName, srcAttrVertex) ->
-                            ctx.update {
-                                addSourceIndexPathForFieldName(fieldName, srcAttrVertex.path)
-                            }
-                        }
-                }
-                .flatMap { context: ColumnarDocumentContext ->
-                    gatherSourceAttributeVerticesMatchingGivenParameters(
-                            context.parameterValuesByPath,
-                            session
-                        )
-                        .map { sav: SourceAttributeVertex -> sav.path }
-                        .concatWith(Flux.fromIterable(context.sourceIndexPathsByFieldName.values))
-                        .reduce(persistentSetOf<SchematicPath>()) { ps, srcAttrPath ->
-                            ps.add(srcAttrPath)
-                        }
-                        .map { sourceIndexPathsSet ->
-                            GraphQLQueryPathBasedComposer
-                                .createQueryOperationDefinitionComposerForParameterAttributePathsAndValuesForTheseSourceAttributes(
-                                    sourceIndexPathsSet
-                                )
-                        }
-                        .map { queryComposerFunction ->
-                            context.update { queryComposerFunction(queryComposerFunction) }
-                        }
-                }
-                .flatMap { context: ColumnarDocumentContext ->
-                    context.queryComposerFunction
-                        .map { func -> func(context.parameterValuesByPath) }
-                        .map { operationDefinition: OperationDefinition ->
-                            context.update {
-                                operationDefinition(operationDefinition)
-                                document(
-                                    Document.newDocument().definition(operationDefinition).build()
-                                )
-                            }
-                        }
-                        .toMono()
-                }
-                .flatMap { context: ColumnarDocumentContext ->
-                    ParseAndValidate.validate(
-                            session.materializationSchema,
-                            context.document.orNull()!!
-                        )
-                        .toMono()
-                        .filter { validationErrors: MutableList<ValidationError> ->
-                            validationErrors.isNotEmpty()
-                        }
-                        .map(::PreparsedDocumentEntry)
-                        .switchIfEmpty {
-                            Mono.just(PreparsedDocumentEntry(context.document.orNull()!!))
-                        }
-                        .doOnNext { entry: PreparsedDocumentEntry ->
-                            if (!entry.hasErrors()) {
-                                executionInput.graphQLContext.put(
-                                    ColumnarDocumentContext.COLUMNAR_DOCUMENT_CONTEXT_KEY,
-                                    context
-                                )
-                            }
-                        }
-                }
-                .doOnNext { entry: PreparsedDocumentEntry ->
-                    val status: String =
-                        if (entry.hasErrors()) {
-                            "failed"
-                        } else {
-                            "success"
-                        }
-                    val output: String =
-                        if (entry.hasErrors()) {
-                            entry.errors.joinToString(
-                                separator = ",\n",
-                                prefix = "{ ",
-                                postfix = " }",
-                                transform = { e ->
-                                    "[ type: %s, message: %s ]".format(e.errorType, e.message)
-                                }
-                            )
-                        } else {
-                            "\n" +
-                                AstPrinter.printAst(
-                                    entry.document.definitions
-                                        .filterIsInstance<OperationDefinition>()
-                                        .firstOrNull()
-                                )
-                        }
-                    val message: String =
-                        """create_preparsed_document_entry_for_expected_output_
-                        |field_names_given_input_variables: [ status: {} ]
-                        |[ output: {} ]
-                        |""".flatten()
-                    logger.info(message, status, output)
-                }
-        }
-    }
-
-    private fun determineMatchingParameterAttributeVertexForVariableEntry(
-        session: GraphQLSingleRequestSession
-    ): (Map.Entry<String, Any?>) -> Mono<Pair<ParameterAttributeVertex, Any?>> {
-        return { (name, value) ->
-            when {
-                session.metamodelGraph.parameterAttributeVerticesByQualifiedName
-                    .getOrNone(name)
-                    .filter { paramAttrSet -> paramAttrSet.size == 1 }
-                    .isDefined() -> {
-                    session.metamodelGraph.parameterAttributeVerticesByQualifiedName
-                        .getOrNone(name)
-                        .flatMap { paramAttrSet -> paramAttrSet.firstOrNone() }
-                        .map { paramAttr -> paramAttr to value }
-                        .toMono()
-                }
-                session.metamodelGraph.attributeAliasRegistry
-                    .getParameterVertexPathsWithSimilarNameOrAlias(name)
-                    .toOption()
-                    .filter { paramPathSet -> paramPathSet.size == 1 }
-                    .isDefined() -> {
-                    session.metamodelGraph.attributeAliasRegistry
-                        .getParameterVertexPathsWithSimilarNameOrAlias(name)
-                        .firstOrNone()
-                        .flatMap { paramAttrPath ->
-                            session.metamodelGraph.pathBasedGraph.getVertex(paramAttrPath)
-                        }
-                        .filterIsInstance<ParameterAttributeVertex>()
-                        .map { paramAttr -> paramAttr to value }
-                        .toMono()
-                }
-                else -> {
-                    val message: String =
-                        if (
-                            session.metamodelGraph.parameterAttributeVerticesByQualifiedName
-                                .getOrNone(name)
-                                .filter { paramAttrSet -> paramAttrSet.size > 1 }
-                                .isDefined()
-                        ) {
-                            """variable [ name: %s ] maps to multiple acceptable argument names; 
-                                |an alias for at least one of these argument names needs 
-                                |to be used in place of the configured argument name--or--
-                                |the caller must use a regular GraphQL query in lieu of key-value lookup
-                                |"""
-                                .flatten()
-                                .format(name)
-                        } else {
-                            """variable [ name: %s ] does not map to any known argument name 
-                                |or alias for an argument"""
-                                .flatten()
-                                .format(name)
-                        }
-                    Mono.error(
-                        MaterializerException(
-                            MaterializerErrorResponse.INVALID_GRAPHQL_REQUEST,
-                            message
-                        )
-                    )
-                }
-            }
-        }
-    }
-
-    private fun convertVariableValuesIntoJsonNodeValues():
-        (Pair<ParameterAttributeVertex, Any?>) -> Mono<Pair<ParameterAttributeVertex, JsonNode>> {
-        return { (paramAttr, paramValue) ->
-            jsonMapper
-                .fromKotlinObject(paramValue)
-                .toJsonNode()
-                .toMono()
-                .map { jn -> paramAttr to jn }
-                .onErrorResume { t: Throwable ->
-                    Mono.error(
-                        MaterializerException(
-                            MaterializerErrorResponse.UNEXPECTED_ERROR,
-                            """unable to serialize variable value for [ path: %s ] 
-                                |into JSON due to 
-                                |[ type: %s, message: %s ]"""
-                                .flatten()
-                                .format(paramAttr.path, t::class.qualifiedName, t.message),
-                            t
-                        )
-                    )
-                }
-        }
-    }
-
-    private fun determineMatchingSourceAttributeVertexForFieldNameGivenParameters(
-        topLevelSrcIndexPathsSet: PersistentSet<SchematicPath>,
-        session: GraphQLSingleRequestSession
-    ): (String) -> Mono<Pair<String, SourceAttributeVertex>> {
-        return { fieldName ->
-            when {
-                session.metamodelGraph.sourceAttributeVerticesByQualifiedName
-                    .getOrNone(fieldName)
-                    .filter { srcAttrSet -> srcAttrSet.size == 1 }
-                    .isDefined() -> {
-                    session.metamodelGraph.sourceAttributeVerticesByQualifiedName
-                        .getOrNone(fieldName)
-                        .flatMap { srcAttrSet -> srcAttrSet.firstOrNone() }
-                        .toMono()
-                        .map { sav: SourceAttributeVertex -> fieldName to sav }
-                }
-                session.metamodelGraph.attributeAliasRegistry
-                    .getSourceVertexPathWithSimilarNameOrAlias(fieldName)
-                    .isDefined() -> {
-                    session.metamodelGraph.attributeAliasRegistry
-                        .getSourceVertexPathWithSimilarNameOrAlias(fieldName)
-                        .flatMap { srcAttrPath ->
-                            session.metamodelGraph.pathBasedGraph.getVertex(srcAttrPath)
-                        }
-                        .filterIsInstance<SourceAttributeVertex>()
-                        .toMono()
-                        .map { sav: SourceAttributeVertex -> fieldName to sav }
-                }
-                session.metamodelGraph.sourceAttributeVerticesByQualifiedName
-                    .getOrNone(fieldName)
-                    .filter { srcAttrSet -> srcAttrSet.size > 1 }
-                    .flatMap { srcAttrSet ->
-                        /*
-                         * There exists _just_ one source_attribute with a
-                         * path that is a descendent of one of the top
-                         * source_index_paths and if more than one is within that set,
-                         * there exists one that is shorter than the others
-                         */
-                        srcAttrSet
-                            .asSequence()
-                            .filter { srcAttr ->
-                                topLevelSrcIndexPathsSet.any { sp ->
-                                    srcAttr.path.isDescendentOf(sp)
-                                }
-                            }
-                            .minOfOrNull { srcAttr -> srcAttr.path }
-                            .toOption()
+                    .flatMap { session: GraphQLSingleRequestSession ->
+                        singleRequestMaterializationColumnarDocumentPreprocessingService
+                            .preprocessColumnarDocumentForExecutionInput(executionInput, session)
                     }
-                    .isDefined() -> {
-                    session.metamodelGraph.sourceAttributeVerticesByQualifiedName
-                        .getOrNone(fieldName)
-                        .fold(::persistentSetOf, ::identity)
-                        .asSequence()
-                        .filter { srcAttr ->
-                            topLevelSrcIndexPathsSet.any { sp -> srcAttr.path.isDescendentOf(sp) }
-                        }
-                        .minByOrNull { srcAttr -> srcAttr.path }
-                        .toMono()
-                        .map { sav: SourceAttributeVertex -> fieldName to sav }
-                }
-                else -> {
-                    val message: String =
-                        if (
-                            session.metamodelGraph.sourceAttributeVerticesByQualifiedName
-                                .getOrNone(fieldName)
-                                .filter { srcAttrSet -> srcAttrSet.size > 1 }
-                                .isDefined()
-                        ) {
-                            """expected_output_field_name [ name: %s ] maps to multiple field_names; 
-                                |an alias for at least one of these field_names needs 
-                                |to be used in place of the configured field name--or--
-                                |the caller must use a regular GraphQL query in lieu of key-value lookup
-                                |"""
-                                .flatten()
-                                .format(fieldName)
-                        } else {
-                            """expected_output_field_name [ name: %s ] does not map to any known field_name 
-                                |or alias for a field_name"""
-                                .flatten()
-                                .format(fieldName)
-                        }
-                    Mono.error(
-                        MaterializerException(
-                            MaterializerErrorResponse.INVALID_GRAPHQL_REQUEST,
-                            message
-                        )
-                    )
-                }
             }
         }
     }
 
-    private fun gatherSourceAttributeVerticesMatchingGivenParameters(
-        parameterMap: ImmutableMap<SchematicPath, JsonNode>,
-        session: GraphQLSingleRequestSession
-    ): Flux<SourceAttributeVertex> {
-        return Flux.fromIterable(parameterMap.keys).flatMap { parameterPath ->
-            ParameterToSourceAttributeVertexMatcher(session.materializationMetamodel, parameterPath)
-                .toMono()
+    private fun <T> missingGraphQLSingleRequestSessionInContextErrorPublisher(
+        executionInput: ExecutionInput
+    ): Mono<T> {
+        return Mono.error {
+            val sessionType: String = GraphQLSingleRequestSession::class.qualifiedName ?: "<NA>"
+            val contextKeys: String =
+                executionInput.graphQLContext
+                    .stream()
+                    .map { (k, _) -> Objects.toString(k, "<NA>") }
+                    .sorted()
+                    .collect(Collectors.joining(", ", "{ ", " }"))
+            MaterializerException(
+                MaterializerErrorResponse.UNEXPECTED_ERROR,
+                """session [ type: %s ] is missing from 
+                |execution_input.graphql_context: 
+                |[ execution_input.graphql_context.keys: %s ] 
+                |unable to do any further execution_input processing"""
+                    .flatten()
+                    .format(sessionType, contextKeys)
+            )
         }
     }
 

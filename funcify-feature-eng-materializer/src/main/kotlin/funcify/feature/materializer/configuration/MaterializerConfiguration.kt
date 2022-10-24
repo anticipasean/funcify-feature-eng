@@ -260,14 +260,30 @@ class MaterializerConfiguration {
         return DefaultSingleRequestMaterializationOrchestratorService(jsonMapper = jsonMapper)
     }
 
+    @ConditionalOnMissingBean(
+        value = [SingleRequestMaterializationColumnarDocumentPreprocessingService::class]
+    )
+    @Bean
+    fun singleRequestMaterializationColumnarDocumentPreprocessingService(
+        jsonMapper: JsonMapper
+    ): SingleRequestMaterializationColumnarDocumentPreprocessingService {
+        return DefaultSingleRequestMaterializationColumnarDocumentPreprocessingService(
+            jsonMapper = jsonMapper,
+            columnarDocumentContextFactory = DefaultColumnarDocumentContextFactory()
+        )
+    }
+
     @ConditionalOnMissingBean(value = [MaterializationPreparsedDocumentProvider::class])
     @Bean
     fun materializationPreparsedDocumentProvider(
-        jsonMapper: JsonMapper
+        jsonMapper: JsonMapper,
+        singleRequestMaterializationColumnarDocumentPreprocessingService:
+            SingleRequestMaterializationColumnarDocumentPreprocessingService
     ): MaterializationPreparsedDocumentProvider {
         return DefaultMaterializationPreparsedDocumentProvider(
             jsonMapper = jsonMapper,
-            columnarDocumentContextFactory = DefaultColumnarDocumentContextFactory()
+            singleRequestMaterializationColumnarDocumentPreprocessingService =
+                singleRequestMaterializationColumnarDocumentPreprocessingService
         )
     }
 
