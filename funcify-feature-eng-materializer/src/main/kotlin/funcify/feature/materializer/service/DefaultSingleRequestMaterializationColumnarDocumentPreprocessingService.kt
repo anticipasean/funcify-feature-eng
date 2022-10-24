@@ -237,32 +237,32 @@ internal class DefaultSingleRequestMaterializationColumnarDocumentPreprocessingS
                         .toMono()
                 }
                 else -> {
-                    val message: String =
-                        if (
-                            session.metamodelGraph.parameterAttributeVerticesByQualifiedName
-                                .getOrNone(name)
-                                .filter { paramAttrSet -> paramAttrSet.size > 1 }
-                                .isDefined()
-                        ) {
-                            """variable [ name: %s ] maps to multiple acceptable argument names; 
+                    Mono.error {
+                        val message: String =
+                            if (
+                                session.metamodelGraph.parameterAttributeVerticesByQualifiedName
+                                    .getOrNone(name)
+                                    .filter { paramAttrSet -> paramAttrSet.size > 1 }
+                                    .isDefined()
+                            ) {
+                                """variable [ name: %s ] maps to multiple acceptable argument names; 
                                 |an alias for at least one of these argument names needs 
                                 |to be used in place of the configured argument name--or--
                                 |the caller must use a regular GraphQL query in lieu of key-value lookup
                                 |"""
-                                .flatten()
-                                .format(name)
-                        } else {
-                            """variable [ name: %s ] does not map to any known argument name 
+                                    .flatten()
+                                    .format(name)
+                            } else {
+                                """variable [ name: %s ] does not map to any known argument name 
                                 |or alias for an argument"""
-                                .flatten()
-                                .format(name)
-                        }
-                    Mono.error(
+                                    .flatten()
+                                    .format(name)
+                            }
                         MaterializerException(
                             MaterializerErrorResponse.INVALID_GRAPHQL_REQUEST,
                             message
                         )
-                    )
+                    }
                 }
             }
         }
