@@ -64,16 +64,10 @@ internal class DefaultGraphQLSingleRequestSessionCoordinator(
                     .query(session.rawGraphQLRequest.rawGraphQLQueryText)
                     .variables(session.rawGraphQLRequest.variables)
                     .graphQLContext { ctxBuilder ->
-                        ctxBuilder
-                            .put(
-                                GraphQLSingleRequestSession.GRAPHQL_SINGLE_REQUEST_SESSION_KEY,
-                                session
-                            )
-                            .put(
-                                MaterializationPreparsedDocumentProvider
-                                    .EXPECTED_OUTPUT_FIELD_NAMES_KEY,
-                                session.rawGraphQLRequest.expectedOutputFieldNames
-                            )
+                        ctxBuilder.put(
+                            GraphQLSingleRequestSession.GRAPHQL_SINGLE_REQUEST_SESSION_KEY,
+                            session
+                        )
                     }
             ) { bldr: ExecutionInput.Builder, customizer: GraphQLExecutionInputCustomizer ->
                 customizer.invoke(bldr)
