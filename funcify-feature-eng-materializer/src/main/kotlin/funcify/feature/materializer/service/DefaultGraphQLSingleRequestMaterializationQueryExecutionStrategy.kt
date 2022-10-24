@@ -14,6 +14,7 @@ import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.OptionExtensions.recurse
 import funcify.feature.tools.extensions.OptionExtensions.toOption
+import funcify.feature.tools.extensions.PersistentMapExtensions.toPersistentMap
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import graphql.ExceptionWhileDataFetching
 import graphql.ExecutionResult
@@ -370,7 +371,13 @@ internal class DefaultGraphQLSingleRequestMaterializationQueryExecutionStrategy(
                     }
                 }
             }
-            .map { (dataByFieldName, errors) -> ExecutionResultImpl(dataByFieldName, errors) }
+            .map { (dataByFieldName, errors) ->
+                ExecutionResultImpl.newExecutionResult()
+                    .data(dataByFieldName)
+                    .errors(errors)
+                    .extensions(executionContext.graphQLContext.stream().toPersistentMap())
+                    .build()
+            }
             .subscribe(
                 { executionResult: ExecutionResult ->
                     overallResult.complete(executionResult)
@@ -379,6 +386,27 @@ internal class DefaultGraphQLSingleRequestMaterializationQueryExecutionStrategy(
                 { t: Throwable ->
                     overallResult.completeExceptionally(t)
                     executionStrategyInstrumentationContext.onCompleted(null, t)
+                },
+                { ->
+                    /*
+                     * If on_complete is called but overall_result is NOT done, then publisher was emptied
+                     * out but didn't error out for whatever reason. Close out the future to prevent hanging
+                     * with null values for whatever keys were expected
+                     */
+                    if (!overallResult.isDone) {
+                        overallResult.complete(
+                            ExecutionResultImpl.newExecutionResult()
+                                .data(
+                                    executionStrategyParameters.fields.keys.fold(
+                                        persistentMapOf<String, Any?>()
+                                    ) { pm, key -> pm.put(key, null) }
+                                )
+                                .extensions(
+                                    executionContext.graphQLContext.stream().toPersistentMap()
+                                )
+                                .build()
+                        )
+                    }
                 }
             )
         return overallResult

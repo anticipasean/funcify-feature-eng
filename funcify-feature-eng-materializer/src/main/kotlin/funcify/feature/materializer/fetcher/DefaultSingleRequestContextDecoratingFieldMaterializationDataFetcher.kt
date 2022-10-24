@@ -42,11 +42,7 @@ internal class DefaultSingleRequestContextDecoratingFieldMaterializationDataFetc
         )
         return when {
             environment == null -> {
-                val message = "graphql.schema.data_fetching_environment context input is null"
-                logger.error("get: [ status: failed ] [ message: $message ]")
-                CompletableFuture.failedFuture(
-                    MaterializerException(MaterializerErrorResponse.UNEXPECTED_ERROR, message)
-                )
+                createEnvironmentNullErrorFuture()
             }
             !environment.graphQlContext.hasKey(
                 GraphQLSingleRequestSession.GRAPHQL_SINGLE_REQUEST_SESSION_KEY
@@ -56,21 +52,13 @@ internal class DefaultSingleRequestContextDecoratingFieldMaterializationDataFetc
                         GraphQLSingleRequestSession.GRAPHQL_SINGLE_REQUEST_SESSION_KEY
                     )
                     .isEmpty -> {
-                val message =
-                    """data_fetching_environment.graphql_context is missing entry for key
-                        |[ name: ${GraphQLSingleRequestSession.GRAPHQL_SINGLE_REQUEST_SESSION_KEY.name}, 
-                        |type: ${GraphQLSingleRequestSession.GRAPHQL_SINGLE_REQUEST_SESSION_KEY.valueResolvableType} 
-                        |]""".flatten()
-                logger.error("get: [ status: failed ] [ message: $message ]")
-                CompletableFuture.failedFuture(
-                    MaterializerException(MaterializerErrorResponse.UNEXPECTED_ERROR, message)
-                )
+                createSingleRequestSessionMissingErrorFuture()
             }
             environment.graphQlContext.hasKey(
                 SingleRequestFieldMaterializationSession
                     .SINGLE_REQUEST_FIELD_MATERIALIZATION_SESSION_KEY
             ) -> {
-                foldResultPublisherIntoDataFetcherResult(
+                foldResultPublisherIntoDataFetcherResult<R>(
                     environment,
                     singleRequestMaterializationOrchestratorService.materializeValueInSession(
                         environment.graphQlContext
@@ -94,18 +82,38 @@ internal class DefaultSingleRequestContextDecoratingFieldMaterializationDataFetc
                                             .GRAPHQL_SINGLE_REQUEST_SESSION_KEY
                                     )
                             )
-                            .let { session ->
+                            .also { session: SingleRequestFieldMaterializationSession ->
                                 environment.graphQlContext.put(
                                     SingleRequestFieldMaterializationSession
                                         .SINGLE_REQUEST_FIELD_MATERIALIZATION_SESSION_KEY,
                                     session
                                 )
-                                session
                             }
                     )
                 )
             }
         }
+    }
+
+    private fun <R> createEnvironmentNullErrorFuture(): CompletableFuture<DataFetcherResult<R>> {
+        val message = "graphql.schema.data_fetching_environment context input is null"
+        logger.error("get: [ status: failed ] [ message: $message ]")
+        return CompletableFuture.failedFuture(
+            MaterializerException(MaterializerErrorResponse.UNEXPECTED_ERROR, message)
+        )
+    }
+
+    private fun <R> createSingleRequestSessionMissingErrorFuture():
+        CompletableFuture<DataFetcherResult<R>> {
+        val message =
+            """data_fetching_environment.graphql_context is missing entry for key
+            |[ name: ${GraphQLSingleRequestSession.GRAPHQL_SINGLE_REQUEST_SESSION_KEY.name}, 
+            |type: ${GraphQLSingleRequestSession.GRAPHQL_SINGLE_REQUEST_SESSION_KEY.valueResolvableType} 
+            |]""".flatten()
+        logger.error("get: [ status: failed ] [ message: $message ]")
+        return CompletableFuture.failedFuture(
+            MaterializerException(MaterializerErrorResponse.UNEXPECTED_ERROR, message)
+        )
     }
 
     private fun <R> foldResultPublisherIntoDataFetcherResult(
@@ -160,8 +168,9 @@ internal class DefaultSingleRequestContextDecoratingFieldMaterializationDataFetc
             val materializedValue: R = materializedValueOption.orNull() as R
             DataFetcherResult.newResult<R>().data(materializedValue).build()
         } catch (cce: ClassCastException) {
-            val materializedValueType =
+            val materializedValueType: String =
                 materializedValueOption.mapNotNull { a -> a::class.qualifiedName }.orNull()
+                    ?: "<NA>"
             val message =
                 """unable to convert materialized_value: 
                     |[ actual: result.type $materializedValueType ] 
@@ -186,9 +195,9 @@ internal class DefaultSingleRequestContextDecoratingFieldMaterializationDataFetc
         while (cause?.cause != null) {
             cause = cause.cause
         }
-        when (val rootCause: Throwable = cause ?: throwable) {
+        return when (val rootCause: Throwable = cause ?: throwable) {
             is GraphQLError -> {
-                return DataFetcherResult.newResult<R>().error(rootCause).build()
+                DataFetcherResult.newResult<R>().error(rootCause).build()
             }
             else -> {
                 val messageWithErrorTypeInfo: String =
@@ -196,7 +205,7 @@ internal class DefaultSingleRequestContextDecoratingFieldMaterializationDataFetc
                        |message: ${rootCause.message}, 
                        |head_stack_trace_element: ${rootCause.possiblyNestedHeadStackTraceElement()} 
                        |]""".flatten()
-                return DataFetcherResult.newResult<R>()
+                DataFetcherResult.newResult<R>()
                     .error(
                         GraphqlErrorBuilder.newError(environment)
                             .errorType(ErrorType.DataFetchingException)

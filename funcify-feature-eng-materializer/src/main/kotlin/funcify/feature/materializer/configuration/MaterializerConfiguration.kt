@@ -339,15 +339,39 @@ class MaterializerConfiguration {
 
     @Bean
     fun graphQLSingleRequestSessionCoordinator(
-        serializedGraphQLResponseFactory: SerializedGraphQLResponseFactory,
         materializationPreparsedDocumentProvider: MaterializationPreparsedDocumentProvider,
         materializationQueryExecutionStrategy:
-            GraphQLSingleRequestMaterializationQueryExecutionStrategy
+            GraphQLSingleRequestMaterializationQueryExecutionStrategy,
+        singleRequestMaterializationExecutionResultPostprocessingService:
+            SingleRequestMaterializationExecutionResultPostprocessingService
     ): GraphQLSingleRequestSessionCoordinator {
         return DefaultGraphQLSingleRequestSessionCoordinator(
-            serializedGraphQLResponseFactory = serializedGraphQLResponseFactory,
             materializationPreparsedDocumentProvider = materializationPreparsedDocumentProvider,
-            materializationQueryExecutionStrategy = materializationQueryExecutionStrategy
+            queryExecutionStrategy = materializationQueryExecutionStrategy,
+            singleRequestMaterializationExecutionResultPostprocessingService =
+                singleRequestMaterializationExecutionResultPostprocessingService
+        )
+    }
+
+    @Bean
+    fun singleRequestMaterializationColumnarResponsePostprocessingService(
+        serializedGraphQLResponseFactory: SerializedGraphQLResponseFactory
+    ): SingleRequestMaterializationColumnarResponsePostprocessingService {
+        return DefaultSingleRequestMaterializationColumnarResponsePostprocessingService(
+            serializedGraphQLResponseFactory = serializedGraphQLResponseFactory
+        )
+    }
+
+    @Bean
+    fun singleRequestMaterializationExecutionResultPostprocessingService(
+        serializedGraphQLResponseFactory: SerializedGraphQLResponseFactory,
+        singleRequestMaterializationColumnarResponsePostprocessingService:
+            SingleRequestMaterializationColumnarResponsePostprocessingService
+    ): SingleRequestMaterializationExecutionResultPostprocessingService {
+        return DefaultSingleRequestMaterializationExecutionResultPostprocessingService(
+            serializedGraphQLResponseFactory = serializedGraphQLResponseFactory,
+            singleRequestMaterializationColumnarResponsePostprocessingService =
+                singleRequestMaterializationColumnarResponsePostprocessingService
         )
     }
 

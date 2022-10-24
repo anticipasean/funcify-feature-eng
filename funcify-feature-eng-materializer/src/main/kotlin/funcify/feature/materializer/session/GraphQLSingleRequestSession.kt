@@ -43,7 +43,7 @@ interface GraphQLSingleRequestSession : MaterializationSession {
 
     val operationDefinition: Option<OperationDefinition>
 
-    val processedQueryVariables: ImmutableMap<String, Any>
+    val processedQueryVariables: ImmutableMap<String, Any?>
 
     val requestParameterMaterializationGraphPhase: Option<RequestParameterMaterializationGraphPhase>
 
@@ -59,7 +59,7 @@ interface GraphQLSingleRequestSession : MaterializationSession {
 
         fun operationDefinition(operationDefinition: OperationDefinition): Builder
 
-        fun processedQueryVariables(processedQueryVariables: Map<String, Any>): Builder
+        fun processedQueryVariables(processedQueryVariables: Map<String, Any?>): Builder
 
         fun requestParameterMaterializationGraphPhase(
             requestParameterMaterializationGraphPhase: RequestParameterMaterializationGraphPhase

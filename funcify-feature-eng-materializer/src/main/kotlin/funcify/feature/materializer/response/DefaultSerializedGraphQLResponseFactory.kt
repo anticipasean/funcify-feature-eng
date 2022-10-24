@@ -1,7 +1,12 @@
 package funcify.feature.materializer.response
 
+import arrow.core.Option
+import arrow.core.none
+import arrow.core.toOption
+import com.fasterxml.jackson.databind.JsonNode
 import funcify.feature.materializer.error.MaterializerErrorResponse
 import funcify.feature.materializer.error.MaterializerException
+import funcify.feature.materializer.response.SerializedGraphQLResponse.Builder
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import graphql.ExecutionResult
 import org.slf4j.Logger
@@ -17,13 +22,18 @@ internal class DefaultSerializedGraphQLResponseFactory : SerializedGraphQLRespon
 
         private val logger: Logger = loggerFor<DefaultSerializedGraphQLResponseFactory>()
 
-        internal class DefaultBuilder(private var executionResult: ExecutionResult? = null) :
-            SerializedGraphQLResponse.Builder {
+        internal class DefaultBuilder(
+            private var executionResult: ExecutionResult? = null,
+            private var resultAsColumnarJsonObject: JsonNode? = null
+        ) : Builder {
 
-            override fun executionResult(
-                executionResult: ExecutionResult
-            ): SerializedGraphQLResponse.Builder {
+            override fun executionResult(executionResult: ExecutionResult): Builder {
                 this.executionResult = executionResult
+                return this
+            }
+
+            override fun resultAsColumnarJsonObject(columnarJsonObject: JsonNode): Builder {
+                this.resultAsColumnarJsonObject = columnarJsonObject
                 return this
             }
 
@@ -38,18 +48,22 @@ internal class DefaultSerializedGraphQLResponseFactory : SerializedGraphQLRespon
                         )
                     }
                     else -> {
-                        DefaultSerializedGraphQLResponse(executionResult!!)
+                        DefaultSerializedGraphQLResponse(
+                            executionResult!!,
+                            resultAsColumnarJsonObject.toOption()
+                        )
                     }
                 }
             }
         }
 
         internal class DefaultSerializedGraphQLResponse(
-            override val executionResult: ExecutionResult
+            override val executionResult: ExecutionResult,
+            override val resultAsColumnarJsonObject: Option<JsonNode> = none()
         ) : SerializedGraphQLResponse {}
     }
 
-    override fun builder(): SerializedGraphQLResponse.Builder {
+    override fun builder(): Builder {
         return DefaultBuilder()
     }
 }

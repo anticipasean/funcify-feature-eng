@@ -11,8 +11,8 @@ internal data class DefaultSingleRequestFieldMaterializationSession(
 
     companion object {
         internal class DefaultBuilder(
-            val existingSession: DefaultSingleRequestFieldMaterializationSession,
-            var dataFetchingEnvironment: DataFetchingEnvironment =
+            private val existingSession: DefaultSingleRequestFieldMaterializationSession,
+            private var dataFetchingEnvironment: DataFetchingEnvironment =
                 existingSession.dataFetchingEnvironment
         ) : Builder {
 
@@ -32,7 +32,6 @@ internal data class DefaultSingleRequestFieldMaterializationSession(
     override fun update(
         transformer: Builder.() -> Builder
     ): SingleRequestFieldMaterializationSession {
-        val builder: Builder = DefaultBuilder(this)
-        return transformer.invoke(builder).build()
+        return transformer.invoke(DefaultBuilder(this)).build()
     }
 }

@@ -9,6 +9,7 @@ import funcify.feature.materializer.phase.RequestParameterMaterializationGraphPh
 import funcify.feature.materializer.request.RawGraphQLRequest
 import funcify.feature.materializer.response.SerializedGraphQLResponse
 import funcify.feature.materializer.schema.MaterializationMetamodel
+import funcify.feature.materializer.session.GraphQLSingleRequestSession.Builder
 import graphql.language.Document
 import graphql.language.OperationDefinition
 import kotlinx.collections.immutable.ImmutableMap
@@ -25,15 +26,14 @@ internal data class DefaultGraphQLSingleRequestSession(
     override val rawGraphQLRequest: RawGraphQLRequest,
     override val document: Option<Document> = none(),
     override val operationDefinition: Option<OperationDefinition> = none(),
-    override val processedQueryVariables: ImmutableMap<String, Any> = persistentMapOf(),
+    override val processedQueryVariables: ImmutableMap<String, Any?> = persistentMapOf(),
     override val requestParameterMaterializationGraphPhase:
         Option<RequestParameterMaterializationGraphPhase> =
         none(),
     override val requestDispatchMaterializationGraphPhase:
         Option<RequestDispatchMaterializationPhase> =
         none(),
-    override val serializedGraphQLResponse: Option<SerializedGraphQLResponse> =
-        none<SerializedGraphQLResponse>(),
+    override val serializedGraphQLResponse: Option<SerializedGraphQLResponse> = none(),
 ) : GraphQLSingleRequestSession {
 
     companion object {
@@ -43,7 +43,7 @@ internal data class DefaultGraphQLSingleRequestSession(
             private var document: Option<Document> = currentSession.document,
             private var operationDefinition: Option<OperationDefinition> =
                 currentSession.operationDefinition,
-            private var processedQueryVariables: ImmutableMap<String, Any> =
+            private var processedQueryVariables: ImmutableMap<String, Any?> =
                 currentSession.processedQueryVariables,
             private var requestParameterMaterializationGraphPhase:
                 Option<RequestParameterMaterializationGraphPhase> =
@@ -53,30 +53,28 @@ internal data class DefaultGraphQLSingleRequestSession(
                 currentSession.requestDispatchMaterializationGraphPhase,
             private var serializedGraphQLResponse: Option<SerializedGraphQLResponse> =
                 currentSession.serializedGraphQLResponse
-        ) : GraphQLSingleRequestSession.Builder {
+        ) : Builder {
 
-            override fun document(document: Document): GraphQLSingleRequestSession.Builder {
+            override fun document(document: Document): Builder {
                 this.document = document.toOption()
                 return this
             }
 
-            override fun operationDefinition(
-                operationDefinition: OperationDefinition
-            ): GraphQLSingleRequestSession.Builder {
+            override fun operationDefinition(operationDefinition: OperationDefinition): Builder {
                 this.operationDefinition = operationDefinition.toOption()
                 return this
             }
 
             override fun processedQueryVariables(
-                processedQueryVariables: Map<String, Any>
-            ): GraphQLSingleRequestSession.Builder {
+                processedQueryVariables: Map<String, Any?>
+            ): Builder {
                 this.processedQueryVariables = processedQueryVariables.toPersistentMap()
                 return this
             }
 
             override fun requestParameterMaterializationGraphPhase(
                 requestParameterMaterializationGraphPhase: RequestParameterMaterializationGraphPhase
-            ): GraphQLSingleRequestSession.Builder {
+            ): Builder {
                 this.requestParameterMaterializationGraphPhase =
                     requestParameterMaterializationGraphPhase.toOption()
                 return this
@@ -84,7 +82,7 @@ internal data class DefaultGraphQLSingleRequestSession(
 
             override fun requestDispatchMaterializationPhase(
                 requestDispatchMaterializationPhase: RequestDispatchMaterializationPhase
-            ): GraphQLSingleRequestSession.Builder {
+            ): Builder {
                 this.requestDispatchMaterializationGraphPhase =
                     requestDispatchMaterializationPhase.toOption()
                 return this
@@ -92,7 +90,7 @@ internal data class DefaultGraphQLSingleRequestSession(
 
             override fun serializedGraphQLResponse(
                 serializedGraphQLResponse: SerializedGraphQLResponse
-            ): GraphQLSingleRequestSession.Builder {
+            ): Builder {
                 this.serializedGraphQLResponse = serializedGraphQLResponse.some()
                 return this
             }
@@ -112,10 +110,7 @@ internal data class DefaultGraphQLSingleRequestSession(
         }
     }
 
-    override fun update(
-        transformer: GraphQLSingleRequestSession.Builder.() -> GraphQLSingleRequestSession.Builder
-    ): GraphQLSingleRequestSession {
-        val builder: GraphQLSingleRequestSession.Builder = DefaultBuilder(this)
-        return transformer.invoke(builder).build()
+    override fun update(transformer: Builder.() -> Builder): GraphQLSingleRequestSession {
+        return transformer.invoke(DefaultBuilder(this)).build()
     }
 }

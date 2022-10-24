@@ -1,10 +1,9 @@
 package funcify.feature.materializer.session
 
 import funcify.feature.materializer.request.GraphQLExecutionInputCustomizer
-import funcify.feature.materializer.response.SerializedGraphQLResponse
-import funcify.feature.materializer.response.SerializedGraphQLResponseFactory
 import funcify.feature.materializer.service.GraphQLSingleRequestMaterializationQueryExecutionStrategy
 import funcify.feature.materializer.service.MaterializationPreparsedDocumentProvider
+import funcify.feature.materializer.service.SingleRequestMaterializationExecutionResultPostprocessingService
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import graphql.ExecutionInput
@@ -19,10 +18,10 @@ import reactor.core.publisher.Mono
  * @created 2/19/22
  */
 internal class DefaultGraphQLSingleRequestSessionCoordinator(
-    private val serializedGraphQLResponseFactory: SerializedGraphQLResponseFactory,
     private val materializationPreparsedDocumentProvider: MaterializationPreparsedDocumentProvider,
-    private val materializationQueryExecutionStrategy:
-        GraphQLSingleRequestMaterializationQueryExecutionStrategy
+    private val queryExecutionStrategy: GraphQLSingleRequestMaterializationQueryExecutionStrategy,
+    private val singleRequestMaterializationExecutionResultPostprocessingService:
+        SingleRequestMaterializationExecutionResultPostprocessingService
 ) : GraphQLSingleRequestSessionCoordinator {
 
     companion object {
@@ -40,15 +39,13 @@ internal class DefaultGraphQLSingleRequestSessionCoordinator(
         return Mono.fromCompletionStage(
                 GraphQL.newGraphQL(session.materializationSchema)
                     .preparsedDocumentProvider(materializationPreparsedDocumentProvider)
-                    .queryExecutionStrategy(materializationQueryExecutionStrategy)
+                    .queryExecutionStrategy(queryExecutionStrategy)
                     .build()
                     .executeAsync(executionInputBuilderUpdater(session))
             )
-            .map { er: ExecutionResult ->
-                serializedGraphQLResponseFactory.builder().executionResult(er).build()
-            }
-            .map { sgqlr: SerializedGraphQLResponse ->
-                session.update { serializedGraphQLResponse(sgqlr) }
+            .flatMap { executionResult: ExecutionResult ->
+                singleRequestMaterializationExecutionResultPostprocessingService
+                    .postprocessExecutionResult(executionResult)
             }
     }
 
