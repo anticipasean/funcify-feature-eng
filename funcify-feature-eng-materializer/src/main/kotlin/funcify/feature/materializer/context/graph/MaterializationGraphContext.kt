@@ -11,6 +11,7 @@ import funcify.feature.schema.path.SchematicPath
 import funcify.feature.tools.container.graph.PathBasedGraph
 import graphql.language.OperationDefinition
 import graphql.schema.GraphQLSchema
+import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.PersistentSet
 
@@ -38,11 +39,11 @@ interface MaterializationGraphContext {
 
     val operationDefinition: OperationDefinition
 
-    val queryVariables: PersistentMap<String, Any>
+    val queryVariables: ImmutableMap<String, Any?>
 
     val requestParameterGraph: PathBasedGraph<SchematicPath, SchematicVertex, RequestParameterEdge>
 
-    val materializedParameterValuesByPath: PersistentMap<SchematicPath, JsonNode>
+    val materializedParameterValuesByPath: ImmutableMap<SchematicPath, JsonNode>
 
     val parameterIndexPathsBySourceIndexPath:
         PersistentMap<SchematicPath, PersistentSet<SchematicPath>>
@@ -58,7 +59,7 @@ interface MaterializationGraphContext {
 
         fun operationDefinition(operationDefinition: OperationDefinition): Builder
 
-        fun queryVariables(queryVariables: PersistentMap<String, Any>): Builder
+        fun queryVariables(queryVariables: PersistentMap<String, Any?>): Builder
 
         fun requestParameterGraph(
             requestParameterGraph:

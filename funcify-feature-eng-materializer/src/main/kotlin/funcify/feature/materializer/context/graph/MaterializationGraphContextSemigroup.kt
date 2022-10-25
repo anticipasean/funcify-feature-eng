@@ -9,6 +9,7 @@ import funcify.feature.schema.path.SchematicPath
 import funcify.feature.tools.container.graph.PathBasedGraph
 import funcify.feature.tools.extensions.PersistentMapExtensions.combineWithPersistentSetValueMap
 import kotlinx.collections.immutable.PersistentMap
+import kotlinx.collections.immutable.toPersistentMap
 
 internal object MaterializationGraphContextSemigroup : Semigroup<MaterializationGraphContext> {
 
@@ -25,9 +26,11 @@ internal object MaterializationGraphContextSemigroup : Semigroup<Materialization
                         b.requestParameterGraph
                     )
                 )
-                .queryVariables(a.queryVariables.putAll(b.queryVariables))
+                .queryVariables(a.queryVariables.toPersistentMap().putAll(b.queryVariables))
                 .materializedParameterValuesByPath(
-                    a.materializedParameterValuesByPath.putAll(b.materializedParameterValuesByPath)
+                    a.materializedParameterValuesByPath
+                        .toPersistentMap()
+                        .putAll(b.materializedParameterValuesByPath)
                 )
                 .parameterIndexPathsBySourceIndexPath(
                     a.parameterIndexPathsBySourceIndexPath.combineWithPersistentSetValueMap(

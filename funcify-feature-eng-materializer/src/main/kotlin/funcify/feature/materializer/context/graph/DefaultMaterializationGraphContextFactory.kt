@@ -28,7 +28,7 @@ internal class DefaultMaterializationGraphContextFactory : MaterializationGraphC
         internal class DefaultMaterializationGraphContextBuilder(
             private var materializationMetamodel: MaterializationMetamodel? = null,
             private var operationDefinition: OperationDefinition? = null,
-            private var queryVariables: PersistentMap<String, Any> = persistentMapOf(),
+            private var queryVariables: PersistentMap<String, Any?> = persistentMapOf(),
             private var requestParameterGraph:
                 PathBasedGraph<SchematicPath, SchematicVertex, RequestParameterEdge> =
                 PathBasedGraph.emptyTwoToOnePathsToEdgeGraph(),
@@ -54,7 +54,7 @@ internal class DefaultMaterializationGraphContextFactory : MaterializationGraphC
                 return this
             }
 
-            override fun queryVariables(queryVariables: PersistentMap<String, Any>): Builder {
+            override fun queryVariables(queryVariables: PersistentMap<String, Any?>): Builder {
                 this.queryVariables = queryVariables
                 return this
             }
@@ -228,7 +228,7 @@ internal class DefaultMaterializationGraphContextFactory : MaterializationGraphC
         internal data class DefaultMaterializationGraphContext(
             override val materializationMetamodel: MaterializationMetamodel,
             override val operationDefinition: OperationDefinition,
-            override val queryVariables: PersistentMap<String, Any>,
+            override val queryVariables: PersistentMap<String, Any?>,
             override val requestParameterGraph:
                 PathBasedGraph<SchematicPath, SchematicVertex, RequestParameterEdge>,
             override val materializedParameterValuesByPath: PersistentMap<SchematicPath, JsonNode>,

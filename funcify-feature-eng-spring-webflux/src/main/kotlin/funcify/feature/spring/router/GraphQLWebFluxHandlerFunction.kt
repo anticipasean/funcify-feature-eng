@@ -23,6 +23,7 @@ import funcify.feature.tools.container.attempt.Try.Companion.filterInstanceOf
 import funcify.feature.tools.container.attempt.Try.Companion.flatMapFailure
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.MonoExtensions.widen
+import funcify.feature.tools.extensions.OptionExtensions.toMono
 import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentMap
 import funcify.feature.tools.extensions.StreamExtensions.flatMapOptions
 import funcify.feature.tools.extensions.StringExtensions.flatten
@@ -59,6 +60,7 @@ internal class GraphQLWebFluxHandlerFunction(
         private const val QUERY_KEY = "query"
         private const val GRAPHQL_REQUEST_VARIABLES_KEY = "variables"
         private const val OUTPUT_KEY = "output"
+        private const val ERRORS_KEY = "errors"
         private const val OPERATION_NAME_KEY = "operationName"
         private const val MEDIA_TYPE_APPLICATION_GRAPHQL_VALUE = "application/graphql"
         private val STR_KEY_MAP_PARAMETERIZED_TYPE_REF =
@@ -290,24 +292,43 @@ internal class GraphQLWebFluxHandlerFunction(
     private fun convertAggregateSerializedGraphQLResponseIntoServerResponse():
         (SerializedGraphQLResponse) -> Mono<out ServerResponse> {
         return { response ->
-            Try.attempt { response.executionResult.toSpecification() }
-                .mapFailure { t: Throwable ->
-                    val message: String =
-                        """unable to convert graphql execution_result 
-                        |into specification for api_response 
-                        |[ type: Map<String, Any?> ] given cause: 
-                        |[ type: ${t::class.qualifiedName}, 
-                        |message: ${t.message} ]""".flatten()
-                    FeatureEngSpringWebFluxException(
-                        SpringWebFluxErrorResponse.EXECUTION_RESULT_ISSUE,
-                        message,
-                        t
-                    )
+            when {
+                response.resultAsColumnarJsonObject.isDefined() -> {
+                    response.resultAsColumnarJsonObject
+                        .zip(response.executionResult.errors.toOption())
+                        .map { (columnarJsonObject, graphQLErrors) ->
+                            mapOf(OUTPUT_KEY to columnarJsonObject, ERRORS_KEY to graphQLErrors)
+                        }
+                        .toMono()
+                        .flatMap { spec ->
+                            ServerResponse.ok()
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .bodyValue(spec)
+                        }
                 }
-                .toMono()
-                .flatMap { spec ->
-                    ServerResponse.ok().contentType(MediaType.APPLICATION_JSON).bodyValue(spec)
+                else -> {
+                    Try.attempt { response.executionResult.toSpecification() }
+                        .mapFailure { t: Throwable ->
+                            val message: String =
+                                """unable to convert graphql execution_result 
+                                |into specification for api_response 
+                                |[ type: Map<String, Any?> ] given cause: 
+                                |[ type: ${t::class.qualifiedName}, 
+                                |message: ${t.message} ]""".flatten()
+                            FeatureEngSpringWebFluxException(
+                                SpringWebFluxErrorResponse.EXECUTION_RESULT_ISSUE,
+                                message,
+                                t
+                            )
+                        }
+                        .toMono()
+                        .flatMap { spec ->
+                            ServerResponse.ok()
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .bodyValue(spec)
+                        }
                 }
+            }
         }
     }
 

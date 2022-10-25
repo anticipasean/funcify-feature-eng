@@ -95,7 +95,7 @@ internal class DefaultSingleRequestMaterializationGraphService(
                     DefaultRequestParameterMaterializationGraphPhase(
                         requestGraph = context.requestParameterGraph,
                         materializedParameterValuesByPath =
-                            context.materializedParameterValuesByPath,
+                            context.materializedParameterValuesByPath.toPersistentMap(),
                         parameterIndexPathsBySourceIndexPath =
                             context.parameterIndexPathsBySourceIndexPath,
                         retrievalFunctionSpecByTopSourceIndexPath =

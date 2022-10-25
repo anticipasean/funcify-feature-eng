@@ -355,9 +355,11 @@ class MaterializerConfiguration {
 
     @Bean
     fun singleRequestMaterializationColumnarResponsePostprocessingService(
+        jsonMapper: JsonMapper,
         serializedGraphQLResponseFactory: SerializedGraphQLResponseFactory
     ): SingleRequestMaterializationColumnarResponsePostprocessingService {
         return DefaultSingleRequestMaterializationColumnarResponsePostprocessingService(
+            jsonMapper = jsonMapper,
             serializedGraphQLResponseFactory = serializedGraphQLResponseFactory
         )
     }
