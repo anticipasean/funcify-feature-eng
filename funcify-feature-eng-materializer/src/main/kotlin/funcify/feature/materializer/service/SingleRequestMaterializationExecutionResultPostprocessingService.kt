@@ -12,8 +12,7 @@ import reactor.core.publisher.Mono
 interface SingleRequestMaterializationExecutionResultPostprocessingService :
     MaterializationExecutionResultPostprocessingService<GraphQLSingleRequestSession> {
 
-    override fun postprocessExecutionResult(
+    override fun postprocessExecutionResultWithExtensions(
         executionResult: ExecutionResult
     ): Mono<GraphQLSingleRequestSession>
-
 }

@@ -33,7 +33,7 @@ internal class DefaultSingleRequestMaterializationExecutionResultPostprocessingS
             loggerFor<DefaultSingleRequestMaterializationExecutionResultPostprocessingService>()
     }
 
-    override fun postprocessExecutionResult(
+    override fun postprocessExecutionResultWithExtensions(
         executionResult: ExecutionResult
     ): Mono<GraphQLSingleRequestSession> {
         logger.info(

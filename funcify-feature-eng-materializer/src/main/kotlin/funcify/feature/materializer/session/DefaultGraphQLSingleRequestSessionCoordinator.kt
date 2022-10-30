@@ -1,6 +1,7 @@
 package funcify.feature.materializer.session
 
 import funcify.feature.materializer.request.GraphQLExecutionInputCustomizer
+import funcify.feature.materializer.response.SerializedGraphQLResponseFactory
 import funcify.feature.materializer.service.GraphQLSingleRequestMaterializationQueryExecutionStrategy
 import funcify.feature.materializer.service.MaterializationPreparsedDocumentProvider
 import funcify.feature.materializer.service.SingleRequestMaterializationExecutionResultPostprocessingService
@@ -21,7 +22,8 @@ internal class DefaultGraphQLSingleRequestSessionCoordinator(
     private val materializationPreparsedDocumentProvider: MaterializationPreparsedDocumentProvider,
     private val queryExecutionStrategy: GraphQLSingleRequestMaterializationQueryExecutionStrategy,
     private val singleRequestMaterializationExecutionResultPostprocessingService:
-        SingleRequestMaterializationExecutionResultPostprocessingService
+        SingleRequestMaterializationExecutionResultPostprocessingService,
+    private val serializedGraphQLResponseFactory: SerializedGraphQLResponseFactory
 ) : GraphQLSingleRequestSessionCoordinator {
 
     companion object {
@@ -44,8 +46,25 @@ internal class DefaultGraphQLSingleRequestSessionCoordinator(
                     .executeAsync(executionInputBuilderUpdater(session))
             )
             .flatMap { executionResult: ExecutionResult ->
-                singleRequestMaterializationExecutionResultPostprocessingService
-                    .postprocessExecutionResult(executionResult)
+                when {
+                    executionResult.extensions != null &&
+                        executionResult.extensions.isNotEmpty() -> {
+                        singleRequestMaterializationExecutionResultPostprocessingService
+                            .postprocessExecutionResultWithExtensions(executionResult)
+                    }
+                    else -> {
+                        Mono.fromSupplier {
+                            session.update {
+                                serializedGraphQLResponse(
+                                    serializedGraphQLResponseFactory
+                                        .builder()
+                                        .executionResult(executionResult)
+                                        .build()
+                                )
+                            }
+                        }
+                    }
+                }
             }
     }
 

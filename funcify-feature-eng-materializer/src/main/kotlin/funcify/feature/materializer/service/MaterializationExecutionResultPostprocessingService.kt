@@ -11,6 +11,6 @@ import reactor.core.publisher.Mono
  */
 interface MaterializationExecutionResultPostprocessingService<M : MaterializationSession> {
 
-    fun postprocessExecutionResult(executionResult: ExecutionResult): Mono<M>
+    fun postprocessExecutionResultWithExtensions(executionResult: ExecutionResult): Mono<M>
 
 }

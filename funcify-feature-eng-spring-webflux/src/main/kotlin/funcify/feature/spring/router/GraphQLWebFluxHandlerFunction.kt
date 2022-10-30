@@ -27,6 +27,7 @@ import funcify.feature.tools.extensions.OptionExtensions.toMono
 import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentMap
 import funcify.feature.tools.extensions.StreamExtensions.flatMapOptions
 import funcify.feature.tools.extensions.StringExtensions.flatten
+import funcify.feature.tools.extensions.ThrowableExtensions.possiblyNestedHeadStackTraceElement
 import graphql.GraphQLError
 import graphql.execution.AbortExecutionException
 import java.util.*
@@ -101,6 +102,7 @@ internal class GraphQLWebFluxHandlerFunction(
                 graphQLSingleRequestExecutor.executeSingleRequest(rawReq)
             }
             .flatMap(convertAggregateSerializedGraphQLResponseIntoServerResponse())
+            .doOnError(logAnyErrorsBeforeCreatingServerResponse())
             .onErrorResume(
                 FeatureEngCommonException::class.java,
                 convertCommonExceptionTypeIntoServerResponse()
@@ -122,7 +124,7 @@ internal class GraphQLWebFluxHandlerFunction(
                     "handle: [ status: {} ] [ elapsed_time: {} ms, response_http_status: {} ]",
                     successOrFailureStatus,
                     timedResponse.elapsedSinceSubscription().toMillis(),
-                    timedResponse.get().statusCode()
+                    timedResponse.get().statusCode(),
                 )
                 timedResponse.get()
             }
@@ -329,6 +331,17 @@ internal class GraphQLWebFluxHandlerFunction(
                         }
                 }
             }
+        }
+    }
+
+    private fun logAnyErrorsBeforeCreatingServerResponse(): (Throwable) -> Unit {
+        return { t: Throwable ->
+            logger.error(
+                "handle: [ error(s) occurred ] [ type: {}, message: {}, stack_trace_element[0]: {} ]",
+                t::class.simpleName,
+                t.message,
+                t.possiblyNestedHeadStackTraceElement()
+            )
         }
     }
 

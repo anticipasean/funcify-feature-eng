@@ -343,13 +343,15 @@ class MaterializerConfiguration {
         materializationQueryExecutionStrategy:
             GraphQLSingleRequestMaterializationQueryExecutionStrategy,
         singleRequestMaterializationExecutionResultPostprocessingService:
-            SingleRequestMaterializationExecutionResultPostprocessingService
+            SingleRequestMaterializationExecutionResultPostprocessingService,
+        serializedGraphQLResponseFactory: SerializedGraphQLResponseFactory,
     ): GraphQLSingleRequestSessionCoordinator {
         return DefaultGraphQLSingleRequestSessionCoordinator(
             materializationPreparsedDocumentProvider = materializationPreparsedDocumentProvider,
             queryExecutionStrategy = materializationQueryExecutionStrategy,
             singleRequestMaterializationExecutionResultPostprocessingService =
-                singleRequestMaterializationExecutionResultPostprocessingService
+                singleRequestMaterializationExecutionResultPostprocessingService,
+            serializedGraphQLResponseFactory = serializedGraphQLResponseFactory
         )
     }
 
