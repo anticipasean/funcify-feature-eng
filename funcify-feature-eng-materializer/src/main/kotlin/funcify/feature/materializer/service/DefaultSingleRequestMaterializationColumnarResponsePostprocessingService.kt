@@ -13,6 +13,7 @@ import funcify.feature.materializer.schema.path.ListIndexedSchematicPathGraphQLS
 import funcify.feature.materializer.session.GraphQLSingleRequestSession
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.OptionExtensions.toMono
+import funcify.feature.tools.extensions.StringExtensions.flatten
 import graphql.ExecutionResult
 import org.slf4j.Logger
 import reactor.core.publisher.Flux
@@ -89,7 +90,7 @@ internal class DefaultSingleRequestMaterializationColumnarResponsePostprocessing
                         """unable to successfully map fields within execution_result.data 
                             |into columnar json_object format due to 
                             |[ type: %s, message: %s ]"""
-                            .trimMargin()
+                            .flatten()
                             .format(t::class.qualifiedName, t.message)
                     MaterializerException(MaterializerErrorResponse.UNEXPECTED_ERROR, message, t)
                 }

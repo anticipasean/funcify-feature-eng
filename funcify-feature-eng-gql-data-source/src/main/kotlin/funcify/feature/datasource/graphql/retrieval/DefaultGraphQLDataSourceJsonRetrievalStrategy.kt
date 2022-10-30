@@ -5,6 +5,7 @@ import arrow.core.Option
 import arrow.core.filterIsInstance
 import arrow.core.toOption
 import com.fasterxml.jackson.databind.JsonNode
+import com.fasterxml.jackson.databind.node.ArrayNode
 import funcify.feature.datasource.graphql.GraphQLApiDataSource
 import funcify.feature.datasource.graphql.error.GQLDataSourceErrorResponse
 import funcify.feature.datasource.graphql.error.GQLDataSourceException
@@ -27,7 +28,6 @@ import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPer
 import funcify.feature.tools.extensions.PersistentMapExtensions.toPersistentMap
 import funcify.feature.tools.extensions.SequenceExtensions.flatMapOptions
 import funcify.feature.tools.extensions.StringExtensions.flatten
-import graphql.GraphqlErrorException
 import graphql.language.AstPrinter
 import graphql.language.OperationDefinition
 import java.util.concurrent.Executor
@@ -37,6 +37,7 @@ import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toPersistentSet
 import org.slf4j.Logger
 import reactor.core.publisher.Mono
+import reactor.kotlin.core.publisher.switchIfEmpty
 
 /**
  *
@@ -270,8 +271,8 @@ internal class DefaultGraphQLDataSourceJsonRetrievalStrategy(
             .flatMap { queryString ->
                 graphQLDataSource.graphQLApiService.executeSingleQuery(queryString)
             }
-            .flatMap(convertResponseJsonIntoThrowableIfErrorsPresent())
             .flatMap(convertResponseJsonIntoJsonValuesBySchematicPathMap())
+            .doOnError(logErrorIfOccurred())
     }
 
     private fun attemptToCreateGraphQLQueryStringFromValuesByParameterPathsInput(
@@ -301,94 +302,75 @@ internal class DefaultGraphQLDataSourceJsonRetrievalStrategy(
             }
     }
 
-    private fun convertResponseJsonIntoThrowableIfErrorsPresent():
-        (JsonNode) -> Mono<out JsonNode> {
-        return { responseJson: JsonNode ->
-            responseJson
-                .toOption()
-                .filter { jn ->
-                    jn.has(ERRORS_KEY) &&
-                        jn.path(ERRORS_KEY).isArray &&
-                        !jn.path(ERRORS_KEY).isEmpty
-                }
-                .map { jn ->
-                    jsonMapper
-                        .fromJsonNode(jn)
-                        .toKotlinObject(GraphqlErrorException::class)
-                        .map { graphqlErrorException: GraphqlErrorException ->
-                            GQLDataSourceException(
-                                GQLDataSourceErrorResponse.Companion.GQLSpecificErrorResponse(
-                                    graphqlErrorException
-                                )
-                            )
-                        }
-                        .mapFailure { _: Throwable ->
-                            // ignore error if unable to deserialize graphql_error_json into
-                            // graphql_error instance
-                            val firstErrorJSONAsString =
-                                jsonMapper
-                                    .fromJsonNode(jn.path(ERRORS_KEY).first())
-                                    .toJsonString()
-                                    .orElse("<NA>")
-                            GQLDataSourceException(
-                                GQLDataSourceErrorResponse.CLIENT_ERROR,
-                                "error received: [ $firstErrorJSONAsString ]"
-                            )
-                        }
-                }
-                .fold(
-                    {
-                        // treat as success if no error could be created from response_json
-                        // input
-                        Try.success(responseJson)
-                    },
-                    { errorJsonAsExceptionTry ->
-                        // take either the deserialized error response or the synthetic one with
-                        // the graphql_error as a json_string
-                        errorJsonAsExceptionTry
-                            .toEither()
-                            .fold(Try.Companion::failure, Try.Companion::failure)
-                    }
-                )
-                .toMono()
-        }
-    }
-
     private fun convertResponseJsonIntoJsonValuesBySchematicPathMap():
         (JsonNode) -> Mono<out ImmutableMap<SchematicPath, JsonNode>> {
         return { responseJson: JsonNode ->
-            Try.success(responseJson)
-                .filter(
-                    { jn ->
-                        jn.has(DATA_KEY) && jn.path(DATA_KEY).isObject && !jn.path(DATA_KEY).isEmpty
-                    },
-                    { jn ->
+            when {
+                responseJson.has(ERRORS_KEY) &&
+                    responseJson.path(ERRORS_KEY).isArray &&
+                    !responseJson.path(ERRORS_KEY).isEmpty -> {
+                    Mono.error {
+                        val errorContent: String =
+                            responseJson
+                                .toOption()
+                                .map { jn -> jn.path(ERRORS_KEY) }
+                                .filterIsInstance<ArrayNode>()
+                                .fold(::emptySequence, ArrayNode::asSequence)
+                                .withIndex()
+                                .joinToString("; ", "errors reported: { ", " }") { idxNode ->
+                                    String.format("[%d]: %s", idxNode.index, idxNode.value)
+                                }
                         GQLDataSourceException(
-                            GQLDataSourceErrorResponse.MALFORMED_CONTENT_RECEIVED,
-                            """response_json from 
-                                |[ graphql_data_source.service.name: ${graphQLDataSource.graphQLApiService.serviceName} ] 
-                                |is not in the expected format; 
-                                |lacks an non-empty object value for 
-                                |key [ ${DATA_KEY} ]""".flatten()
+                            GQLDataSourceErrorResponse.CLIENT_ERROR,
+                            errorContent
                         )
                     }
-                )
-                .map { jn -> jn.path(DATA_KEY) }
-                .map(JsonNodeSchematicPathToValueMappingExtractor)
-                .peekIfSuccess { resultMap ->
-                    logger.info(
-                        "graphql_data_source.result_map: {}",
-                        resultMap
-                            .asSequence()
-                            .joinToString(
-                                separator = ",\n",
-                                prefix = "{ ",
-                                postfix = " }",
-                                transform = { (k, v) -> "$k: $v" }
-                            )
-                    )
                 }
-                .toMono()
+                else ->
+                    Mono.just(responseJson)
+                        .filter { jn ->
+                            jn.has(DATA_KEY) &&
+                                jn.path(DATA_KEY).isObject &&
+                                !jn.path(DATA_KEY).isEmpty
+                        }
+                        .switchIfEmpty {
+                            Mono.error<JsonNode> {
+                                GQLDataSourceException(
+                                    GQLDataSourceErrorResponse.MALFORMED_CONTENT_RECEIVED,
+                                    """response_json from 
+                                    |[ graphql_data_source.service.name: ${graphQLDataSource.graphQLApiService.serviceName} ] 
+                                    |is not in the expected format; 
+                                    |lacks an non-empty object value for 
+                                    |key [ ${DATA_KEY} ]""".flatten()
+                                )
+                            }
+                        }
+                        .map { jn -> jn.path(DATA_KEY) }
+                        .map(JsonNodeSchematicPathToValueMappingExtractor)
+                        .doOnNext { resultMap ->
+                            logger.info(
+                                "graphql_data_source_json_retrieval_strategy: [ status: successful ] [ result: {} ]",
+                                resultMap
+                                    .asSequence()
+                                    .joinToString(
+                                        separator = ",\n",
+                                        prefix = "{ ",
+                                        postfix = " }",
+                                        transform = { (k, v) -> "$k: $v" }
+                                    )
+                            )
+                        }
+            }
+        }
+    }
+
+    private fun logErrorIfOccurred(): (Throwable) -> Unit {
+        return { t: Throwable ->
+            logger.error(
+                "graphql_data_source_json_retrieval_strategy: [ status: failed ] [ type: {}, message: {} ]",
+                t::class.simpleName,
+                t.message
+            )
         }
     }
 }
