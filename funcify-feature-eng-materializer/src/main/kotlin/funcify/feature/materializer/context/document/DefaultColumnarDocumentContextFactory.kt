@@ -64,6 +64,11 @@ internal class DefaultColumnarDocumentContextFactory : ColumnarDocumentContextFa
                 return this
             }
 
+            override fun removeParameterValueWithPath(path: SchematicPath): Builder {
+                this.parameterValuesByPath.remove(path)
+                return this
+            }
+
             override fun sourceIndexPathsByFieldName(
                 sourceIndexPathsByFieldName: PersistentMap<String, SchematicPath>
             ): Builder {

@@ -21,6 +21,8 @@ import funcify.feature.schema.vertex.ParameterAttributeVertex
 import funcify.feature.schema.vertex.SourceAttributeVertex
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.OptionExtensions.toMono
+import funcify.feature.tools.extensions.PersistentSetExtensions.reduceToPersistentSet
+import funcify.feature.tools.extensions.StreamExtensions.flatMapOptions
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import graphql.ExecutionInput
 import graphql.ParseAndValidate
@@ -153,6 +155,7 @@ internal class DefaultSingleRequestMaterializationColumnarDocumentPreprocessingS
                         ctx.update { addSourceIndexPathForFieldName(fieldName, srcAttrVertex.path) }
                     }
             }
+            .map(pruneParametersNotNecessaryForFetchingMatchedSourceAttributeVertices())
             .flatMap { context: ColumnarDocumentContext ->
                 gatherSourceAttributeVerticesMatchingGivenParameters(
                         context.parameterValuesByPath,
@@ -396,6 +399,29 @@ internal class DefaultSingleRequestMaterializationColumnarDocumentPreprocessingS
                     )
                 }
             }
+        }
+    }
+
+    private fun pruneParametersNotNecessaryForFetchingMatchedSourceAttributeVertices():
+        (ColumnarDocumentContext) -> ColumnarDocumentContext {
+        return { context: ColumnarDocumentContext ->
+            val domainPathSegmentSet: PersistentSet<String> =
+                context.sourceIndexPathsByFieldName.values
+                    .parallelStream()
+                    .map { sp: SchematicPath -> sp.pathSegments.firstOrNone() }
+                    .flatMapOptions()
+                    .reduceToPersistentSet()
+            context.parameterValuesByPath.keys
+                .asSequence()
+                .filterNot { paramPath ->
+                    paramPath.pathSegments
+                        .firstOrNone()
+                        .filter { domainPathSegment -> domainPathSegment in domainPathSegmentSet }
+                        .isDefined()
+                }
+                .fold(context) { ctx, paramPath ->
+                    ctx.update { removeParameterValueWithPath(paramPath) }
+                }
         }
     }
 

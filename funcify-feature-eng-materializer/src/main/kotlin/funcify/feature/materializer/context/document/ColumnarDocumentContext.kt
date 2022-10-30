@@ -50,6 +50,8 @@ interface ColumnarDocumentContext {
 
         fun addParameterValueForPath(path: SchematicPath, jsonValue: JsonNode): Builder
 
+        fun removeParameterValueWithPath(path: SchematicPath): Builder
+
         fun sourceIndexPathsByFieldName(
             sourceIndexPathsByFieldName: PersistentMap<String, SchematicPath>
         ): Builder
