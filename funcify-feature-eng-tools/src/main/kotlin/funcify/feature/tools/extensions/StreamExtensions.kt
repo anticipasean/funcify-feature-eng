@@ -13,6 +13,15 @@ object StreamExtensions {
         }
     }
 
+    inline fun <reified T> Stream<*>.filterIsInstance(): Stream<T> {
+        return this.flatMap { input: Any? ->
+            when (input) {
+                is T -> Stream.of(input)
+                else -> Stream.empty()
+            }
+        }
+    }
+
     fun <L, R> Stream<L>.recurse(function: (L) -> Stream<Either<L, R>>): Stream<R> {
         return this.flatMap { l: L -> TraversalFunctions.recurseWithStream(l, function) }
     }
