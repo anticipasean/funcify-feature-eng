@@ -4,6 +4,7 @@ import arrow.core.filterIsInstance
 import arrow.core.firstOrNone
 import arrow.core.getOrNone
 import arrow.core.identity
+import arrow.core.orElse
 import arrow.core.toOption
 import com.fasterxml.jackson.databind.JsonNode
 import funcify.feature.datasource.graphql.retrieval.GraphQLQueryPathBasedComposer
@@ -14,6 +15,7 @@ import funcify.feature.materializer.error.MaterializerErrorResponse
 import funcify.feature.materializer.error.MaterializerException
 import funcify.feature.materializer.schema.vertex.ParameterToSourceAttributeVertexMatcher
 import funcify.feature.materializer.session.GraphQLSingleRequestSession
+import funcify.feature.naming.StandardNamingConventions
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.schema.vertex.ParameterAttributeVertex
 import funcify.feature.schema.vertex.SourceAttributeVertex
@@ -284,13 +286,25 @@ internal class DefaultSingleRequestMaterializationColumnarDocumentPreprocessingS
         session: GraphQLSingleRequestSession
     ): (String) -> Mono<Pair<String, SourceAttributeVertex>> {
         return { fieldName ->
+            val camelCaseFieldName: String =
+                StandardNamingConventions.CAMEL_CASE.deriveName(fieldName).qualifiedForm
             when {
                 session.metamodelGraph.sourceAttributeVerticesByQualifiedName
                     .getOrNone(fieldName)
+                    .orElse {
+                        session.metamodelGraph.sourceAttributeVerticesByQualifiedName.getOrNone(
+                            camelCaseFieldName
+                        )
+                    }
                     .filter { srcAttrSet -> srcAttrSet.size == 1 }
                     .isDefined() -> {
                     session.metamodelGraph.sourceAttributeVerticesByQualifiedName
                         .getOrNone(fieldName)
+                        .orElse {
+                            session.metamodelGraph.sourceAttributeVerticesByQualifiedName.getOrNone(
+                                camelCaseFieldName
+                            )
+                        }
                         .flatMap { srcAttrSet -> srcAttrSet.firstOrNone() }
                         .toMono()
                         .map { sav: SourceAttributeVertex -> fieldName to sav }
@@ -309,6 +323,11 @@ internal class DefaultSingleRequestMaterializationColumnarDocumentPreprocessingS
                 }
                 session.metamodelGraph.sourceAttributeVerticesByQualifiedName
                     .getOrNone(fieldName)
+                    .orElse {
+                        session.metamodelGraph.sourceAttributeVerticesByQualifiedName.getOrNone(
+                            camelCaseFieldName
+                        )
+                    }
                     .filter { srcAttrSet -> srcAttrSet.size > 1 }
                     .flatMap { srcAttrSet ->
                         /*
@@ -330,6 +349,11 @@ internal class DefaultSingleRequestMaterializationColumnarDocumentPreprocessingS
                     .isDefined() -> {
                     session.metamodelGraph.sourceAttributeVerticesByQualifiedName
                         .getOrNone(fieldName)
+                        .orElse {
+                            session.metamodelGraph.sourceAttributeVerticesByQualifiedName.getOrNone(
+                                camelCaseFieldName
+                            )
+                        }
                         .fold(::persistentSetOf, ::identity)
                         .asSequence()
                         .filter { srcAttr ->
@@ -344,6 +368,10 @@ internal class DefaultSingleRequestMaterializationColumnarDocumentPreprocessingS
                         if (
                             session.metamodelGraph.sourceAttributeVerticesByQualifiedName
                                 .getOrNone(fieldName)
+                                .orElse {
+                                    session.metamodelGraph.sourceAttributeVerticesByQualifiedName
+                                        .getOrNone(camelCaseFieldName)
+                                }
                                 .filter { srcAttrSet -> srcAttrSet.size > 1 }
                                 .isDefined()
                         ) {
