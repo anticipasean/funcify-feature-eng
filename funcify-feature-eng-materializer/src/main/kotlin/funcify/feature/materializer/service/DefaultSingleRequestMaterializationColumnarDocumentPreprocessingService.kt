@@ -36,6 +36,7 @@ import org.slf4j.Logger
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.kotlin.core.publisher.switchIfEmpty
+import reactor.kotlin.core.publisher.toFlux
 import reactor.kotlin.core.publisher.toMono
 
 /**
@@ -208,56 +209,42 @@ internal class DefaultSingleRequestMaterializationColumnarDocumentPreprocessingS
 
     private fun determineMatchingParameterAttributeVertexForVariableEntry(
         session: GraphQLSingleRequestSession
-    ): (Map.Entry<String, Any?>) -> Mono<Pair<ParameterAttributeVertex, Any?>> {
+    ): (Map.Entry<String, Any?>) -> Flux<Pair<ParameterAttributeVertex, Any?>> {
         return { (name, value) ->
             when {
                 session.metamodelGraph.parameterAttributeVerticesByQualifiedName
                     .getOrNone(name)
-                    .filter { paramAttrSet -> paramAttrSet.size == 1 }
+                    .filter { paramAttrSet -> paramAttrSet.size >= 1 }
                     .isDefined() -> {
                     session.metamodelGraph.parameterAttributeVerticesByQualifiedName
                         .getOrNone(name)
-                        .flatMap { paramAttrSet -> paramAttrSet.firstOrNone() }
-                        .map { paramAttr -> paramAttr to value }
-                        .toMono()
+                        .fold(::emptySet, ::identity)
+                        .asSequence()
+                        .map { pav: ParameterAttributeVertex -> pav to value }
+                        .toFlux()
                 }
                 session.metamodelGraph.attributeAliasRegistry
                     .getParameterVertexPathsWithSimilarNameOrAlias(name)
                     .toOption()
-                    .filter { paramPathSet -> paramPathSet.size == 1 }
+                    .filter { paramPathSet -> paramPathSet.size >= 1 }
                     .isDefined() -> {
                     session.metamodelGraph.attributeAliasRegistry
                         .getParameterVertexPathsWithSimilarNameOrAlias(name)
-                        .firstOrNone()
-                        .flatMap { paramAttrPath ->
+                        .asSequence()
+                        .map { paramAttrPath ->
                             session.metamodelGraph.pathBasedGraph.getVertex(paramAttrPath)
                         }
                         .filterIsInstance<ParameterAttributeVertex>()
                         .map { paramAttr -> paramAttr to value }
-                        .toMono()
+                        .toFlux()
                 }
                 else -> {
-                    Mono.error {
+                    Flux.error {
                         val message: String =
-                            if (
-                                session.metamodelGraph.parameterAttributeVerticesByQualifiedName
-                                    .getOrNone(name)
-                                    .filter { paramAttrSet -> paramAttrSet.size > 1 }
-                                    .isDefined()
-                            ) {
-                                """variable [ name: %s ] maps to multiple acceptable argument names; 
-                                |an alias for at least one of these argument names needs 
-                                |to be used in place of the configured argument name--or--
-                                |the caller must use a regular GraphQL query in lieu of key-value lookup
-                                |"""
-                                    .flatten()
-                                    .format(name)
-                            } else {
-                                """variable [ name: %s ] does not map to any known argument name 
+                            """variable [ name: %s ] does not map to any known argument name 
                                 |or alias for an argument"""
-                                    .flatten()
-                                    .format(name)
-                            }
+                                .flatten()
+                                .format(name)
                         MaterializerException(
                             MaterializerErrorResponse.INVALID_GRAPHQL_REQUEST,
                             message
