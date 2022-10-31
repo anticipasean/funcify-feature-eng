@@ -167,6 +167,7 @@ class JsonObjectMappingConfiguration {
                     com.jayway.jsonpath.Configuration.builder()
                         .jsonProvider(JacksonJsonNodeJsonProvider(objectMapper))
                         .mappingProvider(JacksonMappingProvider(objectMapper))
+                        .options(jaywayJsonPathFrameworkOptions())
                         .build()
                 com.jayway.jsonpath.Configuration.setDefaults(
                     object : com.jayway.jsonpath.Configuration.Defaults {
@@ -189,6 +190,12 @@ class JsonObjectMappingConfiguration {
                 .jacksonObjectMapper(objectMapper)
                 .jaywayJsonPathConfiguration(configurationSupplier.invoke())
                 .build()
+        }
+
+        /** For use both in runtime and test configurations */
+        @JvmStatic
+        fun jaywayJsonPathFrameworkOptions(): Set<Option> {
+            return setOf(Option.DEFAULT_PATH_LEAF_TO_NULL)
         }
     }
 
@@ -214,6 +221,7 @@ class JsonObjectMappingConfiguration {
             com.jayway.jsonpath.Configuration.builder()
                 .jsonProvider(jaywayJsonPathFrameworkJsonProvider)
                 .mappingProvider(jaywayJsonPathFrameworkMappingProvider)
+                .options(jaywayJsonPathFrameworkOptions())
                 .build()
         com.jayway.jsonpath.Configuration.setDefaults(
             object : com.jayway.jsonpath.Configuration.Defaults {

@@ -1,8 +1,11 @@
 package funcify.feature.materializer.service
 
+import arrow.core.getOrNone
+import arrow.core.toOption
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.node.JsonNodeFactory
 import com.fasterxml.jackson.databind.node.ObjectNode
+import funcify.feature.datasource.json.JsonNodeSchematicPathToValueMappingExtractor
 import funcify.feature.json.JsonMapper
 import funcify.feature.materializer.context.document.ColumnarDocumentContext
 import funcify.feature.materializer.error.MaterializerErrorResponse
@@ -11,13 +14,17 @@ import funcify.feature.materializer.response.SerializedGraphQLResponse
 import funcify.feature.materializer.response.SerializedGraphQLResponseFactory
 import funcify.feature.materializer.schema.path.ListIndexedSchematicPathGraphQLSchemaBasedCalculator
 import funcify.feature.materializer.session.GraphQLSingleRequestSession
+import funcify.feature.schema.path.SchematicPath
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.OptionExtensions.toMono
 import funcify.feature.tools.extensions.StringExtensions.flatten
+import funcify.feature.tools.extensions.TryExtensions.successIfDefined
 import graphql.ExecutionResult
+import kotlinx.collections.immutable.ImmutableMap
 import org.slf4j.Logger
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
+import reactor.kotlin.core.publisher.switchIfEmpty
 
 /**
  *
@@ -63,25 +70,40 @@ internal class DefaultSingleRequestMaterializationColumnarResponsePostprocessing
                     .toMono()
             }
             .flatMap { resultAsJson: JsonNode ->
-                Flux.fromIterable(columnarDocumentContext.sourceIndexPathsByFieldName.entries)
-                    .flatMapSequential { (fieldName, path) ->
-                        ListIndexedSchematicPathGraphQLSchemaBasedCalculator(
-                                path,
-                                session.materializationSchema
+                JsonNodeSchematicPathToValueMappingExtractor(resultAsJson)
+                    .toOption()
+                    .filter { jsonValuesByPath -> jsonValuesByPath.isNotEmpty() }
+                    .successIfDefined {
+                        MaterializerException(
+                            MaterializerErrorResponse.UNEXPECTED_ERROR,
+                            """execution_result.data as json did not 
+                            |have any paths that could be extracted
+                            |""".flatten()
+                        )
+                    }
+                    .toMono()
+                    .flatMap { jsonValuesByPath: ImmutableMap<SchematicPath, JsonNode> ->
+                        Flux.fromIterable(
+                                columnarDocumentContext.sourceIndexPathsByFieldName.entries
                             )
-                            .map { sp -> sp.pathSegments.joinToString(".", "$.") }
-                            .map { jaywayPath -> fieldName to jaywayPath }
-                            .toMono()
-                    }
-                    .flatMapSequential { (fieldName, jaywayPath) ->
-                        jsonMapper
-                            .fromJsonNode(resultAsJson)
-                            .toJsonNodeForPath(jaywayPath)
-                            .toMono()
-                            .map { jn -> fieldName to jn }
-                    }
-                    .reduce(JsonNodeFactory.instance.objectNode()) { on, (k, v) ->
-                        on.set<ObjectNode>(k, v)
+                            .flatMapSequential { (fieldName, path) ->
+                                ListIndexedSchematicPathGraphQLSchemaBasedCalculator(
+                                        path,
+                                        session.materializationSchema
+                                    )
+                                    .flatMap { listIndexedPath ->
+                                        jsonValuesByPath.getOrNone(listIndexedPath).map { jn ->
+                                            fieldName to jn
+                                        }
+                                    }
+                                    .toMono()
+                                    .switchIfEmpty {
+                                        Mono.just(fieldName to JsonNodeFactory.instance.nullNode())
+                                    }
+                            }
+                            .reduce(JsonNodeFactory.instance.objectNode()) { on, (k, v) ->
+                                on.set<ObjectNode>(k, v)
+                            }
                     }
             }
             .onErrorResume { t: Throwable ->
