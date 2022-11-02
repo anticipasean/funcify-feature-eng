@@ -307,8 +307,9 @@ internal class DefaultSwaggerRestDataSourceJsonRetrievalStrategy(
                             Try.fromOption(
                                     jsonValue.toOption().filter { jn ->
                                         jn.nodeType == JsonNodeType.NULL ||
-                                            jsonSchemaToJsonTypeConverter()
-                                                .invoke(parameterAttr.jsonSchema) == jn.nodeType
+                                            jsonSchemaToJsonTypeConverter()(
+                                                parameterAttr.jsonSchema
+                                            ) == jn.nodeType
                                     }
                                 ) { _: NoSuchElementException ->
                                     RestApiDataSourceException(
@@ -330,12 +331,6 @@ internal class DefaultSwaggerRestDataSourceJsonRetrievalStrategy(
                     (paramAttr, jsonValue) ->
                     requestJsonNode.set(paramAttr.jsonPropertyName, jsonValue)
                 }
-            }
-            .peekIfSuccess { requestPayload ->
-                logger.info(
-                    "swagger_rest_api_service.payload: {}",
-                    jsonMapper.fromJsonNode(requestPayload).toJsonString().orElse("")
-                )
             }
     }
 
@@ -376,11 +371,14 @@ internal class DefaultSwaggerRestDataSourceJsonRetrievalStrategy(
                 }
                 .toMono()
                 .flatMap { pathString ->
-                    logger.info(
-                        "execute_single_rest_api_post_request: [ service_name: {}, path: {} ]",
-                        dataSource.restApiService.serviceName,
-                        dataSource.restApiService.serviceContextPath + pathString
-                    )
+                    if (logger.isDebugEnabled) {
+                        logger.debug(
+                            "execute_single_rest_api_post_request: [ service_name: {}, path: {} ][ body: {} ]",
+                            dataSource.restApiService.serviceName,
+                            dataSource.restApiService.serviceContextPath + pathString,
+                            requestBodyJson
+                        )
+                    }
                     dataSource.restApiService
                         .getWebClient()
                         .post()
@@ -398,8 +396,8 @@ internal class DefaultSwaggerRestDataSourceJsonRetrievalStrategy(
                             if (clientResponse.statusCode().is2xxSuccessful) {
                                 clientResponse.bodyToMono(JsonNode::class.java)
                             } else {
-                                clientResponse.bodyToMono(String::class.java).flatMap { errorMessage
-                                    ->
+                                clientResponse.bodyToMono(String::class.java).flatMap {
+                                    errorMessage: String ->
                                     Mono.error(
                                         RestApiDataSourceException(
                                             RestApiErrorResponse.CLIENT_ERROR,
@@ -417,7 +415,7 @@ internal class DefaultSwaggerRestDataSourceJsonRetrievalStrategy(
                         .timeout(dataSource.restApiService.timeoutAfter)
                         .timed()
                         .map { timedJson ->
-                            logger.info(
+                            logger.debug(
                                 "execute_single_rest_api_post_request: [ status: success ] [ elapsed_time: {} ms ]",
                                 timedJson.elapsed().toMillis()
                             )
