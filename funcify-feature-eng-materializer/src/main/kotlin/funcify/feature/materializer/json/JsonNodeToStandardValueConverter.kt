@@ -341,6 +341,13 @@ object JsonNodeToStandardValueConverter : (JsonNode, GraphQLOutputType) -> Optio
             Scalars.GraphQLString -> {
                 textNode.asText("").some()
             }
+            Scalars.GraphQLBoolean -> {
+                if (textNode.asText("").isNotBlank()) {
+                    Option(textNode.asText("").matches(Regex("(?i)(y)(es)?|(t)(rue)?")))
+                } else {
+                    none()
+                }
+            }
             Decimal3.graphQLScalarType,
             Decimal7.graphQLScalarType,
             Decimal16.graphQLScalarType, -> {
