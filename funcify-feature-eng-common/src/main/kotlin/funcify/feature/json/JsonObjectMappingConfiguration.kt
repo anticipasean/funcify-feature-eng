@@ -82,8 +82,8 @@ class JsonObjectMappingConfiguration {
          * application
          */
         @JvmStatic
-        private fun builderCustomizationConsumer(): (Jackson2ObjectMapperBuilder) -> Unit =
-            { builder ->
+        private fun builderCustomizationConsumer(): (Jackson2ObjectMapperBuilder) -> Unit {
+            return { builder ->
                 builder
                     .featuresToDisable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
                     .featuresToEnable(MapperFeature.ACCEPT_CASE_INSENSITIVE_ENUMS)
@@ -100,6 +100,7 @@ class JsonObjectMappingConfiguration {
                         },
                     )
             }
+        }
 
         /**
          * If these updates are done as part of the postconfigurer block in the builder
@@ -152,7 +153,7 @@ class JsonObjectMappingConfiguration {
         @JvmStatic
         fun objectMapper(): ObjectMapper {
             val builder: Jackson2ObjectMapperBuilder = Jackson2ObjectMapperBuilder.json()
-            builderCustomizationConsumer().invoke(builder)
+            builderCustomizationConsumer()(builder)
             return postBuildObjectMapperEnhancer(builder.build())
         }
 
@@ -190,7 +191,7 @@ class JsonObjectMappingConfiguration {
             }
             return DefaultJsonMapperFactory.builder()
                 .jacksonObjectMapper(objectMapper)
-                .jaywayJsonPathConfiguration(configurationSupplier.invoke())
+                .jaywayJsonPathConfiguration(configurationSupplier())
                 .build()
         }
 

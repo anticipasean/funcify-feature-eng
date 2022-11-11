@@ -1,0 +1,124 @@
+package funcify.feature.error
+
+import arrow.typeclasses.Monoid
+import com.fasterxml.jackson.databind.JsonNode
+import funcify.feature.tools.container.attempt.Try
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.ImmutableMap
+import org.springframework.http.HttpStatus
+import reactor.core.publisher.Mono
+
+/**
+ *
+ * @author smccarron
+ * @created 2022-11-10
+ */
+abstract class ServiceError(
+    /**
+     * Direct feedback to caller of the service with server HTTP response code and message
+     *
+     * Default: 500 INTERNAL_SERVER_ERROR
+     *
+     * If error occurs as a result of some _downstream failure i.e. failure to connect to upstream
+     * server, then a different response type should be used than the default,
+     * INTERNAL_SERVER_ERROR, e.g. BAD_GATEWAY
+     */
+    open val serverHttpResponse: HttpStatus,
+    override val message: String,
+    /** Any error being "wrapped" that is not an instance of [ServiceError] */
+    override val cause: Throwable?,
+    open val serviceErrorHistory: ImmutableList<ServiceError>,
+    open val extensions: ImmutableMap<String, Any?>
+) : RuntimeException(message, cause), Comparable<ServiceError>, Monoid<ServiceError> {
+
+    companion object {
+
+        /**
+         * Should promote to the "front" (i.e. be less than) whichever error might appear as the
+         * "cause" or in part lead to the other errors within the set
+         */
+        private val comparator: Comparator<ServiceError> by lazy {
+            Comparator.comparing<ServiceError, HttpStatus>(
+                    ServiceError::serverHttpResponse,
+                    Comparator.comparing(HttpStatus.SERVICE_UNAVAILABLE::compareTo)
+                        .thenComparing(HttpStatus.BAD_GATEWAY::compareTo)
+                        .thenComparing(HttpStatus.GATEWAY_TIMEOUT::compareTo)
+                        .thenComparing(HttpStatus.BAD_REQUEST::compareTo)
+                        .thenComparing(HttpStatus.INTERNAL_SERVER_ERROR::compareTo)
+                        .reversed()
+                )
+                .thenComparing(
+                    Comparator.comparing<ServiceError, Boolean> { se: ServiceError ->
+                        se.cause == null
+                    }
+                )
+        }
+
+        fun comparator(): Comparator<ServiceError> {
+            return comparator
+        }
+
+        fun builder(): Builder {
+            return DefaultServiceErrorFactory.builder()
+        }
+
+        fun downstreamServiceUnavailableErrorBuilder(): Builder {
+            return builder().serverHttpResponse(HttpStatus.SERVICE_UNAVAILABLE)
+        }
+
+        fun downstreamResponseErrorBuilder(): Builder {
+            return builder().serverHttpResponse(HttpStatus.BAD_GATEWAY)
+        }
+
+        fun downstreamTimeoutErrorBuilder(): Builder {
+            return builder().serverHttpResponse(HttpStatus.GATEWAY_TIMEOUT)
+        }
+
+        fun invalidRequestErrorBuilder(): Builder {
+            return builder().serverHttpResponse(HttpStatus.BAD_REQUEST)
+        }
+
+        inline fun <reified T> ServiceError.toTry(): Try<T> {
+            return Try.failure(this)
+        }
+
+        inline fun <reified T> ServiceError.toMono(): Mono<T> {
+            return Mono.error(this)
+        }
+    }
+
+    override fun compareTo(other: ServiceError): Int {
+        return comparator().compare(this, other)
+    }
+
+    abstract fun update(transformer: Builder.() -> Builder): ServiceError
+
+    abstract fun toJsonNode(): JsonNode
+
+    interface Builder {
+
+        fun message(message: String): Builder
+
+        fun cause(throwable: Throwable): Builder
+
+        fun addServiceErrorToHistory(serviceError: ServiceError): Builder
+
+        fun <C : Collection<ServiceError>> addAllServiceErrorsToHistory(errors: C): Builder
+
+        fun removeServiceErrorFromHistoryIf(condition: (ServiceError) -> Boolean): Builder
+
+        fun clearServiceErrorsFromHistory(): Builder
+
+        fun serverHttpResponse(serverHttpResponse: HttpStatus): Builder
+
+        fun putExtension(key: String, value: Any?): Builder
+
+        fun <M : Map<out String, Any?>> putAllExtensions(extensions: M): Builder
+
+        fun removeExtensionIf(condition: (Map.Entry<String, Any?>) -> Boolean): Builder
+
+        fun clearExtensions(): Builder
+
+        fun build(): ServiceError
+    }
+}

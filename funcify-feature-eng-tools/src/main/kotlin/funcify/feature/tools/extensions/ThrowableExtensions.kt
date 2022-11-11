@@ -5,22 +5,21 @@ import funcify.feature.tools.extensions.StringExtensions.flatten
 object ThrowableExtensions {
 
     fun Throwable.possiblyNestedHeadStackTraceElement(): StackTraceElement {
-        var outerCause: Throwable = this
-        var innerCause: Throwable? = this.cause
-        while (innerCause != null) {
-            outerCause = innerCause
-            innerCause = innerCause.cause
+        var t: Throwable? = this
+        while (t?.cause != null) {
+            t = t.cause
         }
-        return when (outerCause.stackTrace.size) {
+        return when (t?.stackTrace?.size) {
+            null,
             0 -> {
                 throw IllegalArgumentException(
-                    """throwable: [ type: ${outerCause::class.qualifiedName} ] 
+                    """throwable: [ type: ${this::class.qualifiedName} ] 
                        |is missing a stacktrace from which to 
                        |extract a first element""".flatten()
                 )
             }
             else -> {
-                outerCause.stackTrace[0]
+                t.stackTrace[0]
             }
         }
     }
