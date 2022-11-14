@@ -11,10 +11,9 @@ import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionCreationContex
 import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionCreationContext.SourceLeafVertexSDLDefinitionCreationContext
 import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionCreationContext.SourceRootVertexSDLDefinitionCreationContext
 import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionCreationContextFactory
+import funcify.feature.error.ServiceError
 import funcify.feature.schema.MetamodelGraph
 import funcify.feature.schema.SchematicVertex
-import funcify.feature.schema.error.SchemaErrorResponse
-import funcify.feature.schema.error.SchemaException
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.schema.vertex.ParameterJunctionVertex
 import funcify.feature.schema.vertex.ParameterLeafVertex
@@ -918,7 +917,7 @@ internal class DefaultSchematicVertexSDLDefinitionCreationContextFactory :
                                |actual: ${currentVertex::class.qualifiedName} ]
                                |""".flatten()
                         logger.error("build: [ status: failed ] [ message: {} ]", message)
-                        throw SchemaException(SchemaErrorResponse.INVALID_INPUT, message)
+                        throw ServiceError.of(message)
                     }
                 }
                     as SchematicVertexSDLDefinitionCreationContext<V>
@@ -1220,7 +1219,7 @@ internal class DefaultSchematicVertexSDLDefinitionCreationContextFactory :
                     |[ message: $message ]
                     |""".flatten()
                 )
-                throw SchemaException(SchemaErrorResponse.SCHEMATIC_INTEGRITY_VIOLATION, message)
+                throw ServiceError.of(message)
             }
         }
     }

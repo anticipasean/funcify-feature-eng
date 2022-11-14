@@ -1,10 +1,9 @@
 package funcify.feature.datasource.sdl.impl
 
-import funcify.feature.datasource.error.DataSourceErrorResponse
-import funcify.feature.datasource.error.DataSourceException
 import funcify.feature.datasource.sdl.SchematicGraphVertexTypeBasedSDLDefinitionStrategy
 import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionCreationContext
 import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionTypeStrategy
+import funcify.feature.error.ServiceError
 import funcify.feature.schema.vertex.SchematicGraphVertexType
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.StringExtensions.flatten
@@ -25,8 +24,8 @@ class CompositeSDLDefinitionTypeStrategy(
         SchematicVertexSDLDefinitionTypeStrategy by lazy {
         SchematicVertexSDLDefinitionTypeStrategy { ctx ->
             sdlDefinitionTypeStrategies.asSequence().sorted().fold(
-                    createEmptyOrInapplicableFailureForContext(ctx)
-                ) {
+                createEmptyOrInapplicableFailureForContext(ctx)
+            ) {
                 typeResolutionAttempt: Try<Type<*>>,
                 strategy: SchematicVertexSDLDefinitionTypeStrategy ->
                 /*
@@ -59,10 +58,7 @@ class CompositeSDLDefinitionTypeStrategy(
         context: SchematicVertexSDLDefinitionCreationContext<*>
     ): Try<Type<*>> {
         return Try.failure<Type<*>>(
-            DataSourceException(
-                DataSourceErrorResponse.STRATEGY_MISSING,
-                createEmptyOrInapplicableStrategiesMessageForContext(context)
-            )
+            ServiceError.of(createEmptyOrInapplicableStrategiesMessageForContext(context))
         )
     }
 

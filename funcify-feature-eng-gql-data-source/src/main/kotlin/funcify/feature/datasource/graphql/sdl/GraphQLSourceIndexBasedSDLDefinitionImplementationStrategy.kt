@@ -1,7 +1,5 @@
 package funcify.feature.datasource.graphql.sdl
 
-import funcify.feature.datasource.error.DataSourceErrorResponse
-import funcify.feature.datasource.error.DataSourceException
 import funcify.feature.datasource.graphql.error.GQLDataSourceErrorResponse
 import funcify.feature.datasource.graphql.error.GQLDataSourceException
 import funcify.feature.datasource.graphql.schema.GraphQLSourceAttribute
@@ -15,6 +13,7 @@ import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionCreationContex
 import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionCreationContext.SourceRootVertexSDLDefinitionCreationContext
 import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionImplementationStrategy
 import funcify.feature.datasource.sdl.impl.DataSourceIndexTypeBasedSDLDefinitionStrategy
+import funcify.feature.error.ServiceError
 import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.index.CompositeSourceAttribute
 import funcify.feature.schema.index.CompositeSourceContainerType
@@ -135,8 +134,7 @@ internal class GraphQLSourceIndexBasedSDLDefinitionImplementationStrategy :
                         .keys
                         .joinToString(", ", "{ ", " }")
                 Try.failure<GraphQLSourceContainerType>(
-                    DataSourceException(
-                        DataSourceErrorResponse.STRATEGY_INCORRECTLY_APPLIED,
+                    ServiceError.of(
                         """expected at least one graphql_data_source 
                            |for vertex in context [ vertex.path: ${context.path}, 
                            |vertex.composite_container_type
@@ -195,8 +193,7 @@ internal class GraphQLSourceIndexBasedSDLDefinitionImplementationStrategy :
                         .keys
                         .joinToString(", ", "{ ", " }")
                 Try.failure<GraphQLSourceAttribute>(
-                    DataSourceException(
-                        DataSourceErrorResponse.STRATEGY_INCORRECTLY_APPLIED,
+                    ServiceError.of(
                         """expected at least one gql_data_source 
                            |for vertex in context [ vertex.path: ${context.path}, 
                            |vertex.composite_attribute
@@ -326,7 +323,7 @@ internal class GraphQLSourceIndexBasedSDLDefinitionImplementationStrategy :
                             GraphQLNonNullableSDLTypeComposer.invoke(
                                 graphQLInputOrOutputType =
                                     graphQLSourceAttribute.graphQLFieldDefinition.type
-                                                                    )
+                            )
                         )
                         .build()
                 } else {
@@ -336,7 +333,7 @@ internal class GraphQLSourceIndexBasedSDLDefinitionImplementationStrategy :
                             GraphQLNonNullableSDLTypeComposer.invoke(
                                 graphQLInputOrOutputType =
                                     graphQLSourceAttribute.graphQLFieldDefinition.type
-                                                                    )
+                            )
                         )
                         .build()
                 }

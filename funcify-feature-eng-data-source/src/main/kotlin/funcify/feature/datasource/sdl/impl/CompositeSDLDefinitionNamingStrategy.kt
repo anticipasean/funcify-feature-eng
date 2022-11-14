@@ -1,10 +1,9 @@
 package funcify.feature.datasource.sdl.impl
 
-import funcify.feature.datasource.error.DataSourceErrorResponse
-import funcify.feature.datasource.error.DataSourceException
 import funcify.feature.datasource.sdl.SchematicGraphVertexTypeBasedSDLDefinitionStrategy
 import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionCreationContext
 import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionNamingStrategy
+import funcify.feature.error.ServiceError
 import funcify.feature.schema.vertex.SchematicGraphVertexType
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.StringExtensions.flatten
@@ -23,9 +22,8 @@ class CompositeSDLDefinitionNamingStrategy(
     private val composedNamingStrategy: SchematicVertexSDLDefinitionNamingStrategy by lazy {
         SchematicVertexSDLDefinitionNamingStrategy { ctx ->
             sdlDefinitionNamingStrategies.asSequence().sorted().fold(
-                    createEmptyOrInapplicableFailureForContext(ctx)
-                ) { namingAttempt: Try<String>, strategy: SchematicVertexSDLDefinitionNamingStrategy
-                ->
+                createEmptyOrInapplicableFailureForContext(ctx)
+            ) { namingAttempt: Try<String>, strategy: SchematicVertexSDLDefinitionNamingStrategy ->
                 /*
                  * earlier naming attempt was successful, so keep that name
                  */
@@ -55,10 +53,7 @@ class CompositeSDLDefinitionNamingStrategy(
         context: SchematicVertexSDLDefinitionCreationContext<*>
     ): Try<String> {
         return Try.failure<String>(
-            DataSourceException(
-                DataSourceErrorResponse.STRATEGY_MISSING,
-                createEmptyOrInapplicableStrategiesMessageForContext(context)
-            )
+            ServiceError.of(createEmptyOrInapplicableStrategiesMessageForContext(context))
         )
     }
 

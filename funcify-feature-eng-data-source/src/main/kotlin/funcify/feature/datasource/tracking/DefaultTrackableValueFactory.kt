@@ -4,11 +4,10 @@ import arrow.core.Option
 import arrow.core.orElse
 import arrow.core.toOption
 import com.fasterxml.jackson.databind.JsonNode
-import funcify.feature.datasource.error.DataSourceErrorResponse
-import funcify.feature.datasource.error.DataSourceException
 import funcify.feature.datasource.tracking.TrackableValue.CalculatedValue
 import funcify.feature.datasource.tracking.TrackableValue.PlannedValue
 import funcify.feature.datasource.tracking.TrackableValue.TrackedValue
+import funcify.feature.error.ServiceError
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.container.attempt.Try.Companion.filterInstanceOf
@@ -119,16 +118,14 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
                 return when {
                     targetSourceIndexPath == null -> {
                         Try.failure(
-                            DataSourceException(
-                                DataSourceErrorResponse.MISSING_PARAMETER,
+                            ServiceError.of(
                                 "target_source_index_path has not been set for planned_value"
                             )
                         )
                     }
                     contextualParameters.isEmpty() -> {
                         Try.failure(
-                            DataSourceException(
-                                DataSourceErrorResponse.MISSING_PARAMETER,
+                            ServiceError.of(
                                 """at least one contextual_parameter 
                                     |must be provided for association and/or identification 
                                     |of the planned_value""".flatten()
@@ -137,8 +134,7 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
                     }
                     graphQLOutputType == null -> {
                         Try.failure(
-                            DataSourceException(
-                                DataSourceErrorResponse.MISSING_PARAMETER,
+                            ServiceError.of(
                                 """graphql_output_type must be provided for planned_value""".flatten()
                             )
                         )
@@ -190,16 +186,14 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
                 return when {
                     targetSourceIndexPath == null -> {
                         Try.failure(
-                            DataSourceException(
-                                DataSourceErrorResponse.MISSING_PARAMETER,
+                            ServiceError.of(
                                 "target_source_index_path has not been set for calculated_value"
                             )
                         )
                     }
                     contextualParameters.isEmpty() -> {
                         Try.failure(
-                            DataSourceException(
-                                DataSourceErrorResponse.MISSING_PARAMETER,
+                            ServiceError.of(
                                 """at least one contextual_parameter 
                                     |must be provided for association and/or identification 
                                     |of the calculated_value""".flatten()
@@ -208,16 +202,14 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
                     }
                     graphQLOutputType == null -> {
                         Try.failure(
-                            DataSourceException(
-                                DataSourceErrorResponse.MISSING_PARAMETER,
+                            ServiceError.of(
                                 """graphql_output_type must be provided for calculated_value""".flatten()
                             )
                         )
                     }
                     calculatedValue == null || calculatedTimestamp == null -> {
                         Try.failure(
-                            DataSourceException(
-                                DataSourceErrorResponse.MISSING_PARAMETER,
+                            ServiceError.of(
                                 """calculated_value and calculated_timestamp 
                                     |must be provided for calculated_value creation""".flatten()
                             )
@@ -341,16 +333,14 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
                 return when {
                     targetSourceIndexPath == null -> {
                         Try.failure(
-                            DataSourceException(
-                                DataSourceErrorResponse.MISSING_PARAMETER,
+                            ServiceError.of(
                                 "target_source_index_path has not been set for tracked_value"
                             )
                         )
                     }
                     contextualParameters.isEmpty() -> {
                         Try.failure(
-                            DataSourceException(
-                                DataSourceErrorResponse.MISSING_PARAMETER,
+                            ServiceError.of(
                                 """at least one contextual_parameter 
                                     |must be provided for association and/or identification 
                                     |of the tracked_value""".flatten()
@@ -359,16 +349,14 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
                     }
                     graphQLOutputType == null -> {
                         Try.failure(
-                            DataSourceException(
-                                DataSourceErrorResponse.MISSING_PARAMETER,
+                            ServiceError.of(
                                 """graphql_output_type must be provided for tracked_value""".flatten()
                             )
                         )
                     }
                     trackedValue == null || valueAtTimestamp == null -> {
                         Try.failure(
-                            DataSourceException(
-                                DataSourceErrorResponse.MISSING_PARAMETER,
+                            ServiceError.of(
                                 """both a tracked_value and value_at_timestamp 
                                 |must be provided for creation of a tracked_value""".flatten()
                             )

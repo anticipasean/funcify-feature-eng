@@ -47,6 +47,11 @@ internal object DefaultServiceErrorFactory : ServiceErrorFactory {
             return this
         }
 
+        override fun message(template: String, vararg args: Any?): ServiceError.Builder {
+            this.message = String.format(template, args)
+            return this
+        }
+
         override fun cause(throwable: Throwable): ServiceError.Builder {
             var t: Throwable? = throwable
             while (t?.cause != null) {
@@ -101,6 +106,11 @@ internal object DefaultServiceErrorFactory : ServiceErrorFactory {
             condition: (Map.Entry<String, Any?>) -> Boolean
         ): ServiceError.Builder {
             this.extensions.filter(condition).forEach { (k, _) -> this.extensions.remove(k) }
+            return this
+        }
+
+        override fun removeExtension(key: String): ServiceError.Builder {
+            this.extensions.remove(key)
             return this
         }
 

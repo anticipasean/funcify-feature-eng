@@ -21,8 +21,8 @@ internal object DefaultJsonMapperFactory : JsonMapperFactory {
     }
 
     internal class DefaultJsonMapperBuilder(
-        var jacksonObjectMapper: ObjectMapper? = null,
-        var jaywayJsonPathConfiguration: Configuration? = null
+        private var jacksonObjectMapper: ObjectMapper? = null,
+        private var jaywayJsonPathConfiguration: Configuration? = null
     ) : JsonMapper.Builder {
 
         override fun jacksonObjectMapper(objectMapper: ObjectMapper): JsonMapper.Builder {
@@ -83,9 +83,9 @@ internal object DefaultJsonMapperFactory : JsonMapperFactory {
     }
 
     internal class DefaultKotlinObjectMappingTarget<S>(
-        val sourceObjectInstance: S,
-        val jacksonObjectMapper: ObjectMapper,
-        val jaywayJsonPathConfiguration: Configuration,
+        private val sourceObjectInstance: S,
+        private val jacksonObjectMapper: ObjectMapper,
+        private val jaywayJsonPathConfiguration: Configuration,
     ) : MappingTarget {
 
         override fun <T : Any> toKotlinObject(kClass: KClass<T>): Try<T> {
@@ -148,9 +148,9 @@ internal object DefaultJsonMapperFactory : JsonMapperFactory {
     }
 
     internal class DefaultJsonNodeMappingTarget(
-        val jsonNode: JsonNode,
-        val jacksonObjectMapper: ObjectMapper,
-        val jaywayJsonPathConfiguration: Configuration
+        private val jsonNode: JsonNode,
+        private val jacksonObjectMapper: ObjectMapper,
+        private val jaywayJsonPathConfiguration: Configuration
     ) : MappingTarget {
 
         override fun <T : Any> toKotlinObject(kClass: KClass<T>): Try<T> {
@@ -218,9 +218,9 @@ internal object DefaultJsonMapperFactory : JsonMapperFactory {
     }
 
     internal class DefaultJsonStringMappingTarget(
-        val jsonValue: String,
-        val jacksonObjectMapper: ObjectMapper,
-        val jaywayJsonPathConfiguration: Configuration
+        private val jsonValue: String,
+        private val jacksonObjectMapper: ObjectMapper,
+        private val jaywayJsonPathConfiguration: Configuration
     ) : MappingTarget {
 
         override fun <T : Any> toKotlinObject(kClass: KClass<T>): Try<T> {

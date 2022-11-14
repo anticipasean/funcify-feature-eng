@@ -1,7 +1,5 @@
 package funcify.feature.datasource.sdl.impl
 
-import funcify.feature.datasource.error.DataSourceErrorResponse
-import funcify.feature.datasource.error.DataSourceException
 import funcify.feature.datasource.naming.DataSourceSDLDefinitionNamingConventions
 import funcify.feature.datasource.sdl.SchematicGraphVertexTypeBasedSDLDefinitionStrategy
 import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionCreationContext
@@ -10,6 +8,7 @@ import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionCreationContex
 import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionImplementationStrategy
 import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionNamingStrategy
 import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionTypeStrategy
+import funcify.feature.error.ServiceError
 import funcify.feature.naming.StandardNamingConventions
 import funcify.feature.schema.vertex.SchematicGraphVertexType
 import funcify.feature.tools.container.attempt.Try
@@ -140,8 +139,7 @@ class AllSourceAttributesToFieldDefinitionsStrategy(
                         transform = SchematicGraphVertexType::toString
                     )
                 Try.failure(
-                    DataSourceException(
-                        DataSourceErrorResponse.STRATEGY_INCORRECTLY_APPLIED,
+                    ServiceError.of(
                         """$clsNameInSnakeFormat should not be applied to context 
                             |[ expected: context for types $applicableTypesAsString, 
                             |actual: context for ${context.currentGraphVertexType} ]

@@ -4,9 +4,8 @@ import arrow.core.Either
 import arrow.core.firstOrNone
 import arrow.core.left
 import arrow.core.right
-import funcify.feature.datasource.error.DataSourceErrorResponse
-import funcify.feature.datasource.error.DataSourceException
 import funcify.feature.datasource.retrieval.ExternalDataSourceJsonValuesRetriever.Builder
+import funcify.feature.error.ServiceError
 import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.datasource.SourceIndex
 import funcify.feature.schema.vertex.ParameterJunctionVertex
@@ -93,8 +92,7 @@ internal class DefaultSchematicPathBasedJsonRetrievalFunctionFactory(
             override fun build(): Try<ExternalDataSourceJsonValuesRetriever> {
                 return when {
                     dataSource == null -> {
-                        DataSourceException(
-                                DataSourceErrorResponse.MISSING_PARAMETER,
+                        ServiceError.of(
                                 """data_source has not been provided 
                                 |for ${ExternalDataSourceJsonValuesRetriever::class.qualifiedName} 
                                 |creation""".flatten()
@@ -102,8 +100,7 @@ internal class DefaultSchematicPathBasedJsonRetrievalFunctionFactory(
                             .failure()
                     }
                     sourceVertices.isEmpty() -> {
-                        DataSourceException(
-                                DataSourceErrorResponse.MISSING_PARAMETER,
+                        ServiceError.of(
                                 """at least one source_vertex must be supplied 
                                 |for the return value of this ${ExternalDataSourceJsonValuesRetriever::class.qualifiedName} 
                                 |to have any mappings""".flatten()
@@ -116,8 +113,7 @@ internal class DefaultSchematicPathBasedJsonRetrievalFunctionFactory(
                             dataSource!!.key
                         )
                     } -> {
-                        DataSourceException(
-                                DataSourceErrorResponse.STRATEGY_MISSING,
+                        ServiceError.of(
                                 """no ${DataSourceRepresentativeJsonRetrievalStrategyProvider::class.qualifiedName} 
                                     |found that supports this type of data_source: 
                                     |[ actual: ${dataSource!!.key}  
@@ -184,12 +180,13 @@ internal class DefaultSchematicPathBasedJsonRetrievalFunctionFactory(
             override fun build(): Try<TrackableJsonValueRetriever> {
                 return when {
                     dataSource == null -> {
-                        DataSourceException(
-                                DataSourceErrorResponse.MISSING_PARAMETER,
+                        ServiceError.builder()
+                            .message(
                                 """data_source has not been provided 
                                 |for ${TrackableJsonValueRetriever::class.qualifiedName} 
                                 |creation""".flatten()
                             )
+                            .build()
                             .failure()
                     }
                     trackableValueJsonRetrievalStrategyProviders.none { strategyProvider ->
@@ -198,8 +195,7 @@ internal class DefaultSchematicPathBasedJsonRetrievalFunctionFactory(
                                 dataSource!!.key
                             )
                     } -> {
-                        DataSourceException(
-                                DataSourceErrorResponse.STRATEGY_MISSING,
+                        ServiceError.of(
                                 """no ${TrackableValueJsonRetrievalStrategyProvider::class.qualifiedName} 
                                     |found that supports this type of data_source: 
                                     |[ actual: ${dataSource!!.key}  

@@ -2,11 +2,9 @@ package funcify.feature.error
 
 import arrow.typeclasses.Monoid
 import com.fasterxml.jackson.databind.JsonNode
-import funcify.feature.tools.container.attempt.Try
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableMap
 import org.springframework.http.HttpStatus
-import reactor.core.publisher.Mono
 
 /**
  *
@@ -20,8 +18,8 @@ abstract class ServiceError(
      * Default: 500 INTERNAL_SERVER_ERROR
      *
      * If error occurs as a result of some _downstream failure i.e. failure to connect to upstream
-     * server, then a different response type should be used than the default,
-     * INTERNAL_SERVER_ERROR, e.g. BAD_GATEWAY
+     * server, then a different response type should be used than the default, e.g. BAD_GATEWAY or
+     * GATEWAY_TIMEOUT
      */
     open val serverHttpResponse: HttpStatus,
     override val message: String,
@@ -62,6 +60,14 @@ abstract class ServiceError(
             return DefaultServiceErrorFactory.builder()
         }
 
+        fun of(message: String): ServiceError {
+            return builder().message(message).build()
+        }
+
+        fun of(message: String, vararg args: Any?): ServiceError {
+            return builder().message(message, args).build()
+        }
+
         fun downstreamServiceUnavailableErrorBuilder(): Builder {
             return builder().serverHttpResponse(HttpStatus.SERVICE_UNAVAILABLE)
         }
@@ -77,14 +83,6 @@ abstract class ServiceError(
         fun invalidRequestErrorBuilder(): Builder {
             return builder().serverHttpResponse(HttpStatus.BAD_REQUEST)
         }
-
-        inline fun <reified T> ServiceError.toTry(): Try<T> {
-            return Try.failure(this)
-        }
-
-        inline fun <reified T> ServiceError.toMono(): Mono<T> {
-            return Mono.error(this)
-        }
     }
 
     override fun compareTo(other: ServiceError): Int {
@@ -98,6 +96,8 @@ abstract class ServiceError(
     interface Builder {
 
         fun message(message: String): Builder
+
+        fun message(template: String, vararg args: Any?): Builder
 
         fun cause(throwable: Throwable): Builder
 
@@ -116,6 +116,8 @@ abstract class ServiceError(
         fun <M : Map<out String, Any?>> putAllExtensions(extensions: M): Builder
 
         fun removeExtensionIf(condition: (Map.Entry<String, Any?>) -> Boolean): Builder
+
+        fun removeExtension(key: String): Builder
 
         fun clearExtensions(): Builder
 
