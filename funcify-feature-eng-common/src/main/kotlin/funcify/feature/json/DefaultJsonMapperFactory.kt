@@ -5,6 +5,7 @@ import arrow.core.toOption
 import com.fasterxml.jackson.databind.JavaType
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.databind.node.JsonNodeFactory
 import com.fasterxml.jackson.databind.type.TypeFactory
 import com.jayway.jsonpath.Configuration
 import com.jayway.jsonpath.JsonPath
@@ -18,6 +19,44 @@ internal object DefaultJsonMapperFactory : JsonMapperFactory {
 
     override fun builder(): JsonMapper.Builder {
         return DefaultJsonMapperBuilder()
+    }
+
+    private fun <T> sourceObjectInstanceNullFailure(targetTypeName: String?): Try<T> {
+        return Try.failure<T>(
+            IllegalStateException(
+                "source_object_instance is null; cannot map to non-null instance of [ target_type: %s ]".format(
+                    targetTypeName
+                )
+            )
+        )
+    }
+
+    private fun <S> sourceObjectInstanceConversionResultNullExceptionSupplier(
+        sourceObjectInstance: S,
+        targetTypeName: String?
+    ): () -> Throwable {
+        return {
+            IllegalStateException(
+                "result from [ source_object_instance.type: %s ] conversion to [ target_type: %s ] is null".format(
+                    sourceObjectInstance!!::class.qualifiedName,
+                    targetTypeName
+                )
+            )
+        }
+    }
+
+    private fun <S> extractionResultNullExceptionSupplier(
+        sourceObjectInstance: S,
+        jaywayJsonPath: String
+    ): () -> Throwable {
+        return {
+            IllegalStateException(
+                "result from [ source_object_instance.type: %s ] extraction of [ json_path: %s ] is null".format(
+                    sourceObjectInstance!!::class.qualifiedName,
+                    jaywayJsonPath
+                )
+            )
+        }
     }
 
     internal class DefaultJsonMapperBuilder(
@@ -57,7 +96,7 @@ internal object DefaultJsonMapperFactory : JsonMapperFactory {
         override val jaywayJsonPathConfiguration: Configuration
     ) : JsonMapper {
 
-        override fun <T> fromKotlinObject(objectInstance: T): MappingTarget {
+        override fun <T> fromKotlinObject(objectInstance: T?): MappingTarget {
             return DefaultKotlinObjectMappingTarget(
                 objectInstance,
                 jacksonObjectMapper,
@@ -83,47 +122,76 @@ internal object DefaultJsonMapperFactory : JsonMapperFactory {
     }
 
     internal class DefaultKotlinObjectMappingTarget<S>(
-        private val sourceObjectInstance: S,
+        private val sourceObjectInstance: S?,
         private val jacksonObjectMapper: ObjectMapper,
         private val jaywayJsonPathConfiguration: Configuration,
     ) : MappingTarget {
 
         override fun <T : Any> toKotlinObject(kClass: KClass<T>): Try<T> {
-            return Try.success(sourceObjectInstance)
-                .filter(
-                    { s -> kClass.isInstance(s) },
-                    { s ->
-                        IllegalArgumentException(
-                            """source_object_instance is not an instance of target_type: 
-                            |[ expected: %s, actual: %s ]"""
-                                .flatten()
-                                .format(
-                                    kClass.qualifiedName,
-                                    s.toOption()
-                                        .map { src -> src::class.qualifiedName }
-                                        .getOrElse { "<NA>" }
+            return when (sourceObjectInstance) {
+                null -> {
+                    sourceObjectInstanceNullFailure<T>(kClass.qualifiedName)
+                }
+                else -> {
+                    Try.success(sourceObjectInstance)
+                        .filter(
+                            { s -> kClass.isInstance(s) },
+                            { s ->
+                                IllegalArgumentException(
+                                    """source_object_instance is not an instance of target_type: 
+                                    |[ expected: %s, actual: %s ]"""
+                                        .flatten()
+                                        .format(
+                                            kClass.qualifiedName,
+                                            s.toOption()
+                                                .map { src -> src::class.qualifiedName }
+                                                .getOrElse { "<NA>" }
+                                        )
                                 )
+                            }
                         )
-                    }
-                )
-                .map { s -> kClass.cast(s) }
+                        .map { s -> kClass.cast(s) }
+                }
+            }
         }
 
         override fun <T : Any> toKotlinObject(
             parameterizedTypeReference: ParameterizedTypeReference<T>
         ): Try<T> {
-            return Try.attempt {
-                @Suppress("UNCHECKED_CAST") //
-                sourceObjectInstance as T
+            return when (sourceObjectInstance) {
+                null -> {
+                    sourceObjectInstanceNullFailure<T>(parameterizedTypeReference.type.typeName)
+                }
+                else -> {
+                    Try.attemptNullable(
+                        {
+                            @Suppress("UNCHECKED_CAST") //
+                            sourceObjectInstance as T
+                        },
+                        sourceObjectInstanceConversionResultNullExceptionSupplier(
+                            sourceObjectInstance,
+                            parameterizedTypeReference.type.typeName
+                        )
+                    )
+                }
             }
         }
 
         override fun toJsonNode(): Try<JsonNode> {
-            return Try.attempt { sourceObjectInstance }
-                .mapNullable(
-                    { s: S -> jacksonObjectMapper.valueToTree<JsonNode>(s) },
-                    { -> jacksonObjectMapper.nullNode() }
-                )
+            return when (sourceObjectInstance) {
+                null -> {
+                    Try.success(JsonNodeFactory.instance.nullNode())
+                }
+                else -> {
+                    Try.attemptNullable(
+                        { jacksonObjectMapper.valueToTree<JsonNode>(sourceObjectInstance) },
+                        sourceObjectInstanceConversionResultNullExceptionSupplier(
+                            sourceObjectInstance,
+                            JsonNode::class.qualifiedName
+                        )
+                    )
+                }
+            }
         }
 
         override fun toJsonString(): Try<String> {
@@ -133,16 +201,26 @@ internal object DefaultJsonMapperFactory : JsonMapperFactory {
         }
 
         override fun toJsonNodeForPath(jaywayJsonPath: String): Try<JsonNode> {
-            return toJsonNode().map { jn ->
-                JsonPath.parse(jn, jaywayJsonPathConfiguration)
-                    .read(jaywayJsonPath, JsonNode::class.java)
+            return toJsonNode().flatMap { jn ->
+                Try.attemptNullable(
+                    {
+                        JsonPath.parse(jn, jaywayJsonPathConfiguration)
+                            .read(jaywayJsonPath, JsonNode::class.java)
+                    },
+                    extractionResultNullExceptionSupplier(sourceObjectInstance, jaywayJsonPath)
+                )
             }
         }
 
         override fun toJsonNodeForPath(jaywayJsonPath: JsonPath): Try<JsonNode> {
-            return toJsonNode().map { jn ->
-                JsonPath.parse(jn, jaywayJsonPathConfiguration)
-                    .read(jaywayJsonPath, JsonNode::class.java)
+            return toJsonNode().flatMap { jn ->
+                Try.attemptNullable(
+                    {
+                        JsonPath.parse(jn, jaywayJsonPathConfiguration)
+                            .read(jaywayJsonPath, JsonNode::class.java)
+                    },
+                    extractionResultNullExceptionSupplier(sourceObjectInstance, jaywayJsonPath.path)
+                )
             }
         }
     }
@@ -156,11 +234,10 @@ internal object DefaultJsonMapperFactory : JsonMapperFactory {
         override fun <T : Any> toKotlinObject(kClass: KClass<T>): Try<T> {
             return Try.attemptNullable(
                 { jacksonObjectMapper.treeToValue(jsonNode, kClass.java) },
-                { ->
-                    IllegalStateException(
-                        "null value returned for [ target_type: ${kClass::qualifiedName} ] from json_node source"
-                    )
-                }
+                sourceObjectInstanceConversionResultNullExceptionSupplier(
+                    jsonNode,
+                    kClass.qualifiedName
+                )
             )
         }
 
@@ -190,11 +267,10 @@ internal object DefaultJsonMapperFactory : JsonMapperFactory {
                         .writerWithDefaultPrettyPrinter()
                         .writeValueAsString(jsonNode)
                 },
-                { ->
-                    IllegalStateException(
-                        "null value returned for string target type for json_node source"
-                    )
-                }
+                sourceObjectInstanceConversionResultNullExceptionSupplier(
+                    jsonNode,
+                    String::class.qualifiedName
+                )
             )
         }
 
@@ -204,16 +280,15 @@ internal object DefaultJsonMapperFactory : JsonMapperFactory {
                     JsonPath.parse(jsonNode, jaywayJsonPathConfiguration)
                         .read(jaywayJsonPath, JsonNode::class.java)
                 },
-                { ->
-                    IllegalStateException(
-                        "jayway_json_path returned null value for json_node source"
-                    )
-                }
+                extractionResultNullExceptionSupplier(jsonNode, jaywayJsonPath)
             )
         }
 
         override fun toJsonNodeForPath(jaywayJsonPath: JsonPath): Try<JsonNode> {
-            return Try.attempt { jaywayJsonPath.read(jsonNode, jaywayJsonPathConfiguration) }
+            return Try.attemptNullable(
+                { jaywayJsonPath.read(jsonNode, jaywayJsonPathConfiguration) },
+                extractionResultNullExceptionSupplier(jsonNode, jaywayJsonPath.path)
+            )
         }
     }
 
@@ -245,11 +320,10 @@ internal object DefaultJsonMapperFactory : JsonMapperFactory {
         override fun toJsonNode(): Try<JsonNode> {
             return Try.attemptNullable(
                 { jacksonObjectMapper.readTree(jsonValue) },
-                { ->
-                    IllegalStateException(
-                        "null json_node target returned for json_value string source"
-                    )
-                }
+                sourceObjectInstanceConversionResultNullExceptionSupplier(
+                    jsonValue,
+                    JsonNode::class.qualifiedName
+                )
             )
         }
 
@@ -260,17 +334,23 @@ internal object DefaultJsonMapperFactory : JsonMapperFactory {
         }
 
         override fun toJsonNodeForPath(jaywayJsonPath: String): Try<JsonNode> {
-            return Try.attempt {
-                JsonPath.parse(jsonValue, jaywayJsonPathConfiguration)
-                    .read(jaywayJsonPath, JsonNode::class.java)
-            }
+            return Try.attemptNullable(
+                {
+                    JsonPath.parse(jsonValue, jaywayJsonPathConfiguration)
+                        .read(jaywayJsonPath, JsonNode::class.java)
+                },
+                extractionResultNullExceptionSupplier(jsonValue, jaywayJsonPath)
+            )
         }
 
         override fun toJsonNodeForPath(jaywayJsonPath: JsonPath): Try<JsonNode> {
-            return Try.attempt {
-                JsonPath.parse(jsonValue, jaywayJsonPathConfiguration)
-                    .read(jaywayJsonPath, JsonNode::class.java)
-            }
+            return Try.attemptNullable(
+                {
+                    JsonPath.parse(jsonValue, jaywayJsonPathConfiguration)
+                        .read(jaywayJsonPath, JsonNode::class.java)
+                },
+                extractionResultNullExceptionSupplier(jsonValue, jaywayJsonPath.path)
+            )
         }
     }
 }

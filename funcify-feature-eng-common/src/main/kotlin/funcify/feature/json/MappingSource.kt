@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode
 
 interface MappingSource {
 
-    fun <T> fromKotlinObject(objectInstance: T): MappingTarget
+    fun <T> fromKotlinObject(objectInstance: T?): MappingTarget
 
     fun fromJsonNode(jsonNode: JsonNode): MappingTarget
 
