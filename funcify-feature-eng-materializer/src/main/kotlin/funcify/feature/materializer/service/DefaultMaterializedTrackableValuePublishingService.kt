@@ -9,7 +9,7 @@ import funcify.feature.json.JsonMapper
 import funcify.feature.materializer.dispatch.SourceIndexRequestDispatch
 import funcify.feature.materializer.error.MaterializerErrorResponse
 import funcify.feature.materializer.error.MaterializerException
-import funcify.feature.materializer.json.JsonNodeToStandardValueConverter
+import funcify.feature.datasource.json.JsonNodeToStandardValueConverter
 import funcify.feature.materializer.phase.RequestDispatchMaterializationPhase
 import funcify.feature.materializer.schema.path.ListIndexedSchematicPathGraphQLSchemaBasedCalculator
 import funcify.feature.materializer.schema.path.SchematicPathFieldCoordinatesMatcher

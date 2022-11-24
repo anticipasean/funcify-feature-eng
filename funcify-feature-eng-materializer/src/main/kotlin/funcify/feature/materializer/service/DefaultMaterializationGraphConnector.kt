@@ -6,7 +6,7 @@ import funcify.feature.json.JsonMapper
 import funcify.feature.materializer.context.graph.MaterializationGraphContext
 import funcify.feature.materializer.error.MaterializerErrorResponse
 import funcify.feature.materializer.error.MaterializerException
-import funcify.feature.materializer.json.GraphQLValueToJsonNodeConverter
+import funcify.feature.datasource.json.GraphQLValueToJsonNodeConverter
 import funcify.feature.materializer.schema.edge.RequestParameterEdge
 import funcify.feature.materializer.schema.edge.RequestParameterEdgeFactory
 import funcify.feature.materializer.schema.path.ListIndexedSchematicPathGraphQLSchemaBasedCalculator

@@ -13,7 +13,7 @@ import funcify.feature.json.JsonMapper
 import funcify.feature.materializer.error.MaterializerErrorResponse
 import funcify.feature.materializer.error.MaterializerException
 import funcify.feature.materializer.fetcher.SingleRequestFieldMaterializationSession
-import funcify.feature.materializer.json.JsonNodeToStandardValueConverter
+import funcify.feature.datasource.json.JsonNodeToStandardValueConverter
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.OptionExtensions.toMono

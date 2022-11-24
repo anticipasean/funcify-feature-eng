@@ -1,4 +1,4 @@
-package funcify.feature.materializer.json
+package funcify.feature.datasource.json
 
 import arrow.core.Option
 import arrow.core.filterIsInstance
@@ -20,7 +20,7 @@ import funcify.feature.scalar.decimal.Decimal3
 import funcify.feature.scalar.decimal.Decimal7
 import funcify.feature.scalar.decimal.GraphQLDecimalScalar
 import funcify.feature.tools.container.attempt.Try
-import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
+import funcify.feature.tools.extensions.LoggerExtensions
 import funcify.feature.tools.extensions.PersistentMapExtensions.toPersistentMap
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import graphql.Scalars
@@ -30,11 +30,11 @@ import graphql.schema.GraphQLNonNull
 import graphql.schema.GraphQLOutputType
 import graphql.schema.GraphQLScalarType
 import graphql.schema.GraphQLType
-import java.math.BigDecimal
-import java.util.*
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toPersistentList
 import org.slf4j.Logger
+import java.math.BigDecimal
+import java.util.*
 
 /**
  * Converter to mimic what GraphQL does after something is returned as a DataFetcherResult<R> (R
@@ -46,7 +46,7 @@ import org.slf4j.Logger
  */
 object JsonNodeToStandardValueConverter : (JsonNode, GraphQLOutputType) -> Option<Any> {
 
-    private val logger: Logger = loggerFor<JsonNodeToStandardValueConverter>()
+    private val logger: Logger = LoggerExtensions.loggerFor<JsonNodeToStandardValueConverter>()
     /*
      * Could be derived here but is always the same
      * i.e. UUID(0, 0).toString().length
@@ -60,7 +60,8 @@ object JsonNodeToStandardValueConverter : (JsonNode, GraphQLOutputType) -> Optio
         val graphQLType: GraphQLType = unwrapNonNullIfPresent(expectedGraphQLOutputType)
         return when (resultJson.nodeType) {
             JsonNodeType.MISSING,
-            JsonNodeType.NULL -> none()
+            JsonNodeType.NULL
+            -> none()
             JsonNodeType.BOOLEAN -> {
                 when (graphQLType) {
                     Scalars.GraphQLBoolean -> {

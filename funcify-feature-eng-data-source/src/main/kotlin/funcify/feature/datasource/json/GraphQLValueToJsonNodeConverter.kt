@@ -1,4 +1,4 @@
-package funcify.feature.materializer.json
+package funcify.feature.datasource.json
 
 import arrow.core.Option
 import arrow.core.none
