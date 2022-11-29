@@ -4,6 +4,7 @@ import funcify.feature.graph.container.PersistentGraphContainer
 import funcify.feature.graph.container.PersistentGraphContainerFactory
 import funcify.feature.graph.container.PersistentGraphContainerFactory.TwoToOnePathToEdgeGraph.Companion.TwoToOnePathToEdgeGraphWT
 import funcify.feature.graph.container.PersistentGraphContainerFactory.narrowed
+import java.util.stream.Stream
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.PersistentSet
 import kotlinx.collections.immutable.persistentMapOf
@@ -28,8 +29,7 @@ internal interface TwoToOnePathToEdgePersistentGraphTemplate :
         return PersistentGraphContainerFactory.TwoToOnePathToEdgeGraph(
             verticesByPath = verticesByPath,
             edgesByPathPair =
-                edgesSetByPathPair
-                    .entries
+                edgesSetByPathPair.entries
                     .parallelStream()
                     .flatMap { e: Map.Entry<Pair<P, P>, PersistentSet<E>> ->
                         e.value.stream().map { edge -> e.key to edge }
@@ -39,6 +39,30 @@ internal interface TwoToOnePathToEdgePersistentGraphTemplate :
                         { pm, e -> pm.put(e.first, e.second) },
                         { pm1, pm2 -> pm1.putAll(pm2) }
                     )
+        )
+    }
+
+    override fun <P, V, E> fromVertexAndEdgeStreams(
+        verticesByPathStream: Stream<Pair<P, V>>,
+        edgesByPathPairStream: Stream<Pair<Pair<P, P>, E>>,
+    ): PersistentGraphContainer<TwoToOnePathToEdgeGraphWT, P, V, E> {
+        val verticesByPath: PersistentMap<P, V> =
+            verticesByPathStream.reduce(
+                persistentMapOf<P, V>(),
+                { pm, (k, v) -> pm.put(k, v) },
+                PersistentMap<P, V>::putAll
+            )
+        val edgesByPathPair =
+            edgesByPathPairStream
+                .filter { (ek, _) -> ek.first in verticesByPath && ek.second in verticesByPath }
+                .reduce(
+                    persistentMapOf<Pair<P, P>, E>(),
+                    { pm, (ek, e) -> pm.put(ek, e) },
+                    PersistentMap<Pair<P, P>, E>::putAll
+                )
+        return PersistentGraphContainerFactory.TwoToOnePathToEdgeGraph<P, V, E>(
+            verticesByPath = verticesByPath,
+            edgesByPathPair = edgesByPathPair
         )
     }
 
@@ -102,8 +126,7 @@ internal interface TwoToOnePathToEdgePersistentGraphTemplate :
     ): PersistentGraphContainer<TwoToOnePathToEdgeGraphWT, P, V, E> {
         val verticesByPath: PersistentMap<P, V> = container.narrowed().verticesByPath
         val updatedEdges =
-            edges
-                .entries
+            edges.entries
                 .parallelStream()
                 .filter { e -> e.key.first in verticesByPath && e.key.second in verticesByPath }
                 .reduce(
@@ -120,8 +143,7 @@ internal interface TwoToOnePathToEdgePersistentGraphTemplate :
     ): PersistentGraphContainer<TwoToOnePathToEdgeGraphWT, P, V, E> {
         val verticesByPath: PersistentMap<P, V> = container.narrowed().verticesByPath
         val updatedEdges =
-            edges
-                .entries
+            edges.entries
                 .parallelStream()
                 .filter { e: Map.Entry<Pair<P, P>, S> ->
                     e.key.first in verticesByPath && e.key.second in verticesByPath

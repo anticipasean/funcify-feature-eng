@@ -3,6 +3,7 @@ package funcify.feature.graph.template
 import funcify.feature.graph.container.PersistentGraphContainer
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.PersistentSet
+import java.util.stream.Stream
 
 /**
  * @param CWT
@@ -18,6 +19,11 @@ internal interface PersistentGraphTemplate<CWT> {
     fun <P, V, E> fromVerticesAndEdgeSets(
         verticesByPath: PersistentMap<P, V>,
         edgesSetByPathPair: PersistentMap<Pair<P, P>, PersistentSet<E>>
+    ): PersistentGraphContainer<CWT, P, V, E>
+
+    fun <P, V, E> fromVertexAndEdgeStreams(
+        verticesByPathStream: Stream<Pair<P, V>>,
+        edgesByPathPairStream: Stream<Pair<Pair<P, P>, E>>
     ): PersistentGraphContainer<CWT, P, V, E>
 
     fun <P, V, E> put(

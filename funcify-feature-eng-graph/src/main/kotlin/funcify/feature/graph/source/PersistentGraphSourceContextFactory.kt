@@ -1,12 +1,15 @@
 package funcify.feature.graph.source
 
 import funcify.feature.graph.container.PersistentGraphContainer
+import funcify.feature.graph.container.PersistentGraphContainerFactory.PersistentGraphStream.Companion.GraphStreamWT
 import funcify.feature.graph.container.PersistentGraphContainerFactory.TwoToManyPathToEdgeGraph.Companion.TwoToManyPathToEdgeGraphWT
 import funcify.feature.graph.container.PersistentGraphContainerFactory.TwoToOnePathToEdgeGraph.Companion.TwoToOnePathToEdgeGraphWT
 import funcify.feature.graph.design.PersistentGraphDesign
+import funcify.feature.graph.template.PersistentGraphStreamTemplate
 import funcify.feature.graph.template.PersistentGraphTemplate
 import funcify.feature.graph.template.TwoToManyPathToEdgePersistentGraphTemplate
 import funcify.feature.graph.template.TwoToOnePathToEdgePersistentGraphTemplate
+import java.util.stream.Stream
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.PersistentSet
 import kotlinx.collections.immutable.persistentMapOf
@@ -20,6 +23,10 @@ internal object PersistentGraphSourceContextFactory {
     val initialTwoToManyPathToEdgeGraphTemplate:
         TwoToManyPathToEdgePersistentGraphTemplate by lazy {
         object : TwoToManyPathToEdgePersistentGraphTemplate {}
+    }
+
+    val initialGraphStreamTemplate: PersistentGraphStreamTemplate by lazy {
+        object : PersistentGraphStreamTemplate {}
     }
 
     internal class TwoToOnePathToEdgePersistentGraphSourceDesign<P, V, E>(
@@ -52,6 +59,22 @@ internal object PersistentGraphSourceContextFactory {
             return template.fromVerticesAndEdgeSets(
                 verticesByPath = verticesByPath,
                 edgesSetByPathPair = edgesSetByPathPair
+            )
+        }
+    }
+
+    internal class PersistentGraphStreamSourceDesign<P, V, E>(
+        val verticesByPathStream: Stream<Pair<P, V>> = Stream.empty(),
+        val edgesByPathPairStream: Stream<Pair<Pair<P, P>, E>> = Stream.empty(),
+        override val template: PersistentGraphTemplate<GraphStreamWT> = initialGraphStreamTemplate
+    ) : PersistentGraphDesign<GraphStreamWT, P, V, E> {
+
+        override fun <WT> fold(
+            template: PersistentGraphTemplate<WT>
+        ): PersistentGraphContainer<WT, P, V, E> {
+            return template.fromVertexAndEdgeStreams(
+                verticesByPathStream = verticesByPathStream,
+                edgesByPathPairStream = edgesByPathPairStream
             )
         }
     }

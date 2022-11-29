@@ -14,14 +14,14 @@ class BasicPersistentGraphTest {
     @Test
     fun flatMapVerticesTwoToOnePathsToEdgeGraphTest() {
         val g1 =
-            (0..6).fold(PathBasedGraph.emptyTwoToOnePathsToEdgeGraph<Int, Int, Int>()) {
-                    acc: PathBasedGraph<Int, Int, Int>,
+            (0..6).fold(PersistentGraph.empty<Int, Int, Int>()) {
+                    acc: PersistentGraph<Int, Int, Int>,
                     i: Int ->
-                acc.putVertex(i, i)
+                acc.put(i, i)
             }
         val g2 =
-            (0..5).fold(g1) { acc: PathBasedGraph<Int, Int, Int>, i: Int ->
-                acc.putEdge(i, i + 1, i)
+            (0..5).fold(g1) { acc: PersistentGraph<Int, Int, Int>, i: Int ->
+                acc.put(i, i + 1, i)
             }
         Assertions.assertEquals(7, g2.vertexCount())
         Assertions.assertEquals(6, g2.edgeCount())
@@ -29,9 +29,9 @@ class BasicPersistentGraphTest {
             g2.flatMapVertices { p: Int, v: Int ->
                 mutableMapOf<Int, Char>(p to ('A'.code + v).toChar())
             }
-        Assertions.assertEquals('G', g3.verticesByPath[6])
-        Assertions.assertEquals(1, g3.getEdgesFromPathToPath(5, 6).size)
-        Assertions.assertEquals(5, g3.getEdgesFromPathToPath(5, 6).first())
+        Assertions.assertEquals('G', g3[6])
+        Assertions.assertEquals(1, g3[5, 6].count())
+        Assertions.assertEquals(5, g3[5, 6].first())
     }
 
 //    @Test
