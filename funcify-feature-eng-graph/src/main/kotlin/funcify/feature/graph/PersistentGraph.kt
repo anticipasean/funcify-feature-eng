@@ -1,6 +1,30 @@
 package funcify.feature.graph
 
+import funcify.feature.graph.source.PersistentGraphSourceContextFactory
+
 interface PersistentGraph<P, V, E> : ImmutableGraph<P, V, E> {
+
+    companion object {
+
+        fun <P, V, E> empty(): PersistentGraph<P, V, E> {
+            return PersistentGraphSourceContextFactory
+                .TwoToOnePathToEdgePersistentGraphSourceDesign<P, V, E>()
+        }
+
+        fun <P, V, E> of(
+            path1: P,
+            vertex1: V,
+            path2: P,
+            vertex2: V,
+            edge: E
+        ): PersistentGraph<P, V, E> {
+            return PersistentGraphSourceContextFactory
+                .TwoToOnePathToEdgePersistentGraphSourceDesign<P, V, E>()
+                .put(path1, vertex1)
+                .put(path2, vertex2)
+                .put(path1, path2, edge)
+        }
+    }
 
     fun put(path: P, vertex: V): PersistentGraph<P, V, E>
 

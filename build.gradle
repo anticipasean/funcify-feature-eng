@@ -80,6 +80,12 @@ configure(sharedToolsKotlinProjects) {
                 implementation("org.jetbrains.kotlinx:kotlinx-collections-immutable-jvm:${kotlinxImmutableCollectionsVersion}")
             }
         }
+        junit {
+            dependencies {
+                testImplementation(platform("org.junit:junit-bom:${jUnitJupiterVersion}"))
+                testImplementation("org.junit.jupiter:junit-jupiter")
+            }
+        }
     }
 
     test {
