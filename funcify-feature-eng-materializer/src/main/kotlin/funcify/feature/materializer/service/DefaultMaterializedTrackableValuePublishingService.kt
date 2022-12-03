@@ -2,14 +2,16 @@ package funcify.feature.materializer.service
 
 import arrow.core.*
 import com.fasterxml.jackson.databind.JsonNode
+import funcify.feature.datasource.json.JsonNodeToStandardValueConverter
 import funcify.feature.datasource.tracking.TrackableJsonValuePublisher
 import funcify.feature.datasource.tracking.TrackableJsonValuePublisherProvider
 import funcify.feature.datasource.tracking.TrackableValue
 import funcify.feature.json.JsonMapper
+import funcify.feature.materializer.context.publishing.TrackableValuePublishingContext
+import funcify.feature.materializer.context.publishing.TrackableValuePublishingContextFactory
 import funcify.feature.materializer.dispatch.SourceIndexRequestDispatch
 import funcify.feature.materializer.error.MaterializerErrorResponse
 import funcify.feature.materializer.error.MaterializerException
-import funcify.feature.datasource.json.JsonNodeToStandardValueConverter
 import funcify.feature.materializer.phase.RequestDispatchMaterializationPhase
 import funcify.feature.materializer.schema.path.ListIndexedSchematicPathGraphQLSchemaBasedCalculator
 import funcify.feature.materializer.schema.path.SchematicPathFieldCoordinatesMatcher
@@ -55,6 +57,7 @@ import reactor.kotlin.core.publisher.switchIfEmpty
  */
 internal class DefaultMaterializedTrackableValuePublishingService(
     private val jsonMapper: JsonMapper,
+    private val publishingContextFactory: TrackableValuePublishingContextFactory,
     private val trackableJsonValuePublisherProvider: TrackableJsonValuePublisherProvider
 ) : MaterializedTrackableValuePublishingService {
 
@@ -102,7 +105,15 @@ internal class DefaultMaterializedTrackableValuePublishingService(
                     .toOption()
                     .filter { tv: TrackableValue<JsonNode> -> tv.isCalculated() }
                     .filterIsInstance<TrackableValue.CalculatedValue<JsonNode>>()
-            ) { (dr, pub), cv -> Triple(dr, pub, cv) }
+            ) { (dr, pub), cv ->
+                publishingContextFactory
+                    .builder()
+                    .graphQLSingleRequestSession(session)
+                    .trackableJsonValuePublisher(pub)
+                    .dispatchedRequest(dr)
+                    .calculatedValue(cv)
+                    .build()
+            }
             .tapNone {
                 logger.info(
                     """publish_materialized_trackable_json_value_if_applicable: 
@@ -111,24 +122,20 @@ internal class DefaultMaterializedTrackableValuePublishingService(
                     materializedTrackableJsonValue.targetSourceIndexPath
                 )
             }
-            .map { (dispatchedRequest, publisher, calculatedValue) ->
-                transitionCalculatedToTrackedAndPublish(
-                    calculatedValue,
-                    dispatchedRequest,
-                    session,
-                    materializedTrackableJsonValue,
-                    publisher
-                )
+            .map { publishingContext: TrackableValuePublishingContext ->
+                transitionCalculatedToTrackedAndPublish(publishingContext)
             }
     }
 
     private fun transitionCalculatedToTrackedAndPublish(
-        calculatedValue: TrackableValue.CalculatedValue<JsonNode>,
-        dispatchedRequest: SourceIndexRequestDispatch.TrackableSingleJsonValueDispatch,
-        session: GraphQLSingleRequestSession,
-        materializedTrackableJsonValue: TrackableValue<JsonNode>,
-        publisher: TrackableJsonValuePublisher,
+        publishingContext: TrackableValuePublishingContext
     ): Disposable {
+        val calculatedValue: TrackableValue.CalculatedValue<JsonNode> =
+            publishingContext.calculatedValue
+        val dispatchedRequest: SourceIndexRequestDispatch.TrackableSingleJsonValueDispatch =
+            publishingContext.dispatchedRequest
+        val publisher: TrackableJsonValuePublisher = publishingContext.publisher
+        val session: GraphQLSingleRequestSession = publishingContext.session
         return Mono.defer {
                 findAnyLastUpdatedFieldValuesRelatedToThisField(
                     calculatedValue.targetSourceIndexPath,
@@ -282,7 +289,7 @@ internal class DefaultMaterializedTrackableValuePublishingService(
                         """publish_materialized_trackable_json_value_if_applicable: 
                         |[ status: attempting to publish trackable_json_value ] 
                         |[ source_index_path: {} ]""".flatten(),
-                        materializedTrackableJsonValue.targetSourceIndexPath
+                        calculatedValue.targetSourceIndexPath
                     )
                     publisher.publishTrackableJsonValue(trackedValue)
                 },

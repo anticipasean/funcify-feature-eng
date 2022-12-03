@@ -16,6 +16,7 @@ import funcify.feature.error.FeatureEngCommonException
 import funcify.feature.json.JsonMapper
 import funcify.feature.materializer.context.document.DefaultColumnarDocumentContextFactory
 import funcify.feature.materializer.context.graph.DefaultMaterializationGraphContextFactory
+import funcify.feature.materializer.context.publishing.DefaultTrackableValuePublishingContextFactory
 import funcify.feature.materializer.error.MaterializerErrorResponse
 import funcify.feature.materializer.error.MaterializerException
 import funcify.feature.materializer.fetcher.DefaultSingleRequestFieldMaterializationDataFetcherFactory
@@ -244,6 +245,7 @@ class MaterializerConfiguration {
     ): MaterializedTrackableValuePublishingService {
         return DefaultMaterializedTrackableValuePublishingService(
             jsonMapper = jsonMapper,
+            publishingContextFactory = DefaultTrackableValuePublishingContextFactory(),
             trackableJsonValuePublisherProvider =
                 trackableJsonValuePublisherProvider.getIfAvailable {
                     TrackableJsonValuePublisherProvider.NO_OP_PROVIDER
