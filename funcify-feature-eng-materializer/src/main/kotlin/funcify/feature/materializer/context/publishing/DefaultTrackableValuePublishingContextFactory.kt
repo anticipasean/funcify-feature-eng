@@ -9,7 +9,13 @@ import funcify.feature.materializer.dispatch.SourceIndexRequestDispatch.Trackabl
 import funcify.feature.materializer.error.MaterializerErrorResponse
 import funcify.feature.materializer.error.MaterializerException
 import funcify.feature.materializer.session.GraphQLSingleRequestSession
+import funcify.feature.schema.path.SchematicPath
 import funcify.feature.tools.extensions.StringExtensions.flatten
+import java.time.Instant
+import kotlinx.collections.immutable.ImmutableMap
+import kotlinx.collections.immutable.PersistentMap
+import kotlinx.collections.immutable.persistentMapOf
+import kotlinx.collections.immutable.toPersistentMap
 
 /**
  *
@@ -25,7 +31,12 @@ internal class DefaultTrackableValuePublishingContextFactory :
             private var session: GraphQLSingleRequestSession? = null,
             private var dispatchedRequest: TrackableSingleJsonValueDispatch? = null,
             private var publisher: TrackableJsonValuePublisher? = null,
-            private var calculatedValue: TrackableValue.CalculatedValue<JsonNode>? = null
+            private var calculatedValue: TrackableValue.CalculatedValue<JsonNode>? = null,
+            private var lastUpdatedInstantsByPath: PersistentMap.Builder<SchematicPath, Instant> =
+                persistentMapOf<SchematicPath, Instant>().builder(),
+            private var entityIdentifierValuesByPath:
+                PersistentMap.Builder<SchematicPath, JsonNode> =
+                persistentMapOf<SchematicPath, JsonNode>().builder(),
         ) : Builder {
 
             override fun graphQLSingleRequestSession(
@@ -56,6 +67,56 @@ internal class DefaultTrackableValuePublishingContextFactory :
                 return this
             }
 
+            override fun putLastUpdatedInstantForPath(
+                path: SchematicPath,
+                lastUpdatedInstant: Instant
+            ): Builder {
+                this.lastUpdatedInstantsByPath[path] = lastUpdatedInstant
+                return this
+            }
+
+            override fun putAllLastUpdatedInstantsForPaths(
+                lastUpdatedInstantsByPath: Map<SchematicPath, Instant>
+            ): Builder {
+                this.lastUpdatedInstantsByPath.putAll(lastUpdatedInstantsByPath)
+                return this
+            }
+
+            override fun removeLastUpdatedInstantForPath(path: SchematicPath): Builder {
+                this.lastUpdatedInstantsByPath.remove(path)
+                return this
+            }
+
+            override fun clearLastUpdatedInstantsByPath(): Builder {
+                this.lastUpdatedInstantsByPath.clear()
+                return this
+            }
+
+            override fun putEntityIdentifierValueForPath(
+                path: SchematicPath,
+                entityIdentifierValue: JsonNode
+            ): Builder {
+                this.entityIdentifierValuesByPath[path] = entityIdentifierValue
+                return this
+            }
+
+            override fun putAllEntityIdentifierValuesForPaths(
+                entityIdentifiersByPath: Map<SchematicPath, JsonNode>
+            ): Builder {
+                this.entityIdentifierValuesByPath.putAll(entityIdentifiersByPath)
+                return this
+            }
+
+            override fun removeEntityIdentifierValueForPath(path: SchematicPath): Builder {
+                this.entityIdentifierValuesByPath.remove(path)
+                return this
+            }
+
+            override fun clearEntityIdentifierValuesForPaths(): Builder {
+                this.entityIdentifierValuesByPath.clear()
+                return this
+            }
+
             override fun build(): TrackableValuePublishingContext {
                 return eagerEffect<String, TrackableValuePublishingContext> {
                         ensure(session != null) { "session has not been specified" }
@@ -70,7 +131,9 @@ internal class DefaultTrackableValuePublishingContextFactory :
                             session = session!!,
                             dispatchedRequest = dispatchedRequest!!,
                             publisher = publisher!!,
-                            calculatedValue = calculatedValue!!
+                            calculatedValue = calculatedValue!!,
+                            lastUpdatedInstantsByPath = lastUpdatedInstantsByPath.build(),
+                            entityIdentifierValuesByPath = entityIdentifierValuesByPath.build()
                         )
                     }
                     .fold(
@@ -92,6 +155,8 @@ internal class DefaultTrackableValuePublishingContextFactory :
             override val dispatchedRequest: TrackableSingleJsonValueDispatch,
             override val publisher: TrackableJsonValuePublisher,
             override val calculatedValue: TrackableValue.CalculatedValue<JsonNode>,
+            override val lastUpdatedInstantsByPath: ImmutableMap<SchematicPath, Instant>,
+            override val entityIdentifierValuesByPath: ImmutableMap<SchematicPath, JsonNode>,
         ) : TrackableValuePublishingContext {
 
             override fun update(
@@ -99,10 +164,14 @@ internal class DefaultTrackableValuePublishingContextFactory :
             ): TrackableValuePublishingContext {
                 return transformer(
                         DefaultTrackableValuePublishingContextBuilder(
-                            session,
-                            dispatchedRequest,
-                            publisher,
-                            calculatedValue
+                            session = session,
+                            dispatchedRequest = dispatchedRequest,
+                            publisher = publisher,
+                            calculatedValue = calculatedValue,
+                            lastUpdatedInstantsByPath =
+                                lastUpdatedInstantsByPath.toPersistentMap().builder(),
+                            entityIdentifierValuesByPath =
+                                entityIdentifierValuesByPath.toPersistentMap().builder()
                         )
                     )
                     .build()
