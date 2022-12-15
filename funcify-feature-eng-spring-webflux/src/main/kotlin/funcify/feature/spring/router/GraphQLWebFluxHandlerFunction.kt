@@ -1,5 +1,6 @@
 package funcify.feature.spring.router
 
+import arrow.core.Option
 import arrow.core.filterIsInstance
 import arrow.core.getOrElse
 import arrow.core.identity
@@ -24,6 +25,7 @@ import funcify.feature.tools.container.attempt.Try.Companion.flatMapFailure
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.MonoExtensions.widen
 import funcify.feature.tools.extensions.OptionExtensions.toMono
+import funcify.feature.tools.extensions.PersistentMapExtensions.reduceEntriesToPersistentMap
 import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentMap
 import funcify.feature.tools.extensions.StreamExtensions.flatMapOptions
 import funcify.feature.tools.extensions.StringExtensions.flatten
@@ -297,7 +299,23 @@ internal class GraphQLWebFluxHandlerFunction(
             when {
                 response.resultAsColumnarJsonObject.isDefined() -> {
                     response.resultAsColumnarJsonObject
-                        .zip(response.executionResult.errors.toOption())
+                        .zip(
+                            Try.attemptSequence(
+                                    response.executionResult.errors.asSequence().map { gqlError ->
+                                        convertGraphQLErrorIntoErrorJsonNode(gqlError)
+                                    }
+                                )
+                                .fold(::identity) { t: Throwable ->
+                                    sequenceOf(
+                                        JsonNodeFactory.instance
+                                            .objectNode()
+                                            .put("errorType", t::class.simpleName)
+                                            .put("message", t.message)
+                                    )
+                                }
+                                .fold(JsonNodeFactory.instance.arrayNode(), ArrayNode::add)
+                                .some()
+                        )
                         .map { (columnarJsonObject, graphQLErrors) ->
                             mapOf(OUTPUT_KEY to columnarJsonObject, ERRORS_KEY to graphQLErrors)
                         }
@@ -404,7 +422,22 @@ internal class GraphQLWebFluxHandlerFunction(
         graphQLError: GraphQLError,
         commonException: FeatureEngCommonException,
     ): JsonNode {
+        return convertGraphQLErrorIntoErrorJsonNode(graphQLError).fold(::identity) { _: Throwable ->
+            jsonMapper
+                .fromKotlinObject(
+                    mapOf(
+                        "errorType" to graphQLError.errorType,
+                        "message" to commonException.message
+                    )
+                )
+                .toJsonNode()
+                .orElseGet { JsonNodeFactory.instance.nullNode() }
+        }
+    }
+
+    private fun convertGraphQLErrorIntoErrorJsonNode(graphQLError: GraphQLError): Try<JsonNode> {
         return Try.attempt { graphQLError.toSpecification() }
+            .map(removeCauseFromSpecIfPresentLoggingWarning())
             .flatMap { spec -> jsonMapper.fromKotlinObject(spec).toJsonNode() }
             .flatMapFailure { t: Throwable ->
                 if (
@@ -427,17 +460,31 @@ internal class GraphQLWebFluxHandlerFunction(
                     Try.failure(t)
                 }
             }
-            .fold(::identity) { _: Throwable ->
-                jsonMapper
-                    .fromKotlinObject(
-                        mapOf(
-                            "errorType" to graphQLError.errorType,
-                            "message" to commonException.message
-                        )
-                    )
-                    .toJsonNode()
-                    .orElseGet { JsonNodeFactory.instance.nullNode() }
+    }
+
+    private fun removeCauseFromSpecIfPresentLoggingWarning():
+        (Map<String, Any?>) -> Map<String, Any?> {
+        return { spec ->
+            if (spec.containsKey("exception")) {
+                val causeOpt: Option<Throwable> =
+                    spec.get("exception").toOption().filterIsInstance<Throwable>()
+                logger.warn(
+                    """
+                    |convert_graphql_error_into_error_json_node: 
+                    |[ status: removing 'cause' from spec for brevity in response payload ]
+                    |[ cause: { type: {}, message: {} ]
+                    """.flatten(),
+                    causeOpt.map { t -> t::class.simpleName }.getOrElse { "<NA>" },
+                    causeOpt.map { t -> t.message }.getOrElse { "<NA>" }
+                )
+                spec
+                    .asSequence()
+                    .filterNot { (k, _) -> k == "exception" }
+                    .reduceEntriesToPersistentMap()
+            } else {
+                spec
             }
+        }
     }
 
     private fun convertGraphQLErrorTypeIntoServerResponse():
