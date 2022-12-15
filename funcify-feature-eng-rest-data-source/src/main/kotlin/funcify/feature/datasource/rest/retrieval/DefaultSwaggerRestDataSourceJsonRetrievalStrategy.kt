@@ -303,26 +303,30 @@ internal class DefaultSwaggerRestDataSourceJsonRetrievalStrategy(
                                    |[ actual: ${vertexPath} ]""".flatten()
                             )
                         }
-                        .flatMap { parameterAttr ->
-                            Try.fromOption(
-                                    jsonValue.toOption().filter { jn ->
-                                        jn.nodeType == JsonNodeType.NULL ||
-                                            jsonSchemaToJsonTypeConverter()(
-                                                parameterAttr.jsonSchema
-                                            ) == jn.nodeType
-                                    }
-                                ) { _: NoSuchElementException ->
-                                    RestApiDataSourceException(
-                                        RestApiErrorResponse.INVALID_INPUT,
-                                        """value for parameter_attribute [ vertex_path: ${vertexPath} ] does not match 
-                                           |NULL node type or schema-stated node type: 
-                                           |[ expected: ${JsonFormatTypes.NULL} or ${jsonSchemaToJsonTypeConverter().invoke(parameterAttr.jsonSchema)} 
-                                           |actual: ${jsonValue.nodeType}: ${jsonMapper.fromJsonNode(jsonValue).toJsonString().orElse("")} 
-                                           |]""".flatten()
-                                    )
-                                }
-                                .map { jn -> parameterAttr to jn }
-                        }
+                        // .flatMap { parameterAttr ->
+                        //    Try.fromOption(
+                        //            jsonValue.toOption().filter { jn ->
+                        //                jn.nodeType == JsonNodeType.NULL ||
+                        //                    jsonSchemaToJsonTypeConverter()(
+                        //                        parameterAttr.jsonSchema
+                        //                    ) == jn.nodeType
+                        //            }
+                        //        ) { _: NoSuchElementException ->
+                        //            RestApiDataSourceException(
+                        //                RestApiErrorResponse.INVALID_INPUT,
+                        //                """value for parameter_attribute [ vertex_path:
+                        // ${vertexPath} ] does not match
+                        //                   |NULL node type or schema-stated node type:
+                        //                   |[ expected: ${JsonFormatTypes.NULL} or
+                        // ${jsonSchemaToJsonTypeConverter().invoke(parameterAttr.jsonSchema)}
+                        //                   |actual: ${jsonValue.nodeType}:
+                        // ${jsonMapper.fromJsonNode(jsonValue).toJsonString().orElse("")}
+                        //                   |]""".flatten()
+                        //            )
+                        //        }
+                        //        .map { jn -> parameterAttr to jn }
+                        // }
+                        .map { parameterAttr -> parameterAttr to jsonValue }
                 }
             )
             .map { paramSourceIndexToValuePairs ->
