@@ -7,6 +7,7 @@ import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.jsonFormatVisitors.JsonFormatTypes
 import com.fasterxml.jackson.databind.node.JsonNodeFactory
 import com.fasterxml.jackson.databind.node.JsonNodeType
+import com.fasterxml.jackson.databind.node.ObjectNode
 import funcify.feature.datasource.rest.RestApiDataSource
 import funcify.feature.datasource.rest.error.RestApiDataSourceException
 import funcify.feature.datasource.rest.error.RestApiErrorResponse
@@ -336,6 +337,18 @@ internal class DefaultSwaggerRestDataSourceJsonRetrievalStrategy(
                     requestJsonNode.set(paramAttr.jsonPropertyName, jsonValue)
                 }
             }
+            .filter(
+                { on: ObjectNode -> on.size() == valuesByParameterPaths.size },
+                { on: ObjectNode ->
+                    val message: String =
+                        """
+                        |the generated request_json_payload does not have 
+                        |the expected size: [ expected: %s, actual: %s ]"""
+                            .format(valuesByParameterPaths.size, on.size())
+                            .flatten()
+                    RestApiDataSourceException(RestApiErrorResponse.UNEXPECTED_ERROR, message)
+                }
+            )
     }
 
     private fun jsonSchemaToJsonTypeConverter(): (Schema<*>) -> JsonNodeType {
