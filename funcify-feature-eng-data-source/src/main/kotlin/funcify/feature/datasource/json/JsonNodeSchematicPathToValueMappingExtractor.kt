@@ -9,6 +9,7 @@ import arrow.core.right
 import arrow.core.toOption
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.node.ArrayNode
+import com.fasterxml.jackson.databind.node.JsonNodeFactory
 import com.fasterxml.jackson.databind.node.JsonNodeType
 import com.fasterxml.jackson.databind.node.ObjectNode
 import funcify.feature.schema.path.SchematicPath
@@ -38,7 +39,14 @@ object JsonNodeSchematicPathToValueMappingExtractor :
     ): Sequence<Either<JsonNodePathTraversalContext, Pair<SchematicPath, JsonNode>>> {
         return when (context.value.nodeType) {
             JsonNodeType.NULL,
-            JsonNodeType.MISSING,
+            JsonNodeType.MISSING -> {
+                sequenceOf(
+                    (SchematicPath.of { pathSegments(context.pathSegments) } to
+                            JsonNodeFactory.instance.nullNode())
+                        .right()
+                )
+            }
+            JsonNodeType.BOOLEAN,
             JsonNodeType.NUMBER,
             JsonNodeType.BINARY,
             JsonNodeType.STRING -> {
