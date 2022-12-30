@@ -63,7 +63,7 @@ internal class DefaultGraphQLSingleRequestMaterializationQueryExecutionStrategy(
         private val logger: Logger =
             loggerFor<DefaultGraphQLSingleRequestMaterializationQueryExecutionStrategy>()
         private const val INTROSPECTION_FIELD_NAME_PREFIX = "__"
-        private const val DEFAULT_GLOBAL_DATA_FETCHER_TIMEOUT_SECONDS: Long = 4
+        private const val DEFAULT_GLOBAL_DATA_FETCHER_TIMEOUT_SECONDS: Long = 20
         private fun Throwable?.unnestAnyPossibleGraphQLErrorThrowable(): Option<Throwable> {
             return this.toOption().recurse { x ->
                 when (x) {
@@ -113,7 +113,7 @@ internal class DefaultGraphQLSingleRequestMaterializationQueryExecutionStrategy(
 
     private val validatedGlobalExecutionStrategyTimeoutMilliseconds: Long by lazy {
         if (globalExecutionStrategyTimeoutMilliseconds < 0) {
-            DEFAULT_GLOBAL_DATA_FETCHER_TIMEOUT_SECONDS
+            DEFAULT_GLOBAL_DATA_FETCHER_TIMEOUT_SECONDS * 1000
         } else {
             globalExecutionStrategyTimeoutMilliseconds
         }

@@ -302,7 +302,6 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                                                     .reducePairsToPersistentMap()
                                             )
                                             .cache()
-                                            .timeout(DEFAULT_EXTERNAL_CALL_TIMEOUT_DURATION)
                                     )
                         )
                     }
@@ -370,7 +369,6 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                                             .flatMap { plannedValue ->
                                                 singleSrcIndCacheRetrFunc(plannedValue)
                                                     .cache()
-                                                    .timeout(DEFAULT_EXTERNAL_CALL_TIMEOUT_DURATION)
                                             }
                                     )
                         )
@@ -556,7 +554,6 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                 .flatMap { inputMap ->
                     multiSrcIndJsonRetrFunc(inputMap)
                         .cache()
-                        .timeout(DEFAULT_EXTERNAL_CALL_TIMEOUT_DURATION)
                 }
                 .flatMap { resultMap -> Mono.justOrEmpty(resultMap[sourceIndexPath]) }
                 .map { resultJson ->
@@ -708,7 +705,6 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                             .flatMap { inputMap ->
                                 multiSrcIndJsonRetrievalFunction(inputMap)
                                     .cache()
-                                    .timeout(DEFAULT_EXTERNAL_CALL_TIMEOUT_DURATION)
                             }
                             .let { deferredResult ->
                                 requestCreationContext.copy(
