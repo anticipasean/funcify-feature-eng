@@ -10,6 +10,7 @@ import java.util.stream.Stream
 import java.util.stream.StreamSupport
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.PersistentSet
+import kotlinx.collections.immutable.persistentMapOf
 
 /**
  *
@@ -227,12 +228,22 @@ internal interface PersistentGraphStreamTemplate : PersistentGraphTemplate<Graph
         function: (V) -> Boolean,
         container: PersistentGraphContainer<GraphStreamWT, P, V, E>,
     ): PersistentGraphContainer<GraphStreamWT, P, V, E> {
+        val updatedVerticesByPath: PersistentMap<P, V> =
+            container
+                .narrowed()
+                .verticesByPathStream
+                .filter { (_, v) -> function(v) }
+                .reduce(
+                    persistentMapOf<P, V>(),
+                    { m, (p, v) -> m.put(p, v) },
+                    PersistentMap<P, V>::putAll
+                )
         return PersistentGraphStream<P, V, E>(
-            verticesByPathStream =
-                container.narrowed().verticesByPathStream.duplicate().filter { (_, v) ->
-                    function(v)
-                },
-            edgesByPathPairStream = container.narrowed().edgesByPathPairStream.duplicate()
+            verticesByPathStream = updatedVerticesByPath.entries.stream().map { (p, v) -> p to v },
+            edgesByPathPairStream =
+                container.narrowed().edgesByPathPairStream.duplicate().filter { (ek, _) ->
+                    ek.first in updatedVerticesByPath && ek.second in updatedVerticesByPath
+                }
         )
     }
 }
