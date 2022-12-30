@@ -16,7 +16,7 @@ internal class DuplicatingSpliterator<T>(
 
     private val parentBuffer: Deque<T> by lazy(bufferSupplier)
     private val childBuffers: MutableList<Deque<T>> by lazy { LinkedList() }
-    private val hasNextFunction: () -> Boolean by lazy {
+    private val hasNext: () -> Boolean by lazy {
         createHasNextFunctionOnInputSpliterator(inputSpliterator, parentBuffer, childBuffers)
     }
 
@@ -37,25 +37,30 @@ internal class DuplicatingSpliterator<T>(
 
         private class ChildDuplicateSpliterator<T>(
             private val childBuffer: Deque<T>,
-            private val hasNextFunction: () -> Boolean,
+            private val hasNext: () -> Boolean,
             private val sizeEstimate: Long,
             private val inputCharacteristics: Int
         ) : Spliterator<T> {
 
             override fun tryAdvance(action: Consumer<in T>?): Boolean {
-                if (action == null) {
-                    return false
-                }
-                return if (childBuffer.isNotEmpty() || hasNextFunction.invoke()) {
-                    val next = childBuffer.poll()
-                    if (next == null) {
-                        false
-                    } else {
-                        action.accept(next)
-                        true
+                return when {
+                    action == null -> {
+                        // Per contract, an NPE is thrown
+                        throw NullPointerException("action is null")
                     }
-                } else {
-                    false
+                    childBuffer.isNotEmpty() || hasNext() -> {
+                        val next = childBuffer.poll()
+                        // TODO: Decide whether this spliterator should support null elements
+                        if (next == null) {
+                            false
+                        } else {
+                            action.accept(next)
+                            true
+                        }
+                    }
+                    else -> {
+                        false
+                    }
                 }
             }
 
@@ -78,26 +83,30 @@ internal class DuplicatingSpliterator<T>(
         childBuffers.add(newChildBuffer)
         return ChildDuplicateSpliterator(
             newChildBuffer,
-            hasNextFunction,
+            hasNext,
             inputSpliterator.estimateSize(),
             inputCharacteristics
         )
     }
 
     override fun tryAdvance(action: Consumer<in T>?): Boolean {
-        if (action == null) {
-            return false
-        }
-        if (parentBuffer.isNotEmpty() || hasNextFunction.invoke()) {
-            val next = parentBuffer.poll()
-            return if (next == null) {
-                false
-            } else {
-                action.accept(next)
-                true
+        return when {
+            action == null -> {
+                // Per contract, an NPE is thrown
+                throw NullPointerException("action is null")
             }
+            parentBuffer.isNotEmpty() || hasNext() -> {
+                val next = parentBuffer.poll()
+                // TODO: Decide whether this spliterator should support null elements
+                if (next == null) {
+                    false
+                } else {
+                    action.accept(next)
+                    true
+                }
+            }
+            else -> false
         }
-        return false
     }
 
     /**
