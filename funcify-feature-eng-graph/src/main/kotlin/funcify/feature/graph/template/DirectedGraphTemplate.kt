@@ -2,21 +2,20 @@ package funcify.feature.graph.template
 
 import funcify.feature.graph.container.PersistentGraphContainer
 import funcify.feature.graph.container.PersistentGraphContainerFactory
-import funcify.feature.graph.container.PersistentGraphContainerFactory.TwoToOnePathToEdgeGraph.Companion.TwoToOnePathToEdgeGraphWT
+import funcify.feature.graph.container.PersistentGraphContainerFactory.DirectedGraph.Companion.DirectedGraphWT
 import funcify.feature.graph.container.PersistentGraphContainerFactory.narrowed
 import java.util.stream.Stream
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.PersistentSet
 import kotlinx.collections.immutable.persistentMapOf
 
-internal interface TwoToOnePathToEdgePersistentGraphTemplate :
-    PersistentGraphTemplate<TwoToOnePathToEdgeGraphWT> {
+internal interface DirectedGraphTemplate : PersistentGraphTemplate<DirectedGraphWT> {
 
     override fun <P, V, E> fromVerticesAndEdges(
         verticesByPath: PersistentMap<P, V>,
         edgesByPathPair: PersistentMap<Pair<P, P>, E>
-    ): PersistentGraphContainer<TwoToOnePathToEdgeGraphWT, P, V, E> {
-        return PersistentGraphContainerFactory.TwoToOnePathToEdgeGraph(
+    ): PersistentGraphContainer<DirectedGraphWT, P, V, E> {
+        return PersistentGraphContainerFactory.DirectedGraph(
             verticesByPath = verticesByPath,
             edgesByPathPair = edgesByPathPair
         )
@@ -25,8 +24,8 @@ internal interface TwoToOnePathToEdgePersistentGraphTemplate :
     override fun <P, V, E> fromVerticesAndEdgeSets(
         verticesByPath: PersistentMap<P, V>,
         edgesSetByPathPair: PersistentMap<Pair<P, P>, PersistentSet<E>>
-    ): PersistentGraphContainer<TwoToOnePathToEdgeGraphWT, P, V, E> {
-        return PersistentGraphContainerFactory.TwoToOnePathToEdgeGraph(
+    ): PersistentGraphContainer<DirectedGraphWT, P, V, E> {
+        return PersistentGraphContainerFactory.DirectedGraph(
             verticesByPath = verticesByPath,
             edgesByPathPair =
                 edgesSetByPathPair.entries
@@ -45,7 +44,7 @@ internal interface TwoToOnePathToEdgePersistentGraphTemplate :
     override fun <P, V, E> fromVertexAndEdgeStreams(
         verticesByPathStream: Stream<Pair<P, V>>,
         edgesByPathPairStream: Stream<Pair<Pair<P, P>, E>>,
-    ): PersistentGraphContainer<TwoToOnePathToEdgeGraphWT, P, V, E> {
+    ): PersistentGraphContainer<DirectedGraphWT, P, V, E> {
         val verticesByPath: PersistentMap<P, V> =
             verticesByPathStream.reduce(
                 persistentMapOf<P, V>(),
@@ -60,7 +59,7 @@ internal interface TwoToOnePathToEdgePersistentGraphTemplate :
                     { pm, (ek, e) -> pm.put(ek, e) },
                     PersistentMap<Pair<P, P>, E>::putAll
                 )
-        return PersistentGraphContainerFactory.TwoToOnePathToEdgeGraph<P, V, E>(
+        return PersistentGraphContainerFactory.DirectedGraph<P, V, E>(
             verticesByPath = verticesByPath,
             edgesByPathPair = edgesByPathPair
         )
@@ -69,8 +68,8 @@ internal interface TwoToOnePathToEdgePersistentGraphTemplate :
     override fun <P, V, E> put(
         path: P,
         vertex: V,
-        container: PersistentGraphContainer<TwoToOnePathToEdgeGraphWT, P, V, E>
-    ): PersistentGraphContainer<TwoToOnePathToEdgeGraphWT, P, V, E> {
+        container: PersistentGraphContainer<DirectedGraphWT, P, V, E>
+    ): PersistentGraphContainer<DirectedGraphWT, P, V, E> {
         return fromVerticesAndEdges(
             container.narrowed().verticesByPath.put(path, vertex),
             container.narrowed().edgesByPathPair
@@ -81,8 +80,8 @@ internal interface TwoToOnePathToEdgePersistentGraphTemplate :
         path1: P,
         path2: P,
         edge: E,
-        container: PersistentGraphContainer<TwoToOnePathToEdgeGraphWT, P, V, E>
-    ): PersistentGraphContainer<TwoToOnePathToEdgeGraphWT, P, V, E> {
+        container: PersistentGraphContainer<DirectedGraphWT, P, V, E>
+    ): PersistentGraphContainer<DirectedGraphWT, P, V, E> {
         val verticesByPath = container.narrowed().verticesByPath
         return if (path1 in verticesByPath && path2 in verticesByPath) {
             fromVerticesAndEdges(
@@ -97,8 +96,8 @@ internal interface TwoToOnePathToEdgePersistentGraphTemplate :
     override fun <P, V, E> put(
         pathPair: Pair<P, P>,
         edge: E,
-        container: PersistentGraphContainer<TwoToOnePathToEdgeGraphWT, P, V, E>
-    ): PersistentGraphContainer<TwoToOnePathToEdgeGraphWT, P, V, E> {
+        container: PersistentGraphContainer<DirectedGraphWT, P, V, E>
+    ): PersistentGraphContainer<DirectedGraphWT, P, V, E> {
         val verticesByPath = container.narrowed().verticesByPath
         return if (pathPair.first in verticesByPath && pathPair.second in verticesByPath) {
             fromVerticesAndEdges(
@@ -112,8 +111,8 @@ internal interface TwoToOnePathToEdgePersistentGraphTemplate :
 
     override fun <P, V, E, M : Map<P, V>> putAllVertices(
         vertices: M,
-        container: PersistentGraphContainer<TwoToOnePathToEdgeGraphWT, P, V, E>
-    ): PersistentGraphContainer<TwoToOnePathToEdgeGraphWT, P, V, E> {
+        container: PersistentGraphContainer<DirectedGraphWT, P, V, E>
+    ): PersistentGraphContainer<DirectedGraphWT, P, V, E> {
         return fromVerticesAndEdges(
             container.narrowed().verticesByPath.putAll(vertices),
             container.narrowed().edgesByPathPair
@@ -122,8 +121,8 @@ internal interface TwoToOnePathToEdgePersistentGraphTemplate :
 
     override fun <P, V, E, M : Map<Pair<P, P>, E>> putAllEdges(
         edges: M,
-        container: PersistentGraphContainer<TwoToOnePathToEdgeGraphWT, P, V, E>
-    ): PersistentGraphContainer<TwoToOnePathToEdgeGraphWT, P, V, E> {
+        container: PersistentGraphContainer<DirectedGraphWT, P, V, E>
+    ): PersistentGraphContainer<DirectedGraphWT, P, V, E> {
         val verticesByPath: PersistentMap<P, V> = container.narrowed().verticesByPath
         val updatedEdges =
             edges.entries
@@ -139,8 +138,8 @@ internal interface TwoToOnePathToEdgePersistentGraphTemplate :
 
     override fun <P, V, E, S : Set<E>, M : Map<Pair<P, P>, S>> putAllEdgeSets(
         edges: M,
-        container: PersistentGraphContainer<TwoToOnePathToEdgeGraphWT, P, V, E>
-    ): PersistentGraphContainer<TwoToOnePathToEdgeGraphWT, P, V, E> {
+        container: PersistentGraphContainer<DirectedGraphWT, P, V, E>
+    ): PersistentGraphContainer<DirectedGraphWT, P, V, E> {
         val verticesByPath: PersistentMap<P, V> = container.narrowed().verticesByPath
         val updatedEdges =
             edges.entries
@@ -161,8 +160,8 @@ internal interface TwoToOnePathToEdgePersistentGraphTemplate :
 
     override fun <P, V, E> filterVertices(
         function: (V) -> Boolean,
-        container: PersistentGraphContainer<TwoToOnePathToEdgeGraphWT, P, V, E>
-    ): PersistentGraphContainer<TwoToOnePathToEdgeGraphWT, P, V, E> {
+        container: PersistentGraphContainer<DirectedGraphWT, P, V, E>
+    ): PersistentGraphContainer<DirectedGraphWT, P, V, E> {
         val updatedVertices =
             container
                 .narrowed()
@@ -196,8 +195,8 @@ internal interface TwoToOnePathToEdgePersistentGraphTemplate :
 
     override fun <P, V, E> filterEdges(
         function: (E) -> Boolean,
-        container: PersistentGraphContainer<TwoToOnePathToEdgeGraphWT, P, V, E>
-    ): PersistentGraphContainer<TwoToOnePathToEdgeGraphWT, P, V, E> {
+        container: PersistentGraphContainer<DirectedGraphWT, P, V, E>
+    ): PersistentGraphContainer<DirectedGraphWT, P, V, E> {
         val updatedEdges =
             container
                 .narrowed()
@@ -216,8 +215,8 @@ internal interface TwoToOnePathToEdgePersistentGraphTemplate :
 
     override fun <P, V, E, R> mapVertices(
         function: (V) -> R,
-        container: PersistentGraphContainer<TwoToOnePathToEdgeGraphWT, P, V, E>
-    ): PersistentGraphContainer<TwoToOnePathToEdgeGraphWT, P, R, E> {
+        container: PersistentGraphContainer<DirectedGraphWT, P, V, E>
+    ): PersistentGraphContainer<DirectedGraphWT, P, R, E> {
         val updatedVertices: PersistentMap<P, R> =
             container
                 .narrowed()
@@ -235,8 +234,8 @@ internal interface TwoToOnePathToEdgePersistentGraphTemplate :
 
     override fun <P, V, E, R> mapEdges(
         function: (E) -> R,
-        container: PersistentGraphContainer<TwoToOnePathToEdgeGraphWT, P, V, E>
-    ): PersistentGraphContainer<TwoToOnePathToEdgeGraphWT, P, V, R> {
+        container: PersistentGraphContainer<DirectedGraphWT, P, V, E>
+    ): PersistentGraphContainer<DirectedGraphWT, P, V, R> {
         val verticesByPath = container.narrowed().verticesByPath
         val updatedEdges =
             container
@@ -255,8 +254,8 @@ internal interface TwoToOnePathToEdgePersistentGraphTemplate :
 
     override fun <P, V, E, R, M : Map<out P, R>> flatMapVertices(
         function: (P, V) -> M,
-        container: PersistentGraphContainer<TwoToOnePathToEdgeGraphWT, P, V, E>
-    ): PersistentGraphContainer<TwoToOnePathToEdgeGraphWT, P, R, E> {
+        container: PersistentGraphContainer<DirectedGraphWT, P, V, E>
+    ): PersistentGraphContainer<DirectedGraphWT, P, R, E> {
         val updatedVertices: PersistentMap<P, R> =
             container
                 .narrowed()
@@ -289,8 +288,8 @@ internal interface TwoToOnePathToEdgePersistentGraphTemplate :
 
     override fun <P, V, E, R, M : Map<out Pair<P, P>, R>> flatMapEdges(
         function: (Pair<P, P>, E) -> M,
-        container: PersistentGraphContainer<TwoToOnePathToEdgeGraphWT, P, V, E>
-    ): PersistentGraphContainer<TwoToOnePathToEdgeGraphWT, P, V, R> {
+        container: PersistentGraphContainer<DirectedGraphWT, P, V, E>
+    ): PersistentGraphContainer<DirectedGraphWT, P, V, R> {
         val vertices: PersistentMap<P, V> = container.narrowed().verticesByPath
         val updatedEdges: PersistentMap<Pair<P, P>, R> =
             container

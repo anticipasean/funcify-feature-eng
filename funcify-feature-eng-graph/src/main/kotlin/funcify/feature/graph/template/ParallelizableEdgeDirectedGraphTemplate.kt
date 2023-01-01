@@ -2,7 +2,7 @@ package funcify.feature.graph.template
 
 import funcify.feature.graph.container.PersistentGraphContainer
 import funcify.feature.graph.container.PersistentGraphContainerFactory
-import funcify.feature.graph.container.PersistentGraphContainerFactory.ParallelizableEdgeGraph.Companion.ParallelizableEdgeGraphWT
+import funcify.feature.graph.container.PersistentGraphContainerFactory.ParallelizableEdgeDirectedGraph.Companion.ParallelizableEdgeDirectedGraphWT
 import funcify.feature.graph.container.PersistentGraphContainerFactory.narrowed
 import java.util.stream.Stream
 import kotlinx.collections.immutable.PersistentMap
@@ -10,14 +10,14 @@ import kotlinx.collections.immutable.PersistentSet
 import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.persistentSetOf
 
-internal interface ParallelizableEdgeGraphTemplate :
-    PersistentGraphTemplate<ParallelizableEdgeGraphWT> {
+internal interface ParallelizableEdgeDirectedGraphTemplate :
+    PersistentGraphTemplate<ParallelizableEdgeDirectedGraphWT> {
 
     override fun <P, V, E> fromVerticesAndEdges(
         verticesByPath: PersistentMap<P, V>,
         edgesByPathPair: PersistentMap<Pair<P, P>, E>
-    ): PersistentGraphContainer<ParallelizableEdgeGraphWT, P, V, E> {
-        return PersistentGraphContainerFactory.ParallelizableEdgeGraph(
+    ): PersistentGraphContainer<ParallelizableEdgeDirectedGraphWT, P, V, E> {
+        return PersistentGraphContainerFactory.ParallelizableEdgeDirectedGraph(
             verticesByPath = verticesByPath,
             edgesSetByPathPair =
                 edgesByPathPair.asIterable().fold(
@@ -29,8 +29,8 @@ internal interface ParallelizableEdgeGraphTemplate :
     override fun <P, V, E> fromVerticesAndEdgeSets(
         verticesByPath: PersistentMap<P, V>,
         edgesSetByPathPair: PersistentMap<Pair<P, P>, PersistentSet<E>>
-    ): PersistentGraphContainer<ParallelizableEdgeGraphWT, P, V, E> {
-        return PersistentGraphContainerFactory.ParallelizableEdgeGraph(
+    ): PersistentGraphContainer<ParallelizableEdgeDirectedGraphWT, P, V, E> {
+        return PersistentGraphContainerFactory.ParallelizableEdgeDirectedGraph(
             verticesByPath = verticesByPath,
             edgesSetByPathPair = edgesSetByPathPair
         )
@@ -39,7 +39,7 @@ internal interface ParallelizableEdgeGraphTemplate :
     override fun <P, V, E> fromVertexAndEdgeStreams(
         verticesByPathStream: Stream<Pair<P, V>>,
         edgesByPathPairStream: Stream<Pair<Pair<P, P>, E>>,
-    ): PersistentGraphContainer<ParallelizableEdgeGraphWT, P, V, E> {
+    ): PersistentGraphContainer<ParallelizableEdgeDirectedGraphWT, P, V, E> {
         val verticesByPath: PersistentMap<P, V> =
             verticesByPathStream.reduce(
                 persistentMapOf<P, V>(),
@@ -61,7 +61,7 @@ internal interface ParallelizableEdgeGraphTemplate :
                         pm1Builder.build()
                     }
                 )
-        return PersistentGraphContainerFactory.ParallelizableEdgeGraph<P, V, E>(
+        return PersistentGraphContainerFactory.ParallelizableEdgeDirectedGraph<P, V, E>(
             verticesByPath = verticesByPath,
             edgesSetByPathPair = edgeSetsByPathPair
         )
@@ -70,8 +70,8 @@ internal interface ParallelizableEdgeGraphTemplate :
     override fun <P, V, E> put(
         path: P,
         vertex: V,
-        container: PersistentGraphContainer<ParallelizableEdgeGraphWT, P, V, E>
-    ): PersistentGraphContainer<ParallelizableEdgeGraphWT, P, V, E> {
+        container: PersistentGraphContainer<ParallelizableEdgeDirectedGraphWT, P, V, E>
+    ): PersistentGraphContainer<ParallelizableEdgeDirectedGraphWT, P, V, E> {
         return fromVerticesAndEdgeSets(
             container.narrowed().verticesByPath.put(path, vertex),
             container.narrowed().edgesSetByPathPair
@@ -82,8 +82,8 @@ internal interface ParallelizableEdgeGraphTemplate :
         path1: P,
         path2: P,
         edge: E,
-        container: PersistentGraphContainer<ParallelizableEdgeGraphWT, P, V, E>
-    ): PersistentGraphContainer<ParallelizableEdgeGraphWT, P, V, E> {
+        container: PersistentGraphContainer<ParallelizableEdgeDirectedGraphWT, P, V, E>
+    ): PersistentGraphContainer<ParallelizableEdgeDirectedGraphWT, P, V, E> {
         val verticesByPath = container.narrowed().verticesByPath
         return if (path1 in verticesByPath && path2 in verticesByPath) {
             val edgesSetByPathPair = container.narrowed().edgesSetByPathPair
@@ -103,8 +103,8 @@ internal interface ParallelizableEdgeGraphTemplate :
     override fun <P, V, E> put(
         pathPair: Pair<P, P>,
         edge: E,
-        container: PersistentGraphContainer<ParallelizableEdgeGraphWT, P, V, E>
-    ): PersistentGraphContainer<ParallelizableEdgeGraphWT, P, V, E> {
+        container: PersistentGraphContainer<ParallelizableEdgeDirectedGraphWT, P, V, E>
+    ): PersistentGraphContainer<ParallelizableEdgeDirectedGraphWT, P, V, E> {
         val verticesByPath = container.narrowed().verticesByPath
         return if (pathPair.first in verticesByPath && pathPair.second in verticesByPath) {
             val edgesSetByPathPair = container.narrowed().edgesSetByPathPair
@@ -122,8 +122,8 @@ internal interface ParallelizableEdgeGraphTemplate :
 
     override fun <P, V, E, M : Map<P, V>> putAllVertices(
         vertices: M,
-        container: PersistentGraphContainer<ParallelizableEdgeGraphWT, P, V, E>
-    ): PersistentGraphContainer<ParallelizableEdgeGraphWT, P, V, E> {
+        container: PersistentGraphContainer<ParallelizableEdgeDirectedGraphWT, P, V, E>
+    ): PersistentGraphContainer<ParallelizableEdgeDirectedGraphWT, P, V, E> {
         return fromVerticesAndEdgeSets(
             container.narrowed().verticesByPath.putAll(vertices),
             container.narrowed().edgesSetByPathPair
@@ -132,8 +132,8 @@ internal interface ParallelizableEdgeGraphTemplate :
 
     override fun <P, V, E, M : Map<Pair<P, P>, E>> putAllEdges(
         edges: M,
-        container: PersistentGraphContainer<ParallelizableEdgeGraphWT, P, V, E>
-    ): PersistentGraphContainer<ParallelizableEdgeGraphWT, P, V, E> {
+        container: PersistentGraphContainer<ParallelizableEdgeDirectedGraphWT, P, V, E>
+    ): PersistentGraphContainer<ParallelizableEdgeDirectedGraphWT, P, V, E> {
         val verticesByPath = container.narrowed().verticesByPath
         val updatedEdges =
             edges.entries
@@ -162,8 +162,8 @@ internal interface ParallelizableEdgeGraphTemplate :
 
     override fun <P, V, E, S : Set<E>, M : Map<Pair<P, P>, S>> putAllEdgeSets(
         edges: M,
-        container: PersistentGraphContainer<ParallelizableEdgeGraphWT, P, V, E>
-    ): PersistentGraphContainer<ParallelizableEdgeGraphWT, P, V, E> {
+        container: PersistentGraphContainer<ParallelizableEdgeDirectedGraphWT, P, V, E>
+    ): PersistentGraphContainer<ParallelizableEdgeDirectedGraphWT, P, V, E> {
         val verticesByPath = container.narrowed().verticesByPath
         val updatedEdges =
             edges.entries
@@ -192,8 +192,8 @@ internal interface ParallelizableEdgeGraphTemplate :
 
     override fun <P, V, E> filterVertices(
         function: (V) -> Boolean,
-        container: PersistentGraphContainer<ParallelizableEdgeGraphWT, P, V, E>
-    ): PersistentGraphContainer<ParallelizableEdgeGraphWT, P, V, E> {
+        container: PersistentGraphContainer<ParallelizableEdgeDirectedGraphWT, P, V, E>
+    ): PersistentGraphContainer<ParallelizableEdgeDirectedGraphWT, P, V, E> {
         val updatedVertices =
             container
                 .narrowed()
@@ -236,8 +236,8 @@ internal interface ParallelizableEdgeGraphTemplate :
 
     override fun <P, V, E> filterEdges(
         function: (E) -> Boolean,
-        container: PersistentGraphContainer<ParallelizableEdgeGraphWT, P, V, E>
-    ): PersistentGraphContainer<ParallelizableEdgeGraphWT, P, V, E> {
+        container: PersistentGraphContainer<ParallelizableEdgeDirectedGraphWT, P, V, E>
+    ): PersistentGraphContainer<ParallelizableEdgeDirectedGraphWT, P, V, E> {
         val updatedEdges =
             container
                 .narrowed()
@@ -271,8 +271,8 @@ internal interface ParallelizableEdgeGraphTemplate :
 
     override fun <P, V, E, R> mapVertices(
         function: (V) -> R,
-        container: PersistentGraphContainer<ParallelizableEdgeGraphWT, P, V, E>
-    ): PersistentGraphContainer<ParallelizableEdgeGraphWT, P, R, E> {
+        container: PersistentGraphContainer<ParallelizableEdgeDirectedGraphWT, P, V, E>
+    ): PersistentGraphContainer<ParallelizableEdgeDirectedGraphWT, P, R, E> {
         val updatedVertices =
             container
                 .narrowed()
@@ -315,8 +315,8 @@ internal interface ParallelizableEdgeGraphTemplate :
 
     override fun <P, V, E, R> mapEdges(
         function: (E) -> R,
-        container: PersistentGraphContainer<ParallelizableEdgeGraphWT, P, V, E>
-    ): PersistentGraphContainer<ParallelizableEdgeGraphWT, P, V, R> {
+        container: PersistentGraphContainer<ParallelizableEdgeDirectedGraphWT, P, V, E>
+    ): PersistentGraphContainer<ParallelizableEdgeDirectedGraphWT, P, V, R> {
         val updatedEdges =
             container
                 .narrowed()
@@ -347,8 +347,8 @@ internal interface ParallelizableEdgeGraphTemplate :
 
     override fun <P, V, E, R, M : Map<out P, R>> flatMapVertices(
         function: (P, V) -> M,
-        container: PersistentGraphContainer<ParallelizableEdgeGraphWT, P, V, E>
-    ): PersistentGraphContainer<ParallelizableEdgeGraphWT, P, R, E> {
+        container: PersistentGraphContainer<ParallelizableEdgeDirectedGraphWT, P, V, E>
+    ): PersistentGraphContainer<ParallelizableEdgeDirectedGraphWT, P, R, E> {
         val updatedVertices =
             container
                 .narrowed()
@@ -392,8 +392,8 @@ internal interface ParallelizableEdgeGraphTemplate :
 
     override fun <P, V, E, R, M : Map<out Pair<P, P>, R>> flatMapEdges(
         function: (Pair<P, P>, E) -> M,
-        container: PersistentGraphContainer<ParallelizableEdgeGraphWT, P, V, E>
-    ): PersistentGraphContainer<ParallelizableEdgeGraphWT, P, V, R> {
+        container: PersistentGraphContainer<ParallelizableEdgeDirectedGraphWT, P, V, E>
+    ): PersistentGraphContainer<ParallelizableEdgeDirectedGraphWT, P, V, R> {
         val verticesByPath = container.narrowed().verticesByPath
         val updatedEdges =
             container

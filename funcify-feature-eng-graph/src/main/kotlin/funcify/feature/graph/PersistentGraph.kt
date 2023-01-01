@@ -8,7 +8,7 @@ interface PersistentGraph<P, V, E> : ImmutableGraph<P, V, E> {
 
         fun <P, V, E> empty(): PersistentGraph<P, V, E> {
             return PersistentGraphSourceContextFactory
-                .TwoToOnePathToEdgePersistentGraphSourceDesign<P, V, E>()
+                .DirectedPersistentGraphSourceDesign<P, V, E>()
         }
 
         fun <P, V, E> of(
@@ -19,7 +19,7 @@ interface PersistentGraph<P, V, E> : ImmutableGraph<P, V, E> {
             edge: E
         ): PersistentGraph<P, V, E> {
             return PersistentGraphSourceContextFactory
-                .TwoToOnePathToEdgePersistentGraphSourceDesign<P, V, E>()
+                .DirectedPersistentGraphSourceDesign<P, V, E>()
                 .put(path1, vertex1)
                 .put(path2, vertex2)
                 .put(path1, path2, edge)
