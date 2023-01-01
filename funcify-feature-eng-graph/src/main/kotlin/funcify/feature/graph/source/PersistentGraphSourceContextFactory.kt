@@ -27,7 +27,7 @@ internal object PersistentGraphSourceContextFactory {
         val edgesByPathPair: PersistentMap<Pair<P, P>, E> = persistentMapOf(),
         override val template: PersistentGraphTemplate<DirectedGraphWT> =
             initialDirectedGraphTemplate
-    ) : DirectedPersistentGraphDesign<DirectedGraphWT, P, V, E> {
+    ) : DirectedPersistentGraphDesign<DirectedGraphWT, P, V, E>(template) {
 
         override fun <WT> fold(
             template: PersistentGraphTemplate<WT>
@@ -44,7 +44,7 @@ internal object PersistentGraphSourceContextFactory {
         val edgesSetByPathPair: PersistentMap<Pair<P, P>, PersistentSet<E>> = persistentMapOf(),
         override val template: PersistentGraphTemplate<ParallelizableEdgeDirectedGraphWT> =
             initialParallelizableEdgeDirectedGraphTemplate
-    ) : DirectedPersistentGraphDesign<ParallelizableEdgeDirectedGraphWT, P, V, E> {
+    ) : DirectedPersistentGraphDesign<ParallelizableEdgeDirectedGraphWT, P, V, E>(template) {
 
         override fun <WT> fold(
             template: PersistentGraphTemplate<WT>

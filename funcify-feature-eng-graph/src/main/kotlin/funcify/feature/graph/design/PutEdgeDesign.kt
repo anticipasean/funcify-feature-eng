@@ -9,7 +9,7 @@ internal class PutEdgeDesign<SWT, P, V, E>(
     val vertexPath1: P,
     val vertexPath2: P,
     val newEdge: E
-) : PersistentGraphDesign<SWT, P, V, E> {
+) : PersistentGraphDesign<SWT, P, V, E>(template) {
 
     override fun <WT> fold(
         template: PersistentGraphTemplate<WT>

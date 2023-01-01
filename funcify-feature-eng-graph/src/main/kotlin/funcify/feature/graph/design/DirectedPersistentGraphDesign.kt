@@ -3,6 +3,7 @@ package funcify.feature.graph.design
 import funcify.feature.graph.DirectedPersistentGraph
 import funcify.feature.graph.container.PersistentGraphContainer
 import funcify.feature.graph.container.PersistentGraphContainerFactory
+import funcify.feature.graph.template.PersistentGraphTemplate
 import java.util.stream.Stream
 import kotlinx.collections.immutable.persistentSetOf
 
@@ -11,8 +12,9 @@ import kotlinx.collections.immutable.persistentSetOf
  * @author smccarron
  * @created 2023-01-01
  */
-internal interface DirectedPersistentGraphDesign<CWT, P, V, E> :
-    PersistentGraphDesign<CWT, P, V, E>, DirectedPersistentGraph<P, V, E> {
+internal abstract class DirectedPersistentGraphDesign<CWT, P, V, E>(
+    override val template: PersistentGraphTemplate<CWT>
+) : PersistentGraphDesign<CWT, P, V, E>(template), DirectedPersistentGraph<P, V, E> {
 
     override fun hasCycles(): Boolean {
         return when (val container: PersistentGraphContainer<CWT, P, V, E> = this.fold(template)) {

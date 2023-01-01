@@ -7,7 +7,7 @@ internal class FlatMapVerticesDesign<SWT, P, V, E, R, M : Map<out P, R>>(
     override val template: PersistentGraphTemplate<SWT>,
     val currentDesign: PersistentGraphDesign<SWT, P, V, E>,
     val mapper: (P, V) -> M
-) : PersistentGraphDesign<SWT, P, R, E> {
+) : PersistentGraphDesign<SWT, P, R, E>(template) {
 
     override fun <WT> fold(
         template: PersistentGraphTemplate<WT>

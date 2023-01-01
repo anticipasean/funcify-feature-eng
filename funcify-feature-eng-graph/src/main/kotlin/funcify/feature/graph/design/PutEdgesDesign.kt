@@ -7,7 +7,7 @@ internal class PutEdgesDesign<SWT, P, V, E>(
     override val template: PersistentGraphTemplate<SWT>,
     val currentDesign: PersistentGraphDesign<SWT, P, V, E>,
     val edges: Map<Pair<P, P>, E>
-) : PersistentGraphDesign<SWT, P, V, E> {
+) : PersistentGraphDesign<SWT, P, V, E>(template) {
 
     override fun <WT> fold(
         template: PersistentGraphTemplate<WT>
