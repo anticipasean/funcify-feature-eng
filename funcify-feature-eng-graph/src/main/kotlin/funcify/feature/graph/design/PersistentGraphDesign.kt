@@ -498,4 +498,105 @@ internal interface PersistentGraphDesign<CWT, P, V, E> : PersistentGraph<P, V, E
             }
         }
     }
+
+    override fun <R> foldLeftVertices(initial: R, accumulator: (R, Pair<P, V>) -> R): R {
+        return when (
+            val container: PersistentGraphContainer<CWT, P, V, E> = this.materializedContainer
+        ) {
+            is PersistentGraphContainerFactory.ParallelizableEdgeDirectedGraph -> {
+                container.verticesByPath
+                    .asSequence()
+                    .map { (p, v) -> p to v }
+                    .fold(initial, accumulator)
+            }
+            is PersistentGraphContainerFactory.DirectedGraph -> {
+                container.verticesByPath
+                    .asSequence()
+                    .map { (k, v) -> k to v }
+                    .fold(initial, accumulator)
+            }
+            else -> {
+                throw UnsupportedOperationException(
+                    "container type is not handled: [ container.type: ${container::class.qualifiedName} ]"
+                )
+            }
+        }
+    }
+
+    override fun <R> foldLeftEdges(initial: R, accumulator: (R, Pair<Pair<P, P>, E>) -> R): R {
+        return when (
+            val container: PersistentGraphContainer<CWT, P, V, E> = this.materializedContainer
+        ) {
+            is PersistentGraphContainerFactory.ParallelizableEdgeDirectedGraph -> {
+                container.edgesSetByPathPair
+                    .asSequence()
+                    .flatMap { (k, v) -> v.asSequence().map { e -> k to e } }
+                    .fold(initial, accumulator)
+            }
+            is PersistentGraphContainerFactory.DirectedGraph -> {
+                container.edgesByPathPair
+                    .asSequence()
+                    .map { (k, v) -> k to v }
+                    .fold(initial, accumulator)
+            }
+            else -> {
+                throw UnsupportedOperationException(
+                    "container type is not handled: [ container.type: ${container::class.qualifiedName} ]"
+                )
+            }
+        }
+    }
+
+    override fun <R> foldRightVertices(initial: R, accumulator: (Pair<P, V>, R) -> R): R {
+        return when (
+            val container: PersistentGraphContainer<CWT, P, V, E> = this.materializedContainer
+        ) {
+            is PersistentGraphContainerFactory.ParallelizableEdgeDirectedGraph -> {
+                container.verticesByPath.keys
+                    .reversed()
+                    .asSequence()
+                    .map { p -> p to container.verticesByPath[p]!! }
+                    .fold(initial) { result, entry -> accumulator(entry, result) }
+            }
+            is PersistentGraphContainerFactory.DirectedGraph -> {
+                container.verticesByPath.keys
+                    .reversed()
+                    .asSequence()
+                    .map { p -> p to container.verticesByPath[p]!! }
+                    .fold(initial) { result, entry -> accumulator(entry, result) }
+            }
+            else -> {
+                throw UnsupportedOperationException(
+                    "container type is not handled: [ container.type: ${container::class.qualifiedName} ]"
+                )
+            }
+        }
+    }
+
+    override fun <R> foldRightEdges(initial: R, accumulator: (Pair<Pair<P, P>, E>, R) -> R): R {
+        return when (
+            val container: PersistentGraphContainer<CWT, P, V, E> = this.materializedContainer
+        ) {
+            is PersistentGraphContainerFactory.ParallelizableEdgeDirectedGraph -> {
+                container.edgesSetByPathPair.keys
+                    .reversed()
+                    .asSequence()
+                    .map { ek -> ek to container.edgesSetByPathPair[ek]!! }
+                    .flatMap { (ek, eSet) -> eSet.asSequence().map { e -> ek to e } }
+                    .fold(initial) { result, entry -> accumulator(entry, result) }
+            }
+            is PersistentGraphContainerFactory.DirectedGraph -> {
+                container.edgesByPathPair.keys
+                    .reversed()
+                    .asSequence()
+                    .map { ek -> ek to container.edgesByPathPair[ek]!! }
+                    .fold(initial) { result, entry -> accumulator(entry, result) }
+            }
+            else -> {
+                throw UnsupportedOperationException(
+                    "container type is not handled: [ container.type: ${container::class.qualifiedName} ]"
+                )
+            }
+        }
+    }
 }

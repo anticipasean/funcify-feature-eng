@@ -13,24 +13,24 @@ import java.util.stream.Stream
 interface ImmutableGraph<P, out V, out E> {
 
     /**
-     * Path/Point of type <P> uniquely identifies a vertex in the graph and may even be the same value as
-     * its vertex if desired
+     * Path/Point of type <P> uniquely identifies a vertex in the graph and may even be the same
+     * value as its vertex if desired
      * - ImmutableGraph<Int, Int, Char>: e.g. ( Path: 1, Vertex: 1 ), ( Path: 2, Vertex: 2 ), (
      * PathPair: ( 1, 2 ), Edge: 'A' )
      */
     operator fun get(path: P): V?
 
     /**
-     * Path/Point of type <P> and another Path/Point of type <P> as a pair uniquely identifies an edge in the
-     * graph and may even be the same type as its paths if desired
+     * Path/Point of type <P> and another Path/Point of type <P> as a pair uniquely identifies an
+     * edge in the graph and may even be the same type as its paths if desired
      * - ImmutableGraph<Char, Int, Char>: e.g. ( Path: 'A', Vertex: 1 ), ( Path: 'B', Vertex: 2 ), (
      * PathPair: ( 'A', 'B' ), Edge: 'C' )
      */
     operator fun get(path1: P, path2: P): Iterable<E>
 
     /**
-     * Path/Point of type <P> and another Path/Point of type <P> as a pair uniquely identifies an edge in the
-     * graph and may even be the same type as its paths if desired
+     * Path/Point of type <P> and another Path/Point of type <P> as a pair uniquely identifies an
+     * edge in the graph and may even be the same type as its paths if desired
      * - ImmutableGraph<Char, Int, Char>: e.g. ( Path: 'A', Vertex: 1 ), ( Path: 'B', Vertex: 2 ), (
      * PathPair: ( 'A', 'B' ), Edge: 'C' )
      */
@@ -113,4 +113,11 @@ interface ImmutableGraph<P, out V, out E> {
         function: (Pair<P, P>, E) -> M
     ): ImmutableGraph<P, V, R>
 
+    fun <R> foldLeftVertices(initial: R, accumulator: (R, Pair<P, V>) -> R): R
+
+    fun <R> foldLeftEdges(initial: R, accumulator: (R, Pair<Pair<P, P>, E>) -> R): R
+
+    fun <R> foldRightVertices(initial: R, accumulator: (Pair<P, V>, R) -> R): R
+
+    fun <R> foldRightEdges(initial: R, accumulator: (Pair<Pair<P, P>, E>, R) -> R): R
 }
