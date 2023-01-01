@@ -7,7 +7,7 @@ import kotlin.reflect.jvm.isAccessible
  * @author smccarron
  * @created 2022-12-31
  */
-sealed interface Eval<out V> {
+sealed interface Eval<out V> : () -> V {
 
     companion object {
 
@@ -98,7 +98,7 @@ sealed interface Eval<out V> {
         }
     }
 
-    fun get(): V {
+    override fun invoke(): V {
         return when (this) {
             is Done -> {
                 this.result
@@ -118,16 +118,23 @@ sealed interface Eval<out V> {
     fun <R> map(mapper: (V) -> R): Eval<R> {
         return when (this) {
             is Done -> {
-                ComputedOnce { mapper(this.result) }
+                // Delay computation of transformation since it could be expensive
+                // or the transformation might not be necessary if the code never uses the result
+                ComputedOnce<R> { mapper(this.result) }
             }
             is ComputedAlways -> {
-                ComputedAlways { mapper(this.computation()) }
+                // Keep compute_always logic when transforming
+                ComputedAlways<R> { mapper(this.computation()) }
             }
             is ComputedOnce -> {
-                ComputedOnce { mapper(this.computedValue) }
+                // Keep compute_once logic when transforming
+                ComputedOnce<R> { mapper(this.computedValue) }
             }
             is Nested -> {
-                Nested { this.computation().map(mapper) }
+                // Nest again but with unnesting of result within computation context
+                Nested<R> {
+                    Done(mapper(Either.recurse(this.computation(), unnestEvalContainer())))
+                }
             }
         }
     }
@@ -138,7 +145,7 @@ sealed interface Eval<out V> {
                 Nested<R> { mapper(this.result) }
             }
             is ComputedAlways -> {
-                Nested<R> { mapper(computation()) }
+                Nested<R> { mapper(this.computation()) }
             }
             is ComputedOnce -> {
                 Nested<R> { mapper(this.computedValue) }

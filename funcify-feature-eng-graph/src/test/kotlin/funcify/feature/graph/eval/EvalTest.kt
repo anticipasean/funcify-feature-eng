@@ -14,13 +14,13 @@ class EvalTest {
     fun evaluateComputedOnceTwiceWithSameResultTest() {
         val computedTime: Eval<Long> = Eval.computeOnce { System.currentTimeMillis() }
         val addedTimeMs = 5000L
-        val updatedTime1 = computedTime.flatMap { time -> Eval.done(time + addedTimeMs) }.get()
+        val updatedTime1 = computedTime.flatMap { time -> Eval.done(time + addedTimeMs) }.invoke()
         try {
             Thread.sleep(500)
         } catch (t: Throwable) {
             // ignore
         }
-        val updatedTime2 = computedTime.flatMap { time -> Eval.done(time + addedTimeMs) }.get()
+        val updatedTime2 = computedTime.flatMap { time -> Eval.done(time + addedTimeMs) }.invoke()
         Assertions.assertEquals(updatedTime1, updatedTime2, "not the same updated_time")
     }
 
@@ -28,13 +28,13 @@ class EvalTest {
     fun evaluateComputedAlwaysTwiceWithDifferentResultsTest() {
         val computedTime: Eval<Long> = Eval.computeAlways { System.currentTimeMillis() }
         val addedTimeMs = 5000L
-        val updatedTime1 = computedTime.flatMap { time -> Eval.done(time + addedTimeMs) }.get()
+        val updatedTime1 = computedTime.flatMap { time -> Eval.done(time + addedTimeMs) }.invoke()
         try {
             Thread.sleep(500)
         } catch (t: Throwable) {
             // ignore
         }
-        val updatedTime2 = computedTime.flatMap { time -> Eval.done(time + addedTimeMs) }.get()
+        val updatedTime2 = computedTime.flatMap { time -> Eval.done(time + addedTimeMs) }.invoke()
         Assertions.assertNotEquals(updatedTime1, updatedTime2, "is the same updated_time")
     }
 
@@ -42,7 +42,7 @@ class EvalTest {
     fun evaluateComputedOnceIsDoneStatus() {
         val computedTime: Eval<Long> = Eval.computeOnce { System.currentTimeMillis() }
         Assertions.assertFalse(computedTime.isDone(), "computed_once is marked done")
-        computedTime.get()
+        computedTime.invoke()
         Assertions.assertTrue(computedTime.isDone(), "computed_once not marked done")
     }
 
@@ -87,7 +87,7 @@ class EvalTest {
             "side_effect.counter not set to default value"
         )
         Assertions.assertEquals(
-            flatMappedComputation.get(),
+            flatMappedComputation.invoke(),
             -1,
             "flatmapped_computation.get value did not reach expected result value"
         )

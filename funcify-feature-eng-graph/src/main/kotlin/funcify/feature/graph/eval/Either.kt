@@ -23,6 +23,7 @@ sealed interface Either<out L, out R> {
             return Right(value)
         }
 
+        @JvmStatic
         fun <L, R> recurse(input: L, function: (L) -> Either<L, R>): R {
             var result: Either<L, R> = function(input)
             while (result is Left) {
