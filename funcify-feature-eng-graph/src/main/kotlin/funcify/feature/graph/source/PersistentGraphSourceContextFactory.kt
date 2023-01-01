@@ -3,7 +3,7 @@ package funcify.feature.graph.source
 import funcify.feature.graph.container.PersistentGraphContainer
 import funcify.feature.graph.container.PersistentGraphContainerFactory.DirectedGraph.Companion.DirectedGraphWT
 import funcify.feature.graph.container.PersistentGraphContainerFactory.ParallelizableEdgeDirectedGraph.Companion.ParallelizableEdgeDirectedGraphWT
-import funcify.feature.graph.design.PersistentGraphDesign
+import funcify.feature.graph.design.DirectedPersistentGraphDesign
 import funcify.feature.graph.template.DirectedGraphTemplate
 import funcify.feature.graph.template.ParallelizableEdgeDirectedGraphTemplate
 import funcify.feature.graph.template.PersistentGraphTemplate
@@ -27,7 +27,7 @@ internal object PersistentGraphSourceContextFactory {
         val edgesByPathPair: PersistentMap<Pair<P, P>, E> = persistentMapOf(),
         override val template: PersistentGraphTemplate<DirectedGraphWT> =
             initialDirectedGraphTemplate
-    ) : PersistentGraphDesign<DirectedGraphWT, P, V, E> {
+    ) : DirectedPersistentGraphDesign<DirectedGraphWT, P, V, E> {
 
         override fun <WT> fold(
             template: PersistentGraphTemplate<WT>
@@ -44,7 +44,7 @@ internal object PersistentGraphSourceContextFactory {
         val edgesSetByPathPair: PersistentMap<Pair<P, P>, PersistentSet<E>> = persistentMapOf(),
         override val template: PersistentGraphTemplate<ParallelizableEdgeDirectedGraphWT> =
             initialParallelizableEdgeDirectedGraphTemplate
-    ) : PersistentGraphDesign<ParallelizableEdgeDirectedGraphWT, P, V, E> {
+    ) : DirectedPersistentGraphDesign<ParallelizableEdgeDirectedGraphWT, P, V, E> {
 
         override fun <WT> fold(
             template: PersistentGraphTemplate<WT>
