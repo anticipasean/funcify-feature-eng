@@ -26,9 +26,9 @@ internal object PersistentGraphContainerFactory {
             enum class DirectedGraphWT
 
             fun <P, V, E> narrow(
-                persistentGraphContainer: PersistentGraphContainer<DirectedGraphWT, P, V, E>
+                container: PersistentGraphContainer<DirectedGraphWT, P, V, E>
             ): DirectedGraph<P, V, E> {
-                return persistentGraphContainer as DirectedGraph<P, V, E>
+                return container as DirectedGraph<P, V, E>
             }
         }
     }
@@ -42,10 +42,9 @@ internal object PersistentGraphContainerFactory {
             enum class ParallelizableEdgeDirectedGraphWT
 
             fun <P, V, E> narrow(
-                persistentGraphContainer:
-                    PersistentGraphContainer<ParallelizableEdgeDirectedGraphWT, P, V, E>
+                container: PersistentGraphContainer<ParallelizableEdgeDirectedGraphWT, P, V, E>
             ): ParallelizableEdgeDirectedGraph<P, V, E> {
-                return persistentGraphContainer as ParallelizableEdgeDirectedGraph<P, V, E>
+                return container as ParallelizableEdgeDirectedGraph<P, V, E>
             }
         }
     }

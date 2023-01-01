@@ -3,23 +3,26 @@ package funcify.feature.graph.design
 import funcify.feature.graph.PersistentGraph
 import funcify.feature.graph.container.PersistentGraphContainer
 import funcify.feature.graph.container.PersistentGraphContainerFactory
+import funcify.feature.graph.source.PersistentGraphSourceContextFactory
 import funcify.feature.graph.template.PersistentGraphTemplate
 import java.util.logging.Logger
 import java.util.stream.Stream
 import kotlinx.collections.immutable.PersistentSet
 import kotlinx.collections.immutable.persistentSetOf
 
-internal abstract class PersistentGraphDesign<CWT, P, V, E>(
-    open val template: PersistentGraphTemplate<CWT>,
-) : PersistentGraph<P, V, E> {
+/**
+ * Design of a graph includes both its contents (=> graph_container) and its behavior (=>
+ * graph_template)
+ */
+internal interface PersistentGraphDesign<CWT, P, V, E> : PersistentGraph<P, V, E> {
 
     companion object {
         private val logger: Logger = Logger.getLogger(PersistentGraphDesign::class.simpleName)
     }
 
-    protected val materializedContainer: PersistentGraphContainer<CWT, P, V, E> by lazy {
-        this.fold(template)
-    }
+    val template: PersistentGraphTemplate<CWT>
+
+    val materializedContainer: PersistentGraphContainer<CWT, P, V, E>
 
     override fun get(path: P): V? {
         return when (
@@ -64,108 +67,287 @@ internal abstract class PersistentGraphDesign<CWT, P, V, E>(
 
     override fun put(path: P, vertex: V): PersistentGraph<P, V, E> {
         logger.info("put: { path: $path, vertex: $vertex }")
-        return PutVertexDesign<CWT, P, V, E>(
-            template = template,
-            currentDesign = this,
-            path = path,
-            newVertex = vertex
-        )
+        return when (
+            val container: PersistentGraphContainer<CWT, P, V, E> =
+                this.template.put(path, vertex, materializedContainer)
+        ) {
+            is PersistentGraphContainerFactory.ParallelizableEdgeDirectedGraph -> {
+                PersistentGraphSourceContextFactory.ParallelizableEdgeGraphSourceDesign<P, V, E>(
+                    materializedContainer = container
+                )
+            }
+            is PersistentGraphContainerFactory.DirectedGraph -> {
+                PersistentGraphSourceContextFactory.DirectedPersistentGraphSourceDesign<P, V, E>(
+                    materializedContainer = container
+                )
+            }
+            else -> {
+                throw UnsupportedOperationException(
+                    "container type is not handled: [ container.type: ${container::class.qualifiedName} ]"
+                )
+            }
+        }
     }
 
     override fun put(path1: P, path2: P, edge: E): PersistentGraph<P, V, E> {
         logger.info("put: { path1: $path1, path2: $path2, edge: $edge }")
-        return PutEdgeDesign<CWT, P, V, E>(
-            template = template,
-            currentDesign = this,
-            vertexPath1 = path1,
-            vertexPath2 = path2,
-            newEdge = edge
-        )
+        return when (
+            val container: PersistentGraphContainer<CWT, P, V, E> =
+                this.template.put(path1, path2, edge, materializedContainer)
+        ) {
+            is PersistentGraphContainerFactory.ParallelizableEdgeDirectedGraph -> {
+                PersistentGraphSourceContextFactory.ParallelizableEdgeGraphSourceDesign<P, V, E>(
+                    materializedContainer = container
+                )
+            }
+            is PersistentGraphContainerFactory.DirectedGraph -> {
+                PersistentGraphSourceContextFactory.DirectedPersistentGraphSourceDesign<P, V, E>(
+                    materializedContainer = container
+                )
+            }
+            else -> {
+                throw UnsupportedOperationException(
+                    "container type is not handled: [ container.type: ${container::class.qualifiedName} ]"
+                )
+            }
+        }
     }
 
     override fun put(pathPair: Pair<P, P>, edge: E): PersistentGraph<P, V, E> {
         logger.info("put: { pathPair: $pathPair, edge: $edge }")
-        return PutEdgeDesign<CWT, P, V, E>(
-            template = template,
-            currentDesign = this,
-            vertexPath1 = pathPair.first,
-            vertexPath2 = pathPair.second,
-            newEdge = edge
-        )
+        return when (
+            val container: PersistentGraphContainer<CWT, P, V, E> =
+                this.template.put(pathPair, edge, materializedContainer)
+        ) {
+            is PersistentGraphContainerFactory.ParallelizableEdgeDirectedGraph -> {
+                PersistentGraphSourceContextFactory.ParallelizableEdgeGraphSourceDesign<P, V, E>(
+                    materializedContainer = container
+                )
+            }
+            is PersistentGraphContainerFactory.DirectedGraph -> {
+                PersistentGraphSourceContextFactory.DirectedPersistentGraphSourceDesign<P, V, E>(
+                    materializedContainer = container
+                )
+            }
+            else -> {
+                throw UnsupportedOperationException(
+                    "container type is not handled: [ container.type: ${container::class.qualifiedName} ]"
+                )
+            }
+        }
     }
 
     override fun <M : Map<P, V>> putAllVertices(vertices: M): PersistentGraph<P, V, E> {
-        return PutVerticesDesign<CWT, P, V, E>(
-            template = template,
-            currentDesign = this,
-            vertices = vertices
-        )
+        return when (
+            val container: PersistentGraphContainer<CWT, P, V, E> =
+                this.template.putAllVertices(vertices, materializedContainer)
+        ) {
+            is PersistentGraphContainerFactory.ParallelizableEdgeDirectedGraph -> {
+                PersistentGraphSourceContextFactory.ParallelizableEdgeGraphSourceDesign<P, V, E>(
+                    materializedContainer = container
+                )
+            }
+            is PersistentGraphContainerFactory.DirectedGraph -> {
+                PersistentGraphSourceContextFactory.DirectedPersistentGraphSourceDesign<P, V, E>(
+                    materializedContainer = container
+                )
+            }
+            else -> {
+                throw UnsupportedOperationException(
+                    "container type is not handled: [ container.type: ${container::class.qualifiedName} ]"
+                )
+            }
+        }
     }
 
     override fun <M : Map<Pair<P, P>, E>> putAllEdges(edges: M): PersistentGraph<P, V, E> {
-        return PutEdgesDesign<CWT, P, V, E>(
-            template = template,
-            currentDesign = this,
-            edges = edges
-        )
+        return when (
+            val container: PersistentGraphContainer<CWT, P, V, E> =
+                this.template.putAllEdges(edges, materializedContainer)
+        ) {
+            is PersistentGraphContainerFactory.ParallelizableEdgeDirectedGraph -> {
+                PersistentGraphSourceContextFactory.ParallelizableEdgeGraphSourceDesign<P, V, E>(
+                    materializedContainer = container
+                )
+            }
+            is PersistentGraphContainerFactory.DirectedGraph -> {
+                PersistentGraphSourceContextFactory.DirectedPersistentGraphSourceDesign<P, V, E>(
+                    materializedContainer = container
+                )
+            }
+            else -> {
+                throw UnsupportedOperationException(
+                    "container type is not handled: [ container.type: ${container::class.qualifiedName} ]"
+                )
+            }
+        }
     }
 
     override fun <S : Set<E>, M : Map<Pair<P, P>, S>> putAllEdgeSets(
         edges: M
     ): PersistentGraph<P, V, E> {
-        return PutEdgeSetsDesign<CWT, P, V, E>(
-            template = template,
-            currentDesign = this,
-            edgeSets = edges
-        )
+        return when (
+            val container: PersistentGraphContainer<CWT, P, V, E> =
+                this.template.putAllEdgeSets(edges, materializedContainer)
+        ) {
+            is PersistentGraphContainerFactory.ParallelizableEdgeDirectedGraph -> {
+                PersistentGraphSourceContextFactory.ParallelizableEdgeGraphSourceDesign<P, V, E>(
+                    materializedContainer = container
+                )
+            }
+            is PersistentGraphContainerFactory.DirectedGraph -> {
+                PersistentGraphSourceContextFactory.DirectedPersistentGraphSourceDesign<P, V, E>(
+                    materializedContainer = container
+                )
+            }
+            else -> {
+                throw UnsupportedOperationException(
+                    "container type is not handled: [ container.type: ${container::class.qualifiedName} ]"
+                )
+            }
+        }
     }
 
     override fun filterVertices(condition: (V) -> Boolean): PersistentGraph<P, V, E> {
-        return flatMapVertices { p, v ->
-            if (condition(v)) {
-                mapOf<P, V>(p to v)
-            } else {
-                emptyMap<P, V>()
+        return when (
+            val container: PersistentGraphContainer<CWT, P, V, E> =
+                this.template.filterVertices(condition, materializedContainer)
+        ) {
+            is PersistentGraphContainerFactory.ParallelizableEdgeDirectedGraph -> {
+                PersistentGraphSourceContextFactory.ParallelizableEdgeGraphSourceDesign<P, V, E>(
+                    materializedContainer = container
+                )
+            }
+            is PersistentGraphContainerFactory.DirectedGraph -> {
+                PersistentGraphSourceContextFactory.DirectedPersistentGraphSourceDesign<P, V, E>(
+                    materializedContainer = container
+                )
+            }
+            else -> {
+                throw UnsupportedOperationException(
+                    "container type is not handled: [ container.type: ${container::class.qualifiedName} ]"
+                )
             }
         }
     }
 
     override fun filterEdges(condition: (E) -> Boolean): PersistentGraph<P, V, E> {
-        return flatMapEdges { ek, e ->
-            if (condition(e)) {
-                mapOf(ek to e)
-            } else {
-                emptyMap()
+        return when (
+            val container: PersistentGraphContainer<CWT, P, V, E> =
+                this.template.filterEdges(condition, materializedContainer)
+        ) {
+            is PersistentGraphContainerFactory.ParallelizableEdgeDirectedGraph -> {
+                PersistentGraphSourceContextFactory.ParallelizableEdgeGraphSourceDesign<P, V, E>(
+                    materializedContainer = container
+                )
+            }
+            is PersistentGraphContainerFactory.DirectedGraph -> {
+                PersistentGraphSourceContextFactory.DirectedPersistentGraphSourceDesign<P, V, E>(
+                    materializedContainer = container
+                )
+            }
+            else -> {
+                throw UnsupportedOperationException(
+                    "container type is not handled: [ container.type: ${container::class.qualifiedName} ]"
+                )
             }
         }
     }
 
     override fun <R> mapVertices(function: (V) -> R): PersistentGraph<P, R, E> {
-        return flatMapVertices { p, v -> mapOf(p to function(v)) }
+        return when (
+            val container: PersistentGraphContainer<CWT, P, R, E> =
+                this.template.mapVertices(function, materializedContainer)
+        ) {
+            is PersistentGraphContainerFactory.ParallelizableEdgeDirectedGraph -> {
+                PersistentGraphSourceContextFactory.ParallelizableEdgeGraphSourceDesign<P, R, E>(
+                    materializedContainer = container
+                )
+            }
+            is PersistentGraphContainerFactory.DirectedGraph -> {
+                PersistentGraphSourceContextFactory.DirectedPersistentGraphSourceDesign<P, R, E>(
+                    materializedContainer = container
+                )
+            }
+            else -> {
+                throw UnsupportedOperationException(
+                    "container type is not handled: [ container.type: ${container::class.qualifiedName} ]"
+                )
+            }
+        }
     }
 
     override fun <R> mapEdges(function: (E) -> R): PersistentGraph<P, V, R> {
-        return flatMapEdges { ek, e -> mapOf(ek to function(e)) }
+        return when (
+            val container: PersistentGraphContainer<CWT, P, V, R> =
+                this.template.mapEdges(function, materializedContainer)
+        ) {
+            is PersistentGraphContainerFactory.ParallelizableEdgeDirectedGraph -> {
+                PersistentGraphSourceContextFactory.ParallelizableEdgeGraphSourceDesign<P, V, R>(
+                    materializedContainer = container
+                )
+            }
+            is PersistentGraphContainerFactory.DirectedGraph -> {
+                PersistentGraphSourceContextFactory.DirectedPersistentGraphSourceDesign<P, V, R>(
+                    materializedContainer = container
+                )
+            }
+            else -> {
+                throw UnsupportedOperationException(
+                    "container type is not handled: [ container.type: ${container::class.qualifiedName} ]"
+                )
+            }
+        }
     }
 
     override fun <R, M : Map<out P, R>> flatMapVertices(
         function: (P, V) -> M
     ): PersistentGraph<P, R, E> {
-        return FlatMapVerticesDesign<CWT, P, V, E, R, M>(
-            template = template,
-            currentDesign = this,
-            mapper = function
-        )
+        return when (
+            val container: PersistentGraphContainer<CWT, P, R, E> =
+                this.template.flatMapVertices(function, materializedContainer)
+        ) {
+            is PersistentGraphContainerFactory.ParallelizableEdgeDirectedGraph -> {
+                PersistentGraphSourceContextFactory.ParallelizableEdgeGraphSourceDesign<P, R, E>(
+                    materializedContainer = container
+                )
+            }
+            is PersistentGraphContainerFactory.DirectedGraph -> {
+                PersistentGraphSourceContextFactory.DirectedPersistentGraphSourceDesign<P, R, E>(
+                    materializedContainer = container
+                )
+            }
+            else -> {
+                throw UnsupportedOperationException(
+                    "container type is not handled: [ container.type: ${container::class.qualifiedName} ]"
+                )
+            }
+        }
     }
 
     override fun <R, M : Map<out Pair<P, P>, R>> flatMapEdges(
         function: (Pair<P, P>, E) -> M
     ): PersistentGraph<P, V, R> {
-        return FlatMapEdgesDesign<CWT, P, V, E, R, M>(
-            template = template,
-            currentDesign = this,
-            mapper = function
-        )
+        return when (
+            val container: PersistentGraphContainer<CWT, P, V, R> =
+                this.template.flatMapEdges(function, materializedContainer)
+        ) {
+            is PersistentGraphContainerFactory.ParallelizableEdgeDirectedGraph -> {
+                PersistentGraphSourceContextFactory.ParallelizableEdgeGraphSourceDesign<P, V, R>(
+                    materializedContainer = container
+                )
+            }
+            is PersistentGraphContainerFactory.DirectedGraph -> {
+                PersistentGraphSourceContextFactory.DirectedPersistentGraphSourceDesign<P, V, R>(
+                    materializedContainer = container
+                )
+            }
+            else -> {
+                throw UnsupportedOperationException(
+                    "container type is not handled: [ container.type: ${container::class.qualifiedName} ]"
+                )
+            }
+        }
     }
 
     override fun vertexCount(): Int {
@@ -316,8 +498,4 @@ internal abstract class PersistentGraphDesign<CWT, P, V, E>(
             }
         }
     }
-
-    abstract fun <WT> fold(
-        template: PersistentGraphTemplate<WT>
-    ): PersistentGraphContainer<WT, P, V, E>
 }

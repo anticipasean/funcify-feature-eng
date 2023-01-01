@@ -12,12 +12,15 @@ import kotlinx.collections.immutable.persistentSetOf
  * @author smccarron
  * @created 2023-01-01
  */
-internal abstract class DirectedPersistentGraphDesign<CWT, P, V, E>(
+internal interface DirectedPersistentGraphDesign<CWT, P, V, E> :
+    PersistentGraphDesign<CWT, P, V, E>, DirectedPersistentGraph<P, V, E> {
+
     override val template: PersistentGraphTemplate<CWT>
-) : PersistentGraphDesign<CWT, P, V, E>(template), DirectedPersistentGraph<P, V, E> {
+
+    override val materializedContainer: PersistentGraphContainer<CWT, P, V, E>
 
     override fun hasCycles(): Boolean {
-        return when (val container: PersistentGraphContainer<CWT, P, V, E> = this.fold(template)) {
+        return when (val container: PersistentGraphContainer<CWT, P, V, E> = materializedContainer) {
             is PersistentGraphContainerFactory.ParallelizableEdgeDirectedGraph ->
                 container.edgesSetByPathPair.keys
                     .parallelStream()
@@ -41,7 +44,7 @@ internal abstract class DirectedPersistentGraphDesign<CWT, P, V, E>(
     }
 
     override fun getCyclesAsStream(): Stream<out Pair<Triple<P, P, E>, Triple<P, P, E>>> {
-        return when (val container: PersistentGraphContainer<CWT, P, V, E> = this.fold(template)) {
+        return when (val container: PersistentGraphContainer<CWT, P, V, E> = materializedContainer) {
             is PersistentGraphContainerFactory.ParallelizableEdgeDirectedGraph ->
                 container.edgesSetByPathPair.keys.parallelStream().flatMap { pathPair: Pair<P, P> ->
                     val reversedPair = pathPair.second to pathPair.first

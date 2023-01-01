@@ -4,6 +4,8 @@ import funcify.feature.graph.container.PersistentGraphContainer
 import funcify.feature.graph.container.PersistentGraphContainerFactory
 import funcify.feature.graph.container.PersistentGraphContainerFactory.DirectedGraph.Companion.DirectedGraphWT
 import funcify.feature.graph.container.PersistentGraphContainerFactory.narrowed
+import funcify.feature.graph.extensions.PersistentMapExtensions.reduceEntriesToPersistentMap
+import funcify.feature.graph.extensions.PersistentMapExtensions.reducePairsToPersistentMap
 import java.util.stream.Stream
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.PersistentSet
@@ -33,11 +35,7 @@ internal interface DirectedGraphTemplate : PersistentGraphTemplate<DirectedGraph
                     .flatMap { e: Map.Entry<Pair<P, P>, PersistentSet<E>> ->
                         e.value.stream().map { edge -> e.key to edge }
                     }
-                    .reduce(
-                        persistentMapOf<Pair<P, P>, E>(),
-                        { pm, e -> pm.put(e.first, e.second) },
-                        { pm1, pm2 -> pm1.putAll(pm2) }
-                    )
+                    .reducePairsToPersistentMap()
         )
     }
 
@@ -51,14 +49,10 @@ internal interface DirectedGraphTemplate : PersistentGraphTemplate<DirectedGraph
                 { pm, (k, v) -> pm.put(k, v) },
                 PersistentMap<P, V>::putAll
             )
-        val edgesByPathPair =
+        val edgesByPathPair: PersistentMap<Pair<P, P>, E> =
             edgesByPathPairStream
                 .filter { (ek, _) -> ek.first in verticesByPath && ek.second in verticesByPath }
-                .reduce(
-                    persistentMapOf<Pair<P, P>, E>(),
-                    { pm, (ek, e) -> pm.put(ek, e) },
-                    PersistentMap<Pair<P, P>, E>::putAll
-                )
+                .reducePairsToPersistentMap()
         return PersistentGraphContainerFactory.DirectedGraph<P, V, E>(
             verticesByPath = verticesByPath,
             edgesByPathPair = edgesByPathPair
@@ -128,11 +122,7 @@ internal interface DirectedGraphTemplate : PersistentGraphTemplate<DirectedGraph
             edges.entries
                 .parallelStream()
                 .filter { e -> e.key.first in verticesByPath && e.key.second in verticesByPath }
-                .reduce(
-                    container.narrowed().edgesByPathPair,
-                    { pm, entry -> pm.put(entry.key, entry.value) },
-                    { pm1, pm2 -> pm1.putAll(pm2) }
-                )
+                .reduceEntriesToPersistentMap(container.narrowed().edgesByPathPair)
         return fromVerticesAndEdges(verticesByPath, updatedEdges)
     }
 
@@ -150,11 +140,7 @@ internal interface DirectedGraphTemplate : PersistentGraphTemplate<DirectedGraph
                 .flatMap { entry: Map.Entry<Pair<P, P>, Set<E>> ->
                     entry.value.stream().map { e: E -> entry.key to e }
                 }
-                .reduce(
-                    container.narrowed().edgesByPathPair,
-                    { pm, pair -> pm.put(pair.first, pair.second) },
-                    { pm1, pm2 -> pm1.putAll(pm2) }
-                )
+                .reducePairsToPersistentMap()
         return fromVerticesAndEdges(verticesByPath, updatedEdges)
     }
 
@@ -169,12 +155,8 @@ internal interface DirectedGraphTemplate : PersistentGraphTemplate<DirectedGraph
                 .entries
                 .stream()
                 .parallel()
-                .filter { entry: Map.Entry<P, V> -> function.invoke(entry.value) }
-                .reduce(
-                    persistentMapOf<P, V>(),
-                    { pm, entry -> pm.put(entry.key, entry.value) },
-                    { pm1, pm2 -> pm1.putAll(pm2) }
-                )
+                .filter { entry: Map.Entry<P, V> -> function(entry.value) }
+                .reduceEntriesToPersistentMap()
         val updatedEdges =
             container
                 .narrowed()
@@ -185,11 +167,7 @@ internal interface DirectedGraphTemplate : PersistentGraphTemplate<DirectedGraph
                 .filter { e: Map.Entry<Pair<P, P>, E> ->
                     e.key.first in updatedVertices && e.key.second in updatedVertices
                 }
-                .reduce(
-                    persistentMapOf<Pair<P, P>, E>(),
-                    { pm, entry -> pm.put(entry.key, entry.value) },
-                    { pm1, pm2 -> pm1.putAll(pm2) }
-                )
+                .reduceEntriesToPersistentMap()
         return fromVerticesAndEdges(updatedVertices, updatedEdges)
     }
 
@@ -204,12 +182,8 @@ internal interface DirectedGraphTemplate : PersistentGraphTemplate<DirectedGraph
                 .entries
                 .stream()
                 .parallel()
-                .filter { entry: Map.Entry<Pair<P, P>, E> -> function.invoke(entry.value) }
-                .reduce(
-                    persistentMapOf<Pair<P, P>, E>(),
-                    { pm, entry -> pm.put(entry.key, entry.value) },
-                    { pm1, pm2 -> pm1.putAll(pm2) }
-                )
+                .filter { entry: Map.Entry<Pair<P, P>, E> -> function(entry.value) }
+                .reduceEntriesToPersistentMap()
         return fromVerticesAndEdges(container.narrowed().verticesByPath, updatedEdges)
     }
 
@@ -223,12 +197,8 @@ internal interface DirectedGraphTemplate : PersistentGraphTemplate<DirectedGraph
                 .verticesByPath
                 .entries
                 .parallelStream()
-                .map { e: Map.Entry<P, V> -> e.key to function.invoke(e.value) }
-                .reduce(
-                    persistentMapOf<P, R>(),
-                    { pm, pair -> pm.put(pair.first, pair.second) },
-                    { pm1, pm2 -> pm1.putAll(pm2) }
-                )
+                .map { e: Map.Entry<P, V> -> e.key to function(e.value) }
+                .reducePairsToPersistentMap()
         return fromVerticesAndEdges(updatedVertices, container.narrowed().edgesByPathPair)
     }
 
@@ -243,12 +213,8 @@ internal interface DirectedGraphTemplate : PersistentGraphTemplate<DirectedGraph
                 .edgesByPathPair
                 .entries
                 .parallelStream()
-                .map { e: Map.Entry<Pair<P, P>, E> -> e.key to function.invoke(e.value) }
-                .reduce(
-                    persistentMapOf<Pair<P, P>, R>(),
-                    { pm, pair -> pm.put(pair.first, pair.second) },
-                    { pm1, pm2 -> pm1.putAll(pm2) }
-                )
+                .map { e: Map.Entry<Pair<P, P>, E> -> e.key to function(e.value) }
+                .reducePairsToPersistentMap()
         return fromVerticesAndEdges(verticesByPath, updatedEdges)
     }
 
@@ -262,13 +228,9 @@ internal interface DirectedGraphTemplate : PersistentGraphTemplate<DirectedGraph
                 .verticesByPath
                 .entries
                 .parallelStream()
-                .map { e: Map.Entry<P, V> -> function.invoke(e.key, e.value) }
+                .map { e: Map.Entry<P, V> -> function(e.key, e.value) }
                 .flatMap { m: M -> m.entries.stream() }
-                .reduce(
-                    persistentMapOf<P, R>(),
-                    { pm, entry -> pm.put(entry.key, entry.value) },
-                    { pm1, pm2 -> pm1.putAll(pm2) }
-                )
+                .reduceEntriesToPersistentMap()
         val updatedEdges: PersistentMap<Pair<P, P>, E> =
             container
                 .narrowed()
@@ -278,11 +240,7 @@ internal interface DirectedGraphTemplate : PersistentGraphTemplate<DirectedGraph
                 .filter { e: Map.Entry<Pair<P, P>, E> ->
                     e.key.first in updatedVertices && e.key.second in updatedVertices
                 }
-                .reduce(
-                    persistentMapOf<Pair<P, P>, E>(),
-                    { pm, entry -> pm.put(entry.key, entry.value) },
-                    { pm1, pm2 -> pm1.putAll(pm2) }
-                )
+                .reduceEntriesToPersistentMap()
         return fromVerticesAndEdges(updatedVertices, updatedEdges)
     }
 
@@ -298,16 +256,12 @@ internal interface DirectedGraphTemplate : PersistentGraphTemplate<DirectedGraph
                 .entries
                 .parallelStream()
                 .flatMap { e: Map.Entry<Pair<P, P>, E> ->
-                    function.invoke(e.key, e.value).entries.stream()
+                    function(e.key, e.value).entries.stream()
                 }
                 .filter { e: Map.Entry<Pair<P, P>, R> ->
                     e.key.first in vertices && e.key.second in vertices
                 }
-                .reduce(
-                    persistentMapOf<Pair<P, P>, R>(),
-                    { pm, entry -> pm.put(entry.key, entry.value) },
-                    { pm1, pm2 -> pm1.putAll(pm2) }
-                )
+                .reduceEntriesToPersistentMap()
         return fromVerticesAndEdges(vertices, updatedEdges)
     }
 }
