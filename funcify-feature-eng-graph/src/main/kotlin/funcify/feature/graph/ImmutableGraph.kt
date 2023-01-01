@@ -2,6 +2,14 @@ package funcify.feature.graph
 
 import java.util.stream.Stream
 
+/**
+ * @param P
+ * - Path or Point type parameter
+ * @param V
+ * - Vertex type parameter
+ * @param E
+ * - Edge type parameter
+ */
 interface ImmutableGraph<P, out V, out E> {
 
     /**

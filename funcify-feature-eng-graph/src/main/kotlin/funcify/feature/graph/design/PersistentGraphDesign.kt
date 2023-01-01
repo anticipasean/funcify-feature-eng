@@ -14,7 +14,7 @@ internal interface PersistentGraphDesign<CWT, P, V, E> : PersistentGraph<P, V, E
 
     override fun get(path: P): V? {
         return when (val container: PersistentGraphContainer<CWT, P, V, E> = this.fold(template)) {
-            is PersistentGraphContainerFactory.TwoToManyPathToEdgeGraph ->
+            is PersistentGraphContainerFactory.ParallelizableEdgeGraph ->
                 container.verticesByPath[path]
             is PersistentGraphContainerFactory.TwoToOnePathToEdgeGraph ->
                 container.verticesByPath[path]
@@ -32,7 +32,7 @@ internal interface PersistentGraphDesign<CWT, P, V, E> : PersistentGraph<P, V, E
 
     override fun get(pathPair: Pair<P, P>): Iterable<E> {
         return when (val container: PersistentGraphContainer<CWT, P, V, E> = this.fold(template)) {
-            is PersistentGraphContainerFactory.TwoToManyPathToEdgeGraph ->
+            is PersistentGraphContainerFactory.ParallelizableEdgeGraph ->
                 container.edgesSetByPathPair[pathPair] ?: persistentSetOf<E>()
             is PersistentGraphContainerFactory.TwoToOnePathToEdgeGraph ->
                 container.edgesByPathPair[pathPair]?.let { persistentSetOf(it) }
@@ -154,7 +154,7 @@ internal interface PersistentGraphDesign<CWT, P, V, E> : PersistentGraph<P, V, E
 
     override fun vertexCount(): Int {
         return when (val container: PersistentGraphContainer<CWT, P, V, E> = this.fold(template)) {
-            is PersistentGraphContainerFactory.TwoToManyPathToEdgeGraph ->
+            is PersistentGraphContainerFactory.ParallelizableEdgeGraph ->
                 container.verticesByPath.size
             is PersistentGraphContainerFactory.TwoToOnePathToEdgeGraph ->
                 container.verticesByPath.size
@@ -168,7 +168,7 @@ internal interface PersistentGraphDesign<CWT, P, V, E> : PersistentGraph<P, V, E
 
     override fun edgeCount(): Int {
         return when (val container: PersistentGraphContainer<CWT, P, V, E> = this.fold(template)) {
-            is PersistentGraphContainerFactory.TwoToManyPathToEdgeGraph ->
+            is PersistentGraphContainerFactory.ParallelizableEdgeGraph ->
                 container.edgesSetByPathPair.values
                     .stream()
                     .mapToInt { set: PersistentSet<E> -> set.size }
@@ -185,7 +185,7 @@ internal interface PersistentGraphDesign<CWT, P, V, E> : PersistentGraph<P, V, E
 
     override fun vertices(): Iterable<V> {
         return when (val container: PersistentGraphContainer<CWT, P, V, E> = this.fold(template)) {
-            is PersistentGraphContainerFactory.TwoToManyPathToEdgeGraph ->
+            is PersistentGraphContainerFactory.ParallelizableEdgeGraph ->
                 container.verticesByPath.values
             is PersistentGraphContainerFactory.TwoToOnePathToEdgeGraph ->
                 container.verticesByPath.values
@@ -199,7 +199,7 @@ internal interface PersistentGraphDesign<CWT, P, V, E> : PersistentGraph<P, V, E
 
     override fun verticesAsStream(): Stream<out V> {
         return when (val container: PersistentGraphContainer<CWT, P, V, E> = this.fold(template)) {
-            is PersistentGraphContainerFactory.TwoToManyPathToEdgeGraph ->
+            is PersistentGraphContainerFactory.ParallelizableEdgeGraph ->
                 container.verticesByPath.values.stream()
             is PersistentGraphContainerFactory.TwoToOnePathToEdgeGraph ->
                 container.verticesByPath.values.stream()
@@ -213,7 +213,7 @@ internal interface PersistentGraphDesign<CWT, P, V, E> : PersistentGraph<P, V, E
 
     override fun edges(): Iterable<E> {
         return when (val container: PersistentGraphContainer<CWT, P, V, E> = this.fold(template)) {
-            is PersistentGraphContainerFactory.TwoToManyPathToEdgeGraph ->
+            is PersistentGraphContainerFactory.ParallelizableEdgeGraph ->
                 Iterable<E> { edgesAsStream().iterator() }
             is PersistentGraphContainerFactory.TwoToOnePathToEdgeGraph ->
                 container.edgesByPathPair.values
@@ -227,7 +227,7 @@ internal interface PersistentGraphDesign<CWT, P, V, E> : PersistentGraph<P, V, E
 
     override fun edgesAsStream(): Stream<out E> {
         return when (val container: PersistentGraphContainer<CWT, P, V, E> = this.fold(template)) {
-            is PersistentGraphContainerFactory.TwoToManyPathToEdgeGraph ->
+            is PersistentGraphContainerFactory.ParallelizableEdgeGraph ->
                 container.edgesSetByPathPair.values.stream().flatMap { s: PersistentSet<E> ->
                     s.stream()
                 }
@@ -243,7 +243,7 @@ internal interface PersistentGraphDesign<CWT, P, V, E> : PersistentGraph<P, V, E
 
     override fun connectedPaths(): Iterable<Pair<P, P>> {
         return when (val container: PersistentGraphContainer<CWT, P, V, E> = this.fold(template)) {
-            is PersistentGraphContainerFactory.TwoToManyPathToEdgeGraph ->
+            is PersistentGraphContainerFactory.ParallelizableEdgeGraph ->
                 container.edgesSetByPathPair.keys
             is PersistentGraphContainerFactory.TwoToOnePathToEdgeGraph ->
                 container.edgesByPathPair.keys
@@ -257,7 +257,7 @@ internal interface PersistentGraphDesign<CWT, P, V, E> : PersistentGraph<P, V, E
 
     override fun connectedPathsAsStream(): Stream<out Pair<P, P>> {
         return when (val container: PersistentGraphContainer<CWT, P, V, E> = this.fold(template)) {
-            is PersistentGraphContainerFactory.TwoToManyPathToEdgeGraph ->
+            is PersistentGraphContainerFactory.ParallelizableEdgeGraph ->
                 container.edgesSetByPathPair.keys.stream()
             is PersistentGraphContainerFactory.TwoToOnePathToEdgeGraph ->
                 container.edgesByPathPair.keys.stream()
@@ -271,7 +271,7 @@ internal interface PersistentGraphDesign<CWT, P, V, E> : PersistentGraph<P, V, E
 
     override fun hasCycles(): Boolean {
         return when (val container: PersistentGraphContainer<CWT, P, V, E> = this.fold(template)) {
-            is PersistentGraphContainerFactory.TwoToManyPathToEdgeGraph ->
+            is PersistentGraphContainerFactory.ParallelizableEdgeGraph ->
                 container.edgesSetByPathPair.keys
                     .parallelStream()
                     .map { pathPair: Pair<P, P> -> pathPair.second to pathPair.first }
@@ -295,7 +295,7 @@ internal interface PersistentGraphDesign<CWT, P, V, E> : PersistentGraph<P, V, E
 
     override fun getCyclesAsStream(): Stream<out Pair<Triple<P, P, E>, Triple<P, P, E>>> {
         return when (val container: PersistentGraphContainer<CWT, P, V, E> = this.fold(template)) {
-            is PersistentGraphContainerFactory.TwoToManyPathToEdgeGraph ->
+            is PersistentGraphContainerFactory.ParallelizableEdgeGraph ->
                 container.edgesSetByPathPair.keys.parallelStream().flatMap { pathPair: Pair<P, P> ->
                     val reversedPair = pathPair.second to pathPair.first
                     container.edgesSetByPathPair
