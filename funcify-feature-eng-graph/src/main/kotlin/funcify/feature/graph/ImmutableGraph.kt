@@ -13,7 +13,7 @@ import java.util.stream.Stream
 interface ImmutableGraph<P, out V, out E> {
 
     /**
-     * Path of type <P> uniquely identifies a vertex in the graph and may even be the same value as
+     * Path/Point of type <P> uniquely identifies a vertex in the graph and may even be the same value as
      * its vertex if desired
      * - ImmutableGraph<Int, Int, Char>: e.g. ( Path: 1, Vertex: 1 ), ( Path: 2, Vertex: 2 ), (
      * PathPair: ( 1, 2 ), Edge: 'A' )
@@ -21,7 +21,7 @@ interface ImmutableGraph<P, out V, out E> {
     operator fun get(path: P): V?
 
     /**
-     * Path of type <P> and another Path of type <P> as a pair uniquely identifies an edge in the
+     * Path/Point of type <P> and another Path/Point of type <P> as a pair uniquely identifies an edge in the
      * graph and may even be the same type as its paths if desired
      * - ImmutableGraph<Char, Int, Char>: e.g. ( Path: 'A', Vertex: 1 ), ( Path: 'B', Vertex: 2 ), (
      * PathPair: ( 'A', 'B' ), Edge: 'C' )
@@ -29,7 +29,7 @@ interface ImmutableGraph<P, out V, out E> {
     operator fun get(path1: P, path2: P): Iterable<E>
 
     /**
-     * Path of type <P> and another Path of type <P> as a pair uniquely identifies an edge in the
+     * Path/Point of type <P> and another Path/Point of type <P> as a pair uniquely identifies an edge in the
      * graph and may even be the same type as its paths if desired
      * - ImmutableGraph<Char, Int, Char>: e.g. ( Path: 'A', Vertex: 1 ), ( Path: 'B', Vertex: 2 ), (
      * PathPair: ( 'A', 'B' ), Edge: 'C' )
