@@ -13,26 +13,26 @@ import java.util.stream.Stream
 interface ImmutableGraph<P, out V, out E> {
 
     /**
-     * Path/Point of type <P> uniquely identifies a vertex in the graph and may even be the same
-     * value as its vertex if desired
-     * - ImmutableGraph<Int, Int, Char>: e.g. ( Path: 1, Vertex: 1 ), ( Path: 2, Vertex: 2 ), (
-     * PathPair: ( 1, 2 ), Edge: 'A' )
+     * Path/Point of type <P> uniquely identifies and acts as a label for a vertex in the graph and
+     * may even be the same value as its vertex if desired
+     * - ImmutableGraph<Int, Char, Double>: e.g. ( Path: 1, Vertex: 'A' ), ( Path: 2, Vertex: 'B' ),
+     * ( PathPair: ( 1, 2 ), Edge: 0.3 )
      */
     operator fun get(path: P): V?
 
     /**
      * Path/Point of type <P> and another Path/Point of type <P> as a pair uniquely identifies an
      * edge in the graph and may even be the same type as its paths if desired
-     * - ImmutableGraph<Char, Int, Char>: e.g. ( Path: 'A', Vertex: 1 ), ( Path: 'B', Vertex: 2 ), (
-     * PathPair: ( 'A', 'B' ), Edge: 'C' )
+     * - ImmutableGraph<Char, Int, Double>: e.g. ( Path: 'A', Vertex: 1 ), ( Path: 'B', Vertex: 2 ),
+     * ( PathPair: ( 'A', 'B' ), Edge: 0.2 )
      */
     operator fun get(path1: P, path2: P): Iterable<E>
 
     /**
      * Path/Point of type <P> and another Path/Point of type <P> as a pair uniquely identifies an
      * edge in the graph and may even be the same type as its paths if desired
-     * - ImmutableGraph<Char, Int, Char>: e.g. ( Path: 'A', Vertex: 1 ), ( Path: 'B', Vertex: 2 ), (
-     * PathPair: ( 'A', 'B' ), Edge: 'C' )
+     * - ImmutableGraph<Char, Int, Double>: e.g. ( Path: 'A', Vertex: 1 ), ( Path: 'B', Vertex: 2 ),
+     * ( PathPair: ( 'A', 'B' ), Edge: 0.1 )
      */
     operator fun get(pathPair: Pair<P, P>): Iterable<E>
 
@@ -80,9 +80,8 @@ interface ImmutableGraph<P, out V, out E> {
     fun connectedPathsAsStream(): Stream<out Pair<P, P>>
 
     /**
-     * Filter out all vertices that do not meet the given condition (and any
-     * edges that are thereby excluded since they would no longer refer to an existing path to a
-     * vertex)
+     * Filter out all vertices that do not meet the given condition (and any edges that are thereby
+     * excluded since they would no longer refer to an existing path to a vertex)
      */
     fun filterVertices(condition: (P, V) -> Boolean): ImmutableGraph<P, V, E>
 
@@ -96,18 +95,17 @@ interface ImmutableGraph<P, out V, out E> {
     fun <R> mapEdges(function: (Pair<P, P>, E) -> R): ImmutableGraph<P, V, R>
 
     /**
-     * Transform each path-to-vertex entry into map of new path-to-vertex
-     * entries ( and remove any existing edges that no longer refer to an existing path to a vertex
-     * )
+     * Transform each path-to-vertex entry into map of new path-to-vertex entries ( and remove any
+     * existing edges that no longer refer to an existing path to a vertex )
      */
     fun <R, M : Map<out P, @UnsafeVariance R>> flatMapVertices(
         function: (P, V) -> M
     ): ImmutableGraph<P, R, E>
 
     /**
-     * Transform each path-pair-to-edge entry into map of new
-     * path-pair-to-edge entries ( discarding any path-pair-to-edge entries wherein either path
-     * within the path-pair no longer refers / does not refer to an existing path for a vertex )
+     * Transform each path-pair-to-edge entry into map of new path-pair-to-edge entries ( discarding
+     * any path-pair-to-edge entries wherein either path within the path-pair no longer refers /
+     * does not refer to an existing path for a vertex )
      */
     fun <R, M : Map<out Pair<P, P>, @UnsafeVariance R>> flatMapEdges(
         function: (Pair<P, P>, E) -> M
