@@ -68,22 +68,22 @@ internal interface PersistentGraphTemplate<CWT> {
     ): PersistentGraphContainer<CWT, P, V, E>
 
     fun <P, V, E> filterVertices(
-        function: (V) -> Boolean,
+        function: (P, V) -> Boolean,
         container: PersistentGraphContainer<CWT, P, V, E>
     ): PersistentGraphContainer<CWT, P, V, E>
 
     fun <P, V, E> filterEdges(
-        function: (E) -> Boolean,
+        function: (Pair<P, P>, E) -> Boolean,
         container: PersistentGraphContainer<CWT, P, V, E>
     ): PersistentGraphContainer<CWT, P, V, E>
 
     fun <P, V, E, R> mapVertices(
-        function: (V) -> R,
+        function: (P, V) -> R,
         container: PersistentGraphContainer<CWT, P, V, E>
     ): PersistentGraphContainer<CWT, P, R, E>
 
     fun <P, V, E, R> mapEdges(
-        function: (E) -> R,
+        function: (Pair<P, P>, E) -> R,
         container: PersistentGraphContainer<CWT, P, V, E>
     ): PersistentGraphContainer<CWT, P, V, R>
 

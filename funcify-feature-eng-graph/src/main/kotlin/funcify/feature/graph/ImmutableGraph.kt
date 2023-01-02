@@ -55,48 +55,48 @@ interface ImmutableGraph<P, out V, out E> {
         return this[pathPair]
     }
 
-    /** Terminal Op: Eagerly determine the number of vertices */
+    /** Determine the number of vertices */
     fun vertexCount(): Int
 
-    /** Terminal Op: Eagerly determine the number of edges */
+    /** Determine the number of edges */
     fun edgeCount(): Int
 
-    /** Terminal Op: Eagerly fetch all vertices */
+    /** Fetch all vertices */
     fun vertices(): Iterable<V>
 
-    /** Terminal Op: Eagerly fetch all vertices */
+    /** Fetch all vertices */
     fun verticesAsStream(): Stream<out V>
 
-    /** Terminal Op: Eagerly fetch all edges */
+    /** Fetch all edges */
     fun edges(): Iterable<E>
 
-    /** Terminal Op: Eagerly fetch all edges */
+    /** Fetch all edges */
     fun edgesAsStream(): Stream<out E>
 
-    /** Terminal Op: Eagerly fetch all path pairs for which this is at least one edge */
+    /** Fetch all path pairs for which this is at least one edge */
     fun connectedPaths(): Iterable<Pair<P, P>>
 
-    /** Terminal Op: Eagerly fetch all path pairs for which this is at least one edge */
+    /** Fetch all path pairs for which this is at least one edge */
     fun connectedPathsAsStream(): Stream<out Pair<P, P>>
 
     /**
-     * Intermediate Op: Lazily filter out all vertices that do not meet the given condition (and any
+     * Filter out all vertices that do not meet the given condition (and any
      * edges that are thereby excluded since they would no longer refer to an existing path to a
      * vertex)
      */
-    fun filterVertices(condition: (V) -> Boolean): ImmutableGraph<P, V, E>
+    fun filterVertices(condition: (P, V) -> Boolean): ImmutableGraph<P, V, E>
 
-    /** Intermediate Op: Lazily filter out all edges that do not meet the given condition */
-    fun filterEdges(condition: (E) -> Boolean): ImmutableGraph<P, V, E>
+    /** Filter out all edges that do not meet the given condition */
+    fun filterEdges(condition: (Pair<P, P>, E) -> Boolean): ImmutableGraph<P, V, E>
 
-    /** Intermediate Op: Lazily transform all vertices */
-    fun <R> mapVertices(function: (V) -> R): ImmutableGraph<P, R, E>
+    /** Transform all vertices <V> to <R> */
+    fun <R> mapVertices(function: (P, V) -> R): ImmutableGraph<P, R, E>
 
-    /** Intermediate Op: Lazily transform all edges */
-    fun <R> mapEdges(function: (E) -> R): ImmutableGraph<P, V, R>
+    /** Transform all edges from <E> to <R> */
+    fun <R> mapEdges(function: (Pair<P, P>, E) -> R): ImmutableGraph<P, V, R>
 
     /**
-     * Intermediate Op: Lazily transform each path-to-vertex entry into map of new path-to-vertex
+     * Transform each path-to-vertex entry into map of new path-to-vertex
      * entries ( and remove any existing edges that no longer refer to an existing path to a vertex
      * )
      */
@@ -105,7 +105,7 @@ interface ImmutableGraph<P, out V, out E> {
     ): ImmutableGraph<P, R, E>
 
     /**
-     * Intermediate Op: Lazily transform each path-pair-to-edge entry into map of new
+     * Transform each path-pair-to-edge entry into map of new
      * path-pair-to-edge entries ( discarding any path-pair-to-edge entries wherein either path
      * within the path-pair no longer refers / does not refer to an existing path for a vertex )
      */

@@ -208,7 +208,7 @@ internal interface PersistentGraphDesign<CWT, P, V, E> : PersistentGraph<P, V, E
         }
     }
 
-    override fun filterVertices(condition: (V) -> Boolean): PersistentGraph<P, V, E> {
+    override fun filterVertices(condition: (P, V) -> Boolean): PersistentGraph<P, V, E> {
         return when (
             val container: PersistentGraphContainer<CWT, P, V, E> =
                 this.template.filterVertices(condition, materializedContainer)
@@ -231,7 +231,7 @@ internal interface PersistentGraphDesign<CWT, P, V, E> : PersistentGraph<P, V, E
         }
     }
 
-    override fun filterEdges(condition: (E) -> Boolean): PersistentGraph<P, V, E> {
+    override fun filterEdges(condition: (Pair<P, P>, E) -> Boolean): PersistentGraph<P, V, E> {
         return when (
             val container: PersistentGraphContainer<CWT, P, V, E> =
                 this.template.filterEdges(condition, materializedContainer)
@@ -254,7 +254,7 @@ internal interface PersistentGraphDesign<CWT, P, V, E> : PersistentGraph<P, V, E
         }
     }
 
-    override fun <R> mapVertices(function: (V) -> R): PersistentGraph<P, R, E> {
+    override fun <R> mapVertices(function: (P, V) -> R): PersistentGraph<P, R, E> {
         return when (
             val container: PersistentGraphContainer<CWT, P, R, E> =
                 this.template.mapVertices(function, materializedContainer)
@@ -277,7 +277,7 @@ internal interface PersistentGraphDesign<CWT, P, V, E> : PersistentGraph<P, V, E
         }
     }
 
-    override fun <R> mapEdges(function: (E) -> R): PersistentGraph<P, V, R> {
+    override fun <R> mapEdges(function: (Pair<P, P>, E) -> R): PersistentGraph<P, V, R> {
         return when (
             val container: PersistentGraphContainer<CWT, P, V, R> =
                 this.template.mapEdges(function, materializedContainer)

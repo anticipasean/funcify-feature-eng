@@ -38,13 +38,13 @@ interface PersistentGraph<P, V, E> : ImmutableGraph<P, V, E> {
 
     fun <S : Set<E>, M : Map<Pair<P, P>, S>> putAllEdgeSets(edges: M): PersistentGraph<P, V, E>
 
-    override fun filterVertices(condition: (V) -> Boolean): PersistentGraph<P, V, E>
+    override fun filterVertices(condition: (P, V) -> Boolean): PersistentGraph<P, V, E>
 
-    override fun filterEdges(condition: (E) -> Boolean): PersistentGraph<P, V, E>
+    override fun filterEdges(condition: (Pair<P, P>, E) -> Boolean): PersistentGraph<P, V, E>
 
-    override fun <R> mapVertices(function: (V) -> R): PersistentGraph<P, R, E>
+    override fun <R> mapVertices(function: (P, V) -> R): PersistentGraph<P, R, E>
 
-    override fun <R> mapEdges(function: (E) -> R): PersistentGraph<P, V, R>
+    override fun <R> mapEdges(function: (Pair<P, P>, E) -> R): PersistentGraph<P, V, R>
 
     override fun <R, M : Map<out P, R>> flatMapVertices(
         function: (P, V) -> M
