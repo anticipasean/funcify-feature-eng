@@ -51,7 +51,9 @@ internal interface ParallelizableEdgeDirectedGraphTemplate :
             verticesByPointStream.reducePairsToPersistentMap()
         val edgeSetsByPathPair: PersistentMap<Pair<P, P>, PersistentSet<E>> =
             edgesByPointPairStream
-                .filter { (ek, _) -> ek.first in verticesByPoint && ek.second in verticesByPoint }
+                .filter { (ek: Pair<P, P>, _: E) ->
+                    ek.first in verticesByPoint && ek.second in verticesByPoint
+                }
                 .reducePairsToPersistentSetValueMap()
         return PersistentGraphContainerFactory.ParallelizableEdgeDirectedGraph<P, V, E>(
             verticesByPoint = verticesByPoint,
@@ -215,6 +217,31 @@ internal interface ParallelizableEdgeDirectedGraphTemplate :
                 .filter { (ek: Pair<P, P>, e: E) -> function(ek, e) }
                 .reducePairsToPersistentSetValueMap()
         return fromVerticesAndEdgeSets(container.narrowed().verticesByPoint, updatedEdges)
+    }
+
+    override fun <P, V, E, R> mapPoints(
+        function: (P) -> R,
+        container: PersistentGraphContainer<ParallelizableEdgeDirectedGraphWT, P, V, E>,
+    ): PersistentGraphContainer<ParallelizableEdgeDirectedGraphWT, R, V, E> {
+        val updatedVertices =
+            container
+                .narrowed()
+                .verticesByPoint
+                .entries
+                .parallelStream()
+                .map { (p: P, v: V) -> function(p) to v }
+                .reducePairsToPersistentMap()
+        val updatedEdges =
+            container
+                .narrowed()
+                .edgesSetByPointPair
+                .entries
+                .parallelStream()
+                .map { (ek: Pair<P, P>, edges: PersistentSet<E>) ->
+                    (function(ek.first) to function(ek.second)) to edges
+                }
+                .reducePairsToPersistentMap()
+        return fromVerticesAndEdgeSets(updatedVertices, updatedEdges)
     }
 
     override fun <P, V, E, R> mapVertices(

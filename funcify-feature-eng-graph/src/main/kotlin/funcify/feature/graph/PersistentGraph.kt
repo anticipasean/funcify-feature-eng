@@ -50,6 +50,8 @@ interface PersistentGraph<P, V, E> : ImmutableGraph<P, V, E> {
         return filterEdges { _: Pair<P, P>, e: E -> condition(e) }
     }
 
+    override fun <R> mapPoints(function: (P) -> R): PersistentGraph<R, V, E>
+
     override fun <R> mapVertices(function: (P, V) -> R): PersistentGraph<P, R, E>
 
     override fun <R> mapVertices(function: (V) -> R): PersistentGraph<P, R, E> {
@@ -69,5 +71,4 @@ interface PersistentGraph<P, V, E> : ImmutableGraph<P, V, E> {
     override fun <R, M : Map<out Pair<P, P>, R>> flatMapEdges(
         function: (Pair<P, P>, E) -> M
     ): PersistentGraph<P, V, R>
-
 }

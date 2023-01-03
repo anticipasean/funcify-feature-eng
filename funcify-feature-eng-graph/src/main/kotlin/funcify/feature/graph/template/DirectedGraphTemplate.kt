@@ -187,6 +187,22 @@ internal interface DirectedGraphTemplate : PersistentGraphTemplate<DirectedGraph
         return fromVerticesAndEdges(container.narrowed().verticesByPoint, updatedEdges)
     }
 
+    override fun <P, V, E, R> mapPoints(
+        function: (P) -> R,
+        container: PersistentGraphContainer<DirectedGraphWT, P, V, E>,
+    ): PersistentGraphContainer<DirectedGraphWT, R, V, E> {
+        val updatedVertices =
+            container.narrowed().verticesByPoint.entries.parallelStream().map { (p: P, v: V) ->
+                function(p) to v
+            }
+        val updatedEdges =
+            container.narrowed().edgesByPointPair.entries.parallelStream().map {
+                (ek: Pair<P, P>, e: E) ->
+                (function(ek.first) to function(ek.second)) to e
+            }
+        return fromVertexAndEdgeStreams(updatedVertices, updatedEdges)
+    }
+
     override fun <P, V, E, R> mapVertices(
         function: (P, V) -> R,
         container: PersistentGraphContainer<DirectedGraphWT, P, V, E>

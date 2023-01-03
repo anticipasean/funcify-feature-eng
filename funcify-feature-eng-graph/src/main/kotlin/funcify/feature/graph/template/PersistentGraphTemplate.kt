@@ -1,9 +1,9 @@
 package funcify.feature.graph.template
 
 import funcify.feature.graph.container.PersistentGraphContainer
+import java.util.stream.Stream
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.PersistentSet
-import java.util.stream.Stream
 
 /**
  * @param CWT
@@ -76,6 +76,11 @@ internal interface PersistentGraphTemplate<CWT> {
         function: (Pair<P, P>, E) -> Boolean,
         container: PersistentGraphContainer<CWT, P, V, E>
     ): PersistentGraphContainer<CWT, P, V, E>
+
+    fun <P, V, E, R> mapPoints(
+        function: (P) -> R,
+        container: PersistentGraphContainer<CWT, P, V, E>
+    ): PersistentGraphContainer<CWT, R, V, E>
 
     fun <P, V, E, R> mapVertices(
         function: (P, V) -> R,

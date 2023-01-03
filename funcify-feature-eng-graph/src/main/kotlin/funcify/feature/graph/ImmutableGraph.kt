@@ -1,7 +1,7 @@
 package funcify.feature.graph
 
-import kotlinx.collections.immutable.ImmutableSet
 import java.util.stream.Stream
+import kotlinx.collections.immutable.ImmutableSet
 
 /**
  * @param P
@@ -102,6 +102,9 @@ interface ImmutableGraph<P, out V, out E> {
      * Filter out all edges that do not meet the given condition without the context of point <P>
      */
     fun filterEdges(condition: (E) -> Boolean): ImmutableGraph<P, V, E>
+
+    /** Transform all points <P> to <R> */
+    fun <R> mapPoints(function: (P) -> R): ImmutableGraph<R, V, E>
 
     /** Transform all vertices <V> to <R> with the context of point <P> */
     fun <R> mapVertices(function: (P, V) -> R): ImmutableGraph<P, R, E>
