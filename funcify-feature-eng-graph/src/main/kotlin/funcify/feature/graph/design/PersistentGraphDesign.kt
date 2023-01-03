@@ -209,6 +209,10 @@ internal interface PersistentGraphDesign<CWT, P, V, E> : PersistentGraph<P, V, E
         }
     }
 
+    override fun remove(point: P): PersistentGraph<P, V, E> {
+        TODO("Not yet implemented")
+    }
+
     override fun descriptors(): ImmutableSet<GraphDescriptor> {
         return when (
             val container: PersistentGraphContainer<CWT, P, V, E> = materializedContainer

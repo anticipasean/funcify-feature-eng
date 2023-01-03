@@ -38,6 +38,8 @@ interface PersistentGraph<P, V, E> : ImmutableGraph<P, V, E> {
 
     fun <S : Set<E>, M : Map<Pair<P, P>, S>> putAllEdgeSets(edges: M): PersistentGraph<P, V, E>
 
+    fun remove(point: P): PersistentGraph<P, V, E>
+
     override fun filterVertices(condition: (P, V) -> Boolean): PersistentGraph<P, V, E>
 
     override fun filterVertices(condition: (V) -> Boolean): PersistentGraph<P, V, E> {

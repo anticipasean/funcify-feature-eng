@@ -165,6 +165,30 @@ internal interface ParallelizableEdgeDirectedGraphTemplate :
         return fromVerticesAndEdgeSets(verticesByPoint, updatedEdges)
     }
 
+    override fun <P, V, E> remove(
+        point: P,
+        container: PersistentGraphContainer<ParallelizableEdgeDirectedGraphWT, P, V, E>,
+    ): PersistentGraphContainer<ParallelizableEdgeDirectedGraphWT, P, V, E> {
+        return if (point in container.narrowed().verticesByPoint) {
+            val updatedEdges =
+                container
+                    .narrowed()
+                    .edgesSetByPointPair
+                    .entries
+                    .parallelStream()
+                    .filter { (ek: Pair<P, P>, _: PersistentSet<E>) ->
+                        ek.first != point && ek.second != point
+                    }
+                    .reduceEntriesToPersistentMap()
+            fromVerticesAndEdgeSets(
+                container.narrowed().verticesByPoint.remove(point),
+                updatedEdges
+            )
+        } else {
+            container
+        }
+    }
+
     override fun <P, V, E> filterVertices(
         function: (P, V) -> Boolean,
         container: PersistentGraphContainer<ParallelizableEdgeDirectedGraphWT, P, V, E>

@@ -144,6 +144,25 @@ internal interface DirectedGraphTemplate : PersistentGraphTemplate<DirectedGraph
         return fromVerticesAndEdges(verticesByPath, updatedEdges)
     }
 
+    override fun <P, V, E> remove(
+        point: P,
+        container: PersistentGraphContainer<DirectedGraphWT, P, V, E>,
+    ): PersistentGraphContainer<DirectedGraphWT, P, V, E> {
+        return if (point in container.narrowed().verticesByPoint) {
+            val updatedEdges =
+                container
+                    .narrowed()
+                    .edgesByPointPair
+                    .entries
+                    .parallelStream()
+                    .filter { (ek: Pair<P, P>, _: E) -> ek.first != point && ek.second != point }
+                    .reduceEntriesToPersistentMap()
+            fromVerticesAndEdges(container.narrowed().verticesByPoint.remove(point), updatedEdges)
+        } else {
+            container
+        }
+    }
+
     override fun <P, V, E> filterVertices(
         function: (P, V) -> Boolean,
         container: PersistentGraphContainer<DirectedGraphWT, P, V, E>

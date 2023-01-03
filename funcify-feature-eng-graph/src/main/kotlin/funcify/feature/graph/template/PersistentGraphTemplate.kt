@@ -67,6 +67,11 @@ internal interface PersistentGraphTemplate<CWT> {
         container: PersistentGraphContainer<CWT, P, V, E>
     ): PersistentGraphContainer<CWT, P, V, E>
 
+    fun <P, V, E> remove(
+        point: P,
+        container: PersistentGraphContainer<CWT, P, V, E>
+    ): PersistentGraphContainer<CWT, P, V, E>
+
     fun <P, V, E> filterVertices(
         function: (P, V) -> Boolean,
         container: PersistentGraphContainer<CWT, P, V, E>
