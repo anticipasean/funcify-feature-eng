@@ -24,15 +24,15 @@ internal interface PersistentGraphDesign<CWT, P, V, E> : PersistentGraph<P, V, E
 
     val materializedContainer: PersistentGraphContainer<CWT, P, V, E>
 
-    override fun get(path: P): V? {
+    override fun get(point: P): V? {
         return when (
             val container: PersistentGraphContainer<CWT, P, V, E> = materializedContainer
         ) {
             is PersistentGraphContainerFactory.ParallelizableEdgeDirectedGraph -> {
-                container.verticesByPath[path]
+                container.verticesByPoint[point]
             }
             is PersistentGraphContainerFactory.DirectedGraph -> {
-                container.verticesByPath[path]
+                container.verticesByPoint[point]
             }
             else -> {
                 throw UnsupportedOperationException(
@@ -42,19 +42,19 @@ internal interface PersistentGraphDesign<CWT, P, V, E> : PersistentGraph<P, V, E
         }
     }
 
-    override fun get(path1: P, path2: P): Iterable<E> {
-        return get(path1 to path2)
+    override fun get(point1: P, point2: P): Iterable<E> {
+        return get(point1 to point2)
     }
 
-    override fun get(pathPair: Pair<P, P>): Iterable<E> {
+    override fun get(pointPair: Pair<P, P>): Iterable<E> {
         return when (
             val container: PersistentGraphContainer<CWT, P, V, E> = this.materializedContainer
         ) {
             is PersistentGraphContainerFactory.ParallelizableEdgeDirectedGraph -> {
-                container.edgesSetByPathPair[pathPair] ?: persistentSetOf<E>()
+                container.edgesSetByPointPair[pointPair] ?: persistentSetOf<E>()
             }
             is PersistentGraphContainerFactory.DirectedGraph -> {
-                container.edgesByPathPair[pathPair]?.let { persistentSetOf(it) }
+                container.edgesByPointPair[pointPair]?.let { persistentSetOf(it) }
                     ?: persistentSetOf<E>()
             }
             else -> {
@@ -65,11 +65,10 @@ internal interface PersistentGraphDesign<CWT, P, V, E> : PersistentGraph<P, V, E
         }
     }
 
-    override fun put(path: P, vertex: V): PersistentGraph<P, V, E> {
-        logger.info("put: { path: $path, vertex: $vertex }")
+    override fun put(point: P, vertex: V): PersistentGraph<P, V, E> {
         return when (
             val container: PersistentGraphContainer<CWT, P, V, E> =
-                this.template.put(path, vertex, materializedContainer)
+                this.template.put(point, vertex, materializedContainer)
         ) {
             is PersistentGraphContainerFactory.ParallelizableEdgeDirectedGraph -> {
                 PersistentGraphSourceContextFactory.ParallelizableEdgeGraphSourceDesign<P, V, E>(
@@ -89,11 +88,11 @@ internal interface PersistentGraphDesign<CWT, P, V, E> : PersistentGraph<P, V, E
         }
     }
 
-    override fun put(path1: P, path2: P, edge: E): PersistentGraph<P, V, E> {
-        logger.info("put: { path1: $path1, path2: $path2, edge: $edge }")
+    override fun put(point1: P, point2: P, edge: E): PersistentGraph<P, V, E> {
+        logger.info("put: { path1: $point1, path2: $point2, edge: $edge }")
         return when (
             val container: PersistentGraphContainer<CWT, P, V, E> =
-                this.template.put(path1, path2, edge, materializedContainer)
+                this.template.put(point1, point2, edge, materializedContainer)
         ) {
             is PersistentGraphContainerFactory.ParallelizableEdgeDirectedGraph -> {
                 PersistentGraphSourceContextFactory.ParallelizableEdgeGraphSourceDesign<P, V, E>(
@@ -113,11 +112,11 @@ internal interface PersistentGraphDesign<CWT, P, V, E> : PersistentGraph<P, V, E
         }
     }
 
-    override fun put(pathPair: Pair<P, P>, edge: E): PersistentGraph<P, V, E> {
-        logger.info("put: { pathPair: $pathPair, edge: $edge }")
+    override fun put(pointPair: Pair<P, P>, edge: E): PersistentGraph<P, V, E> {
+        logger.info("put: { pathPair: $pointPair, edge: $edge }")
         return when (
             val container: PersistentGraphContainer<CWT, P, V, E> =
-                this.template.put(pathPair, edge, materializedContainer)
+                this.template.put(pointPair, edge, materializedContainer)
         ) {
             is PersistentGraphContainerFactory.ParallelizableEdgeDirectedGraph -> {
                 PersistentGraphSourceContextFactory.ParallelizableEdgeGraphSourceDesign<P, V, E>(
@@ -355,10 +354,10 @@ internal interface PersistentGraphDesign<CWT, P, V, E> : PersistentGraph<P, V, E
             val container: PersistentGraphContainer<CWT, P, V, E> = this.materializedContainer
         ) {
             is PersistentGraphContainerFactory.ParallelizableEdgeDirectedGraph -> {
-                container.verticesByPath.size
+                container.verticesByPoint.size
             }
             is PersistentGraphContainerFactory.DirectedGraph -> {
-                container.verticesByPath.size
+                container.verticesByPoint.size
             }
             else -> {
                 throw UnsupportedOperationException(
@@ -373,13 +372,13 @@ internal interface PersistentGraphDesign<CWT, P, V, E> : PersistentGraph<P, V, E
             val container: PersistentGraphContainer<CWT, P, V, E> = this.materializedContainer
         ) {
             is PersistentGraphContainerFactory.ParallelizableEdgeDirectedGraph -> {
-                container.edgesSetByPathPair.values
+                container.edgesSetByPointPair.values
                     .stream()
                     .mapToInt { set: PersistentSet<E> -> set.size }
                     .sum()
             }
             is PersistentGraphContainerFactory.DirectedGraph -> {
-                container.edgesByPathPair.size
+                container.edgesByPointPair.size
             }
             else -> {
                 throw UnsupportedOperationException(
@@ -394,10 +393,10 @@ internal interface PersistentGraphDesign<CWT, P, V, E> : PersistentGraph<P, V, E
             val container: PersistentGraphContainer<CWT, P, V, E> = this.materializedContainer
         ) {
             is PersistentGraphContainerFactory.ParallelizableEdgeDirectedGraph -> {
-                container.verticesByPath.values
+                container.verticesByPoint.values
             }
             is PersistentGraphContainerFactory.DirectedGraph -> {
-                container.verticesByPath.values
+                container.verticesByPoint.values
             }
             else -> {
                 throw UnsupportedOperationException(
@@ -412,10 +411,10 @@ internal interface PersistentGraphDesign<CWT, P, V, E> : PersistentGraph<P, V, E
             val container: PersistentGraphContainer<CWT, P, V, E> = this.materializedContainer
         ) {
             is PersistentGraphContainerFactory.ParallelizableEdgeDirectedGraph -> {
-                container.verticesByPath.values.stream()
+                container.verticesByPoint.values.stream()
             }
             is PersistentGraphContainerFactory.DirectedGraph -> {
-                container.verticesByPath.values.stream()
+                container.verticesByPoint.values.stream()
             }
             else -> {
                 throw UnsupportedOperationException(
@@ -433,7 +432,7 @@ internal interface PersistentGraphDesign<CWT, P, V, E> : PersistentGraph<P, V, E
                 Iterable<E> { edgesAsStream().iterator() }
             }
             is PersistentGraphContainerFactory.DirectedGraph -> {
-                container.edgesByPathPair.values
+                container.edgesByPointPair.values
             }
             else -> {
                 throw UnsupportedOperationException(
@@ -448,12 +447,12 @@ internal interface PersistentGraphDesign<CWT, P, V, E> : PersistentGraph<P, V, E
             val container: PersistentGraphContainer<CWT, P, V, E> = this.materializedContainer
         ) {
             is PersistentGraphContainerFactory.ParallelizableEdgeDirectedGraph -> {
-                container.edgesSetByPathPair.values.stream().flatMap { s: PersistentSet<E> ->
+                container.edgesSetByPointPair.values.stream().flatMap { s: PersistentSet<E> ->
                     s.stream()
                 }
             }
             is PersistentGraphContainerFactory.DirectedGraph -> {
-                container.edgesByPathPair.values.stream()
+                container.edgesByPointPair.values.stream()
             }
             else -> {
                 throw UnsupportedOperationException(
@@ -463,15 +462,15 @@ internal interface PersistentGraphDesign<CWT, P, V, E> : PersistentGraph<P, V, E
         }
     }
 
-    override fun connectedPaths(): Iterable<Pair<P, P>> {
+    override fun connectedPoints(): Iterable<Pair<P, P>> {
         return when (
             val container: PersistentGraphContainer<CWT, P, V, E> = this.materializedContainer
         ) {
             is PersistentGraphContainerFactory.ParallelizableEdgeDirectedGraph -> {
-                container.edgesSetByPathPair.keys
+                container.edgesSetByPointPair.keys
             }
             is PersistentGraphContainerFactory.DirectedGraph -> {
-                container.edgesByPathPair.keys
+                container.edgesByPointPair.keys
             }
             else -> {
                 throw UnsupportedOperationException(
@@ -481,15 +480,15 @@ internal interface PersistentGraphDesign<CWT, P, V, E> : PersistentGraph<P, V, E
         }
     }
 
-    override fun connectedPathsAsStream(): Stream<out Pair<P, P>> {
+    override fun connectedPointsAsStream(): Stream<out Pair<P, P>> {
         return when (
             val container: PersistentGraphContainer<CWT, P, V, E> = this.materializedContainer
         ) {
             is PersistentGraphContainerFactory.ParallelizableEdgeDirectedGraph -> {
-                container.edgesSetByPathPair.keys.stream()
+                container.edgesSetByPointPair.keys.stream()
             }
             is PersistentGraphContainerFactory.DirectedGraph -> {
-                container.edgesByPathPair.keys.stream()
+                container.edgesByPointPair.keys.stream()
             }
             else -> {
                 throw UnsupportedOperationException(
@@ -504,13 +503,13 @@ internal interface PersistentGraphDesign<CWT, P, V, E> : PersistentGraph<P, V, E
             val container: PersistentGraphContainer<CWT, P, V, E> = this.materializedContainer
         ) {
             is PersistentGraphContainerFactory.ParallelizableEdgeDirectedGraph -> {
-                container.verticesByPath
+                container.verticesByPoint
                     .asSequence()
                     .map { (p, v) -> p to v }
                     .fold(initial, accumulator)
             }
             is PersistentGraphContainerFactory.DirectedGraph -> {
-                container.verticesByPath
+                container.verticesByPoint
                     .asSequence()
                     .map { (p, v) -> p to v }
                     .fold(initial, accumulator)
@@ -528,13 +527,13 @@ internal interface PersistentGraphDesign<CWT, P, V, E> : PersistentGraph<P, V, E
             val container: PersistentGraphContainer<CWT, P, V, E> = this.materializedContainer
         ) {
             is PersistentGraphContainerFactory.ParallelizableEdgeDirectedGraph -> {
-                container.edgesSetByPathPair
+                container.edgesSetByPointPair
                     .asSequence()
                     .flatMap { (ek, edges) -> edges.asSequence().map { e -> ek to e } }
                     .fold(initial, accumulator)
             }
             is PersistentGraphContainerFactory.DirectedGraph -> {
-                container.edgesByPathPair
+                container.edgesByPointPair
                     .asSequence()
                     .map { (ek, e) -> ek to e }
                     .fold(initial, accumulator)
@@ -552,17 +551,17 @@ internal interface PersistentGraphDesign<CWT, P, V, E> : PersistentGraph<P, V, E
             val container: PersistentGraphContainer<CWT, P, V, E> = this.materializedContainer
         ) {
             is PersistentGraphContainerFactory.ParallelizableEdgeDirectedGraph -> {
-                container.verticesByPath.keys
+                container.verticesByPoint.keys
                     .reversed()
                     .asSequence()
-                    .map { p -> p to container.verticesByPath[p]!! }
+                    .map { p -> p to container.verticesByPoint[p]!! }
                     .fold(initial) { result, entry -> accumulator(entry, result) }
             }
             is PersistentGraphContainerFactory.DirectedGraph -> {
-                container.verticesByPath.keys
+                container.verticesByPoint.keys
                     .reversed()
                     .asSequence()
-                    .map { p -> p to container.verticesByPath[p]!! }
+                    .map { p -> p to container.verticesByPoint[p]!! }
                     .fold(initial) { result, entry -> accumulator(entry, result) }
             }
             else -> {
@@ -578,18 +577,18 @@ internal interface PersistentGraphDesign<CWT, P, V, E> : PersistentGraph<P, V, E
             val container: PersistentGraphContainer<CWT, P, V, E> = this.materializedContainer
         ) {
             is PersistentGraphContainerFactory.ParallelizableEdgeDirectedGraph -> {
-                container.edgesSetByPathPair.keys
+                container.edgesSetByPointPair.keys
                     .reversed()
                     .asSequence()
-                    .map { ek -> ek to container.edgesSetByPathPair[ek]!! }
+                    .map { ek -> ek to container.edgesSetByPointPair[ek]!! }
                     .flatMap { (ek, eSet) -> eSet.asSequence().map { e -> ek to e } }
                     .fold(initial) { result, entry -> accumulator(entry, result) }
             }
             is PersistentGraphContainerFactory.DirectedGraph -> {
-                container.edgesByPathPair.keys
+                container.edgesByPointPair.keys
                     .reversed()
                     .asSequence()
-                    .map { ek -> ek to container.edgesByPathPair[ek]!! }
+                    .map { ek -> ek to container.edgesByPointPair[ek]!! }
                     .fold(initial) { result, entry -> accumulator(entry, result) }
             }
             else -> {

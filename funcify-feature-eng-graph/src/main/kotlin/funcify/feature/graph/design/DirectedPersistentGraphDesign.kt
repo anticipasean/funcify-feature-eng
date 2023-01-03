@@ -20,17 +20,19 @@ internal interface DirectedPersistentGraphDesign<CWT, P, V, E> :
     override val materializedContainer: PersistentGraphContainer<CWT, P, V, E>
 
     override fun hasCycles(): Boolean {
-        return when (val container: PersistentGraphContainer<CWT, P, V, E> = materializedContainer) {
+        return when (
+            val container: PersistentGraphContainer<CWT, P, V, E> = materializedContainer
+        ) {
             is PersistentGraphContainerFactory.ParallelizableEdgeDirectedGraph ->
-                container.edgesSetByPathPair.keys
+                container.edgesSetByPointPair.keys
                     .parallelStream()
                     .map { pathPair: Pair<P, P> -> pathPair.second to pathPair.first }
-                    .anyMatch { pathPair -> pathPair in container.edgesSetByPathPair }
+                    .anyMatch { pathPair -> pathPair in container.edgesSetByPointPair }
             is PersistentGraphContainerFactory.DirectedGraph ->
-                container.edgesByPathPair.keys
+                container.edgesByPointPair.keys
                     .parallelStream()
                     .map { pathPair: Pair<P, P> -> pathPair.second to pathPair.first }
-                    .anyMatch { pathPair -> pathPair in container.edgesByPathPair }
+                    .anyMatch { pathPair -> pathPair in container.edgesByPointPair }
             else -> {
                 throw UnsupportedOperationException(
                     "container type is not handled: [ container.type: ${container::class.qualifiedName} ]"
@@ -44,15 +46,18 @@ internal interface DirectedPersistentGraphDesign<CWT, P, V, E> :
     }
 
     override fun getCyclesAsStream(): Stream<out Pair<Triple<P, P, E>, Triple<P, P, E>>> {
-        return when (val container: PersistentGraphContainer<CWT, P, V, E> = materializedContainer) {
+        return when (
+            val container: PersistentGraphContainer<CWT, P, V, E> = materializedContainer
+        ) {
             is PersistentGraphContainerFactory.ParallelizableEdgeDirectedGraph ->
-                container.edgesSetByPathPair.keys.parallelStream().flatMap { pathPair: Pair<P, P> ->
+                container.edgesSetByPointPair.keys.parallelStream().flatMap { pathPair: Pair<P, P>
+                    ->
                     val reversedPair = pathPair.second to pathPair.first
-                    container.edgesSetByPathPair
+                    container.edgesSetByPointPair
                         .getOrElse(pathPair) { -> persistentSetOf() }
                         .stream()
                         .flatMap { e1: E ->
-                            container.edgesSetByPathPair
+                            container.edgesSetByPointPair
                                 .getOrElse(reversedPair) { -> persistentSetOf() }
                                 .stream()
                                 .map { e2: E ->
@@ -62,10 +67,10 @@ internal interface DirectedPersistentGraphDesign<CWT, P, V, E> :
                         }
                 }
             is PersistentGraphContainerFactory.DirectedGraph ->
-                container.edgesByPathPair.keys.parallelStream().flatMap { pathPair: Pair<P, P> ->
+                container.edgesByPointPair.keys.parallelStream().flatMap { pathPair: Pair<P, P> ->
                     val reversedPair = pathPair.second to pathPair.first
-                    val e1: E = container.edgesByPathPair[pathPair]!!
-                    when (val e2: E? = container.edgesByPathPair[reversedPair]) {
+                    val e1: E = container.edgesByPointPair[pathPair]!!
+                    when (val e2: E? = container.edgesByPointPair[reversedPair]) {
                         null -> Stream.empty()
                         else ->
                             Stream.of<Pair<Triple<P, P, E>, Triple<P, P, E>>>(
@@ -82,76 +87,76 @@ internal interface DirectedPersistentGraphDesign<CWT, P, V, E> :
         }
     }
 
-    override fun successorVertices(vertexPath: P): Iterable<Pair<P, V>> {
+    override fun successorVertices(point: P): Iterable<Pair<P, V>> {
         TODO("Not yet implemented")
     }
 
-    override fun successorVerticesAsStream(vertexPath: P): Stream<out Pair<P, V>> {
+    override fun successorVerticesAsStream(point: P): Stream<out Pair<P, V>> {
         TODO("Not yet implemented")
     }
 
-    override fun successorVertices(vertex: V, pathExtractor: (V) -> P): Iterable<Pair<P, V>> {
+    override fun successorVertices(vertex: V, pointExtractor: (V) -> P): Iterable<Pair<P, V>> {
         TODO("Not yet implemented")
     }
 
     override fun successorVerticesAsStream(
         vertex: V,
-        pathExtractor: (V) -> P
+        pointExtractor: (V) -> P
     ): Stream<out Pair<P, V>> {
         TODO("Not yet implemented")
     }
 
-    override fun predecessorVertices(vertexPath: P): Iterable<Pair<P, V>> {
+    override fun predecessorVertices(point: P): Iterable<Pair<P, V>> {
         TODO("Not yet implemented")
     }
 
-    override fun predecessorVerticesAsStream(vertexPath: P): Stream<out Pair<P, V>> {
+    override fun predecessorVerticesAsStream(point: P): Stream<out Pair<P, V>> {
         TODO("Not yet implemented")
     }
 
-    override fun predecessorVertices(vertex: V, pathExtractor: (V) -> P): Iterable<Pair<P, V>> {
+    override fun predecessorVertices(vertex: V, pointExtractor: (V) -> P): Iterable<Pair<P, V>> {
         TODO("Not yet implemented")
     }
 
     override fun predecessorVerticesAsStream(
         vertex: V,
-        pathExtractor: (V) -> P
+        pointExtractor: (V) -> P
     ): Stream<out Pair<P, V>> {
         TODO("Not yet implemented")
     }
 
-    override fun adjacentVertices(vertexPath: P): Iterable<Pair<P, V>> {
+    override fun adjacentVertices(point: P): Iterable<Pair<P, V>> {
         TODO("Not yet implemented")
     }
 
-    override fun adjacentVerticesAsStream(vertexPath: P): Stream<out Pair<P, V>> {
+    override fun adjacentVerticesAsStream(point: P): Stream<out Pair<P, V>> {
         TODO("Not yet implemented")
     }
 
-    override fun adjacentVertices(vertex: V, pathExtractor: (V) -> P): Iterable<Pair<P, V>> {
+    override fun adjacentVertices(vertex: V, pointExtractor: (V) -> P): Iterable<Pair<P, V>> {
         TODO("Not yet implemented")
     }
 
     override fun adjacentVerticesAsStream(
         vertex: V,
-        pathExtractor: (V) -> P
+        pointExtractor: (V) -> P
     ): Stream<out Pair<P, V>> {
         TODO("Not yet implemented")
     }
 
-    override fun edgesFromPath(path: P): Iterable<E> {
+    override fun edgesFromPoint(point: P): Iterable<E> {
         TODO("Not yet implemented")
     }
 
-    override fun edgesFromPathAsStream(path: P): Stream<out E> {
+    override fun edgesFromPointAsStream(point: P): Stream<out E> {
         TODO("Not yet implemented")
     }
 
-    override fun edgesToPath(path: P): Iterable<E> {
+    override fun edgesToPoint(point: P): Iterable<E> {
         TODO("Not yet implemented")
     }
 
-    override fun edgesToPathAsStream(path: P): Stream<out E> {
+    override fun edgesToPointAsStream(point: P): Stream<out E> {
         TODO("Not yet implemented")
     }
 }

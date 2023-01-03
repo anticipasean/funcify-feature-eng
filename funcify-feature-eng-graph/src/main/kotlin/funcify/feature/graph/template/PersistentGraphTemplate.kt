@@ -12,41 +12,41 @@ import java.util.stream.Stream
 internal interface PersistentGraphTemplate<CWT> {
 
     fun <P, V, E> fromVerticesAndEdges(
-        verticesByPath: PersistentMap<P, V>,
-        edgesByPathPair: PersistentMap<Pair<P, P>, E>
+        verticesByPoint: PersistentMap<P, V>,
+        edgesByPointPair: PersistentMap<Pair<P, P>, E>
     ): PersistentGraphContainer<CWT, P, V, E>
 
     fun <P, V, E> fromVerticesAndEdgeSets(
-        verticesByPath: PersistentMap<P, V>,
-        edgesSetByPathPair: PersistentMap<Pair<P, P>, PersistentSet<E>>
+        verticesByPoint: PersistentMap<P, V>,
+        edgesSetByPointPair: PersistentMap<Pair<P, P>, PersistentSet<E>>
     ): PersistentGraphContainer<CWT, P, V, E>
 
     fun <P, V, E> fromVertexAndEdgeStreams(
-        verticesByPathStream: Stream<Pair<P, V>>,
-        edgesByPathPairStream: Stream<Pair<Pair<P, P>, E>>
+        verticesByPointStream: Stream<Pair<P, V>>,
+        edgesByPointPairStream: Stream<Pair<Pair<P, P>, E>>
     ): PersistentGraphContainer<CWT, P, V, E>
 
     fun <P, V, E> put(
-        path: P,
+        point: P,
         vertex: V,
         container: PersistentGraphContainer<CWT, P, V, E>
     ): PersistentGraphContainer<CWT, P, V, E>
 
     fun <P, V, E> put(
-        path1: P,
-        path2: P,
+        point1: P,
+        point2: P,
         edge: E,
         container: PersistentGraphContainer<CWT, P, V, E>
     ): PersistentGraphContainer<CWT, P, V, E>
 
     fun <P, V, E> put(
-        pathPair: Pair<P, P>,
+        pointPair: Pair<P, P>,
         edge: E,
         container: PersistentGraphContainer<CWT, P, V, E>
     ): PersistentGraphContainer<CWT, P, V, E> {
         return put(
-            path1 = pathPair.first,
-            path2 = pathPair.second,
+            point1 = pointPair.first,
+            point2 = pointPair.second,
             edge = edge,
             container = container
         )

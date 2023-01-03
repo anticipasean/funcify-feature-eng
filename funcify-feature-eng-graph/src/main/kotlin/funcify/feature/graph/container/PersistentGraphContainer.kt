@@ -8,7 +8,7 @@ package funcify.feature.graph.container
  * @param WT
  * - Witness type parameter
  * @param P
- * - Path or Point type parameter
+ * - Point type parameter
  * @param V
  * - Vertex type parameter
  * @param E

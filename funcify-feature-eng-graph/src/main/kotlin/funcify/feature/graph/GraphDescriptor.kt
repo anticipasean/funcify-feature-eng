@@ -8,8 +8,11 @@ package funcify.feature.graph
 enum class GraphDescriptor {
 
     CONTAINS_SELF_LOOPS,
+
     CONTAINS_CYCLES,
+
     CONTAINS_PARALLEL_EDGES,
-    UNDIRECTED
+
+    DIRECTED
 
 }

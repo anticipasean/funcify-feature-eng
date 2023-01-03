@@ -7,30 +7,30 @@ interface PersistentGraph<P, V, E> : ImmutableGraph<P, V, E> {
     companion object {
 
         fun <P, V, E> empty(): PersistentGraph<P, V, E> {
-            return PersistentGraphSourceContextFactory
-                .DirectedPersistentGraphSourceDesign<P, V, E>()
+            return PersistentGraphSourceContextFactory.DirectedPersistentGraphSourceDesign<
+                P, V, E>()
         }
 
         fun <P, V, E> of(
-            path1: P,
+            point1: P,
             vertex1: V,
-            path2: P,
+            point2: P,
             vertex2: V,
             edge: E
         ): PersistentGraph<P, V, E> {
-            return PersistentGraphSourceContextFactory
-                .DirectedPersistentGraphSourceDesign<P, V, E>()
-                .put(path1, vertex1)
-                .put(path2, vertex2)
-                .put(path1, path2, edge)
+            return PersistentGraphSourceContextFactory.DirectedPersistentGraphSourceDesign<
+                    P, V, E>()
+                .put(point1, vertex1)
+                .put(point2, vertex2)
+                .put(point1, point2, edge)
         }
     }
 
-    fun put(path: P, vertex: V): PersistentGraph<P, V, E>
+    fun put(point: P, vertex: V): PersistentGraph<P, V, E>
 
-    fun put(path1: P, path2: P, edge: E): PersistentGraph<P, V, E>
+    fun put(point1: P, point2: P, edge: E): PersistentGraph<P, V, E>
 
-    fun put(pathPair: Pair<P, P>, edge: E): PersistentGraph<P, V, E>
+    fun put(pointPair: Pair<P, P>, edge: E): PersistentGraph<P, V, E>
 
     fun <M : Map<P, V>> putAllVertices(vertices: M): PersistentGraph<P, V, E>
 
@@ -40,11 +40,27 @@ interface PersistentGraph<P, V, E> : ImmutableGraph<P, V, E> {
 
     override fun filterVertices(condition: (P, V) -> Boolean): PersistentGraph<P, V, E>
 
+    override fun filterVertices(condition: (V) -> Boolean): PersistentGraph<P, V, E> {
+        return filterVertices { _: P, v: V -> condition(v) }
+    }
+
     override fun filterEdges(condition: (Pair<P, P>, E) -> Boolean): PersistentGraph<P, V, E>
+
+    override fun filterEdges(condition: (E) -> Boolean): PersistentGraph<P, V, E> {
+        return filterEdges { _: Pair<P, P>, e: E -> condition(e) }
+    }
 
     override fun <R> mapVertices(function: (P, V) -> R): PersistentGraph<P, R, E>
 
+    override fun <R> mapVertices(function: (V) -> R): PersistentGraph<P, R, E> {
+        return mapVertices { _: P, v: V -> function(v) }
+    }
+
     override fun <R> mapEdges(function: (Pair<P, P>, E) -> R): PersistentGraph<P, V, R>
+
+    override fun <R> mapEdges(function: (E) -> R): PersistentGraph<P, V, R> {
+        return mapEdges { ek: Pair<P, P>, e: E -> function(e) }
+    }
 
     override fun <R, M : Map<out P, R>> flatMapVertices(
         function: (P, V) -> M
@@ -53,4 +69,5 @@ interface PersistentGraph<P, V, E> : ImmutableGraph<P, V, E> {
     override fun <R, M : Map<out Pair<P, P>, R>> flatMapEdges(
         function: (Pair<P, P>, E) -> M
     ): PersistentGraph<P, V, R>
+
 }

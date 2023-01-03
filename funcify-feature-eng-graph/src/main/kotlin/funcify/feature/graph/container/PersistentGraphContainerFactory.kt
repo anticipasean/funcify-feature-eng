@@ -18,8 +18,8 @@ internal object PersistentGraphContainerFactory {
     }
 
     internal class DirectedGraph<P, V, E>(
-        val verticesByPath: PersistentMap<P, V>,
-        val edgesByPathPair: PersistentMap<Pair<P, P>, E>
+        val verticesByPoint: PersistentMap<P, V>,
+        val edgesByPointPair: PersistentMap<Pair<P, P>, E>
     ) : PersistentGraphContainer<DirectedGraphWT, P, V, E> {
 
         companion object {
@@ -34,8 +34,8 @@ internal object PersistentGraphContainerFactory {
     }
 
     internal class ParallelizableEdgeDirectedGraph<P, V, E>(
-        val verticesByPath: PersistentMap<P, V>,
-        val edgesSetByPathPair: PersistentMap<Pair<P, P>, PersistentSet<E>>
+        val verticesByPoint: PersistentMap<P, V>,
+        val edgesSetByPointPair: PersistentMap<Pair<P, P>, PersistentSet<E>>
     ) : PersistentGraphContainer<ParallelizableEdgeDirectedGraphWT, P, V, E> {
 
         companion object {
