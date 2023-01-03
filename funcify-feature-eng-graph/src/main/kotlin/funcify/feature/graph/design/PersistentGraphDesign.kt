@@ -512,7 +512,7 @@ internal interface PersistentGraphDesign<CWT, P, V, E> : PersistentGraph<P, V, E
             is PersistentGraphContainerFactory.DirectedGraph -> {
                 container.verticesByPath
                     .asSequence()
-                    .map { (k, v) -> k to v }
+                    .map { (p, v) -> p to v }
                     .fold(initial, accumulator)
             }
             else -> {
@@ -530,13 +530,13 @@ internal interface PersistentGraphDesign<CWT, P, V, E> : PersistentGraph<P, V, E
             is PersistentGraphContainerFactory.ParallelizableEdgeDirectedGraph -> {
                 container.edgesSetByPathPair
                     .asSequence()
-                    .flatMap { (k, v) -> v.asSequence().map { e -> k to e } }
+                    .flatMap { (ek, edges) -> edges.asSequence().map { e -> ek to e } }
                     .fold(initial, accumulator)
             }
             is PersistentGraphContainerFactory.DirectedGraph -> {
                 container.edgesByPathPair
                     .asSequence()
-                    .map { (k, v) -> k to v }
+                    .map { (ek, e) -> ek to e }
                     .fold(initial, accumulator)
             }
             else -> {
