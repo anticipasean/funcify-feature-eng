@@ -103,7 +103,10 @@ interface ImmutableGraph<P, out V, out E> {
      */
     fun filterEdges(condition: (E) -> Boolean): ImmutableGraph<P, V, E>
 
-    /** Transform all points <P> to <R> */
+    /** Transform all points <P> to <R> with the context of vertex <V> */
+    fun <R> mapPoints(function: (P, V) -> R): ImmutableGraph<R, V, E>
+
+    /** Transform all points <P> to <R> without the context of vertex <V> */
     fun <R> mapPoints(function: (P) -> R): ImmutableGraph<R, V, E>
 
     /** Transform all vertices <V> to <R> with the context of point <P> */

@@ -220,6 +220,47 @@ internal interface ParallelizableEdgeDirectedGraphTemplate :
     }
 
     override fun <P, V, E, R> mapPoints(
+        function: (P, V) -> R,
+        container: PersistentGraphContainer<ParallelizableEdgeDirectedGraphWT, P, V, E>,
+    ): PersistentGraphContainer<ParallelizableEdgeDirectedGraphWT, R, V, E> {
+        val updatedVertices =
+            container
+                .narrowed()
+                .verticesByPoint
+                .entries
+                .parallelStream()
+                .map { (p: P, v: V) -> function(p, v) to v }
+                .reducePairsToPersistentMap()
+        val updatedEdges =
+            container
+                .narrowed()
+                .edgesSetByPointPair
+                .entries
+                .parallelStream()
+                .flatMap { (ek: Pair<P, P>, edges: PersistentSet<E>) ->
+                    when (val v1: V? = container.narrowed().verticesByPoint[ek.first]) {
+                        null -> {
+                            Stream.empty()
+                        }
+                        else -> {
+                            when (val v2: V? = container.narrowed().verticesByPoint[ek.second]) {
+                                null -> {
+                                    Stream.empty()
+                                }
+                                else -> {
+                                    Stream.of(
+                                        (function(ek.first, v1) to function(ek.second, v2)) to edges
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+                .reducePairsToPersistentMap()
+        return fromVerticesAndEdgeSets(updatedVertices, updatedEdges)
+    }
+
+    override fun <P, V, E, R> mapPoints(
         function: (P) -> R,
         container: PersistentGraphContainer<ParallelizableEdgeDirectedGraphWT, P, V, E>,
     ): PersistentGraphContainer<ParallelizableEdgeDirectedGraphWT, R, V, E> {

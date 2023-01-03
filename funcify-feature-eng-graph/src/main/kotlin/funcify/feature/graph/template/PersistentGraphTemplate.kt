@@ -78,6 +78,11 @@ internal interface PersistentGraphTemplate<CWT> {
     ): PersistentGraphContainer<CWT, P, V, E>
 
     fun <P, V, E, R> mapPoints(
+        function: (P, V) -> R,
+        container: PersistentGraphContainer<CWT, P, V, E>
+    ): PersistentGraphContainer<CWT, R, V, E>
+
+    fun <P, V, E, R> mapPoints(
         function: (P) -> R,
         container: PersistentGraphContainer<CWT, P, V, E>
     ): PersistentGraphContainer<CWT, R, V, E>
