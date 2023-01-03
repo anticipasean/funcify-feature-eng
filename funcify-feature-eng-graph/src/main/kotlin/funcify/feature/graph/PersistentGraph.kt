@@ -66,11 +66,11 @@ interface PersistentGraph<P, V, E> : ImmutableGraph<P, V, E> {
         return mapEdges { ek: Pair<P, P>, e: E -> function(e) }
     }
 
-    override fun <R, M : Map<out P, R>> flatMapVertices(
+    override fun <P1, V1, M : Map<out P1, V1>> flatMapVertices(
         function: (P, V) -> M
-    ): PersistentGraph<P, R, E>
+    ): PersistentGraph<P1, V1, E>
 
-    override fun <R, M : Map<out Pair<P, P>, R>> flatMapEdges(
+    override fun <E1, M : Map<out Pair<P, P>, E1>> flatMapEdges(
         function: (Pair<P, P>, E) -> M
-    ): PersistentGraph<P, V, R>
+    ): PersistentGraph<P, V, E1>
 }

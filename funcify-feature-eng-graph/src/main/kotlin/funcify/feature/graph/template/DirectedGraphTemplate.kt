@@ -275,45 +275,86 @@ internal interface DirectedGraphTemplate : PersistentGraphTemplate<DirectedGraph
         return fromVerticesAndEdges(verticesByPath, updatedEdges)
     }
 
-    override fun <P, V, E, R, M : Map<out P, R>> flatMapVertices(
+    override fun <P, V, E, P1, V1, M : Map<out P1, V1>> flatMapVertices(
         function: (P, V) -> M,
         container: PersistentGraphContainer<DirectedGraphWT, P, V, E>
-    ): PersistentGraphContainer<DirectedGraphWT, P, R, E> {
-        val updatedVertices: PersistentMap<P, R> =
+    ): PersistentGraphContainer<DirectedGraphWT, P1, V1, E> {
+        val updatedVertices: PersistentMap<P1, V1> =
             container
                 .narrowed()
                 .verticesByPoint
                 .entries
                 .parallelStream()
-                .map { (p, v): Map.Entry<P, V> -> function(p, v) }
+                .map { (p: P, v: V) -> function(p, v) }
                 .flatMap { m: M -> m.entries.stream() }
                 .reduceEntriesToPersistentMap()
-        val updatedEdges: PersistentMap<Pair<P, P>, E> =
+
+        /**
+         * Takes the cartesian product of all new mappings
+         *
+         * Example:
+         *
+         * Assuming
+         * - graph of type PersistentGraph<Int, Char, Double>
+         * ```
+         *      - with vertices { (1, 'A'), (2, 'B') } and edge { ( (1, 2), 0.2 ) }
+         * ```
+         * - a flatmap function of type (Int, Char) -> Map<String, Char>
+         * - a lambda implementation of {(p: Int, v: Char) -> mapOf(p.toString() to v, (p *
+         * 10).toString() to (v + 2)) }
+         *
+         * We would expect the result to be a graph with:
+         * - vertices { ("1", 'A'), ("10", 'C'), ("2", 'B'), ("20", 'D') } and
+         * - edges { (("1", "2"), 0.2), (("1", "20"), 0.2), (("10", "2"), 0.2), (("10", "20"), 0.2)
+         * }
+         */
+        val updatedEdges: PersistentMap<Pair<P1, P1>, E> =
             container
                 .narrowed()
                 .edgesByPointPair
                 .entries
                 .parallelStream()
-                .filter { (ek, _): Map.Entry<Pair<P, P>, E> ->
-                    ek.first in updatedVertices && ek.second in updatedVertices
+                .flatMap { (ek: Pair<P, P>, e: E) ->
+                    when (val v1: V? = container.narrowed().verticesByPoint[ek.first]) {
+                        null -> {
+                            Stream.empty()
+                        }
+                        else -> {
+                            when (val v2: V? = container.narrowed().verticesByPoint[ek.second]) {
+                                null -> {
+                                    Stream.empty()
+                                }
+                                else -> {
+                                    val newSecondVertexMappings: M = function(ek.second, v2)
+                                    function(ek.first, v1).entries.parallelStream().flatMap {
+                                        (newFirstPoint: P1, _: V1) ->
+                                        newSecondVertexMappings.entries.parallelStream().map {
+                                            (newSecondPoint: P1, _: V1) ->
+                                            (newFirstPoint to newSecondPoint) to e
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
-                .reduceEntriesToPersistentMap()
+                .reducePairsToPersistentMap()
         return fromVerticesAndEdges(updatedVertices, updatedEdges)
     }
 
-    override fun <P, V, E, R, M : Map<out Pair<P, P>, R>> flatMapEdges(
+    override fun <P, V, E, E1, M : Map<out Pair<P, P>, E1>> flatMapEdges(
         function: (Pair<P, P>, E) -> M,
         container: PersistentGraphContainer<DirectedGraphWT, P, V, E>
-    ): PersistentGraphContainer<DirectedGraphWT, P, V, R> {
+    ): PersistentGraphContainer<DirectedGraphWT, P, V, E1> {
         val vertices: PersistentMap<P, V> = container.narrowed().verticesByPoint
-        val updatedEdges: PersistentMap<Pair<P, P>, R> =
+        val updatedEdges: PersistentMap<Pair<P, P>, E1> =
             container
                 .narrowed()
                 .edgesByPointPair
                 .entries
                 .parallelStream()
                 .flatMap { (ek, e): Map.Entry<Pair<P, P>, E> -> function(ek, e).entries.stream() }
-                .filter { (ek, _): Map.Entry<Pair<P, P>, R> ->
+                .filter { (ek, _): Map.Entry<Pair<P, P>, E1> ->
                     ek.first in vertices && ek.second in vertices
                 }
                 .reduceEntriesToPersistentMap()

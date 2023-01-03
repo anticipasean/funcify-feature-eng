@@ -368,20 +368,20 @@ internal interface PersistentGraphDesign<CWT, P, V, E> : PersistentGraph<P, V, E
         }
     }
 
-    override fun <R, M : Map<out P, R>> flatMapVertices(
+    override fun <P1, V1, M : Map<out P1, V1>> flatMapVertices(
         function: (P, V) -> M
-    ): PersistentGraph<P, R, E> {
+    ): PersistentGraph<P1, V1, E> {
         return when (
-            val container: PersistentGraphContainer<CWT, P, R, E> =
+            val container: PersistentGraphContainer<CWT, P1, V1, E> =
                 this.template.flatMapVertices(function, materializedContainer)
         ) {
             is PersistentGraphContainerFactory.ParallelizableEdgeDirectedGraph -> {
-                PersistentGraphSourceContextFactory.ParallelizableEdgeGraphSourceDesign<P, R, E>(
+                PersistentGraphSourceContextFactory.ParallelizableEdgeGraphSourceDesign<P1, V1, E>(
                     materializedContainer = container
                 )
             }
             is PersistentGraphContainerFactory.DirectedGraph -> {
-                PersistentGraphSourceContextFactory.DirectedPersistentGraphSourceDesign<P, R, E>(
+                PersistentGraphSourceContextFactory.DirectedPersistentGraphSourceDesign<P1, V1, E>(
                     materializedContainer = container
                 )
             }
@@ -393,20 +393,20 @@ internal interface PersistentGraphDesign<CWT, P, V, E> : PersistentGraph<P, V, E
         }
     }
 
-    override fun <R, M : Map<out Pair<P, P>, R>> flatMapEdges(
+    override fun <E1, M : Map<out Pair<P, P>, E1>> flatMapEdges(
         function: (Pair<P, P>, E) -> M
-    ): PersistentGraph<P, V, R> {
+    ): PersistentGraph<P, V, E1> {
         return when (
-            val container: PersistentGraphContainer<CWT, P, V, R> =
+            val container: PersistentGraphContainer<CWT, P, V, E1> =
                 this.template.flatMapEdges(function, materializedContainer)
         ) {
             is PersistentGraphContainerFactory.ParallelizableEdgeDirectedGraph -> {
-                PersistentGraphSourceContextFactory.ParallelizableEdgeGraphSourceDesign<P, V, R>(
+                PersistentGraphSourceContextFactory.ParallelizableEdgeGraphSourceDesign<P, V, E1>(
                     materializedContainer = container
                 )
             }
             is PersistentGraphContainerFactory.DirectedGraph -> {
-                PersistentGraphSourceContextFactory.DirectedPersistentGraphSourceDesign<P, V, R>(
+                PersistentGraphSourceContextFactory.DirectedPersistentGraphSourceDesign<P, V, E1>(
                     materializedContainer = container
                 )
             }

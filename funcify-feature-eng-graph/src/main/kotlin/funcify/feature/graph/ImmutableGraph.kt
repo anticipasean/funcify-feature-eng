@@ -115,28 +115,28 @@ interface ImmutableGraph<P, out V, out E> {
     /** Transform all vertices <V> to <R> without the context of point <P> */
     fun <R> mapVertices(function: (V) -> R): ImmutableGraph<P, R, E>
 
-    /** Transform all edges from <E> to <R> with the context of point <P> */
+    /** Transform all edges from <E> to <R> with the context of point pair (<P>, <P>) */
     fun <R> mapEdges(function: (Pair<P, P>, E) -> R): ImmutableGraph<P, V, R>
 
-    /** Transform all edges from <E> to <R> without the context of point <P> */
+    /** Transform all edges from <E> to <R> without the context of point pair (<P>, <P>) */
     fun <R> mapEdges(function: (E) -> R): ImmutableGraph<P, V, R>
 
     /**
      * Transform each path-to-vertex entry into map of new path-to-vertex entries ( and remove any
      * existing edges that no longer refer to an existing path to a vertex )
      */
-    fun <R, M : Map<out P, @UnsafeVariance R>> flatMapVertices(
+    fun <P1, V1, M : Map<out P1, @UnsafeVariance V1>> flatMapVertices(
         function: (P, V) -> M
-    ): ImmutableGraph<P, R, E>
+    ): ImmutableGraph<P1, V1, E>
 
     /**
      * Transform each path-pair-to-edge entry into map of new path-pair-to-edge entries ( discarding
      * any path-pair-to-edge entries wherein either path within the path-pair no longer refers /
      * does not refer to an existing path for a vertex )
      */
-    fun <R, M : Map<out Pair<P, P>, @UnsafeVariance R>> flatMapEdges(
+    fun <E1, M : Map<out Pair<P, P>, @UnsafeVariance E1>> flatMapEdges(
         function: (Pair<P, P>, E) -> M
-    ): ImmutableGraph<P, V, R>
+    ): ImmutableGraph<P, V, E1>
 
     fun <R> foldLeftVertices(initial: R, accumulator: (R, Pair<P, V>) -> R): R
 

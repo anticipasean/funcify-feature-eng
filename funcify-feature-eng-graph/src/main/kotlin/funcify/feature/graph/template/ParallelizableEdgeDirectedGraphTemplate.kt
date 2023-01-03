@@ -349,10 +349,10 @@ internal interface ParallelizableEdgeDirectedGraphTemplate :
         return fromVerticesAndEdgeSets(container.narrowed().verticesByPoint, updatedEdges)
     }
 
-    override fun <P, V, E, R, M : Map<out P, R>> flatMapVertices(
+    override fun <P, V, E, P1, V1, M : Map<out P1, V1>> flatMapVertices(
         function: (P, V) -> M,
         container: PersistentGraphContainer<ParallelizableEdgeDirectedGraphWT, P, V, E>
-    ): PersistentGraphContainer<ParallelizableEdgeDirectedGraphWT, P, R, E> {
+    ): PersistentGraphContainer<ParallelizableEdgeDirectedGraphWT, P1, V1, E> {
         val updatedVertices =
             container
                 .narrowed()
@@ -367,15 +367,36 @@ internal interface ParallelizableEdgeDirectedGraphTemplate :
                 .edgesSetByPointPair
                 .entries
                 .parallelStream()
-                .filter { (ek: Pair<P, P>, _: PersistentSet<E>) ->
-                    ek.first in updatedVertices && ek.second in updatedVertices
+                .flatMap { (ek: Pair<P, P>, e: PersistentSet<E>) ->
+                    when (val v1: V? = container.narrowed().verticesByPoint[ek.first]) {
+                        null -> {
+                            Stream.empty()
+                        }
+                        else -> {
+                            when (val v2: V? = container.narrowed().verticesByPoint[ek.second]) {
+                                null -> {
+                                    Stream.empty()
+                                }
+                                else -> {
+                                    val newSecondVertexMappings: M = function(ek.second, v2)
+                                    function(ek.first, v1).entries.parallelStream().flatMap {
+                                        (newFirstPoint: P1, _: V1) ->
+                                        newSecondVertexMappings.entries.parallelStream().map {
+                                            (newSecondPoint: P1, _: V1) ->
+                                            (newFirstPoint to newSecondPoint) to e
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
                 .reduce(
-                    persistentMapOf<Pair<P, P>, PersistentSet<E>>(),
+                    persistentMapOf<Pair<P1, P1>, PersistentSet<E>>(),
                     { pm, (k, v) -> pm.put(k, pm.getOrElse(k) { -> persistentSetOf() }.addAll(v)) },
                     { pm1, pm2 ->
                         val pm1Builder = pm1.builder()
-                        pm2.forEach { (k: Pair<P, P>, v: PersistentSet<E>) ->
+                        pm2.forEach { (k: Pair<P1, P1>, v: PersistentSet<E>) ->
                             pm1Builder[k] =
                                 pm1Builder.getOrElse(k) { -> persistentSetOf() }.addAll(v)
                         }
@@ -385,10 +406,10 @@ internal interface ParallelizableEdgeDirectedGraphTemplate :
         return fromVerticesAndEdgeSets(updatedVertices, updatedEdges)
     }
 
-    override fun <P, V, E, R, M : Map<out Pair<P, P>, R>> flatMapEdges(
+    override fun <P, V, E, E1, M : Map<out Pair<P, P>, E1>> flatMapEdges(
         function: (Pair<P, P>, E) -> M,
         container: PersistentGraphContainer<ParallelizableEdgeDirectedGraphWT, P, V, E>
-    ): PersistentGraphContainer<ParallelizableEdgeDirectedGraphWT, P, V, R> {
+    ): PersistentGraphContainer<ParallelizableEdgeDirectedGraphWT, P, V, E1> {
         val verticesByPoint = container.narrowed().verticesByPoint
         val updatedEdges =
             container
@@ -400,7 +421,7 @@ internal interface ParallelizableEdgeDirectedGraphTemplate :
                     edges.stream().map { e: E -> ek to e }
                 }
                 .flatMap { (ek: Pair<P, P>, e: E) -> function(ek, e).entries.stream() }
-                .filter { (ek: Pair<P, P>, _: R) ->
+                .filter { (ek: Pair<P, P>, _: E1) ->
                     ek.first in verticesByPoint && ek.second in verticesByPoint
                 }
                 .reduceEntriesToPersistentSetValueMap()

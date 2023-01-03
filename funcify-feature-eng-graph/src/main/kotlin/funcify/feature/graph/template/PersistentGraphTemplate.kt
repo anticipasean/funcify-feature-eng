@@ -97,13 +97,13 @@ internal interface PersistentGraphTemplate<CWT> {
         container: PersistentGraphContainer<CWT, P, V, E>
     ): PersistentGraphContainer<CWT, P, V, R>
 
-    fun <P, V, E, R, M : Map<out P, R>> flatMapVertices(
+    fun <P, V, E, P1, V1, M : Map<out P1, V1>> flatMapVertices(
         function: (P, V) -> M,
         container: PersistentGraphContainer<CWT, P, V, E>
-    ): PersistentGraphContainer<CWT, P, R, E>
+    ): PersistentGraphContainer<CWT, P1, V1, E>
 
-    fun <P, V, E, R, M : Map<out Pair<P, P>, R>> flatMapEdges(
+    fun <P, V, E, E1, M : Map<out Pair<P, P>, E1>> flatMapEdges(
         function: (Pair<P, P>, E) -> M,
         container: PersistentGraphContainer<CWT, P, V, E>
-    ): PersistentGraphContainer<CWT, P, V, R>
+    ): PersistentGraphContainer<CWT, P, V, E1>
 }
