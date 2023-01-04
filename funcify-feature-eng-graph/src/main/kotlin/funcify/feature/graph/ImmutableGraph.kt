@@ -1,5 +1,6 @@
 package funcify.feature.graph
 
+import java.util.*
 import java.util.stream.Stream
 import kotlinx.collections.immutable.ImmutableSet
 
@@ -145,4 +146,11 @@ interface ImmutableGraph<P, out V, out E> {
     fun <R> foldRightVertices(initial: R, accumulator: (Pair<P, V>, R) -> R): R
 
     fun <R> foldRightEdges(initial: R, accumulator: (Pair<Pair<P, P>, E>, R) -> R): R
+
+    /** Method used to generate the #toString representation of the underlying graph */
+    fun stringify(
+        pointStringifier: (P) -> String = Objects::toString,
+        vertexStringifier: (V) -> String = Objects::toString,
+        edgeStringifier: (E) -> String = Objects::toString
+    ): String
 }

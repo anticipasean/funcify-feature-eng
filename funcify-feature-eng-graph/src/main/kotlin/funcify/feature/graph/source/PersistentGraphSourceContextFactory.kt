@@ -11,10 +11,21 @@ import kotlinx.collections.immutable.persistentMapOf
 
 internal object PersistentGraphSourceContextFactory {
 
+    /**
+     * The _initial_ behaviors of the [DirectedPersistentGraph]
+     *
+     * This template may be swapped out with a different one enabling different behavior during
+     * processing
+     */
     val initialDirectedGraphTemplate: DirectedGraphTemplate by lazy {
         object : DirectedGraphTemplate {}
     }
-
+    /**
+     * The _initial_ behaviors of the [ParallelizableEdgeDirectedPersistentGraph]
+     *
+     * This template may be swapped out with a different one enabling different behavior during
+     * processing
+     */
     val initialParallelizableEdgeDirectedGraphTemplate:
         ParallelizableEdgeDirectedGraphTemplate by lazy {
         object : ParallelizableEdgeDirectedGraphTemplate {}
@@ -45,6 +56,13 @@ internal object PersistentGraphSourceContextFactory {
                 return design as DirectedPersistentGraphSourceDesign<P, V, E>
             }
         }
+
+        /** lazily calculates the string representation for the materialized container */
+        private val stringRepresentation: String by lazy { stringify() }
+
+        override fun toString(): String {
+            return stringRepresentation
+        }
     }
 
     internal class ParallelizableEdgeGraphSourceDesign<P, V, E>(
@@ -65,6 +83,13 @@ internal object PersistentGraphSourceContextFactory {
             ): ParallelizableEdgeGraphSourceDesign<P, V, E> {
                 return design as ParallelizableEdgeGraphSourceDesign<P, V, E>
             }
+        }
+
+        /** lazily calculates the string representation for the materialized container */
+        private val stringRepresentation: String by lazy { stringify() }
+
+        override fun toString(): String {
+            return stringRepresentation
         }
     }
 }

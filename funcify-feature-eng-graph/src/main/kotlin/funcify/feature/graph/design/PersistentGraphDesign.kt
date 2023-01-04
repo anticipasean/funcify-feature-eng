@@ -7,13 +7,14 @@ import funcify.feature.graph.container.PersistentGraphContainerFactory
 import funcify.feature.graph.source.PersistentGraphSourceContextFactory
 import funcify.feature.graph.template.PersistentGraphTemplate
 import java.util.logging.Logger
+import java.util.stream.Collectors
 import java.util.stream.Stream
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.PersistentSet
 import kotlinx.collections.immutable.persistentSetOf
 
 /**
- * Design of a graph includes both its contents (=> graph_container) and its behavior (=>
+ * The **design** of a graph includes both its data/contents (=> graph_container) and its behavior (=>
  * graph_template)
  */
 internal interface PersistentGraphDesign<CWT, P, V, E> : PersistentGraph<P, V, E> {
@@ -210,7 +211,26 @@ internal interface PersistentGraphDesign<CWT, P, V, E> : PersistentGraph<P, V, E
     }
 
     override fun remove(point: P): PersistentGraph<P, V, E> {
-        TODO("Not yet implemented")
+        return when (
+            val container: PersistentGraphContainer<CWT, P, V, E> =
+                this.template.remove(point, materializedContainer)
+        ) {
+            is PersistentGraphContainerFactory.ParallelizableEdgeDirectedGraph -> {
+                PersistentGraphSourceContextFactory.ParallelizableEdgeGraphSourceDesign<P, V, E>(
+                    materializedContainer = container
+                )
+            }
+            is PersistentGraphContainerFactory.DirectedGraph -> {
+                PersistentGraphSourceContextFactory.DirectedPersistentGraphSourceDesign<P, V, E>(
+                    materializedContainer = container
+                )
+            }
+            else -> {
+                throw UnsupportedOperationException(
+                    "container type is not handled: [ container.type: ${container::class.qualifiedName} ]"
+                )
+            }
+        }
     }
 
     override fun descriptors(): ImmutableSet<GraphDescriptor> {
@@ -663,6 +683,77 @@ internal interface PersistentGraphDesign<CWT, P, V, E> : PersistentGraph<P, V, E
                     .asSequence()
                     .map { ek -> ek to container.edgesByPointPair[ek]!! }
                     .fold(initial) { result, entry -> accumulator(entry, result) }
+            }
+            else -> {
+                throw UnsupportedOperationException(
+                    "container type is not handled: [ container.type: ${container::class.qualifiedName} ]"
+                )
+            }
+        }
+    }
+
+    override fun stringify(
+        pointStringifier: (P) -> String,
+        vertexStringifier: (V) -> String,
+        edgeStringifier: (E) -> String
+    ): String {
+        val pathStringifier: (Pair<P, P>) -> String = { (p1, p2) ->
+            """"path":{"source":${pointStringifier(p1)},"destination":${pointStringifier(p2)}}"""
+        }
+        val vertexByPointStringifier: (P, V) -> String = { p, v ->
+            """{"point":${pointStringifier(p)},"vertex":${vertexStringifier(v)}}"""
+        }
+        val edgeByPathStringifier: (Pair<P, P>, E) -> String = { ek, e ->
+            """{${pathStringifier(ek)},"edge":${edgeStringifier(e)}}"""
+        }
+        return when (
+            val container: PersistentGraphContainer<CWT, P, V, E> = this.materializedContainer
+        ) {
+            is PersistentGraphContainerFactory.ParallelizableEdgeDirectedGraph -> {
+                StringBuilder("{")
+                    .append(""""vertices":[""")
+                    .append(
+                        container.verticesByPoint.entries
+                            .stream()
+                            .map { (p, v) -> vertexByPointStringifier(p, v) }
+                            .collect(Collectors.joining(","))
+                    )
+                    .append("]")
+                    .append(",")
+                    .append(""""edges":[""")
+                    .append(
+                        container.edgesSetByPointPair.entries
+                            .stream()
+                            .flatMap { (ek, edges) ->
+                                edges.stream().map { e -> edgeByPathStringifier(ek, e) }
+                            }
+                            .collect(Collectors.joining(","))
+                    )
+                    .append("]")
+                    .append("}")
+                    .toString()
+            }
+            is PersistentGraphContainerFactory.DirectedGraph -> {
+                StringBuilder("{")
+                    .append(""""vertices":[""")
+                    .append(
+                        container.verticesByPoint.entries
+                            .stream()
+                            .map { (p, v) -> vertexByPointStringifier(p, v) }
+                            .collect(Collectors.joining(","))
+                    )
+                    .append("]")
+                    .append(",")
+                    .append(""""edges":[""")
+                    .append(
+                        container.edgesByPointPair.entries
+                            .stream()
+                            .map { (ek, e) -> edgeByPathStringifier(ek, e) }
+                            .collect(Collectors.joining(","))
+                    )
+                    .append("]")
+                    .append("}")
+                    .toString()
             }
             else -> {
                 throw UnsupportedOperationException(
