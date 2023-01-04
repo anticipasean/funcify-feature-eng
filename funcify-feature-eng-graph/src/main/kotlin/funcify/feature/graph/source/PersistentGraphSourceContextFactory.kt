@@ -63,6 +63,14 @@ internal object PersistentGraphSourceContextFactory {
         override fun toString(): String {
             return stringRepresentation
         }
+
+        override fun equals(other: Any?): Boolean {
+            return this.materializedContainer.equals(other)
+        }
+
+        override fun hashCode(): Int {
+            return this.materializedContainer.hashCode()
+        }
     }
 
     internal class ParallelizableEdgeGraphSourceDesign<P, V, E>(
@@ -90,6 +98,14 @@ internal object PersistentGraphSourceContextFactory {
 
         override fun toString(): String {
             return stringRepresentation
+        }
+
+        override fun equals(other: Any?): Boolean {
+            return this.materializedContainer.equals(other)
+        }
+
+        override fun hashCode(): Int {
+            return this.materializedContainer.hashCode()
         }
     }
 }
