@@ -1,5 +1,6 @@
 package funcify.feature.graph
 
+import funcify.feature.graph.builder.DefaultPersistentGraphFactory
 import funcify.feature.graph.context.DirectedPersistentGraphContext
 
 interface PersistentGraph<P, V, E> : ImmutableGraph<P, V, E> {
@@ -7,7 +8,7 @@ interface PersistentGraph<P, V, E> : ImmutableGraph<P, V, E> {
     companion object {
 
         fun <P, V, E> empty(): PersistentGraph<P, V, E> {
-            return DirectedPersistentGraphContext<P, V, E>()
+            return DefaultPersistentGraphFactory.builder().directed().build()
         }
 
         fun <P, V, E> of(

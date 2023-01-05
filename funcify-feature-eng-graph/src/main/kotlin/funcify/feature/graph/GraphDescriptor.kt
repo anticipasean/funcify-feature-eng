@@ -6,13 +6,7 @@ package funcify.feature.graph
  * @created 2022-12-31
  */
 enum class GraphDescriptor {
-
-    CONTAINS_SELF_LOOPS,
-
-    CONTAINS_CYCLES,
-
-    CONTAINS_PARALLEL_EDGES,
-
+    PERMIT_SELF_LOOPS,
+    PERMIT_PARALLEL_EDGES,
     DIRECTED
-
 }

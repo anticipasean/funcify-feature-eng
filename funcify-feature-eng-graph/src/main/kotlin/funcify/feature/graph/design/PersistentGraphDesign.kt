@@ -201,7 +201,7 @@ internal interface PersistentGraphDesign<CWT, P, V, E> : PersistentGraph<P, V, E
             is ParallelizableEdgeDirectedGraphData -> {
                 persistentSetOf<GraphDescriptor>(
                     GraphDescriptor.DIRECTED,
-                    GraphDescriptor.CONTAINS_PARALLEL_EDGES
+                    GraphDescriptor.PERMIT_PARALLEL_EDGES
                 )
             }
             is DirectedGraphData -> {
