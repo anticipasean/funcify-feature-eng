@@ -1,14 +1,13 @@
 package funcify.feature.graph
 
-import funcify.feature.graph.source.PersistentGraphSourceContextFactory
+import funcify.feature.graph.context.DirectedPersistentGraphContext
 
 interface PersistentGraph<P, V, E> : ImmutableGraph<P, V, E> {
 
     companion object {
 
         fun <P, V, E> empty(): PersistentGraph<P, V, E> {
-            return PersistentGraphSourceContextFactory.DirectedPersistentGraphSourceDesign<
-                P, V, E>()
+            return DirectedPersistentGraphContext<P, V, E>()
         }
 
         fun <P, V, E> of(
@@ -18,8 +17,7 @@ interface PersistentGraph<P, V, E> : ImmutableGraph<P, V, E> {
             vertex2: V,
             edge: E
         ): PersistentGraph<P, V, E> {
-            return PersistentGraphSourceContextFactory.DirectedPersistentGraphSourceDesign<
-                    P, V, E>()
+            return DirectedPersistentGraphContext<P, V, E>()
                 .put(point1, vertex1)
                 .put(point2, vertex2)
                 .put(point1, point2, edge)

@@ -1,4 +1,4 @@
-package funcify.feature.graph.container
+package funcify.feature.graph.data
 
 /**
  * Internal type used to store the particular vertex and edge information for the graph
@@ -14,4 +14,4 @@ package funcify.feature.graph.container
  * @param E
  * - Edge type parameter
  */
-internal interface PersistentGraphContainer<WT, out P, out V, out E> {}
+internal interface GraphData<WT, out P, out V, out E> {}

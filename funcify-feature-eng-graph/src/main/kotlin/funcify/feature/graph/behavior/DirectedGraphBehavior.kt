@@ -1,9 +1,9 @@
-package funcify.feature.graph.template
+package funcify.feature.graph.behavior
 
-import funcify.feature.graph.container.PersistentGraphContainer
-import funcify.feature.graph.container.PersistentGraphContainerFactory
-import funcify.feature.graph.container.PersistentGraphContainerFactory.DirectedGraph.Companion.DirectedGraphWT
-import funcify.feature.graph.container.PersistentGraphContainerFactory.narrowed
+import funcify.feature.graph.data.DirectedGraphData
+import funcify.feature.graph.data.DirectedGraphData.Companion.DirectedGraphWT
+import funcify.feature.graph.data.DirectedGraphData.Companion.narrowed
+import funcify.feature.graph.data.GraphData
 import funcify.feature.graph.extensions.PersistentMapExtensions.reduceEntriesToPersistentMap
 import funcify.feature.graph.extensions.PersistentMapExtensions.reducePairsToPersistentMap
 import java.util.stream.Stream
@@ -11,23 +11,23 @@ import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.PersistentSet
 import kotlinx.collections.immutable.persistentMapOf
 
-internal interface DirectedGraphTemplate : PersistentGraphTemplate<DirectedGraphWT> {
+internal interface DirectedGraphBehavior : GraphBehavior<DirectedGraphWT> {
 
     override fun <P, V, E> fromVerticesAndEdges(
         verticesByPoint: PersistentMap<P, V>,
         edgesByPointPair: PersistentMap<Pair<P, P>, E>
-    ): PersistentGraphContainer<DirectedGraphWT, P, V, E> {
-        return PersistentGraphContainerFactory.DirectedGraph(
+    ): GraphData<DirectedGraphWT, P, V, E> {
+        return DirectedGraphData(
             verticesByPoint = verticesByPoint,
             edgesByPointPair = edgesByPointPair
-        )
+                                )
     }
 
     override fun <P, V, E> fromVerticesAndEdgeSets(
         verticesByPoint: PersistentMap<P, V>,
         edgesSetByPointPair: PersistentMap<Pair<P, P>, PersistentSet<E>>
-    ): PersistentGraphContainer<DirectedGraphWT, P, V, E> {
-        return PersistentGraphContainerFactory.DirectedGraph(
+    ): GraphData<DirectedGraphWT, P, V, E> {
+        return DirectedGraphData(
             verticesByPoint = verticesByPoint,
             edgesByPointPair =
                 edgesSetByPointPair.entries
@@ -36,13 +36,13 @@ internal interface DirectedGraphTemplate : PersistentGraphTemplate<DirectedGraph
                         e.value.stream().map { edge -> e.key to edge }
                     }
                     .reducePairsToPersistentMap()
-        )
+                                )
     }
 
     override fun <P, V, E> fromVertexAndEdgeStreams(
         verticesByPointStream: Stream<Pair<P, V>>,
         edgesByPointPairStream: Stream<Pair<Pair<P, P>, E>>,
-    ): PersistentGraphContainer<DirectedGraphWT, P, V, E> {
+    ): GraphData<DirectedGraphWT, P, V, E> {
         val verticesByPath: PersistentMap<P, V> =
             verticesByPointStream.reduce(
                 persistentMapOf<P, V>(),
@@ -53,17 +53,17 @@ internal interface DirectedGraphTemplate : PersistentGraphTemplate<DirectedGraph
             edgesByPointPairStream
                 .filter { (ek, _) -> ek.first in verticesByPath && ek.second in verticesByPath }
                 .reducePairsToPersistentMap()
-        return PersistentGraphContainerFactory.DirectedGraph<P, V, E>(
+        return DirectedGraphData<P, V, E>(
             verticesByPoint = verticesByPath,
             edgesByPointPair = edgesByPathPair
-        )
+                                         )
     }
 
     override fun <P, V, E> put(
         point: P,
         vertex: V,
-        container: PersistentGraphContainer<DirectedGraphWT, P, V, E>
-    ): PersistentGraphContainer<DirectedGraphWT, P, V, E> {
+        container: GraphData<DirectedGraphWT, P, V, E>
+    ): GraphData<DirectedGraphWT, P, V, E> {
         return fromVerticesAndEdges(
             container.narrowed().verticesByPoint.put(point, vertex),
             container.narrowed().edgesByPointPair
@@ -74,8 +74,8 @@ internal interface DirectedGraphTemplate : PersistentGraphTemplate<DirectedGraph
         point1: P,
         point2: P,
         edge: E,
-        container: PersistentGraphContainer<DirectedGraphWT, P, V, E>
-    ): PersistentGraphContainer<DirectedGraphWT, P, V, E> {
+        container: GraphData<DirectedGraphWT, P, V, E>
+    ): GraphData<DirectedGraphWT, P, V, E> {
         val verticesByPath = container.narrowed().verticesByPoint
         return if (point1 in verticesByPath && point2 in verticesByPath) {
             fromVerticesAndEdges(
@@ -90,8 +90,8 @@ internal interface DirectedGraphTemplate : PersistentGraphTemplate<DirectedGraph
     override fun <P, V, E> put(
         pointPair: Pair<P, P>,
         edge: E,
-        container: PersistentGraphContainer<DirectedGraphWT, P, V, E>
-    ): PersistentGraphContainer<DirectedGraphWT, P, V, E> {
+        container: GraphData<DirectedGraphWT, P, V, E>
+    ): GraphData<DirectedGraphWT, P, V, E> {
         val verticesByPath = container.narrowed().verticesByPoint
         return if (pointPair.first in verticesByPath && pointPair.second in verticesByPath) {
             fromVerticesAndEdges(
@@ -105,8 +105,8 @@ internal interface DirectedGraphTemplate : PersistentGraphTemplate<DirectedGraph
 
     override fun <P, V, E, M : Map<P, V>> putAllVertices(
         vertices: M,
-        container: PersistentGraphContainer<DirectedGraphWT, P, V, E>
-    ): PersistentGraphContainer<DirectedGraphWT, P, V, E> {
+        container: GraphData<DirectedGraphWT, P, V, E>
+    ): GraphData<DirectedGraphWT, P, V, E> {
         return fromVerticesAndEdges(
             container.narrowed().verticesByPoint.putAll(vertices),
             container.narrowed().edgesByPointPair
@@ -115,8 +115,8 @@ internal interface DirectedGraphTemplate : PersistentGraphTemplate<DirectedGraph
 
     override fun <P, V, E, M : Map<Pair<P, P>, E>> putAllEdges(
         edges: M,
-        container: PersistentGraphContainer<DirectedGraphWT, P, V, E>
-    ): PersistentGraphContainer<DirectedGraphWT, P, V, E> {
+        container: GraphData<DirectedGraphWT, P, V, E>
+    ): GraphData<DirectedGraphWT, P, V, E> {
         val verticesByPath: PersistentMap<P, V> = container.narrowed().verticesByPoint
         val updatedEdges =
             edges.entries
@@ -128,8 +128,8 @@ internal interface DirectedGraphTemplate : PersistentGraphTemplate<DirectedGraph
 
     override fun <P, V, E, S : Set<E>, M : Map<Pair<P, P>, S>> putAllEdgeSets(
         edges: M,
-        container: PersistentGraphContainer<DirectedGraphWT, P, V, E>
-    ): PersistentGraphContainer<DirectedGraphWT, P, V, E> {
+        container: GraphData<DirectedGraphWT, P, V, E>
+    ): GraphData<DirectedGraphWT, P, V, E> {
         val verticesByPath: PersistentMap<P, V> = container.narrowed().verticesByPoint
         val updatedEdges =
             edges.entries
@@ -146,8 +146,8 @@ internal interface DirectedGraphTemplate : PersistentGraphTemplate<DirectedGraph
 
     override fun <P, V, E> remove(
         point: P,
-        container: PersistentGraphContainer<DirectedGraphWT, P, V, E>,
-    ): PersistentGraphContainer<DirectedGraphWT, P, V, E> {
+        container: GraphData<DirectedGraphWT, P, V, E>,
+    ): GraphData<DirectedGraphWT, P, V, E> {
         return if (point in container.narrowed().verticesByPoint) {
             val updatedEdges =
                 container
@@ -165,8 +165,8 @@ internal interface DirectedGraphTemplate : PersistentGraphTemplate<DirectedGraph
 
     override fun <P, V, E> filterVertices(
         function: (P, V) -> Boolean,
-        container: PersistentGraphContainer<DirectedGraphWT, P, V, E>
-    ): PersistentGraphContainer<DirectedGraphWT, P, V, E> {
+        container: GraphData<DirectedGraphWT, P, V, E>
+    ): GraphData<DirectedGraphWT, P, V, E> {
         val updatedVertices =
             container
                 .narrowed()
@@ -192,8 +192,8 @@ internal interface DirectedGraphTemplate : PersistentGraphTemplate<DirectedGraph
 
     override fun <P, V, E> filterEdges(
         function: (Pair<P, P>, E) -> Boolean,
-        container: PersistentGraphContainer<DirectedGraphWT, P, V, E>
-    ): PersistentGraphContainer<DirectedGraphWT, P, V, E> {
+        container: GraphData<DirectedGraphWT, P, V, E>
+    ): GraphData<DirectedGraphWT, P, V, E> {
         val updatedEdges =
             container
                 .narrowed()
@@ -208,8 +208,8 @@ internal interface DirectedGraphTemplate : PersistentGraphTemplate<DirectedGraph
 
     override fun <P, V, E, R> mapPoints(
         function: (P, V) -> R,
-        container: PersistentGraphContainer<DirectedGraphWT, P, V, E>,
-    ): PersistentGraphContainer<DirectedGraphWT, R, V, E> {
+        container: GraphData<DirectedGraphWT, P, V, E>,
+    ): GraphData<DirectedGraphWT, R, V, E> {
         val updatedVertices: PersistentMap<R, V> =
             container
                 .narrowed()
@@ -249,8 +249,8 @@ internal interface DirectedGraphTemplate : PersistentGraphTemplate<DirectedGraph
 
     override fun <P, V, E, R> mapPoints(
         function: (P) -> R,
-        container: PersistentGraphContainer<DirectedGraphWT, P, V, E>,
-    ): PersistentGraphContainer<DirectedGraphWT, R, V, E> {
+        container: GraphData<DirectedGraphWT, P, V, E>,
+    ): GraphData<DirectedGraphWT, R, V, E> {
         val updatedVertices =
             container.narrowed().verticesByPoint.entries.parallelStream().map { (p: P, v: V) ->
                 function(p) to v
@@ -265,8 +265,8 @@ internal interface DirectedGraphTemplate : PersistentGraphTemplate<DirectedGraph
 
     override fun <P, V, E, R> mapVertices(
         function: (P, V) -> R,
-        container: PersistentGraphContainer<DirectedGraphWT, P, V, E>
-    ): PersistentGraphContainer<DirectedGraphWT, P, R, E> {
+        container: GraphData<DirectedGraphWT, P, V, E>
+    ): GraphData<DirectedGraphWT, P, R, E> {
         val updatedVertices: PersistentMap<P, R> =
             container
                 .narrowed()
@@ -280,8 +280,8 @@ internal interface DirectedGraphTemplate : PersistentGraphTemplate<DirectedGraph
 
     override fun <P, V, E, R> mapEdges(
         function: (Pair<P, P>, E) -> R,
-        container: PersistentGraphContainer<DirectedGraphWT, P, V, E>
-    ): PersistentGraphContainer<DirectedGraphWT, P, V, R> {
+        container: GraphData<DirectedGraphWT, P, V, E>
+    ): GraphData<DirectedGraphWT, P, V, R> {
         val verticesByPath = container.narrowed().verticesByPoint
         val updatedEdges =
             container
@@ -296,8 +296,8 @@ internal interface DirectedGraphTemplate : PersistentGraphTemplate<DirectedGraph
 
     override fun <P, V, E, P1, V1, M : Map<out P1, V1>> flatMapVertices(
         function: (P, V) -> M,
-        container: PersistentGraphContainer<DirectedGraphWT, P, V, E>
-    ): PersistentGraphContainer<DirectedGraphWT, P1, V1, E> {
+        container: GraphData<DirectedGraphWT, P, V, E>
+    ): GraphData<DirectedGraphWT, P1, V1, E> {
         val updatedVertices: PersistentMap<P1, V1> =
             container
                 .narrowed()
@@ -363,8 +363,8 @@ internal interface DirectedGraphTemplate : PersistentGraphTemplate<DirectedGraph
 
     override fun <P, V, E, E1, M : Map<out Pair<P, P>, E1>> flatMapEdges(
         function: (Pair<P, P>, E) -> M,
-        container: PersistentGraphContainer<DirectedGraphWT, P, V, E>
-    ): PersistentGraphContainer<DirectedGraphWT, P, V, E1> {
+        container: GraphData<DirectedGraphWT, P, V, E>
+    ): GraphData<DirectedGraphWT, P, V, E1> {
         val vertices: PersistentMap<P, V> = container.narrowed().verticesByPoint
         val updatedEdges: PersistentMap<Pair<P, P>, E1> =
             container

@@ -1,9 +1,10 @@
 package funcify.feature.graph.design
 
 import funcify.feature.graph.DirectedPersistentGraph
-import funcify.feature.graph.container.PersistentGraphContainer
-import funcify.feature.graph.container.PersistentGraphContainerFactory
-import funcify.feature.graph.template.PersistentGraphTemplate
+import funcify.feature.graph.data.DirectedGraphData
+import funcify.feature.graph.data.GraphData
+import funcify.feature.graph.data.ParallelizableEdgeDirectedGraphData
+import funcify.feature.graph.behavior.GraphBehavior
 import java.util.stream.Stream
 import kotlinx.collections.immutable.persistentSetOf
 
@@ -15,20 +16,20 @@ import kotlinx.collections.immutable.persistentSetOf
 internal interface DirectedPersistentGraphDesign<CWT, P, V, E> :
     PersistentGraphDesign<CWT, P, V, E>, DirectedPersistentGraph<P, V, E> {
 
-    override val template: PersistentGraphTemplate<CWT>
+    override val behavior: GraphBehavior<CWT>
 
-    override val materializedContainer: PersistentGraphContainer<CWT, P, V, E>
+    override val data: GraphData<CWT, P, V, E>
 
     override fun hasCycles(): Boolean {
         return when (
-            val container: PersistentGraphContainer<CWT, P, V, E> = materializedContainer
+            val container: GraphData<CWT, P, V, E> = data
         ) {
-            is PersistentGraphContainerFactory.ParallelizableEdgeDirectedGraph ->
+            is ParallelizableEdgeDirectedGraphData ->
                 container.edgesSetByPointPair.keys
                     .parallelStream()
                     .map { pathPair: Pair<P, P> -> pathPair.second to pathPair.first }
                     .anyMatch { pathPair -> pathPair in container.edgesSetByPointPair }
-            is PersistentGraphContainerFactory.DirectedGraph ->
+            is DirectedGraphData ->
                 container.edgesByPointPair.keys
                     .parallelStream()
                     .map { pathPair: Pair<P, P> -> pathPair.second to pathPair.first }
@@ -47,9 +48,9 @@ internal interface DirectedPersistentGraphDesign<CWT, P, V, E> :
 
     override fun getCyclesAsStream(): Stream<out Pair<Triple<P, P, E>, Triple<P, P, E>>> {
         return when (
-            val container: PersistentGraphContainer<CWT, P, V, E> = materializedContainer
+            val container: GraphData<CWT, P, V, E> = data
         ) {
-            is PersistentGraphContainerFactory.ParallelizableEdgeDirectedGraph ->
+            is ParallelizableEdgeDirectedGraphData ->
                 container.edgesSetByPointPair.keys.parallelStream().flatMap { pathPair: Pair<P, P>
                     ->
                     val reversedPair = pathPair.second to pathPair.first
@@ -66,7 +67,7 @@ internal interface DirectedPersistentGraphDesign<CWT, P, V, E> :
                                 }
                         }
                 }
-            is PersistentGraphContainerFactory.DirectedGraph ->
+            is DirectedGraphData ->
                 container.edgesByPointPair.keys.parallelStream().flatMap { pathPair: Pair<P, P> ->
                     val reversedPair = pathPair.second to pathPair.first
                     val e1: E = container.edgesByPointPair[pathPair]!!
