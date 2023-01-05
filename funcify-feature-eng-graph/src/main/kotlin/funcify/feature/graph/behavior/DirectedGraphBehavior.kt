@@ -20,7 +20,7 @@ internal interface DirectedGraphBehavior : GraphBehavior<DirectedGraphWT> {
         return DirectedGraphData(
             verticesByPoint = verticesByPoint,
             edgesByPointPair = edgesByPointPair
-                                )
+        )
     }
 
     override fun <P, V, E> fromVerticesAndEdgeSets(
@@ -36,7 +36,7 @@ internal interface DirectedGraphBehavior : GraphBehavior<DirectedGraphWT> {
                         e.value.stream().map { edge -> e.key to edge }
                     }
                     .reducePairsToPersistentMap()
-                                )
+        )
     }
 
     override fun <P, V, E> fromVertexAndEdgeStreams(
@@ -56,7 +56,7 @@ internal interface DirectedGraphBehavior : GraphBehavior<DirectedGraphWT> {
         return DirectedGraphData<P, V, E>(
             verticesByPoint = verticesByPath,
             edgesByPointPair = edgesByPathPair
-                                         )
+        )
     }
 
     override fun <P, V, E> put(

@@ -30,7 +30,7 @@ internal interface ParallelizableEdgeDirectedGraphBehavior :
                 edgesByPointPair.asIterable().fold(
                     persistentMapOf<Pair<P, P>, PersistentSet<E>>()
                 ) { pm, (ek: Pair<P, P>, e: E) -> pm.put(ek, persistentSetOf(e)) }
-                                                  )
+        )
     }
 
     override fun <P, V, E> fromVerticesAndEdgeSets(
@@ -40,7 +40,7 @@ internal interface ParallelizableEdgeDirectedGraphBehavior :
         return ParallelizableEdgeDirectedGraphData(
             verticesByPoint = verticesByPoint,
             edgesSetByPointPair = edgesSetByPointPair
-                                                  )
+        )
     }
 
     override fun <P, V, E> fromVertexAndEdgeStreams(
@@ -58,7 +58,7 @@ internal interface ParallelizableEdgeDirectedGraphBehavior :
         return ParallelizableEdgeDirectedGraphData<P, V, E>(
             verticesByPoint = verticesByPoint,
             edgesSetByPointPair = edgeSetsByPathPair
-                                                           )
+        )
     }
 
     override fun <P, V, E> put(

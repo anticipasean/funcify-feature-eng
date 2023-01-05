@@ -7,7 +7,7 @@ import kotlinx.collections.immutable.PersistentSet
 
 /**
  * @param DWT
- * - **Data** container **Witness** **Type** parameter
+ * - **Data** **Witness** **Type** parameter
  */
 internal interface GraphBehavior<DWT> {
 
