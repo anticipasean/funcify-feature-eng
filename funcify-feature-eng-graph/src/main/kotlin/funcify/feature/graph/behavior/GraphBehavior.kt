@@ -72,32 +72,62 @@ internal interface GraphBehavior<DWT> {
     fun <P, V, E> filterVertices(
         function: (P, V) -> Boolean,
         container: GraphData<DWT, P, V, E>
-    ): GraphData<DWT, P, V, E>
+    ): GraphData<DWT, P, V, E> {
+        return flatMapVertices(
+            { p: P, v: V ->
+                if (function(p, v)) {
+                    mapOf(p to v)
+                } else {
+                    emptyMap()
+                }
+            },
+            container
+        )
+    }
 
     fun <P, V, E> filterEdges(
         function: (Pair<P, P>, E) -> Boolean,
         container: GraphData<DWT, P, V, E>
-    ): GraphData<DWT, P, V, E>
+    ): GraphData<DWT, P, V, E> {
+        return flatMapEdges(
+            { ek: Pair<P, P>, e ->
+                if (function(ek, e)) {
+                    mapOf(ek to e)
+                } else {
+                    emptyMap()
+                }
+            },
+            container
+        )
+    }
 
     fun <P, V, E, R> mapPoints(
         function: (P, V) -> R,
         container: GraphData<DWT, P, V, E>
-    ): GraphData<DWT, R, V, E>
+    ): GraphData<DWT, R, V, E> {
+        return flatMapVertices({ p: P, v: V -> mapOf(function(p, v) to v) }, container)
+    }
 
     fun <P, V, E, R> mapPoints(
         function: (P) -> R,
         container: GraphData<DWT, P, V, E>
-    ): GraphData<DWT, R, V, E>
+    ): GraphData<DWT, R, V, E> {
+        return flatMapVertices({ p: P, v: V -> mapOf(function(p) to v) }, container)
+    }
 
     fun <P, V, E, R> mapVertices(
         function: (P, V) -> R,
         container: GraphData<DWT, P, V, E>
-    ): GraphData<DWT, P, R, E>
+    ): GraphData<DWT, P, R, E> {
+        return flatMapVertices({ p: P, v: V -> mapOf(p to function(p, v)) }, container)
+    }
 
     fun <P, V, E, R> mapEdges(
         function: (Pair<P, P>, E) -> R,
         container: GraphData<DWT, P, V, E>
-    ): GraphData<DWT, P, V, R>
+    ): GraphData<DWT, P, V, R> {
+        return flatMapEdges({ ek: Pair<P, P>, e: E -> mapOf(ek to function(ek, e)) }, container)
+    }
 
     fun <P, V, E, P1, V1, M : Map<out P1, V1>> flatMapVertices(
         function: (P, V) -> M,
