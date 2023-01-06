@@ -8,6 +8,7 @@ import funcify.feature.graph.extensions.PersistentMapExtensions.reduceEntriesToP
 import funcify.feature.graph.extensions.PersistentMapExtensions.reduceEntriesToPersistentSetValueMap
 import funcify.feature.graph.extensions.PersistentMapExtensions.reducePairsToPersistentMap
 import funcify.feature.graph.extensions.PersistentMapExtensions.reducePairsToPersistentSetValueMap
+import funcify.feature.graph.line.Line
 import java.util.stream.Stream
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.PersistentSet
@@ -22,30 +23,32 @@ internal interface ParallelizableEdgeDirectedGraphBehavior :
 
     override fun <P, V, E> fromVerticesAndEdges(
         verticesByPoint: PersistentMap<P, V>,
-        edgesByPointPair: PersistentMap<Pair<P, P>, E>
+        edgesByLine: PersistentMap<Line<P>, E>
     ): GraphData<ParallelizableEdgeDirectedGraphWT, P, V, E> {
         return ParallelizableEdgeDirectedGraphData(
             verticesByPoint = verticesByPoint,
             edgesSetByPointPair =
-                edgesByPointPair.asIterable().fold(
-                    persistentMapOf<Pair<P, P>, PersistentSet<E>>()
-                ) { pm, (ek: Pair<P, P>, e: E) -> pm.put(ek, persistentSetOf(e)) }
+                edgesByLine.asIterable().fold(persistentMapOf<Pair<P, P>, PersistentSet<E>>()) {
+                    pm,
+                    (l: Line<P>, e: E) ->
+                    pm.put(l, persistentSetOf(e))
+                }
         )
     }
 
     override fun <P, V, E> fromVerticesAndEdgeSets(
         verticesByPoint: PersistentMap<P, V>,
-        edgesSetByPointPair: PersistentMap<Pair<P, P>, PersistentSet<E>>
+        edgesSetByLine: PersistentMap<Line<P>, PersistentSet<E>>
     ): GraphData<ParallelizableEdgeDirectedGraphWT, P, V, E> {
         return ParallelizableEdgeDirectedGraphData(
             verticesByPoint = verticesByPoint,
-            edgesSetByPointPair = edgesSetByPointPair
+            edgesSetByPointPair = edgesSetByLine
         )
     }
 
     override fun <P, V, E> fromVertexAndEdgeStreams(
         verticesByPointStream: Stream<Pair<P, V>>,
-        edgesByPointPairStream: Stream<Pair<Pair<P, P>, E>>,
+        edgesByLineStream: Stream<Pair<Line<P>, E>>,
     ): GraphData<ParallelizableEdgeDirectedGraphWT, P, V, E> {
         val verticesByPoint: PersistentMap<P, V> =
             verticesByPointStream.reducePairsToPersistentMap()
@@ -95,18 +98,18 @@ internal interface ParallelizableEdgeDirectedGraphBehavior :
     }
 
     override fun <P, V, E> put(
-        pointPair: Pair<P, P>,
+        line: Pair<P, P>,
         edge: E,
         container: GraphData<ParallelizableEdgeDirectedGraphWT, P, V, E>
     ): GraphData<ParallelizableEdgeDirectedGraphWT, P, V, E> {
         val verticesByPoint = container.narrowed().verticesByPoint
-        return if (pointPair.first in verticesByPoint && pointPair.second in verticesByPoint) {
+        return if (line.first in verticesByPoint && line.second in verticesByPoint) {
             val edgesSetByPathPair = container.narrowed().edgesSetByPointPair
             fromVerticesAndEdgeSets(
                 verticesByPoint,
                 edgesSetByPathPair.put(
-                    pointPair,
-                    edgesSetByPathPair.getOrElse(pointPair) { -> persistentSetOf() }.add(edge)
+                    line,
+                    edgesSetByPathPair.getOrElse(line) { -> persistentSetOf() }.add(edge)
                 )
             )
         } else {
@@ -114,7 +117,7 @@ internal interface ParallelizableEdgeDirectedGraphBehavior :
         }
     }
 
-    override fun <P, V, E, M : Map<P, V>> putAllVertices(
+    override fun <P, V, E, M : Map<out P, V>> putAllVertices(
         vertices: M,
         container: GraphData<ParallelizableEdgeDirectedGraphWT, P, V, E>
     ): GraphData<ParallelizableEdgeDirectedGraphWT, P, V, E> {
@@ -124,7 +127,7 @@ internal interface ParallelizableEdgeDirectedGraphBehavior :
         )
     }
 
-    override fun <P, V, E, M : Map<Pair<P, P>, E>> putAllEdges(
+    override fun <P, V, E, M : Map<out Line<P>, E>> putAllEdges(
         edges: M,
         container: GraphData<ParallelizableEdgeDirectedGraphWT, P, V, E>
     ): GraphData<ParallelizableEdgeDirectedGraphWT, P, V, E> {
@@ -139,7 +142,7 @@ internal interface ParallelizableEdgeDirectedGraphBehavior :
         return fromVerticesAndEdgeSets(verticesByPoint, updatedEdges)
     }
 
-    override fun <P, V, E, S : Set<E>, M : Map<Pair<P, P>, S>> putAllEdgeSets(
+    override fun <P, V, E, S : Set<E>, M : Map<out Line<P>, S>> putAllEdgeSets(
         edges: M,
         container: GraphData<ParallelizableEdgeDirectedGraphWT, P, V, E>
     ): GraphData<ParallelizableEdgeDirectedGraphWT, P, V, E> {

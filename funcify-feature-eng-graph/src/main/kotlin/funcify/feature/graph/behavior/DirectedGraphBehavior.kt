@@ -15,22 +15,22 @@ internal interface DirectedGraphBehavior : GraphBehavior<DirectedGraphWT> {
 
     override fun <P, V, E> fromVerticesAndEdges(
         verticesByPoint: PersistentMap<P, V>,
-        edgesByPointPair: PersistentMap<Pair<P, P>, E>
+        edgesByLine: PersistentMap<Pair<P, P>, E>
     ): GraphData<DirectedGraphWT, P, V, E> {
         return DirectedGraphData(
             verticesByPoint = verticesByPoint,
-            edgesByPointPair = edgesByPointPair
+            edgesByPointPair = edgesByLine
         )
     }
 
     override fun <P, V, E> fromVerticesAndEdgeSets(
         verticesByPoint: PersistentMap<P, V>,
-        edgesSetByPointPair: PersistentMap<Pair<P, P>, PersistentSet<E>>
+        edgesSetByLine: PersistentMap<Pair<P, P>, PersistentSet<E>>
     ): GraphData<DirectedGraphWT, P, V, E> {
         return DirectedGraphData(
             verticesByPoint = verticesByPoint,
             edgesByPointPair =
-                edgesSetByPointPair.entries
+                edgesSetByLine.entries
                     .parallelStream()
                     .flatMap { e: Map.Entry<Pair<P, P>, PersistentSet<E>> ->
                         e.value.stream().map { edge -> e.key to edge }
@@ -88,15 +88,15 @@ internal interface DirectedGraphBehavior : GraphBehavior<DirectedGraphWT> {
     }
 
     override fun <P, V, E> put(
-        pointPair: Pair<P, P>,
+        line: Pair<P, P>,
         edge: E,
         container: GraphData<DirectedGraphWT, P, V, E>
     ): GraphData<DirectedGraphWT, P, V, E> {
         val verticesByPath = container.narrowed().verticesByPoint
-        return if (pointPair.first in verticesByPath && pointPair.second in verticesByPath) {
+        return if (line.first in verticesByPath && line.second in verticesByPath) {
             fromVerticesAndEdges(
                 verticesByPath,
-                container.narrowed().edgesByPointPair.put(pointPair, edge)
+                container.narrowed().edgesByPointPair.put(line, edge)
             )
         } else {
             container
