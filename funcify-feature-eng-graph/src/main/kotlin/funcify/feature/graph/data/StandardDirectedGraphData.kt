@@ -1,44 +1,44 @@
 package funcify.feature.graph.data
 
-import funcify.feature.graph.data.ParallelizableEdgeDirectedGraphData.Companion.ParallelizableEdgeDirectedGraphWT
+import funcify.feature.graph.data.StandardDirectedGraphData.Companion.StandardDirectedGraphWT
 import funcify.feature.graph.line.DirectedLine
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.PersistentSet
 import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.persistentSetOf
 
-internal data class ParallelizableEdgeDirectedGraphData<P, V, E>(
+internal data class StandardDirectedGraphData<P, V, E>(
     val verticesByPoint: PersistentMap<P, V>,
-    val edgesSetByLine: PersistentMap<DirectedLine<P>, PersistentSet<E>>
-) : GraphData<ParallelizableEdgeDirectedGraphWT, P, V, E> {
+    val edgesByLine: PersistentMap<DirectedLine<P>, E>
+) : GraphData<StandardDirectedGraphWT, P, V, E> {
 
     companion object {
-        enum class ParallelizableEdgeDirectedGraphWT
+        enum class StandardDirectedGraphWT
 
         fun <P, V, E> narrow(
-            container: GraphData<ParallelizableEdgeDirectedGraphWT, P, V, E>
-        ): ParallelizableEdgeDirectedGraphData<P, V, E> {
-            return container as ParallelizableEdgeDirectedGraphData<P, V, E>
+            container: GraphData<StandardDirectedGraphWT, P, V, E>
+        ): StandardDirectedGraphData<P, V, E> {
+            return container as StandardDirectedGraphData<P, V, E>
         }
 
-        fun <P, V, E> GraphData<ParallelizableEdgeDirectedGraphWT, P, V, E>.narrowed():
-            ParallelizableEdgeDirectedGraphData<P, V, E> {
-            return ParallelizableEdgeDirectedGraphData.narrow(this)
+        fun <P, V, E> GraphData<StandardDirectedGraphWT, P, V, E>.narrowed():
+            StandardDirectedGraphData<P, V, E> {
+            return StandardDirectedGraphData.narrow(this)
         }
 
-        private val EMPTY: ParallelizableEdgeDirectedGraphData<Any, Any, Any> =
-            ParallelizableEdgeDirectedGraphData<Any, Any, Any>(persistentMapOf(), persistentMapOf())
+        private val EMPTY: StandardDirectedGraphData<Any, Any, Any> =
+            StandardDirectedGraphData<Any, Any, Any>(persistentMapOf(), persistentMapOf())
 
-        fun <P, V, E> empty(): ParallelizableEdgeDirectedGraphData<P, V, E> {
+        fun <P, V, E> empty(): StandardDirectedGraphData<P, V, E> {
             @Suppress("UNCHECKED_CAST") //
-            return EMPTY as ParallelizableEdgeDirectedGraphData<P, V, E>
+            return EMPTY as StandardDirectedGraphData<P, V, E>
         }
     }
 
     val outgoingLines: PersistentMap<P, PersistentSet<P>> by lazy {
-        edgesSetByLine.entries
+        edgesByLine.entries
             .parallelStream()
-            .map { (d: DirectedLine<P>, _: PersistentSet<E>) -> d }
+            .map { (d: DirectedLine<P>, _: E) -> d }
             .reduce(
                 persistentMapOf<P, PersistentSet<P>>(),
                 { pm: PersistentMap<P, PersistentSet<P>>, d: DirectedLine<P> ->
@@ -58,9 +58,9 @@ internal data class ParallelizableEdgeDirectedGraphData<P, V, E>(
     }
 
     val incomingLines: PersistentMap<P, PersistentSet<P>> by lazy {
-        edgesSetByLine.entries
+        edgesByLine.entries
             .parallelStream()
-            .map { (d: DirectedLine<P>, _: PersistentSet<E>) -> d }
+            .map { (d: DirectedLine<P>, _: E) -> d }
             .reduce(
                 persistentMapOf<P, PersistentSet<P>>(),
                 { pm: PersistentMap<P, PersistentSet<P>>, d: DirectedLine<P> ->

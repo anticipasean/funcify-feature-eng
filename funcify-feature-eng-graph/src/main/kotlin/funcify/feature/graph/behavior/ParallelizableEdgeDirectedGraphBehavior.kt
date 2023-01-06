@@ -11,14 +11,10 @@ import kotlinx.collections.immutable.PersistentSet
 import kotlinx.collections.immutable.persistentSetOf
 
 internal interface ParallelizableEdgeDirectedGraphBehavior :
-    GraphBehavior<ParallelizableEdgeDirectedGraphWT> {
+    DirectedGraphBehavior<ParallelizableEdgeDirectedGraphWT> {
 
     override fun <P, V, E> empty(): GraphData<ParallelizableEdgeDirectedGraphWT, P, V, E> {
         return ParallelizableEdgeDirectedGraphData.empty()
-    }
-
-    override fun <P> line(firstOrSource: P, secondOrDestination: P): Line<P> {
-        return DirectedLine.of(firstOrSource, secondOrDestination)
     }
 
     override fun <P, V, E> verticesByPoint(
@@ -110,5 +106,17 @@ internal interface ParallelizableEdgeDirectedGraphBehavior :
         } else {
             container
         }
+    }
+
+    override fun <P, V, E> successorsAsStream(
+        container: GraphData<ParallelizableEdgeDirectedGraphWT, P, V, E>,
+        point: P
+    ): Stream<out Pair<P, V>> {
+        return container.narrowed().outgoingLines[point]?.let { points: PersistentSet<P> ->
+            points.stream().flatMap { p: P ->
+                get(container, p)?.let { v: V -> Stream.of(p to v) } ?: Stream.empty()
+            }
+        }
+            ?: Stream.empty()
     }
 }

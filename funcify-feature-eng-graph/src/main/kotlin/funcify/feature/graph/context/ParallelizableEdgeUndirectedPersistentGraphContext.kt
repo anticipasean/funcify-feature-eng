@@ -19,7 +19,6 @@ internal class ParallelizableEdgeUndirectedPersistentGraphContext<P, V, E>(
 ) : UndirectedPersistentGraphDesign<ParallelizableEdgeUndirectedGraphWT, P, V, E> {
 
     override fun <P, V, E> unit(
-        behavior: GraphBehavior<ParallelizableEdgeUndirectedGraphWT>,
         data: GraphData<ParallelizableEdgeUndirectedGraphWT, P, V, E>,
     ): ParallelizableEdgeUndirectedPersistentGraphContext<P, V, E> {
         return ParallelizableEdgeUndirectedPersistentGraphContext(behavior, data)

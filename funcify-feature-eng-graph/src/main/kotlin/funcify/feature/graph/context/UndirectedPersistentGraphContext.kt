@@ -1,9 +1,9 @@
 package funcify.feature.graph.context
 
-import funcify.feature.graph.behavior.GraphBehavior
 import funcify.feature.graph.behavior.GraphBehaviorFactory
+import funcify.feature.graph.behavior.UndirectedGraphBehavior
 import funcify.feature.graph.data.GraphData
-import funcify.feature.graph.data.UndirectedGraphData.Companion.UndirectedGraphDataWT
+import funcify.feature.graph.data.StandardUndirectedGraphData.Companion.StandardUndirectedGraphDataWT
 import funcify.feature.graph.design.UndirectedPersistentGraphDesign
 
 /**
@@ -12,15 +12,14 @@ import funcify.feature.graph.design.UndirectedPersistentGraphDesign
  * @created 2023-01-05
  */
 internal class UndirectedPersistentGraphContext<P, V, E>(
-    override val behavior: GraphBehavior<UndirectedGraphDataWT> =
-        GraphBehaviorFactory.getUndirectedGraphBehavior(),
-    override val data: GraphData<UndirectedGraphDataWT, P, V, E> =
-        GraphBehaviorFactory.getUndirectedGraphBehavior().empty()
-) : UndirectedPersistentGraphDesign<UndirectedGraphDataWT, P, V, E> {
+    override val behavior: UndirectedGraphBehavior<StandardUndirectedGraphDataWT> =
+        GraphBehaviorFactory.getStandardUndirectedGraphBehavior(),
+    override val data: GraphData<StandardUndirectedGraphDataWT, P, V, E> =
+        GraphBehaviorFactory.getStandardUndirectedGraphBehavior().empty()
+) : UndirectedPersistentGraphDesign<StandardUndirectedGraphDataWT, P, V, E> {
 
     override fun <P, V, E> unit(
-        behavior: GraphBehavior<UndirectedGraphDataWT>,
-        data: GraphData<UndirectedGraphDataWT, P, V, E>,
+        data: GraphData<StandardUndirectedGraphDataWT, P, V, E>,
     ): UndirectedPersistentGraphContext<P, V, E> {
         return UndirectedPersistentGraphContext(behavior, data)
     }

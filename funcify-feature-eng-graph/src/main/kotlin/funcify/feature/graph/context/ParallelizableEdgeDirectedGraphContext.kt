@@ -1,5 +1,6 @@
 package funcify.feature.graph.context
 
+import funcify.feature.graph.behavior.DirectedGraphBehavior
 import funcify.feature.graph.behavior.GraphBehavior
 import funcify.feature.graph.behavior.GraphBehaviorFactory
 import funcify.feature.graph.data.GraphData
@@ -7,14 +8,13 @@ import funcify.feature.graph.data.ParallelizableEdgeDirectedGraphData.Companion.
 import funcify.feature.graph.design.DirectedPersistentGraphDesign
 
 internal class ParallelizableEdgeDirectedGraphContext<P, V, E>(
-    override val behavior: GraphBehavior<ParallelizableEdgeDirectedGraphWT> =
+    override val behavior: DirectedGraphBehavior<ParallelizableEdgeDirectedGraphWT> =
         GraphBehaviorFactory.getParallelizableEdgeDirectedGraphBehavior(),
     override val data: GraphData<ParallelizableEdgeDirectedGraphWT, P, V, E> =
         GraphBehaviorFactory.getParallelizableEdgeDirectedGraphBehavior().empty()
 ) : DirectedPersistentGraphDesign<ParallelizableEdgeDirectedGraphWT, P, V, E> {
 
     override fun <P, V, E> unit(
-        behavior: GraphBehavior<ParallelizableEdgeDirectedGraphWT>,
         data: GraphData<ParallelizableEdgeDirectedGraphWT, P, V, E>,
     ): ParallelizableEdgeDirectedGraphContext<P, V, E> {
         return ParallelizableEdgeDirectedGraphContext<P, V, E>(behavior, data)

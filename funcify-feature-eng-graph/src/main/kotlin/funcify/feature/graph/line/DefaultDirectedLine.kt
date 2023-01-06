@@ -10,6 +10,10 @@ internal class DefaultDirectedLine<out P>(
     override val destinationPoint: P
 ) : DirectedLine<P> {
 
+    override fun swap(): Line<P> {
+        return DefaultDirectedLine(destinationPoint, sourcePoint)
+    }
+
     override fun equals(other: Any?): Boolean {
         return when (other) {
             null -> {

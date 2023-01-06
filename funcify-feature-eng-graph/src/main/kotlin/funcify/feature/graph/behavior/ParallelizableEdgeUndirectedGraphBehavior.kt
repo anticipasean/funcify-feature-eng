@@ -16,14 +16,10 @@ import kotlinx.collections.immutable.persistentSetOf
  * @created 2023-01-06
  */
 internal interface ParallelizableEdgeUndirectedGraphBehavior :
-    GraphBehavior<ParallelizableEdgeUndirectedGraphWT> {
+    UndirectedGraphBehavior<ParallelizableEdgeUndirectedGraphWT> {
 
     override fun <P, V, E> empty(): GraphData<ParallelizableEdgeUndirectedGraphWT, P, V, E> {
         return ParallelizableEdgeUndirectedGraphData.empty<P, V, E>()
-    }
-
-    override fun <P> line(firstOrSource: P, secondOrDestination: P): Line<P> {
-        return UndirectedLine.of(firstOrSource, secondOrDestination)
     }
 
     override fun <P, V, E> verticesByPoint(

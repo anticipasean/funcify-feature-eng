@@ -69,11 +69,6 @@ interface DirectedPersistentGraph<P, V, E> : PersistentGraph<P, V, E> {
     ): DirectedPersistentGraph<P, V, E1>
 
     /** Directed-Specific Methods */
-    fun hasCycles(): Boolean
-
-    fun getCycles(): Iterable<Pair<Pair<Line<P>, E>, Pair<Line<P>, E>>>
-
-    fun getCyclesAsStream(): Stream<out Pair<Triple<P, P, E>, Triple<P, P, E>>>
 
     //    fun depthFirstSearchOnPath(path: P): Stream<out Tuple5<V, P, E, P, V>>
 

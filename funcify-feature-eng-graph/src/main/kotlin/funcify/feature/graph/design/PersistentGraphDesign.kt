@@ -28,10 +28,7 @@ internal interface PersistentGraphDesign<DWT, P, V, E> : PersistentGraph<P, V, E
 
     val data: GraphData<DWT, P, V, E>
 
-    fun <P, V, E> unit(
-        behavior: GraphBehavior<DWT>,
-        data: GraphData<DWT, P, V, E>
-    ): PersistentGraphDesign<DWT, P, V, E>
+    fun <P, V, E> unit(data: GraphData<DWT, P, V, E>): PersistentGraphDesign<DWT, P, V, E>
 
     override fun get(point: P): V? {
         return behavior.get(data, point)

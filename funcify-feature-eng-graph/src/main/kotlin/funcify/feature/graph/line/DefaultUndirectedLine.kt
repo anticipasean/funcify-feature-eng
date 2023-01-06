@@ -10,6 +10,10 @@ internal class DefaultUndirectedLine<out P>(
     override val secondPoint: P
 ) : UndirectedLine<P> {
 
+    override fun swap(): Line<P> {
+        return DefaultUndirectedLine<P>(secondPoint, firstPoint)
+    }
+
     override fun equals(other: Any?): Boolean {
         return when (other) {
             null -> {

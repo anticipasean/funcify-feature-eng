@@ -1,21 +1,21 @@
 package funcify.feature.graph.context
 
+import funcify.feature.graph.behavior.DirectedGraphBehavior
 import funcify.feature.graph.behavior.GraphBehavior
 import funcify.feature.graph.behavior.GraphBehaviorFactory
-import funcify.feature.graph.data.DirectedGraphData.Companion.DirectedGraphWT
 import funcify.feature.graph.data.GraphData
+import funcify.feature.graph.data.StandardDirectedGraphData.Companion.StandardDirectedGraphWT
 import funcify.feature.graph.design.DirectedPersistentGraphDesign
 
 internal class DirectedPersistentGraphContext<P, V, E>(
-    override val behavior: GraphBehavior<DirectedGraphWT> =
-        GraphBehaviorFactory.getDirectedGraphBehavior(),
-    override val data: GraphData<DirectedGraphWT, P, V, E> =
-        GraphBehaviorFactory.getDirectedGraphBehavior().empty()
-) : DirectedPersistentGraphDesign<DirectedGraphWT, P, V, E> {
+    override val behavior: DirectedGraphBehavior<StandardDirectedGraphWT> =
+        GraphBehaviorFactory.getStandardDirectedGraphBehavior(),
+    override val data: GraphData<StandardDirectedGraphWT, P, V, E> =
+        GraphBehaviorFactory.getStandardDirectedGraphBehavior().empty()
+) : DirectedPersistentGraphDesign<StandardDirectedGraphWT, P, V, E> {
 
     override fun <P, V, E> unit(
-        behavior: GraphBehavior<DirectedGraphWT>,
-        data: GraphData<DirectedGraphWT, P, V, E>,
+        data: GraphData<StandardDirectedGraphWT, P, V, E>,
     ): DirectedPersistentGraphContext<P, V, E> {
         return DirectedPersistentGraphContext<P, V, E>(behavior, data)
     }
