@@ -1,5 +1,6 @@
 package funcify.feature.graph
 
+import funcify.feature.graph.line.Line
 import java.util.*
 import java.util.stream.Stream
 import kotlinx.collections.immutable.ImmutableSet
@@ -15,28 +16,30 @@ import kotlinx.collections.immutable.ImmutableSet
 interface ImmutableGraph<P, out V, out E> {
 
     /**
-     * Path/Point of type <P> uniquely identifies and acts as a label for a vertex in the graph and
-     * may even be the same value as its vertex if desired
+     * Point <P> uniquely identifies and acts as a label for a vertex in the graph and may even be
+     * the same value as its vertex if desired
+     *
      * - ImmutableGraph<Int, Char, Double>: e.g. ( Path: 1, Vertex: 'A' ), ( Path: 2, Vertex: 'B' ),
      * ( PathPair: ( 1, 2 ), Edge: 0.3 )
      */
     operator fun get(point: P): V?
 
     /**
-     * Path/Point of type <P> and another Path/Point of type <P> as a pair uniquely identifies an
-     * edge in the graph and may even be the same type as its paths if desired
+     * Point <P> and another Point <P> pair uniquely identify a Line<P> with an edge (or edges if
+     * parallel edges are permitted) in the graph
+     *
      * - ImmutableGraph<Char, Int, Double>: e.g. ( Path: 'A', Vertex: 1 ), ( Path: 'B', Vertex: 2 ),
-     * ( PathPair: ( 'A', 'B' ), Edge: 0.2 )
+     * ( Line: ('A','B'), Edge: 0.2 )
      */
     operator fun get(point1: P, point2: P): Iterable<E>
 
     /**
-     * Path/Point of type <P> and another Path/Point of type <P> as a pair uniquely identifies an
-     * edge in the graph and may even be the same type as its paths if desired
+     * Line<P> uniquely identifies an edge (or edges if parallel edges are permitted) in the graph
+     *
      * - ImmutableGraph<Char, Int, Double>: e.g. ( Path: 'A', Vertex: 1 ), ( Path: 'B', Vertex: 2 ),
-     * ( PathPair: ( 'A', 'B' ), Edge: 0.1 )
+     * ( Line: ('A','B'), Edge: 0.1 )
      */
-    operator fun get(pointPair: Pair<P, P>): Iterable<E>
+    operator fun get(line: Line<P>): Iterable<E>
 
     /** Alias method for [ImmutableGraph.get] */
     fun getVertex(point: P): V? {
@@ -53,8 +56,8 @@ interface ImmutableGraph<P, out V, out E> {
     }
 
     /** Alias method for [ImmutableGraph.get] */
-    fun getEdge(pointPair: Pair<P, P>): Iterable<E> {
-        return this[pointPair]
+    fun getEdge(line: Line<P>): Iterable<E> {
+        return this[line]
     }
 
     fun descriptors(): ImmutableSet<GraphDescriptor>
@@ -78,10 +81,10 @@ interface ImmutableGraph<P, out V, out E> {
     fun edgesAsStream(): Stream<out E>
 
     /** Fetch all path pairs for which this is at least one edge */
-    fun connectedPoints(): Iterable<Pair<P, P>>
+    fun lines(): Iterable<Line<P>>
 
     /** Fetch all path pairs for which this is at least one edge */
-    fun connectedPointsAsStream(): Stream<out Pair<P, P>>
+    fun linesAsStream(): Stream<out Line<P>>
 
     /**
      * Filter out all vertices that do not meet the given condition (and any edges that are thereby
@@ -96,31 +99,29 @@ interface ImmutableGraph<P, out V, out E> {
      */
     fun filterVertices(condition: (V) -> Boolean): ImmutableGraph<P, V, E>
 
-    /** Filter out all edges that do not meet the given condition with the context of point <P> */
-    fun filterEdges(condition: (Pair<P, P>, E) -> Boolean): ImmutableGraph<P, V, E>
+    /** Filter out all edges that do not meet the given condition with the context of path <P> */
+    fun filterEdges(condition: (Line<P>, E) -> Boolean): ImmutableGraph<P, V, E>
 
-    /**
-     * Filter out all edges that do not meet the given condition without the context of point <P>
-     */
+    /** Filter out all edges that do not meet the given condition without the context of path <P> */
     fun filterEdges(condition: (E) -> Boolean): ImmutableGraph<P, V, E>
 
-    /** Transform all points <P> to <R> with the context of vertex <V> */
-    fun <R> mapPoints(function: (P, V) -> R): ImmutableGraph<R, V, E>
+    /** Transform all points <P> to <P1> with the context of vertex <V> */
+    fun <P1> mapPoints(function: (P, V) -> P1): ImmutableGraph<P1, V, E>
 
-    /** Transform all points <P> to <R> without the context of vertex <V> */
-    fun <R> mapPoints(function: (P) -> R): ImmutableGraph<R, V, E>
+    /** Transform all points <P> to <P1> without the context of vertex <V> */
+    fun <P1> mapPoints(function: (P) -> P1): ImmutableGraph<P1, V, E>
 
-    /** Transform all vertices <V> to <R> with the context of point <P> */
-    fun <R> mapVertices(function: (P, V) -> R): ImmutableGraph<P, R, E>
+    /** Transform all vertices <V> to <V1> with the context of point <P> */
+    fun <V1> mapVertices(function: (P, V) -> V1): ImmutableGraph<P, V1, E>
 
-    /** Transform all vertices <V> to <R> without the context of point <P> */
-    fun <R> mapVertices(function: (V) -> R): ImmutableGraph<P, R, E>
+    /** Transform all vertices <V> to <V1> without the context of point <P> */
+    fun <V1> mapVertices(function: (V) -> V1): ImmutableGraph<P, V1, E>
 
-    /** Transform all edges from <E> to <R> with the context of point pair (<P>, <P>) */
-    fun <R> mapEdges(function: (Pair<P, P>, E) -> R): ImmutableGraph<P, V, R>
+    /** Transform all edges from <E> to <R> with the context of path <P> */
+    fun <E1> mapEdges(function: (Line<P>, E) -> E1): ImmutableGraph<P, V, E1>
 
-    /** Transform all edges from <E> to <R> without the context of point pair (<P>, <P>) */
-    fun <R> mapEdges(function: (E) -> R): ImmutableGraph<P, V, R>
+    /** Transform all edges from <E> to <R> without the context of path <P> */
+    fun <E1> mapEdges(function: (E) -> E1): ImmutableGraph<P, V, E1>
 
     /**
      * Transform each path-to-vertex entry into map of new path-to-vertex entries ( and remove any
@@ -135,17 +136,17 @@ interface ImmutableGraph<P, out V, out E> {
      * any path-pair-to-edge entries wherein either path within the path-pair no longer refers /
      * does not refer to an existing path for a vertex )
      */
-    fun <E1, M : Map<out Pair<P, P>, @UnsafeVariance E1>> flatMapEdges(
-        function: (Pair<P, P>, E) -> M
+    fun <E1, M : Map<out Line<P>, @UnsafeVariance E1>> flatMapEdges(
+        function: (Line<P>, E) -> M
     ): ImmutableGraph<P, V, E1>
 
-    fun <R> foldLeftVertices(initial: R, accumulator: (R, Pair<P, V>) -> R): R
+    fun <T> foldLeftVertices(initial: T, accumulator: (T, Pair<P, V>) -> T): T
 
-    fun <R> foldLeftEdges(initial: R, accumulator: (R, Pair<Pair<P, P>, E>) -> R): R
+    fun <T> foldLeftEdges(initial: T, accumulator: (T, Pair<Line<P>, E>) -> T): T
 
-    fun <R> foldRightVertices(initial: R, accumulator: (Pair<P, V>, R) -> R): R
+    fun <T> foldRightVertices(initial: T, accumulator: (Pair<P, V>, T) -> T): T
 
-    fun <R> foldRightEdges(initial: R, accumulator: (Pair<Pair<P, P>, E>, R) -> R): R
+    fun <T> foldRightEdges(initial: T, accumulator: (Pair<Line<P>, E>, T) -> T): T
 
     /** Method used to generate the #toString representation of the underlying graph */
     fun stringify(

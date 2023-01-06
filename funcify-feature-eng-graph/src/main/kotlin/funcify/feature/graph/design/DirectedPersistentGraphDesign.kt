@@ -8,6 +8,7 @@ import funcify.feature.graph.context.ParallelizableEdgeGraphContext
 import funcify.feature.graph.data.DirectedGraphData
 import funcify.feature.graph.data.GraphData
 import funcify.feature.graph.data.ParallelizableEdgeDirectedGraphData
+import funcify.feature.graph.line.Line
 import java.util.stream.Collectors
 import java.util.stream.Stream
 import kotlinx.collections.immutable.ImmutableSet
@@ -46,7 +47,7 @@ internal interface DirectedPersistentGraphDesign<CWT, P, V, E> :
         return get(point1 to point2)
     }
 
-    override fun get(pointPair: Pair<P, P>): Iterable<E> {
+    override fun get(line: Line<P>): Iterable<E> {
         return when (val container: GraphData<CWT, P, V, E> = this.data) {
             is ParallelizableEdgeDirectedGraphData -> {
                 container.edgesSetByPointPair[pointPair] ?: persistentSetOf<E>()
@@ -99,9 +100,9 @@ internal interface DirectedPersistentGraphDesign<CWT, P, V, E> :
         }
     }
 
-    override fun put(pointPair: Pair<P, P>, edge: E): DirectedPersistentGraph<P, V, E> {
+    override fun put(line: Line<P>, edge: E): DirectedPersistentGraph<P, V, E> {
         return when (
-            val container: GraphData<CWT, P, V, E> = this.behavior.put(pointPair, edge, data)
+            val container: GraphData<CWT, P, V, E> = this.behavior.put(line, edge, data)
         ) {
             is ParallelizableEdgeDirectedGraphData -> {
                 ParallelizableEdgeGraphContext<P, V, E>(data = container)
@@ -117,7 +118,7 @@ internal interface DirectedPersistentGraphDesign<CWT, P, V, E> :
         }
     }
 
-    override fun <M : Map<P, V>> putAllVertices(vertices: M): DirectedPersistentGraph<P, V, E> {
+    override fun <M : Map<out P, V>> putAllVertices(vertices: M): DirectedPersistentGraph<P, V, E> {
         return when (
             val container: GraphData<CWT, P, V, E> = this.behavior.putAllVertices(vertices, data)
         ) {
@@ -264,15 +265,15 @@ internal interface DirectedPersistentGraphDesign<CWT, P, V, E> :
         }
     }
 
-    override fun <R> mapPoints(function: (P) -> R): DirectedPersistentGraph<R, V, E> {
+    override fun <P1> mapPoints(function: (P) -> P1): DirectedPersistentGraph<P1, V, E> {
         return when (
-            val container: GraphData<CWT, R, V, E> = this.behavior.mapPoints(function, data)
+            val container: GraphData<CWT, P1, V, E> = this.behavior.mapPoints(function, data)
         ) {
             is ParallelizableEdgeDirectedGraphData -> {
-                ParallelizableEdgeGraphContext<R, V, E>(data = container)
+                ParallelizableEdgeGraphContext<P1, V, E>(data = container)
             }
             is DirectedGraphData -> {
-                DirectedPersistentGraphContext<R, V, E>(data = container)
+                DirectedPersistentGraphContext<P1, V, E>(data = container)
             }
             else -> {
                 throw UnsupportedOperationException(
@@ -282,15 +283,15 @@ internal interface DirectedPersistentGraphDesign<CWT, P, V, E> :
         }
     }
 
-    override fun <R> mapVertices(function: (P, V) -> R): DirectedPersistentGraph<P, R, E> {
+    override fun <V1> mapVertices(function: (P, V) -> V1): DirectedPersistentGraph<P, V1, E> {
         return when (
-            val container: GraphData<CWT, P, R, E> = this.behavior.mapVertices(function, data)
+            val container: GraphData<CWT, P, V1, E> = this.behavior.mapVertices(function, data)
         ) {
             is ParallelizableEdgeDirectedGraphData -> {
-                ParallelizableEdgeGraphContext<P, R, E>(data = container)
+                ParallelizableEdgeGraphContext<P, V1, E>(data = container)
             }
             is DirectedGraphData -> {
-                DirectedPersistentGraphContext<P, R, E>(data = container)
+                DirectedPersistentGraphContext<P, V1, E>(data = container)
             }
             else -> {
                 throw UnsupportedOperationException(
@@ -300,15 +301,15 @@ internal interface DirectedPersistentGraphDesign<CWT, P, V, E> :
         }
     }
 
-    override fun <R> mapEdges(function: (Pair<P, P>, E) -> R): DirectedPersistentGraph<P, V, R> {
+    override fun <E1> mapEdges(function: (Pair<P, P>, E) -> E1): DirectedPersistentGraph<P, V, E1> {
         return when (
-            val container: GraphData<CWT, P, V, R> = this.behavior.mapEdges(function, data)
+            val container: GraphData<CWT, P, V, E1> = this.behavior.mapEdges(function, data)
         ) {
             is ParallelizableEdgeDirectedGraphData -> {
-                ParallelizableEdgeGraphContext<P, V, R>(data = container)
+                ParallelizableEdgeGraphContext<P, V, E1>(data = container)
             }
             is DirectedGraphData -> {
-                DirectedPersistentGraphContext<P, V, R>(data = container)
+                DirectedPersistentGraphContext<P, V, E1>(data = container)
             }
             else -> {
                 throw UnsupportedOperationException(
@@ -338,8 +339,8 @@ internal interface DirectedPersistentGraphDesign<CWT, P, V, E> :
         }
     }
 
-    override fun <E1, M : Map<out Pair<P, P>, E1>> flatMapEdges(
-        function: (Pair<P, P>, E) -> M
+    override fun <E1, M : Map<out Line<P>, E1>> flatMapEdges(
+        function: (Line<P>, E) -> M
     ): DirectedPersistentGraph<P, V, E1> {
         return when (
             val container: GraphData<CWT, P, V, E1> = this.behavior.flatMapEdges(function, data)
@@ -459,7 +460,7 @@ internal interface DirectedPersistentGraphDesign<CWT, P, V, E> :
         }
     }
 
-    override fun connectedPoints(): Iterable<Pair<P, P>> {
+    override fun lines(): Iterable<Line<P>> {
         return when (val container: GraphData<CWT, P, V, E> = this.data) {
             is ParallelizableEdgeDirectedGraphData -> {
                 container.edgesSetByPointPair.keys
@@ -475,7 +476,7 @@ internal interface DirectedPersistentGraphDesign<CWT, P, V, E> :
         }
     }
 
-    override fun connectedPointsAsStream(): Stream<out Pair<P, P>> {
+    override fun linesAsStream(): Stream<out Line<P>> {
         return when (val container: GraphData<CWT, P, V, E> = this.data) {
             is ParallelizableEdgeDirectedGraphData -> {
                 container.edgesSetByPointPair.keys.stream()
@@ -513,7 +514,7 @@ internal interface DirectedPersistentGraphDesign<CWT, P, V, E> :
         }
     }
 
-    override fun <R> foldLeftEdges(initial: R, accumulator: (R, Pair<Pair<P, P>, E>) -> R): R {
+    override fun <R> foldLeftEdges(initial: R, accumulator: (R, Pair<Line<P>, E>) -> R): R {
         return when (val container: GraphData<CWT, P, V, E> = this.data) {
             is ParallelizableEdgeDirectedGraphData -> {
                 container.edgesSetByPointPair
@@ -559,7 +560,7 @@ internal interface DirectedPersistentGraphDesign<CWT, P, V, E> :
         }
     }
 
-    override fun <R> foldRightEdges(initial: R, accumulator: (Pair<Pair<P, P>, E>, R) -> R): R {
+    override fun <R> foldRightEdges(initial: R, accumulator: (Pair<Line<P>, E>, R) -> R): R {
         return when (val container: GraphData<CWT, P, V, E> = this.data) {
             is ParallelizableEdgeDirectedGraphData -> {
                 container.edgesSetByPointPair.keys

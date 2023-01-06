@@ -1,5 +1,6 @@
 package funcify.feature.graph
 
+import funcify.feature.graph.line.Line
 import java.util.stream.Stream
 
 /**
@@ -13,13 +14,13 @@ interface DirectedPersistentGraph<P, V, E> : PersistentGraph<P, V, E> {
 
     override fun put(point1: P, point2: P, edge: E): DirectedPersistentGraph<P, V, E>
 
-    override fun put(pointPair: Pair<P, P>, edge: E): DirectedPersistentGraph<P, V, E>
+    override fun put(line: Line<P>, edge: E): DirectedPersistentGraph<P, V, E>
 
-    override fun <M : Map<P, V>> putAllVertices(vertices: M): DirectedPersistentGraph<P, V, E>
+    override fun <M : Map<out P, V>> putAllVertices(vertices: M): DirectedPersistentGraph<P, V, E>
 
-    override fun <M : Map<Pair<P, P>, E>> putAllEdges(edges: M): DirectedPersistentGraph<P, V, E>
+    override fun <M : Map<out Line<P>, E>> putAllEdges(edges: M): DirectedPersistentGraph<P, V, E>
 
-    override fun <S : Set<E>, M : Map<Pair<P, P>, S>> putAllEdgeSets(
+    override fun <S : Set<E>, M : Map<out Line<P>, S>> putAllEdgeSets(
         edges: M
     ): DirectedPersistentGraph<P, V, E>
 
@@ -31,38 +32,36 @@ interface DirectedPersistentGraph<P, V, E> : PersistentGraph<P, V, E> {
         return filterVertices { _: P, v: V -> condition(v) }
     }
 
-    override fun filterEdges(
-        condition: (Pair<P, P>, E) -> Boolean
-    ): DirectedPersistentGraph<P, V, E>
+    override fun filterEdges(condition: (Line<P>, E) -> Boolean): DirectedPersistentGraph<P, V, E>
 
     override fun filterEdges(condition: (E) -> Boolean): DirectedPersistentGraph<P, V, E> {
-        return filterEdges { _: Pair<P, P>, e: E -> condition(e) }
+        return filterEdges { _: Line<P>, e: E -> condition(e) }
     }
 
-    override fun <R> mapPoints(function: (P, V) -> R): DirectedPersistentGraph<R, V, E>
+    override fun <P1> mapPoints(function: (P, V) -> P1): DirectedPersistentGraph<P1, V, E>
 
-    override fun <R> mapPoints(function: (P) -> R): DirectedPersistentGraph<R, V, E> {
+    override fun <P1> mapPoints(function: (P) -> P1): DirectedPersistentGraph<P1, V, E> {
         return mapPoints { p: P, _: V -> function(p) }
     }
 
-    override fun <R> mapVertices(function: (P, V) -> R): DirectedPersistentGraph<P, R, E>
+    override fun <V1> mapVertices(function: (P, V) -> V1): DirectedPersistentGraph<P, V1, E>
 
-    override fun <R> mapVertices(function: (V) -> R): DirectedPersistentGraph<P, R, E> {
+    override fun <V1> mapVertices(function: (V) -> V1): DirectedPersistentGraph<P, V1, E> {
         return mapVertices { _: P, v: V -> function(v) }
     }
 
-    override fun <R> mapEdges(function: (Pair<P, P>, E) -> R): DirectedPersistentGraph<P, V, R>
+    override fun <E1> mapEdges(function: (Line<P>, E) -> E1): DirectedPersistentGraph<P, V, E1>
 
-    override fun <R> mapEdges(function: (E) -> R): DirectedPersistentGraph<P, V, R> {
-        return mapEdges { _: Pair<P, P>, e: E -> function(e) }
+    override fun <E1> mapEdges(function: (E) -> E1): DirectedPersistentGraph<P, V, E1> {
+        return mapEdges { _: Line<P>, e: E -> function(e) }
     }
 
     override fun <P1, V1, M : Map<out P1, V1>> flatMapVertices(
         function: (P, V) -> M
     ): DirectedPersistentGraph<P1, V1, E>
 
-    override fun <E1, M : Map<out Pair<P, P>, E1>> flatMapEdges(
-        function: (Pair<P, P>, E) -> M
+    override fun <E1, M : Map<out Line<P>, E1>> flatMapEdges(
+        function: (Line<P>, E) -> M
     ): DirectedPersistentGraph<P, V, E1>
 
     /** Directed-Specific Methods */
