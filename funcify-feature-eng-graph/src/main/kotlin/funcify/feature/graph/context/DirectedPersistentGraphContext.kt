@@ -5,28 +5,19 @@ import funcify.feature.graph.behavior.GraphBehaviorFactory
 import funcify.feature.graph.data.DirectedGraphData.Companion.DirectedGraphWT
 import funcify.feature.graph.data.GraphData
 import funcify.feature.graph.design.DirectedPersistentGraphDesign
-import kotlinx.collections.immutable.persistentMapOf
 
 internal class DirectedPersistentGraphContext<P, V, E>(
     override val behavior: GraphBehavior<DirectedGraphWT> =
         GraphBehaviorFactory.getDirectedGraphBehavior(),
     override val data: GraphData<DirectedGraphWT, P, V, E> =
-        GraphBehaviorFactory.getDirectedGraphBehavior()
-            .fromVerticesAndEdges(persistentMapOf(), persistentMapOf())
+        GraphBehaviorFactory.getDirectedGraphBehavior().empty()
 ) : DirectedPersistentGraphDesign<DirectedGraphWT, P, V, E> {
 
-    companion object {
-
-        fun <P, V, E> narrow(
-            design: DirectedPersistentGraphDesign<DirectedGraphWT, P, V, E>
-        ): DirectedPersistentGraphContext<P, V, E> {
-            return design as DirectedPersistentGraphContext<P, V, E>
-        }
-
-        fun <P, V, E> DirectedPersistentGraphDesign<DirectedGraphWT, P, V, E>.narrowed():
-            DirectedPersistentGraphContext<P, V, E> {
-            return DirectedPersistentGraphContext.narrow(this)
-        }
+    override fun <P, V, E> unit(
+        behavior: GraphBehavior<DirectedGraphWT>,
+        data: GraphData<DirectedGraphWT, P, V, E>,
+    ): DirectedPersistentGraphContext<P, V, E> {
+        return DirectedPersistentGraphContext<P, V, E>(behavior, data)
     }
 
     /** lazily calculates the string representation for the materialized container */

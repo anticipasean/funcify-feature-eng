@@ -16,15 +16,19 @@ interface DirectedPersistentGraph<P, V, E> : PersistentGraph<P, V, E> {
 
     override fun put(line: Line<P>, edge: E): DirectedPersistentGraph<P, V, E>
 
-    override fun <M : Map<out P, V>> putAllVertices(vertices: M): DirectedPersistentGraph<P, V, E>
+    override fun <M : Map<P, V>> putAllVertices(vertices: M): DirectedPersistentGraph<P, V, E>
 
-    override fun <M : Map<out Line<P>, E>> putAllEdges(edges: M): DirectedPersistentGraph<P, V, E>
+    override fun <M : Map<Line<P>, E>> putAllEdges(edges: M): DirectedPersistentGraph<P, V, E>
 
-    override fun <S : Set<E>, M : Map<out Line<P>, S>> putAllEdgeSets(
+    override fun <S : Set<E>, M : Map<Line<P>, S>> putAllEdgeSets(
         edges: M
     ): DirectedPersistentGraph<P, V, E>
 
-    override fun remove(point: P): DirectedPersistentGraph<P, V, E>
+    override fun removeVertex(point: P): DirectedPersistentGraph<P, V, E>
+
+    override fun removeEdges(point1: P, point2: P): DirectedPersistentGraph<P, V, E>
+
+    override fun removeEdges(line: Line<P>): DirectedPersistentGraph<P, V, E>
 
     override fun filterVertices(condition: (P, V) -> Boolean): DirectedPersistentGraph<P, V, E>
 
@@ -56,18 +60,18 @@ interface DirectedPersistentGraph<P, V, E> : PersistentGraph<P, V, E> {
         return mapEdges { _: Line<P>, e: E -> function(e) }
     }
 
-    override fun <P1, V1, M : Map<out P1, V1>> flatMapVertices(
+    override fun <P1, V1, M : Map<P1, V1>> flatMapVertices(
         function: (P, V) -> M
     ): DirectedPersistentGraph<P1, V1, E>
 
-    override fun <E1, M : Map<out Line<P>, E1>> flatMapEdges(
+    override fun <E1, M : Map<Line<P>, E1>> flatMapEdges(
         function: (Line<P>, E) -> M
     ): DirectedPersistentGraph<P, V, E1>
 
     /** Directed-Specific Methods */
     fun hasCycles(): Boolean
 
-    fun getCycles(): Iterable<Pair<Triple<P, P, E>, Triple<P, P, E>>>
+    fun getCycles(): Iterable<Pair<Pair<Line<P>, E>, Pair<Line<P>, E>>>
 
     fun getCyclesAsStream(): Stream<out Pair<Triple<P, P, E>, Triple<P, P, E>>>
 

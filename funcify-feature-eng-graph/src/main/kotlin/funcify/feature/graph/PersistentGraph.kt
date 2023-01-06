@@ -32,13 +32,17 @@ interface PersistentGraph<P, V, E> : ImmutableGraph<P, V, E> {
 
     fun put(line: Line<P>, edge: E): PersistentGraph<P, V, E>
 
-    fun <M : Map<out P, V>> putAllVertices(vertices: M): PersistentGraph<P, V, E>
+    fun <M : Map<P, V>> putAllVertices(vertices: M): PersistentGraph<P, V, E>
 
-    fun <M : Map<out Line<P>, E>> putAllEdges(edges: M): PersistentGraph<P, V, E>
+    fun <M : Map<Line<P>, E>> putAllEdges(edges: M): PersistentGraph<P, V, E>
 
-    fun <S : Set<E>, M : Map<out Line<P>, S>> putAllEdgeSets(edges: M): PersistentGraph<P, V, E>
+    fun <S : Set<E>, M : Map<Line<P>, S>> putAllEdgeSets(edges: M): PersistentGraph<P, V, E>
 
-    fun remove(point: P): PersistentGraph<P, V, E>
+    fun removeVertex(point: P): PersistentGraph<P, V, E>
+
+    fun removeEdges(point1: P, point2: P): PersistentGraph<P, V, E>
+
+    fun removeEdges(line: Line<P>): PersistentGraph<P, V, E>
 
     override fun filterVertices(condition: (P, V) -> Boolean): PersistentGraph<P, V, E>
 
@@ -68,11 +72,11 @@ interface PersistentGraph<P, V, E> : ImmutableGraph<P, V, E> {
         return mapEdges { _: Line<P>, e: E -> function(e) }
     }
 
-    override fun <P1, V1, M : Map<out P1, V1>> flatMapVertices(
+    override fun <P1, V1, M : Map<P1, V1>> flatMapVertices(
         function: (P, V) -> M
     ): PersistentGraph<P1, V1, E>
 
-    override fun <E1, M : Map<out Line<P>, E1>> flatMapEdges(
+    override fun <E1, M : Map<Line<P>, E1>> flatMapEdges(
         function: (Line<P>, E) -> M
     ): PersistentGraph<P, V, E1>
 }

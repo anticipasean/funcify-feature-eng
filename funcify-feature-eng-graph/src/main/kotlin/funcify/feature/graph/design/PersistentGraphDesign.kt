@@ -5,8 +5,10 @@ import funcify.feature.graph.PersistentGraph
 import funcify.feature.graph.behavior.GraphBehavior
 import funcify.feature.graph.context.DirectedPersistentGraphContext
 import funcify.feature.graph.data.GraphData
+import funcify.feature.graph.line.DirectedLine
 import funcify.feature.graph.line.Line
 import java.util.logging.Logger
+import java.util.stream.Collectors
 import java.util.stream.Stream
 import kotlinx.collections.immutable.ImmutableSet
 
@@ -26,16 +28,21 @@ internal interface PersistentGraphDesign<DWT, P, V, E> : PersistentGraph<P, V, E
 
     val data: GraphData<DWT, P, V, E>
 
+    fun <P, V, E> unit(
+        behavior: GraphBehavior<DWT>,
+        data: GraphData<DWT, P, V, E>
+    ): PersistentGraphDesign<DWT, P, V, E>
+
     override fun get(point: P): V? {
-        TODO("Not yet implemented")
+        return behavior.get(data, point)
     }
 
     override fun get(point1: P, point2: P): Iterable<E> {
-        TODO("Not yet implemented")
+        return behavior.get(data, point1, point2)
     }
 
     override fun get(line: Line<P>): Iterable<E> {
-        TODO("Not yet implemented")
+        return behavior.get(data, line)
     }
 
     override fun descriptors(): ImmutableSet<GraphDescriptor> {
@@ -43,35 +50,51 @@ internal interface PersistentGraphDesign<DWT, P, V, E> : PersistentGraph<P, V, E
     }
 
     override fun vertexCount(): Int {
-        TODO("Not yet implemented")
+        return behavior.verticesByPoint(data).size
     }
 
     override fun edgeCount(): Int {
-        TODO("Not yet implemented")
+        return behavior.edges(data).count()
     }
 
     override fun vertices(): Iterable<V> {
-        TODO("Not yet implemented")
+        return Iterable { verticesAsStream().iterator() }
     }
 
     override fun verticesAsStream(): Stream<out V> {
-        TODO("Not yet implemented")
+        return behavior.streamVertices(data).map { (_: P, v: V) -> v }
     }
 
     override fun edges(): Iterable<E> {
-        TODO("Not yet implemented")
+        return Iterable { edgesAsStream().iterator() }
     }
 
     override fun edgesAsStream(): Stream<out E> {
-        TODO("Not yet implemented")
+        return behavior.streamEdges(data).map { (_: Line<P>, e: E) -> e }
     }
 
     override fun lines(): Iterable<Line<P>> {
-        TODO("Not yet implemented")
+        return Iterable { linesAsStream().iterator() }
     }
 
     override fun linesAsStream(): Stream<out Line<P>> {
-        TODO("Not yet implemented")
+        return behavior.streamEdges(data).map { (l: Line<P>, _: E) -> l }
+    }
+
+    override fun <T> foldLeftVertices(initial: T, accumulator: (T, Pair<P, V>) -> T): T {
+        return behavior.foldLeftVertices(data, initial, accumulator)
+    }
+
+    override fun <T> foldLeftEdges(initial: T, accumulator: (T, Pair<Line<P>, E>) -> T): T {
+        return behavior.foldLeftEdges(data, initial, accumulator)
+    }
+
+    override fun <T> foldRightVertices(initial: T, accumulator: (Pair<P, V>, T) -> T): T {
+        return behavior.foldRightVertices(data, initial, accumulator)
+    }
+
+    override fun <T> foldRightEdges(initial: T, accumulator: (Pair<Line<P>, E>, T) -> T): T {
+        return behavior.foldRightEdges(data, initial, accumulator)
     }
 
     override fun stringify(
@@ -79,68 +102,41 @@ internal interface PersistentGraphDesign<DWT, P, V, E> : PersistentGraph<P, V, E
         vertexStringifier: (V) -> String,
         edgeStringifier: (E) -> String
     ): String {
-        TODO("Not yet implemented")
-    }
-
-    override fun put(point: P, vertex: V): PersistentGraph<P, V, E> {
-        TODO("Not yet implemented")
-    }
-
-    override fun put(point1: P, point2: P, edge: E): PersistentGraph<P, V, E> {
-        TODO("Not yet implemented")
-    }
-
-    override fun put(line: Line<P>, edge: E): PersistentGraph<P, V, E> {
-        TODO("Not yet implemented")
-    }
-
-    override fun <M : Map<out P, V>> putAllVertices(vertices: M): PersistentGraph<P, V, E> {
-        TODO("Not yet implemented")
-    }
-
-    override fun <M : Map<out Line<P>, E>> putAllEdges(edges: M): PersistentGraph<P, V, E> {
-        TODO("Not yet implemented")
-    }
-
-    override fun <S : Set<E>, M : Map<out Line<P>, S>> putAllEdgeSets(
-        edges: M
-    ): PersistentGraph<P, V, E> {
-        TODO("Not yet implemented")
-    }
-
-    override fun remove(point: P): PersistentGraph<P, V, E> {
-        TODO("Not yet implemented")
-    }
-
-    override fun filterVertices(condition: (P, V) -> Boolean): PersistentGraph<P, V, E> {
-        TODO("Not yet implemented")
-    }
-
-    override fun filterEdges(condition: (Line<P>, E) -> Boolean): PersistentGraph<P, V, E> {
-        TODO("Not yet implemented")
-    }
-
-    override fun <P1> mapPoints(function: (P, V) -> P1): PersistentGraph<P1, V, E> {
-        TODO("Not yet implemented")
-    }
-
-    override fun <V1> mapVertices(function: (P, V) -> V1): PersistentGraph<P, V1, E> {
-        TODO("Not yet implemented")
-    }
-
-    override fun <E1> mapEdges(function: (Line<P>, E) -> E1): PersistentGraph<P, V, E1> {
-        TODO("Not yet implemented")
-    }
-
-    override fun <P1, V1, M : Map<out P1, V1>> flatMapVertices(
-        function: (P, V) -> M
-    ): PersistentGraph<P1, V1, E> {
-        TODO("Not yet implemented")
-    }
-
-    override fun <E1, M : Map<out Line<P>, E1>> flatMapEdges(
-        function: (Line<P>, E) -> M
-    ): PersistentGraph<P, V, E1> {
-        TODO("Not yet implemented")
+        val lineStringifier: (Line<P>) -> String = { l: Line<P> ->
+            val (p1, p2) = l
+            if (l is DirectedLine) {
+                """"line":{"source":${pointStringifier(p1)},"destination":${pointStringifier(p2)}}"""
+            } else {
+                """"line":{"first":${pointStringifier(p1)},"second":${pointStringifier(p2)}}"""
+            }
+        }
+        val vertexByPointStringifier: (P, V) -> String = { p, v ->
+            """{"point":${pointStringifier(p)},"vertex":${vertexStringifier(v)}}"""
+        }
+        val edgeByLineStringifier: (Line<P>, E) -> String = { ek, e ->
+            """{${lineStringifier(ek)},"edge":${edgeStringifier(e)}}"""
+        }
+        return StringBuilder("{")
+            .append(""""vertices":[""")
+            .append(
+                behavior
+                    .verticesByPoint(data)
+                    .entries
+                    .stream()
+                    .map { (p, v) -> vertexByPointStringifier(p, v) }
+                    .collect(Collectors.joining(","))
+            )
+            .append("]")
+            .append(",")
+            .append(""""edges":[""")
+            .append(
+                behavior
+                    .streamEdges(data)
+                    .map { (l: Line<P>, e: E) -> edgeByLineStringifier(l, e) }
+                    .collect(Collectors.joining(","))
+            )
+            .append("]")
+            .append("}")
+            .toString()
     }
 }

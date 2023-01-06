@@ -5,7 +5,7 @@ import funcify.feature.graph.GraphBuilder
 import funcify.feature.graph.GraphBuilder.DirectedGraphBuilder
 import funcify.feature.graph.GraphDescriptor
 import funcify.feature.graph.context.DirectedPersistentGraphContext
-import funcify.feature.graph.context.ParallelizableEdgeGraphContext
+import funcify.feature.graph.context.ParallelizableEdgeDirectedGraphContext
 
 /**
  *
@@ -46,7 +46,7 @@ internal class DefaultDirectedGraphBuilder<B : DirectedGraphBuilder<B>>(
     override fun <P, V, E> build(): DirectedPersistentGraph<P, V, E> {
         return when {
             graphDescriptors.contains(GraphDescriptor.PERMIT_PARALLEL_EDGES) -> {
-                ParallelizableEdgeGraphContext()
+                ParallelizableEdgeDirectedGraphContext()
             }
             else -> {
                 DirectedPersistentGraphContext()

@@ -5,28 +5,19 @@ import funcify.feature.graph.behavior.GraphBehaviorFactory
 import funcify.feature.graph.data.GraphData
 import funcify.feature.graph.data.ParallelizableEdgeDirectedGraphData.Companion.ParallelizableEdgeDirectedGraphWT
 import funcify.feature.graph.design.DirectedPersistentGraphDesign
-import kotlinx.collections.immutable.persistentMapOf
 
-internal class ParallelizableEdgeGraphContext<P, V, E>(
+internal class ParallelizableEdgeDirectedGraphContext<P, V, E>(
     override val behavior: GraphBehavior<ParallelizableEdgeDirectedGraphWT> =
         GraphBehaviorFactory.getParallelizableEdgeDirectedGraphBehavior(),
     override val data: GraphData<ParallelizableEdgeDirectedGraphWT, P, V, E> =
-        GraphBehaviorFactory.getParallelizableEdgeDirectedGraphBehavior()
-            .fromVerticesAndEdgeSets(persistentMapOf(), persistentMapOf())
+        GraphBehaviorFactory.getParallelizableEdgeDirectedGraphBehavior().empty()
 ) : DirectedPersistentGraphDesign<ParallelizableEdgeDirectedGraphWT, P, V, E> {
 
-    companion object {
-
-        fun <P, V, E> narrow(
-            design: DirectedPersistentGraphDesign<ParallelizableEdgeDirectedGraphWT, P, V, E>
-        ): ParallelizableEdgeGraphContext<P, V, E> {
-            return design as ParallelizableEdgeGraphContext<P, V, E>
-        }
-
-        fun <P, V, E> DirectedPersistentGraphDesign<ParallelizableEdgeDirectedGraphWT, P, V, E>
-            .narrowed(): ParallelizableEdgeGraphContext<P, V, E> {
-            return ParallelizableEdgeGraphContext.narrow(this)
-        }
+    override fun <P, V, E> unit(
+        behavior: GraphBehavior<ParallelizableEdgeDirectedGraphWT>,
+        data: GraphData<ParallelizableEdgeDirectedGraphWT, P, V, E>,
+    ): ParallelizableEdgeDirectedGraphContext<P, V, E> {
+        return ParallelizableEdgeDirectedGraphContext<P, V, E>(behavior, data)
     }
 
     /** lazily calculates the string representation for the materialized container */

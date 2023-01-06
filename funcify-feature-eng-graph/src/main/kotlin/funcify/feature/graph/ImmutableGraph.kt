@@ -127,7 +127,7 @@ interface ImmutableGraph<P, out V, out E> {
      * Transform each path-to-vertex entry into map of new path-to-vertex entries ( and remove any
      * existing edges that no longer refer to an existing path to a vertex )
      */
-    fun <P1, V1, M : Map<out P1, @UnsafeVariance V1>> flatMapVertices(
+    fun <P1, V1, M : Map<P1, @UnsafeVariance V1>> flatMapVertices(
         function: (P, V) -> M
     ): ImmutableGraph<P1, V1, E>
 
@@ -136,7 +136,7 @@ interface ImmutableGraph<P, out V, out E> {
      * any path-pair-to-edge entries wherein either path within the path-pair no longer refers /
      * does not refer to an existing path for a vertex )
      */
-    fun <E1, M : Map<out Line<P>, @UnsafeVariance E1>> flatMapEdges(
+    fun <E1, M : Map<Line<P>, @UnsafeVariance E1>> flatMapEdges(
         function: (Line<P>, E) -> M
     ): ImmutableGraph<P, V, E1>
 

@@ -8,19 +8,19 @@ import kotlinx.collections.immutable.persistentSetOf
 
 internal object PersistentMapExtensions {
 
-    fun <K, V> Stream<Map.Entry<K, V>>.reduceEntriesToPersistentMap(
+    fun <K, V, E : Map.Entry<K, V>> Stream<E>.reduceEntriesToPersistentMap(
         initialMap: PersistentMap<K, V> = persistentMapOf<K, V>()
     ): PersistentMap<K, V> {
         return this.reduce(initialMap, { pm, (k, v) -> pm.put(k, v) }, PersistentMap<K, V>::putAll)
     }
 
-    fun <K, V> Stream<Pair<K, V>>.reducePairsToPersistentMap(
+    fun <K, V, P : Pair<K, V>> Stream<P>.reducePairsToPersistentMap(
         initialMap: PersistentMap<K, V> = persistentMapOf<K, V>()
     ): PersistentMap<K, V> {
         return this.reduce(initialMap, { pm, (k, v) -> pm.put(k, v) }, PersistentMap<K, V>::putAll)
     }
 
-    fun <K, V> Stream<Map.Entry<K, V>>.reduceEntriesToPersistentSetValueMap(
+    fun <K, V, E : Map.Entry<K, V>> Stream<E>.reduceEntriesToPersistentSetValueMap(
         initialMap: PersistentMap<K, PersistentSet<V>> = persistentMapOf<K, PersistentSet<V>>()
     ): PersistentMap<K, PersistentSet<V>> {
         return this.reduce(
@@ -36,7 +36,7 @@ internal object PersistentMapExtensions {
         )
     }
 
-    fun <K, V> Stream<Pair<K, V>>.reducePairsToPersistentSetValueMap(
+    fun <K, V, P : Pair<K, V>> Stream<P>.reducePairsToPersistentSetValueMap(
         initialMap: PersistentMap<K, PersistentSet<V>> = persistentMapOf<K, PersistentSet<V>>()
     ): PersistentMap<K, PersistentSet<V>> {
         return this.reduce(

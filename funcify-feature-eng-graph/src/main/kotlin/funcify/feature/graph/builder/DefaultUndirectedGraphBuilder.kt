@@ -3,6 +3,8 @@ package funcify.feature.graph.builder
 import funcify.feature.graph.GraphBuilder
 import funcify.feature.graph.GraphDescriptor
 import funcify.feature.graph.PersistentGraph
+import funcify.feature.graph.context.ParallelizableEdgeUndirectedPersistentGraphContext
+import funcify.feature.graph.context.UndirectedPersistentGraphContext
 
 /**
  *
@@ -40,6 +42,13 @@ internal class DefaultUndirectedGraphBuilder<B : GraphBuilder.UndirectedGraphBui
     }
 
     override fun <P, V, E> build(): PersistentGraph<P, V, E> {
-        TODO("Implement undirected graph components")
+        return when {
+            graphDescriptors.contains(GraphDescriptor.PERMIT_PARALLEL_EDGES) -> {
+                ParallelizableEdgeUndirectedPersistentGraphContext<P, V, E>()
+            }
+            else -> {
+                UndirectedPersistentGraphContext<P, V, E>()
+            }
+        }
     }
 }
