@@ -14,7 +14,8 @@ import kotlinx.collections.immutable.persistentSetOf
  * @author smccarron
  * @created 2023-01-06
  */
-internal interface StandardUndirectedGraphBehavior : UndirectedGraphBehavior<StandardUndirectedGraphDataWT> {
+internal interface StandardUndirectedGraphBehavior :
+    UndirectedGraphBehavior<StandardUndirectedGraphDataWT> {
 
     override fun <P, V, E> empty(): GraphData<StandardUndirectedGraphDataWT, P, V, E> {
         return StandardUndirectedGraphData.empty<P, V, E>()
@@ -41,8 +42,10 @@ internal interface StandardUndirectedGraphBehavior : UndirectedGraphBehavior<Sta
     ): Iterable<E> {
         return when (line) {
             is UndirectedLine -> {
-                container.narrowed().edgesByLine[line]?.let { e: E -> persistentSetOf(e) }
-                    ?: persistentSetOf()
+                when (val e: E? = container.narrowed().edgesByLine[line]) {
+                    null -> persistentSetOf()
+                    else -> persistentSetOf(e)
+                }
             }
             else -> {
                 persistentSetOf()

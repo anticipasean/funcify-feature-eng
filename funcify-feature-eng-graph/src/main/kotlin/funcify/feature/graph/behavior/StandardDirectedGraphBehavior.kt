@@ -22,8 +22,10 @@ internal interface StandardDirectedGraphBehavior : DirectedGraphBehavior<Standar
     ): Iterable<E> {
         return when (line) {
             is DirectedLine -> {
-                container.narrowed().edgesByLine[line]?.let { e: E -> persistentSetOf(e) }
-                    ?: persistentSetOf()
+                when (val e: E? = container.narrowed().edgesByLine[line]) {
+                    null -> persistentSetOf()
+                    else -> persistentSetOf(e)
+                }
             }
             else -> {
                 persistentSetOf()
