@@ -120,7 +120,7 @@ internal interface DirectedPersistentGraphDesign<DWT, P, V, E> :
     }
 
     override fun predecessorVertices(point: P): Iterable<Pair<P, V>> {
-        return Iterable { predecessorVertices(point).iterator() }
+        return Iterable { predecessorVerticesAsStream(point).iterator() }
     }
 
     override fun predecessorVertices(vertex: V, pointExtractor: (V) -> P): Iterable<Pair<P, V>> {

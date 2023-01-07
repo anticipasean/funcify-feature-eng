@@ -10,6 +10,19 @@ interface PersistentGraph<P, V, E> : ImmutableGraph<P, V, E> {
 
     fun put(line: Line<P>, edge: E): PersistentGraph<P, V, E>
 
+    /** Aliases for put methods */
+    fun putVertex(point: P, vertex: V): PersistentGraph<P, V, E> {
+        return put(point, vertex)
+    }
+
+    fun putEdge(point1: P, point2: P, edge: E): PersistentGraph<P, V, E> {
+        return put(point1, point2, edge)
+    }
+
+    fun putEdge(line: Line<P>, edge: E): PersistentGraph<P, V, E> {
+        return put(line, edge)
+    }
+
     fun <M : Map<P, V>> putAllVertices(vertices: M): PersistentGraph<P, V, E>
 
     fun <M : Map<Line<P>, E>> putAllEdges(edges: M): PersistentGraph<P, V, E>

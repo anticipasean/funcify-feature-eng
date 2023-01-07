@@ -5,6 +5,7 @@ import funcify.feature.graph.line.Line
 import java.util.stream.Stream
 
 /**
+ * All behaviors must be stateless
  * @param DWT
  * - **Data** **Witness** **Type** parameter
  */

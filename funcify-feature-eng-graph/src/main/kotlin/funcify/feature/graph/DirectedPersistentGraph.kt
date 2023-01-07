@@ -16,6 +16,18 @@ interface DirectedPersistentGraph<P, V, E> : PersistentGraph<P, V, E> {
 
     override fun put(line: Line<P>, edge: E): DirectedPersistentGraph<P, V, E>
 
+    override fun putVertex(point: P, vertex: V): DirectedPersistentGraph<P, V, E> {
+        return put(point, vertex)
+    }
+
+    override fun putEdge(point1: P, point2: P, edge: E): DirectedPersistentGraph<P, V, E> {
+        return put(point1, point2, edge)
+    }
+
+    override fun putEdge(line: Line<P>, edge: E): DirectedPersistentGraph<P, V, E> {
+        return put(line, edge)
+    }
+
     override fun <M : Map<P, V>> putAllVertices(vertices: M): DirectedPersistentGraph<P, V, E>
 
     override fun <M : Map<Line<P>, E>> putAllEdges(edges: M): DirectedPersistentGraph<P, V, E>
@@ -69,7 +81,6 @@ interface DirectedPersistentGraph<P, V, E> : PersistentGraph<P, V, E> {
     ): DirectedPersistentGraph<P, V, E1>
 
     /** Directed-Specific Methods */
-
     fun successorVertices(point: P): Iterable<Pair<P, V>>
 
     fun successorVerticesAsStream(point: P): Stream<out Pair<P, V>>
