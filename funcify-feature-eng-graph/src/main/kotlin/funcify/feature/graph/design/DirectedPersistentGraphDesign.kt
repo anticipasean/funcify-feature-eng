@@ -153,19 +153,19 @@ internal interface DirectedPersistentGraphDesign<DWT, P, V, E> :
         return adjacentVerticesAsStream(pointExtractor(vertex))
     }
 
-    override fun edgesFromPoint(point: P): Iterable<E> {
-        TODO("Not yet implemented")
+    override fun edgesFromPoint(point: P): Iterable<Pair<Line<P>, E>> {
+        return Iterable { edgesFromPointAsStream(point).iterator() }
     }
 
-    override fun edgesFromPointAsStream(point: P): Stream<out E> {
-        TODO("Not yet implemented")
+    override fun edgesFromPointAsStream(point: P): Stream<out Pair<Line<P>, E>> {
+        return behavior.edgesFromPointAsStream(data, point)
     }
 
-    override fun edgesToPoint(point: P): Iterable<E> {
-        TODO("Not yet implemented")
+    override fun edgesToPoint(point: P): Iterable<Pair<Line<P>, E>> {
+        return Iterable { edgesToPointAsStream(point).iterator() }
     }
 
-    override fun edgesToPointAsStream(point: P): Stream<out E> {
-        TODO("Not yet implemented")
+    override fun edgesToPointAsStream(point: P): Stream<out Pair<Line<P>, E>> {
+        return behavior.edgesToPointAsStream(data, point)
     }
 }

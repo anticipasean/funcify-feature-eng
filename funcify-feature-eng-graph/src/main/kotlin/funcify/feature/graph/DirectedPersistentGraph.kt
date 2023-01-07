@@ -70,8 +70,6 @@ interface DirectedPersistentGraph<P, V, E> : PersistentGraph<P, V, E> {
 
     /** Directed-Specific Methods */
 
-    //    fun depthFirstSearchOnPath(path: P): Stream<out Tuple5<V, P, E, P, V>>
-
     fun successorVertices(point: P): Iterable<Pair<P, V>>
 
     fun successorVerticesAsStream(point: P): Stream<out Pair<P, V>>
@@ -108,11 +106,11 @@ interface DirectedPersistentGraph<P, V, E> : PersistentGraph<P, V, E> {
         pointExtractor: (V) -> P
     ): Stream<out Pair<P, V>>
 
-    fun edgesFromPoint(point: P): Iterable<E>
+    fun edgesFromPoint(point: P): Iterable<Pair<Line<P>, E>>
 
-    fun edgesFromPointAsStream(point: P): Stream<out E>
+    fun edgesFromPointAsStream(point: P): Stream<out Pair<Line<P>, E>>
 
-    fun edgesToPoint(point: P): Iterable<E>
+    fun edgesToPoint(point: P): Iterable<Pair<Line<P>, E>>
 
-    fun edgesToPointAsStream(point: P): Stream<out E>
+    fun edgesToPointAsStream(point: P): Stream<out Pair<Line<P>, E>>
 }

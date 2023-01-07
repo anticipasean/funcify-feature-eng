@@ -102,7 +102,7 @@ internal interface StandardDirectedGraphBehavior : DirectedGraphBehavior<Standar
             }
             else -> {
                 pts.stream().flatMap { p: P ->
-                    when (val v: V? = get(container, p)) {
+                    when (val v: V? = container.narrowed().verticesByPoint[p]) {
                         null -> Stream.empty()
                         else -> Stream.of(p to v)
                     }
@@ -121,9 +121,57 @@ internal interface StandardDirectedGraphBehavior : DirectedGraphBehavior<Standar
             }
             else -> {
                 pts.stream().flatMap { p: P ->
-                    when (val v: V? = get(container, p)) {
+                    when (val v: V? = container.narrowed().verticesByPoint[p]) {
                         null -> Stream.empty()
                         else -> Stream.of(p to v)
+                    }
+                }
+            }
+        }
+    }
+
+    override fun <P, V, E> edgesFromPointAsStream(
+        container: GraphData<StandardDirectedGraphWT, P, V, E>,
+        point: P
+    ): Stream<out Pair<Line<P>, E>> {
+        return when (val pts: PersistentSet<P>? = container.narrowed().outgoingLines[point]) {
+            null -> {
+                Stream.empty()
+            }
+            else -> {
+                pts.stream().flatMap { p: P ->
+                    val line = line(point, p)
+                    when (val edge: E? = container.narrowed().edgesByLine[line]) {
+                        null -> {
+                            Stream.empty()
+                        }
+                        else -> {
+                            Stream.of(line to edge)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    override fun <P, V, E> edgesToPointAsStream(
+        container: GraphData<StandardDirectedGraphWT, P, V, E>,
+        point: P
+    ): Stream<out Pair<Line<P>, E>> {
+        return when (val pts: PersistentSet<P>? = container.narrowed().incomingLines[point]) {
+            null -> {
+                Stream.empty()
+            }
+            else -> {
+                pts.stream().flatMap { p: P ->
+                    val line = line(p, point)
+                    when (val edge: E? = container.narrowed().edgesByLine[line]) {
+                        null -> {
+                            Stream.empty()
+                        }
+                        else -> {
+                            Stream.of(line to edge)
+                        }
                     }
                 }
             }

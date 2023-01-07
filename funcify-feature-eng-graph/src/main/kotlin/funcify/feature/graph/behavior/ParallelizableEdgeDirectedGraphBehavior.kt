@@ -118,7 +118,7 @@ internal interface ParallelizableEdgeDirectedGraphBehavior :
             }
             else -> {
                 pts.stream().flatMap { p: P ->
-                    when (val v: V? = get(container, p)) {
+                    when (val v: V? = container.narrowed().verticesByPoint[p]) {
                         null -> Stream.empty()
                         else -> Stream.of(p to v)
                     }
@@ -137,9 +137,61 @@ internal interface ParallelizableEdgeDirectedGraphBehavior :
             }
             else -> {
                 pts.stream().flatMap { p: P ->
-                    when (val v: V? = get(container, p)) {
+                    when (val v: V? = container.narrowed().verticesByPoint[p]) {
                         null -> Stream.empty()
                         else -> Stream.of(p to v)
+                    }
+                }
+            }
+        }
+    }
+
+    override fun <P, V, E> edgesFromPointAsStream(
+        container: GraphData<ParallelizableEdgeDirectedGraphWT, P, V, E>,
+        point: P,
+    ): Stream<out Pair<Line<P>, E>> {
+        return when (val pts: PersistentSet<P>? = container.narrowed().outgoingLines[point]) {
+            null -> {
+                Stream.empty()
+            }
+            else -> {
+                pts.stream().flatMap { p: P ->
+                    val line = line(point, p)
+                    when (
+                        val edges: PersistentSet<E>? = container.narrowed().edgesSetByLine[line]
+                    ) {
+                        null -> {
+                            Stream.empty()
+                        }
+                        else -> {
+                            edges.stream().map { e: E -> line to e }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    override fun <P, V, E> edgesToPointAsStream(
+        container: GraphData<ParallelizableEdgeDirectedGraphWT, P, V, E>,
+        point: P,
+    ): Stream<out Pair<Line<P>, E>> {
+        return when (val pts: PersistentSet<P>? = container.narrowed().incomingLines[point]) {
+            null -> {
+                Stream.empty()
+            }
+            else -> {
+                pts.stream().flatMap { p: P ->
+                    val line = line(p, point)
+                    when (
+                        val edges: PersistentSet<E>? = container.narrowed().edgesSetByLine[line]
+                    ) {
+                        null -> {
+                            Stream.empty()
+                        }
+                        else -> {
+                            edges.stream().map { e: E -> line to e }
+                        }
                     }
                 }
             }
