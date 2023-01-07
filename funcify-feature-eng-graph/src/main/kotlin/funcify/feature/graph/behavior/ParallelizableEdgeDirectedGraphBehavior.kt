@@ -8,7 +8,9 @@ import funcify.feature.graph.line.DirectedLine
 import funcify.feature.graph.line.Line
 import java.util.stream.Stream
 import kotlinx.collections.immutable.PersistentSet
+import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.persistentSetOf
+import kotlinx.collections.immutable.toPersistentMap
 
 internal interface ParallelizableEdgeDirectedGraphBehavior :
     DirectedGraphBehavior<ParallelizableEdgeDirectedGraphWT> {
@@ -17,10 +19,31 @@ internal interface ParallelizableEdgeDirectedGraphBehavior :
         return ParallelizableEdgeDirectedGraphData.empty()
     }
 
+    override fun <P, V, E, M : Map<P, V>> of(
+        verticesByPoint: M
+    ): GraphData<ParallelizableEdgeDirectedGraphWT, P, V, E> {
+        return ParallelizableEdgeDirectedGraphData(
+            verticesByPoint = verticesByPoint.toPersistentMap(),
+            edgesSetByLine = persistentMapOf()
+        )
+    }
+
     override fun <P, V, E> verticesByPoint(
         container: GraphData<ParallelizableEdgeDirectedGraphWT, P, V, E>
     ): Map<P, V> {
         return container.narrowed().verticesByPoint
+    }
+
+    override fun <P, V, E> edgeCount(
+        container: GraphData<ParallelizableEdgeDirectedGraphWT, P, V, E>
+    ): Int {
+        return container
+            .narrowed()
+            .edgesSetByLine
+            .entries
+            .parallelStream()
+            .mapToInt { (_: DirectedLine<P>, es: PersistentSet<E>) -> es.size }
+            .sum()
     }
 
     override fun <P, V, E> streamEdges(

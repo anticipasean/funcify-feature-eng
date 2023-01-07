@@ -1,6 +1,7 @@
 package funcify.feature.graph.behavior
 
 import funcify.feature.graph.data.GraphData
+import funcify.feature.graph.extensions.PersistentMapExtensions.reducePairsToPersistentMap
 import funcify.feature.graph.line.Line
 import java.util.stream.Stream
 import java.util.stream.StreamSupport
@@ -16,6 +17,8 @@ internal interface GraphBehavior<DWT> {
     /** Monoid Methods */
     fun <P, V, E> empty(): GraphData<DWT, P, V, E>
 
+    fun <P, V, E, M : Map<P, V>> of(verticesByPoint: M): GraphData<DWT, P, V, E>
+
     fun <P, V, E> combine(
         container1: GraphData<DWT, P, V, E>,
         container2: GraphData<DWT, P, V, E>
@@ -30,10 +33,14 @@ internal interface GraphBehavior<DWT> {
                 container1
             }
             else -> {
-                putAllEdges(
-                    putAllVertices(container1, streamVertices(container2)),
-                    streamEdges(container2)
-                )
+                foldLeftEdges(
+                    container2,
+                    foldLeftVertices(container2, container1) {
+                        c1: GraphData<DWT, P, V, E>,
+                        (p: P, v: V) ->
+                        put(c1, p, v)
+                    }
+                ) { c1: GraphData<DWT, P, V, E>, (l: Line<P>, e: E) -> put(c1, l, e) }
             }
         }
     }
@@ -46,6 +53,8 @@ internal interface GraphBehavior<DWT> {
     fun <P, V, E> vertexCount(container: GraphData<DWT, P, V, E>): Int {
         return verticesByPoint(container).size
     }
+
+    fun <P, V, E> edgeCount(container: GraphData<DWT, P, V, E>): Int
 
     /** Stream Methods */
     fun <P, V, E> vertices(container: GraphData<DWT, P, V, E>): Iterable<Pair<P, V>> {
@@ -98,20 +107,26 @@ internal interface GraphBehavior<DWT> {
         container: GraphData<DWT, P, V, E>,
         vertices: M
     ): GraphData<DWT, P, V, E> {
-        return putAllVertices(container, vertices.entries.stream().map { (p: P, v: V) -> p to v })
+        return if (container === empty<P, V, E>() || vertexCount(container) == 0) {
+            of(vertices)
+        } else {
+            putAllVertices(container, vertices.entries.stream().map { (p: P, v: V) -> p to v })
+        }
     }
 
     fun <P, V, E, S : Stream<out Pair<P, V>>> putAllVertices(
         container: GraphData<DWT, P, V, E>,
         verticesStream: S
     ): GraphData<DWT, P, V, E> {
-        return verticesStream
-            .sequential()
-            .reduce(
+        return if (container === empty<P, V, E>() || vertexCount(container) == 0) {
+            of(verticesStream.reducePairsToPersistentMap())
+        } else {
+            verticesStream.reduce(
                 container,
                 { c: GraphData<DWT, P, V, E>, (p: P, v: V) -> put(c, p, v) },
-                { c1: GraphData<DWT, P, V, E>, _: GraphData<DWT, P, V, E> -> c1 }
+                { c1: GraphData<DWT, P, V, E>, c2: GraphData<DWT, P, V, E> -> combine(c1, c2) }
             )
+        }
     }
 
     fun <P, V, E, M : Map<Line<P>, E>> putAllEdges(
@@ -137,13 +152,11 @@ internal interface GraphBehavior<DWT> {
         container: GraphData<DWT, P, V, E>,
         edgesStream: S
     ): GraphData<DWT, P, V, E> {
-        return edgesStream
-            .sequential()
-            .reduce(
-                container,
-                { c: GraphData<DWT, P, V, E>, (l: Line<P>, e: E) -> put(c, l, e) },
-                { c1: GraphData<DWT, P, V, E>, _: GraphData<DWT, P, V, E> -> c1 }
-            )
+        return edgesStream.reduce(
+            container,
+            { c: GraphData<DWT, P, V, E>, (l: Line<P>, e: E) -> put(c, l, e) },
+            { c1: GraphData<DWT, P, V, E>, c2: GraphData<DWT, P, V, E> -> combine(c1, c2) }
+        )
     }
 
     fun <P, V, E, S : Set<E>, ST : Stream<out Pair<Line<P>, S>>> putAllEdgeSets(

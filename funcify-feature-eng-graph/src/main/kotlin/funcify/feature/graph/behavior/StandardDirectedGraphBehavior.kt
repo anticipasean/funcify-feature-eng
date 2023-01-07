@@ -8,12 +8,23 @@ import funcify.feature.graph.line.DirectedLine
 import funcify.feature.graph.line.Line
 import java.util.stream.Stream
 import kotlinx.collections.immutable.PersistentSet
+import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.persistentSetOf
+import kotlinx.collections.immutable.toPersistentMap
 
 internal interface StandardDirectedGraphBehavior : DirectedGraphBehavior<StandardDirectedGraphWT> {
 
     override fun <P, V, E> empty(): GraphData<StandardDirectedGraphWT, P, V, E> {
         return StandardDirectedGraphData.empty()
+    }
+
+    override fun <P, V, E, M : Map<P, V>> of(
+        verticesByPoint: M
+    ): GraphData<StandardDirectedGraphWT, P, V, E> {
+        return StandardDirectedGraphData(
+            verticesByPoint = verticesByPoint.toPersistentMap(),
+            edgesByLine = persistentMapOf()
+        )
     }
 
     override fun <P, V, E> get(
@@ -84,6 +95,10 @@ internal interface StandardDirectedGraphBehavior : DirectedGraphBehavior<Standar
         container: GraphData<StandardDirectedGraphWT, P, V, E>
     ): Map<P, V> {
         return container.narrowed().verticesByPoint
+    }
+
+    override fun <P, V, E> edgeCount(container: GraphData<StandardDirectedGraphWT, P, V, E>): Int {
+        return container.narrowed().edgesByLine.size
     }
 
     override fun <P, V, E> streamEdges(

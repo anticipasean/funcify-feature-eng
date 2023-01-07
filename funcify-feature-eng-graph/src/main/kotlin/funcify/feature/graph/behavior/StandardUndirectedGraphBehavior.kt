@@ -7,7 +7,9 @@ import funcify.feature.graph.data.StandardUndirectedGraphData.Companion.narrowed
 import funcify.feature.graph.line.Line
 import funcify.feature.graph.line.UndirectedLine
 import java.util.stream.Stream
+import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.persistentSetOf
+import kotlinx.collections.immutable.toPersistentMap
 
 /**
  *
@@ -21,10 +23,25 @@ internal interface StandardUndirectedGraphBehavior :
         return StandardUndirectedGraphData.empty<P, V, E>()
     }
 
+    override fun <P, V, E, M : Map<P, V>> of(
+        verticesByPoint: M
+    ): GraphData<StandardUndirectedGraphDataWT, P, V, E> {
+        return StandardUndirectedGraphData(
+            verticesByPoint = verticesByPoint.toPersistentMap(),
+            edgesByLine = persistentMapOf()
+        )
+    }
+
     override fun <P, V, E> verticesByPoint(
         container: GraphData<StandardUndirectedGraphDataWT, P, V, E>
     ): Map<P, V> {
         return container.narrowed().verticesByPoint
+    }
+
+    override fun <P, V, E> edgeCount(
+        container: GraphData<StandardUndirectedGraphDataWT, P, V, E>
+    ): Int {
+        return container.narrowed().edgesByLine.size
     }
 
     override fun <P, V, E> streamEdges(

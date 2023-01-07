@@ -8,7 +8,9 @@ import funcify.feature.graph.line.Line
 import funcify.feature.graph.line.UndirectedLine
 import java.util.stream.Stream
 import kotlinx.collections.immutable.PersistentSet
+import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.persistentSetOf
+import kotlinx.collections.immutable.toPersistentMap
 
 /**
  *
@@ -22,10 +24,31 @@ internal interface ParallelizableEdgeUndirectedGraphBehavior :
         return ParallelizableEdgeUndirectedGraphData.empty<P, V, E>()
     }
 
+    override fun <P, V, E, M : Map<P, V>> of(
+        verticesByPoint: M
+    ): GraphData<ParallelizableEdgeUndirectedGraphWT, P, V, E> {
+        return ParallelizableEdgeUndirectedGraphData(
+            verticesByPoint = verticesByPoint.toPersistentMap(),
+            edgesSetByLine = persistentMapOf()
+        )
+    }
+
     override fun <P, V, E> verticesByPoint(
         container: GraphData<ParallelizableEdgeUndirectedGraphWT, P, V, E>
     ): Map<P, V> {
         return container.narrowed().verticesByPoint
+    }
+
+    override fun <P, V, E> edgeCount(
+        container: GraphData<ParallelizableEdgeUndirectedGraphWT, P, V, E>
+    ): Int {
+        return container
+            .narrowed()
+            .edgesSetByLine
+            .entries
+            .parallelStream()
+            .mapToInt { (_: UndirectedLine<P>, es: PersistentSet<E>) -> es.size }
+            .sum()
     }
 
     override fun <P, V, E> streamEdges(
