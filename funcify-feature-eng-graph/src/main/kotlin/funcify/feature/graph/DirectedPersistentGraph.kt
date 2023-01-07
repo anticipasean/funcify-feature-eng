@@ -80,6 +80,16 @@ interface DirectedPersistentGraph<P, V, E> : PersistentGraph<P, V, E> {
         function: (Line<P>, E) -> M
     ): DirectedPersistentGraph<P, V, E1>
 
+    override fun <V1, M : Map<P, V1>, V2> zipVertices(
+        other: M,
+        function: (V, V1) -> V2
+    ): DirectedPersistentGraph<P, V2, E>
+
+    override fun <E1, M : Map<Line<P>, E1>, E2> zipEdges(
+        other: M,
+        function: (E, E1) -> E2
+    ): DirectedPersistentGraph<P, V, E2>
+
     /** Directed-Specific Methods */
     fun successorVertices(point: P): Iterable<Pair<P, V>>
 

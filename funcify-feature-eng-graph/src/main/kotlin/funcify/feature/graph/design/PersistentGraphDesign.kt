@@ -1,6 +1,5 @@
 package funcify.feature.graph.design
 
-import funcify.feature.graph.GraphDescriptor
 import funcify.feature.graph.PersistentGraph
 import funcify.feature.graph.behavior.GraphBehavior
 import funcify.feature.graph.context.DirectedPersistentGraphContext
@@ -10,7 +9,6 @@ import funcify.feature.graph.line.Line
 import java.util.logging.Logger
 import java.util.stream.Collectors
 import java.util.stream.Stream
-import kotlinx.collections.immutable.ImmutableSet
 
 /**
  * The **design** of a graph includes both its data/contents [GraphData] and its behavior

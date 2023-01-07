@@ -154,4 +154,14 @@ interface ImmutableGraph<P, out V, out E> {
         vertexStringifier: (V) -> String = Objects::toString,
         edgeStringifier: (E) -> String = Objects::toString
     ): String
+
+    fun <V1, M : Map<P, V1>, V2> zipVertices(
+        other: M,
+        function: (V, V1) -> V2
+    ): ImmutableGraph<P, V2, E>
+
+    fun <E1, M : Map<Line<P>, E1>, E2> zipEdges(
+        other: M,
+        function: (E, E1) -> E2
+    ): ImmutableGraph<P, V, E2>
 }

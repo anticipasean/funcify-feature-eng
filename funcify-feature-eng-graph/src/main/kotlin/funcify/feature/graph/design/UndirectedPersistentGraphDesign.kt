@@ -90,4 +90,18 @@ internal interface UndirectedPersistentGraphDesign<DWT, P, V, E> :
     ): PersistentGraph<P, V, E1> {
         return unit(behavior.flatMapEdges(data, function))
     }
+
+    override fun <V1, M : Map<P, V1>, V2> zipVertices(
+        other: M,
+        function: (V, V1) -> V2
+    ): PersistentGraph<P, V2, E> {
+        return unit(behavior.zipVertices(data, other, function))
+    }
+
+    override fun <E1, M : Map<Line<P>, E1>, E2> zipEdges(
+        other: M,
+        function: (E, E1) -> E2
+    ): PersistentGraph<P, V, E2> {
+        return unit(behavior.zipEdges(data, other, function))
+    }
 }

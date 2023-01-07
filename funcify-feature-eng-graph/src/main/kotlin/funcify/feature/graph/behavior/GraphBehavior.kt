@@ -3,6 +3,8 @@ package funcify.feature.graph.behavior
 import funcify.feature.graph.data.GraphData
 import funcify.feature.graph.line.Line
 import java.util.stream.Stream
+import java.util.stream.StreamSupport
+import kotlinx.collections.immutable.PersistentSet
 
 /**
  * All behaviors must be stateless
@@ -310,6 +312,41 @@ internal interface GraphBehavior<DWT> {
                 )
             }
         }
+    }
+
+    fun <P, V, E, V1, M : Map<P, V1>, V2> zipVertices(
+        container: GraphData<DWT, P, V, E>,
+        other: M,
+        function: (V, V1) -> V2
+    ): GraphData<DWT, P, V2, E> {
+        return putAllEdges(
+            putAllVertices(
+                empty(),
+                other.entries.stream().flatMap { (p: P, v1: V1) ->
+                    when (val v: V? = get(container, p)) {
+                        null -> Stream.empty()
+                        else -> Stream.of(p to function(v, v1))
+                    }
+                }
+            ),
+            streamEdges(container)
+        )
+    }
+
+    fun <P, V, E, E1, M : Map<Line<P>, E1>, E2> zipEdges(
+        container: GraphData<DWT, P, V, E>,
+        other: M,
+        function: (E, E1) -> E2
+    ): GraphData<DWT, P, V, E2> {
+        return putAllEdges(
+            putAllVertices(empty(), verticesByPoint(container)),
+            other.entries.stream().flatMap { (l: Line<P>, e1: E1) ->
+                when (val es: Iterable<E> = get(container, l)) {
+                    is PersistentSet<E> -> es.stream()
+                    else -> StreamSupport.stream(es.spliterator(), false)
+                }.map { e: E -> l to function(e, e1) }
+            }
+        )
     }
 
     /** Fold Methods */

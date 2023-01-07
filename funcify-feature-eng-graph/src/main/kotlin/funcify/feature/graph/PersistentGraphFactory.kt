@@ -14,6 +14,7 @@ interface PersistentGraphFactory {
         fun defaultFactory(): PersistentGraphFactory {
             return DefaultPersistentGraphFactory
         }
+
     }
 
     fun <B : GraphBuilder<B>> builder(): B

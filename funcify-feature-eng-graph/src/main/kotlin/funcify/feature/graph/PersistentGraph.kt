@@ -70,4 +70,14 @@ interface PersistentGraph<P, V, E> : ImmutableGraph<P, V, E> {
     override fun <E1, M : Map<Line<P>, E1>> flatMapEdges(
         function: (Line<P>, E) -> M
     ): PersistentGraph<P, V, E1>
+
+    override fun <V1, M : Map<P, V1>, V2> zipVertices(
+        other: M,
+        function: (V, V1) -> V2
+    ): PersistentGraph<P, V2, E>
+
+    override fun <E1, M : Map<Line<P>, E1>, E2> zipEdges(
+        other: M,
+        function: (E, E1) -> E2
+    ): PersistentGraph<P, V, E2>
 }
