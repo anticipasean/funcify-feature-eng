@@ -1,5 +1,7 @@
 package funcify.feature.graph
 
+import funcify.feature.graph.builder.DefaultPersistentGraphFactory
+
 /**
  *
  * @author smccarron
@@ -7,6 +9,12 @@ package funcify.feature.graph
  */
 interface PersistentGraphFactory {
 
-    fun <B : GraphBuilder<B>> builder(): B
+    companion object {
 
+        fun defaultFactory(): PersistentGraphFactory {
+            return DefaultPersistentGraphFactory
+        }
+    }
+
+    fun <B : GraphBuilder<B>> builder(): B
 }

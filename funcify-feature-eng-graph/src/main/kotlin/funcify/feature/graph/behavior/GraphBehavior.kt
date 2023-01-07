@@ -107,7 +107,7 @@ internal interface GraphBehavior<DWT> {
             .reduce(
                 container,
                 { c: GraphData<DWT, P, V, E>, (p: P, v: V) -> put(c, p, v) },
-                { c1: GraphData<DWT, P, V, E>, c2: GraphData<DWT, P, V, E> -> c1 }
+                { c1: GraphData<DWT, P, V, E>, _: GraphData<DWT, P, V, E> -> c1 }
             )
     }
 
@@ -139,7 +139,7 @@ internal interface GraphBehavior<DWT> {
             .reduce(
                 container,
                 { c: GraphData<DWT, P, V, E>, (l: Line<P>, e: E) -> put(c, l, e) },
-                { c1: GraphData<DWT, P, V, E>, c2: GraphData<DWT, P, V, E> -> c1 }
+                { c1: GraphData<DWT, P, V, E>, _: GraphData<DWT, P, V, E> -> c1 }
             )
     }
 

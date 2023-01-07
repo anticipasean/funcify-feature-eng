@@ -18,24 +18,18 @@ class BasicPersistentGraphTest {
 
     @Test
     fun flatMapVerticesTwoToOnePathsToEdgeGraphTest() {
-        logger.info { "test started" }
         val g1 =
-            (0..6).fold(PersistentGraph.empty<Int, Int, Int>()) {
-                acc: PersistentGraph<Int, Int, Int>,
-                i: Int ->
-                acc.put(i, i)
-            }
-        logger.info { "g1 created" }
+            (0..6).fold(
+                PersistentGraphFactory.defaultFactory().builder().directed().build<Int, Int, Int>()
+            ) { acc: PersistentGraph<Int, Int, Int>, i: Int -> acc.put(i, i) }
         val g2 =
             (0..5).fold(g1) { acc: PersistentGraph<Int, Int, Int>, i: Int -> acc.put(i, i + 1, i) }
-        logger.info { "g2 created" }
         Assertions.assertEquals(7, g2.vertexCount())
         Assertions.assertEquals(6, g2.edgeCount())
         val g3 =
             g2.flatMapVertices { p: Int, v: Int ->
                 mutableMapOf<Int, Char>(p to ('A'.code + v).toChar())
             }
-        logger.info { "g3 created" }
         Assertions.assertEquals('G', g3[6])
         Assertions.assertEquals(1, g3[5, 6].count())
         Assertions.assertEquals(5, g3[5, 6].first())

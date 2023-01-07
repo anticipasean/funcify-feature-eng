@@ -1,30 +1,8 @@
 package funcify.feature.graph
 
-import funcify.feature.graph.builder.DefaultPersistentGraphFactory
-import funcify.feature.graph.context.DirectedPersistentGraphContext
 import funcify.feature.graph.line.Line
 
 interface PersistentGraph<P, V, E> : ImmutableGraph<P, V, E> {
-
-    companion object {
-
-        fun <P, V, E> empty(): PersistentGraph<P, V, E> {
-            return DefaultPersistentGraphFactory.builder().directed().build()
-        }
-
-        fun <P, V, E> of(
-            point1: P,
-            vertex1: V,
-            point2: P,
-            vertex2: V,
-            edge: E
-        ): PersistentGraph<P, V, E> {
-            return DirectedPersistentGraphContext<P, V, E>()
-                .put(point1, vertex1)
-                .put(point2, vertex2)
-                .put(point1, point2, edge)
-        }
-    }
 
     fun put(point: P, vertex: V): PersistentGraph<P, V, E>
 
