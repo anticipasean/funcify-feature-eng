@@ -96,11 +96,37 @@ internal interface StandardDirectedGraphBehavior : DirectedGraphBehavior<Standar
         container: GraphData<StandardDirectedGraphWT, P, V, E>,
         point: P
     ): Stream<out Pair<P, V>> {
-        return container.narrowed().outgoingLines[point]?.let { points: PersistentSet<P> ->
-            points.stream().flatMap { p: P ->
-                get(container, p)?.let { v: V -> Stream.of(p to v) } ?: Stream.empty()
+        return when (val pts: PersistentSet<P>? = container.narrowed().outgoingLines[point]) {
+            null -> {
+                Stream.empty()
+            }
+            else -> {
+                pts.stream().flatMap { p: P ->
+                    when (val v: V? = get(container, p)) {
+                        null -> Stream.empty()
+                        else -> Stream.of(p to v)
+                    }
+                }
             }
         }
-            ?: Stream.empty()
+    }
+
+    override fun <P, V, E> predecessorVerticesAsStream(
+        container: GraphData<StandardDirectedGraphWT, P, V, E>,
+        point: P
+    ): Stream<out Pair<P, V>> {
+        return when (val pts: PersistentSet<P>? = container.narrowed().incomingLines[point]) {
+            null -> {
+                Stream.empty()
+            }
+            else -> {
+                pts.stream().flatMap { p: P ->
+                    when (val v: V? = get(container, p)) {
+                        null -> Stream.empty()
+                        else -> Stream.of(p to v)
+                    }
+                }
+            }
+        }
     }
 }

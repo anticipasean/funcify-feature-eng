@@ -16,4 +16,8 @@ internal interface DirectedGraphBehavior<DWT> : GraphBehavior<DWT> {
         point: P
     ): Stream<out Pair<P, V>>
 
+    fun <P, V, E> predecessorVerticesAsStream(
+        container: GraphData<DWT, P, V, E>,
+        point: P
+    ): Stream<out Pair<P, V>>
 }

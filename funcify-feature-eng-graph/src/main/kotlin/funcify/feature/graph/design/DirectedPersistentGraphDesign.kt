@@ -2,7 +2,6 @@ package funcify.feature.graph.design
 
 import funcify.feature.graph.DirectedPersistentGraph
 import funcify.feature.graph.behavior.DirectedGraphBehavior
-import funcify.feature.graph.behavior.GraphBehavior
 import funcify.feature.graph.data.GraphData
 import funcify.feature.graph.line.Line
 import java.util.stream.Stream
@@ -19,7 +18,9 @@ internal interface DirectedPersistentGraphDesign<DWT, P, V, E> :
 
     override val data: GraphData<DWT, P, V, E>
 
-    override fun <P, V, E> unit(data: GraphData<DWT, P, V, E>): DirectedPersistentGraphDesign<DWT, P, V, E>
+    override fun <P, V, E> unit(
+        data: GraphData<DWT, P, V, E>
+    ): DirectedPersistentGraphDesign<DWT, P, V, E>
 
     override fun put(point: P, vertex: V): DirectedPersistentGraph<P, V, E> {
         return unit(behavior.put(data, point, vertex))
@@ -104,52 +105,52 @@ internal interface DirectedPersistentGraphDesign<DWT, P, V, E> :
     }
 
     override fun successorVertices(vertex: V, pointExtractor: (V) -> P): Iterable<Pair<P, V>> {
-        TODO("Not yet implemented")
+        return successorVertices(pointExtractor(vertex))
     }
 
     override fun successorVerticesAsStream(
         vertex: V,
         pointExtractor: (V) -> P
     ): Stream<out Pair<P, V>> {
-        TODO("Not yet implemented")
-    }
-
-    override fun predecessorVertices(point: P): Iterable<Pair<P, V>> {
-        TODO("Not yet implemented")
+        return successorVerticesAsStream(pointExtractor(vertex))
     }
 
     override fun predecessorVerticesAsStream(point: P): Stream<out Pair<P, V>> {
-        TODO("Not yet implemented")
+        return behavior.predecessorVerticesAsStream(data, point)
+    }
+
+    override fun predecessorVertices(point: P): Iterable<Pair<P, V>> {
+        return Iterable { predecessorVertices(point).iterator() }
     }
 
     override fun predecessorVertices(vertex: V, pointExtractor: (V) -> P): Iterable<Pair<P, V>> {
-        TODO("Not yet implemented")
+        return predecessorVertices(pointExtractor(vertex))
     }
 
     override fun predecessorVerticesAsStream(
         vertex: V,
         pointExtractor: (V) -> P
     ): Stream<out Pair<P, V>> {
-        TODO("Not yet implemented")
+        return predecessorVerticesAsStream(pointExtractor(vertex))
     }
 
     override fun adjacentVertices(point: P): Iterable<Pair<P, V>> {
-        TODO("Not yet implemented")
+        return Iterable { adjacentVerticesAsStream(point).iterator() }
     }
 
     override fun adjacentVerticesAsStream(point: P): Stream<out Pair<P, V>> {
-        TODO("Not yet implemented")
+        return Stream.concat(predecessorVerticesAsStream(point), successorVerticesAsStream(point))
     }
 
     override fun adjacentVertices(vertex: V, pointExtractor: (V) -> P): Iterable<Pair<P, V>> {
-        TODO("Not yet implemented")
+        return adjacentVertices(pointExtractor(vertex))
     }
 
     override fun adjacentVerticesAsStream(
         vertex: V,
         pointExtractor: (V) -> P
     ): Stream<out Pair<P, V>> {
-        TODO("Not yet implemented")
+        return adjacentVerticesAsStream(pointExtractor(vertex))
     }
 
     override fun edgesFromPoint(point: P): Iterable<E> {
