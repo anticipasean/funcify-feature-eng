@@ -1,11 +1,14 @@
 package funcify.feature.graph.context
 
+import funcify.feature.graph.GraphDescriptor
 import funcify.feature.graph.behavior.DirectedGraphBehavior
 import funcify.feature.graph.behavior.GraphBehavior
 import funcify.feature.graph.behavior.GraphBehaviorFactory
 import funcify.feature.graph.data.GraphData
 import funcify.feature.graph.data.ParallelizableEdgeDirectedGraphData.Companion.ParallelizableEdgeDirectedGraphWT
 import funcify.feature.graph.design.DirectedPersistentGraphDesign
+import kotlinx.collections.immutable.ImmutableSet
+import kotlinx.collections.immutable.persistentSetOf
 
 internal class ParallelizableEdgeDirectedGraphContext<P, V, E>(
     override val behavior: DirectedGraphBehavior<ParallelizableEdgeDirectedGraphWT> =
@@ -25,6 +28,10 @@ internal class ParallelizableEdgeDirectedGraphContext<P, V, E>(
 
     override fun toString(): String {
         return stringRepresentation
+    }
+
+    override fun descriptors(): ImmutableSet<GraphDescriptor> {
+        return persistentSetOf(GraphDescriptor.DIRECTED, GraphDescriptor.PERMIT_PARALLEL_EDGES)
     }
 
     override fun equals(other: Any?): Boolean {

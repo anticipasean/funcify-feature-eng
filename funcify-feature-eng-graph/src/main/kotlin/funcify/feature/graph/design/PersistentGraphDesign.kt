@@ -42,10 +42,6 @@ internal interface PersistentGraphDesign<DWT, P, V, E> : PersistentGraph<P, V, E
         return behavior.get(data, line)
     }
 
-    override fun descriptors(): ImmutableSet<GraphDescriptor> {
-        TODO("Not yet implemented")
-    }
-
     override fun vertexCount(): Int {
         return behavior.verticesByPoint(data).size
     }
@@ -110,17 +106,15 @@ internal interface PersistentGraphDesign<DWT, P, V, E> : PersistentGraph<P, V, E
         val vertexByPointStringifier: (P, V) -> String = { p, v ->
             """{"point":${pointStringifier(p)},"vertex":${vertexStringifier(v)}}"""
         }
-        val edgeByLineStringifier: (Line<P>, E) -> String = { ek, e ->
-            """{${lineStringifier(ek)},"edge":${edgeStringifier(e)}}"""
+        val edgeByLineStringifier: (Line<P>, E) -> String = { l, e ->
+            """{${lineStringifier(l)},"edge":${edgeStringifier(e)}}"""
         }
         return StringBuilder("{")
             .append(""""vertices":[""")
             .append(
                 behavior
-                    .verticesByPoint(data)
-                    .entries
-                    .stream()
-                    .map { (p, v) -> vertexByPointStringifier(p, v) }
+                    .streamVertices(data)
+                    .map { (p: P, v: V) -> vertexByPointStringifier(p, v) }
                     .collect(Collectors.joining(","))
             )
             .append("]")

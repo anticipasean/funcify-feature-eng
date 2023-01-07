@@ -1,10 +1,13 @@
 package funcify.feature.graph.context
 
+import funcify.feature.graph.GraphDescriptor
 import funcify.feature.graph.behavior.GraphBehaviorFactory
 import funcify.feature.graph.behavior.UndirectedGraphBehavior
 import funcify.feature.graph.data.GraphData
 import funcify.feature.graph.data.StandardUndirectedGraphData.Companion.StandardUndirectedGraphDataWT
 import funcify.feature.graph.design.UndirectedPersistentGraphDesign
+import kotlinx.collections.immutable.ImmutableSet
+import kotlinx.collections.immutable.persistentSetOf
 
 /**
  *
@@ -29,6 +32,10 @@ internal class UndirectedPersistentGraphContext<P, V, E>(
 
     override fun toString(): String {
         return stringRepresentation
+    }
+
+    override fun descriptors(): ImmutableSet<GraphDescriptor> {
+        return persistentSetOf()
     }
 
     override fun equals(other: Any?): Boolean {
