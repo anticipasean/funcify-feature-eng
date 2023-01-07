@@ -17,16 +17,32 @@ internal interface GraphBehavior<DWT> {
         container1: GraphData<DWT, P, V, E>,
         container2: GraphData<DWT, P, V, E>
     ): GraphData<DWT, P, V, E> {
-        return putAllEdges(
-            putAllVertices(container1, streamVertices(container2)),
-            streamEdges(container2)
-        )
+        return when {
+            /** If there aren't any vertices, there shouldn't be any edges */
+            container1 === empty<P, V, E>() || vertexCount(container1) == 0 -> {
+                container2
+            }
+            /** If there aren't any vertices, there shouldn't be any edges */
+            container2 === empty<P, V, E>() || vertexCount(container2) == 0 -> {
+                container1
+            }
+            else -> {
+                putAllEdges(
+                    putAllVertices(container1, streamVertices(container2)),
+                    streamEdges(container2)
+                )
+            }
+        }
     }
 
     /** Should create the appropriate line type for the given graph subtype */
     fun <P> line(firstOrSource: P, secondOrDestination: P): Line<P>
 
     fun <P, V, E> verticesByPoint(container: GraphData<DWT, P, V, E>): Map<P, V>
+
+    fun <P, V, E> vertexCount(container: GraphData<DWT, P, V, E>): Int {
+        return verticesByPoint(container).size
+    }
 
     /** Stream Methods */
     fun <P, V, E> vertices(container: GraphData<DWT, P, V, E>): Iterable<Pair<P, V>> {
@@ -232,51 +248,67 @@ internal interface GraphBehavior<DWT> {
         container: GraphData<DWT, P, V, E>,
         function: (P, V) -> M,
     ): GraphData<DWT, P1, V1, E> {
-        return putAllEdges(
-            putAllVertices(
-                empty(),
-                streamVertices(container).flatMap { (p: P, v: V) ->
-                    function(p, v).entries.stream().map { (p1: P1, v1: V1) -> p1 to v1 }
-                }
-            ),
-            streamEdges(container).flatMap { (l: Line<P>, e: E) ->
-                val (p1: P, p2: P) = l
-                when (val v1: V? = get(container, p1)) {
-                    null -> {
-                        Stream.empty()
-                    }
-                    else -> {
-                        when (val v2: V? = get(container, p2)) {
+        return when {
+            /** If there aren't any vertices, there shouldn't be any edges */
+            container === empty<P, V, E>() || vertexCount(container) == 0 -> {
+                empty<P1, V1, E>()
+            }
+            else -> {
+                putAllEdges(
+                    putAllVertices(
+                        empty(),
+                        streamVertices(container).flatMap { (p: P, v: V) ->
+                            function(p, v).entries.stream().map { (p1: P1, v1: V1) -> p1 to v1 }
+                        }
+                    ),
+                    streamEdges(container).flatMap { (l: Line<P>, e: E) ->
+                        val (p1: P, p2: P) = l
+                        when (val v1: V? = get(container, p1)) {
                             null -> {
                                 Stream.empty()
                             }
                             else -> {
-                                val newSecondVertexMappings: M = function(p2, v2)
-                                function(p1, v1).entries.stream().flatMap {
-                                    (newFirstPoint: P1, _: V1) ->
-                                    newSecondVertexMappings.entries.stream().map {
-                                        (newSecondPoint: P1, _: V1) ->
-                                        line(newFirstPoint, newSecondPoint) to e
+                                when (val v2: V? = get(container, p2)) {
+                                    null -> {
+                                        Stream.empty()
+                                    }
+                                    else -> {
+                                        val newSecondVertexMappings: M = function(p2, v2)
+                                        function(p1, v1).entries.stream().flatMap {
+                                            (newFirstPoint: P1, _: V1) ->
+                                            newSecondVertexMappings.entries.stream().map {
+                                                (newSecondPoint: P1, _: V1) ->
+                                                line(newFirstPoint, newSecondPoint) to e
+                                            }
+                                        }
                                     }
                                 }
                             }
                         }
                     }
-                }
+                )
             }
-        )
+        }
     }
 
     fun <P, V, E, E1, M : Map<Line<P>, E1>> flatMapEdges(
         container: GraphData<DWT, P, V, E>,
         function: (Line<P>, E) -> M
     ): GraphData<DWT, P, V, E1> {
-        return putAllEdges(
-            putAllVertices(empty(), verticesByPoint(container)),
-            streamEdges(container).flatMap { (l: Line<P>, e: E) ->
-                function(l, e).entries.stream().map { (l1: Line<P>, e1: E1) -> l1 to e1 }
+        return when {
+            /** If there aren't any vertices, there shouldn't be any edges */
+            container === empty<P, V, E>() || vertexCount(container) == 0 -> {
+                empty<P, V, E1>()
             }
-        )
+            else -> {
+                putAllEdges(
+                    putAllVertices(empty(), verticesByPoint(container)),
+                    streamEdges(container).flatMap { (l: Line<P>, e: E) ->
+                        function(l, e).entries.stream().map { (l1: Line<P>, e1: E1) -> l1 to e1 }
+                    }
+                )
+            }
+        }
     }
 
     /** Fold Methods */
