@@ -100,6 +100,15 @@ internal interface GraphBehavior<DWT> {
         vertex: V
     ): GraphData<DWT, P, V, E>
 
+    fun <P, V, E> includeEdge(container: GraphData<DWT, P, V, E>, line: Line<P>, edge: E): Boolean {
+        val (p1: P, p2: P) = line
+        val verticesByPoint: Map<P, V> = verticesByPoint(container)
+        return p1 in verticesByPoint &&
+            p2 in verticesByPoint &&
+            // Default: Self-Loops Not Permitted
+            p1 != p2
+    }
+
     fun <P, V, E> put(
         container: GraphData<DWT, P, V, E>,
         point1: P,

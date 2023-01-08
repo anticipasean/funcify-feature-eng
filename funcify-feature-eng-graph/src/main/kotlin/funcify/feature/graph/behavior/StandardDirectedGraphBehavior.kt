@@ -59,9 +59,7 @@ internal interface StandardDirectedGraphBehavior : DirectedGraphBehavior<Standar
         line: Line<P>,
         edge: E
     ): GraphData<StandardDirectedGraphWT, P, V, E> {
-        val verticesByPath = container.narrowed().verticesByPoint
-        val (point1, point2) = line
-        return if (line is DirectedLine && point1 in verticesByPath && point2 in verticesByPath) {
+        return if (includeEdge(container, line, edge) && line is DirectedLine) {
             container
                 .narrowed()
                 .copy(edgesByLine = container.narrowed().edgesByLine.put(line, edge))

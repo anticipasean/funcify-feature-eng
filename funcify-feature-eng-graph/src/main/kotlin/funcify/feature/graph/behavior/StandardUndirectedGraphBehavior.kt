@@ -85,9 +85,7 @@ internal interface StandardUndirectedGraphBehavior :
         line: Line<P>,
         edge: E,
     ): GraphData<StandardUndirectedGraphDataWT, P, V, E> {
-        val verticesByPoint = container.narrowed().verticesByPoint
-        val (p1, p2) = line
-        return if (line is UndirectedLine && p1 in verticesByPoint && p2 in verticesByPoint) {
+        return if (includeEdge(container, line, edge) && line is UndirectedLine) {
             container
                 .narrowed()
                 .copy(edgesByLine = container.narrowed().edgesByLine.put(line, edge))

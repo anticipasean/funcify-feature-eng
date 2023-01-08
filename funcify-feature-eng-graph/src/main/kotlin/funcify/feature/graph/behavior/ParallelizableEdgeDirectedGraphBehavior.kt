@@ -84,9 +84,7 @@ internal interface ParallelizableEdgeDirectedGraphBehavior :
         line: Line<P>,
         edge: E,
     ): GraphData<ParallelizableEdgeDirectedGraphWT, P, V, E> {
-        val verticesByPoint = container.narrowed().verticesByPoint
-        val (point1, point2) = line
-        return if (line is DirectedLine && point1 in verticesByPoint && point2 in verticesByPoint) {
+        return if (includeEdge(container, line, edge) && line is DirectedLine) {
             container
                 .narrowed()
                 .copy(
