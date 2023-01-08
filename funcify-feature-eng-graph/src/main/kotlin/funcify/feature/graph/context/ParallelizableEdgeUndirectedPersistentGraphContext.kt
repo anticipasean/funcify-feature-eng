@@ -34,10 +34,6 @@ internal class ParallelizableEdgeUndirectedPersistentGraphContext<P, V, E>(
         return stringRepresentation
     }
 
-    override fun descriptors(): ImmutableSet<GraphDescriptor> {
-        return persistentSetOf(GraphDescriptor.PERMIT_PARALLEL_EDGES)
-    }
-
     override fun equals(other: Any?): Boolean {
         return this.data.equals(other)
     }

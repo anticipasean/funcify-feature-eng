@@ -34,10 +34,6 @@ internal class UndirectedPersistentGraphContext<P, V, E>(
         return stringRepresentation
     }
 
-    override fun descriptors(): ImmutableSet<GraphDescriptor> {
-        return persistentSetOf()
-    }
-
     override fun equals(other: Any?): Boolean {
         return this.data.equals(other)
     }

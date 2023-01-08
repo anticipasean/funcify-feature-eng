@@ -1,11 +1,13 @@
 package funcify.feature.graph.behavior
 
+import funcify.feature.graph.GraphDescriptor
 import funcify.feature.graph.data.GraphData
 import funcify.feature.graph.data.StandardDirectedGraphData
 import funcify.feature.graph.data.StandardDirectedGraphData.Companion.StandardDirectedGraphWT
 import funcify.feature.graph.data.StandardDirectedGraphData.Companion.narrowed
 import funcify.feature.graph.line.DirectedLine
 import funcify.feature.graph.line.Line
+import kotlinx.collections.immutable.ImmutableSet
 import java.util.stream.Stream
 import kotlinx.collections.immutable.PersistentSet
 import kotlinx.collections.immutable.persistentMapOf
@@ -27,10 +29,14 @@ internal interface StandardDirectedGraphBehavior : DirectedGraphBehavior<Standar
         )
     }
 
+    override fun descriptors(): ImmutableSet<GraphDescriptor> {
+        return persistentSetOf(GraphDescriptor.DIRECTED)
+    }
+
     override fun <P, V, E> get(
         container: GraphData<StandardDirectedGraphWT, P, V, E>,
         line: Line<P>
-    ): Iterable<E> {
+                              ): Iterable<E> {
         return when (line) {
             is DirectedLine -> {
                 when (val e: E? = container.narrowed().edgesByLine[line]) {

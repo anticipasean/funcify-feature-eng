@@ -1,5 +1,6 @@
 package funcify.feature.graph.behavior
 
+import funcify.feature.graph.GraphDescriptor
 import funcify.feature.graph.data.GraphData
 import funcify.feature.graph.data.ParallelizableEdgeDirectedGraphData
 import funcify.feature.graph.data.ParallelizableEdgeDirectedGraphData.Companion.ParallelizableEdgeDirectedGraphWT
@@ -7,6 +8,7 @@ import funcify.feature.graph.data.ParallelizableEdgeDirectedGraphData.Companion.
 import funcify.feature.graph.line.DirectedLine
 import funcify.feature.graph.line.Line
 import java.util.stream.Stream
+import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.PersistentSet
 import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.persistentSetOf
@@ -26,6 +28,10 @@ internal interface ParallelizableEdgeDirectedGraphBehavior :
             verticesByPoint = verticesByPoint.toPersistentMap(),
             edgesSetByLine = persistentMapOf()
         )
+    }
+
+    override fun descriptors(): ImmutableSet<GraphDescriptor> {
+        return persistentSetOf(GraphDescriptor.DIRECTED, GraphDescriptor.PERMIT_PARALLEL_EDGES)
     }
 
     override fun <P, V, E> verticesByPoint(

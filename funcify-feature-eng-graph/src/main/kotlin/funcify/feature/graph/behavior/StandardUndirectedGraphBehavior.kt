@@ -1,11 +1,13 @@
 package funcify.feature.graph.behavior
 
+import funcify.feature.graph.GraphDescriptor
 import funcify.feature.graph.data.GraphData
 import funcify.feature.graph.data.StandardUndirectedGraphData
 import funcify.feature.graph.data.StandardUndirectedGraphData.Companion.StandardUndirectedGraphDataWT
 import funcify.feature.graph.data.StandardUndirectedGraphData.Companion.narrowed
 import funcify.feature.graph.line.Line
 import funcify.feature.graph.line.UndirectedLine
+import kotlinx.collections.immutable.ImmutableSet
 import java.util.stream.Stream
 import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.persistentSetOf
@@ -32,9 +34,13 @@ internal interface StandardUndirectedGraphBehavior :
         )
     }
 
+    override fun descriptors(): ImmutableSet<GraphDescriptor> {
+        return persistentSetOf()
+    }
+
     override fun <P, V, E> verticesByPoint(
         container: GraphData<StandardUndirectedGraphDataWT, P, V, E>
-    ): Map<P, V> {
+                                          ): Map<P, V> {
         return container.narrowed().verticesByPoint
     }
 

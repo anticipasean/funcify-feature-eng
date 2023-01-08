@@ -1,10 +1,12 @@
 package funcify.feature.graph.behavior
 
+import funcify.feature.graph.GraphDescriptor
 import funcify.feature.graph.data.GraphData
 import funcify.feature.graph.extensions.PersistentMapExtensions.reducePairsToPersistentMap
 import funcify.feature.graph.line.Line
 import java.util.stream.Stream
 import java.util.stream.StreamSupport
+import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.PersistentSet
 
 /**
@@ -18,6 +20,8 @@ internal interface GraphBehavior<DWT> {
     fun <P, V, E> empty(): GraphData<DWT, P, V, E>
 
     fun <P, V, E, M : Map<P, V>> of(verticesByPoint: M): GraphData<DWT, P, V, E>
+
+    fun descriptors(): ImmutableSet<GraphDescriptor>
 
     fun <P, V, E> combine(
         container1: GraphData<DWT, P, V, E>,
