@@ -113,7 +113,7 @@ internal interface StandardDirectedGraphBehavior : DirectedGraphBehavior<Standar
         }
     }
 
-    override fun <P, V, E> successorsAsStream(
+    override fun <P, V, E> successorVerticesAsStream(
         container: GraphData<StandardDirectedGraphWT, P, V, E>,
         point: P
     ): Stream<out Pair<P, V>> {

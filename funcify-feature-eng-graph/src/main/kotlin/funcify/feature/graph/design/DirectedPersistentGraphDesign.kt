@@ -115,7 +115,7 @@ internal interface DirectedPersistentGraphDesign<DWT, P, V, E> :
     }
 
     override fun successorVerticesAsStream(point: P): Stream<out Pair<P, V>> {
-        return behavior.successorsAsStream(data, point)
+        return behavior.successorVerticesAsStream(data, point)
     }
 
     override fun successorVertices(vertex: V, pointExtractor: (V) -> P): Iterable<Pair<P, V>> {

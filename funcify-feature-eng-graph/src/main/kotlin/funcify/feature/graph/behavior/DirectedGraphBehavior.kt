@@ -11,7 +11,7 @@ internal interface DirectedGraphBehavior<DWT> : GraphBehavior<DWT> {
         return DirectedLine.of(firstOrSource, secondOrDestination)
     }
 
-    fun <P, V, E> successorsAsStream(
+    fun <P, V, E> successorVerticesAsStream(
         container: GraphData<DWT, P, V, E>,
         point: P
     ): Stream<out Pair<P, V>>
