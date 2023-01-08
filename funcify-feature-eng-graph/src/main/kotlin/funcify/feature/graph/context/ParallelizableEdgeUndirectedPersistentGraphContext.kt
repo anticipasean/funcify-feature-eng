@@ -1,13 +1,10 @@
 package funcify.feature.graph.context
 
-import funcify.feature.graph.GraphDescriptor
 import funcify.feature.graph.behavior.GraphBehavior
 import funcify.feature.graph.behavior.GraphBehaviorFactory
 import funcify.feature.graph.data.GraphData
 import funcify.feature.graph.data.ParallelizableEdgeUndirectedGraphData.Companion.ParallelizableEdgeUndirectedGraphWT
 import funcify.feature.graph.design.UndirectedPersistentGraphDesign
-import kotlinx.collections.immutable.ImmutableSet
-import kotlinx.collections.immutable.persistentSetOf
 
 /**
  *
@@ -15,8 +12,7 @@ import kotlinx.collections.immutable.persistentSetOf
  * @created 2023-01-05
  */
 internal class ParallelizableEdgeUndirectedPersistentGraphContext<P, V, E>(
-    override val behavior: GraphBehavior<ParallelizableEdgeUndirectedGraphWT> =
-        GraphBehaviorFactory.getParallelizableEdgeUndirectedGraphBehavior(),
+    override val behavior: GraphBehavior<ParallelizableEdgeUndirectedGraphWT>,
     override val data: GraphData<ParallelizableEdgeUndirectedGraphWT, P, V, E> =
         GraphBehaviorFactory.getParallelizableEdgeUndirectedGraphBehavior().empty()
 ) : UndirectedPersistentGraphDesign<ParallelizableEdgeUndirectedGraphWT, P, V, E> {

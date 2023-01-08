@@ -1,18 +1,13 @@
 package funcify.feature.graph.context
 
-import funcify.feature.graph.GraphDescriptor
 import funcify.feature.graph.behavior.DirectedGraphBehavior
-import funcify.feature.graph.behavior.GraphBehavior
 import funcify.feature.graph.behavior.GraphBehaviorFactory
 import funcify.feature.graph.data.GraphData
 import funcify.feature.graph.data.ParallelizableEdgeDirectedGraphData.Companion.ParallelizableEdgeDirectedGraphWT
 import funcify.feature.graph.design.DirectedPersistentGraphDesign
-import kotlinx.collections.immutable.ImmutableSet
-import kotlinx.collections.immutable.persistentSetOf
 
 internal class ParallelizableEdgeDirectedGraphContext<P, V, E>(
-    override val behavior: DirectedGraphBehavior<ParallelizableEdgeDirectedGraphWT> =
-        GraphBehaviorFactory.getParallelizableEdgeDirectedGraphBehavior(),
+    override val behavior: DirectedGraphBehavior<ParallelizableEdgeDirectedGraphWT>,
     override val data: GraphData<ParallelizableEdgeDirectedGraphWT, P, V, E> =
         GraphBehaviorFactory.getParallelizableEdgeDirectedGraphBehavior().empty()
 ) : DirectedPersistentGraphDesign<ParallelizableEdgeDirectedGraphWT, P, V, E> {

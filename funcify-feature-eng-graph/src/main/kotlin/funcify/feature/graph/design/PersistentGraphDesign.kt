@@ -3,7 +3,7 @@ package funcify.feature.graph.design
 import funcify.feature.graph.GraphDescriptor
 import funcify.feature.graph.PersistentGraph
 import funcify.feature.graph.behavior.GraphBehavior
-import funcify.feature.graph.context.DirectedPersistentGraphContext
+import funcify.feature.graph.context.StandardDirectedPersistentGraphContext
 import funcify.feature.graph.data.GraphData
 import funcify.feature.graph.line.DirectedLine
 import funcify.feature.graph.line.Line
@@ -16,7 +16,7 @@ import kotlinx.collections.immutable.ImmutableSet
  * The **design** of a graph includes both its data/contents [GraphData] and its behavior
  * [GraphBehavior]
  *
- * Implementations of a graph **design** are **contexts** e.g. [DirectedPersistentGraphContext]
+ * Implementations of a graph **design** are **contexts** e.g. [StandardDirectedPersistentGraphContext]
  */
 internal interface PersistentGraphDesign<DWT, P, V, E> : PersistentGraph<P, V, E> {
 

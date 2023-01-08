@@ -6,17 +6,16 @@ import funcify.feature.graph.data.GraphData
 import funcify.feature.graph.data.StandardDirectedGraphData.Companion.StandardDirectedGraphWT
 import funcify.feature.graph.design.DirectedPersistentGraphDesign
 
-internal class DirectedPersistentGraphContext<P, V, E>(
-    override val behavior: DirectedGraphBehavior<StandardDirectedGraphWT> =
-        GraphBehaviorFactory.getStandardDirectedGraphBehavior(),
+internal class StandardDirectedPersistentGraphContext<P, V, E>(
+    override val behavior: DirectedGraphBehavior<StandardDirectedGraphWT>,
     override val data: GraphData<StandardDirectedGraphWT, P, V, E> =
         GraphBehaviorFactory.getStandardDirectedGraphBehavior().empty()
 ) : DirectedPersistentGraphDesign<StandardDirectedGraphWT, P, V, E> {
 
     override fun <P, V, E> unit(
         data: GraphData<StandardDirectedGraphWT, P, V, E>,
-    ): DirectedPersistentGraphContext<P, V, E> {
-        return DirectedPersistentGraphContext<P, V, E>(behavior, data)
+    ): StandardDirectedPersistentGraphContext<P, V, E> {
+        return StandardDirectedPersistentGraphContext<P, V, E>(behavior, data)
     }
 
     /** lazily calculates the string representation for the materialized container */

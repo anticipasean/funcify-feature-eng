@@ -3,8 +3,9 @@ package funcify.feature.graph.builder
 import funcify.feature.graph.GraphBuilder
 import funcify.feature.graph.GraphDescriptor
 import funcify.feature.graph.PersistentGraph
+import funcify.feature.graph.behavior.GraphBehaviorFactory
 import funcify.feature.graph.context.ParallelizableEdgeUndirectedPersistentGraphContext
-import funcify.feature.graph.context.UndirectedPersistentGraphContext
+import funcify.feature.graph.context.StandardUndirectedPersistentGraphContext
 
 /**
  *
@@ -43,11 +44,28 @@ internal class DefaultUndirectedGraphBuilder<B : GraphBuilder.UndirectedGraphBui
 
     override fun <P, V, E> build(): PersistentGraph<P, V, E> {
         return when {
-            graphDescriptors.contains(GraphDescriptor.PERMIT_PARALLEL_EDGES) -> {
-                ParallelizableEdgeUndirectedPersistentGraphContext<P, V, E>()
+            sequenceOf(GraphDescriptor.PERMIT_PARALLEL_EDGES, GraphDescriptor.PERMIT_SELF_LOOPS)
+                .all { gd -> gd in graphDescriptors } -> {
+                ParallelizableEdgeUndirectedPersistentGraphContext<P, V, E>(
+                    behavior =
+                        GraphBehaviorFactory
+                            .getSelfLoopingParallelizableEdgeUndirectedGraphBehavior()
+                )
+            }
+            GraphDescriptor.PERMIT_PARALLEL_EDGES in graphDescriptors -> {
+                ParallelizableEdgeUndirectedPersistentGraphContext<P, V, E>(
+                    behavior = GraphBehaviorFactory.getParallelizableEdgeUndirectedGraphBehavior()
+                )
+            }
+            GraphDescriptor.PERMIT_SELF_LOOPS in graphDescriptors -> {
+                StandardUndirectedPersistentGraphContext<P, V, E>(
+                    behavior = GraphBehaviorFactory.getSelfLoopingUndirectedGraphBehavior()
+                )
             }
             else -> {
-                UndirectedPersistentGraphContext<P, V, E>()
+                StandardUndirectedPersistentGraphContext<P, V, E>(
+                    behavior = GraphBehaviorFactory.getStandardUndirectedGraphBehavior()
+                )
             }
         }
     }

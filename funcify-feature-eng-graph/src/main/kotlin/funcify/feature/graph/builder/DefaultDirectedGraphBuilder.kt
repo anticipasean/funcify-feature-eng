@@ -4,8 +4,9 @@ import funcify.feature.graph.DirectedPersistentGraph
 import funcify.feature.graph.GraphBuilder
 import funcify.feature.graph.GraphBuilder.DirectedGraphBuilder
 import funcify.feature.graph.GraphDescriptor
-import funcify.feature.graph.context.DirectedPersistentGraphContext
+import funcify.feature.graph.behavior.GraphBehaviorFactory
 import funcify.feature.graph.context.ParallelizableEdgeDirectedGraphContext
+import funcify.feature.graph.context.StandardDirectedPersistentGraphContext
 
 /**
  *
@@ -45,11 +46,27 @@ internal class DefaultDirectedGraphBuilder<B : DirectedGraphBuilder<B>>(
 
     override fun <P, V, E> build(): DirectedPersistentGraph<P, V, E> {
         return when {
-            graphDescriptors.contains(GraphDescriptor.PERMIT_PARALLEL_EDGES) -> {
-                ParallelizableEdgeDirectedGraphContext()
+            sequenceOf(GraphDescriptor.PERMIT_SELF_LOOPS, GraphDescriptor.PERMIT_PARALLEL_EDGES)
+                .all { gd -> gd in graphDescriptors } -> {
+                ParallelizableEdgeDirectedGraphContext<P, V, E>(
+                    behavior =
+                        GraphBehaviorFactory.getSelfLoopingParallelizableEdgeDirectedGraphBehavior()
+                )
+            }
+            GraphDescriptor.PERMIT_PARALLEL_EDGES in graphDescriptors -> {
+                ParallelizableEdgeDirectedGraphContext(
+                    behavior = GraphBehaviorFactory.getParallelizableEdgeDirectedGraphBehavior()
+                )
+            }
+            GraphDescriptor.PERMIT_SELF_LOOPS in graphDescriptors -> {
+                StandardDirectedPersistentGraphContext(
+                    behavior = GraphBehaviorFactory.getSelfLoopingDirectedGraphBehavior()
+                )
             }
             else -> {
-                DirectedPersistentGraphContext()
+                StandardDirectedPersistentGraphContext(
+                    behavior = GraphBehaviorFactory.getStandardDirectedGraphBehavior()
+                )
             }
         }
     }

@@ -7,8 +7,8 @@ import funcify.feature.graph.data.StandardDirectedGraphData.Companion.StandardDi
 import funcify.feature.graph.data.StandardDirectedGraphData.Companion.narrowed
 import funcify.feature.graph.line.DirectedLine
 import funcify.feature.graph.line.Line
-import kotlinx.collections.immutable.ImmutableSet
 import java.util.stream.Stream
+import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.PersistentSet
 import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.persistentSetOf
@@ -36,7 +36,7 @@ internal interface StandardDirectedGraphBehavior : DirectedGraphBehavior<Standar
     override fun <P, V, E> get(
         container: GraphData<StandardDirectedGraphWT, P, V, E>,
         line: Line<P>
-                              ): Iterable<E> {
+    ): Iterable<E> {
         return when (line) {
             is DirectedLine -> {
                 when (val e: E? = container.narrowed().edgesByLine[line]) {
