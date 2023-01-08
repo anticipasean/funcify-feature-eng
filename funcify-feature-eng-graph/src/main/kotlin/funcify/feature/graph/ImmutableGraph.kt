@@ -15,6 +15,8 @@ import kotlinx.collections.immutable.ImmutableSet
  */
 interface ImmutableGraph<P, out V, out E> {
 
+    operator fun contains(point: P): Boolean
+
     /**
      * Point <P> uniquely identifies and acts as a label for a vertex in the graph and may even be
      * the same value as its vertex if desired
@@ -23,6 +25,9 @@ interface ImmutableGraph<P, out V, out E> {
      * ( PathPair: ( 1, 2 ), Edge: 0.3 )
      */
     operator fun get(point: P): V?
+
+    /** Note: `operator` versions of #contains method only take a single parameter */
+    fun contains(point1: P, point2: P): Boolean
 
     /**
      * Point <P> and another Point <P> pair uniquely identify a Line<P> with an edge (or edges if
@@ -33,6 +38,7 @@ interface ImmutableGraph<P, out V, out E> {
      */
     operator fun get(point1: P, point2: P): Iterable<E>
 
+    operator fun contains(line: Line<P>): Boolean
     /**
      * Line<P> uniquely identifies an edge (or edges if parallel edges are permitted) in the graph
      *
@@ -40,6 +46,11 @@ interface ImmutableGraph<P, out V, out E> {
      * ( Line: ('A','B'), Edge: 0.1 )
      */
     operator fun get(line: Line<P>): Iterable<E>
+
+    /** Alias method for [ImmutableGraph.contains] */
+    fun containsVertex(point: P): Boolean {
+        return point in this
+    }
 
     /** Alias method for [ImmutableGraph.get] */
     fun getVertex(point: P): V? {
@@ -50,9 +61,19 @@ interface ImmutableGraph<P, out V, out E> {
         return this[point] ?: defaultValue
     }
 
+    /** Alias method for [ImmutableGraph.contains] */
+    fun containsEdge(point1: P, point2: P): Boolean {
+        return this.contains(point1, point2)
+    }
+
     /** Alias method for [ImmutableGraph.get] */
     fun getEdge(point1: P, point2: P): Iterable<E> {
         return this[point1, point2]
+    }
+
+    /** Alias method for [ImmutableGraph.contains] */
+    fun containsEdge(line: Line<P>): Boolean {
+        return line in this
     }
 
     /** Alias method for [ImmutableGraph.get] */

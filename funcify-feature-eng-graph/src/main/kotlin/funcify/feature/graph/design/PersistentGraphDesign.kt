@@ -28,12 +28,24 @@ internal interface PersistentGraphDesign<DWT, P, V, E> : PersistentGraph<P, V, E
 
     fun <P, V, E> unit(data: GraphData<DWT, P, V, E>): PersistentGraphDesign<DWT, P, V, E>
 
+    override fun contains(point: P): Boolean {
+        return behavior.contains(data, point)
+    }
+
     override fun get(point: P): V? {
         return behavior.get(data, point)
     }
 
+    override fun contains(point1: P, point2: P): Boolean {
+        return behavior.contains(data, point1, point2)
+    }
+
     override fun get(point1: P, point2: P): Iterable<E> {
         return behavior.get(data, point1, point2)
+    }
+
+    override fun contains(line: Line<P>): Boolean {
+        return behavior.contains(data, line)
     }
 
     override fun get(line: Line<P>): Iterable<E> {

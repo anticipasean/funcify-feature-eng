@@ -72,12 +72,24 @@ internal interface GraphBehavior<DWT> {
     fun <P, V, E> streamEdges(container: GraphData<DWT, P, V, E>): Stream<out Pair<Line<P>, E>>
 
     /** Basic Map Methods */
+    fun <P, V, E> contains(container: GraphData<DWT, P, V, E>, point: P): Boolean {
+        return verticesByPoint(container).containsKey(point)
+    }
+
     fun <P, V, E> get(container: GraphData<DWT, P, V, E>, point: P): V? {
         return verticesByPoint(container)[point]
     }
 
+    fun <P, V, E> contains(container: GraphData<DWT, P, V, E>, point1: P, point2: P): Boolean {
+        return contains(container, line(point1, point2))
+    }
+
     fun <P, V, E> get(container: GraphData<DWT, P, V, E>, point1: P, point2: P): Iterable<E> {
         return get(container, line(point1, point2))
+    }
+
+    fun <P, V, E> contains(container: GraphData<DWT, P, V, E>, line: Line<P>): Boolean {
+        return get(container, line).any()
     }
 
     fun <P, V, E> get(container: GraphData<DWT, P, V, E>, line: Line<P>): Iterable<E>
@@ -278,23 +290,22 @@ internal interface GraphBehavior<DWT> {
                         }
                     ),
                     streamEdges(container).flatMap { (l: Line<P>, e: E) ->
-                        val (p1: P, p2: P) = l
-                        when (val v1: V? = get(container, p1)) {
+                        val (ip1: P, ip2: P) = l
+                        when (val v1: V? = get(container, ip1)) {
                             null -> {
                                 Stream.empty()
                             }
                             else -> {
-                                when (val v2: V? = get(container, p2)) {
+                                when (val v2: V? = get(container, ip2)) {
                                     null -> {
                                         Stream.empty()
                                     }
                                     else -> {
-                                        val newSecondVertexMappings: M = function(p2, v2)
-                                        function(p1, v1).entries.stream().flatMap {
-                                            (newFirstPoint: P1, _: V1) ->
-                                            newSecondVertexMappings.entries.stream().map {
-                                                (newSecondPoint: P1, _: V1) ->
-                                                line(newFirstPoint, newSecondPoint) to e
+                                        val m: M = function(ip1, v1)
+                                        function(ip2, v2).entries.stream().flatMap {
+                                            (fp2: P1, _: V1) ->
+                                            m.entries.stream().map { (fp1: P1, _: V1) ->
+                                                line(fp1, fp2) to e
                                             }
                                         }
                                     }

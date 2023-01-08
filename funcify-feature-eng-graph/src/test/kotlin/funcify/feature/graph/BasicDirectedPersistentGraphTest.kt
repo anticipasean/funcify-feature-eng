@@ -1,5 +1,6 @@
 package funcify.feature.graph
 
+import funcify.feature.graph.line.DirectedLine
 import funcify.feature.graph.line.Line
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
@@ -39,6 +40,44 @@ class BasicDirectedPersistentGraphTest {
         Assertions.assertEquals('G', g3[6])
         Assertions.assertEquals(1, g3[5, 6].count())
         Assertions.assertEquals(5, g3[5, 6].first())
+    }
+
+    /**
+     * * Assuming
+     * - graph of type PersistentGraph<Int, Char, Double>
+     * ```
+     *      - with vertices { (1, 'A'), (2, 'B') } and edge { ( (1, 2), 0.2 ) }
+     * ```
+     * - a flatmap function of type (Int, Char) -> Map<String, Char>
+     * - a lambda implementation of {(p: Int, v: Char) -> mapOf(p.toString() to v, (p *
+     * 10).toString() to (v + 2)) }
+     *
+     * We would expect the result to be a graph with:
+     * - vertices { ("1", 'A'), ("10", 'C'), ("2", 'B'), ("20", 'D') } and
+     * - edges { (("1", "2"), 0.2), (("1", "20"), 0.2), (("10", "2"), 0.2), (("10", "20"), 0.2) }
+     */
+    @Test
+    fun flatMapVerticesCartesianProductTest() {
+        val g1: DirectedPersistentGraph<Int, Char, Double> =
+            createEmptyDirectedGraph<Int, Char, Double>()
+                .putAllVertices(mapOf(1 to 'A', 2 to 'B'))
+                .putEdge(1, 2, 0.2)
+        Assertions.assertTrue(1 in g1, "vertex 1 missing")
+        Assertions.assertTrue(2 in g1, "vertex 2 missing")
+        Assertions.assertTrue(DirectedLine.of(1, 2) in g1, "edge missing")
+        val g2: DirectedPersistentGraph<String, Char, Double> =
+            g1.flatMapVertices { p: Int, v: Char ->
+                mapOf(p.toString() to v, (p * 10).toString() to (v + 2))
+            }
+        Assertions.assertEquals(4, g2.vertexCount(), "flatMapVertices incorrectly applied")
+        Assertions.assertTrue("10" in g2, "flatMapVertices unexpected result")
+        Assertions.assertTrue("20" in g2, "flatMapVertices unexpected result")
+        Assertions.assertEquals(4, g2.edgeCount())
+        Assertions.assertTrue(g2.edgesAsStream().allMatch { d -> d == 0.2 })
+        Assertions.assertTrue(DirectedLine.of("1", "2") in g2)
+        Assertions.assertTrue(DirectedLine.of("1", "20") in g2)
+        Assertions.assertTrue(DirectedLine.of("10", "2") in g2)
+        Assertions.assertTrue(DirectedLine.of("10", "20") in g2)
     }
 
     @Test
