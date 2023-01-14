@@ -41,7 +41,6 @@ import kotlin.streams.toList
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.PersistentSet
 import kotlinx.collections.immutable.persistentMapOf
-import kotlinx.collections.immutable.toPersistentMap
 import kotlinx.collections.immutable.toPersistentSet
 import org.slf4j.Logger
 import reactor.core.Disposable
@@ -130,54 +129,42 @@ internal class DefaultMaterializedTrackableValuePublishingService(
     private fun transitionCalculatedToTrackedAndPublish(
         publishingContext: TrackableValuePublishingContext
     ): Disposable {
-        val calculatedValue: TrackableValue.CalculatedValue<JsonNode> =
-            publishingContext.calculatedValue
-        val dispatchedRequest: SourceIndexRequestDispatch.TrackableSingleJsonValueDispatch =
-            publishingContext.dispatchedRequest
         val publisher: TrackableJsonValuePublisher = publishingContext.publisher
-        val session: GraphQLSingleRequestSession = publishingContext.session
         return Mono.defer {
-                findAnyLastUpdatedFieldValuesRelatedToThisField(
-                    calculatedValue.targetSourceIndexPath,
-                    dispatchedRequest,
-                    session
-                )
+                findAnyLastUpdatedFieldValuesRelatedToThisFieldInContext(publishingContext)
             }
             .publishOn(Schedulers.boundedElastic())
-            .flatMap { lastUpdValuesByPath ->
+            .flatMap { updatedContext ->
                 when {
-                    dispatchedRequestForCalculatedValueDependentOnOtherTrackableValues(
-                        dispatchedRequest,
-                        calculatedValue,
-                        session
+                    dispatchedRequestForCalculatedValueDependentOnOtherTrackableValuesInContext(
+                        updatedContext
                     ) -> {
-                        gatherAnyValueAtTimestampsFromTrackedValuesUsedAsInputForCalculatedValue(
-                                dispatchedRequest,
-                                calculatedValue,
-                                session
-                            )
-                            .map { otherTimestampsByPath ->
-                                lastUpdValuesByPath.toPersistentMap().putAll(otherTimestampsByPath)
-                            }
+                        gatherAnyValueAtTimestampsFromTrackedValuesUsedAsInputForCalculatedValueInContext(
+                            updatedContext
+                        )
                     }
                     else -> {
-                        Mono.just(lastUpdValuesByPath)
+                        Mono.just(updatedContext)
                     }
                 }
             }
-            .zipWith(
-                findAnyEntityIdentifierValuesRelatedToThisField(
-                    calculatedValue,
-                    dispatchedRequest,
-                    session
-                )
-            ) { ts, ids -> ts to ids }
-            .zipWith(convertMaterializedCalculatedValueFromAndBackIntoJson(calculatedValue)) {
-                (ts, ids),
-                jn ->
-                Triple(ts, ids, jn)
+            .flatMap { updatedContext ->
+                findAnyEntityIdentifierValuesRelatedToThisField(updatedContext)
             }
-            .map { (relevantTimestampsByPath, relevantIdsByPath, materializedJsonValue) ->
+            .flatMap { updatedContext ->
+                convertMaterializedCalculatedValueFromAndBackIntoJson(
+                        updatedContext.calculatedValue
+                    )
+                    .map { jn -> updatedContext to jn }
+            }
+            .map { (ctx, materializedJsonValue) ->
+                val relevantTimestampsByPath = ctx.lastUpdatedInstantsByPath
+                val relevantIdsByPath = ctx.entityIdentifierValuesByPath
+                val calculatedValue: TrackableValue.CalculatedValue<JsonNode> =
+                    publishingContext.calculatedValue
+                val dispatchedRequest: SourceIndexRequestDispatch.TrackableSingleJsonValueDispatch =
+                    publishingContext.dispatchedRequest
+                val session: GraphQLSingleRequestSession = publishingContext.session
                 logger.info(
                     "relevant_ids_by_path: [ {} ]",
                     relevantIdsByPath
@@ -265,7 +252,7 @@ internal class DefaultMaterializedTrackableValuePublishingService(
                     "reference_paths_with_context: {}",
                     referencePaths.asSequence().joinToString(", ", "{ ", " }")
                 )
-                val valueAtTimestamp =
+                val valueAtTimestamp: Instant =
                     relevantTimestampsByPath.values.maxOrNull().toOption().getOrElse {
                         calculatedValue.calculatedTimestamp
                     }
@@ -289,7 +276,7 @@ internal class DefaultMaterializedTrackableValuePublishingService(
                         """publish_materialized_trackable_json_value_if_applicable: 
                         |[ status: attempting to publish trackable_json_value ] 
                         |[ source_index_path: {} ]""".flatten(),
-                        calculatedValue.targetSourceIndexPath
+                        trackedValue.targetSourceIndexPath
                     )
                     publisher.publishTrackableJsonValue(trackedValue)
                 },
@@ -500,10 +487,11 @@ internal class DefaultMaterializedTrackableValuePublishingService(
     }
 
     private fun findAnyEntityIdentifierValuesRelatedToThisField(
-        calculatedValue: TrackableValue.CalculatedValue<JsonNode>,
-        dispatchedRequest: SourceIndexRequestDispatch.TrackableSingleJsonValueDispatch,
-        session: GraphQLSingleRequestSession,
-    ): Mono<ImmutableMap<SchematicPath, JsonNode>> {
+        publishingContext: TrackableValuePublishingContext
+    ): Mono<TrackableValuePublishingContext> {
+        val dispatchedRequest: SourceIndexRequestDispatch.TrackableSingleJsonValueDispatch =
+            publishingContext.dispatchedRequest
+        val session: GraphQLSingleRequestSession = publishingContext.session
         return Stream.concat(
                 dispatchedRequest.retrievalFunctionSpec.parameterVerticesByPath.keys
                     .parallelStream()
@@ -522,15 +510,16 @@ internal class DefaultMaterializedTrackableValuePublishingService(
                         when {
                             session.requestParameterMaterializationGraphPhase
                                 .flatMap { phase ->
-                                    phase.materializedParameterValuesByPath[edge.id.second]
-                                        .toOption()
+                                    phase.materializedParameterValuesByPath.getOrNone(
+                                        edge.id.second
+                                    )
                                 }
                                 .isDefined() -> {
                                 session.requestParameterMaterializationGraphPhase
                                     .flatMap { phase ->
-                                        phase.retrievalFunctionSpecByTopSourceIndexPath[
-                                                edge.id.first]
-                                            .toOption()
+                                        phase.retrievalFunctionSpecByTopSourceIndexPath.getOrNone(
+                                            edge.id.first
+                                        )
                                     }
                                     .fold(::empty, ::of)
                                     .map { spec -> edge.id.first.right() }
@@ -639,18 +628,21 @@ internal class DefaultMaterializedTrackableValuePublishingService(
             .toList()
             .let { entityIdPathToValueMonos ->
                 Flux.merge(entityIdPathToValueMonos)
-                    .reduce(persistentMapOf<SchematicPath, JsonNode>()) { pm, (k, v) ->
-                        pm.put(k, v)
+                    .reduce(publishingContext) {
+                        ctx: TrackableValuePublishingContext,
+                        (k: SchematicPath, v: JsonNode) ->
+                        ctx.update { putEntityIdentifierValueForPath(k, v) }
                     }
                     .widen()
             }
     }
 
-    private fun dispatchedRequestForCalculatedValueDependentOnOtherTrackableValues(
-        dispatchedRequest: SourceIndexRequestDispatch.TrackableSingleJsonValueDispatch,
-        calculatedValue: TrackableValue.CalculatedValue<JsonNode>,
-        session: GraphQLSingleRequestSession
+    private fun dispatchedRequestForCalculatedValueDependentOnOtherTrackableValuesInContext(
+        publishingContext: TrackableValuePublishingContext
     ): Boolean {
+        val dispatchedRequest: SourceIndexRequestDispatch.TrackableSingleJsonValueDispatch =
+            publishingContext.dispatchedRequest
+        val session: GraphQLSingleRequestSession = publishingContext.session
         return dispatchedRequest.backupBaseExternalDataSourceJsonValuesRetriever.parameterPaths
             .asSequence()
             .filter { paramPath ->
@@ -673,11 +665,12 @@ internal class DefaultMaterializedTrackableValuePublishingService(
             .any()
     }
 
-    private fun gatherAnyValueAtTimestampsFromTrackedValuesUsedAsInputForCalculatedValue(
-        dispatchedRequest: SourceIndexRequestDispatch.TrackableSingleJsonValueDispatch,
-        calculatedValue: TrackableValue.CalculatedValue<JsonNode>,
-        session: GraphQLSingleRequestSession
-    ): Mono<ImmutableMap<SchematicPath, Instant>> {
+    private fun gatherAnyValueAtTimestampsFromTrackedValuesUsedAsInputForCalculatedValueInContext(
+        publishingContext: TrackableValuePublishingContext
+    ): Mono<TrackableValuePublishingContext> {
+        val dispatchedRequest: SourceIndexRequestDispatch.TrackableSingleJsonValueDispatch =
+            publishingContext.dispatchedRequest
+        val session: GraphQLSingleRequestSession = publishingContext.session
         return dispatchedRequest.retrievalFunctionSpec.parameterVerticesByPath.keys
             .parallelStream()
             .flatMap { paramPath ->
@@ -721,17 +714,23 @@ internal class DefaultMaterializedTrackableValuePublishingService(
                                 .joinToString(", ", "{ ", " }", transform = { (k, v) -> "$k: $v" })
                         )
                     }
+                    .map { valueAtTimestampsByDependentTrackedValuePath ->
+                        publishingContext.update {
+                            putAllLastUpdatedInstantsForPaths(
+                                valueAtTimestampsByDependentTrackedValuePath
+                            )
+                        }
+                    }
                     .widen()
             }
     }
 
-    private fun findAnyLastUpdatedFieldValuesRelatedToThisField(
-        sourceIndexPath: SchematicPath,
-        trackableSingleJsonValueDispatch:
-            SourceIndexRequestDispatch.TrackableSingleJsonValueDispatch,
-        session: GraphQLSingleRequestSession
-    ): Mono<ImmutableMap<SchematicPath, Instant>> {
-        return trackableSingleJsonValueDispatch.retrievalFunctionSpec.parameterVerticesByPath.keys
+    private fun findAnyLastUpdatedFieldValuesRelatedToThisFieldInContext(
+        publishingContext: TrackableValuePublishingContext
+    ): Mono<TrackableValuePublishingContext> {
+        val session: GraphQLSingleRequestSession = publishingContext.session
+        return publishingContext.dispatchedRequest.retrievalFunctionSpec.parameterVerticesByPath
+            .keys
             .parallelStream()
             .flatMap { sp ->
                 session.requestParameterMaterializationGraphPhase
@@ -790,8 +789,10 @@ internal class DefaultMaterializedTrackableValuePublishingService(
                     .flatMapMany { lastUpdatedAttrMonos ->
                         Flux.merge(lastUpdatedAttrMonos).cache()
                     }
-                    .reduce(persistentMapOf<SchematicPath, Instant>()) { pm, (k, v) ->
-                        pm.put(k, v)
+                    .reduce(publishingContext) {
+                        ctx: TrackableValuePublishingContext,
+                        (p: SchematicPath, i: Instant) ->
+                        ctx.update { putLastUpdatedInstantForPath(p, i) }
                     }
             }
             .widen()
