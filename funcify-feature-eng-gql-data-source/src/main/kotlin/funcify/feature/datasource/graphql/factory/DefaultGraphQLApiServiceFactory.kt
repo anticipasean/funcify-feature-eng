@@ -239,7 +239,6 @@ internal class DefaultGraphQLApiServiceFactory(
                         }
                     }
                     .publishOn(Schedulers.boundedElastic())
-                    .timeout(timeoutAfter)
                     .timed()
                     .map { timedJson ->
                         logger.info(

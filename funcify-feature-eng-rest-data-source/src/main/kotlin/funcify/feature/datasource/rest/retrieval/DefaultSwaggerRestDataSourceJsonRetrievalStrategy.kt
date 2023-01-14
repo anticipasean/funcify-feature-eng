@@ -429,7 +429,6 @@ internal class DefaultSwaggerRestDataSourceJsonRetrievalStrategy(
                             }
                         }
                         .publishOn(Schedulers.boundedElastic())
-                        .timeout(dataSource.restApiService.timeoutAfter)
                         .timed()
                         .map { timedJson ->
                             logger.debug(
