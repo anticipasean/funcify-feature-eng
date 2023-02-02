@@ -36,16 +36,16 @@ sealed interface Try<out S> : Iterable<S> {
             return if (nullableSuccessObject == null) {
                 nullableFailure<S>(ifNull.invoke())
             } else {
-                TryFactory.Success(nullableSuccessObject)
+                Success(nullableSuccessObject)
             }
         }
 
         @JvmStatic
         fun <S> nullableFailure(throwable: Throwable?): Try<S> {
             return if (throwable == null) {
-                TryFactory.Failure<S>(NoSuchElementException("error/throwable is null"))
+                Failure<S>(NoSuchElementException("error/throwable is null"))
             } else {
-                TryFactory.Failure<S>(throwable)
+                Failure<S>(throwable)
             }
         }
         @JvmStatic
@@ -242,8 +242,8 @@ sealed interface Try<out S> : Iterable<S> {
         @JvmStatic
         fun <S> fromResult(result: Result<S>): Try<S> {
             return result.fold(
-                { s -> TryFactory.Success(s) },
-                { t: Throwable -> TryFactory.Failure<S>(t) }
+                { s -> Success(s) },
+                { t: Throwable -> Failure<S>(t) }
             )
         }
 
@@ -356,7 +356,7 @@ sealed interface Try<out S> : Iterable<S> {
 
         @JvmStatic
         fun <S> monoid(initial: Try<S>, combiner: (S, S) -> S): Monoid<Try<S>> {
-            return TryFactory.HomogeneousSuccessTypeTryMonoid<S>(initial, combiner)
+            return TryMonoidFactory.HomogeneousSuccessTypeTryMonoid<S>(initial, combiner)
         }
 
         @JvmStatic
@@ -365,7 +365,7 @@ sealed interface Try<out S> : Iterable<S> {
             mapper: (S) -> R,
             combiner: (R, R) -> R
         ): Monoid<Try<R>> {
-            return TryFactory.HeterogeneousSuccessTypeTryMonoid<S, R>(initial, mapper, combiner)
+            return TryMonoidFactory.HeterogeneousSuccessTypeTryMonoid<S, R>(initial, mapper, combiner)
         }
 
         @JvmStatic
@@ -425,14 +425,14 @@ sealed interface Try<out S> : Iterable<S> {
             crossinline mapper: (Throwable) -> Try<S>
         ): Try<S> {
             return fold(
-                { input: S -> TryFactory.Success(input) },
+                { input: S -> Success(input) },
                 { throwable: Throwable ->
                     try {
                         Option.fromNullable(mapper.invoke(throwable)).getOrElse {
-                            TryFactory.Failure<S>(NoSuchElementException("result attempt is null"))
+                            Failure<S>(NoSuchElementException("result attempt is null"))
                         }
                     } catch (t: Throwable) {
-                        TryFactory.Failure<S>(t)
+                        Failure<S>(t)
                     }
                 }
             )
@@ -447,17 +447,17 @@ sealed interface Try<out S> : Iterable<S> {
                 { input: Any? ->
                     when (input) {
                         is T -> {
-                            TryFactory.Success(input)
+                            Success(input)
                         }
                         else -> {
                             val messageSupplier: () -> String = { ->
                                 "input is not instance of [ type: ${T::class.qualifiedName} ]"
                             }
-                            TryFactory.Failure(IllegalArgumentException(messageSupplier.invoke()))
+                            Failure(IllegalArgumentException(messageSupplier.invoke()))
                         }
                     }
                 },
-                { throwable: Throwable -> TryFactory.Failure(throwable) }
+                { throwable: Throwable -> Failure(throwable) }
             )
         }
     }
@@ -607,9 +607,7 @@ sealed interface Try<out S> : Iterable<S> {
         return fold(
             { input: S ->
                 try {
-                    Option.fromNullable(mapper.invoke(input)).getOrElse {
-                        failure<R>(NoSuchElementException("result attempt is null"))
-                    }
+                    mapper.invoke(input)
                 } catch (t: Throwable) {
                     failure<R>(t)
                 }
