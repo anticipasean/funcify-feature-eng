@@ -6,7 +6,7 @@ import funcify.feature.datasource.rest.error.RestApiDataSourceException
 import funcify.feature.datasource.rest.error.RestApiErrorResponse
 import funcify.feature.datasource.rest.swagger.SwaggerSchemaEndpoint
 import funcify.feature.datasource.rest.swagger.SwaggerSchemaEndpointRegistry
-import funcify.feature.json.JsonMapper
+import funcify.feature.tools.json.JsonMapper
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flatten

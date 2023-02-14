@@ -9,7 +9,7 @@ import funcify.feature.datasource.graphql.GraphQLApiService
 import funcify.feature.datasource.graphql.error.GQLDataSourceErrorResponse
 import funcify.feature.datasource.graphql.error.GQLDataSourceErrorResponse.GRAPHQL_DATA_SOURCE_CREATION_ERROR
 import funcify.feature.datasource.graphql.error.GQLDataSourceException
-import funcify.feature.json.JsonMapper
+import funcify.feature.tools.json.JsonMapper
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import io.netty.handler.codec.http.HttpScheme
 import java.time.Duration

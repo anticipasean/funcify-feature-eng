@@ -4,7 +4,7 @@ import arrow.core.Either
 import funcify.feature.datasource.graphql.GraphQLApiDataSource
 import funcify.feature.datasource.graphql.schema.GraphQLSourceIndex
 import funcify.feature.datasource.retrieval.ExternalDataSourceJsonValuesRetriever
-import funcify.feature.json.JsonMapper
+import funcify.feature.tools.json.JsonMapper
 import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.vertex.ParameterJunctionVertex
 import funcify.feature.schema.vertex.ParameterLeafVertex

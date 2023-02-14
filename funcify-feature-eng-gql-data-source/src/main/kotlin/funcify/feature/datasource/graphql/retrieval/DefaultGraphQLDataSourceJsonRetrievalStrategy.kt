@@ -14,7 +14,7 @@ import funcify.feature.datasource.graphql.schema.GraphQLSourceAttribute
 import funcify.feature.datasource.graphql.schema.GraphQLSourceIndex
 import funcify.feature.datasource.json.JsonNodeSchematicPathToValueMappingExtractor
 import funcify.feature.datasource.retrieval.DataSourceRepresentativeJsonRetrievalStrategy
-import funcify.feature.json.JsonMapper
+import funcify.feature.tools.json.JsonMapper
 import funcify.feature.schema.datasource.DataSource
 import funcify.feature.schema.index.CompositeSourceAttribute
 import funcify.feature.schema.path.SchematicPath

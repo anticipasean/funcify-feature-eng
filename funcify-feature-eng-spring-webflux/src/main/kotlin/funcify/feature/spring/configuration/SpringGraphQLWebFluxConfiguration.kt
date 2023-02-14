@@ -1,6 +1,6 @@
 package funcify.feature.spring.configuration
 
-import funcify.feature.json.JsonMapper
+import funcify.feature.tools.json.JsonMapper
 import funcify.feature.materializer.request.GraphQLExecutionInputCustomizer
 import funcify.feature.materializer.request.RawGraphQLRequestFactory
 import funcify.feature.materializer.session.GraphQLSingleRequestSessionCoordinator

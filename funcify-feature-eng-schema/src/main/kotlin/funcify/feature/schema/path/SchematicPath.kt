@@ -6,7 +6,7 @@ import arrow.core.none
 import arrow.core.some
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.node.JsonNodeFactory
-import funcify.feature.json.JacksonJsonNodeComparator
+import funcify.feature.tools.json.JacksonJsonNodeComparator
 import funcify.feature.tools.extensions.JsonNodeExtensions.removeAllChildKeyValuePairsFromRightmostObjectNode
 import java.math.BigDecimal
 import java.net.URI

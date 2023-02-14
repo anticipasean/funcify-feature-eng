@@ -25,7 +25,7 @@ import funcify.feature.datasource.rest.sdl.SwaggerRestApiDataSourceIndexBasedSDL
 import funcify.feature.datasource.rest.sdl.SwaggerSourceIndexSDLTypeResolutionStrategyTemplate
 import funcify.feature.datasource.rest.swagger.SwaggerSchemaEndpointRegistry
 import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionImplementationStrategy
-import funcify.feature.json.JsonMapper
+import funcify.feature.tools.json.JsonMapper
 import funcify.feature.tools.extensions.PersistentListExtensions.toPersistentList
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import io.swagger.v3.oas.models.OpenAPI

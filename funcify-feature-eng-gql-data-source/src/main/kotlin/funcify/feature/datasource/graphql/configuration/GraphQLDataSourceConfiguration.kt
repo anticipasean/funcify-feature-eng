@@ -21,7 +21,7 @@ import funcify.feature.datasource.graphql.schema.DefaultGraphQLSourceIndexFactor
 import funcify.feature.datasource.graphql.schema.GraphQLSourceIndexFactory
 import funcify.feature.datasource.graphql.sdl.GraphQLSourceIndexBasedSDLDefinitionImplementationStrategy
 import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionImplementationStrategy
-import funcify.feature.json.JsonMapper
+import funcify.feature.tools.json.JsonMapper
 import java.util.concurrent.Executor
 import org.springframework.beans.factory.ObjectProvider
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean

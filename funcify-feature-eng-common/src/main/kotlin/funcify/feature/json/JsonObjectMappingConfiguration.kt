@@ -21,6 +21,8 @@ import com.jayway.jsonpath.spi.json.JsonProvider
 import com.jayway.jsonpath.spi.mapper.JacksonMappingProvider
 import com.jayway.jsonpath.spi.mapper.MappingProvider
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
+import funcify.feature.tools.json.JsonMapper
+import funcify.feature.tools.json.JsonMapperFactory
 import org.slf4j.Logger
 import org.springframework.boot.autoconfigure.jackson.Jackson2ObjectMapperBuilderCustomizer
 import org.springframework.context.annotation.Bean
@@ -189,7 +191,8 @@ class JsonObjectMappingConfiguration {
                 )
                 conf
             }
-            return DefaultJsonMapperFactory.builder()
+            return JsonMapperFactory.defaultFactory()
+                .builder()
                 .jacksonObjectMapper(objectMapper)
                 .jaywayJsonPathConfiguration(configurationSupplier())
                 .build()
@@ -249,7 +252,8 @@ class JsonObjectMappingConfiguration {
         objectMapper: ObjectMapper,
         configuration: com.jayway.jsonpath.Configuration
     ): JsonMapper {
-        return DefaultJsonMapperFactory.builder()
+        return JsonMapperFactory.defaultFactory()
+            .builder()
             .jacksonObjectMapper(objectMapper)
             .jaywayJsonPathConfiguration(configuration)
             .build()

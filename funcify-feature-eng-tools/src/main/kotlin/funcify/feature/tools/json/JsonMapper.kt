@@ -1,4 +1,4 @@
-package funcify.feature.json
+package funcify.feature.tools.json
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.jayway.jsonpath.Configuration

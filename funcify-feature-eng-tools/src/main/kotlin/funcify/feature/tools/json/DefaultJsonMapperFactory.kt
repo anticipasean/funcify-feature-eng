@@ -1,4 +1,4 @@
-package funcify.feature.json
+package funcify.feature.tools.json
 
 import arrow.core.getOrElse
 import arrow.core.toOption

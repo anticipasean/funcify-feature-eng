@@ -13,7 +13,7 @@ import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionImplementation
 import funcify.feature.datasource.tracking.TrackableJsonValuePublisherProvider
 import funcify.feature.datasource.tracking.TrackableValueFactory
 import funcify.feature.error.FeatureEngCommonException
-import funcify.feature.json.JsonMapper
+import funcify.feature.tools.json.JsonMapper
 import funcify.feature.materializer.context.document.DefaultColumnarDocumentContextFactory
 import funcify.feature.materializer.context.graph.DefaultMaterializationGraphContextFactory
 import funcify.feature.materializer.context.publishing.DefaultTrackableValuePublishingContextFactory

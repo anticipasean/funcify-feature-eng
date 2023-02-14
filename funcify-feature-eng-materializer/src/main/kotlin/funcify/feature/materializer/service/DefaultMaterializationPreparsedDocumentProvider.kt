@@ -2,7 +2,7 @@ package funcify.feature.materializer.service
 
 import arrow.core.identity
 import arrow.core.toOption
-import funcify.feature.json.JsonMapper
+import funcify.feature.tools.json.JsonMapper
 import funcify.feature.materializer.error.MaterializerErrorResponse
 import funcify.feature.materializer.error.MaterializerException
 import funcify.feature.materializer.session.GraphQLSingleRequestSession

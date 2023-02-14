@@ -6,7 +6,7 @@ import funcify.feature.datasource.json.JsonNodeToStandardValueConverter
 import funcify.feature.datasource.tracking.TrackableJsonValuePublisher
 import funcify.feature.datasource.tracking.TrackableJsonValuePublisherProvider
 import funcify.feature.datasource.tracking.TrackableValue
-import funcify.feature.json.JsonMapper
+import funcify.feature.tools.json.JsonMapper
 import funcify.feature.materializer.context.publishing.TrackableValuePublishingContext
 import funcify.feature.materializer.context.publishing.TrackableValuePublishingContextFactory
 import funcify.feature.materializer.dispatch.SourceIndexRequestDispatch
