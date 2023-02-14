@@ -6,7 +6,6 @@ import funcify.feature.datasource.json.JsonNodeToStandardValueConverter
 import funcify.feature.datasource.tracking.TrackableJsonValuePublisher
 import funcify.feature.datasource.tracking.TrackableJsonValuePublisherProvider
 import funcify.feature.datasource.tracking.TrackableValue
-import funcify.feature.tools.json.JsonMapper
 import funcify.feature.materializer.context.publishing.TrackableValuePublishingContext
 import funcify.feature.materializer.context.publishing.TrackableValuePublishingContextFactory
 import funcify.feature.materializer.dispatch.SourceIndexRequestDispatch
@@ -28,6 +27,7 @@ import funcify.feature.tools.extensions.StreamExtensions.flatMapOptions
 import funcify.feature.tools.extensions.StreamExtensions.recurse
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.extensions.TryExtensions.successIfDefined
+import funcify.feature.tools.json.JsonMapper
 import graphql.schema.FieldCoordinates
 import graphql.schema.GraphQLSchema
 import java.time.Instant
@@ -160,11 +160,10 @@ internal class DefaultMaterializedTrackableValuePublishingService(
             .map { (ctx, materializedJsonValue) ->
                 val relevantTimestampsByPath = ctx.lastUpdatedInstantsByPath
                 val relevantIdsByPath = ctx.entityIdentifierValuesByPath
-                val calculatedValue: TrackableValue.CalculatedValue<JsonNode> =
-                    publishingContext.calculatedValue
+                val calculatedValue: TrackableValue.CalculatedValue<JsonNode> = ctx.calculatedValue
                 val dispatchedRequest: SourceIndexRequestDispatch.TrackableSingleJsonValueDispatch =
-                    publishingContext.dispatchedRequest
-                val session: GraphQLSingleRequestSession = publishingContext.session
+                    ctx.dispatchedRequest
+                val session: GraphQLSingleRequestSession = ctx.session
                 logger.info(
                     "relevant_ids_by_path: [ {} ]",
                     relevantIdsByPath
