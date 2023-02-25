@@ -5,6 +5,7 @@ import funcify.feature.schema.datasource.ParameterContainerType
 import funcify.feature.schema.datasource.SourceAttribute
 import funcify.feature.schema.datasource.SourceContainerType
 import funcify.feature.schema.path.SchematicPath
+import funcify.feature.tools.container.attempt.Try
 
 /**
  * Represents a node within a feature function graph
@@ -38,5 +39,7 @@ interface SchematicVertex {
         ): Builder
 
         fun clearSourceIndices(): Builder
+
+        fun build(): Try<SchematicVertex>
     }
 }
