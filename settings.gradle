@@ -4,7 +4,6 @@ pluginManagement {
     }
 }
 rootProject.name = 'funcify-feature-eng'
-include('funcify-feature-eng-api-contract')
 include('funcify-feature-eng-common')
 include('funcify-feature-eng-data-source')
 include('funcify-feature-eng-db-data-source')
