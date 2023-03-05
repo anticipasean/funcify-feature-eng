@@ -30,12 +30,12 @@ interface KJsonContainer : KJson {
 
     fun mapArrayToObject(mapper: (Int, KJson) -> Pair<String, KJson>): KJsonContainer
 
-    fun <M : Map<String, KJson>> zipWithMap(
+    fun <M : Map<String, KJson>> zipContainerWithMap(
         map: M,
         zipper: (Triple<Int, String?, KJson>, Pair<String, KJson>) -> Pair<String, KJson>
     ): KJsonContainer
 
-    fun <L : List<KJson>> zipWithList(
+    fun <L : List<KJson>> zipContainerWithList(
         list: L,
         zipper: (Triple<Int, String?, KJson>, KJson) -> KJson
     ): KJsonContainer
@@ -50,17 +50,17 @@ interface KJsonContainer : KJson {
         zipper: (T, T) -> T
     ): KJsonContainer
 
-    fun <O> foldLeft(initial: O, accumulator: (O, Triple<Int, String?, KJson>) -> O): O
+    fun <O> foldContainerLeft(initial: O, accumulator: (O, Triple<Int, String?, KJson>) -> O): O
 
     fun <O> foldLeftObject(initial: O, accumulator: (O, Pair<String, KJson>) -> O): O
 
     fun <O> foldLeftArray(initial: O, accumulator: (O, Pair<Int, KJson>) -> O): O
 
-    fun <O> foldRight(initial: O, accumulator: (Triple<Int, String?, KJson>, O) -> O): O
+    fun <O> foldContainerRight(initial: O, accumulator: (Triple<Int, String?, KJson>, O) -> O): O
 
-    fun <P : Pair<String?, KJson>> reduceLeft(combiner: (P, P) -> P): P?
+    fun <P : Pair<String?, KJson>> reduceContainerLeft(combiner: (P, P) -> P): P?
 
-    fun <P : Pair<String?, KJson>> reduceRight(combiner: (P, P) -> P): P?
+    fun <P : Pair<String?, KJson>> reduceContainerRight(combiner: (P, P) -> P): P?
 
     fun <M : Map<String, KJson>, L : List<KJson>, O> foldContainer(
         objectHandler: (M) -> O,

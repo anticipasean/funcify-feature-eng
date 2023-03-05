@@ -3,11 +3,15 @@ package funcify.feature.json.design
 import funcify.feature.json.KJson
 import funcify.feature.json.KJsonContainer
 import funcify.feature.json.KJsonScalar
-import funcify.feature.json.template.KJsonScalarTemplate
+import funcify.feature.json.behavior.KJsonScalarBehavior
+import funcify.feature.json.data.KJsonData
+import funcify.feature.json.data.KJsonScalarData
 
 internal interface KJsonScalarDesign<WT, I> : KJsonDesign<WT, I>, KJsonScalar {
 
-    override val template: KJsonScalarTemplate<WT>
+    override val behavior: KJsonScalarBehavior<WT>
+
+    override val data: KJsonScalarData<WT, I>
 
     override fun isString(): Boolean {
         TODO("Not yet implemented")

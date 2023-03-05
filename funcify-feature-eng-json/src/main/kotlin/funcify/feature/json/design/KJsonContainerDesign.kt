@@ -2,11 +2,14 @@ package funcify.feature.json.design
 
 import funcify.feature.json.KJson
 import funcify.feature.json.KJsonContainer
-import funcify.feature.json.template.KJsonContainerTemplate
+import funcify.feature.json.behavior.KJsonContainerBehavior
+import funcify.feature.json.data.KJsonContainerData
 
 internal interface KJsonContainerDesign<WT, I> : KJsonDesign<WT, I>, KJsonContainer {
 
-    override val template: KJsonContainerTemplate<WT>
+    override val behavior: KJsonContainerBehavior<WT>
+
+    override val data: KJsonContainerData<WT, I>
 
     override fun isObject(): Boolean {
         TODO("Not yet implemented")
@@ -50,17 +53,17 @@ internal interface KJsonContainerDesign<WT, I> : KJsonDesign<WT, I>, KJsonContai
         TODO("Not yet implemented")
     }
 
-    override fun <M : Map<String, KJson>> zipWithMap(
+    override fun <M : Map<String, KJson>> zipContainerWithMap(
         map: M,
         zipper: (Triple<Int, String?, KJson>, Pair<String, KJson>) -> Pair<String, KJson>,
-    ): KJsonContainer {
+                                                             ): KJsonContainer {
         TODO("Not yet implemented")
     }
 
-    override fun <L : List<KJson>> zipWithList(
+    override fun <L : List<KJson>> zipContainerWithList(
         list: L,
         zipper: (Triple<Int, String?, KJson>, KJson) -> KJson
-    ): KJsonContainer {
+                                                       ): KJsonContainer {
         TODO("Not yet implemented")
     }
 
@@ -78,7 +81,7 @@ internal interface KJsonContainerDesign<WT, I> : KJsonDesign<WT, I>, KJsonContai
         TODO("Not yet implemented")
     }
 
-    override fun <O> foldLeft(initial: O, accumulator: (O, Triple<Int, String?, KJson>) -> O): O {
+    override fun <O> foldContainerLeft(initial: O, accumulator: (O, Triple<Int, String?, KJson>) -> O): O {
         TODO("Not yet implemented")
     }
 
@@ -90,15 +93,15 @@ internal interface KJsonContainerDesign<WT, I> : KJsonDesign<WT, I>, KJsonContai
         TODO("Not yet implemented")
     }
 
-    override fun <O> foldRight(initial: O, accumulator: (Triple<Int, String?, KJson>, O) -> O): O {
+    override fun <O> foldContainerRight(initial: O, accumulator: (Triple<Int, String?, KJson>, O) -> O): O {
         TODO("Not yet implemented")
     }
 
-    override fun <P : Pair<String?, KJson>> reduceLeft(combiner: (P, P) -> P): P? {
+    override fun <P : Pair<String?, KJson>> reduceContainerLeft(combiner: (P, P) -> P): P? {
         TODO("Not yet implemented")
     }
 
-    override fun <P : Pair<String?, KJson>> reduceRight(combiner: (P, P) -> P): P? {
+    override fun <P : Pair<String?, KJson>> reduceContainerRight(combiner: (P, P) -> P): P? {
         TODO("Not yet implemented")
     }
 

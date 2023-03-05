@@ -4,12 +4,14 @@ import com.fasterxml.jackson.databind.JsonNode
 import funcify.feature.json.KJson
 import funcify.feature.json.KJsonContainer
 import funcify.feature.json.KJsonScalar
-import funcify.feature.json.container.KJsonNode
-import funcify.feature.json.template.KJsonTemplate
+import funcify.feature.json.data.KJsonData
+import funcify.feature.json.behavior.KJsonBehavior
 
 internal interface KJsonDesign<SWT, I> : KJson {
 
-    val template: KJsonTemplate<SWT>
+    val behavior: KJsonBehavior<SWT>
+
+    val data: KJsonData<SWT, I>
 
     override fun filterScalar(condition: (KJsonScalar) -> Boolean): KJson {
         TODO("Not yet implemented")
@@ -96,5 +98,5 @@ internal interface KJsonDesign<SWT, I> : KJson {
         TODO("Not yet implemented")
     }
 
-    fun <WT> fold(template: KJsonTemplate<WT>): KJsonNode<WT, I>
+    fun <WT> fold(template: KJsonBehavior<WT>): KJsonData<WT, I>
 }
