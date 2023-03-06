@@ -56,14 +56,14 @@ internal interface KJsonContainerDesign<WT, I> : KJsonDesign<WT, I>, KJsonContai
     override fun <M : Map<String, KJson>> zipContainerWithMap(
         map: M,
         zipper: (Triple<Int, String?, KJson>, Pair<String, KJson>) -> Pair<String, KJson>,
-                                                             ): KJsonContainer {
+    ): KJsonContainer {
         TODO("Not yet implemented")
     }
 
     override fun <L : List<KJson>> zipContainerWithList(
         list: L,
         zipper: (Triple<Int, String?, KJson>, KJson) -> KJson
-                                                       ): KJsonContainer {
+    ): KJsonContainer {
         TODO("Not yet implemented")
     }
 
@@ -81,7 +81,10 @@ internal interface KJsonContainerDesign<WT, I> : KJsonDesign<WT, I>, KJsonContai
         TODO("Not yet implemented")
     }
 
-    override fun <O> foldContainerLeft(initial: O, accumulator: (O, Triple<Int, String?, KJson>) -> O): O {
+    override fun <O> foldContainerLeft(
+        initial: O,
+        accumulator: (O, Triple<Int, String?, KJson>) -> O
+    ): O {
         TODO("Not yet implemented")
     }
 
@@ -93,7 +96,10 @@ internal interface KJsonContainerDesign<WT, I> : KJsonDesign<WT, I>, KJsonContai
         TODO("Not yet implemented")
     }
 
-    override fun <O> foldContainerRight(initial: O, accumulator: (Triple<Int, String?, KJson>, O) -> O): O {
+    override fun <O> foldContainerRight(
+        initial: O,
+        accumulator: (Triple<Int, String?, KJson>, O) -> O
+    ): O {
         TODO("Not yet implemented")
     }
 
