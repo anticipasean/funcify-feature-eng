@@ -16,7 +16,6 @@ import funcify.feature.datasource.rest.schema.SwaggerParameterAttribute
 import funcify.feature.datasource.rest.schema.SwaggerRestApiSourceMetamodel
 import funcify.feature.datasource.rest.schema.SwaggerSourceAttribute
 import funcify.feature.datasource.retrieval.DataSourceRepresentativeJsonRetrievalStrategy
-import funcify.feature.tools.json.JsonMapper
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.schema.vertex.ParameterJunctionVertex
 import funcify.feature.schema.vertex.ParameterLeafVertex
@@ -29,7 +28,9 @@ import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentMap
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.extensions.TryExtensions.successIfDefined
+import funcify.feature.tools.json.JsonMapper
 import io.swagger.v3.oas.models.media.Schema
+import java.time.Duration
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.ImmutableSet
 import org.slf4j.Logger
@@ -37,6 +38,8 @@ import org.springframework.http.MediaType
 import org.springframework.web.reactive.function.client.ClientResponse
 import reactor.core.publisher.Mono
 import reactor.core.scheduler.Schedulers
+import reactor.util.retry.Retry
+import reactor.util.retry.RetryBackoffSpec
 
 /**
  *
@@ -54,6 +57,7 @@ internal class DefaultSwaggerRestDataSourceJsonRetrievalStrategy(
 
     companion object {
         private val logger: Logger = loggerFor<DefaultSwaggerRestDataSourceJsonRetrievalStrategy>()
+        private const val METHOD_TAG = "execute_single_rest_api_post_request"
         private data class DefaultSwaggerRestApiJsonResponsePostProcessingContext(
             override val jsonMapper: JsonMapper,
             override val dataSource: RestApiDataSource,
@@ -390,7 +394,7 @@ internal class DefaultSwaggerRestDataSourceJsonRetrievalStrategy(
                 .flatMap { pathString ->
                     if (logger.isDebugEnabled) {
                         logger.debug(
-                            "execute_single_rest_api_post_request: [ service_name: {}, path: {} ][ body: {} ]",
+                            "$METHOD_TAG: [ service_name: {}, path: {} ][ body: {} ]",
                             dataSource.restApiService.serviceName,
                             dataSource.restApiService.serviceContextPath + pathString,
                             requestBodyJson
@@ -402,10 +406,7 @@ internal class DefaultSwaggerRestDataSourceJsonRetrievalStrategy(
                         .uri { uriBuilder -> uriBuilder.path(pathString).build() }
                         .accept(MediaType.APPLICATION_JSON)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .body(
-                            jsonMapper.fromJsonNode(requestBodyJson).toJsonString().toMono(),
-                            String::class.java
-                        )
+                        .body(Mono.just(requestBodyJson), JsonNode::class.java)
                         .exchangeToMono { clientResponse: ClientResponse ->
                             // TODO: The handling here will definitely need to be more nuanced once
                             // error_responses by status_code are added to source_indexing for
@@ -428,18 +429,34 @@ internal class DefaultSwaggerRestDataSourceJsonRetrievalStrategy(
                                 }
                             }
                         }
+                        .retryWhen(
+                            Retry.backoff(2, Duration.ofMillis(50))
+                                .doAfterRetry { rs: Retry.RetrySignal ->
+                                    logger.warn(
+                                        "{}: [ retry_count: {} ][ last_error: [ type: {}, message: {} ] ]",
+                                        METHOD_TAG,
+                                        rs.totalRetries(),
+                                        rs.failure()::class.simpleName,
+                                        rs.failure().message
+                                    )
+                                }
+                                .onRetryExhaustedThrow { _: RetryBackoffSpec, rs: Retry.RetrySignal
+                                    ->
+                                    rs.failure()
+                                }
+                        )
                         .publishOn(Schedulers.boundedElastic())
                         .timed()
                         .map { timedJson ->
                             logger.debug(
-                                "execute_single_rest_api_post_request: [ status: success ] [ elapsed_time: {} ms ]",
+                                "$METHOD_TAG: [ status: success ] [ elapsed_time: {} ms ]",
                                 timedJson.elapsed().toMillis()
                             )
                             timedJson.get()
                         }
                         .doOnError { t: Throwable ->
                             logger.error(
-                                "execute_single_rest_api_post_request: [ status: failed ] [ type: {}, message: {} ]",
+                                "$METHOD_TAG: [ status: failed ] [ type: {}, message: {} ]",
                                 t::class.simpleName,
                                 t.message
                             )
