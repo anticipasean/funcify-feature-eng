@@ -1,0 +1,6 @@
+dependencies {
+    implementation(project(':funcify-feature-eng-tools'))
+    implementation(project(':funcify-feature-eng-common'))
+    implementation(project(':funcify-feature-eng-naming'))
+    implementation(project(':funcify-feature-eng-shared-definitions'))
+}
