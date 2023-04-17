@@ -15,5 +15,7 @@ interface ObjectBranch<out V> : PersistentTree<V> {
 
     fun put(name: String, value: @UnsafeVariance V): ObjectBranch<V>
 
+    fun putTree(name: String, value: PersistentTree<@UnsafeVariance V>): ObjectBranch<V>
+
     fun remove(name: String): ObjectBranch<V>
 }

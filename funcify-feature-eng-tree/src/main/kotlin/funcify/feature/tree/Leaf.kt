@@ -13,4 +13,10 @@ interface Leaf<out V>: PersistentTree<V> {
 
     fun prepend(value: @UnsafeVariance V): ArrayBranch<V>
 
+    fun putTree(name: String, value: PersistentTree<@UnsafeVariance V>): ObjectBranch<V>
+
+    fun appendTree(value: PersistentTree<@UnsafeVariance V>): ArrayBranch<V>
+
+    fun prependTree(value: PersistentTree<@UnsafeVariance V>): ArrayBranch<V>
+
 }

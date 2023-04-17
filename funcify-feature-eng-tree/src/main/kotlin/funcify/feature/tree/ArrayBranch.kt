@@ -17,5 +17,9 @@ interface ArrayBranch<out V> : PersistentTree<V> {
 
     fun append(value: @UnsafeVariance V): ArrayBranch<V>
 
+    fun prependTree(value: PersistentTree<@UnsafeVariance V>): ArrayBranch<V>
+
+    fun appendTree(value: PersistentTree<@UnsafeVariance V>): ArrayBranch<V>
+
     fun remove(index: Int): ArrayBranch<V>
 }
