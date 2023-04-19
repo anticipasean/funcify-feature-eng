@@ -26,7 +26,7 @@ ext.sharedGraphQLDefinitionKotlinProjects = subprojects.findAll { Project p ->
     p.name.endsWith("-shared-definitions")
 }
 ext.sharedToolsKotlinProjects = subprojects.findAll { Project p ->
-    p.name.endsWith("-graph")
+    p.name.endsWith("-graph") || p.name.endsWith("-tree")
 }
 ext.mainKotlinSubProjects = subprojects.findAll { Project p ->
     !(ext.sharedGraphQLDefinitionKotlinProjects.contains(p) || ext.sharedToolsKotlinProjects.contains(p))
@@ -78,6 +78,11 @@ configure(sharedToolsKotlinProjects) {
                 implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8:${kotlinVersion}")
                 implementation("org.jetbrains.kotlin:kotlin-noarg:${kotlinVersion}")
                 implementation("org.jetbrains.kotlinx:kotlinx-collections-immutable-jvm:${kotlinxImmutableCollectionsVersion}")
+            }
+        }
+        arrow {
+            dependencies {
+                implementation("io.arrow-kt:arrow-core:${arrowStackVersion}")
             }
         }
         junit {

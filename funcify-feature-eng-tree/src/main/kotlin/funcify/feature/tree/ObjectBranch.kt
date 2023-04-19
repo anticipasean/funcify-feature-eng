@@ -9,13 +9,11 @@ import arrow.core.Option
  */
 interface ObjectBranch<out V> : PersistentTree<V> {
 
-    fun contains(name: String): Boolean
+    operator fun contains(name: String): Boolean
 
-    fun get(name: String): Option<V>
+    operator fun get(name: String): Option<V>
 
     fun put(name: String, value: @UnsafeVariance V): ObjectBranch<V>
-
-    fun putTree(name: String, value: PersistentTree<@UnsafeVariance V>): ObjectBranch<V>
 
     fun remove(name: String): ObjectBranch<V>
 }

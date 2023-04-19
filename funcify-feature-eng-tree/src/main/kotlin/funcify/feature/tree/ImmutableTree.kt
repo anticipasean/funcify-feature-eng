@@ -11,11 +11,13 @@ import funcify.feature.tree.path.TreePath
  */
 interface ImmutableTree<out V> {
 
-    fun path(): TreePath
-
     fun pathSegment(): Option<PathSegment>
 
     fun value(): Option<V>
+
+    operator fun contains(path: TreePath): Boolean
+
+    operator fun get(path: TreePath): Option<ImmutableTree<V>>
 
     fun descendent(path: TreePath): Option<ImmutableTree<V>>
 
