@@ -1,7 +1,6 @@
 package funcify.feature.tree
 
 import arrow.core.Option
-import funcify.feature.tree.path.PathSegment
 import funcify.feature.tree.path.TreePath
 
 /**
@@ -10,8 +9,6 @@ import funcify.feature.tree.path.TreePath
  * @created 2023-04-05
  */
 interface ImmutableTree<out V> {
-
-    fun pathSegment(): Option<PathSegment>
 
     fun value(): Option<V>
 

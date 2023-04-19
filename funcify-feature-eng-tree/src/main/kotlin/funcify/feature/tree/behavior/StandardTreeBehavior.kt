@@ -1,6 +1,13 @@
 package funcify.feature.tree.behavior
 
 import arrow.core.Option
+import arrow.core.filterIsInstance
+import arrow.core.firstOrNone
+import arrow.core.getOrNone
+import arrow.core.left
+import arrow.core.none
+import arrow.core.right
+import arrow.core.some
 import arrow.core.toOption
 import funcify.feature.tree.ImmutableTree
 import funcify.feature.tree.data.ArrayBranchData
@@ -13,8 +20,13 @@ import funcify.feature.tree.data.StandardTreeData
 import funcify.feature.tree.data.StandardTreeData.Companion.StandardTreeWT
 import funcify.feature.tree.data.StandardTreeData.Companion.narrowed
 import funcify.feature.tree.data.TreeData
+import funcify.feature.tree.extensions.OptionExtensions.recurse
+import funcify.feature.tree.path.IndexSegment
+import funcify.feature.tree.path.NameSegment
 import funcify.feature.tree.path.PathSegment
 import funcify.feature.tree.path.TreePath
+import kotlinx.collections.immutable.PersistentList
+import kotlinx.collections.immutable.toPersistentList
 
 /**
  *
@@ -42,22 +54,6 @@ internal interface StandardTreeBehavior : TreeBehavior<StandardTreeWT> {
         }
     }
 
-    override fun <V> pathSegment(container: TreeData<StandardTreeWT, V>): Option<PathSegment> {
-        return when (val st: StandardTreeData<V> = container.narrowed()) {
-            is StandardLeafData<V> -> {
-                st.pathSegment.toOption().filterNot { ps: PathSegment ->
-                    StandardTreeData.getRoot<V>().pathSegment == ps
-                }
-            }
-            is StandardArrayBranchData<V> -> {
-                st.pathSegment.toOption()
-            }
-            is StandardObjectBranchData<V> -> {
-                st.pathSegment.toOption()
-            }
-        }
-    }
-
     override fun <V> value(container: TreeData<StandardTreeWT, V>): Option<V> {
         return when (val st: StandardTreeData<V> = container.narrowed()) {
             is StandardLeafData<V> -> {
@@ -73,14 +69,55 @@ internal interface StandardTreeBehavior : TreeBehavior<StandardTreeWT> {
     }
 
     override fun <V> contains(container: TreeData<StandardTreeWT, V>, path: TreePath): Boolean {
-        TODO("Not yet implemented")
+        return get(container, path).isDefined()
     }
 
     override fun <V> get(
         container: TreeData<StandardTreeWT, V>,
         path: TreePath
     ): Option<TreeData<StandardTreeWT, V>> {
-        TODO("Not yet implemented")
+        return (container.narrowed() to path.pathSegments.toPersistentList()).toOption().recurse {
+            (st: StandardTreeData<V>, pl: PersistentList<PathSegment>) ->
+            when {
+                pl.isEmpty() && st is StandardLeafData<V> -> {
+                    st.right<StandardTreeData<V>>().some()
+                }
+                pl.firstOrNone()
+                    .filter { ps: PathSegment ->
+                        ps is NameSegment &&
+                            st is StandardObjectBranchData<V> &&
+                            st.children.containsKey(ps.name)
+                    }
+                    .isDefined() -> {
+                    pl.firstOrNone()
+                        .filterIsInstance<NameSegment>()
+                        .flatMap { ns: NameSegment ->
+                            (st as StandardObjectBranchData<V>).children.getOrNone(ns.name)
+                        }
+                        .map { cst -> (cst to pl.removeAt(0)).left() }
+                }
+                pl.firstOrNone()
+                    .filter { ps: PathSegment ->
+                        ps is IndexSegment &&
+                            st is StandardArrayBranchData<V> &&
+                            ps.index in st.children.indices
+                    }
+                    .isDefined() -> {
+                    pl.firstOrNone()
+                        .filterIsInstance<IndexSegment>()
+                        .flatMap { idxs: IndexSegment ->
+                            (st as StandardArrayBranchData<V>)
+                                .children
+                                .getOrNull(idxs.index)
+                                .toOption()
+                        }
+                        .map { cst -> (cst to pl.removeAt(0)).left() }
+                }
+                else -> {
+                    none()
+                }
+            }
+        }
     }
 
     override fun <V, R> foldLeft(

@@ -31,10 +31,6 @@ internal interface PersistentTreeDesign<DWT, V> : PersistentTree<V> {
 
     fun <V> objectBranch(data: ObjectBranchData<DWT, V>): ObjectBranchDesign<DWT, V>
 
-    override fun pathSegment(): Option<PathSegment> {
-        return this.behavior.pathSegment(this.data)
-    }
-
     override fun value(): Option<V> {
         return this.behavior.value(container = this.data)
     }
