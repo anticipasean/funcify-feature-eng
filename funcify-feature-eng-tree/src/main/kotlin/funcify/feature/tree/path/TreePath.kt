@@ -10,7 +10,7 @@ import kotlinx.collections.immutable.ImmutableList
  * @author smccarron
  * @created 2023-04-08
  */
-interface TreePath {
+interface TreePath : Comparable<TreePath> {
 
     companion object {
 
@@ -27,6 +27,11 @@ interface TreePath {
         fun of(builderFunction: Builder.() -> Builder): TreePath {
             return rootPath.transform(builderFunction)
         }
+
+        @JvmStatic
+        fun comparator(): Comparator<TreePath> {
+            return TreePathComparator
+        }
     }
 
     val scheme: String
@@ -40,6 +45,10 @@ interface TreePath {
 
     fun lastSegment(): Option<PathSegment> {
         return pathSegments.lastOrNone()
+    }
+
+    override fun compareTo(other: TreePath): Int {
+        return comparator().compare(this, other)
     }
 
     interface Builder {

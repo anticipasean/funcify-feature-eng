@@ -1,7 +1,8 @@
 package funcify.feature.tree.path
 
-import funcify.feature.naming.encoder.URICompatibleStringEncoder
 import java.net.URI
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
 import kotlinx.collections.immutable.PersistentList
 import kotlinx.collections.immutable.persistentListOf
 
@@ -103,7 +104,7 @@ internal data class DefaultTreePath(
                     pathSegments.joinToString("/", "/") { ps: PathSegment ->
                         ps.fold(
                             { i: Int -> i.toString() },
-                            { n: String -> URICompatibleStringEncoder.invoke(n) }
+                            { n: String -> URLEncoder.encode(n, StandardCharsets.UTF_8) }
                         )
                     }
                 )
