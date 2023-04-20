@@ -35,7 +35,7 @@ internal interface PersistentTreeDesign<DWT, V> : PersistentTree<V> {
         return this.behavior.contains(container = this.data, path = path)
     }
 
-    override fun get(path: TreePath): Option<ImmutableTree<V>> {
+    override fun get(path: TreePath): Option<PersistentTree<V>> {
         return this.behavior.get(container = this.data, path = path).mapNotNull {
             d: TreeData<DWT, V> ->
             when (d) {
@@ -69,18 +69,6 @@ internal interface PersistentTreeDesign<DWT, V> : PersistentTree<V> {
 
     override fun breadthFirstIterator(): Iterator<Pair<TreePath, V>> {
         return this.behavior.breadthFirstIterator(container = this.data)
-    }
-
-    override fun descendent(path: TreePath): Option<PersistentTree<V>> {
-        return this.behavior.descendent(container = this.data, path = path).mapNotNull {
-            d: TreeData<DWT, V> ->
-            when (d) {
-                is LeafData<*, *> -> leaf(d as LeafData<DWT, V>)
-                is ArrayBranchData<*, *> -> arrayBranch(d as ArrayBranchData<DWT, V>)
-                is ObjectBranchData<*, *> -> objectBranch(d as ObjectBranchData<DWT, V>)
-                else -> null
-            }
-        }
     }
 
     override fun descendentsUnder(path: TreePath): Iterable<PersistentTree<V>> {

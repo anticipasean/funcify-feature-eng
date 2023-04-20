@@ -10,7 +10,7 @@ import funcify.feature.tree.path.TreePath
  */
 interface PersistentTree<out V> : ImmutableTree<V> {
 
-    override fun descendent(path: TreePath): Option<PersistentTree<V>>
+    override operator fun get(path: TreePath): Option<PersistentTree<V>>
 
     override fun descendentsUnder(path: TreePath): Iterable<PersistentTree<V>>
 

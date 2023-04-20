@@ -40,8 +40,6 @@ internal interface TreeBehavior<DWT> {
         objectTreeHandler: (ObjectBranchData<DWT, V>) -> R
     ): R
 
-    fun <V> descendent(container: TreeData<DWT, V>, path: TreePath): Option<TreeData<DWT, V>>
-
     fun <V> descendentsUnder(
         container: TreeData<DWT, V>,
         path: TreePath

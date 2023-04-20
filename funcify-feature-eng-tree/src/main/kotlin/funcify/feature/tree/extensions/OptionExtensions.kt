@@ -5,7 +5,7 @@ import arrow.core.Option
 import arrow.core.left
 import arrow.core.none
 
-object OptionExtensions {
+internal object OptionExtensions {
 
     fun <T, R> Option<T>?.recurse(function: (T) -> Option<Either<T, R>>): Option<R> {
         val startValue: Option<T> = this ?: none()

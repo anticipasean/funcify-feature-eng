@@ -16,8 +16,6 @@ interface ImmutableTree<out V> {
 
     operator fun get(path: TreePath): Option<ImmutableTree<V>>
 
-    fun descendent(path: TreePath): Option<ImmutableTree<V>>
-
     fun descendentsUnder(path: TreePath): Iterable<ImmutableTree<V>>
 
     fun children(): Iterable<ImmutableTree<V>>

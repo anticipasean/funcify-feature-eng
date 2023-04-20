@@ -156,6 +156,7 @@ internal interface StandardTreeBehavior : TreeBehavior<StandardTreeWT> {
         val traversalFunction = createTreeTraversalFunction<V>()
         return StreamSupport.stream(
                 TreeDepthFirstSearchSpliterator<TreeData<StandardTreeWT, V>>(
+                    TreePath.getRootPath(),
                     container,
                     traversalFunction
                 ),
@@ -198,6 +199,7 @@ internal interface StandardTreeBehavior : TreeBehavior<StandardTreeWT> {
         val traversalFunction = createTreeTraversalFunction<V>()
         return StreamSupport.stream(
                 TreeBreadthFirstSearchSpliterator<TreeData<StandardTreeWT, V>>(
+                    TreePath.getRootPath(),
                     container,
                     traversalFunction
                 ),
@@ -212,24 +214,47 @@ internal interface StandardTreeBehavior : TreeBehavior<StandardTreeWT> {
             .iterator()
     }
 
-    override fun <V> descendent(
-        container: TreeData<StandardTreeWT, V>,
-        path: TreePath
-    ): Option<TreeData<StandardTreeWT, V>> {
-        TODO("Not yet implemented")
-    }
-
     override fun <V> descendentsUnder(
         container: TreeData<StandardTreeWT, V>,
         path: TreePath
     ): Iterable<TreeData<StandardTreeWT, V>> {
-        TODO("Not yet implemented")
+        return when (
+            val td: TreeData<StandardTreeWT, V>? = get(container = container, path = path).orNull()
+        ) {
+            null -> {
+                emptyList<TreeData<StandardTreeWT, V>>()
+            }
+            else -> {
+                Iterable {
+                    StreamSupport.stream(
+                            TreeBreadthFirstSearchSpliterator<TreeData<StandardTreeWT, V>>(
+                                path,
+                                td,
+                                createTreeTraversalFunction<V>()
+                            ),
+                            false
+                        )
+                        .map { (_, desc: TreeData<StandardTreeWT, V>) -> desc }
+                        .iterator()
+                }
+            }
+        }
     }
 
     override fun <V> children(
         container: TreeData<StandardTreeWT, V>
     ): Iterable<TreeData<StandardTreeWT, V>> {
-        TODO("Not yet implemented")
+        return when (val td: StandardTreeData<V> = container.narrowed()) {
+            is StandardLeafData -> {
+                emptyList()
+            }
+            is StandardArrayBranchData -> {
+                td.children
+            }
+            is StandardObjectBranchData -> {
+                td.children.values
+            }
+        }
     }
 
     override fun <V, V1> map(

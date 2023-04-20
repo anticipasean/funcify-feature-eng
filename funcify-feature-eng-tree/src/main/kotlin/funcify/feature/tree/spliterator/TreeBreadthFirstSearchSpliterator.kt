@@ -12,6 +12,7 @@ import java.util.stream.Stream
  * @created 2023-04-19
  */
 internal class TreeBreadthFirstSearchSpliterator<T>(
+    private val rootPath: TreePath,
     private val root: T,
     private val traversalFunction: (T) -> Stream<Pair<PathSegment, T>>
 ) : Spliterator<Pair<TreePath, T>> {
@@ -23,7 +24,7 @@ internal class TreeBreadthFirstSearchSpliterator<T>(
 
     private var expended: Boolean = false
     private val buffer: Deque<Pair<TreePath, T>> by lazy {
-        LinkedList<Pair<TreePath, T>>().apply { add(TreePath.getRootPath() to root) }
+        LinkedList<Pair<TreePath, T>>().apply { add(rootPath to root) }
     }
 
     override fun tryAdvance(action: Consumer<in Pair<TreePath, T>>?): Boolean {
