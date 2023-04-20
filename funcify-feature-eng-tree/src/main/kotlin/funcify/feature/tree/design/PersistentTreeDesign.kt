@@ -1,17 +1,13 @@
 package funcify.feature.tree.design
 
 import arrow.core.Option
-import funcify.feature.tree.ArrayBranch
 import funcify.feature.tree.ImmutableTree
-import funcify.feature.tree.Leaf
-import funcify.feature.tree.ObjectBranch
 import funcify.feature.tree.PersistentTree
 import funcify.feature.tree.behavior.TreeBehavior
 import funcify.feature.tree.data.ArrayBranchData
 import funcify.feature.tree.data.LeafData
 import funcify.feature.tree.data.ObjectBranchData
 import funcify.feature.tree.data.TreeData
-import funcify.feature.tree.path.PathSegment
 import funcify.feature.tree.path.TreePath
 
 /**
@@ -57,6 +53,22 @@ internal interface PersistentTreeDesign<DWT, V> : PersistentTree<V> {
             startValue = startValue,
             accumulator = accumulator
         )
+    }
+
+    override fun <R> biFoldLeft(startValue: R, accumulator: (R, TreePath, V) -> R): R {
+        return this.behavior.biFoldLeft(
+            container = this.data,
+            startValue = startValue,
+            accumulator = accumulator
+        )
+    }
+
+    override fun depthFirstIterator(): Iterator<Pair<TreePath, V>> {
+        return this.behavior.depthFirstIterator(container = this.data)
+    }
+
+    override fun breadthFirstIterator(): Iterator<Pair<TreePath, V>> {
+        return this.behavior.breadthFirstIterator(container = this.data)
     }
 
     override fun descendent(path: TreePath): Option<PersistentTree<V>> {

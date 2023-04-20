@@ -25,6 +25,12 @@ import funcify.feature.tree.path.IndexSegment
 import funcify.feature.tree.path.NameSegment
 import funcify.feature.tree.path.PathSegment
 import funcify.feature.tree.path.TreePath
+import funcify.feature.tree.spliterator.TreeBreadthFirstSearchSpliterator
+import funcify.feature.tree.spliterator.TreeDepthFirstSearchSpliterator
+import java.util.stream.IntStream
+import java.util.stream.Stream
+import java.util.stream.Stream.empty
+import java.util.stream.StreamSupport
 import kotlinx.collections.immutable.PersistentList
 import kotlinx.collections.immutable.toPersistentList
 
@@ -79,7 +85,7 @@ internal interface StandardTreeBehavior : TreeBehavior<StandardTreeWT> {
         return (container.narrowed() to path.pathSegments.toPersistentList()).toOption().recurse {
             (st: StandardTreeData<V>, pl: PersistentList<PathSegment>) ->
             when {
-                pl.isEmpty() && st is StandardLeafData<V> -> {
+                pl.isEmpty() -> {
                     st.right<StandardTreeData<V>>().some()
                 }
                 pl.firstOrNone()
@@ -125,7 +131,85 @@ internal interface StandardTreeBehavior : TreeBehavior<StandardTreeWT> {
         startValue: R,
         accumulator: (R, V) -> R
     ): R {
-        TODO("Not yet implemented")
+        var accumulate: R = startValue
+        for (p in depthFirstIterator(container)) {
+            accumulate = accumulator(accumulate, p.second)
+        }
+        return accumulate
+    }
+
+    override fun <V, R> biFoldLeft(
+        container: TreeData<StandardTreeWT, V>,
+        startValue: R,
+        accumulator: (R, TreePath, V) -> R
+    ): R {
+        var accumulate: R = startValue
+        for (p in depthFirstIterator(container)) {
+            accumulate = accumulator(accumulate, p.first, p.second)
+        }
+        return accumulate
+    }
+
+    override fun <V> depthFirstIterator(
+        container: TreeData<StandardTreeWT, V>
+    ): Iterator<Pair<TreePath, V>> {
+        val traversalFunction = createTreeTraversalFunction<V>()
+        return StreamSupport.stream(
+                TreeDepthFirstSearchSpliterator<TreeData<StandardTreeWT, V>>(
+                    container,
+                    traversalFunction
+                ),
+                false
+            )
+            .flatMap { p: Pair<TreePath, TreeData<StandardTreeWT, V>> ->
+                when (val v: V? = value(p.second).orNull()) {
+                    null -> empty()
+                    else -> Stream.of(p.first to v)
+                }
+            }
+            .iterator()
+    }
+
+    fun <V> createTreeTraversalFunction():
+        (TreeData<StandardTreeWT, V>) -> Stream<Pair<PathSegment, TreeData<StandardTreeWT, V>>> {
+        return { td: TreeData<StandardTreeWT, V> ->
+            when (val std: StandardTreeData<V> = td.narrowed()) {
+                is StandardLeafData -> {
+                    empty()
+                }
+                is StandardArrayBranchData -> {
+                    IntStream.range(0, std.children.size).mapToObj { i: Int ->
+                        IndexSegment(index = i) to std.children[i]
+                    }
+                }
+                is StandardObjectBranchData -> {
+                    std.children.entries.stream().map { (name: String, d: StandardTreeData<V>),
+                        ->
+                        NameSegment(name = name) to d
+                    }
+                }
+            }
+        }
+    }
+
+    override fun <V> breadthFirstIterator(
+        container: TreeData<StandardTreeWT, V>
+    ): Iterator<Pair<TreePath, V>> {
+        val traversalFunction = createTreeTraversalFunction<V>()
+        return StreamSupport.stream(
+                TreeBreadthFirstSearchSpliterator<TreeData<StandardTreeWT, V>>(
+                    container,
+                    traversalFunction
+                ),
+                false
+            )
+            .flatMap { p: Pair<TreePath, TreeData<StandardTreeWT, V>> ->
+                when (val v: V? = value(p.second).orNull()) {
+                    null -> empty()
+                    else -> Stream.of(p.first to v)
+                }
+            }
+            .iterator()
     }
 
     override fun <V> descendent(

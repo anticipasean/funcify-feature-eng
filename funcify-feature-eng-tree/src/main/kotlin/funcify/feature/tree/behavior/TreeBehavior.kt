@@ -1,16 +1,11 @@
 package funcify.feature.tree.behavior
 
 import arrow.core.Option
-import funcify.feature.tree.ArrayBranch
 import funcify.feature.tree.ImmutableTree
-import funcify.feature.tree.Leaf
-import funcify.feature.tree.ObjectBranch
-import funcify.feature.tree.PersistentTree
 import funcify.feature.tree.data.ArrayBranchData
 import funcify.feature.tree.data.LeafData
 import funcify.feature.tree.data.ObjectBranchData
 import funcify.feature.tree.data.TreeData
-import funcify.feature.tree.path.PathSegment
 import funcify.feature.tree.path.TreePath
 
 /**
@@ -27,6 +22,16 @@ internal interface TreeBehavior<DWT> {
     fun <V> get(container: TreeData<DWT, V>, path: TreePath): Option<TreeData<DWT, V>>
 
     fun <V, R> foldLeft(container: TreeData<DWT, V>, startValue: R, accumulator: (R, V) -> R): R
+
+    fun <V, R> biFoldLeft(
+        container: TreeData<DWT, V>,
+        startValue: R,
+        accumulator: (R, TreePath, V) -> R
+    ): R
+
+    fun <V> depthFirstIterator(container: TreeData<DWT, V>): Iterator<Pair<TreePath, V>>
+
+    fun <V> breadthFirstIterator(container: TreeData<DWT, V>): Iterator<Pair<TreePath, V>>
 
     fun <V, R> fold(
         container: TreeData<DWT, V>,

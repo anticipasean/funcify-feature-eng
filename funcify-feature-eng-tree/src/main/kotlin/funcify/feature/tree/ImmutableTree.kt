@@ -38,6 +38,12 @@ interface ImmutableTree<out V> {
 
     fun <R> foldLeft(startValue: R, accumulator: (R, V) -> R): R
 
+    fun <R> biFoldLeft(startValue: R, accumulator: (R, TreePath, V) -> R): R
+
+    fun depthFirstIterator(): Iterator<Pair<TreePath, V>>
+
+    fun breadthFirstIterator(): Iterator<Pair<TreePath, V>>
+
     fun <R> fold(
         leafHandler: (Leaf<V>) -> R,
         arrayTreeHandler: (ArrayBranch<V>) -> R,
