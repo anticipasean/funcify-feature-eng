@@ -171,6 +171,22 @@ internal interface PersistentTreeDesign<DWT, V> : PersistentTree<V> {
         }
     }
 
+    override fun biFilter(condition: (TreePath, V) -> Boolean): PersistentTree<V> {
+        return when (
+            val d: TreeData<DWT, V> =
+                this.behavior.biFilter(container = this.data, condition = condition)
+        ) {
+            is LeafData<*, *> -> leaf(d as LeafData<DWT, V>)
+            is ArrayBranchData<*, *> -> arrayBranch(d as ArrayBranchData<DWT, V>)
+            is ObjectBranchData<*, *> -> objectBranch(d as ObjectBranchData<DWT, V>)
+            else -> {
+                throw IllegalStateException(
+                    "tree_data instance [ type: ${d::class.qualifiedName} ] not supported"
+                )
+            }
+        }
+    }
+
     override fun <V1> flatMap(function: (V) -> ImmutableTree<V1>): PersistentTree<V1> {
         return when (
             val d: TreeData<DWT, V1> =
@@ -210,6 +226,25 @@ internal interface PersistentTreeDesign<DWT, V> : PersistentTree<V> {
         return when (
             val d: TreeData<DWT, V2> =
                 this.behavior.zip(container = this.data, other = other, function = function)
+        ) {
+            is LeafData<*, *> -> leaf(d as LeafData<DWT, V2>)
+            is ArrayBranchData<*, *> -> arrayBranch(d as ArrayBranchData<DWT, V2>)
+            is ObjectBranchData<*, *> -> objectBranch(d as ObjectBranchData<DWT, V2>)
+            else -> {
+                throw IllegalStateException(
+                    "tree_data instance [ type: ${d::class.qualifiedName} ] not supported"
+                )
+            }
+        }
+    }
+
+    override fun <V1, V2> biZip(
+        other: ImmutableTree<V1>,
+        function: (Pair<TreePath, V>, Pair<TreePath, V1>) -> Pair<TreePath, V2>,
+    ): PersistentTree<V2> {
+        return when (
+            val d: TreeData<DWT, V2> =
+                this.behavior.biZip(container = this.data, other = other, function = function)
         ) {
             is LeafData<*, *> -> leaf(d as LeafData<DWT, V2>)
             is ArrayBranchData<*, *> -> arrayBranch(d as ArrayBranchData<DWT, V2>)

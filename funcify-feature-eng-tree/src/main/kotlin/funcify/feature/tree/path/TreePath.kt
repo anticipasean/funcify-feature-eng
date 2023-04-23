@@ -2,6 +2,8 @@ package funcify.feature.tree.path
 
 import arrow.core.Option
 import arrow.core.lastOrNone
+import arrow.core.none
+import arrow.core.some
 import java.net.URI
 import kotlinx.collections.immutable.ImmutableList
 
@@ -46,6 +48,8 @@ interface TreePath : Comparable<TreePath> {
     fun lastSegment(): Option<PathSegment> {
         return pathSegments.lastOrNone()
     }
+
+    fun parent(): Option<TreePath>
 
     override fun compareTo(other: TreePath): Int {
         return comparator().compare(this, other)

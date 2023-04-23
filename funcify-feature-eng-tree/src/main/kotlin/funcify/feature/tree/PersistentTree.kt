@@ -20,13 +20,23 @@ interface PersistentTree<out V> : ImmutableTree<V> {
 
     override fun <V1> bimap(function: (TreePath, V) -> Pair<TreePath, V1>): PersistentTree<V1>
 
-    override fun <V1> bimap(pathMapper: (TreePath) -> TreePath, valueMapper: (V) -> V1): PersistentTree<V1>
+    override fun <V1> bimap(
+        pathMapper: (TreePath) -> TreePath,
+        valueMapper: (V) -> V1
+    ): PersistentTree<V1>
 
     override fun filter(condition: (V) -> Boolean): PersistentTree<V>
+
+    override fun biFilter(condition: (TreePath, V) -> Boolean): PersistentTree<V>
 
     override fun <V1> flatMap(function: (V) -> ImmutableTree<V1>): PersistentTree<V1>
 
     override fun <V1> biFlatMap(function: (TreePath, V) -> ImmutableTree<V1>): PersistentTree<V1>
 
     override fun <V1, V2> zip(other: ImmutableTree<V1>, function: (V, V1) -> V2): PersistentTree<V2>
+
+    override fun <V1, V2> biZip(
+        other: ImmutableTree<V1>,
+        function: (Pair<TreePath, V>, Pair<TreePath, V1>) -> Pair<TreePath, V2>,
+    ): PersistentTree<V2>
 }

@@ -62,6 +62,11 @@ internal interface TreeBehavior<DWT> {
 
     fun <V> filter(container: TreeData<DWT, V>, condition: (V) -> Boolean): TreeData<DWT, V>
 
+    fun <V> biFilter(
+        container: TreeData<DWT, V>,
+        condition: (TreePath, V) -> Boolean
+    ): TreeData<DWT, V>
+
     fun <V, V1> flatMap(
         container: TreeData<DWT, V>,
         function: (V) -> ImmutableTree<V1>
@@ -76,5 +81,11 @@ internal interface TreeBehavior<DWT> {
         container: TreeData<DWT, V>,
         other: ImmutableTree<V1>,
         function: (V, V1) -> V2
+    ): TreeData<DWT, V2>
+
+    fun <V, V1, V2> biZip(
+        container: TreeData<DWT, V>,
+        other: ImmutableTree<V1>,
+        function: (Pair<TreePath, V>, Pair<TreePath, V1>) -> Pair<TreePath, V2>
     ): TreeData<DWT, V2>
 }

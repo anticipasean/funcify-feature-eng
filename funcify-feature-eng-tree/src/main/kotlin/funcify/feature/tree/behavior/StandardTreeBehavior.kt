@@ -27,10 +27,12 @@ import funcify.feature.tree.path.PathSegment
 import funcify.feature.tree.path.TreePath
 import funcify.feature.tree.spliterator.TreeBreadthFirstSearchSpliterator
 import funcify.feature.tree.spliterator.TreeDepthFirstSearchSpliterator
+import java.util.*
 import java.util.stream.IntStream
 import java.util.stream.Stream
 import java.util.stream.Stream.empty
 import java.util.stream.StreamSupport
+import kotlin.streams.asStream
 import kotlinx.collections.immutable.PersistentList
 import kotlinx.collections.immutable.toPersistentList
 
@@ -78,6 +80,8 @@ internal interface StandardTreeBehavior : TreeBehavior<StandardTreeWT> {
         return get(container, path).isDefined()
     }
 
+    // TODO: Consider memoizing resolved paths since structure is immutable so subsequent
+    // calculations should yield same result for same instance
     override fun <V> get(
         container: TreeData<StandardTreeWT, V>,
         path: TreePath
@@ -184,9 +188,8 @@ internal interface StandardTreeBehavior : TreeBehavior<StandardTreeWT> {
                     }
                 }
                 is StandardObjectBranchData -> {
-                    std.children.entries.stream().map { (name: String, d: StandardTreeData<V>),
-                        ->
-                        NameSegment(name = name) to d
+                    std.children.entries.stream().map { (n: String, d: StandardTreeData<V>) ->
+                        NameSegment(name = n) to d
                     }
                 }
             }
@@ -196,12 +199,11 @@ internal interface StandardTreeBehavior : TreeBehavior<StandardTreeWT> {
     override fun <V> breadthFirstIterator(
         container: TreeData<StandardTreeWT, V>
     ): Iterator<Pair<TreePath, V>> {
-        val traversalFunction = createTreeTraversalFunction<V>()
         return StreamSupport.stream(
                 TreeBreadthFirstSearchSpliterator<TreeData<StandardTreeWT, V>>(
                     TreePath.getRootPath(),
                     container,
-                    traversalFunction
+                    createTreeTraversalFunction()
                 ),
                 false
             )
@@ -261,14 +263,68 @@ internal interface StandardTreeBehavior : TreeBehavior<StandardTreeWT> {
         container: TreeData<StandardTreeWT, V>,
         function: (V) -> V1
     ): TreeData<StandardTreeWT, V1> {
-        TODO("Not yet implemented")
+        return when (val td: StandardTreeData<V> = container.narrowed()) {
+            is StandardLeafData -> {
+                StandardTreeData.getRoot<V1>()
+            }
+            else -> {
+                StreamSupport.stream(
+                        TreeBreadthFirstSearchSpliterator(
+                            TreePath.getRootPath(),
+                            td,
+                            createTreeTraversalFunction<V>()
+                        ),
+                        false
+                    )
+                    .flatMap { (tp: TreePath, ctd: TreeData<StandardTreeWT, V>) ->
+                        when (val v: V? = value(ctd).orNull()) {
+                            null -> {
+                                empty()
+                            }
+                            else -> {
+                                Stream.of(tp to function.invoke(v))
+                            }
+                        }
+                    }
+                    .let { stream: Stream<out Pair<TreePath, V1>> ->
+                        StreamToStandardTreeDataMapper<V1>().invoke(stream = stream)
+                    }
+            }
+        }
     }
 
     override fun <V, V1> bimap(
         container: TreeData<StandardTreeWT, V>,
         function: (TreePath, V) -> Pair<TreePath, V1>
     ): TreeData<StandardTreeWT, V1> {
-        TODO("Not yet implemented")
+        return when (val td: StandardTreeData<V> = container.narrowed()) {
+            is StandardLeafData -> {
+                StandardTreeData.getRoot<V1>()
+            }
+            else -> {
+                StreamSupport.stream(
+                        TreeBreadthFirstSearchSpliterator(
+                            TreePath.getRootPath(),
+                            td,
+                            createTreeTraversalFunction<V>()
+                        ),
+                        false
+                    )
+                    .flatMap { (tp: TreePath, ctd: TreeData<StandardTreeWT, V>) ->
+                        when (val v: V? = value(ctd).orNull()) {
+                            null -> {
+                                empty()
+                            }
+                            else -> {
+                                Stream.of(function.invoke(tp, v))
+                            }
+                        }
+                    }
+                    .let { stream: Stream<out Pair<TreePath, V1>> ->
+                        StreamToStandardTreeDataMapper<V1>().invoke(stream = stream)
+                    }
+            }
+        }
     }
 
     override fun <V, V1> bimap(
@@ -276,28 +332,126 @@ internal interface StandardTreeBehavior : TreeBehavior<StandardTreeWT> {
         pathMapper: (TreePath) -> TreePath,
         valueMapper: (V) -> V1,
     ): TreeData<StandardTreeWT, V1> {
-        TODO("Not yet implemented")
+        return when (val td: StandardTreeData<V> = container.narrowed()) {
+            is StandardLeafData -> {
+                StandardTreeData.getRoot<V1>()
+            }
+            else -> {
+                StreamSupport.stream(
+                        TreeBreadthFirstSearchSpliterator(
+                            TreePath.getRootPath(),
+                            td,
+                            createTreeTraversalFunction<V>()
+                        ),
+                        false
+                    )
+                    .flatMap { (tp: TreePath, ctd: TreeData<StandardTreeWT, V>) ->
+                        when (val v: V? = value(ctd).orNull()) {
+                            null -> {
+                                empty()
+                            }
+                            else -> {
+                                Stream.of(pathMapper.invoke(tp) to valueMapper.invoke(v))
+                            }
+                        }
+                    }
+                    .let { stream: Stream<out Pair<TreePath, V1>> ->
+                        StreamToStandardTreeDataMapper<V1>().invoke(stream = stream)
+                    }
+            }
+        }
     }
 
     override fun <V> filter(
         container: TreeData<StandardTreeWT, V>,
         condition: (V) -> Boolean
     ): TreeData<StandardTreeWT, V> {
-        TODO("Not yet implemented")
+        return biFilter(container) { _: TreePath, v: V -> condition.invoke(v) }
+    }
+
+    override fun <V> biFilter(
+        container: TreeData<StandardTreeWT, V>,
+        condition: (TreePath, V) -> Boolean
+    ): TreeData<StandardTreeWT, V> {
+        return when (val td: StandardTreeData<V> = container.narrowed()) {
+            is StandardLeafData -> {
+                StandardTreeData.getRoot<V>()
+            }
+            else -> {
+                StreamSupport.stream(
+                        TreeBreadthFirstSearchSpliterator(
+                            TreePath.getRootPath(),
+                            td,
+                            createTreeTraversalFunction<V>()
+                        ),
+                        false
+                    )
+                    .flatMap { (tp: TreePath, ctd: TreeData<StandardTreeWT, V>) ->
+                        when (val v: V? = value(ctd).orNull()) {
+                            null -> {
+                                empty()
+                            }
+                            else -> {
+                                if (condition.invoke(tp, v)) {
+                                    Stream.of(tp to v)
+                                } else {
+                                    empty()
+                                }
+                            }
+                        }
+                    }
+                    .let { stream: Stream<out Pair<TreePath, V>> ->
+                        StreamToStandardTreeDataMapper<V>().invoke(stream = stream)
+                    }
+            }
+        }
     }
 
     override fun <V, V1> flatMap(
         container: TreeData<StandardTreeWT, V>,
         function: (V) -> ImmutableTree<V1>
     ): TreeData<StandardTreeWT, V1> {
-        TODO("Not yet implemented")
+        return biFlatMap(container) { _: TreePath, v: V -> function(v) }
     }
 
     override fun <V, V1> biFlatMap(
         container: TreeData<StandardTreeWT, V>,
         function: (TreePath, V) -> ImmutableTree<V1>,
     ): TreeData<StandardTreeWT, V1> {
-        TODO("Not yet implemented")
+        return when (val td: StandardTreeData<V> = container.narrowed()) {
+            is StandardLeafData -> {
+                StandardTreeData.getRoot<V1>()
+            }
+            else -> {
+                StreamSupport.stream(
+                        TreeBreadthFirstSearchSpliterator(
+                            TreePath.getRootPath(),
+                            td,
+                            createTreeTraversalFunction<V>()
+                        ),
+                        false
+                    )
+                    .flatMap { (tp: TreePath, ctd: TreeData<StandardTreeWT, V>) ->
+                        when (val v: V? = value(ctd).orNull()) {
+                            null -> {
+                                empty()
+                            }
+                            else -> {
+                                StreamSupport.stream(
+                                    Spliterators.spliteratorUnknownSize(
+                                        function.invoke(tp, v).breadthFirstIterator(),
+                                        0
+                                    ),
+                                    false
+                                )
+                            }
+                        }
+                    }
+                    .let { stream: Stream<out Pair<TreePath, V1>> ->
+                        StreamToStandardTreeDataMapper<V1>().invoke(stream = stream)
+                    }
+            }
+        }
     }
 
     override fun <V, V1, V2> zip(
@@ -305,6 +459,45 @@ internal interface StandardTreeBehavior : TreeBehavior<StandardTreeWT> {
         other: ImmutableTree<V1>,
         function: (V, V1) -> V2,
     ): TreeData<StandardTreeWT, V2> {
-        TODO("Not yet implemented")
+        return biZip(container, other) { p1: Pair<TreePath, V>, p2: Pair<TreePath, V1> ->
+            p1.first to function.invoke(p1.second, p2.second)
+        }
+    }
+
+    override fun <V, V1, V2> biZip(
+        container: TreeData<StandardTreeWT, V>,
+        other: ImmutableTree<V1>,
+        function: (Pair<TreePath, V>, Pair<TreePath, V1>) -> Pair<TreePath, V2>,
+    ): TreeData<StandardTreeWT, V2> {
+        return when (val td: StandardTreeData<V> = container.narrowed()) {
+            is StandardLeafData -> {
+                StandardTreeData.getRoot<V2>()
+            }
+            else -> {
+                Spliterators.iterator(
+                        TreeBreadthFirstSearchSpliterator(
+                            TreePath.getRootPath(),
+                            td,
+                            createTreeTraversalFunction<V>()
+                        )
+                    )
+                    .asSequence()
+                    .zip(other.breadthFirstIterator().asSequence()) { p1, p2 ->
+                        when (val v: V? = value(p1.second).orNull()) {
+                            null -> {
+                                emptySequence()
+                            }
+                            else -> {
+                                sequenceOf(function.invoke(p1.first to v, p2))
+                            }
+                        }
+                    }
+                    .flatMap { s: Sequence<Pair<TreePath, V2>> -> s }
+                    .asStream()
+                    .let { stream: Stream<Pair<TreePath, V2>> ->
+                        StreamToStandardTreeDataMapper<V2>().invoke(stream)
+                    }
+            }
+        }
     }
 }

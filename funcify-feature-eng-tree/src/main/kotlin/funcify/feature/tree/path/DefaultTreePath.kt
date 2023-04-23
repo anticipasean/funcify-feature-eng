@@ -1,5 +1,8 @@
 package funcify.feature.tree.path
 
+import arrow.core.Option
+import arrow.core.none
+import arrow.core.some
 import java.net.URI
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
@@ -112,6 +115,14 @@ internal data class DefaultTreePath(
         )
     }
 
+    private val parent: Option<TreePath> by lazy {
+        if (pathSegments.isNotEmpty()) {
+            transform { dropPathSegment() }.some()
+        } else {
+            none()
+        }
+    }
+
     override fun toURI(): URI {
         return uri
     }
@@ -125,5 +136,9 @@ internal data class DefaultTreePath(
                 )
             )
             .build()
+    }
+
+    override fun parent(): Option<TreePath> {
+        return parent
     }
 }
