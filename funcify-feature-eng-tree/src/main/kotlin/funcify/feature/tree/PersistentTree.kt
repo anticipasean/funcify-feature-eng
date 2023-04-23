@@ -1,7 +1,22 @@
 package funcify.feature.tree
 
+import arrow.core.Either
 import arrow.core.Option
+import funcify.feature.tree.behavior.StreamToStandardTreeDataMapper
+import funcify.feature.tree.context.StandardTreeContext
+import funcify.feature.tree.data.StandardArrayBranchData
+import funcify.feature.tree.data.StandardLeafData
+import funcify.feature.tree.data.StandardObjectBranchData
+import funcify.feature.tree.data.StandardTreeData
+import funcify.feature.tree.path.IndexSegment
+import funcify.feature.tree.path.NameSegment
+import funcify.feature.tree.path.PathSegment
 import funcify.feature.tree.path.TreePath
+import funcify.feature.tree.spliterator.TreeBreadthFirstSearchSpliterator
+import java.util.*
+import java.util.stream.Stream
+import java.util.stream.StreamSupport
+import kotlin.streams.asSequence
 
 /**
  *
@@ -9,6 +24,73 @@ import funcify.feature.tree.path.TreePath
  * @created 2023-04-05
  */
 interface PersistentTree<out V> : ImmutableTree<V> {
+
+    companion object {
+
+        fun <V> getRoot(): Leaf<V> {
+            return StandardTreeContext.getRoot()
+        }
+
+        fun <V> fromStream(stream: Stream<Pair<TreePath, V>>): PersistentTree<V> {
+            return when (
+                val treeData: StandardTreeData<V> =
+                    StreamToStandardTreeDataMapper<V>().invoke(stream)
+            ) {
+                is StandardLeafData -> {
+                    StandardTreeContext.getRoot<V>().leaf(treeData)
+                }
+                is StandardArrayBranchData -> {
+                    StandardTreeContext.getRoot<V>().arrayBranch(treeData)
+                }
+                is StandardObjectBranchData -> {
+                    StandardTreeContext.getRoot<V>().objectBranch(treeData)
+                }
+            }
+        }
+
+        fun <V> fromSequenceFunctionOnValue(
+            startValue: V,
+            function: (V) -> Sequence<Either<Pair<String, V>, V>>
+        ): PersistentTree<V> {
+            val valueToStream: (V) -> Stream<Pair<PathSegment, V>> = { v: V ->
+                StreamSupport.stream(
+                    Spliterators.spliteratorUnknownSize(
+                        function
+                            .invoke(v)
+                            .withIndex()
+                            .map { (idx: Int, e: Either<Pair<String, V>, V>) ->
+                                e.fold(
+                                    { (name: String, cv: V) -> NameSegment(name) to cv },
+                                    { cv: V -> IndexSegment(idx) to cv }
+                                )
+                            }
+                            .iterator(),
+                        0
+                    ),
+                    false
+                )
+            }
+            return fromStream(
+                StreamSupport.stream(
+                    TreeBreadthFirstSearchSpliterator<V>(
+                        TreePath.getRootPath(),
+                        startValue,
+                        valueToStream
+                    ),
+                    false
+                )
+            )
+        }
+
+        fun <V> fromStreamFunctionOnValue(
+            startValue: V,
+            function: (V) -> Stream<Either<Pair<String, V>, V>>
+        ): PersistentTree<V> {
+            return fromSequenceFunctionOnValue(startValue) { v: V ->
+                function.invoke(v).asSequence()
+            }
+        }
+    }
 
     override operator fun get(path: TreePath): Option<PersistentTree<V>>
 
