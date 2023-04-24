@@ -43,8 +43,11 @@ internal class TreeBreadthFirstSearchSpliterator<T>(
                 } to p.second
             }
             .forEachOrdered { p: Pair<TreePath, T> -> buffer.offerLast(p) }
+        /*println(
+            "buffer state: ${buffer.asSequence().joinToString(",\n") {(tp, v) -> "${tp}: ${v}"} }"
+        )*/
         if (buffer.isEmpty()) {
-            expended = false
+            expended = true
         }
         action.accept(pathTreePair)
         return true

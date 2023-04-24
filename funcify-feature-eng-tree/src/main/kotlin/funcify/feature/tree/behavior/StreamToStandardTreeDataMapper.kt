@@ -4,7 +4,6 @@ import arrow.core.filterIsInstance
 import arrow.core.firstOrNone
 import arrow.core.getOrElse
 import arrow.core.getOrNone
-import arrow.core.lastOrNone
 import funcify.feature.tree.data.StandardArrayBranchData
 import funcify.feature.tree.data.StandardLeafData
 import funcify.feature.tree.data.StandardObjectBranchData
@@ -12,8 +11,8 @@ import funcify.feature.tree.data.StandardTreeData
 import funcify.feature.tree.path.IndexSegment
 import funcify.feature.tree.path.NameSegment
 import funcify.feature.tree.path.TreePath
-import java.util.stream.Collectors
 import java.util.stream.Stream
+import kotlin.streams.asSequence
 import kotlinx.collections.immutable.PersistentList
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.persistentListOf
@@ -24,21 +23,26 @@ internal class StreamToStandardTreeDataMapper<V> :
 
     override fun invoke(stream: Stream<out Pair<TreePath, V>>): StandardTreeData<V> {
         return stream
-            .collect(Collectors.groupingBy { p: Pair<TreePath, V> -> p.first.pathSegments.size })
+            .asSequence()
+            .filterNot { p: Pair<TreePath, V> -> p.first.pathSegments.size == 0 }
+            .groupBy { p: Pair<TreePath, V> -> p.first.pathSegments.size }
             .entries
-            .stream()
-            .sorted(
+            .asSequence()
+            .sortedWith(
                 Comparator.comparing(
                     Map.Entry<Int, List<Pair<TreePath, V>>>::key,
                     Comparator.reverseOrder()
                 )
             )
-            .reduce(
+            .fold(
                 persistentMapOf<TreePath, StandardTreeData<V>>(),
-                ::foldLevelValuesIntoChildDataNodesOfNextLevel,
-                PersistentMap<TreePath, StandardTreeData<V>>::putAll
+                ::foldLevelValuesIntoChildDataNodesOfNextLevel
             )
-            .let { children -> createRootTreeDataFromTopLevelValueNodes(children) }
+            .let { rootLevelNodes: PersistentMap<TreePath, StandardTreeData<V>> ->
+                rootLevelNodes.getOrNone(TreePath.getRootPath()).getOrElse {
+                    StandardTreeData.getRoot()
+                }
+            }
     }
 
     private fun foldLevelValuesIntoChildDataNodesOfNextLevel(
@@ -46,59 +50,50 @@ internal class StreamToStandardTreeDataMapper<V> :
         dataByLevel: Map.Entry<Int, List<Pair<TreePath, V>>>
     ): PersistentMap<TreePath, StandardTreeData<V>> {
         val (level: Int, nextValuesSet: List<Pair<TreePath, V>>) = dataByLevel
-        return when {
-            level == 0 -> {
-                childrenFromPreviousLevel
-            }
-            else -> {
-                nextValuesSet
-                    .asSequence()
-                    .groupBy { (p: TreePath, _: V) ->
-                        p.parent().getOrElse { TreePath.getRootPath() }
-                    }
-                    .entries
-                    .asSequence()
-                    .filterNot { (parentPath: TreePath, _: List<Pair<TreePath, V>>) ->
-                        TreePath.getRootPath() == parentPath || parentPath.pathSegments.size == 0
-                    }
-                    .map { (parentPath: TreePath, childrenForParentPath: List<Pair<TreePath, V>>) ->
-                        when {
-                            childrenForParentPath
-                                .firstOrNone()
-                                .flatMap { (ctp: TreePath, _: V) ->
-                                    ctp.pathSegments.lastOrNone().filterIsInstance<IndexSegment>()
-                                }
-                                .isDefined() -> {
-                                parentPath to
-                                    createStandardArrayBranchDataForParentsAtLevel(
-                                        childrenForParentPath,
-                                        childrenFromPreviousLevel
-                                    )
-                            }
-                            else -> {
-                                parentPath to
-                                    createStandardObjectBranchDataForParentsAtLevel(
-                                        childrenForParentPath,
-                                        childrenFromPreviousLevel
-                                    )
-                            }
+        return nextValuesSet
+            .asSequence()
+            .groupBy { (p: TreePath, _: V) -> p.parent().getOrElse { TreePath.getRootPath() } }
+            .entries
+            .asSequence()
+            .map { (parentPath: TreePath, childrenForParentPath: List<Pair<TreePath, V>>) ->
+                when {
+                    childrenForParentPath
+                        .firstOrNone()
+                        .flatMap { (ctp: TreePath, _: V) ->
+                            ctp.lastSegment().filterIsInstance<IndexSegment>()
                         }
+                        .isDefined() -> {
+                        parentPath to
+                            createStandardArrayBranchDataForParentsAtLevel(
+                                parentPath,
+                                childrenForParentPath,
+                                childrenFromPreviousLevel
+                            )
                     }
-                    .fold(persistentMapOf<TreePath, StandardTreeData<V>>()) { pm, pair ->
-                        pm.put(pair.first, pair.second)
+                    else -> {
+                        parentPath to
+                            createStandardObjectBranchDataForParentsAtLevel(
+                                parentPath,
+                                childrenForParentPath,
+                                childrenFromPreviousLevel
+                            )
                     }
+                }
             }
-        }
+            .fold(persistentMapOf<TreePath, StandardTreeData<V>>()) { pm, pair ->
+                pm.put(pair.first, pair.second)
+            }
     }
 
     private fun createStandardArrayBranchDataForParentsAtLevel(
-        parents: List<Pair<TreePath, V>>,
+        parentPath: TreePath,
+        children: List<Pair<TreePath, V>>,
         childrenFromPreviousLevel: PersistentMap<TreePath, StandardTreeData<V>>,
     ): StandardArrayBranchData<V> {
-        return parents
+        return children
             .asSequence()
-            .filter { (ctp: TreePath, v: V) ->
-                ctp.pathSegments.lastOrNone().filterIsInstance<IndexSegment>().isDefined()
+            .filter { (ctp: TreePath, _: V) ->
+                ctp.lastSegment().filterIsInstance<IndexSegment>().isDefined()
             }
             .sortedBy(Pair<TreePath, V>::first)
             .mapNotNull { (ctp: TreePath, v: V) ->
@@ -122,19 +117,20 @@ internal class StreamToStandardTreeDataMapper<V> :
                     )
             }
             .fold(persistentListOf<StandardTreeData<V>>()) { cpl, p -> cpl.add(p.second) }
-            .let { children: PersistentList<StandardTreeData<V>> ->
-                StandardArrayBranchData(value = null, children = children)
+            .let { indexedChildren: PersistentList<StandardTreeData<V>> ->
+                StandardArrayBranchData(value = null, children = indexedChildren)
             }
     }
 
     private fun createStandardObjectBranchDataForParentsAtLevel(
-        parents: List<Pair<TreePath, V>>,
+        parentPath: TreePath,
+        children: List<Pair<TreePath, V>>,
         childrenFromPreviousLevel: PersistentMap<TreePath, StandardTreeData<V>>,
     ): StandardObjectBranchData<V> {
-        return parents
+        return children
             .asSequence()
-            .filter { (ctp: TreePath, v: V) ->
-                ctp.pathSegments.lastOrNone().filterIsInstance<NameSegment>().isDefined()
+            .filter { (ctp: TreePath, _: V) ->
+                ctp.lastSegment().filterIsInstance<NameSegment>().isDefined()
             }
             .sortedBy(Pair<TreePath, V>::first)
             .mapNotNull { (ctp: TreePath, v: V) ->
@@ -163,57 +159,8 @@ internal class StreamToStandardTreeDataMapper<V> :
                     p.second
                 )
             }
-            .let { cpm: PersistentMap<String, StandardTreeData<V>> ->
-                StandardObjectBranchData(value = null, children = cpm)
+            .let { namedChildren: PersistentMap<String, StandardTreeData<V>> ->
+                StandardObjectBranchData(value = null, children = namedChildren)
             }
-    }
-
-    private fun createRootTreeDataFromTopLevelValueNodes(
-        children: PersistentMap<TreePath, StandardTreeData<V>>
-    ): StandardTreeData<V> {
-        return when {
-            children.isEmpty() -> {
-                StandardTreeData.getRoot()
-            }
-            children.keys
-                .firstOrNone()
-                .flatMap { tp: TreePath ->
-                    tp.pathSegments.firstOrNone().filterIsInstance<IndexSegment>()
-                }
-                .isDefined() -> {
-                children
-                    .asSequence()
-                    .sortedBy(Map.Entry<TreePath, StandardTreeData<V>>::key)
-                    .flatMap { (key: TreePath, value: StandardTreeData<V>) ->
-                        key.pathSegments
-                            .firstOrNone()
-                            .filterIsInstance<IndexSegment>()
-                            .map { _: IndexSegment -> sequenceOf(value) }
-                            .getOrElse { emptySequence() }
-                    }
-                    .fold(persistentListOf<StandardTreeData<V>>()) { std, c -> std.add(c) }
-                    .let { stds: PersistentList<StandardTreeData<V>> ->
-                        StandardArrayBranchData<V>(null, stds)
-                    }
-            }
-            else -> {
-                children
-                    .asSequence()
-                    .sortedBy(Map.Entry<TreePath, StandardTreeData<V>>::key)
-                    .flatMap { (key: TreePath, value: StandardTreeData<V>) ->
-                        key.pathSegments
-                            .firstOrNone()
-                            .filterIsInstance<NameSegment>()
-                            .map { ns: NameSegment -> sequenceOf(ns.name to value) }
-                            .getOrElse { emptySequence() }
-                    }
-                    .fold(persistentMapOf<String, StandardTreeData<V>>()) { std, p ->
-                        std.put(p.first, p.second)
-                    }
-                    .let { stdsByName: PersistentMap<String, StandardTreeData<V>> ->
-                        StandardObjectBranchData<V>(null, stdsByName)
-                    }
-            }
-        }
     }
 }

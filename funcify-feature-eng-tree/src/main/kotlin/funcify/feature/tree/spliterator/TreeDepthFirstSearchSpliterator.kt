@@ -48,7 +48,7 @@ internal class TreeDepthFirstSearchSpliterator<T>(
             buffer.offerFirst(p)
         }
         if (buffer.isEmpty()) {
-            expended = false
+            expended = true
         }
         action.accept(pathTreePair)
         return true

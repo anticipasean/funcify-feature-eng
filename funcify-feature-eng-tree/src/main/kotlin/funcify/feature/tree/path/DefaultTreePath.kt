@@ -15,14 +15,14 @@ import kotlinx.collections.immutable.persistentListOf
  * @created 2023-04-09
  */
 internal data class DefaultTreePath(
-    override val scheme: String = TreePath.GRAPHQL_SCHEMATIC_PATH_SCHEME,
+    override val scheme: String = TreePath.TREE_PATH_SCHEME,
     override val pathSegments: PersistentList<PathSegment> = persistentListOf()
 ) : TreePath {
 
     companion object {
 
         internal class DefaultBuilder(
-            private var scheme: String = TreePath.GRAPHQL_SCHEMATIC_PATH_SCHEME,
+            private var scheme: String = TreePath.TREE_PATH_SCHEME,
             private val pathSegmentsBuilder: PersistentList.Builder<PathSegment> =
                 persistentListOf<PathSegment>().builder()
         ) : TreePath.Builder {
@@ -58,7 +58,7 @@ internal data class DefaultTreePath(
 
             override fun dropPathSegment(): TreePath.Builder {
                 if (pathSegmentsBuilder.isNotEmpty()) {
-                    pathSegmentsBuilder.remove(pathSegmentsBuilder[pathSegmentsBuilder.size - 1])
+                    pathSegmentsBuilder.removeAt(pathSegmentsBuilder.size - 1)
                 }
                 return this
             }
@@ -140,5 +140,9 @@ internal data class DefaultTreePath(
 
     override fun parent(): Option<TreePath> {
         return parent
+    }
+
+    override fun toString(): String {
+        return uri.toString()
     }
 }

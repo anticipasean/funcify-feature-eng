@@ -2,8 +2,6 @@ package funcify.feature.tree.path
 
 import arrow.core.Option
 import arrow.core.lastOrNone
-import arrow.core.none
-import arrow.core.some
 import java.net.URI
 import kotlinx.collections.immutable.ImmutableList
 
@@ -16,7 +14,7 @@ interface TreePath : Comparable<TreePath> {
 
     companion object {
 
-        const val GRAPHQL_SCHEMATIC_PATH_SCHEME: String = "tp"
+        const val TREE_PATH_SCHEME: String = "tp"
 
         private val rootPath: TreePath = DefaultTreePath()
 
@@ -33,6 +31,22 @@ interface TreePath : Comparable<TreePath> {
         @JvmStatic
         fun comparator(): Comparator<TreePath> {
             return TreePathComparator
+        }
+
+        /** @throws IllegalArgumentException if not in correct format */
+        @JvmStatic
+        fun parseTreePath(treePathAsString: String): TreePath {
+            return TreePathParser.invoke(treePathAsString).fold({ iae: IllegalArgumentException ->
+                throw iae
+            }) { tp: TreePath -> tp }
+        }
+
+        /** @throws IllegalArgumentException if not in correct format */
+        @JvmStatic
+        fun parseTreePathOrNull(treePathAsString: String): TreePath? {
+            return TreePathParser.invoke(treePathAsString).fold({ _: IllegalArgumentException ->
+                null
+            }) { tp: TreePath -> tp }
         }
     }
 
