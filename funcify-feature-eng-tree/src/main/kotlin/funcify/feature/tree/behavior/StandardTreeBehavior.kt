@@ -32,7 +32,7 @@ import java.util.stream.IntStream
 import java.util.stream.Stream
 import java.util.stream.Stream.empty
 import java.util.stream.StreamSupport
-import kotlin.streams.asStream
+import kotlin.streams.asSequence
 import kotlinx.collections.immutable.PersistentList
 import kotlinx.collections.immutable.toPersistentList
 
@@ -42,6 +42,12 @@ import kotlinx.collections.immutable.toPersistentList
  * @created 2023-04-17
  */
 internal interface StandardTreeBehavior : TreeBehavior<StandardTreeWT> {
+
+    override fun <V> fromSequence(
+        sequence: Sequence<Pair<TreePath, V>>
+    ): TreeData<StandardTreeWT, V> {
+        return SequenceToStandardTreeDataMapper.createStandardTreeDataFromSequence<V>(sequence)
+    }
 
     override fun <V, R> fold(
         container: TreeData<StandardTreeWT, V>,
@@ -286,11 +292,8 @@ internal interface StandardTreeBehavior : TreeBehavior<StandardTreeWT> {
                             }
                         }
                     }
-                    .let { stream: Stream<out Pair<TreePath, V1>> ->
-                        StreamToStandardTreeDataMapper.createStandardTreeDataFromStream<V1>(
-                            stream = stream
-                        )
-                    }
+                    .asSequence()
+                    .let { sequence: Sequence<Pair<TreePath, V1>> -> fromSequence(sequence) }
             }
         }
     }
@@ -322,11 +325,8 @@ internal interface StandardTreeBehavior : TreeBehavior<StandardTreeWT> {
                             }
                         }
                     }
-                    .let { stream: Stream<out Pair<TreePath, V1>> ->
-                        StreamToStandardTreeDataMapper.createStandardTreeDataFromStream<V1>(
-                            stream = stream
-                        )
-                    }
+                    .asSequence()
+                    .let { sequence: Sequence<Pair<TreePath, V1>> -> fromSequence(sequence) }
             }
         }
     }
@@ -359,11 +359,8 @@ internal interface StandardTreeBehavior : TreeBehavior<StandardTreeWT> {
                             }
                         }
                     }
-                    .let { stream: Stream<out Pair<TreePath, V1>> ->
-                        StreamToStandardTreeDataMapper.createStandardTreeDataFromStream<V1>(
-                            stream = stream
-                        )
-                    }
+                    .asSequence()
+                    .let { sequence: Sequence<Pair<TreePath, V1>> -> fromSequence(sequence) }
             }
         }
     }
@@ -406,11 +403,8 @@ internal interface StandardTreeBehavior : TreeBehavior<StandardTreeWT> {
                             }
                         }
                     }
-                    .let { stream: Stream<out Pair<TreePath, V>> ->
-                        StreamToStandardTreeDataMapper.createStandardTreeDataFromStream<V>(
-                            stream = stream
-                        )
-                    }
+                    .asSequence()
+                    .let { sequence: Sequence<Pair<TreePath, V>> -> fromSequence(sequence) }
             }
         }
     }
@@ -455,11 +449,8 @@ internal interface StandardTreeBehavior : TreeBehavior<StandardTreeWT> {
                             }
                         }
                     }
-                    .let { stream: Stream<out Pair<TreePath, V1>> ->
-                        StreamToStandardTreeDataMapper.createStandardTreeDataFromStream<V1>(
-                            stream = stream
-                        )
-                    }
+                    .asSequence()
+                    .let { sequence: Sequence<Pair<TreePath, V1>> -> fromSequence(sequence) }
             }
         }
     }
@@ -503,12 +494,7 @@ internal interface StandardTreeBehavior : TreeBehavior<StandardTreeWT> {
                         }
                     }
                     .flatMap { s: Sequence<Pair<TreePath, V2>> -> s }
-                    .asStream()
-                    .let { stream: Stream<Pair<TreePath, V2>> ->
-                        StreamToStandardTreeDataMapper.createStandardTreeDataFromStream<V2>(
-                            stream = stream
-                        )
-                    }
+                    .let { sequence: Sequence<Pair<TreePath, V2>> -> fromSequence(sequence) }
             }
         }
     }

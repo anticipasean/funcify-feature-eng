@@ -27,6 +27,19 @@ internal interface PersistentTreeDesign<DWT, V> : PersistentTree<V> {
 
     fun <V> objectBranch(data: ObjectBranchData<DWT, V>): ObjectBranchDesign<DWT, V>
 
+    fun <V> fromSequence(sequence: Sequence<Pair<TreePath, V>>): PersistentTreeDesign<DWT, V> {
+        return when (val d: TreeData<DWT, V> = this.behavior.fromSequence(sequence)) {
+            is LeafData<*, *> -> leaf(d as LeafData<DWT, V>)
+            is ArrayBranchData<*, *> -> arrayBranch(d as ArrayBranchData<DWT, V>)
+            is ObjectBranchData<*, *> -> objectBranch(d as ObjectBranchData<DWT, V>)
+            else -> {
+                throw IllegalStateException(
+                    "tree_data instance [ type: ${d::class.qualifiedName} ] not supported"
+                )
+            }
+        }
+    }
+
     override fun value(): Option<V> {
         return this.behavior.value(container = this.data)
     }

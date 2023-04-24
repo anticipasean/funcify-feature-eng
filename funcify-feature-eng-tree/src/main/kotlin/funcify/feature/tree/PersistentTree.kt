@@ -2,12 +2,7 @@ package funcify.feature.tree
 
 import arrow.core.Either
 import arrow.core.Option
-import funcify.feature.tree.behavior.StreamToStandardTreeDataMapper
 import funcify.feature.tree.context.StandardTreeContext
-import funcify.feature.tree.data.StandardArrayBranchData
-import funcify.feature.tree.data.StandardLeafData
-import funcify.feature.tree.data.StandardObjectBranchData
-import funcify.feature.tree.data.StandardTreeData
 import funcify.feature.tree.path.IndexSegment
 import funcify.feature.tree.path.NameSegment
 import funcify.feature.tree.path.PathSegment
@@ -31,23 +26,35 @@ interface PersistentTree<out V> : ImmutableTree<V> {
             return StandardTreeContext.getRoot()
         }
 
-        fun <V> fromStream(stream: Stream<Pair<TreePath, V>>): PersistentTree<V> {
-            return when (
-                val treeData: StandardTreeData<V> =
-                    StreamToStandardTreeDataMapper.createStandardTreeDataFromStream<V>(stream)
-            ) {
-                is StandardLeafData -> {
-                    StandardTreeContext.getRoot<V>().leaf(treeData)
-                }
-                is StandardArrayBranchData -> {
-                    StandardTreeContext.getRoot<V>().arrayBranch(treeData)
-                }
-                is StandardObjectBranchData -> {
-                    StandardTreeContext.getRoot<V>().objectBranch(treeData)
-                }
-            }
+        fun <V> fromSequence(sequence: Sequence<Pair<TreePath, V>>): PersistentTree<V> {
+            return StandardTreeContext.getRoot<V>().fromSequence(sequence)
         }
 
+        fun <V> fromStream(stream: Stream<out Pair<TreePath, V>>): PersistentTree<V> {
+            return fromSequence(stream.asSequence())
+        }
+
+        /**
+         * ## Example:
+         * ```
+         *  PersistentTree.fromSequenceFunctionOnValue<JsonNode>(rootNode) { jn: JsonNode ->
+         *    when (jn) {
+         *        is ArrayNode -> {
+         *            // Associate these json_nodes with indices => IndexSegment
+         *            jn.asSequence().map { indexedValue: JsonNode -> indexedValue.left() }
+         *        }
+         *        is ObjectNode -> {
+         *            // Associate these json_nodes with names => NameSegment
+         *            jn.fields().asSequence().map { (name: String, value: JsonNode) -> (name to value).right() }
+         *        }
+         *        else -> {
+         *            // Only scalar nodes that are part of an array or object node; exclude a root level scalar
+         *            emptySequence()
+         *        }
+         *    }
+         *  }
+         * ```
+         */
         fun <V> fromSequenceFunctionOnValue(
             startValue: V,
             function: (V) -> Sequence<Either<V, Pair<String, V>>>

@@ -15,6 +15,8 @@ import funcify.feature.tree.path.TreePath
  */
 internal interface TreeBehavior<DWT> {
 
+    fun <V> fromSequence(sequence: Sequence<Pair<TreePath, V>>): TreeData<DWT, V>
+
     fun <V> value(container: TreeData<DWT, V>): Option<V>
 
     fun <V> contains(container: TreeData<DWT, V>, path: TreePath): Boolean

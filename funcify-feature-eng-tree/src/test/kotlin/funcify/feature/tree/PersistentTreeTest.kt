@@ -3,11 +3,9 @@ package funcify.feature.tree
 import arrow.core.filterIsInstance
 import arrow.core.left
 import arrow.core.right
-import arrow.core.toOption
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.node.ArrayNode
-import com.fasterxml.jackson.databind.node.JsonNodeType
 import com.fasterxml.jackson.databind.node.ObjectNode
 import com.fasterxml.jackson.databind.node.TextNode
 import funcify.feature.tree.path.TreePath
@@ -21,11 +19,30 @@ import org.junit.jupiter.api.Test
  */
 class PersistentTreeTest {
     companion object {
+        val SIMPLE_JSON_EXAMPLE: String =
+            """
+            |[
+            |  {
+            |    "name": "Inferno",
+            |    "author": {
+            |      "last_name": "Brown",
+            |      "first_name": "Dan"
+            |    }
+            |  },
+            |  {
+            |    "name": "Dog Songs",
+            |    "author": {
+            |      "last_name": "Oliver",
+            |      "first_name": "Mary"
+            |    }
+            |  }
+            |]
+            """.trimMargin()
         /**
          * Example taken from
          * [https://hackersandslackers.com/extract-data-from-complex-json-python/]
          */
-        val JSON_EXAMPLE: String =
+        val COMPLEX_JSON_EXAMPLE: String =
             """
             |{
             |  "destination_addresses": [
@@ -114,24 +131,60 @@ class PersistentTreeTest {
     }
 
     @Test
-    fun convertJSONIntoPersistentTreeTest() {
+    fun convertJSONIntoArrayBranchTest() {
         val jsonNode: JsonNode =
-            Assertions.assertDoesNotThrow<JsonNode> { ObjectMapper().readTree(JSON_EXAMPLE) }
+            Assertions.assertDoesNotThrow<JsonNode> { ObjectMapper().readTree(SIMPLE_JSON_EXAMPLE) }
         val persistentTree: PersistentTree<JsonNode> =
             Assertions.assertDoesNotThrow<PersistentTree<JsonNode>> {
                 PersistentTree.fromSequenceFunctionOnValue(jsonNode) { jn: JsonNode ->
-                    when (jn.nodeType) {
-                        JsonNodeType.ARRAY -> {
-                            jn.toOption().filterIsInstance<ArrayNode>().fold(::emptySequence) {
-                                an: ArrayNode ->
-                                an.asSequence().map { j -> j.left() }
-                            }
+                    when (jn) {
+                        is ArrayNode -> {
+                            jn.asSequence().map { j -> j.left() }
                         }
-                        JsonNodeType.OBJECT -> {
-                            jn.toOption().filterIsInstance<ObjectNode>().fold(::emptySequence) {
-                                on: ObjectNode ->
-                                on.fields().asSequence().map { e -> (e.key to e.value).right() }
-                            }
+                        is ObjectNode -> {
+                            jn.fields().asSequence().map { e -> (e.key to e.value).right() }
+                        }
+                        else -> {
+                            emptySequence()
+                        }
+                    }
+                }
+            }
+        Assertions.assertInstanceOf(ArrayBranch::class.java, persistentTree)
+        // persistentTree.asSequence().forEach { (tp: TreePath, jn: JsonNode) ->
+        //    println("path: ${tp}, node: ${jn}")
+        // }
+        val tp: TreePath =
+            Assertions.assertDoesNotThrow<TreePath> {
+                TreePath.parseTreePath("tp:/1/author/first_name")
+            }
+        Assertions.assertEquals(
+            "Mary",
+            persistentTree[tp]
+                .filterIsInstance<Leaf<JsonNode>>()
+                .flatMap { l: Leaf<JsonNode> -> l.value() }
+                .filterIsInstance<TextNode>()
+                .map { t -> t.asText() }
+                .orNull()
+                ?: ""
+        )
+    }
+
+    @Test
+    fun convertJSONIntoObjectBranchTest() {
+        val jsonNode: JsonNode =
+            Assertions.assertDoesNotThrow<JsonNode> {
+                ObjectMapper().readTree(COMPLEX_JSON_EXAMPLE)
+            }
+        val persistentTree: PersistentTree<JsonNode> =
+            Assertions.assertDoesNotThrow<PersistentTree<JsonNode>> {
+                PersistentTree.fromSequenceFunctionOnValue(jsonNode) { jn: JsonNode ->
+                    when (jn) {
+                        is ArrayNode -> {
+                            jn.asSequence().map { j -> j.left() }
+                        }
+                        is ObjectNode -> {
+                            jn.fields().asSequence().map { e -> (e.key to e.value).right() }
                         }
                         else -> {
                             emptySequence()
@@ -150,7 +203,8 @@ class PersistentTreeTest {
         Assertions.assertEquals(
             "1 day 18 hours",
             persistentTree[tp]
-                .mapNotNull { t -> t.value().orNull() }
+                .filterIsInstance<Leaf<JsonNode>>()
+                .flatMap { t -> t.value() }
                 .filterIsInstance<TextNode>()
                 .map { t -> t.asText() }
                 .orNull()
