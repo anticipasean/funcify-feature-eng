@@ -34,7 +34,7 @@ interface PersistentTree<out V> : ImmutableTree<V> {
         fun <V> fromStream(stream: Stream<Pair<TreePath, V>>): PersistentTree<V> {
             return when (
                 val treeData: StandardTreeData<V> =
-                    StreamToStandardTreeDataMapper<V>().invoke(stream)
+                    StreamToStandardTreeDataMapper.createStandardTreeDataFromStream<V>(stream)
             ) {
                 is StandardLeafData -> {
                     StandardTreeContext.getRoot<V>().leaf(treeData)
@@ -50,7 +50,7 @@ interface PersistentTree<out V> : ImmutableTree<V> {
 
         fun <V> fromSequenceFunctionOnValue(
             startValue: V,
-            function: (V) -> Sequence<Either<Pair<String, V>, V>>
+            function: (V) -> Sequence<Either<V, Pair<String, V>>>
         ): PersistentTree<V> {
             val valueToStream: (V) -> Stream<Pair<PathSegment, V>> = { v: V ->
                 StreamSupport.stream(
@@ -58,10 +58,10 @@ interface PersistentTree<out V> : ImmutableTree<V> {
                         function
                             .invoke(v)
                             .withIndex()
-                            .map { (idx: Int, e: Either<Pair<String, V>, V>) ->
+                            .map { (idx: Int, e: Either<V, Pair<String, V>>) ->
                                 e.fold(
-                                    { (name: String, cv: V) -> NameSegment(name) to cv },
-                                    { cv: V -> IndexSegment(idx) to cv }
+                                    { cv: V -> IndexSegment(idx) to cv },
+                                    { (name: String, cv: V) -> NameSegment(name) to cv }
                                 )
                             }
                             .iterator(),
@@ -84,7 +84,7 @@ interface PersistentTree<out V> : ImmutableTree<V> {
 
         fun <V> fromStreamFunctionOnValue(
             startValue: V,
-            function: (V) -> Stream<Either<Pair<String, V>, V>>
+            function: (V) -> Stream<Either<V, Pair<String, V>>>
         ): PersistentTree<V> {
             return fromSequenceFunctionOnValue(startValue) { v: V ->
                 function.invoke(v).asSequence()

@@ -124,13 +124,13 @@ class PersistentTreeTest {
                         JsonNodeType.ARRAY -> {
                             jn.toOption().filterIsInstance<ArrayNode>().fold(::emptySequence) {
                                 an: ArrayNode ->
-                                an.asSequence().map { j -> j.right() }
+                                an.asSequence().map { j -> j.left() }
                             }
                         }
                         JsonNodeType.OBJECT -> {
                             jn.toOption().filterIsInstance<ObjectNode>().fold(::emptySequence) {
                                 on: ObjectNode ->
-                                on.fields().asSequence().map { e -> (e.key to e.value).left() }
+                                on.fields().asSequence().map { e -> (e.key to e.value).right() }
                             }
                         }
                         else -> {

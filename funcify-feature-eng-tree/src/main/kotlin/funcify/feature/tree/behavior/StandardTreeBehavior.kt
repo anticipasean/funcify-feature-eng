@@ -287,7 +287,9 @@ internal interface StandardTreeBehavior : TreeBehavior<StandardTreeWT> {
                         }
                     }
                     .let { stream: Stream<out Pair<TreePath, V1>> ->
-                        StreamToStandardTreeDataMapper<V1>().invoke(stream = stream)
+                        StreamToStandardTreeDataMapper.createStandardTreeDataFromStream<V1>(
+                            stream = stream
+                        )
                     }
             }
         }
@@ -321,7 +323,9 @@ internal interface StandardTreeBehavior : TreeBehavior<StandardTreeWT> {
                         }
                     }
                     .let { stream: Stream<out Pair<TreePath, V1>> ->
-                        StreamToStandardTreeDataMapper<V1>().invoke(stream = stream)
+                        StreamToStandardTreeDataMapper.createStandardTreeDataFromStream<V1>(
+                            stream = stream
+                        )
                     }
             }
         }
@@ -356,7 +360,9 @@ internal interface StandardTreeBehavior : TreeBehavior<StandardTreeWT> {
                         }
                     }
                     .let { stream: Stream<out Pair<TreePath, V1>> ->
-                        StreamToStandardTreeDataMapper<V1>().invoke(stream = stream)
+                        StreamToStandardTreeDataMapper.createStandardTreeDataFromStream<V1>(
+                            stream = stream
+                        )
                     }
             }
         }
@@ -401,7 +407,9 @@ internal interface StandardTreeBehavior : TreeBehavior<StandardTreeWT> {
                         }
                     }
                     .let { stream: Stream<out Pair<TreePath, V>> ->
-                        StreamToStandardTreeDataMapper<V>().invoke(stream = stream)
+                        StreamToStandardTreeDataMapper.createStandardTreeDataFromStream<V>(
+                            stream = stream
+                        )
                     }
             }
         }
@@ -448,7 +456,9 @@ internal interface StandardTreeBehavior : TreeBehavior<StandardTreeWT> {
                         }
                     }
                     .let { stream: Stream<out Pair<TreePath, V1>> ->
-                        StreamToStandardTreeDataMapper<V1>().invoke(stream = stream)
+                        StreamToStandardTreeDataMapper.createStandardTreeDataFromStream<V1>(
+                            stream = stream
+                        )
                     }
             }
         }
@@ -495,7 +505,9 @@ internal interface StandardTreeBehavior : TreeBehavior<StandardTreeWT> {
                     .flatMap { s: Sequence<Pair<TreePath, V2>> -> s }
                     .asStream()
                     .let { stream: Stream<Pair<TreePath, V2>> ->
-                        StreamToStandardTreeDataMapper<V2>().invoke(stream)
+                        StreamToStandardTreeDataMapper.createStandardTreeDataFromStream<V2>(
+                            stream = stream
+                        )
                     }
             }
         }

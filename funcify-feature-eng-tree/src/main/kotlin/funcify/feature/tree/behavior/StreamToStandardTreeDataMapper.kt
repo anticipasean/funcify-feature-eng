@@ -18,10 +18,11 @@ import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentMapOf
 
-internal class StreamToStandardTreeDataMapper<V> :
-    (Stream<out Pair<TreePath, V>>) -> StandardTreeData<V> {
+internal object StreamToStandardTreeDataMapper {
 
-    override fun invoke(stream: Stream<out Pair<TreePath, V>>): StandardTreeData<V> {
+    fun <V> createStandardTreeDataFromStream(
+        stream: Stream<out Pair<TreePath, V>>
+    ): StandardTreeData<V> {
         return stream
             .asSequence()
             .filterNot { p: Pair<TreePath, V> -> p.first.pathSegments.size == 0 }
@@ -36,7 +37,7 @@ internal class StreamToStandardTreeDataMapper<V> :
             )
             .fold(
                 persistentMapOf<TreePath, StandardTreeData<V>>(),
-                ::foldLevelValuesIntoChildDataNodesOfNextLevel
+                ::foldValuesByPathAtLevelIntoParentNodesOfNextLevel
             )
             .let { rootLevelNodes: PersistentMap<TreePath, StandardTreeData<V>> ->
                 rootLevelNodes.getOrNone(TreePath.getRootPath()).getOrElse {
@@ -45,12 +46,12 @@ internal class StreamToStandardTreeDataMapper<V> :
             }
     }
 
-    private fun foldLevelValuesIntoChildDataNodesOfNextLevel(
+    private fun <V> foldValuesByPathAtLevelIntoParentNodesOfNextLevel(
         childrenFromPreviousLevel: PersistentMap<TreePath, StandardTreeData<V>>,
         dataByLevel: Map.Entry<Int, List<Pair<TreePath, V>>>
     ): PersistentMap<TreePath, StandardTreeData<V>> {
-        val (level: Int, nextValuesSet: List<Pair<TreePath, V>>) = dataByLevel
-        return nextValuesSet
+        val (level: Int, valuesByPath: List<Pair<TreePath, V>>) = dataByLevel
+        return valuesByPath
             .asSequence()
             .groupBy { (p: TreePath, _: V) -> p.parent().getOrElse { TreePath.getRootPath() } }
             .entries
@@ -85,7 +86,7 @@ internal class StreamToStandardTreeDataMapper<V> :
             }
     }
 
-    private fun createStandardArrayBranchDataForParentsAtLevel(
+    private fun <V> createStandardArrayBranchDataForParentsAtLevel(
         parentPath: TreePath,
         children: List<Pair<TreePath, V>>,
         childrenFromPreviousLevel: PersistentMap<TreePath, StandardTreeData<V>>,
@@ -122,7 +123,7 @@ internal class StreamToStandardTreeDataMapper<V> :
             }
     }
 
-    private fun createStandardObjectBranchDataForParentsAtLevel(
+    private fun <V> createStandardObjectBranchDataForParentsAtLevel(
         parentPath: TreePath,
         children: List<Pair<TreePath, V>>,
         childrenFromPreviousLevel: PersistentMap<TreePath, StandardTreeData<V>>,
