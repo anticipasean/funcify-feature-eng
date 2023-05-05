@@ -41,7 +41,6 @@ interface TreePath : Comparable<TreePath> {
             }) { tp: TreePath -> tp }
         }
 
-        /** @throws IllegalArgumentException if not in correct format */
         @JvmStatic
         fun parseTreePathOrNull(treePathAsString: String): TreePath? {
             return TreePathParser.invoke(treePathAsString).fold({ _: IllegalArgumentException ->

@@ -10,7 +10,7 @@ internal object TreePathParser : (String) -> Either<IllegalArgumentException, Tr
     override fun invoke(treePathAsString: String): Either<IllegalArgumentException, TreePath> {
         try {
             val uri: URI = URI.create(treePathAsString)
-            if (TreePath.TREE_PATH_SCHEME != uri.scheme) {
+            return if (TreePath.TREE_PATH_SCHEME != uri.scheme) {
                 return IllegalArgumentException(
                         "scheme of uri does not match expected scheme [ expected: %s, actual: %s ]".format(
                             TreePath.TREE_PATH_SCHEME,
@@ -18,8 +18,9 @@ internal object TreePathParser : (String) -> Either<IllegalArgumentException, Tr
                         )
                     )
                     .left()
+            } else {
+                TreePath.of(appendPathSegmentsToBuilder(uri.path)).right()
             }
-            return TreePath.of(appendPathSegmentsToBuilder(uri.path)).right()
         } catch (t: Throwable) {
             return IllegalArgumentException(
                     "unable to create tree_path from string: [ type: %s, message: %s ]".format(
