@@ -114,6 +114,10 @@ internal interface PersistentTreeDesign<DWT, V> : PersistentTree<V> {
             .asIterable()
     }
 
+    override fun levels(): Iterable<Pair<Int, Iterable<Pair<TreePath, V>>>> {
+        return this.behavior.levels(this.data)
+    }
+
     override fun <V1> map(function: (V) -> V1): PersistentTree<V1> {
         return when (
             val d: TreeData<DWT, V1> = this.behavior.map(container = this.data, function = function)

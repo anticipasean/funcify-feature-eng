@@ -49,6 +49,8 @@ internal interface TreeBehavior<DWT> {
 
     fun <V> children(container: TreeData<DWT, V>): Iterable<TreeData<DWT, V>>
 
+    fun <V> levels(container: TreeData<DWT, V>): Iterable<Pair<Int, Iterable<Pair<TreePath, V>>>>
+
     fun <V, V1> map(container: TreeData<DWT, V>, function: (V) -> V1): TreeData<DWT, V1>
 
     fun <V, V1> bimap(

@@ -34,6 +34,9 @@ import java.util.stream.Stream.empty
 import java.util.stream.StreamSupport
 import kotlin.streams.asSequence
 import kotlinx.collections.immutable.PersistentList
+import kotlinx.collections.immutable.PersistentMap
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.toPersistentList
 
 /**
@@ -263,6 +266,43 @@ internal interface StandardTreeBehavior : TreeBehavior<StandardTreeWT> {
                 td.children.values
             }
         }
+    }
+
+    override fun <V> levels(
+        container: TreeData<StandardTreeWT, V>
+    ): Iterable<Pair<Int, Iterable<Pair<TreePath, V>>>> {
+        val traversalFunction = createTreeTraversalFunction<V>()
+        return Iterable {
+                StreamSupport.stream(
+                        TreeDepthFirstSearchSpliterator<TreeData<StandardTreeWT, V>>(
+                            TreePath.getRootPath(),
+                            container,
+                            traversalFunction
+                        ),
+                        false
+                    )
+                    .flatMap { p: Pair<TreePath, TreeData<StandardTreeWT, V>> ->
+                        when (val v: V? = value(p.second).orNull()) {
+                            null -> empty()
+                            else -> Stream.of(p.first to v)
+                        }
+                    }
+                    .reduce(
+                        persistentMapOf<Int, PersistentList<Pair<TreePath, V>>>(),
+                        {
+                            pm: PersistentMap<Int, PersistentList<Pair<TreePath, V>>>,
+                            p: Pair<TreePath, V> ->
+                            val level: Int = p.first.pathSegments.size
+                            pm.put(level, pm.getOrElse(level) { persistentListOf() }.add(p))
+                        },
+                        PersistentMap<Int, PersistentList<Pair<TreePath, V>>>::putAll
+                    )
+                    .entries
+                    .iterator()
+            }
+            .asSequence()
+            .map(Map.Entry<Int, PersistentList<Pair<TreePath, V>>>::toPair)
+            .asIterable()
     }
 
     override fun <V, V1> map(

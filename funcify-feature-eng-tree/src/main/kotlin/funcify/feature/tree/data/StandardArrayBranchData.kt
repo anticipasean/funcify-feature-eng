@@ -10,11 +10,11 @@ internal data class StandardArrayBranchData<V>(
 ) : StandardTreeData<V>(), ArrayBranchData<StandardTreeWT, V> {
 
     companion object {
-        fun <V> narrow(container: ArrayBranchData<StandardTreeWT, V>): StandardArrayBranchData<V> {
+        inline fun <V> narrow(container: ArrayBranchData<StandardTreeWT, V>): StandardArrayBranchData<V> {
             return container as StandardArrayBranchData<V>
         }
 
-        fun <V> ArrayBranchData<StandardTreeWT, V>.narrowed(): StandardArrayBranchData<V> {
+        inline fun <V> ArrayBranchData<StandardTreeWT, V>.narrowed(): StandardArrayBranchData<V> {
             return StandardArrayBranchData.narrow(this)
         }
     }

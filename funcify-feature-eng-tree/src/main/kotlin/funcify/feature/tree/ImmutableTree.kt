@@ -20,6 +20,8 @@ interface ImmutableTree<out V> : Iterable<Pair<TreePath, V>> {
 
     fun children(): Iterable<ImmutableTree<V>>
 
+    fun levels(): Iterable<Pair<Int, Iterable<Pair<TreePath, V>>>>
+
     fun <V1> map(function: (V) -> V1): ImmutableTree<V1>
 
     fun <V1> bimap(function: (TreePath, V) -> Pair<TreePath, V1>): ImmutableTree<V1>

@@ -13,11 +13,11 @@ internal sealed class StandardTreeData<V> : TreeData<StandardTreeWT, V> {
     companion object {
         enum class StandardTreeWT
 
-        fun <V> narrow(container: TreeData<StandardTreeWT, V>): StandardTreeData<V> {
+        inline fun <V> narrow(container: TreeData<StandardTreeWT, V>): StandardTreeData<V> {
             return container as StandardTreeData<V>
         }
 
-        fun <V> TreeData<StandardTreeWT, V>.narrowed(): StandardTreeData<V> {
+        inline fun <V> TreeData<StandardTreeWT, V>.narrowed(): StandardTreeData<V> {
             return StandardTreeData.narrow(this)
         }
 
