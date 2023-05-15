@@ -22,12 +22,12 @@ interface PersistentTree<out V> : ImmutableTree<V> {
 
     companion object {
 
-        fun <V> getRoot(): Leaf<V> {
-            return StandardTreeContext.getRoot()
+        fun <V> empty(): EmptyTree<V> {
+            return StandardTreeContext.empty()
         }
 
         fun <V> fromSequence(sequence: Sequence<Pair<TreePath, V>>): PersistentTree<V> {
-            return StandardTreeContext.getRoot<V>().fromSequence(sequence)
+            return StandardTreeContext.empty<V>().fromSequence(sequence)
         }
 
         fun <V> fromStream(stream: Stream<out Pair<TreePath, V>>): PersistentTree<V> {
@@ -128,4 +128,6 @@ interface PersistentTree<out V> : ImmutableTree<V> {
         other: ImmutableTree<V1>,
         function: (Pair<TreePath, V>, Pair<TreePath, V1>) -> Pair<TreePath, V2>,
     ): PersistentTree<V2>
+
+    fun <R> fold(emptyHandler: (EmptyTree<V>) -> R, nonEmptyHandler: (NonEmptyTree<V>) -> R): R
 }

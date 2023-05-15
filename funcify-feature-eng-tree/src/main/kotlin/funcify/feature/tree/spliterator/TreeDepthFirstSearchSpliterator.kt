@@ -14,7 +14,7 @@ import java.util.stream.Stream
 internal class TreeDepthFirstSearchSpliterator<T>(
     private val rootPath: TreePath,
     private val root: T,
-    private val traversalFunction: (T) -> Stream<Pair<PathSegment, T>>
+    private val traversalFunction: (T) -> Stream<out Pair<PathSegment, T>>
 ) : Spliterator<Pair<TreePath, T>> {
 
     companion object {

@@ -6,6 +6,7 @@ import arrow.core.getOrElse
 import arrow.core.getOrNone
 import funcify.feature.tree.data.StandardArrayBranchData
 import funcify.feature.tree.data.StandardLeafData
+import funcify.feature.tree.data.StandardNonEmptyTreeData
 import funcify.feature.tree.data.StandardObjectBranchData
 import funcify.feature.tree.data.StandardTreeData
 import funcify.feature.tree.path.IndexSegment
@@ -33,10 +34,10 @@ internal object SequenceToStandardTreeDataMapper {
                 )
             )
             .fold(
-                persistentMapOf<TreePath, StandardTreeData<V>>(),
+                persistentMapOf<TreePath, StandardNonEmptyTreeData<V>>(),
                 ::foldValuesByPathAtLevelIntoParentNodesOfNextLevel
             )
-            .let { rootLevelNodes: PersistentMap<TreePath, StandardTreeData<V>> ->
+            .let { rootLevelNodes: PersistentMap<TreePath, StandardNonEmptyTreeData<V>> ->
                 rootLevelNodes.getOrNone(TreePath.getRootPath()).getOrElse {
                     StandardTreeData.getRoot()
                 }
@@ -44,9 +45,9 @@ internal object SequenceToStandardTreeDataMapper {
     }
 
     private fun <V> foldValuesByPathAtLevelIntoParentNodesOfNextLevel(
-        childrenFromPreviousLevel: PersistentMap<TreePath, StandardTreeData<V>>,
+        childrenFromPreviousLevel: PersistentMap<TreePath, StandardNonEmptyTreeData<V>>,
         valuesByPathAtLevel: Map.Entry<Int, List<Pair<TreePath, V>>>
-    ): PersistentMap<TreePath, StandardTreeData<V>> {
+    ): PersistentMap<TreePath, StandardNonEmptyTreeData<V>> {
         val (level: Int, valuesByPath: List<Pair<TreePath, V>>) = valuesByPathAtLevel
         return valuesByPath
             .asSequence()
@@ -78,7 +79,7 @@ internal object SequenceToStandardTreeDataMapper {
                     }
                 }
             }
-            .fold(persistentMapOf<TreePath, StandardTreeData<V>>()) { pm, pair ->
+            .fold(persistentMapOf<TreePath, StandardNonEmptyTreeData<V>>()) { pm, pair ->
                 pm.put(pair.first, pair.second)
             }
     }
@@ -86,7 +87,7 @@ internal object SequenceToStandardTreeDataMapper {
     private fun <V> createStandardArrayBranchDataForParentsAtLevel(
         parentPath: TreePath,
         children: List<Pair<TreePath, V>>,
-        childrenFromPreviousLevel: PersistentMap<TreePath, StandardTreeData<V>>,
+        childrenFromPreviousLevel: PersistentMap<TreePath, StandardNonEmptyTreeData<V>>,
     ): StandardArrayBranchData<V> {
         return children
             .asSequence()
@@ -99,8 +100,8 @@ internal object SequenceToStandardTreeDataMapper {
                     childrenFromPreviousLevel
                 )
             )
-            .fold(persistentListOf<StandardTreeData<V>>()) { cpl, p -> cpl.add(p.second) }
-            .let { indexedChildren: PersistentList<StandardTreeData<V>> ->
+            .fold(persistentListOf<StandardNonEmptyTreeData<V>>()) { cpl, p -> cpl.add(p.second) }
+            .let { indexedChildren: PersistentList<StandardNonEmptyTreeData<V>> ->
                 StandardArrayBranchData(value = null, children = indexedChildren)
             }
     }
@@ -108,7 +109,7 @@ internal object SequenceToStandardTreeDataMapper {
     private fun <V> createStandardObjectBranchDataForParentsAtLevel(
         parentPath: TreePath,
         children: List<Pair<TreePath, V>>,
-        childrenFromPreviousLevel: PersistentMap<TreePath, StandardTreeData<V>>,
+        childrenFromPreviousLevel: PersistentMap<TreePath, StandardNonEmptyTreeData<V>>,
     ): StandardObjectBranchData<V> {
         return children
             .asSequence()
@@ -121,24 +122,24 @@ internal object SequenceToStandardTreeDataMapper {
                     childrenFromPreviousLevel
                 )
             )
-            .fold(persistentMapOf<String, StandardTreeData<V>>()) { cpm, p ->
+            .fold(persistentMapOf<String, StandardNonEmptyTreeData<V>>()) { cpm, p ->
                 cpm.put(
                     p.first.lastSegment().filterIsInstance<NameSegment>().orNull()!!.name,
                     p.second
                 )
             }
-            .let { namedChildren: PersistentMap<String, StandardTreeData<V>> ->
+            .let { namedChildren: PersistentMap<String, StandardNonEmptyTreeData<V>> ->
                 StandardObjectBranchData(value = null, children = namedChildren)
             }
     }
 
     private fun <V> createNewLeafOrUpdateObjectOrArrayBranchFromChildrenFromPreviousLevel(
-        childrenFromPreviousLevel: PersistentMap<TreePath, StandardTreeData<V>>
-    ): (Pair<TreePath, V>) -> Pair<TreePath, StandardTreeData<V>> {
+        childrenFromPreviousLevel: PersistentMap<TreePath, StandardNonEmptyTreeData<V>>
+    ): (Pair<TreePath, V>) -> Pair<TreePath, StandardNonEmptyTreeData<V>> {
         return { (ctp: TreePath, cv: V) ->
             childrenFromPreviousLevel
                 .getOrNone(ctp)
-                .mapNotNull { cstd: StandardTreeData<V> ->
+                .mapNotNull { cstd: StandardNonEmptyTreeData<V> ->
                     when (cstd) {
                         is StandardArrayBranchData -> {
                             ctp to StandardArrayBranchData<V>(cv, cstd.children)

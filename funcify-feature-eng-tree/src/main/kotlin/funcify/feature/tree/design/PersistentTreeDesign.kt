@@ -5,6 +5,7 @@ import funcify.feature.tree.ImmutableTree
 import funcify.feature.tree.PersistentTree
 import funcify.feature.tree.behavior.TreeBehavior
 import funcify.feature.tree.data.ArrayBranchData
+import funcify.feature.tree.data.EmptyTreeData
 import funcify.feature.tree.data.LeafData
 import funcify.feature.tree.data.ObjectBranchData
 import funcify.feature.tree.data.TreeData
@@ -21,6 +22,8 @@ internal interface PersistentTreeDesign<DWT, V> : PersistentTree<V> {
 
     val data: TreeData<DWT, V>
 
+    fun <V> empty(): EmptyTreeDesign<DWT, V>
+
     fun <V> leaf(data: LeafData<DWT, V>): LeafDesign<DWT, V>
 
     fun <V> arrayBranch(data: ArrayBranchData<DWT, V>): ArrayBranchDesign<DWT, V>
@@ -29,6 +32,7 @@ internal interface PersistentTreeDesign<DWT, V> : PersistentTree<V> {
 
     fun <V> fromSequence(sequence: Sequence<Pair<TreePath, V>>): PersistentTreeDesign<DWT, V> {
         return when (val d: TreeData<DWT, V> = this.behavior.fromSequence(sequence)) {
+            is EmptyTreeData<*, *> -> empty<V>()
             is LeafData<*, *> -> leaf(d as LeafData<DWT, V>)
             is ArrayBranchData<*, *> -> arrayBranch(d as ArrayBranchData<DWT, V>)
             is ObjectBranchData<*, *> -> objectBranch(d as ObjectBranchData<DWT, V>)
@@ -52,6 +56,7 @@ internal interface PersistentTreeDesign<DWT, V> : PersistentTree<V> {
         return this.behavior.get(container = this.data, path = path).mapNotNull {
             d: TreeData<DWT, V> ->
             when (d) {
+                is EmptyTreeData<*, *> -> empty<V>()
                 is LeafData<*, *> -> leaf(d as LeafData<DWT, V>)
                 is ArrayBranchData<*, *> -> arrayBranch(d as ArrayBranchData<DWT, V>)
                 is ObjectBranchData<*, *> -> objectBranch(d as ObjectBranchData<DWT, V>)
@@ -90,6 +95,7 @@ internal interface PersistentTreeDesign<DWT, V> : PersistentTree<V> {
             .asSequence()
             .mapNotNull { d: TreeData<DWT, V> ->
                 when (d) {
+                    is EmptyTreeData<*, *> -> empty<V>()
                     is LeafData<*, *> -> leaf(d as LeafData<DWT, V>)
                     is ArrayBranchData<*, *> -> arrayBranch(d as ArrayBranchData<DWT, V>)
                     is ObjectBranchData<*, *> -> objectBranch(d as ObjectBranchData<DWT, V>)
@@ -105,6 +111,7 @@ internal interface PersistentTreeDesign<DWT, V> : PersistentTree<V> {
             .asSequence()
             .mapNotNull { d: TreeData<DWT, V> ->
                 when (d) {
+                    is EmptyTreeData<*, *> -> empty<V>()
                     is LeafData<*, *> -> leaf(d as LeafData<DWT, V>)
                     is ArrayBranchData<*, *> -> arrayBranch(d as ArrayBranchData<DWT, V>)
                     is ObjectBranchData<*, *> -> objectBranch(d as ObjectBranchData<DWT, V>)
@@ -122,6 +129,7 @@ internal interface PersistentTreeDesign<DWT, V> : PersistentTree<V> {
         return when (
             val d: TreeData<DWT, V1> = this.behavior.map(container = this.data, function = function)
         ) {
+            is EmptyTreeData<*, *> -> empty<V1>()
             is LeafData<*, *> -> leaf(d as LeafData<DWT, V1>)
             is ArrayBranchData<*, *> -> arrayBranch(d as ArrayBranchData<DWT, V1>)
             is ObjectBranchData<*, *> -> objectBranch(d as ObjectBranchData<DWT, V1>)
@@ -138,6 +146,7 @@ internal interface PersistentTreeDesign<DWT, V> : PersistentTree<V> {
             val d: TreeData<DWT, V1> =
                 this.behavior.bimap(container = this.data, function = function)
         ) {
+            is EmptyTreeData<*, *> -> empty<V1>()
             is LeafData<*, *> -> leaf(d as LeafData<DWT, V1>)
             is ArrayBranchData<*, *> -> arrayBranch(d as ArrayBranchData<DWT, V1>)
             is ObjectBranchData<*, *> -> objectBranch(d as ObjectBranchData<DWT, V1>)
@@ -161,6 +170,7 @@ internal interface PersistentTreeDesign<DWT, V> : PersistentTree<V> {
                     valueMapper = valueMapper
                 )
         ) {
+            is EmptyTreeData<*, *> -> empty<V1>()
             is LeafData<*, *> -> leaf(d as LeafData<DWT, V1>)
             is ArrayBranchData<*, *> -> arrayBranch(d as ArrayBranchData<DWT, V1>)
             is ObjectBranchData<*, *> -> objectBranch(d as ObjectBranchData<DWT, V1>)
@@ -177,6 +187,7 @@ internal interface PersistentTreeDesign<DWT, V> : PersistentTree<V> {
             val d: TreeData<DWT, V> =
                 this.behavior.filter(container = this.data, condition = condition)
         ) {
+            is EmptyTreeData<*, *> -> empty<V>()
             is LeafData<*, *> -> leaf(d as LeafData<DWT, V>)
             is ArrayBranchData<*, *> -> arrayBranch(d as ArrayBranchData<DWT, V>)
             is ObjectBranchData<*, *> -> objectBranch(d as ObjectBranchData<DWT, V>)
@@ -193,6 +204,7 @@ internal interface PersistentTreeDesign<DWT, V> : PersistentTree<V> {
             val d: TreeData<DWT, V> =
                 this.behavior.biFilter(container = this.data, condition = condition)
         ) {
+            is EmptyTreeData<*, *> -> empty<V>()
             is LeafData<*, *> -> leaf(d as LeafData<DWT, V>)
             is ArrayBranchData<*, *> -> arrayBranch(d as ArrayBranchData<DWT, V>)
             is ObjectBranchData<*, *> -> objectBranch(d as ObjectBranchData<DWT, V>)
@@ -209,6 +221,7 @@ internal interface PersistentTreeDesign<DWT, V> : PersistentTree<V> {
             val d: TreeData<DWT, V1> =
                 this.behavior.flatMap(container = this.data, function = function)
         ) {
+            is EmptyTreeData<*, *> -> empty<V1>()
             is LeafData<*, *> -> leaf(d as LeafData<DWT, V1>)
             is ArrayBranchData<*, *> -> arrayBranch(d as ArrayBranchData<DWT, V1>)
             is ObjectBranchData<*, *> -> objectBranch(d as ObjectBranchData<DWT, V1>)
@@ -225,6 +238,7 @@ internal interface PersistentTreeDesign<DWT, V> : PersistentTree<V> {
             val d: TreeData<DWT, V1> =
                 this.behavior.biFlatMap(container = this.data, function = function)
         ) {
+            is EmptyTreeData<*, *> -> empty<V1>()
             is LeafData<*, *> -> leaf(d as LeafData<DWT, V1>)
             is ArrayBranchData<*, *> -> arrayBranch(d as ArrayBranchData<DWT, V1>)
             is ObjectBranchData<*, *> -> objectBranch(d as ObjectBranchData<DWT, V1>)
@@ -244,6 +258,7 @@ internal interface PersistentTreeDesign<DWT, V> : PersistentTree<V> {
             val d: TreeData<DWT, V2> =
                 this.behavior.zip(container = this.data, other = other, function = function)
         ) {
+            is EmptyTreeData<*, *> -> empty<V2>()
             is LeafData<*, *> -> leaf(d as LeafData<DWT, V2>)
             is ArrayBranchData<*, *> -> arrayBranch(d as ArrayBranchData<DWT, V2>)
             is ObjectBranchData<*, *> -> objectBranch(d as ObjectBranchData<DWT, V2>)
@@ -263,6 +278,7 @@ internal interface PersistentTreeDesign<DWT, V> : PersistentTree<V> {
             val d: TreeData<DWT, V2> =
                 this.behavior.biZip(container = this.data, other = other, function = function)
         ) {
+            is EmptyTreeData<*, *> -> empty<V2>()
             is LeafData<*, *> -> leaf(d as LeafData<DWT, V2>)
             is ArrayBranchData<*, *> -> arrayBranch(d as ArrayBranchData<DWT, V2>)
             is ObjectBranchData<*, *> -> objectBranch(d as ObjectBranchData<DWT, V2>)

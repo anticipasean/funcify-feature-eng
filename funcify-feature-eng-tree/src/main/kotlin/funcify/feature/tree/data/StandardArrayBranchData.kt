@@ -6,8 +6,8 @@ import kotlinx.collections.immutable.PersistentList
 
 internal data class StandardArrayBranchData<V>(
     val value: V?,
-    val children: PersistentList<StandardTreeData<V>>
-) : StandardTreeData<V>(), ArrayBranchData<StandardTreeWT, V> {
+    val children: PersistentList<StandardNonEmptyTreeData<V>>
+) : StandardNonEmptyTreeData<V>(), ArrayBranchData<StandardTreeWT, V> {
 
     companion object {
         inline fun <V> narrow(container: ArrayBranchData<StandardTreeWT, V>): StandardArrayBranchData<V> {

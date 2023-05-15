@@ -17,12 +17,8 @@ internal interface LeafDesign<DWT, V> : PersistentTreeDesign<DWT, V>, Leaf<V> {
 
     override val data: LeafData<DWT, V>
 
-    override fun <R> fold(
-        leafHandler: (Leaf<V>) -> R,
-        arrayTreeHandler: (ArrayBranch<V>) -> R,
-        objectTreeHandler: (ObjectBranch<V>) -> R
-    ): R {
-        return leafHandler.invoke(this)
+    override fun set(value: V): Leaf<V> {
+        return leaf(this.behavior.set(container = data, value = value))
     }
 
     override fun put(name: String, value: V): ObjectBranch<V> {

@@ -3,23 +3,15 @@ package funcify.feature.tree.behavior
 import arrow.core.Option
 import arrow.core.filterIsInstance
 import arrow.core.firstOrNone
-import arrow.core.getOrNone
 import arrow.core.left
 import arrow.core.none
 import arrow.core.right
 import arrow.core.some
 import arrow.core.toOption
 import funcify.feature.tree.ImmutableTree
-import funcify.feature.tree.data.ArrayBranchData
-import funcify.feature.tree.data.LeafData
-import funcify.feature.tree.data.ObjectBranchData
-import funcify.feature.tree.data.StandardArrayBranchData
-import funcify.feature.tree.data.StandardLeafData
-import funcify.feature.tree.data.StandardObjectBranchData
-import funcify.feature.tree.data.StandardTreeData
+import funcify.feature.tree.data.*
 import funcify.feature.tree.data.StandardTreeData.Companion.StandardTreeWT
 import funcify.feature.tree.data.StandardTreeData.Companion.narrowed
-import funcify.feature.tree.data.TreeData
 import funcify.feature.tree.extensions.OptionExtensions.recurse
 import funcify.feature.tree.path.IndexSegment
 import funcify.feature.tree.path.NameSegment
@@ -52,35 +44,23 @@ internal interface StandardTreeBehavior : TreeBehavior<StandardTreeWT> {
         return SequenceToStandardTreeDataMapper.createStandardTreeDataFromSequence<V>(sequence)
     }
 
-    override fun <V, R> fold(
-        container: TreeData<StandardTreeWT, V>,
-        leafHandler: (LeafData<StandardTreeWT, V>) -> R,
-        arrayTreeHandler: (ArrayBranchData<StandardTreeWT, V>) -> R,
-        objectTreeHandler: (ObjectBranchData<StandardTreeWT, V>) -> R,
-    ): R {
-        return when (val st: StandardTreeData<V> = container.narrowed()) {
-            is StandardLeafData<V> -> {
-                leafHandler.invoke(st)
-            }
-            is StandardArrayBranchData<V> -> {
-                arrayTreeHandler.invoke(st)
-            }
-            is StandardObjectBranchData<V> -> {
-                objectTreeHandler.invoke(st)
-            }
-        }
-    }
-
     override fun <V> value(container: TreeData<StandardTreeWT, V>): Option<V> {
         return when (val st: StandardTreeData<V> = container.narrowed()) {
-            is StandardLeafData<V> -> {
-                st.value.toOption()
+            is StandardEmptyTreeData<V> -> {
+                none<V>()
             }
-            is StandardArrayBranchData<V> -> {
-                st.value.toOption()
-            }
-            is StandardObjectBranchData<V> -> {
-                st.value.toOption()
+            is StandardNonEmptyTreeData<V> -> {
+                when (st) {
+                    is StandardLeafData<V> -> {
+                        st.value.toOption()
+                    }
+                    is StandardArrayBranchData<V> -> {
+                        st.value.toOption()
+                    }
+                    is StandardObjectBranchData<V> -> {
+                        st.value.toOption()
+                    }
+                }
             }
         }
     }
@@ -95,45 +75,51 @@ internal interface StandardTreeBehavior : TreeBehavior<StandardTreeWT> {
         container: TreeData<StandardTreeWT, V>,
         path: TreePath
     ): Option<TreeData<StandardTreeWT, V>> {
-        return (container.narrowed() to path.pathSegments.toPersistentList()).toOption().recurse {
-            (st: StandardTreeData<V>, pl: PersistentList<PathSegment>) ->
-            when {
-                pl.isEmpty() -> {
-                    st.right<StandardTreeData<V>>().some()
-                }
-                pl.firstOrNone()
-                    .filter { ps: PathSegment ->
-                        ps is NameSegment &&
-                            st is StandardObjectBranchData<V> &&
-                            st.children.containsKey(ps.name)
-                    }
-                    .isDefined() -> {
-                    pl.firstOrNone()
-                        .filterIsInstance<NameSegment>()
-                        .flatMap { ns: NameSegment ->
-                            (st as StandardObjectBranchData<V>).children.getOrNone(ns.name)
+        return when (val td: StandardTreeData<V> = container.narrowed()) {
+            is StandardEmptyTreeData<V> -> {
+                none<TreeData<StandardTreeWT, V>>()
+            }
+            is StandardNonEmptyTreeData<V> -> {
+                (td to path.pathSegments.toPersistentList()).toOption().recurse {
+                    (st: StandardNonEmptyTreeData<V>, pl: PersistentList<PathSegment>) ->
+                    when {
+                        pl.isEmpty() -> {
+                            st.right<StandardTreeData<V>>().some()
                         }
-                        .map { cst -> (cst to pl.removeAt(0)).left() }
-                }
-                pl.firstOrNone()
-                    .filter { ps: PathSegment ->
-                        ps is IndexSegment &&
-                            st is StandardArrayBranchData<V> &&
-                            ps.index in st.children.indices
-                    }
-                    .isDefined() -> {
-                    pl.firstOrNone()
-                        .filterIsInstance<IndexSegment>()
-                        .flatMap { idxs: IndexSegment ->
-                            (st as StandardArrayBranchData<V>)
-                                .children
-                                .getOrNull(idxs.index)
-                                .toOption()
+                        pl.firstOrNone()
+                            .filter { ps: PathSegment ->
+                                ps is NameSegment &&
+                                    st is StandardObjectBranchData<V> &&
+                                    st.children.containsKey(ps.name)
+                            }
+                            .isDefined() -> {
+                            pl.firstOrNone()
+                                .filterIsInstance<NameSegment>()
+                                .mapNotNull { ns: NameSegment ->
+                                    (st as StandardObjectBranchData<V>).children[ns.name]
+                                }
+                                .map { cst -> (cst to pl.removeAt(0)).left() }
                         }
-                        .map { cst -> (cst to pl.removeAt(0)).left() }
-                }
-                else -> {
-                    none()
+                        pl.firstOrNone()
+                            .filter { ps: PathSegment ->
+                                ps is IndexSegment &&
+                                    st is StandardArrayBranchData<V> &&
+                                    ps.index in st.children.indices
+                            }
+                            .isDefined() -> {
+                            pl.firstOrNone()
+                                .filterIsInstance<IndexSegment>()
+                                .mapNotNull { idxs: IndexSegment ->
+                                    (st as StandardArrayBranchData<V>)
+                                        .children
+                                        .getOrNull(idxs.index)
+                                }
+                                .map { cst -> (cst to pl.removeAt(0)).left() }
+                        }
+                        else -> {
+                            none()
+                        }
+                    }
                 }
             }
         }
@@ -145,7 +131,7 @@ internal interface StandardTreeBehavior : TreeBehavior<StandardTreeWT> {
         accumulator: (R, V) -> R
     ): R {
         var accumulate: R = startValue
-        for (p in depthFirstIterator(container)) {
+        for (p: Pair<TreePath, V> in depthFirstIterator(container)) {
             accumulate = accumulator(accumulate, p.second)
         }
         return accumulate
@@ -157,7 +143,7 @@ internal interface StandardTreeBehavior : TreeBehavior<StandardTreeWT> {
         accumulator: (R, TreePath, V) -> R
     ): R {
         var accumulate: R = startValue
-        for (p in depthFirstIterator(container)) {
+        for (p: Pair<TreePath, V> in depthFirstIterator(container)) {
             accumulate = accumulator(accumulate, p.first, p.second)
         }
         return accumulate
@@ -185,20 +171,29 @@ internal interface StandardTreeBehavior : TreeBehavior<StandardTreeWT> {
     }
 
     fun <V> createTreeTraversalFunction():
-        (TreeData<StandardTreeWT, V>) -> Stream<Pair<PathSegment, TreeData<StandardTreeWT, V>>> {
+        (TreeData<StandardTreeWT, V>) -> Stream<
+                out Pair<PathSegment, TreeData<StandardTreeWT, V>>> {
         return { td: TreeData<StandardTreeWT, V> ->
             when (val std: StandardTreeData<V> = td.narrowed()) {
-                is StandardLeafData -> {
+                is StandardEmptyTreeData<V> -> {
                     empty()
                 }
-                is StandardArrayBranchData -> {
-                    IntStream.range(0, std.children.size).mapToObj { i: Int ->
-                        IndexSegment(index = i) to std.children[i]
-                    }
-                }
-                is StandardObjectBranchData -> {
-                    std.children.entries.stream().map { (n: String, d: StandardTreeData<V>) ->
-                        NameSegment(name = n) to d
+                is StandardNonEmptyTreeData<V> -> {
+                    when (std) {
+                        is StandardLeafData<V> -> {
+                            empty()
+                        }
+                        is StandardArrayBranchData<V> -> {
+                            IntStream.range(0, std.children.size).mapToObj { i: Int ->
+                                IndexSegment(index = i) to std.children[i]
+                            }
+                        }
+                        is StandardObjectBranchData<V> -> {
+                            std.children.entries.stream().map { (n: String, d: StandardTreeData<V>)
+                                ->
+                                NameSegment(name = n) to d
+                            }
+                        }
                     }
                 }
             }
@@ -256,14 +251,21 @@ internal interface StandardTreeBehavior : TreeBehavior<StandardTreeWT> {
         container: TreeData<StandardTreeWT, V>
     ): Iterable<TreeData<StandardTreeWT, V>> {
         return when (val td: StandardTreeData<V> = container.narrowed()) {
-            is StandardLeafData -> {
+            is StandardEmptyTreeData<V> -> {
                 emptyList()
             }
-            is StandardArrayBranchData -> {
-                td.children
-            }
-            is StandardObjectBranchData -> {
-                td.children.values
+            is StandardNonEmptyTreeData<V> -> {
+                when (td) {
+                    is StandardLeafData<V> -> {
+                        emptyList()
+                    }
+                    is StandardArrayBranchData<V> -> {
+                        td.children
+                    }
+                    is StandardObjectBranchData<V> -> {
+                        td.children.values
+                    }
+                }
             }
         }
     }
@@ -271,35 +273,28 @@ internal interface StandardTreeBehavior : TreeBehavior<StandardTreeWT> {
     override fun <V> levels(
         container: TreeData<StandardTreeWT, V>
     ): Iterable<Pair<Int, Iterable<Pair<TreePath, V>>>> {
-        val traversalFunction = createTreeTraversalFunction<V>()
-        return Iterable {
-                StreamSupport.stream(
-                        TreeDepthFirstSearchSpliterator<TreeData<StandardTreeWT, V>>(
-                            TreePath.getRootPath(),
-                            container,
-                            traversalFunction
-                        ),
-                        false
-                    )
-                    .flatMap { p: Pair<TreePath, TreeData<StandardTreeWT, V>> ->
-                        when (val v: V? = value(p.second).orNull()) {
-                            null -> empty()
-                            else -> Stream.of(p.first to v)
-                        }
-                    }
-                    .reduce(
-                        persistentMapOf<Int, PersistentList<Pair<TreePath, V>>>(),
-                        {
-                            pm: PersistentMap<Int, PersistentList<Pair<TreePath, V>>>,
-                            p: Pair<TreePath, V> ->
-                            val level: Int = p.first.pathSegments.size
-                            pm.put(level, pm.getOrElse(level) { persistentListOf() }.add(p))
-                        },
-                        PersistentMap<Int, PersistentList<Pair<TreePath, V>>>::putAll
-                    )
-                    .entries
-                    .iterator()
+        return StreamSupport.stream(
+                TreeDepthFirstSearchSpliterator<TreeData<StandardTreeWT, V>>(
+                    TreePath.getRootPath(),
+                    container,
+                    createTreeTraversalFunction()
+                ),
+                false
+            )
+            .flatMap { p: Pair<TreePath, TreeData<StandardTreeWT, V>> ->
+                when (val v: V? = value(p.second).orNull()) {
+                    null -> empty()
+                    else -> Stream.of(p.first to v)
+                }
             }
+            .reduce(
+                persistentMapOf<Int, PersistentList<Pair<TreePath, V>>>(),
+                { pm: PersistentMap<Int, PersistentList<Pair<TreePath, V>>>, p: Pair<TreePath, V> ->
+                    val level: Int = p.first.pathSegments.size
+                    pm.put(level, pm.getOrElse(level) { persistentListOf() }.add(p))
+                },
+                PersistentMap<Int, PersistentList<Pair<TreePath, V>>>::putAll
+            )
             .asSequence()
             .map(Map.Entry<Int, PersistentList<Pair<TreePath, V>>>::toPair)
             .asIterable()
@@ -309,33 +304,7 @@ internal interface StandardTreeBehavior : TreeBehavior<StandardTreeWT> {
         container: TreeData<StandardTreeWT, V>,
         function: (V) -> V1
     ): TreeData<StandardTreeWT, V1> {
-        return when (val td: StandardTreeData<V> = container.narrowed()) {
-            is StandardLeafData -> {
-                StandardTreeData.getRoot<V1>()
-            }
-            else -> {
-                StreamSupport.stream(
-                        TreeBreadthFirstSearchSpliterator(
-                            TreePath.getRootPath(),
-                            td,
-                            createTreeTraversalFunction<V>()
-                        ),
-                        false
-                    )
-                    .flatMap { (tp: TreePath, ctd: TreeData<StandardTreeWT, V>) ->
-                        when (val v: V? = value(ctd).orNull()) {
-                            null -> {
-                                empty()
-                            }
-                            else -> {
-                                Stream.of(tp to function.invoke(v))
-                            }
-                        }
-                    }
-                    .asSequence()
-                    .let { sequence: Sequence<Pair<TreePath, V1>> -> fromSequence(sequence) }
-            }
-        }
+        return bimap(container) { tp: TreePath, v: V -> tp to function.invoke(v) }
     }
 
     override fun <V, V1> bimap(
@@ -343,30 +312,48 @@ internal interface StandardTreeBehavior : TreeBehavior<StandardTreeWT> {
         function: (TreePath, V) -> Pair<TreePath, V1>
     ): TreeData<StandardTreeWT, V1> {
         return when (val td: StandardTreeData<V> = container.narrowed()) {
-            is StandardLeafData -> {
-                StandardTreeData.getRoot<V1>()
+            is StandardEmptyTreeData<V> -> {
+                StandardEmptyTreeData.getInstance<V1>()
             }
-            else -> {
-                StreamSupport.stream(
-                        TreeBreadthFirstSearchSpliterator(
-                            TreePath.getRootPath(),
-                            td,
-                            createTreeTraversalFunction<V>()
-                        ),
-                        false
-                    )
-                    .flatMap { (tp: TreePath, ctd: TreeData<StandardTreeWT, V>) ->
-                        when (val v: V? = value(ctd).orNull()) {
+            is StandardNonEmptyTreeData<V> -> {
+                when (td) {
+                    is StandardLeafData<V> -> {
+                        when (val v: V? = td.value) {
                             null -> {
-                                empty()
+                                StandardLeafData<V1>(null)
                             }
                             else -> {
-                                Stream.of(function.invoke(tp, v))
+                                StandardLeafData<V1>(
+                                    function.invoke(TreePath.getRootPath(), v).second
+                                )
                             }
                         }
                     }
-                    .asSequence()
-                    .let { sequence: Sequence<Pair<TreePath, V1>> -> fromSequence(sequence) }
+                    else -> {
+                        StreamSupport.stream(
+                                TreeBreadthFirstSearchSpliterator(
+                                    TreePath.getRootPath(),
+                                    td,
+                                    createTreeTraversalFunction<V>()
+                                ),
+                                false
+                            )
+                            .flatMap { (tp: TreePath, ctd: TreeData<StandardTreeWT, V>) ->
+                                when (val v: V? = value(ctd).orNull()) {
+                                    null -> {
+                                        empty()
+                                    }
+                                    else -> {
+                                        Stream.of(function.invoke(tp, v))
+                                    }
+                                }
+                            }
+                            .asSequence()
+                            .let { sequence: Sequence<Pair<TreePath, V1>> ->
+                                fromSequence(sequence)
+                            }
+                    }
+                }
             }
         }
     }
@@ -376,32 +363,8 @@ internal interface StandardTreeBehavior : TreeBehavior<StandardTreeWT> {
         pathMapper: (TreePath) -> TreePath,
         valueMapper: (V) -> V1,
     ): TreeData<StandardTreeWT, V1> {
-        return when (val td: StandardTreeData<V> = container.narrowed()) {
-            is StandardLeafData -> {
-                StandardTreeData.getRoot<V1>()
-            }
-            else -> {
-                StreamSupport.stream(
-                        TreeBreadthFirstSearchSpliterator(
-                            TreePath.getRootPath(),
-                            td,
-                            createTreeTraversalFunction<V>()
-                        ),
-                        false
-                    )
-                    .flatMap { (tp: TreePath, ctd: TreeData<StandardTreeWT, V>) ->
-                        when (val v: V? = value(ctd).orNull()) {
-                            null -> {
-                                empty()
-                            }
-                            else -> {
-                                Stream.of(pathMapper.invoke(tp) to valueMapper.invoke(v))
-                            }
-                        }
-                    }
-                    .asSequence()
-                    .let { sequence: Sequence<Pair<TreePath, V1>> -> fromSequence(sequence) }
-            }
+        return bimap(container) { tp: TreePath, v: V ->
+            pathMapper.invoke(tp) to valueMapper.invoke(v)
         }
     }
 
@@ -417,34 +380,52 @@ internal interface StandardTreeBehavior : TreeBehavior<StandardTreeWT> {
         condition: (TreePath, V) -> Boolean
     ): TreeData<StandardTreeWT, V> {
         return when (val td: StandardTreeData<V> = container.narrowed()) {
-            is StandardLeafData -> {
-                StandardTreeData.getRoot<V>()
+            is StandardEmptyTreeData<V> -> {
+                StandardEmptyTreeData.getInstance<V>()
             }
-            else -> {
-                StreamSupport.stream(
-                        TreeBreadthFirstSearchSpliterator(
-                            TreePath.getRootPath(),
-                            td,
-                            createTreeTraversalFunction<V>()
-                        ),
-                        false
-                    )
-                    .flatMap { (tp: TreePath, ctd: TreeData<StandardTreeWT, V>) ->
-                        when (val v: V? = value(ctd).orNull()) {
+            is StandardNonEmptyTreeData<V> -> {
+                when (td) {
+                    is StandardLeafData<V> -> {
+                        when (val v: V? = td.value) {
                             null -> {
-                                empty()
+                                StandardEmptyTreeData.getInstance<V>()
                             }
                             else -> {
-                                if (condition.invoke(tp, v)) {
-                                    Stream.of(tp to v)
+                                if (condition.invoke(TreePath.getRootPath(), v)) {
+                                    td
                                 } else {
-                                    empty()
+                                    StandardEmptyTreeData.getInstance<V>()
                                 }
                             }
                         }
                     }
-                    .asSequence()
-                    .let { sequence: Sequence<Pair<TreePath, V>> -> fromSequence(sequence) }
+                    else -> {
+                        StreamSupport.stream(
+                                TreeBreadthFirstSearchSpliterator(
+                                    TreePath.getRootPath(),
+                                    td,
+                                    createTreeTraversalFunction<V>()
+                                ),
+                                false
+                            )
+                            .flatMap { (tp: TreePath, ctd: TreeData<StandardTreeWT, V>) ->
+                                when (val v: V? = value(ctd).orNull()) {
+                                    null -> {
+                                        empty()
+                                    }
+                                    else -> {
+                                        if (condition.invoke(tp, v)) {
+                                            Stream.of(tp to v)
+                                        } else {
+                                            empty()
+                                        }
+                                    }
+                                }
+                            }
+                            .asSequence()
+                            .let { sequence: Sequence<Pair<TreePath, V>> -> fromSequence(sequence) }
+                    }
+                }
             }
         }
     }
@@ -461,36 +442,64 @@ internal interface StandardTreeBehavior : TreeBehavior<StandardTreeWT> {
         function: (TreePath, V) -> ImmutableTree<V1>,
     ): TreeData<StandardTreeWT, V1> {
         return when (val td: StandardTreeData<V> = container.narrowed()) {
-            is StandardLeafData -> {
-                StandardTreeData.getRoot<V1>()
+            is StandardEmptyTreeData<V> -> {
+                StandardEmptyTreeData.getInstance<V1>()
             }
-            else -> {
-                StreamSupport.stream(
-                        TreeBreadthFirstSearchSpliterator(
-                            TreePath.getRootPath(),
-                            td,
-                            createTreeTraversalFunction<V>()
-                        ),
-                        false
-                    )
-                    .flatMap { (tp: TreePath, ctd: TreeData<StandardTreeWT, V>) ->
-                        when (val v: V? = value(ctd).orNull()) {
+            is StandardNonEmptyTreeData<V> -> {
+                when (td) {
+                    is StandardLeafData<V> -> {
+                        when (val v: V? = td.value) {
                             null -> {
-                                empty()
+                                StandardEmptyTreeData.getInstance<V1>()
                             }
                             else -> {
                                 StreamSupport.stream(
-                                    Spliterators.spliteratorUnknownSize(
-                                        function.invoke(tp, v).breadthFirstIterator(),
-                                        0
-                                    ),
-                                    false
-                                )
+                                        Spliterators.spliteratorUnknownSize(
+                                            function
+                                                .invoke(TreePath.getRootPath(), v)
+                                                .breadthFirstIterator(),
+                                            0
+                                        ),
+                                        false
+                                    )
+                                    .asSequence()
+                                    .let { sequence: Sequence<Pair<TreePath, V1>> ->
+                                        fromSequence(sequence)
+                                    }
                             }
                         }
                     }
-                    .asSequence()
-                    .let { sequence: Sequence<Pair<TreePath, V1>> -> fromSequence(sequence) }
+                    else -> {
+                        StreamSupport.stream(
+                                TreeBreadthFirstSearchSpliterator(
+                                    TreePath.getRootPath(),
+                                    td,
+                                    createTreeTraversalFunction<V>()
+                                ),
+                                false
+                            )
+                            .flatMap { (tp: TreePath, ctd: TreeData<StandardTreeWT, V>) ->
+                                when (val v: V? = value(ctd).orNull()) {
+                                    null -> {
+                                        empty()
+                                    }
+                                    else -> {
+                                        StreamSupport.stream(
+                                            Spliterators.spliteratorUnknownSize(
+                                                function.invoke(tp, v).breadthFirstIterator(),
+                                                0
+                                            ),
+                                            false
+                                        )
+                                    }
+                                }
+                            }
+                            .asSequence()
+                            .let { sequence: Sequence<Pair<TreePath, V1>> ->
+                                fromSequence(sequence)
+                            }
+                    }
+                }
             }
         }
     }
@@ -511,30 +520,58 @@ internal interface StandardTreeBehavior : TreeBehavior<StandardTreeWT> {
         function: (Pair<TreePath, V>, Pair<TreePath, V1>) -> Pair<TreePath, V2>,
     ): TreeData<StandardTreeWT, V2> {
         return when (val td: StandardTreeData<V> = container.narrowed()) {
-            is StandardLeafData -> {
-                StandardTreeData.getRoot<V2>()
+            is StandardEmptyTreeData<V> -> {
+                StandardEmptyTreeData.getInstance<V2>()
             }
-            else -> {
-                Spliterators.iterator(
-                        TreeBreadthFirstSearchSpliterator(
-                            TreePath.getRootPath(),
-                            td,
-                            createTreeTraversalFunction<V>()
-                        )
-                    )
-                    .asSequence()
-                    .zip(other.breadthFirstIterator().asSequence()) { p1, p2 ->
-                        when (val v: V? = value(p1.second).orNull()) {
+            is StandardNonEmptyTreeData<V> -> {
+                when (td) {
+                    is StandardLeafData<V> -> {
+                        when (val v: V? = td.value) {
                             null -> {
-                                emptySequence()
+                                StandardEmptyTreeData.getInstance<V2>()
                             }
                             else -> {
-                                sequenceOf(function.invoke(p1.first to v, p2))
+                                val iter = other.breadthFirstIterator()
+                                if (iter.hasNext()) {
+                                    fromSequence(
+                                        sequenceOf(
+                                            function.invoke(
+                                                TreePath.getRootPath() to v,
+                                                iter.next()
+                                            )
+                                        )
+                                    )
+                                } else {
+                                    StandardEmptyTreeData.getInstance<V2>()
+                                }
                             }
                         }
                     }
-                    .flatMap { s: Sequence<Pair<TreePath, V2>> -> s }
-                    .let { sequence: Sequence<Pair<TreePath, V2>> -> fromSequence(sequence) }
+                    else -> {
+                        Spliterators.iterator(
+                                TreeBreadthFirstSearchSpliterator(
+                                    TreePath.getRootPath(),
+                                    td,
+                                    createTreeTraversalFunction<V>()
+                                )
+                            )
+                            .asSequence()
+                            .zip(other.breadthFirstIterator().asSequence()) { p1, p2 ->
+                                when (val v: V? = value(p1.second).orNull()) {
+                                    null -> {
+                                        emptySequence()
+                                    }
+                                    else -> {
+                                        sequenceOf(function.invoke(p1.first to v, p2))
+                                    }
+                                }
+                            }
+                            .flatMap { s: Sequence<Pair<TreePath, V2>> -> s }
+                            .let { sequence: Sequence<Pair<TreePath, V2>> ->
+                                fromSequence(sequence)
+                            }
+                    }
+                }
             }
         }
     }

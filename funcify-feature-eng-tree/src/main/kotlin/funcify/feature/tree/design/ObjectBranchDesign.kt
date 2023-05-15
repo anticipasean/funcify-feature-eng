@@ -1,8 +1,6 @@
 package funcify.feature.tree.design
 
 import arrow.core.Option
-import funcify.feature.tree.ArrayBranch
-import funcify.feature.tree.Leaf
 import funcify.feature.tree.ObjectBranch
 import funcify.feature.tree.behavior.ObjectBranchBehavior
 import funcify.feature.tree.data.ObjectBranchData
@@ -18,12 +16,8 @@ internal interface ObjectBranchDesign<DWT, V> : PersistentTreeDesign<DWT, V>, Ob
 
     override val data: ObjectBranchData<DWT, V>
 
-    override fun <R> fold(
-        leafHandler: (Leaf<V>) -> R,
-        arrayTreeHandler: (ArrayBranch<V>) -> R,
-        objectTreeHandler: (ObjectBranch<V>) -> R
-    ): R {
-        return objectTreeHandler.invoke(this)
+    override fun set(value: V): ObjectBranch<V> {
+        return objectBranch(this.behavior.set(container = data, value = value))
     }
 
     override fun contains(name: String): Boolean {

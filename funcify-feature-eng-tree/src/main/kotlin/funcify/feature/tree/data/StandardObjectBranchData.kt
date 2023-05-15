@@ -6,8 +6,8 @@ import kotlinx.collections.immutable.PersistentMap
 
 internal data class StandardObjectBranchData<V>(
     val value: V?,
-    val children: PersistentMap<String, StandardTreeData<V>>
-) : StandardTreeData<V>(), ObjectBranchData<StandardTreeWT, V> {
+    val children: PersistentMap<String, StandardNonEmptyTreeData<V>>
+) : StandardNonEmptyTreeData<V>(), ObjectBranchData<StandardTreeWT, V> {
 
     companion object {
 

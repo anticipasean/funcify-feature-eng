@@ -1,15 +1,18 @@
 package funcify.feature.tree.context
 
 import funcify.feature.tree.behavior.ArrayBranchBehavior
+import funcify.feature.tree.behavior.EmptyTreeBehavior
 import funcify.feature.tree.behavior.LeafBehavior
 import funcify.feature.tree.behavior.ObjectBranchBehavior
 import funcify.feature.tree.behavior.TreeBehaviorFactory
 import funcify.feature.tree.data.ArrayBranchData
+import funcify.feature.tree.data.EmptyTreeData
 import funcify.feature.tree.data.LeafData
 import funcify.feature.tree.data.ObjectBranchData
-import funcify.feature.tree.data.StandardTreeData
+import funcify.feature.tree.data.StandardEmptyTreeData
 import funcify.feature.tree.data.StandardTreeData.Companion.StandardTreeWT
 import funcify.feature.tree.design.ArrayBranchDesign
+import funcify.feature.tree.design.EmptyTreeDesign
 import funcify.feature.tree.design.LeafDesign
 import funcify.feature.tree.design.ObjectBranchDesign
 import funcify.feature.tree.design.PersistentTreeDesign
@@ -22,6 +25,13 @@ import funcify.feature.tree.design.PersistentTreeDesign
 internal sealed class StandardTreeContext<V> : PersistentTreeDesign<StandardTreeWT, V> {
 
     companion object {
+
+        internal data class StandardEmptyTreeContext<V>(
+            override val behavior: EmptyTreeBehavior<StandardTreeWT> =
+                TreeBehaviorFactory.getStandardEmptyTreeBehavior(),
+            override val data: EmptyTreeData<StandardTreeWT, V> =
+                StandardEmptyTreeData.getInstance()
+        ) : StandardTreeContext<V>(), EmptyTreeDesign<StandardTreeWT, V>
 
         internal data class StandardObjectBranchContext<V>(
             override val behavior: ObjectBranchBehavior<StandardTreeWT> =
@@ -41,14 +51,19 @@ internal sealed class StandardTreeContext<V> : PersistentTreeDesign<StandardTree
             override val data: LeafData<StandardTreeWT, V>
         ) : StandardTreeContext<V>(), LeafDesign<StandardTreeWT, V> {}
 
-        private val ROOT: StandardLeafContext<Any?> by lazy {
-            StandardLeafContext<Any?>(data = StandardTreeData.getRoot<Any?>())
+        private val EMPTY: StandardEmptyTreeContext<Nothing> by lazy {
+            StandardEmptyTreeContext<Nothing>()
         }
 
-        fun <V> getRoot(): StandardLeafContext<V> {
+        fun <V> empty(): StandardEmptyTreeContext<V> {
             @Suppress("UNCHECKED_CAST") //
-            return ROOT as StandardLeafContext<V>
+            return EMPTY as StandardEmptyTreeContext<V>
         }
+    }
+
+    override fun <V> empty(): EmptyTreeDesign<StandardTreeWT, V> {
+        @Suppress("UNCHECKED_CAST") //
+        return EMPTY as StandardEmptyTreeContext<V>
     }
 
     override fun <V> leaf(data: LeafData<StandardTreeWT, V>): LeafDesign<StandardTreeWT, V> {

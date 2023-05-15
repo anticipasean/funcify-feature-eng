@@ -10,6 +10,8 @@ import funcify.feature.tree.data.ArrayBranchData
  */
 internal interface ArrayBranchBehavior<DWT> : TreeBehavior<DWT> {
 
+    fun <V> set(container: ArrayBranchData<DWT, V>, value: V): ArrayBranchData<DWT, V>
+
     fun <V> contains(container: ArrayBranchData<DWT, V>, index: Int): Boolean
 
     fun <V> get(container: ArrayBranchData<DWT, V>, index: Int): Option<V>

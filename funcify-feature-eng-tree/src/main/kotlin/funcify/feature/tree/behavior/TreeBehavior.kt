@@ -35,13 +35,6 @@ internal interface TreeBehavior<DWT> {
 
     fun <V> breadthFirstIterator(container: TreeData<DWT, V>): Iterator<Pair<TreePath, V>>
 
-    fun <V, R> fold(
-        container: TreeData<DWT, V>,
-        leafHandler: (LeafData<DWT, V>) -> R,
-        arrayTreeHandler: (ArrayBranchData<DWT, V>) -> R,
-        objectTreeHandler: (ObjectBranchData<DWT, V>) -> R
-    ): R
-
     fun <V> descendentsUnder(
         container: TreeData<DWT, V>,
         path: TreePath

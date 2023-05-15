@@ -11,6 +11,8 @@ import funcify.feature.tree.data.ObjectBranchData
  */
 internal interface LeafBehavior<DWT> : TreeBehavior<DWT> {
 
+    fun <V> set(container: LeafData<DWT, V>, value: V): LeafData<DWT, V>
+
     fun <V> put(container: LeafData<DWT, V>, name: String, value: V): ObjectBranchData<DWT, V>
 
     fun <V> append(container: LeafData<DWT, V>, value: V): ArrayBranchData<DWT, V>

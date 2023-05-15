@@ -6,7 +6,9 @@ import arrow.core.toOption
 import funcify.feature.tree.data.ArrayBranchData
 import funcify.feature.tree.data.StandardArrayBranchData
 import funcify.feature.tree.data.StandardArrayBranchData.Companion.narrowed
+import funcify.feature.tree.data.StandardEmptyTreeData
 import funcify.feature.tree.data.StandardLeafData
+import funcify.feature.tree.data.StandardNonEmptyTreeData
 import funcify.feature.tree.data.StandardObjectBranchData
 import funcify.feature.tree.data.StandardTreeData
 import funcify.feature.tree.data.StandardTreeData.Companion.StandardTreeWT
@@ -20,6 +22,13 @@ import funcify.feature.tree.data.StandardTreeData.Companion.narrowed
 internal interface StandardArrayBranchBehavior :
     StandardTreeBehavior, ArrayBranchBehavior<StandardTreeWT> {
 
+    override fun <V> set(
+        container: ArrayBranchData<StandardTreeWT, V>,
+        value: V
+    ): ArrayBranchData<StandardTreeWT, V> {
+        return StandardArrayBranchData<V>(value = value, children = container.narrowed().children)
+    }
+
     override fun <V> contains(container: ArrayBranchData<StandardTreeWT, V>, index: Int): Boolean {
         return index in container.narrowed().children.indices
     }
@@ -31,9 +40,16 @@ internal interface StandardArrayBranchBehavior :
             }
             else -> {
                 when (val st: StandardTreeData<V> = child.narrowed()) {
-                    is StandardLeafData<V> -> st.value.toOption()
-                    is StandardArrayBranchData<V> -> st.value.toOption()
-                    is StandardObjectBranchData<V> -> st.value.toOption()
+                    is StandardNonEmptyTreeData<V> -> {
+                        when (st) {
+                            is StandardLeafData<V> -> st.value.toOption()
+                            is StandardArrayBranchData<V> -> st.value.toOption()
+                            is StandardObjectBranchData<V> -> st.value.toOption()
+                        }
+                    }
+                    is StandardEmptyTreeData<V> -> {
+                        none<V>()
+                    }
                 }
             }
         }

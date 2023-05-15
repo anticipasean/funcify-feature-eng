@@ -21,13 +21,8 @@ internal sealed class StandardTreeData<V> : TreeData<StandardTreeWT, V> {
             return StandardTreeData.narrow(this)
         }
 
-        private val ROOT: StandardLeafData<Any?> by lazy {
-            StandardLeafData<Any?>(value = null)
-        }
-
-        fun <V> getRoot(): StandardLeafData<V> {
-            @Suppress("UNCHECKED_CAST") //
-            return ROOT as StandardLeafData<V>
+        fun <V> getRoot(): StandardEmptyTreeData<V> {
+            return StandardEmptyTreeData.getInstance<V>()
         }
 
     }

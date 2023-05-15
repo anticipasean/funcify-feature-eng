@@ -2,8 +2,6 @@ package funcify.feature.tree.design
 
 import arrow.core.Option
 import funcify.feature.tree.ArrayBranch
-import funcify.feature.tree.Leaf
-import funcify.feature.tree.ObjectBranch
 import funcify.feature.tree.behavior.ArrayBranchBehavior
 import funcify.feature.tree.data.ArrayBranchData
 
@@ -18,12 +16,8 @@ internal interface ArrayBranchDesign<DWT, V> : PersistentTreeDesign<DWT, V>, Arr
 
     override val data: ArrayBranchData<DWT, V>
 
-    override fun <R> fold(
-        leafHandler: (Leaf<V>) -> R,
-        arrayTreeHandler: (ArrayBranch<V>) -> R,
-        objectTreeHandler: (ObjectBranch<V>) -> R
-    ): R {
-        return arrayTreeHandler.invoke(this)
+    override fun set(value: V): ArrayBranch<V> {
+        return arrayBranch(this.behavior.set(container = data, value = value))
     }
 
     override fun contains(index: Int): Boolean {

@@ -55,9 +55,4 @@ interface ImmutableTree<out V> : Iterable<Pair<TreePath, V>> {
         return breadthFirstIterator()
     }
 
-    fun <R> fold(
-        leafHandler: (Leaf<V>) -> R,
-        arrayTreeHandler: (ArrayBranch<V>) -> R,
-        objectTreeHandler: (ObjectBranch<V>) -> R
-    ): R
 }
