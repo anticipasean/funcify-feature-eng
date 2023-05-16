@@ -17,7 +17,7 @@ import org.junit.jupiter.api.Test
  * @author smccarron
  * @created 2023-04-23
  */
-class PersistentTreeTest {
+class PersistentTreeFromSequenceTest {
     companion object {
         val SIMPLE_JSON_EXAMPLE: String =
             """
