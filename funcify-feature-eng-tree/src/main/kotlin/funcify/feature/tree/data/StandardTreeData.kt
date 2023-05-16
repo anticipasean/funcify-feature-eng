@@ -1,7 +1,6 @@
 package funcify.feature.tree.data
 
 import funcify.feature.tree.data.StandardTreeData.Companion.StandardTreeWT
-import funcify.feature.tree.path.NameSegment
 
 /**
  *
@@ -20,11 +19,5 @@ internal sealed class StandardTreeData<V> : TreeData<StandardTreeWT, V> {
         inline fun <V> TreeData<StandardTreeWT, V>.narrowed(): StandardTreeData<V> {
             return StandardTreeData.narrow(this)
         }
-
-        fun <V> getRoot(): StandardEmptyTreeData<V> {
-            return StandardEmptyTreeData.getInstance<V>()
-        }
-
     }
-
 }

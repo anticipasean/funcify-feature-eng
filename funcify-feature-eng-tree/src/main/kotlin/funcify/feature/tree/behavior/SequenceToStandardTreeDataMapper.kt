@@ -4,7 +4,9 @@ import arrow.core.filterIsInstance
 import arrow.core.firstOrNone
 import arrow.core.getOrElse
 import arrow.core.getOrNone
+import arrow.core.lastOrNone
 import funcify.feature.tree.data.StandardArrayBranchData
+import funcify.feature.tree.data.StandardEmptyTreeData
 import funcify.feature.tree.data.StandardLeafData
 import funcify.feature.tree.data.StandardNonEmptyTreeData
 import funcify.feature.tree.data.StandardObjectBranchData
@@ -23,9 +25,7 @@ internal object SequenceToStandardTreeDataMapper {
         sequence: Sequence<Pair<TreePath, V>>
     ): StandardTreeData<V> {
         return sequence
-            .filterNot { p: Pair<TreePath, V> -> p.first.pathSegments.size == 0 }
             .groupBy { p: Pair<TreePath, V> -> p.first.pathSegments.size }
-            .entries
             .asSequence()
             .sortedWith(
                 Comparator.comparing(
@@ -39,7 +39,7 @@ internal object SequenceToStandardTreeDataMapper {
             )
             .let { rootLevelNodes: PersistentMap<TreePath, StandardNonEmptyTreeData<V>> ->
                 rootLevelNodes.getOrNone(TreePath.getRootPath()).getOrElse {
-                    StandardTreeData.getRoot()
+                    StandardEmptyTreeData.getInstance<V>()
                 }
             }
     }
@@ -49,39 +49,55 @@ internal object SequenceToStandardTreeDataMapper {
         valuesByPathAtLevel: Map.Entry<Int, List<Pair<TreePath, V>>>
     ): PersistentMap<TreePath, StandardNonEmptyTreeData<V>> {
         val (level: Int, valuesByPath: List<Pair<TreePath, V>>) = valuesByPathAtLevel
-        return valuesByPath
-            .asSequence()
-            .groupBy { (p: TreePath, _: V) -> p.parent().getOrElse { TreePath.getRootPath() } }
-            .entries
-            .asSequence()
-            .map { (parentPath: TreePath, childrenForParentPath: List<Pair<TreePath, V>>) ->
-                when {
-                    childrenForParentPath
-                        .firstOrNone()
-                        .flatMap { (ctp: TreePath, _: V) ->
-                            ctp.lastSegment().filterIsInstance<IndexSegment>()
+        return when (level) {
+            0 -> {
+                valuesByPath
+                    .lastOrNone()
+                    .map(
+                        createNewLeafOrUpdateObjectOrArrayBranchFromChildrenFromPreviousLevel(
+                            childrenFromPreviousLevel
+                        )
+                    )
+                    .map(::persistentMapOf)
+                    .getOrElse { persistentMapOf() }
+            }
+            else -> {
+                valuesByPath
+                    .asSequence()
+                    .groupBy { (p: TreePath, _: V) ->
+                        p.parent().getOrElse { TreePath.getRootPath() }
+                    }
+                    .asSequence()
+                    .map { (parentPath: TreePath, childrenForParentPath: List<Pair<TreePath, V>>) ->
+                        when {
+                            childrenForParentPath
+                                .firstOrNone()
+                                .flatMap { (ctp: TreePath, _: V) ->
+                                    ctp.lastSegment().filterIsInstance<IndexSegment>()
+                                }
+                                .isDefined() -> {
+                                parentPath to
+                                    createStandardArrayBranchDataForParentsAtLevel(
+                                        parentPath,
+                                        childrenForParentPath,
+                                        childrenFromPreviousLevel
+                                    )
+                            }
+                            else -> {
+                                parentPath to
+                                    createStandardObjectBranchDataForParentsAtLevel(
+                                        parentPath,
+                                        childrenForParentPath,
+                                        childrenFromPreviousLevel
+                                    )
+                            }
                         }
-                        .isDefined() -> {
-                        parentPath to
-                            createStandardArrayBranchDataForParentsAtLevel(
-                                parentPath,
-                                childrenForParentPath,
-                                childrenFromPreviousLevel
-                            )
                     }
-                    else -> {
-                        parentPath to
-                            createStandardObjectBranchDataForParentsAtLevel(
-                                parentPath,
-                                childrenForParentPath,
-                                childrenFromPreviousLevel
-                            )
+                    .fold(persistentMapOf<TreePath, StandardNonEmptyTreeData<V>>()) { pm, pair ->
+                        pm.put(pair.first, pair.second)
                     }
-                }
             }
-            .fold(persistentMapOf<TreePath, StandardNonEmptyTreeData<V>>()) { pm, pair ->
-                pm.put(pair.first, pair.second)
-            }
+        }
     }
 
     private fun <V> createStandardArrayBranchDataForParentsAtLevel(
@@ -100,9 +116,24 @@ internal object SequenceToStandardTreeDataMapper {
                     childrenFromPreviousLevel
                 )
             )
-            .fold(persistentListOf<StandardNonEmptyTreeData<V>>()) { cpl, p -> cpl.add(p.second) }
-            .let { indexedChildren: PersistentList<StandardNonEmptyTreeData<V>> ->
-                StandardArrayBranchData(value = null, children = indexedChildren)
+            .fold(0 to persistentListOf<StandardNonEmptyTreeData<V>>()) {
+                (count: Int, cpl: PersistentList<StandardNonEmptyTreeData<V>>),
+                p: Pair<TreePath, StandardNonEmptyTreeData<V>> ->
+                // TODO: Create top level and sub type builders, populating in folds and building
+                // after head value obtained
+                (count +
+                    when (val td: StandardNonEmptyTreeData<V> = p.second) {
+                        is StandardLeafData<V> -> 1
+                        is StandardArrayBranchData<V> -> 1 + td.subNodeCount
+                        is StandardObjectBranchData<V> -> 1 + td.subNodeCount
+                    }) to cpl.add(p.second)
+            }
+            .let { (subNodeCount: Int, indexed: PersistentList<StandardNonEmptyTreeData<V>>) ->
+                StandardArrayBranchData<V>(
+                    subNodeCount = subNodeCount,
+                    value = null,
+                    children = indexed
+                )
             }
     }
 
@@ -116,20 +147,33 @@ internal object SequenceToStandardTreeDataMapper {
             .filter { (ctp: TreePath, _: V) ->
                 ctp.lastSegment().filterIsInstance<NameSegment>().isDefined()
             }
+            // TODO: Make determination as to whether sorting should be done on object field names
             .sortedBy(Pair<TreePath, V>::first)
             .map(
                 createNewLeafOrUpdateObjectOrArrayBranchFromChildrenFromPreviousLevel(
                     childrenFromPreviousLevel
                 )
             )
-            .fold(persistentMapOf<String, StandardNonEmptyTreeData<V>>()) { cpm, p ->
-                cpm.put(
-                    p.first.lastSegment().filterIsInstance<NameSegment>().orNull()!!.name,
-                    p.second
-                )
+            .fold(0 to persistentMapOf<String, StandardNonEmptyTreeData<V>>()) {
+                (count: Int, cpm: PersistentMap<String, StandardNonEmptyTreeData<V>>),
+                p: Pair<TreePath, StandardNonEmptyTreeData<V>> ->
+                (count +
+                    when (val td: StandardNonEmptyTreeData<V> = p.second) {
+                        is StandardLeafData<V> -> 1
+                        is StandardArrayBranchData<V> -> 1 + td.subNodeCount
+                        is StandardObjectBranchData<V> -> 1 + td.subNodeCount
+                    }) to
+                    cpm.put(
+                        p.first.lastSegment().filterIsInstance<NameSegment>().orNull()!!.name,
+                        p.second
+                    )
             }
-            .let { namedChildren: PersistentMap<String, StandardNonEmptyTreeData<V>> ->
-                StandardObjectBranchData(value = null, children = namedChildren)
+            .let { (subNodeCount: Int, named: PersistentMap<String, StandardNonEmptyTreeData<V>>) ->
+                StandardObjectBranchData<V>(
+                    subNodeCount = subNodeCount,
+                    value = null,
+                    children = named
+                )
             }
     }
 
@@ -141,11 +185,21 @@ internal object SequenceToStandardTreeDataMapper {
                 .getOrNone(ctp)
                 .mapNotNull { cstd: StandardNonEmptyTreeData<V> ->
                     when (cstd) {
-                        is StandardArrayBranchData -> {
-                            ctp to StandardArrayBranchData<V>(cv, cstd.children)
+                        is StandardArrayBranchData<V> -> {
+                            ctp to
+                                StandardArrayBranchData<V>(
+                                    subNodeCount = cstd.subNodeCount,
+                                    value = cv,
+                                    children = cstd.children
+                                )
                         }
-                        is StandardObjectBranchData -> {
-                            ctp to StandardObjectBranchData<V>(cv, cstd.children)
+                        is StandardObjectBranchData<V> -> {
+                            ctp to
+                                StandardObjectBranchData<V>(
+                                    subNodeCount = cstd.subNodeCount,
+                                    value = cv,
+                                    children = cstd.children
+                                )
                         }
                         else -> {
                             null

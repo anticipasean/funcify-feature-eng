@@ -168,6 +168,7 @@ class PersistentTreeFromSequenceTest {
                 .orNull()
                 ?: ""
         )
+        Assertions.assertEquals(11, persistentTree.size()) { "size does not match" }
     }
 
     @Test
@@ -210,5 +211,6 @@ class PersistentTreeFromSequenceTest {
                 .orNull()
                 ?: ""
         )
+        Assertions.assertEquals(62, persistentTree.size()) { "size does not match" }
     }
 }

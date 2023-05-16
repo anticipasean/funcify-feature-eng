@@ -18,6 +18,8 @@ interface ImmutableTree<out V> : Iterable<Pair<TreePath, V>> {
 
     fun descendentsUnder(path: TreePath): Iterable<ImmutableTree<V>>
 
+    fun size(): Int
+
     fun children(): Iterable<ImmutableTree<V>>
 
     fun levels(): Iterable<Pair<Int, Iterable<Pair<TreePath, V>>>>
@@ -54,5 +56,4 @@ interface ImmutableTree<out V> : Iterable<Pair<TreePath, V>> {
     override fun iterator(): Iterator<Pair<TreePath, V>> {
         return breadthFirstIterator()
     }
-
 }

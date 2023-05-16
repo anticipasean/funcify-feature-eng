@@ -103,6 +103,8 @@ interface PersistentTree<out V> : ImmutableTree<V> {
 
     override fun descendentsUnder(path: TreePath): Iterable<PersistentTree<V>>
 
+    override fun size(): Int
+
     override fun children(): Iterable<PersistentTree<V>>
 
     override fun <V1> map(function: (V) -> V1): PersistentTree<V1>

@@ -5,6 +5,7 @@ import funcify.feature.tree.path.PathSegment
 import kotlinx.collections.immutable.PersistentList
 
 internal data class StandardArrayBranchData<V>(
+    val subNodeCount: Int,
     val value: V?,
     val children: PersistentList<StandardNonEmptyTreeData<V>>
 ) : StandardNonEmptyTreeData<V>(), ArrayBranchData<StandardTreeWT, V> {

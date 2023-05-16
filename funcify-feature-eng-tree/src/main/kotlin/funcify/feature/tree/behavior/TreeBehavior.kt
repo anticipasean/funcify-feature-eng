@@ -1,6 +1,7 @@
 package funcify.feature.tree.behavior
 
 import arrow.core.Option
+import com.sun.source.tree.Tree
 import funcify.feature.tree.ImmutableTree
 import funcify.feature.tree.data.ArrayBranchData
 import funcify.feature.tree.data.LeafData
@@ -39,6 +40,8 @@ internal interface TreeBehavior<DWT> {
         container: TreeData<DWT, V>,
         path: TreePath
     ): Iterable<TreeData<DWT, V>>
+
+    fun <V> size(container: TreeData<DWT, V>): Int
 
     fun <V> children(container: TreeData<DWT, V>): Iterable<TreeData<DWT, V>>
 

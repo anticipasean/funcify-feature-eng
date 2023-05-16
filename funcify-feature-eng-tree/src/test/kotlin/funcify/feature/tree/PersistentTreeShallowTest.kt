@@ -27,5 +27,7 @@ class PersistentTreeShallowTest {
         Assertions.assertEquals(TreePath.getRootPath() to "Bob", bobLeafIterator.next()) {
             "bobLeafIterator yielded unexpected pair value"
         }
+        Assertions.assertEquals(0, emptyTree.size()) { "size should be zero" }
+        Assertions.assertEquals(1, bobLeaf.size()) { "size should be 1" }
     }
 }

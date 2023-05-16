@@ -31,6 +31,7 @@ internal interface StandardLeafBehavior : StandardTreeBehavior, LeafBehavior<Sta
         value: V
     ): ObjectBranchData<StandardTreeWT, V> {
         return StandardObjectBranchData<V>(
+            subNodeCount = 1,
             value = container.narrowed().value,
             children = persistentMapOf(name to StandardLeafData(value = value))
         )
@@ -41,6 +42,7 @@ internal interface StandardLeafBehavior : StandardTreeBehavior, LeafBehavior<Sta
         value: V
     ): ArrayBranchData<StandardTreeWT, V> {
         return StandardArrayBranchData<V>(
+            subNodeCount = 1,
             value = container.narrowed().value,
             children = persistentListOf(StandardLeafData<V>(value = value))
         )
@@ -51,6 +53,7 @@ internal interface StandardLeafBehavior : StandardTreeBehavior, LeafBehavior<Sta
         value: V
     ): ArrayBranchData<StandardTreeWT, V> {
         return StandardArrayBranchData<V>(
+            subNodeCount = 1,
             value = container.narrowed().value,
             children = persistentListOf(StandardLeafData<V>(value = value))
         )

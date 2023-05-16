@@ -26,7 +26,11 @@ internal interface StandardObjectBranchBehavior :
         container: ObjectBranchData<StandardTreeWT, V>,
         value: V
     ): ObjectBranchData<StandardTreeWT, V> {
-        return StandardObjectBranchData<V>(value = value, children = container.narrowed().children)
+        return StandardObjectBranchData<V>(
+            subNodeCount = container.narrowed().subNodeCount,
+            value = value,
+            children = container.narrowed().children
+        )
     }
 
     override fun <V> contains(
@@ -63,9 +67,11 @@ internal interface StandardObjectBranchBehavior :
         name: String,
         value: V
     ): ObjectBranchData<StandardTreeWT, V> {
+        val std: StandardObjectBranchData<V> = container.narrowed()
         return StandardObjectBranchData<V>(
-            value = container.narrowed().value,
-            children = container.narrowed().children.put(name, StandardLeafData<V>(value = value))
+            subNodeCount = std.subNodeCount + 1,
+            value = std.value,
+            children = std.children.put(name, StandardLeafData<V>(value = value))
         )
     }
 
@@ -73,9 +79,18 @@ internal interface StandardObjectBranchBehavior :
         container: ObjectBranchData<StandardTreeWT, V>,
         name: String
     ): ObjectBranchData<StandardTreeWT, V> {
-        return StandardObjectBranchData<V>(
-            value = container.narrowed().value,
-            children = container.narrowed().children.remove(name)
-        )
+        return when (name) {
+            in container.narrowed().children -> {
+                val std: StandardObjectBranchData<V> = container.narrowed()
+                StandardObjectBranchData<V>(
+                    subNodeCount = std.subNodeCount - size(std.children[name]!!),
+                    value = std.value,
+                    children = std.children.remove(name)
+                )
+            }
+            else -> {
+                container
+            }
+        }
     }
 }

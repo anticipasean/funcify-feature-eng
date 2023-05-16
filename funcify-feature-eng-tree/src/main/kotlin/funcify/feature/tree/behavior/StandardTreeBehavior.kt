@@ -220,6 +220,27 @@ internal interface StandardTreeBehavior : TreeBehavior<StandardTreeWT> {
             .iterator()
     }
 
+    override fun <V> size(container: TreeData<StandardTreeWT, V>): Int {
+        return when (val td: StandardTreeData<V> = container.narrowed()) {
+            is StandardEmptyTreeData<V> -> {
+                0
+            }
+            is StandardNonEmptyTreeData<V> -> {
+                when (td) {
+                    is StandardLeafData<V> -> {
+                        1
+                    }
+                    is StandardArrayBranchData<V> -> {
+                        1 + td.subNodeCount
+                    }
+                    is StandardObjectBranchData<V> -> {
+                        1 + td.subNodeCount
+                    }
+                }
+            }
+        }
+    }
+
     override fun <V> descendentsUnder(
         container: TreeData<StandardTreeWT, V>,
         path: TreePath

@@ -105,6 +105,10 @@ internal interface PersistentTreeDesign<DWT, V> : PersistentTree<V> {
             .asIterable()
     }
 
+    override fun size(): Int {
+        return this.behavior.size(container = data)
+    }
+
     override fun children(): Iterable<PersistentTree<V>> {
         return this.behavior
             .children(container = this.data)

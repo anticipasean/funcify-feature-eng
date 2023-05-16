@@ -26,7 +26,11 @@ internal interface StandardArrayBranchBehavior :
         container: ArrayBranchData<StandardTreeWT, V>,
         value: V
     ): ArrayBranchData<StandardTreeWT, V> {
-        return StandardArrayBranchData<V>(value = value, children = container.narrowed().children)
+        return StandardArrayBranchData<V>(
+            subNodeCount = container.narrowed().subNodeCount,
+            value = value,
+            children = container.narrowed().children
+        )
     }
 
     override fun <V> contains(container: ArrayBranchData<StandardTreeWT, V>, index: Int): Boolean {
@@ -40,15 +44,15 @@ internal interface StandardArrayBranchBehavior :
             }
             else -> {
                 when (val st: StandardTreeData<V> = child.narrowed()) {
+                    is StandardEmptyTreeData<V> -> {
+                        none<V>()
+                    }
                     is StandardNonEmptyTreeData<V> -> {
                         when (st) {
                             is StandardLeafData<V> -> st.value.toOption()
                             is StandardArrayBranchData<V> -> st.value.toOption()
                             is StandardObjectBranchData<V> -> st.value.toOption()
                         }
-                    }
-                    is StandardEmptyTreeData<V> -> {
-                        none<V>()
                     }
                 }
             }
@@ -59,9 +63,11 @@ internal interface StandardArrayBranchBehavior :
         container: ArrayBranchData<StandardTreeWT, V>,
         value: V
     ): ArrayBranchData<StandardTreeWT, V> {
+        val std: StandardArrayBranchData<V> = container.narrowed()
         return StandardArrayBranchData<V>(
-            value = container.narrowed().value,
-            children = container.narrowed().children.add(0, StandardLeafData<V>(value = value))
+            subNodeCount = std.subNodeCount + 1,
+            value = std.value,
+            children = std.children.add(0, StandardLeafData<V>(value = value))
         )
     }
 
@@ -69,9 +75,11 @@ internal interface StandardArrayBranchBehavior :
         container: ArrayBranchData<StandardTreeWT, V>,
         value: V
     ): ArrayBranchData<StandardTreeWT, V> {
+        val std: StandardArrayBranchData<V> = container.narrowed()
         return StandardArrayBranchData<V>(
-            value = container.narrowed().value,
-            children = container.narrowed().children.add(StandardLeafData<V>(value = value))
+            subNodeCount = std.subNodeCount + 1,
+            value = std.value,
+            children = std.children.add(StandardLeafData<V>(value = value))
         )
     }
 
@@ -79,17 +87,18 @@ internal interface StandardArrayBranchBehavior :
         container: ArrayBranchData<StandardTreeWT, V>,
         index: Int
     ): ArrayBranchData<StandardTreeWT, V> {
-        return StandardArrayBranchData<V>(
-            value = container.narrowed().value,
-            children =
-                when {
-                    index in container.narrowed().children.indices -> {
-                        container.narrowed().children.removeAt(index)
-                    }
-                    else -> {
-                        container.narrowed().children
-                    }
-                }
-        )
+        return when (index) {
+            in container.narrowed().children.indices -> {
+                val std: StandardArrayBranchData<V> = container.narrowed()
+                StandardArrayBranchData<V>(
+                    subNodeCount = std.subNodeCount - size(std.children[index]),
+                    value = std.value,
+                    children = std.children.removeAt(index)
+                )
+            }
+            else -> {
+                container
+            }
+        }
     }
 }
