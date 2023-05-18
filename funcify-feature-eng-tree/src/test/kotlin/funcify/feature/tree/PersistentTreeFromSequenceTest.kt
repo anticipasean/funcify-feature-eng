@@ -136,7 +136,7 @@ class PersistentTreeFromSequenceTest {
             Assertions.assertDoesNotThrow<JsonNode> { ObjectMapper().readTree(SIMPLE_JSON_EXAMPLE) }
         val persistentTree: PersistentTree<JsonNode> =
             Assertions.assertDoesNotThrow<PersistentTree<JsonNode>> {
-                PersistentTree.fromSequenceFunctionOnValue(jsonNode) { jn: JsonNode ->
+                PersistentTree.fromSequenceTraversal(jsonNode) { jn: JsonNode ->
                     when (jn) {
                         is ArrayNode -> {
                             jn.asSequence().map { j -> j.left() }
@@ -179,7 +179,7 @@ class PersistentTreeFromSequenceTest {
             }
         val persistentTree: PersistentTree<JsonNode> =
             Assertions.assertDoesNotThrow<PersistentTree<JsonNode>> {
-                PersistentTree.fromSequenceFunctionOnValue(jsonNode) { jn: JsonNode ->
+                PersistentTree.fromSequenceTraversal(jsonNode) { jn: JsonNode ->
                     when (jn) {
                         is ArrayNode -> {
                             jn.asSequence().map { j -> j.left() }

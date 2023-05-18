@@ -37,7 +37,7 @@ interface PersistentTree<out V> : ImmutableTree<V> {
         /**
          * ## Example:
          * ```
-         *  PersistentTree.fromSequenceFunctionOnValue<JsonNode>(rootNode) { jn: JsonNode ->
+         *  PersistentTree.fromSequenceTraversal<JsonNode>(rootNode) { jn: JsonNode ->
          *    when (jn) {
          *        is ArrayNode -> {
          *            // Associate these json_nodes with indices => IndexSegment
@@ -55,8 +55,8 @@ interface PersistentTree<out V> : ImmutableTree<V> {
          *  }
          * ```
          */
-        fun <V> fromSequenceFunctionOnValue(
-            startValue: V,
+        fun <V> fromSequenceTraversal(
+            rootValue: V,
             function: (V) -> Sequence<Either<V, Pair<String, V>>>
         ): PersistentTree<V> {
             val valueToStream: (V) -> Stream<Pair<PathSegment, V>> = { v: V ->
@@ -81,7 +81,7 @@ interface PersistentTree<out V> : ImmutableTree<V> {
                 StreamSupport.stream(
                     TreeBreadthFirstSearchSpliterator<V>(
                         TreePath.getRootPath(),
-                        startValue,
+                        rootValue,
                         valueToStream
                     ),
                     false
@@ -89,13 +89,11 @@ interface PersistentTree<out V> : ImmutableTree<V> {
             )
         }
 
-        fun <V> fromStreamFunctionOnValue(
-            startValue: V,
-            function: (V) -> Stream<Either<V, Pair<String, V>>>
+        fun <V> fromStreamTraversal(
+            rootValue: V,
+            function: (V) -> Stream<out Either<V, Pair<String, V>>>
         ): PersistentTree<V> {
-            return fromSequenceFunctionOnValue(startValue) { v: V ->
-                function.invoke(v).asSequence()
-            }
+            return fromSequenceTraversal(rootValue) { v: V -> function.invoke(v).asSequence() }
         }
     }
 
