@@ -20,6 +20,12 @@ allprojects {
     repositories {
         mavenCentral()
     }
+
+    tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile) { t ->
+        kotlinOptions {
+            jvmTarget = "17"
+        }
+    }
 }
 
 ext.sharedGraphQLDefinitionKotlinProjects = subprojects.findAll { Project p ->
@@ -161,6 +167,7 @@ configure(mainKotlinSubProjects) {
         }
         reactor {
             dependencies {
+                implementation("org.reactivestreams:reactive-streams:${reactiveStreamsVersion}")
                 implementation("io.projectreactor:reactor-core:${reactorCoreVersion}")
                 implementation("io.projectreactor.addons:reactor-extra:${reactorExtraVersion}")
                 implementation("io.projectreactor.kotlin:reactor-kotlin-extensions:${reactorKotlinExtensionsVersion}")
