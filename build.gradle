@@ -34,8 +34,19 @@ ext.sharedGraphQLDefinitionKotlinProjects = subprojects.findAll { Project p ->
 ext.sharedToolsKotlinProjects = subprojects.findAll { Project p ->
     p.name.endsWith("-graph") || p.name.endsWith("-tree")
 }
+ext.apacheBeamSubProjects = subprojects.findAll { Project p ->
+    p.name.endsWith("-beam")
+}
+ext.dataflowSubProjects = subprojects.findAll { Project p ->
+    p.name.endsWith("-dataflow")
+}
 ext.mainKotlinSubProjects = subprojects.findAll { Project p ->
-    !(ext.sharedGraphQLDefinitionKotlinProjects.contains(p) || ext.sharedToolsKotlinProjects.contains(p))
+    [ext.sharedGraphQLDefinitionKotlinProjects,
+     ext.sharedToolsKotlinProjects,
+     ext.apacheBeamSubProjects,
+     ext.dataflowSubProjects].stream().noneMatch { Set<Project> s ->
+        s.contains(p)
+    }
 }
 
 configure(sharedGraphQLDefinitionKotlinProjects) {
@@ -117,6 +128,106 @@ configure(sharedToolsKotlinProjects) {
     }
 }
 
+configure(apacheBeamSubProjects) {
+    apply plugin: 'idea'
+    apply plugin: 'org.jetbrains.kotlin.jvm'
+    apply plugin: 'org.jetbrains.kotlin.plugin.spring'
+    sourceCompatibility = sourceCompatibility
+    targetCompatibility = targetCompatibility
+    configurations {
+        kotlinDeps {
+            dependencies {
+                implementation("org.jetbrains.kotlin:kotlin-stdlib:${kotlinVersion}")
+                implementation("org.jetbrains.kotlin:kotlin-reflect:${kotlinVersion}")
+                implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8:${kotlinVersion}")
+                implementation("org.jetbrains.kotlin:kotlin-noarg:${kotlinVersion}")
+                implementation("org.jetbrains.kotlinx:kotlinx-collections-immutable-jvm:${kotlinxImmutableCollectionsVersion}")
+            }
+        }
+        arrow {
+            dependencies {
+                implementation("io.arrow-kt:arrow-core:${arrowStackVersion}")
+            }
+        }
+        junit {
+            dependencies {
+                testImplementation(platform("org.junit:junit-bom:${jUnitJupiterVersion}"))
+                testImplementation("org.junit.jupiter:junit-jupiter")
+            }
+        }
+        jackson {
+            dependencies {
+                implementation("com.fasterxml.jackson.core:jackson-annotations:${jacksonVersion}")
+                implementation("com.fasterxml.jackson.core:jackson-core:${jacksonVersion}")
+                implementation("com.fasterxml.jackson.core:jackson-databind:${jacksonVersion}")
+                implementation("com.fasterxml.jackson.datatype:jackson-datatype-jdk8:${jacksonVersion}")
+                implementation("com.fasterxml.jackson.datatype:jackson-datatype-jsr310:${jacksonVersion}")
+                implementation("com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:${jacksonVersion}")
+                implementation("com.fasterxml.jackson.module:jackson-module-kotlin:${jacksonVersion}")
+                implementation("com.fasterxml.jackson.module:jackson-module-parameter-names:${jacksonVersion}")
+                implementation("com.fasterxml.jackson.module:jackson-module-jsonSchema:${jacksonVersion}")
+            }
+        }
+        beam {
+            dependencies {
+                implementation("org.apache.beam:beam-runners-direct-java:${apacheBeamVersion}")
+                implementation("org.apache.beam:beam-sdks-java-extensions-json-jackson:${apacheBeamVersion}")
+            }
+        }
+    }
+
+    test {
+        useJUnitPlatform()
+    }
+}
+
+configure(dataflowSubProjects) {
+    apply plugin: 'idea'
+    apply plugin: 'org.jetbrains.kotlin.jvm'
+    apply plugin: 'org.jetbrains.kotlin.plugin.spring'
+    sourceCompatibility = sourceCompatibility
+    targetCompatibility = targetCompatibility
+    configurations {
+        kotlinDeps {
+            dependencies {
+                implementation("org.jetbrains.kotlin:kotlin-stdlib:${kotlinVersion}")
+                implementation("org.jetbrains.kotlin:kotlin-reflect:${kotlinVersion}")
+                implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8:${kotlinVersion}")
+                implementation("org.jetbrains.kotlin:kotlin-noarg:${kotlinVersion}")
+                implementation("org.jetbrains.kotlinx:kotlinx-collections-immutable-jvm:${kotlinxImmutableCollectionsVersion}")
+            }
+        }
+        arrow {
+            dependencies {
+                implementation("io.arrow-kt:arrow-core:${arrowStackVersion}")
+            }
+        }
+        junit {
+            dependencies {
+                testImplementation(platform("org.junit:junit-bom:${jUnitJupiterVersion}"))
+                testImplementation("org.junit.jupiter:junit-jupiter")
+            }
+        }
+        jackson {
+            dependencies {
+                implementation("com.fasterxml.jackson.core:jackson-annotations:${jacksonVersion}")
+                implementation("com.fasterxml.jackson.core:jackson-core:${jacksonVersion}")
+                implementation("com.fasterxml.jackson.core:jackson-databind:${jacksonVersion}")
+                implementation("com.fasterxml.jackson.datatype:jackson-datatype-jdk8:${jacksonVersion}")
+                implementation("com.fasterxml.jackson.datatype:jackson-datatype-jsr310:${jacksonVersion}")
+                implementation("com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:${jacksonVersion}")
+                implementation("com.fasterxml.jackson.module:jackson-module-kotlin:${jacksonVersion}")
+                implementation("com.fasterxml.jackson.module:jackson-module-parameter-names:${jacksonVersion}")
+                implementation("com.fasterxml.jackson.module:jackson-module-jsonSchema:${jacksonVersion}")
+            }
+        }
+    }
+
+    test {
+        useJUnitPlatform()
+    }
+}
+
 configure(mainKotlinSubProjects) {
     apply plugin: 'idea'
     apply plugin: 'org.jetbrains.kotlin.jvm'
@@ -131,7 +242,7 @@ configure(mainKotlinSubProjects) {
                 implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8:${kotlinVersion}")
                 implementation("org.jetbrains.kotlin:kotlin-noarg:${kotlinVersion}")
                 implementation("org.jetbrains.kotlinx:kotlinx-collections-immutable-jvm:${kotlinxImmutableCollectionsVersion}")
-                implementation("org.jetbrains.kotlinx:dataframe:${kotlinxDataframeVersion}")
+                //implementation("org.jetbrains.kotlinx:dataframe:${kotlinxDataframeVersion}")
             }
         }
         jackson {
