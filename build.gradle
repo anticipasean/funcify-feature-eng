@@ -21,9 +21,9 @@ allprojects {
         mavenCentral()
     }
 
-    tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile) { t ->
+    tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile) {
         kotlinOptions {
-            jvmTarget = "17"
+            jvmTarget = project.java.targetCompatibility
         }
     }
 }
@@ -144,6 +144,16 @@ configure(apacheBeamSubProjects) {
                 implementation("org.jetbrains.kotlinx:kotlinx-collections-immutable-jvm:${kotlinxImmutableCollectionsVersion}")
             }
         }
+        graphql {
+            dependencies {
+                implementation("com.graphql-java:graphql-java:${graphQLJavaVersion}")
+                implementation("com.graphql-java:graphql-java-extended-scalars:${graphQLJavaExtScalarsVersion}")
+                /**
+                 * graphql-java has guava dependency
+                 */
+                implementation("com.google.guava:guava:${guavaVersion}")
+            }
+        }
         arrow {
             dependencies {
                 implementation("io.arrow-kt:arrow-core:${arrowStackVersion}")
@@ -153,6 +163,15 @@ configure(apacheBeamSubProjects) {
             dependencies {
                 testImplementation(platform("org.junit:junit-bom:${jUnitJupiterVersion}"))
                 testImplementation("org.junit.jupiter:junit-jupiter")
+            }
+        }
+        reactor {
+            dependencies {
+                implementation("org.reactivestreams:reactive-streams:${reactiveStreamsVersion}")
+                implementation("io.projectreactor:reactor-core:${reactorCoreVersion}")
+                implementation("io.projectreactor.addons:reactor-extra:${reactorExtraVersion}")
+                implementation("io.projectreactor.kotlin:reactor-kotlin-extensions:${reactorKotlinExtensionsVersion}")
+                testImplementation("io.projectreactor:reactor-test:${reactorCoreVersion}")
             }
         }
         jackson {
@@ -197,9 +216,28 @@ configure(dataflowSubProjects) {
                 implementation("org.jetbrains.kotlinx:kotlinx-collections-immutable-jvm:${kotlinxImmutableCollectionsVersion}")
             }
         }
+        graphql {
+            dependencies {
+                implementation("com.graphql-java:graphql-java:${graphQLJavaVersion}")
+                implementation("com.graphql-java:graphql-java-extended-scalars:${graphQLJavaExtScalarsVersion}")
+                /**
+                 * graphql-java has guava dependency
+                 */
+                implementation("com.google.guava:guava:${guavaVersion}")
+            }
+        }
         arrow {
             dependencies {
                 implementation("io.arrow-kt:arrow-core:${arrowStackVersion}")
+            }
+        }
+        reactor {
+            dependencies {
+                implementation("org.reactivestreams:reactive-streams:${reactiveStreamsVersion}")
+                implementation("io.projectreactor:reactor-core:${reactorCoreVersion}")
+                implementation("io.projectreactor.addons:reactor-extra:${reactorExtraVersion}")
+                implementation("io.projectreactor.kotlin:reactor-kotlin-extensions:${reactorKotlinExtensionsVersion}")
+                testImplementation("io.projectreactor:reactor-test:${reactorCoreVersion}")
             }
         }
         junit {

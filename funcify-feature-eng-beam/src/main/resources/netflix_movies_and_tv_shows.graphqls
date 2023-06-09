@@ -1,0 +1,54 @@
+scalar Date
+
+directive @alias(name: String! = "") on INPUT_FIELD_DEFINITION | FIELD_DEFINITION
+
+schema {
+    query: Query
+}
+
+type Query {
+    show(showId: ID): Show
+}
+
+interface Show {
+    showId: ID!
+    title: String!
+    releaseYear: Int!
+    director: Director
+    cast: [Actor!]!
+    audienceSuitabilityRating: String! @alias(name: "rating")
+    productionCountry: String! @alias(name: "country")
+    dateAdded: Date!
+}
+
+type Movie implements Show {
+    showId: ID!
+    title: String!
+    releaseYear: Int!
+    director: Director
+    cast: [Actor!]!
+    audienceSuitabilityRating: String!
+    productionCountry: String!
+    dateAdded: Date!
+    duration: Int
+}
+
+type TVShow implements Show {
+    showId: ID!
+    title: String!
+    releaseYear: Int!
+    director: Director
+    cast: [Actor!]!
+    audienceSuitabilityRating: String!
+    productionCountry: String!
+    dateAdded: Date!
+    numberOfSeasons: Int
+}
+
+type Director {
+    name: String!
+}
+
+type Actor {
+    name: String!
+}
