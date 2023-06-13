@@ -191,6 +191,7 @@ configure(apacheBeamSubProjects) {
             dependencies {
                 implementation("org.apache.beam:beam-runners-direct-java:${apacheBeamVersion}")
                 implementation("org.apache.beam:beam-sdks-java-extensions-json-jackson:${apacheBeamVersion}")
+                implementation("org.apache.commons:commons-csv:1.10.0")
             }
         }
     }

@@ -1,5 +1,7 @@
 dependencies {
-
+    implementation(project(':funcify-feature-eng-tools'))
+    implementation(project(':funcify-feature-eng-tree'))
     implementation(project(":funcify-feature-eng-shared-definitions"))
+    implementation(project(":funcify-feature-eng-fntree"))
 
 }

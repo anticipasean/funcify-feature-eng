@@ -1,11 +1,10 @@
-package funcify.feature.fntree
+package funcify.feature.schema
 
 import arrow.core.filterIsInstance
 import arrow.core.toOption
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.treeToValue
-import funcify.feature.json.JsonObjectMappingConfiguration
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.PersistentListExtensions.reduceToPersistentList
 import funcify.feature.tools.extensions.StreamExtensions.flatMapOptions
@@ -16,7 +15,6 @@ import graphql.introspection.IntrospectionQueryBuilder
 import graphql.introspection.IntrospectionResultToSchema
 import graphql.language.Definition
 import graphql.language.Document
-import graphql.language.FieldDefinition
 import graphql.language.SDLDefinition
 import graphql.schema.GraphQLSchema
 import graphql.schema.idl.RuntimeWiring
@@ -90,7 +88,7 @@ class GraphQLDerivedInputSchemaTest {
 
     @Test
     fun createGraphQLSchemaTest() {
-        val objectMapper: ObjectMapper = JsonObjectMappingConfiguration.objectMapper()
+        val objectMapper: ObjectMapper = ObjectMapper()
         val schemaJsonNode: JsonNode =
             Assertions.assertDoesNotThrow<JsonNode> {
                 mimicIntrospectionQueryAgainstGraphQLAPIServerOnParsedSchema(objectMapper)
@@ -100,12 +98,12 @@ class GraphQLDerivedInputSchemaTest {
             Assertions.assertDoesNotThrow<GraphQLSchema> {
                 convertJsonNodeIntoGraphQLSchemaInstance(schemaJsonNode, objectMapper).orElseThrow()
             }
-        //println(
+        // println(
         //    graphQLSchema.getObjectType("Mutation").definition?.fieldDefinitions?.firstOrNull {
         //        fd: FieldDefinition ->
         //        fd.name == "addArtwork"
         //    }
-        //)
+        // )
     }
 
     private fun mimicIntrospectionQueryAgainstGraphQLAPIServerOnParsedSchema(
