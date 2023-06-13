@@ -35,7 +35,7 @@ ext.sharedToolsKotlinProjects = subprojects.findAll { Project p ->
     p.name.endsWith("-graph") || p.name.endsWith("-tree")
 }
 ext.apacheBeamSubProjects = subprojects.findAll { Project p ->
-    p.name.endsWith("-beam")
+    p.name.endsWith("-fntree") || p.name.endsWith("-beam")
 }
 ext.dataflowSubProjects = subprojects.findAll { Project p ->
     p.name.endsWith("-dataflow")
@@ -185,6 +185,16 @@ configure(apacheBeamSubProjects) {
                 implementation("com.fasterxml.jackson.module:jackson-module-kotlin:${jacksonVersion}")
                 implementation("com.fasterxml.jackson.module:jackson-module-parameter-names:${jacksonVersion}")
                 implementation("com.fasterxml.jackson.module:jackson-module-jsonSchema:${jacksonVersion}")
+            }
+        }
+        jacksonjq {
+            dependencies {
+                implementation("net.thisptr:jackson-jq:${jacksonJqVersion}")
+            }
+        }
+        jayway {
+            dependencies {
+                implementation("com.jayway.jsonpath:json-path:${jaywayVersion}")
             }
         }
         beam {
