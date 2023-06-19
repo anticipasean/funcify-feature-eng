@@ -3,6 +3,7 @@ plugins {
     id 'org.jetbrains.kotlin.jvm' version "${kotlinVersion}"
     id 'org.jetbrains.kotlin.plugin.spring' version "${kotlinVersion}" apply false
     id "org.springframework.boot" version "${springBootPluginVersion}"
+    //id 'org.apache.beam.module' apply false
 }
 
 jar {
@@ -135,6 +136,16 @@ configure(apacheBeamSubProjects) {
     sourceCompatibility = sourceCompatibility
     targetCompatibility = targetCompatibility
     configurations {
+        all { Configuration c ->
+            c.resolutionStrategy { ResolutionStrategy r ->
+                r.eachDependency { DependencyResolveDetails d ->
+                    if (d.requested.group == 'org.xerial.snappy' && d.requested.name == 'snappy-java') {
+                        // versions [1.1.8.3, 1.1.8.4] have support for Mac.aarch64 but lack ZappyOutputStream implementations
+                        d.useVersion("1.1.8.2")
+                    }
+                }
+            }
+        }
         kotlinDeps {
             dependencies {
                 implementation("org.jetbrains.kotlin:kotlin-stdlib:${kotlinVersion}")
