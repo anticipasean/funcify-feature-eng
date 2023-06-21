@@ -89,6 +89,21 @@ configure(sharedToolsKotlinProjects) {
     sourceCompatibility = sourceCompatibility
     targetCompatibility = targetCompatibility
     configurations {
+        all {
+            resolutionStrategy { org.gradle.api.artifacts.ResolutionStrategy r ->
+                r.eachDependency { org.gradle.api.artifacts.DependencyResolveDetails d ->
+                    if (d.requested.group == 'org.reactivestreams') {
+                        d.useVersion(reactiveStreamsVersion)
+                    }
+                    if (d.requested.group == 'org.junit.jupiter') {
+                        d.useVersion(jUnitJupiterVersion)
+                    }
+                    if (d.requested.group.startsWith('com.fasterxml.jackson.')) {
+                        d.useVersion(jacksonVersion)
+                    }
+                }
+            }
+        }
         kotlinDeps {
             dependencies {
                 implementation("org.jetbrains.kotlin:kotlin-stdlib:${kotlinVersion}")
@@ -142,6 +157,9 @@ configure(apacheBeamSubProjects) {
                     if (d.requested.group == 'org.xerial.snappy' && d.requested.name == 'snappy-java') {
                         // versions [1.1.8.3, 1.1.8.4] have support for Mac.aarch64 but lack ZappyOutputStream implementations
                         d.useVersion("1.1.8.2")
+                    }
+                    if (d.requested.group.startsWith('com.fasterxml.jackson.')) {
+                        d.useVersion(jacksonVersion)
                     }
                 }
             }
@@ -229,6 +247,33 @@ configure(dataflowSubProjects) {
     sourceCompatibility = sourceCompatibility
     targetCompatibility = targetCompatibility
     configurations {
+        all {
+            resolutionStrategy { org.gradle.api.artifacts.ResolutionStrategy r ->
+                r.eachDependency { org.gradle.api.artifacts.DependencyResolveDetails d ->
+                    // gcp pubsub 4.5.0 uses spring-boot 3.0.6 => Update spring-boot version
+                    if (d.requested.group == 'org.springframework.boot') {
+                        d.useVersion(springBootPluginVersion)
+                    }
+                    // gcp stream-binder 4.5.0 uses spring-framework 6.0.9 => Update springframework version
+                    if (d.requested.group == 'org.springframework') {
+                        d.useVersion(springFrameworkVersion)
+                    }
+                    if (d.requested.group == 'org.reactivestreams') {
+                        d.useVersion(reactiveStreamsVersion)
+                    }
+                    if (d.requested.group == 'org.junit.jupiter') {
+                        d.useVersion(jUnitJupiterVersion)
+                    }
+                    // spring-cloud-stream 4.0.3 uses kotlin 1.7.22 in kotlinx-coroutines-core-jvm dependency
+                    if (d.requested.group == 'org.jetbrains.kotlin') {
+                        d.useVersion(kotlinVersion)
+                    }
+                    if (d.requested.group.startsWith('com.fasterxml.jackson.')) {
+                        d.useVersion(jacksonVersion)
+                    }
+                }
+            }
+        }
         kotlinDeps {
             dependencies {
                 implementation("org.jetbrains.kotlin:kotlin-stdlib:${kotlinVersion}")
@@ -265,7 +310,7 @@ configure(dataflowSubProjects) {
         junit {
             dependencies {
                 testImplementation(platform("org.junit:junit-bom:${jUnitJupiterVersion}"))
-                testImplementation("org.junit.jupiter:junit-jupiter")
+                testImplementation("org.junit.jupiter:junit-jupiter:${jUnitJupiterVersion}")
             }
         }
         jackson {
@@ -279,6 +324,20 @@ configure(dataflowSubProjects) {
                 implementation("com.fasterxml.jackson.module:jackson-module-kotlin:${jacksonVersion}")
                 implementation("com.fasterxml.jackson.module:jackson-module-parameter-names:${jacksonVersion}")
                 implementation("com.fasterxml.jackson.module:jackson-module-jsonSchema:${jacksonVersion}")
+            }
+        }
+        gcloud {
+            dependencies {
+                implementation("com.google.cloud:spring-cloud-gcp-starter-pubsub:${gcpSpringVersion}")
+                implementation("com.google.cloud:spring-cloud-gcp-pubsub-stream-binder:${gcpSpringVersion}")
+                implementation("io.cloudevents:cloudevents-spring:${cloudEventsVersion}")
+            }
+        }
+        spring {
+            dependencies {
+                //implementation("org.springframework.boot:spring-boot-starter-webflux:${springBootPluginVersion}")
+                //implementation("org.springframework.boot:spring-boot-starter-security:${springBootPluginVersion}")
+                //testImplementation("org.springframework.boot:spring-boot-starter-test:${springBootPluginVersion}")
             }
         }
     }
