@@ -11,15 +11,13 @@ import kotlin.reflect.KClass
 import kotlinx.collections.immutable.persistentListOf
 import org.slf4j.Logger
 import org.springframework.beans.factory.InitializingBean
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean
 import org.springframework.boot.context.properties.ConfigurationProperties
-import org.springframework.boot.context.properties.ConstructorBinding
+import org.springframework.boot.context.properties.bind.ConstructorBinding
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.validation.annotation.Validated
 
 /**
- *
  * @author smccarron
  * @created 2/16/22
  */
@@ -53,7 +51,8 @@ constructor(
     }
 
     override fun afterPropertiesSet() {
-        val kClassSnakeCaseName = FeatureEngineeringServiceConfigurationProperties::class.snakeCaseName()
+        val kClassSnakeCaseName =
+            FeatureEngineeringServiceConfigurationProperties::class.snakeCaseName()
         logger.info("${kClassSnakeCaseName}.after_properties_set: {}", this)
     }
 
@@ -61,8 +60,7 @@ constructor(
     fun graphQLApiServices(
         graphQLApiServiceFactory: GraphQLApiServiceFactory
     ): List<GraphQLApiService> {
-        return graphQlApiDataSources
-            .entries
+        return graphQlApiDataSources.entries
             .asSequence()
             .map { entry: Map.Entry<String, GraphQLApiDataSourceProperties> ->
                 val graphQLServiceContextPath: String =

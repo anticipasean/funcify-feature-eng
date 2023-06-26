@@ -1,9 +1,13 @@
 plugins {
     id 'java-library'
-    id 'org.jetbrains.kotlin.jvm' version "${kotlinVersion}"
-    id 'org.jetbrains.kotlin.plugin.spring' version "${kotlinVersion}" apply false
+    /*
+     * Message: ".kotlin_module: Module was compiled with an incompatible version of Kotlin.
+     * The binary version of its metadata is 1.8.0, expected version is 1.6.0."
+     * => Bump to 1.8.22, just the plugin for now
+     */
+    id 'org.jetbrains.kotlin.jvm' version "1.8.22"
+    id 'org.jetbrains.kotlin.plugin.spring' version "1.8.22" apply false
     id "org.springframework.boot" version "${springBootPluginVersion}"
-    //id 'org.apache.beam.module' apply false
 }
 
 jar {
@@ -264,10 +268,6 @@ configure(dataflowSubProjects) {
                     if (d.requested.group == 'org.junit.jupiter') {
                         d.useVersion(jUnitJupiterVersion)
                     }
-                    // spring-cloud-stream 4.0.3 uses kotlin 1.7.22 in kotlinx-coroutines-core-jvm dependency
-                    if (d.requested.group == 'org.jetbrains.kotlin') {
-                        d.useVersion(kotlinVersion)
-                    }
                     if (d.requested.group.startsWith('com.fasterxml.jackson.')) {
                         d.useVersion(jacksonVersion)
                     }
@@ -335,9 +335,7 @@ configure(dataflowSubProjects) {
         }
         spring {
             dependencies {
-                //implementation("org.springframework.boot:spring-boot-starter-webflux:${springBootPluginVersion}")
-                //implementation("org.springframework.boot:spring-boot-starter-security:${springBootPluginVersion}")
-                //testImplementation("org.springframework.boot:spring-boot-starter-test:${springBootPluginVersion}")
+                testImplementation("org.springframework.cloud:spring-cloud-stream-test-binder:4.0.3")
             }
         }
     }
