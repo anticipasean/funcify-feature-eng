@@ -3,6 +3,13 @@ package funcify.feature.stream
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.node.JsonNodeFactory
+import com.fasterxml.jackson.databind.node.ObjectNode
+import java.io.File
+import java.io.FileReader
+import java.util.stream.Stream
+import org.apache.commons.csv.CSVFormat
+import org.apache.commons.csv.CSVParser
+import org.apache.commons.csv.CSVRecord
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
@@ -11,6 +18,7 @@ import org.springframework.cloud.stream.binder.test.InputDestination
 import org.springframework.cloud.stream.binder.test.OutputDestination
 import org.springframework.cloud.stream.binder.test.TestChannelBinderConfiguration
 import org.springframework.context.ConfigurableApplicationContext
+import org.springframework.core.io.ClassPathResource
 import org.springframework.messaging.Message
 import org.springframework.messaging.support.MessageBuilder
 
@@ -20,8 +28,40 @@ import org.springframework.messaging.support.MessageBuilder
  */
 class StreamTest {
 
+    companion object {
+        private val NETFLIX_SHOWS_PATH: String =
+            "netflix_movies_and_tv_shows_202306091725/netflix_titles.csv"
+    }
+
     @Test
     fun streamFunctionTest() {
+        val csvFile: File =
+            Assertions.assertDoesNotThrow<File> { ClassPathResource(NETFLIX_SHOWS_PATH).file }
+        val firstCsvRowJson: JsonNode =
+            Assertions.assertDoesNotThrow<JsonNode> {
+                CSVParser.parse(FileReader(csvFile), CSVFormat.DEFAULT)
+                    .use { p: CSVParser ->
+                        var header: Map<String, Int> = mapOf()
+                        p.stream()
+                            .flatMap { c: CSVRecord ->
+                                if (c.recordNumber == 1L) {
+                                    header =
+                                        c.values().asSequence().withIndex().associate { (idx, k) ->
+                                            k to idx
+                                        }
+                                    Stream.empty<JsonNode>()
+                                } else {
+                                    val rowJson: ObjectNode = JsonNodeFactory.instance.objectNode()
+                                    header.entries.asSequence().forEach { (k: String, idx: Int) ->
+                                        rowJson.put(k, c.get(idx))
+                                    }
+                                    Stream.of(rowJson)
+                                }
+                            }
+                            .findFirst()
+                    }
+                    .orElseThrow()
+            }
         SpringApplicationBuilder(
                 *TestChannelBinderConfiguration.getCompleteConfiguration(
                     StreamFunctions::class.java
@@ -40,11 +80,7 @@ class StreamTest {
                 val objectMapper: ObjectMapper = ObjectMapper()
                 val inputMessage: Message<ByteArray?> =
                     Assertions.assertDoesNotThrow<Message<ByteArray?>> {
-                        MessageBuilder.withPayload(
-                                objectMapper.writeValueAsBytes(
-                                    JsonNodeFactory.instance.textNode("Hello")
-                                )
-                            )
+                        MessageBuilder.withPayload(objectMapper.writeValueAsBytes(firstCsvRowJson))
                             .build()
                     }
                 inputDestination.send(inputMessage, "myInput")

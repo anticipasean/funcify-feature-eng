@@ -40,16 +40,16 @@ ext.sharedToolsKotlinProjects = subprojects.findAll { Project p ->
     p.name.endsWith("-graph") || p.name.endsWith("-tree")
 }
 ext.apacheBeamSubProjects = subprojects.findAll { Project p ->
-    p.name.endsWith("-fntree") || p.name.endsWith("-beam")
+    p.name.endsWith("-beam")
 }
-ext.dataflowSubProjects = subprojects.findAll { Project p ->
-    p.name.endsWith("-dataflow")
+ext.streamSubProjects = subprojects.findAll { Project p ->
+    p.name.endsWith("-stream")
 }
 ext.mainKotlinSubProjects = subprojects.findAll { Project p ->
     [ext.sharedGraphQLDefinitionKotlinProjects,
      ext.sharedToolsKotlinProjects,
      ext.apacheBeamSubProjects,
-     ext.dataflowSubProjects].stream().noneMatch { Set<Project> s ->
+     ext.streamSubProjects].stream().noneMatch { Set<Project> s ->
         s.contains(p)
     }
 }
@@ -244,7 +244,7 @@ configure(apacheBeamSubProjects) {
     }
 }
 
-configure(dataflowSubProjects) {
+configure(streamSubProjects) {
     apply plugin: 'idea'
     apply plugin: 'org.jetbrains.kotlin.jvm'
     apply plugin: 'org.jetbrains.kotlin.plugin.spring'
@@ -336,6 +336,11 @@ configure(dataflowSubProjects) {
         spring {
             dependencies {
                 testImplementation("org.springframework.cloud:spring-cloud-stream-test-binder:4.0.3")
+            }
+        }
+        apache {
+            dependencies {
+                implementation("org.apache.commons:commons-csv:1.10.0")
             }
         }
     }

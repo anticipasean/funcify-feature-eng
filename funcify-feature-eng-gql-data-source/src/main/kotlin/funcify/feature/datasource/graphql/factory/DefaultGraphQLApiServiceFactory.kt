@@ -19,6 +19,7 @@ import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.ObjectProvider
 import org.springframework.boot.autoconfigure.web.reactive.function.client.WebClientCodecCustomizer
 import org.springframework.boot.web.reactive.function.client.WebClientCustomizer
+import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.web.reactive.function.client.ClientResponse
 import org.springframework.web.reactive.function.client.WebClient
@@ -228,9 +229,9 @@ internal class DefaultGraphQLApiServiceFactory(
                                         """
                                         |client_response.status: 
                                         |[ code: ${cr.statusCode().value()}, 
-                                        |reason: ${cr.statusCode().reasonPhrase} ] 
+                                        |reason: ${HttpStatus.valueOf(cr.statusCode().value()).reasonPhrase} ] 
                                         |[ body: "$responseBody" ]
-                                    """.flatten()
+                                        """.flatten()
                                     )
                                 )
                             }
