@@ -5,7 +5,7 @@ import funcify.feature.datasource.graphql.error.GQLDataSourceErrorResponse
 import funcify.feature.datasource.graphql.error.GQLDataSourceException
 import funcify.feature.naming.ConventionalName
 import funcify.feature.naming.StandardNamingConventions
-import funcify.feature.schema.datasource.DataSource
+import funcify.feature.schema.datasource.DataElementSource
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.extensions.TryExtensions.successIfDefined
@@ -20,7 +20,7 @@ import graphql.schema.GraphQLInputType
  */
 internal data class DefaultGraphQLParameterDirectiveAttribute(
     override val sourcePath: SchematicPath,
-    override val dataSourceLookupKey: DataSource.Key<GraphQLSourceIndex>,
+    override val dataSourceLookupKey: DataElementSource.Key<GraphQLSourceIndex>,
     override val directive: Option<GraphQLAppliedDirective>
 ) : GraphQLParameterAttribute {
 

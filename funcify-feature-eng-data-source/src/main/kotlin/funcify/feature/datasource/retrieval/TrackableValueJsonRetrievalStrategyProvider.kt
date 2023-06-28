@@ -1,6 +1,6 @@
 package funcify.feature.datasource.retrieval
 
-import funcify.feature.schema.datasource.DataSource
+import funcify.feature.schema.datasource.DataElementSource
 import funcify.feature.schema.datasource.SourceIndex
 import funcify.feature.tools.container.attempt.Try
 
@@ -12,10 +12,10 @@ import funcify.feature.tools.container.attempt.Try
 interface TrackableValueJsonRetrievalStrategyProvider<SI : SourceIndex<SI>> {
 
     fun providesJsonRetrievalFunctionsForVerticesWithSourceIndicesIn(
-        dataSourceKey: DataSource.Key<*>
+        dataSourceKey: DataElementSource.Key<*>
     ): Boolean
 
     fun createTrackableValueJsonRetrievalFunctionOnBehalfOf(
-        dataSource: DataSource<SI>
+        dataSource: DataElementSource<SI>
     ): Try<TrackableJsonValueRetriever>
 }

@@ -3,7 +3,7 @@ package funcify.feature.datasource.db.schema
 import funcify.feature.naming.ConventionalName
 import funcify.feature.naming.impl.DefaultConventionalName
 import funcify.feature.naming.impl.DefaultNameSegment
-import funcify.feature.schema.datasource.DataSource
+import funcify.feature.schema.datasource.DataElementSource
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import kotlinx.collections.immutable.ImmutableSet
@@ -39,7 +39,7 @@ data class JooqSourceContainerType(val jooqRelTable: JooqRelTable) :
             )
         }
 
-    override val dataSourceLookupKey: DataSource.Key<RelDatabaseSourceIndex> by lazy {
+    override val dataSourceLookupKey: DataElementSource.Key<RelDatabaseSourceIndex> by lazy {
         JooqDataSourceKey(
             jooqRelTable.catalog?.name
                 ?: throw IllegalArgumentException(

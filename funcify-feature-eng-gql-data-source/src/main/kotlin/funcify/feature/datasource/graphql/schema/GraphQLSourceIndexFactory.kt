@@ -1,6 +1,6 @@
 package funcify.feature.datasource.graphql.schema
 
-import funcify.feature.schema.datasource.DataSource
+import funcify.feature.schema.datasource.DataElementSource
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.tools.container.attempt.Try
 import graphql.schema.GraphQLAppliedDirective
@@ -21,11 +21,11 @@ import kotlinx.collections.immutable.ImmutableSet
 interface GraphQLSourceIndexFactory {
 
     fun createRootSourceContainerTypeForDataSourceKey(
-        key: DataSource.Key<GraphQLSourceIndex>
+        key: DataElementSource.Key<GraphQLSourceIndex>
     ): RootSourceContainerTypeSpec
 
     fun createSourceContainerTypeForDataSourceKey(
-        key: DataSource.Key<GraphQLSourceIndex>
+        key: DataElementSource.Key<GraphQLSourceIndex>
     ): AttributeBase
 
     fun updateSourceContainerType(
@@ -33,11 +33,11 @@ interface GraphQLSourceIndexFactory {
     ): SourceContainerTypeUpdateSpec
 
     fun createSourceAttributeForDataSourceKey(
-        key: DataSource.Key<GraphQLSourceIndex>
+        key: DataElementSource.Key<GraphQLSourceIndex>
     ): SourceParentDefinitionBase
 
     fun createParameterContainerTypeForDataSourceKey(
-        key: DataSource.Key<GraphQLSourceIndex>
+        key: DataElementSource.Key<GraphQLSourceIndex>
     ): ParameterContainerTypeBase
 
     fun createParameterContainerTypeForParameterAttributeWithInputObjectValue(
@@ -49,7 +49,7 @@ interface GraphQLSourceIndexFactory {
     ): ParameterContainerTypeUpdateSpec
 
     fun createParameterAttributeForDataSourceKey(
-        key: DataSource.Key<GraphQLSourceIndex>
+        key: DataElementSource.Key<GraphQLSourceIndex>
     ): ParameterParentDefinitionBase
 
     interface RootSourceContainerTypeSpec {

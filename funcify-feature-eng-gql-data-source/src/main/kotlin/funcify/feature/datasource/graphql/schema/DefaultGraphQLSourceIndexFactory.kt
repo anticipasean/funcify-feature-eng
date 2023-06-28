@@ -18,7 +18,7 @@ import funcify.feature.datasource.graphql.naming.GraphQLSourceNamingConventions
 import funcify.feature.datasource.graphql.schema.GraphQLSourceIndexFactory.*
 import funcify.feature.naming.ConventionalName
 import funcify.feature.naming.StandardNamingConventions
-import funcify.feature.schema.datasource.DataSource
+import funcify.feature.schema.datasource.DataElementSource
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentMap
@@ -41,7 +41,7 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
     companion object {
 
         internal class DefaultRootContainerTypeSpec(
-            private val key: DataSource.Key<GraphQLSourceIndex>
+            private val key: DataElementSource.Key<GraphQLSourceIndex>
         ) : RootSourceContainerTypeSpec {
 
             override fun forGraphQLQueryObjectType(
@@ -83,7 +83,7 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
             }
         }
 
-        internal class DefaultAttributeBase(private val key: DataSource.Key<GraphQLSourceIndex>) :
+        internal class DefaultAttributeBase(private val key: DataElementSource.Key<GraphQLSourceIndex>) :
             AttributeBase {
 
             override fun forAttributePathAndDefinition(
@@ -121,7 +121,7 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
         }
 
         internal class DefaultParentDefinitionBase(
-            private val key: DataSource.Key<GraphQLSourceIndex>
+            private val key: DataElementSource.Key<GraphQLSourceIndex>
         ) : SourceParentDefinitionBase {
 
             override fun withParentPathAndDefinition(
@@ -149,7 +149,7 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
         }
 
         internal class DefaultChildAttributeSpec(
-            private val dataSourceLookupKey: DataSource.Key<GraphQLSourceIndex>,
+            private val dataSourceLookupKey: DataElementSource.Key<GraphQLSourceIndex>,
             private val parentPathIfNotRoot: Option<SchematicPath>,
             private val parentDefinitionIfNotRoot: Option<GraphQLFieldDefinition>,
             private val queryRootObjectTypeIfRoot: Option<GraphQLObjectType>,
@@ -467,7 +467,7 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
             }
         }
         internal class DefaultParameterParentDefinitionBase(
-            private val key: DataSource.Key<GraphQLSourceIndex>
+            private val key: DataElementSource.Key<GraphQLSourceIndex>
         ) : ParameterParentDefinitionBase {
 
             override fun forAppliedDirective(
@@ -553,7 +553,7 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
         }
 
         internal class DefaultParameterDirectiveArgumentAttributeSpec(
-            private val key: DataSource.Key<GraphQLSourceIndex>,
+            private val key: DataElementSource.Key<GraphQLSourceIndex>,
             private val parentPath: SchematicPath,
             private val parentAppliedDirective: GraphQLAppliedDirective
         ) : ParameterDirectiveArgumentAttributeSpec {
@@ -623,7 +623,7 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
         }
 
         internal class DefaultParameterAttributeSpec(
-            private val key: DataSource.Key<GraphQLSourceIndex>,
+            private val key: DataElementSource.Key<GraphQLSourceIndex>,
             private val parentPath: SchematicPath,
             private val parentDefinition: GraphQLFieldDefinition
         ) : ParameterAttributeSpec {
@@ -663,7 +663,7 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
             }
         }
         internal class DefaultParameterContainerTypeBase(
-            private val key: DataSource.Key<GraphQLSourceIndex>
+            private val key: DataElementSource.Key<GraphQLSourceIndex>
         ) : ParameterContainerTypeBase {
 
             override fun forFieldArgument(
@@ -689,7 +689,7 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
         }
 
         internal class DefaultInputObjectTypeContainerSpec(
-            private val key: DataSource.Key<GraphQLSourceIndex>,
+            private val key: DataElementSource.Key<GraphQLSourceIndex>,
             private val fieldArgument: GraphQLArgument
         ) : InputObjectTypeContainerSpec {
 
@@ -760,7 +760,7 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
         }
 
         internal class DefaultDirectiveContainerTypeSpec(
-            private val key: DataSource.Key<GraphQLSourceIndex>,
+            private val key: DataElementSource.Key<GraphQLSourceIndex>,
             private val directiveArgument: GraphQLAppliedDirectiveArgument
         ) : DirectiveContainerTypeSpec {
 
@@ -851,7 +851,7 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
         }
 
         internal class DefaultParameterAttributeInputObjectFieldSpec(
-            private val key: DataSource.Key<GraphQLSourceIndex>,
+            private val key: DataElementSource.Key<GraphQLSourceIndex>,
             private val parentPath: SchematicPath,
             private val parentArgument: Option<GraphQLArgument> = none(),
             private val parentDirectiveArgument: Option<GraphQLAppliedDirectiveArgument> = none(),
@@ -1147,7 +1147,7 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
         }
 
         internal class DefaultAppliedDirectiveContainerSpec(
-            private val key: DataSource.Key<GraphQLSourceIndex>,
+            private val key: DataElementSource.Key<GraphQLSourceIndex>,
             private val directive: GraphQLAppliedDirective
         ) : AppliedDirectiveContainerSpec {
 
@@ -1223,7 +1223,7 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
         }
 
         internal class DefaultAppliedDirectiveAttributeSpec(
-            private val key: DataSource.Key<GraphQLSourceIndex>,
+            private val key: DataElementSource.Key<GraphQLSourceIndex>,
             private val directive: GraphQLAppliedDirective
         ) : AppliedDirectiveAttributeSpec {
 
@@ -1300,13 +1300,13 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
     }
 
     override fun createRootSourceContainerTypeForDataSourceKey(
-        key: DataSource.Key<GraphQLSourceIndex>
+        key: DataElementSource.Key<GraphQLSourceIndex>
     ): RootSourceContainerTypeSpec {
         return DefaultRootContainerTypeSpec(key)
     }
 
     override fun createSourceContainerTypeForDataSourceKey(
-        key: DataSource.Key<GraphQLSourceIndex>
+        key: DataElementSource.Key<GraphQLSourceIndex>
     ): AttributeBase {
         return DefaultAttributeBase(key)
     }
@@ -1318,13 +1318,13 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
     }
 
     override fun createSourceAttributeForDataSourceKey(
-        key: DataSource.Key<GraphQLSourceIndex>
+        key: DataElementSource.Key<GraphQLSourceIndex>
     ): SourceParentDefinitionBase {
         return DefaultParentDefinitionBase(key)
     }
 
     override fun createParameterContainerTypeForDataSourceKey(
-        key: DataSource.Key<GraphQLSourceIndex>
+        key: DataElementSource.Key<GraphQLSourceIndex>
     ): ParameterContainerTypeBase {
         return DefaultParameterContainerTypeBase(key)
     }
@@ -1336,7 +1336,7 @@ internal class DefaultGraphQLSourceIndexFactory : GraphQLSourceIndexFactory {
     }
 
     override fun createParameterAttributeForDataSourceKey(
-        key: DataSource.Key<GraphQLSourceIndex>
+        key: DataElementSource.Key<GraphQLSourceIndex>
     ): ParameterParentDefinitionBase {
         return DefaultParameterParentDefinitionBase(key)
     }

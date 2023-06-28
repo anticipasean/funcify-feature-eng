@@ -12,7 +12,7 @@ import funcify.feature.datasource.rest.schema.SwaggerSourceAttribute
 import funcify.feature.datasource.rest.schema.SwaggerSourceContainerType
 import funcify.feature.datasource.rest.swagger.SwaggerV3ParserSourceIndexContext.Companion.SV3PWT
 import funcify.feature.datasource.rest.swagger.SwaggerV3ParserSourceIndexContext.Companion.narrowed
-import funcify.feature.schema.datasource.DataSource
+import funcify.feature.schema.datasource.DataElementSource
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import io.swagger.v3.oas.models.OpenAPI
@@ -27,7 +27,7 @@ internal class DefaultSwaggerV3ParserSourceIndexFactory() : SwaggerV3ParserSourc
 
     override fun getDataSourceKeyForSwaggerSourceIndicesInContext(
         contextContainer: SwaggerSourceIndexContextContainer<SV3PWT>
-    ): DataSource.Key<RestApiSourceIndex> {
+    ): DataElementSource.Key<RestApiSourceIndex> {
         return contextContainer.narrowed().swaggerAPIDataSourceKey
     }
 

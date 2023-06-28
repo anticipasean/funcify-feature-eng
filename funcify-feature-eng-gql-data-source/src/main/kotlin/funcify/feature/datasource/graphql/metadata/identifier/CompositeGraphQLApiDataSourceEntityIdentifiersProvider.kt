@@ -1,7 +1,7 @@
 package funcify.feature.datasource.graphql.metadata.identifier
 
 import funcify.feature.datasource.graphql.schema.GraphQLSourceIndex
-import funcify.feature.schema.datasource.DataSource
+import funcify.feature.schema.datasource.DataElementSource
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.MonoExtensions.widen
@@ -27,7 +27,7 @@ internal class CompositeGraphQLApiDataSourceEntityIdentifiersProvider(
     }
 
     override fun provideEntityIdentifierSourceAttributePathsInDataSource(
-        dataSource: DataSource<GraphQLSourceIndex>
+        dataSource: DataElementSource<GraphQLSourceIndex>
     ): Mono<ImmutableSet<SchematicPath>> {
         logger.debug(
             "provide_entity_identifier_source_attribute_paths_in_data_source: [ data_source.key.name: {} ]",

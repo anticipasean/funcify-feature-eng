@@ -1,7 +1,7 @@
 package funcify.feature.datasource.retrieval
 
 import arrow.core.Either
-import funcify.feature.schema.datasource.DataSource
+import funcify.feature.schema.datasource.DataElementSource
 import funcify.feature.schema.datasource.SourceIndex
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.schema.vertex.ParameterJunctionVertex
@@ -19,7 +19,7 @@ import kotlinx.collections.immutable.toImmutableSet
 interface DataSourceRepresentativeJsonRetrievalStrategy<SI : SourceIndex<SI>> :
     ExternalDataSourceJsonValuesRetriever {
 
-    override val dataSource: DataSource<SI>
+    override val dataSource: DataElementSource<SI>
 
     override val parameterPaths: ImmutableSet<SchematicPath>
         get() =

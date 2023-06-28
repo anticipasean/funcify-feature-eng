@@ -5,14 +5,14 @@ import funcify.feature.schema.path.SchematicPath
 
 /**
  * Represents a value type or set of value types that can or must be passed to the given
- * [DataSource] in order to obtain instances of the parent source index
+ * [DataElementSource] in order to obtain instances of the parent source index
  *
  * @author smccarron
  * @created 2022-06-18
  */
 interface ParameterIndex<SI : SourceIndex<SI>> : SourceIndex<SI> {
 
-    override val dataSourceLookupKey: DataSource.Key<SI>
+    override val dataSourceLookupKey: DataElementSource.Key<SI>
 
     override val name: ConventionalName
 

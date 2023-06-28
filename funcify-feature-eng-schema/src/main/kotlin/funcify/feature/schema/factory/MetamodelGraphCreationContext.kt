@@ -1,7 +1,7 @@
 package funcify.feature.schema.factory
 
 import funcify.feature.schema.SchematicVertex
-import funcify.feature.schema.datasource.DataSource
+import funcify.feature.schema.datasource.DataElementSource
 import funcify.feature.schema.datasource.SourceIndex
 import funcify.feature.schema.directive.alias.AttributeAliasRegistry
 import funcify.feature.schema.directive.alias.DataSourceAttributeAliasProvider
@@ -27,7 +27,7 @@ interface MetamodelGraphCreationContext {
     val schematicVertexGraphRemappingStrategy:
         SchematicVertexGraphRemappingStrategy<MetamodelGraphCreationContext>
 
-    val dataSourcesByName: ImmutableMap<String, DataSource<*>>
+    val dataSourcesByName: ImmutableMap<String, DataElementSource<*>>
 
     val aliasProvidersByDataSourceName: ImmutableMap<String, DataSourceAttributeAliasProvider<*>>
 
@@ -61,12 +61,12 @@ interface MetamodelGraphCreationContext {
                 SchematicVertexGraphRemappingStrategy<MetamodelGraphCreationContext>
         ): Builder
 
-        fun <SI : SourceIndex<SI>> addDataSource(dataSource: DataSource<SI>): Builder
+        fun <SI : SourceIndex<SI>> addDataSource(dataSource: DataElementSource<SI>): Builder
 
         fun aliasRegistry(aliasRegistry: AttributeAliasRegistry): Builder
 
         fun <SI : SourceIndex<SI>> addAliasProviderForDataSource(
-            dataSource: DataSource<SI>,
+            dataSource: DataElementSource<SI>,
             aliasProvider: DataSourceAttributeAliasProvider<SI>
         ): Builder
 
@@ -76,14 +76,14 @@ interface MetamodelGraphCreationContext {
 
         fun <SI : SourceIndex<SI>> addLastUpdatedProviderForDataSource(
             lastUpdatedProvider: DataSourceAttributeLastUpdatedProvider<SI>,
-            dataSource: DataSource<SI>
+            dataSource: DataElementSource<SI>
         ): Builder
 
         fun entityRegistry(entityRegistry: EntityRegistry): Builder
 
         fun <SI : SourceIndex<SI>> addEntityIdentifiersProviderForDataSource(
             entityIdentifiersProvider: DataSourceEntityIdentifiersProvider<SI>,
-            dataSource: DataSource<SI>
+            dataSource: DataElementSource<SI>
         ): Builder
 
         fun addOrUpdateSchematicVertexAtPath(

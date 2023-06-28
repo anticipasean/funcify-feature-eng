@@ -1,6 +1,6 @@
 package funcify.feature.datasource.metadata.reader
 
-import funcify.feature.schema.datasource.DataSource
+import funcify.feature.schema.datasource.DataElementSource
 import funcify.feature.schema.datasource.SourceIndex
 import funcify.feature.schema.datasource.SourceMetamodel
 
@@ -12,7 +12,7 @@ import funcify.feature.schema.datasource.SourceMetamodel
 fun interface DataSourceMetadataReader<in MD, SI : SourceIndex<SI>> {
 
     fun readSourceMetamodelFromMetadata(
-        dataSourceKey: DataSource.Key<SI>,
+        dataSourceKey: DataElementSource.Key<SI>,
         metadataInput: MD
     ): SourceMetamodel<SI>
 }

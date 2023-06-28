@@ -9,7 +9,7 @@ package funcify.feature.schema.datasource
  * @author smccarron
  * @created 1/30/22
  */
-interface DataSourceType {
+interface SourceType {
 
     val name: String
 

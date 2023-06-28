@@ -1,6 +1,6 @@
 package funcify.feature.schema
 
-import funcify.feature.schema.datasource.DataSource
+import funcify.feature.schema.datasource.DataElementSource
 import funcify.feature.schema.datasource.SourceIndex
 import funcify.feature.schema.directive.alias.AttributeAliasRegistry
 import funcify.feature.schema.directive.alias.DataSourceAttributeAliasProvider
@@ -27,7 +27,7 @@ import reactor.core.publisher.Mono
  */
 interface MetamodelGraph {
 
-    val dataSourcesByKey: ImmutableMap<DataSource.Key<*>, DataSource<*>>
+    val dataSourcesByKey: ImmutableMap<DataElementSource.Key<*>, DataElementSource<*>>
 
     val pathBasedGraph: PathBasedGraph<SchematicPath, SchematicVertex, SchematicEdge>
 
@@ -60,21 +60,21 @@ interface MetamodelGraph {
 
     interface Builder {
 
-        fun <SI : SourceIndex<SI>> addDataSource(dataSource: DataSource<SI>): Builder
+        fun <SI : SourceIndex<SI>> addDataSource(dataSource: DataElementSource<SI>): Builder
 
         fun <SI : SourceIndex<SI>> addAttributeAliasProviderForDataSource(
             attributeAliasProvider: DataSourceAttributeAliasProvider<SI>,
-            dataSource: DataSource<SI>
+            dataSource: DataElementSource<SI>
         ): Builder
 
         fun <SI : SourceIndex<SI>> addLastUpdatedAttributeProviderForDataSource(
             lastUpdatedAttributeProvider: DataSourceAttributeLastUpdatedProvider<SI>,
-            dataSource: DataSource<SI>
+            dataSource: DataElementSource<SI>
         ): Builder
 
         fun <SI : SourceIndex<SI>> addEntityIdentifiersProviderForDataSource(
             entityIdentifiersProvider: DataSourceEntityIdentifiersProvider<SI>,
-            dataSource: DataSource<SI>
+            dataSource: DataElementSource<SI>
         ): Builder
 
         fun addRemappingStrategyForPostProcessingSchematicVertices(

@@ -7,7 +7,7 @@ import funcify.feature.datasource.rest.schema.SwaggerParameterContainerType
 import funcify.feature.datasource.rest.schema.SwaggerSourceAttribute
 import funcify.feature.datasource.rest.schema.SwaggerSourceContainerType
 import funcify.feature.datasource.rest.swagger.SwaggerV3ParserSourceIndexContext.Builder
-import funcify.feature.schema.datasource.DataSource
+import funcify.feature.schema.datasource.DataElementSource
 import funcify.feature.schema.path.SchematicPath
 import io.swagger.v3.oas.models.OpenAPI
 import kotlinx.collections.immutable.PersistentMap
@@ -19,7 +19,7 @@ import kotlinx.collections.immutable.persistentMapOf
  * @created 2022-07-10
  */
 internal data class DefaultSwaggerV3ParserSourceIndexContext(
-    override val swaggerAPIDataSourceKey: DataSource.Key<RestApiSourceIndex>,
+    override val swaggerAPIDataSourceKey: DataElementSource.Key<RestApiSourceIndex>,
     override val openAPI: OpenAPI,
     override val swaggerRestApiSourceMetadataFilter: SwaggerRestApiSourceMetadataFilter =
         SwaggerRestApiSourceMetadataFilter.INCLUDE_ALL_FILTER,
@@ -40,7 +40,7 @@ internal data class DefaultSwaggerV3ParserSourceIndexContext(
     companion object {
 
         internal data class DefaultBuilder(
-            private var swaggerAPIDataSourceKey: DataSource.Key<RestApiSourceIndex>,
+            private var swaggerAPIDataSourceKey: DataElementSource.Key<RestApiSourceIndex>,
             private var openAPI: OpenAPI,
             private var swaggerRestApiSourceMetadataFilter: SwaggerRestApiSourceMetadataFilter,
             private var sourceContainerTypesBySchematicPath:
@@ -54,7 +54,7 @@ internal data class DefaultSwaggerV3ParserSourceIndexContext(
         ) : Builder {
 
             override fun swaggerDataSourceKey(
-                dataSourceKey: DataSource.Key<RestApiSourceIndex>
+                dataSourceKey: DataElementSource.Key<RestApiSourceIndex>
             ): Builder {
                 this.swaggerAPIDataSourceKey = dataSourceKey
                 return this

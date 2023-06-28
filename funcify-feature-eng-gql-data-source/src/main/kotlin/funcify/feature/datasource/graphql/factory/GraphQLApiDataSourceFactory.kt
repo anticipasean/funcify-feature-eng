@@ -1,6 +1,6 @@
 package funcify.feature.datasource.graphql.factory
 
-import funcify.feature.datasource.graphql.GraphQLApiDataSource
+import funcify.feature.datasource.graphql.GraphQLApiDataElementSource
 import funcify.feature.datasource.graphql.GraphQLApiService
 
 /**
@@ -13,6 +13,6 @@ interface GraphQLApiDataSourceFactory {
     fun createGraphQLApiDataSource(
         name: String,
         graphQLApiService: GraphQLApiService
-    ): GraphQLApiDataSource
+    ): GraphQLApiDataElementSource
 
 }

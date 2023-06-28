@@ -1,7 +1,7 @@
 package funcify.feature.schema.factory
 
 import funcify.feature.schema.SchematicVertex
-import funcify.feature.schema.datasource.DataSource
+import funcify.feature.schema.datasource.DataElementSource
 import funcify.feature.schema.datasource.SourceIndex
 import funcify.feature.schema.directive.alias.DataSourceAttributeAliasProvider
 import funcify.feature.schema.directive.identifier.DataSourceEntityIdentifiersProvider
@@ -34,7 +34,7 @@ internal class DefaultMetamodelGraphCreationStrategy() :
     }
 
     override fun <SI : SourceIndex<SI>> addDataSource(
-        dataSource: DataSource<SI>,
+        dataSource: DataElementSource<SI>,
         contextContainer: Mono<MetamodelGraphCreationContext>,
     ): Mono<MetamodelGraphCreationContext> {
         val methodTag: String = "add_data_source"
@@ -106,7 +106,7 @@ internal class DefaultMetamodelGraphCreationStrategy() :
     }
     override fun <SI : SourceIndex<SI>> addAttributeAliasProviderForDataSource(
         attributeAliasProvider: DataSourceAttributeAliasProvider<SI>,
-        dataSource: DataSource<SI>,
+        dataSource: DataElementSource<SI>,
         contextContainer: Mono<MetamodelGraphCreationContext>,
     ): Mono<MetamodelGraphCreationContext> {
         val methodTag: String = "add_attribute_alias_provider_for_data_source"
@@ -132,7 +132,7 @@ internal class DefaultMetamodelGraphCreationStrategy() :
 
     override fun <SI : SourceIndex<SI>> addLastUpdatedAttributeProviderForDataSource(
         lastUpdatedAttributeProvider: DataSourceAttributeLastUpdatedProvider<SI>,
-        dataSource: DataSource<SI>,
+        dataSource: DataElementSource<SI>,
         contextContainer: Mono<MetamodelGraphCreationContext>,
     ): Mono<MetamodelGraphCreationContext> {
         val methodTag: String = "add_last_updated_attribute_provider_for_data_source"
@@ -158,7 +158,7 @@ internal class DefaultMetamodelGraphCreationStrategy() :
 
     override fun <SI : SourceIndex<SI>> addEntityIdentifiersProviderForDataSource(
         entityIdentifiersProvider: DataSourceEntityIdentifiersProvider<SI>,
-        dataSource: DataSource<SI>,
+        dataSource: DataElementSource<SI>,
         contextContainer: Mono<MetamodelGraphCreationContext>,
     ): Mono<MetamodelGraphCreationContext> {
         val methodTag: String = "add_entity_identifiers_provider_for_data_source"
@@ -183,7 +183,7 @@ internal class DefaultMetamodelGraphCreationStrategy() :
     }
 
     override fun <SI : SourceIndex<SI>> createNewOrUpdateExistingSchematicVertex(
-        dataSource: DataSource<SI>,
+        dataSource: DataElementSource<SI>,
         sourcePath: SchematicPath,
         sourceIndex: SI,
         contextContainer: Mono<MetamodelGraphCreationContext>,
@@ -217,7 +217,7 @@ internal class DefaultMetamodelGraphCreationStrategy() :
     }
 
     override fun <SI : SourceIndex<SI>> fetchAliasesForDataSourceFromProvider(
-        dataSource: DataSource<SI>,
+        dataSource: DataElementSource<SI>,
         aliasProvider: DataSourceAttributeAliasProvider<SI>,
         contextContainer: Mono<MetamodelGraphCreationContext>,
     ): Mono<MetamodelGraphCreationContext> {
@@ -253,7 +253,7 @@ internal class DefaultMetamodelGraphCreationStrategy() :
     }
 
     override fun <SI : SourceIndex<SI>> fetchLastUpdatedTemporalAttributesForDataSourceFromProvider(
-        dataSource: DataSource<SI>,
+        dataSource: DataElementSource<SI>,
         lastUpdatedProvider: DataSourceAttributeLastUpdatedProvider<SI>,
         contextContainer: Mono<MetamodelGraphCreationContext>,
     ): Mono<MetamodelGraphCreationContext> {
@@ -283,7 +283,7 @@ internal class DefaultMetamodelGraphCreationStrategy() :
     }
 
     override fun <SI : SourceIndex<SI>> fetchEntityIdentifierAttributesForDataSourceFromProvider(
-        dataSource: DataSource<SI>,
+        dataSource: DataElementSource<SI>,
         entityIdentifiersProvider: DataSourceEntityIdentifiersProvider<SI>,
         contextContainer: Mono<MetamodelGraphCreationContext>,
     ): Mono<MetamodelGraphCreationContext> {

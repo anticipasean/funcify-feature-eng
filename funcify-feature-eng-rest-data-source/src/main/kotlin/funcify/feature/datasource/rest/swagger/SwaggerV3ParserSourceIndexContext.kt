@@ -7,7 +7,7 @@ import funcify.feature.datasource.rest.schema.SwaggerParameterContainerType
 import funcify.feature.datasource.rest.schema.SwaggerSourceAttribute
 import funcify.feature.datasource.rest.schema.SwaggerSourceContainerType
 import funcify.feature.datasource.rest.swagger.SwaggerV3ParserSourceIndexContext.Companion.SV3PWT
-import funcify.feature.schema.datasource.DataSource
+import funcify.feature.schema.datasource.DataElementSource
 import funcify.feature.schema.path.SchematicPath
 import io.swagger.v3.oas.models.OpenAPI
 import kotlinx.collections.immutable.ImmutableMap
@@ -32,7 +32,7 @@ interface SwaggerV3ParserSourceIndexContext : SwaggerSourceIndexContextContainer
         }
     }
 
-    val swaggerAPIDataSourceKey: DataSource.Key<RestApiSourceIndex>
+    val swaggerAPIDataSourceKey: DataElementSource.Key<RestApiSourceIndex>
 
     val openAPI: OpenAPI
 
@@ -51,7 +51,7 @@ interface SwaggerV3ParserSourceIndexContext : SwaggerSourceIndexContextContainer
 
     interface Builder {
 
-        fun swaggerDataSourceKey(dataSourceKey: DataSource.Key<RestApiSourceIndex>): Builder
+        fun swaggerDataSourceKey(dataSourceKey: DataElementSource.Key<RestApiSourceIndex>): Builder
 
         fun openAPI(openAPI: OpenAPI): Builder
 

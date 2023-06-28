@@ -10,7 +10,7 @@ import funcify.feature.datasource.graphql.schema.GraphQLParameterContainerType
 import funcify.feature.datasource.graphql.schema.GraphQLSourceAttribute
 import funcify.feature.datasource.graphql.schema.GraphQLSourceContainerType
 import funcify.feature.datasource.graphql.schema.GraphQLSourceIndex
-import funcify.feature.schema.datasource.DataSource
+import funcify.feature.schema.datasource.DataElementSource
 import funcify.feature.schema.path.SchematicPath
 import graphql.schema.GraphQLAppliedDirective
 import graphql.schema.GraphQLAppliedDirectiveArgument
@@ -61,7 +61,7 @@ sealed interface GraphQLSourceIndexCreationContext<E : GraphQLSchemaElement> {
     val graphqlParameterAttributesBySchematicPath:
         ImmutableMap<SchematicPath, GraphQLParameterAttribute>
 
-    val graphQLApiDataSourceKey: DataSource.Key<GraphQLSourceIndex>
+    val graphQLApiDataSourceKey: DataElementSource.Key<GraphQLSourceIndex>
 
     val parentPath: Option<SchematicPath>
 

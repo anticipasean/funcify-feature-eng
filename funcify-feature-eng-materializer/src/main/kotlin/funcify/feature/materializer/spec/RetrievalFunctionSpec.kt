@@ -1,7 +1,7 @@
 package funcify.feature.materializer.spec
 
 import arrow.core.Either
-import funcify.feature.schema.datasource.DataSource
+import funcify.feature.schema.datasource.DataElementSource
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.schema.vertex.ParameterJunctionVertex
 import funcify.feature.schema.vertex.ParameterLeafVertex
@@ -11,7 +11,7 @@ import kotlinx.collections.immutable.PersistentMap
 
 interface RetrievalFunctionSpec {
 
-    val dataSource: DataSource<*>
+    val dataSource: DataElementSource<*>
 
     val sourceVerticesByPath: PersistentMap<SchematicPath, Either<SourceJunctionVertex, SourceLeafVertex>>
 
@@ -21,7 +21,7 @@ interface RetrievalFunctionSpec {
 
     interface SpecBuilder {
 
-        fun dataSource(dataSource: DataSource<*>): SpecBuilder
+        fun dataSource(dataSource: DataElementSource<*>): SpecBuilder
 
         fun addSourceVertex(sourceJunctionOrLeafVertex: Either<SourceJunctionVertex, SourceLeafVertex>): SpecBuilder
 

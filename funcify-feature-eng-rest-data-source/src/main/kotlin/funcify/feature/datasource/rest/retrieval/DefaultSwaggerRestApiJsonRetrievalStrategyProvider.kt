@@ -1,11 +1,11 @@
 package funcify.feature.datasource.rest.retrieval
 
 import arrow.core.Either
-import funcify.feature.datasource.rest.RestApiDataSource
+import funcify.feature.datasource.rest.RestApiDataElementSource
 import funcify.feature.datasource.rest.schema.RestApiSourceIndex
 import funcify.feature.datasource.retrieval.ExternalDataSourceJsonValuesRetriever
 import funcify.feature.tools.json.JsonMapper
-import funcify.feature.schema.datasource.DataSource
+import funcify.feature.schema.datasource.DataElementSource
 import funcify.feature.schema.vertex.ParameterJunctionVertex
 import funcify.feature.schema.vertex.ParameterLeafVertex
 import funcify.feature.schema.vertex.SourceJunctionVertex
@@ -27,13 +27,13 @@ internal class DefaultSwaggerRestApiJsonRetrievalStrategyProvider(
     }
 
     override fun providesJsonValueRetrieversForVerticesWithSourceIndicesIn(
-        dataSourceKey: DataSource.Key<*>
+        dataSourceKey: DataElementSource.Key<*>
     ): Boolean {
         return dataSourceKey.sourceIndexType.isSubclassOf(RestApiSourceIndex::class)
     }
 
     override fun createExternalDataSourceJsonValuesRetrieverFor(
-        dataSource: DataSource<RestApiSourceIndex>,
+        dataSource: DataElementSource<RestApiSourceIndex>,
         sourceVertices: ImmutableSet<Either<SourceJunctionVertex, SourceLeafVertex>>,
         parameterVertices: ImmutableSet<Either<ParameterJunctionVertex, ParameterLeafVertex>>,
     ): Try<ExternalDataSourceJsonValuesRetriever> {
@@ -47,7 +47,7 @@ internal class DefaultSwaggerRestApiJsonRetrievalStrategyProvider(
         return Try.attempt {
             DefaultSwaggerRestDataSourceJsonRetrievalStrategy(
                 jsonMapper = jsonMapper,
-                dataSource = dataSource as RestApiDataSource,
+                dataSource = dataSource as RestApiDataElementSource,
                 parameterVertices = parameterVertices,
                 sourceVertices = sourceVertices,
                 postProcessingStrategy = postProcessingStrategy

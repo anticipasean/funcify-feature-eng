@@ -1,15 +1,15 @@
 package funcify.feature.datasource.rest.factory
 
-import funcify.feature.datasource.rest.RestApiDataSource
+import funcify.feature.datasource.rest.RestApiDataElementSource
 import funcify.feature.datasource.rest.RestApiService
 import funcify.feature.datasource.rest.error.RestApiDataSourceException
 import funcify.feature.datasource.rest.error.RestApiErrorResponse
 import funcify.feature.datasource.rest.metadata.provider.RestApiMetadataProvider
 import funcify.feature.datasource.rest.metadata.reader.RestApiSourceMetadataReader
 import funcify.feature.datasource.rest.schema.RestApiSourceIndex
-import funcify.feature.schema.datasource.DataSource
-import funcify.feature.schema.datasource.DataSourceType
-import funcify.feature.schema.datasource.RawDataSourceType
+import funcify.feature.schema.datasource.DataElementSource
+import funcify.feature.schema.datasource.SourceType
+import funcify.feature.schema.datasource.RawSourceType
 import funcify.feature.schema.datasource.SourceMetamodel
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.MonoExtensions.toTry
@@ -27,20 +27,20 @@ internal class DefaultRestApiDataSourceFactory<MD>(
 
         internal data class DefaultRestApiDataSourceKey(
             override val name: String,
-            override val dataSourceType: DataSourceType
-        ) : DataSource.Key<RestApiSourceIndex> {
+            override val sourceType: SourceType
+        ) : DataElementSource.Key<RestApiSourceIndex> {
             override val sourceIndexType: KClass<RestApiSourceIndex> = RestApiSourceIndex::class
         }
 
-        internal data class DefaultRestApiDataSource(
+        internal data class DefaultRestApiDataElementSource(
             override val name: String,
             override val restApiService: RestApiService,
             override val sourceMetamodel: SourceMetamodel<RestApiSourceIndex>,
-            override val key: DataSource.Key<RestApiSourceIndex>
-        ) : RestApiDataSource
+            override val key: DataElementSource.Key<RestApiSourceIndex>
+                                                           ) : RestApiDataElementSource
     }
 
-    override fun createRestApiDataSource(name: String, service: RestApiService): RestApiDataSource {
+    override fun createRestApiDataSource(name: String, service: RestApiService): RestApiDataElementSource {
         logger.info(
             """create_rest_api_data_source: [ name: $name, 
                 |service.service_context_path: ${service.serviceContextPath} ]
@@ -49,8 +49,8 @@ internal class DefaultRestApiDataSourceFactory<MD>(
         return restApiMetadataProvider
             .provideMetadata(service)
             .map { metadata: MD ->
-                val dataSourceKey: DataSource.Key<RestApiSourceIndex> =
-                    DefaultRestApiDataSourceKey(name, RawDataSourceType.REST_API)
+                val dataSourceKey: DataElementSource.Key<RestApiSourceIndex> =
+                    DefaultRestApiDataSourceKey(name, RawSourceType.REST_API)
                 dataSourceKey to
                     restApiSourceMetadataReader.readSourceMetamodelFromMetadata(
                         dataSourceKey,
@@ -59,13 +59,13 @@ internal class DefaultRestApiDataSourceFactory<MD>(
             }
             .map {
                 sourceMetamodelPair:
-                    Pair<DataSource.Key<RestApiSourceIndex>, SourceMetamodel<RestApiSourceIndex>> ->
-                DefaultRestApiDataSource(
+                    Pair<DataElementSource.Key<RestApiSourceIndex>, SourceMetamodel<RestApiSourceIndex>> ->
+                DefaultRestApiDataElementSource(
                     name = name,
                     sourceMetamodel = sourceMetamodelPair.second,
                     restApiService = service,
                     key = sourceMetamodelPair.first
-                )
+                                               )
             }
             .toTry()
             .orElseThrow { t: Throwable ->

@@ -2,7 +2,7 @@ package funcify.feature.datasource.rest.sdl
 
 import arrow.core.filterIsInstance
 import arrow.core.toOption
-import funcify.feature.datasource.rest.RestApiDataSource
+import funcify.feature.datasource.rest.RestApiDataElementSource
 import funcify.feature.datasource.rest.error.RestApiDataSourceException
 import funcify.feature.datasource.rest.error.RestApiErrorResponse
 import funcify.feature.datasource.rest.schema.RestApiSourceIndex
@@ -11,7 +11,7 @@ import funcify.feature.datasource.sdl.DataSourceBasedSDLDefinitionStrategy
 import funcify.feature.datasource.sdl.DataSourceBasedSDLDefinitionStrategy.DataSourceAttribute
 import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionCreationContext
 import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionImplementationStrategy
-import funcify.feature.schema.datasource.RawDataSourceType
+import funcify.feature.schema.datasource.RawSourceType
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.extensions.TryExtensions.successIfDefined
@@ -24,7 +24,7 @@ import kotlinx.collections.immutable.persistentSetOf
  * @created 2022-07-17
  */
 internal class SwaggerRestApiDataSourceIndexBasedSDLDefinitionImplementationStrategy(
-    private val restApiDataSource: RestApiDataSource,
+    private val restApiDataSource: RestApiDataElementSource,
     private val swaggerSourceIndexSDLDefinitionImplementationTemplate:
         SwaggerSourceIndexSDLDefinitionImplementationTemplate<
             Try<SchematicVertexSDLDefinitionCreationContext<*>>>
@@ -35,7 +35,7 @@ internal class SwaggerRestApiDataSourceIndexBasedSDLDefinitionImplementationStra
     init {
         restApiDataSource
             .toOption()
-            .map(RestApiDataSource::sourceMetamodel)
+            .map(RestApiDataElementSource::sourceMetamodel)
             .filterIsInstance<SwaggerRestApiSourceMetamodel>()
             .successIfDefined {
                 RestApiDataSourceException(
@@ -59,7 +59,7 @@ internal class SwaggerRestApiDataSourceIndexBasedSDLDefinitionImplementationStra
                 expectedName = restApiDataSource.name
             ),
             DataSourceBasedSDLDefinitionStrategy.dataSourceTypeAttribute(
-                expectedDataSourceType = RawDataSourceType.REST_API
+                expectedDataSourceType = RawSourceType.REST_API
             ),
             DataSourceBasedSDLDefinitionStrategy.sourceIndexTypeAttribute(
                 expectedSourceIndexType = RestApiSourceIndex::class

@@ -1,7 +1,7 @@
 package funcify.feature.datasource.rest.schema
 
 import funcify.feature.naming.ConventionalName
-import funcify.feature.schema.datasource.DataSource
+import funcify.feature.schema.datasource.DataElementSource
 import funcify.feature.schema.path.SchematicPath
 
 /**
@@ -11,6 +11,6 @@ import funcify.feature.schema.path.SchematicPath
  */
 internal data class DefaultSwaggerSourcePathItemGroupAttribute(
     override val sourcePath: SchematicPath,
-    override val dataSourceLookupKey: DataSource.Key<RestApiSourceIndex>,
+    override val dataSourceLookupKey: DataElementSource.Key<RestApiSourceIndex>,
     override val name: ConventionalName
 ) : SwaggerSourceAttribute {}

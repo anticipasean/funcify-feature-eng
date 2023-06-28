@@ -6,7 +6,7 @@ import arrow.core.left
 import arrow.core.right
 import funcify.feature.datasource.retrieval.ExternalDataSourceJsonValuesRetriever.Builder
 import funcify.feature.error.ServiceError
-import funcify.feature.schema.datasource.DataSource
+import funcify.feature.schema.datasource.DataElementSource
 import funcify.feature.schema.datasource.SourceIndex
 import funcify.feature.schema.vertex.ParameterJunctionVertex
 import funcify.feature.schema.vertex.ParameterLeafVertex
@@ -39,7 +39,7 @@ internal class DefaultSchematicPathBasedJsonRetrievalFunctionFactory(
             private val dataSourceRepresentativeJsonRetrievalStrategyProviders:
                 ImmutableSet<DataSourceRepresentativeJsonRetrievalStrategyProvider<*>> =
                 persistentSetOf(),
-            private var dataSource: DataSource<*>? = null,
+            private var dataSource: DataElementSource<*>? = null,
             private var parameterVertices:
                 PersistentSet.Builder<Either<ParameterJunctionVertex, ParameterLeafVertex>> =
                 persistentSetOf<Either<ParameterJunctionVertex, ParameterLeafVertex>>().builder(),
@@ -48,7 +48,7 @@ internal class DefaultSchematicPathBasedJsonRetrievalFunctionFactory(
                 persistentSetOf<Either<SourceJunctionVertex, SourceLeafVertex>>().builder()
         ) : Builder {
 
-            override fun dataSource(dataSource: DataSource<*>): Builder {
+            override fun dataSource(dataSource: DataElementSource<*>): Builder {
                 this.dataSource = dataSource
                 return this
             }
@@ -146,7 +146,7 @@ internal class DefaultSchematicPathBasedJsonRetrievalFunctionFactory(
             private fun <
                 SI : SourceIndex<SI>> createTypedDataSourceSpecificJsonRetrievalStrategyFor(
                 provider: DataSourceRepresentativeJsonRetrievalStrategyProvider<SI>,
-                dataSource: DataSource<*>,
+                dataSource: DataElementSource<*>,
                 sourceVertices: PersistentSet<Either<SourceJunctionVertex, SourceLeafVertex>>,
                 parameterVertices:
                     PersistentSet<Either<ParameterJunctionVertex, ParameterLeafVertex>>
@@ -154,7 +154,7 @@ internal class DefaultSchematicPathBasedJsonRetrievalFunctionFactory(
                 // If already assessed as acceptable in earlier check, then this datasource must be
                 // of this source_index type
                 @Suppress("UNCHECKED_CAST")
-                val typedDataSource: DataSource<SI> = dataSource as DataSource<SI>
+                val typedDataSource: DataElementSource<SI> = dataSource as DataElementSource<SI>
                 return provider.createExternalDataSourceJsonValuesRetrieverFor(
                     typedDataSource,
                     sourceVertices,
@@ -167,11 +167,11 @@ internal class DefaultSchematicPathBasedJsonRetrievalFunctionFactory(
             private val trackableValueJsonRetrievalStrategyProviders:
                 ImmutableSet<TrackableValueJsonRetrievalStrategyProvider<*>> =
                 persistentSetOf(),
-            private var dataSource: DataSource<*>? = null
+            private var dataSource: DataElementSource<*>? = null
         ) : TrackableJsonValueRetriever.Builder {
 
             override fun cacheForDataSource(
-                dataSource: DataSource<*>
+                dataSource: DataElementSource<*>
             ): TrackableJsonValueRetriever.Builder {
                 this.dataSource = dataSource
                 return this
@@ -225,19 +225,19 @@ internal class DefaultSchematicPathBasedJsonRetrievalFunctionFactory(
 
             private fun <SI : SourceIndex<SI>> createTypedDataSourceCacheJsonRetrievalStrategyFor(
                 provider: TrackableValueJsonRetrievalStrategyProvider<SI>,
-                dataSource: DataSource<*>
+                dataSource: DataElementSource<*>
             ): Try<TrackableJsonValueRetriever> {
                 // If already assessed as acceptable in earlier check, then this datasource must be
                 // of this source_index type
                 @Suppress("UNCHECKED_CAST")
-                val typedDataSource: DataSource<SI> = dataSource as DataSource<SI>
+                val typedDataSource: DataElementSource<SI> = dataSource as DataElementSource<SI>
                 return provider.createTrackableValueJsonRetrievalFunctionOnBehalfOf(typedDataSource)
             }
         }
     }
 
     override fun canBuildExternalDataSourceJsonValuesRetrieverForDataSource(
-        dataSourceKey: DataSource.Key<*>
+        dataSourceKey: DataElementSource.Key<*>
     ): Boolean {
         return dataSourceRepresentativeJsonRetrievalStrategyProviders.any { provider ->
             provider.providesJsonValueRetrieversForVerticesWithSourceIndicesIn(dataSourceKey)
@@ -245,7 +245,7 @@ internal class DefaultSchematicPathBasedJsonRetrievalFunctionFactory(
     }
 
     override fun canBuildTrackableJsonValueRetrieverOnBehalfOfDataSource(
-        dataSourceKey: DataSource.Key<*>
+        dataSourceKey: DataElementSource.Key<*>
     ): Boolean {
         return trackableValueJsonRetrievalStrategyProviders.any { provider ->
             provider.providesJsonRetrievalFunctionsForVerticesWithSourceIndicesIn(dataSourceKey)

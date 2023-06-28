@@ -3,7 +3,7 @@ package funcify.feature.schema.factory
 import funcify.feature.schema.MetamodelGraph
 import funcify.feature.schema.SchematicEdge
 import funcify.feature.schema.SchematicVertex
-import funcify.feature.schema.datasource.DataSource
+import funcify.feature.schema.datasource.DataElementSource
 import funcify.feature.schema.datasource.SourceIndex
 import funcify.feature.schema.directive.alias.AttributeAliasRegistry
 import funcify.feature.schema.directive.alias.DataSourceAttributeAliasProvider
@@ -39,7 +39,7 @@ internal class DefaultMetamodelGraphFactory(val schematicVertexFactory: Schemati
         ) : MetamodelGraph.Builder {
 
             override fun <SI : SourceIndex<SI>> addDataSource(
-                dataSource: DataSource<SI>
+                dataSource: DataElementSource<SI>
             ): MetamodelGraph.Builder {
                 deferredMetamodelGraphCreationContext =
                     creationFactory.addDataSource(dataSource, deferredMetamodelGraphCreationContext)
@@ -48,7 +48,7 @@ internal class DefaultMetamodelGraphFactory(val schematicVertexFactory: Schemati
 
             override fun <SI : SourceIndex<SI>> addAttributeAliasProviderForDataSource(
                 attributeAliasProvider: DataSourceAttributeAliasProvider<SI>,
-                dataSource: DataSource<SI>,
+                dataSource: DataElementSource<SI>,
             ): MetamodelGraph.Builder {
                 deferredMetamodelGraphCreationContext =
                     creationFactory.addAttributeAliasProviderForDataSource(
@@ -61,7 +61,7 @@ internal class DefaultMetamodelGraphFactory(val schematicVertexFactory: Schemati
 
             override fun <SI : SourceIndex<SI>> addLastUpdatedAttributeProviderForDataSource(
                 lastUpdatedAttributeProvider: DataSourceAttributeLastUpdatedProvider<SI>,
-                dataSource: DataSource<SI>,
+                dataSource: DataElementSource<SI>,
             ): MetamodelGraph.Builder {
                 deferredMetamodelGraphCreationContext =
                     creationFactory.addLastUpdatedAttributeProviderForDataSource(
@@ -74,7 +74,7 @@ internal class DefaultMetamodelGraphFactory(val schematicVertexFactory: Schemati
 
             override fun <SI : SourceIndex<SI>> addEntityIdentifiersProviderForDataSource(
                 entityIdentifiersProvider: DataSourceEntityIdentifiersProvider<SI>,
-                dataSource: DataSource<SI>,
+                dataSource: DataElementSource<SI>,
             ): MetamodelGraph.Builder {
                 deferredMetamodelGraphCreationContext =
                     creationFactory.addEntityIdentifiersProviderForDataSource(

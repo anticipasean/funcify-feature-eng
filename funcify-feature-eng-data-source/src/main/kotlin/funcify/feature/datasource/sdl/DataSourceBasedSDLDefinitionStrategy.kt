@@ -4,8 +4,8 @@ import arrow.core.Option
 import arrow.core.Predicate
 import arrow.core.filterIsInstance
 import arrow.core.toOption
-import funcify.feature.schema.datasource.DataSource
-import funcify.feature.schema.datasource.DataSourceType
+import funcify.feature.schema.datasource.DataElementSource
+import funcify.feature.schema.datasource.SourceType
 import funcify.feature.schema.datasource.SourceIndex
 import funcify.feature.schema.vertex.ParameterJunctionVertex
 import funcify.feature.schema.vertex.ParameterLeafVertex
@@ -25,7 +25,7 @@ interface DataSourceBasedSDLDefinitionStrategy<T : Any> : SchematicVertexSDLDefi
 
     interface DataSourceAttribute<out T : Any> {
         val name: String
-        val valueExtractor: (DataSource.Key<*>) -> T
+        val valueExtractor: (DataElementSource.Key<*>) -> T
         val expectedValue: T
     }
 
@@ -33,14 +33,14 @@ interface DataSourceBasedSDLDefinitionStrategy<T : Any> : SchematicVertexSDLDefi
 
         internal data class DefaultDataSourceAttribute<out T : Any>(
             override val name: String,
-            override val valueExtractor: (DataSource.Key<*>) -> T,
+            override val valueExtractor: (DataElementSource.Key<*>) -> T,
             override val expectedValue: T
         ) : DataSourceAttribute<T>
 
         fun dataSourceNameAttribute(expectedName: String): DataSourceAttribute<String> {
             return DefaultDataSourceAttribute(
                 name = "name",
-                valueExtractor = DataSource.Key<*>::name,
+                valueExtractor = DataElementSource.Key<*>::name,
                 expectedValue = expectedName
             )
         }
@@ -50,17 +50,17 @@ interface DataSourceBasedSDLDefinitionStrategy<T : Any> : SchematicVertexSDLDefi
         ): DataSourceAttribute<KClass<out SourceIndex<*>>> {
             return DefaultDataSourceAttribute(
                 "sourceIndexType",
-                valueExtractor = DataSource.Key<*>::sourceIndexType,
+                valueExtractor = DataElementSource.Key<*>::sourceIndexType,
                 expectedValue = expectedSourceIndexType
             )
         }
 
-        fun <DST : DataSourceType> dataSourceTypeAttribute(
+        fun <DST : SourceType> dataSourceTypeAttribute(
             expectedDataSourceType: DST
-        ): DataSourceAttribute<DataSourceType> {
+                                                      ): DataSourceAttribute<SourceType> {
             return DefaultDataSourceAttribute(
                 "dataSourceType",
-                valueExtractor = DataSource.Key<*>::dataSourceType,
+                valueExtractor = DataElementSource.Key<*>::sourceType,
                 expectedValue = expectedDataSourceType
             )
         }
@@ -90,7 +90,7 @@ interface DataSourceBasedSDLDefinitionStrategy<T : Any> : SchematicVertexSDLDefi
          * Note: If there aren't any expected attribute values, all data_source_keys
          * will be considered "matching"
          */
-        val dataSourceKeysCondition: Predicate<Iterable<DataSource.Key<*>>> = { dataSourceKeys ->
+        val dataSourceKeysCondition: Predicate<Iterable<DataElementSource.Key<*>>> = { dataSourceKeys ->
             dataSourceKeys.any { dataSourceKey ->
                 expectedDataSourceAttributeValues.all { dsAttr ->
                     try {

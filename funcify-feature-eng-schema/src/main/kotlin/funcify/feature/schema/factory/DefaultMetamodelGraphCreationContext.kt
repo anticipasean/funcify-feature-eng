@@ -5,7 +5,7 @@ import arrow.core.getOrNone
 import arrow.core.none
 import arrow.core.some
 import funcify.feature.schema.SchematicVertex
-import funcify.feature.schema.datasource.DataSource
+import funcify.feature.schema.datasource.DataElementSource
 import funcify.feature.schema.datasource.SourceIndex
 import funcify.feature.schema.directive.alias.AttributeAliasRegistry
 import funcify.feature.schema.directive.alias.DataSourceAttributeAliasProvider
@@ -36,7 +36,7 @@ internal data class DefaultMetamodelGraphCreationContext(
     override val aliasRegistry: AttributeAliasRegistry,
     override val lastUpdatedTemporalAttributePathRegistry: LastUpdatedTemporalAttributePathRegistry,
     override val entityRegistry: EntityRegistry,
-    override val dataSourcesByName: PersistentMap<String, DataSource<*>> = persistentMapOf(),
+    override val dataSourcesByName: PersistentMap<String, DataElementSource<*>> = persistentMapOf(),
     override val aliasProvidersByDataSourceName:
         PersistentMap<String, DataSourceAttributeAliasProvider<*>> =
         persistentMapOf(),
@@ -60,7 +60,7 @@ internal data class DefaultMetamodelGraphCreationContext(
             private var lastUpdatedTemporalAttributePathRegistry:
                 LastUpdatedTemporalAttributePathRegistry,
             private var entityRegistry: EntityRegistry,
-            private var dataSourcesByName: PersistentMap.Builder<String, DataSource<*>>,
+            private var dataSourcesByName: PersistentMap.Builder<String, DataElementSource<*>>,
             private var aliasProvidersByDataSourceName:
                 PersistentMap.Builder<String, DataSourceAttributeAliasProvider<*>>,
             private var lastUpdatedProvidersByDataSourceName:
@@ -92,7 +92,7 @@ internal data class DefaultMetamodelGraphCreationContext(
                 return this
             }
 
-            override fun <SI : SourceIndex<SI>> addDataSource(dataSource: DataSource<SI>): Builder {
+            override fun <SI : SourceIndex<SI>> addDataSource(dataSource: DataElementSource<SI>): Builder {
                 this.dataSourcesByName.put(dataSource.name, dataSource)
                 return this
             }
@@ -111,7 +111,7 @@ internal data class DefaultMetamodelGraphCreationContext(
             }
 
             override fun <SI : SourceIndex<SI>> addAliasProviderForDataSource(
-                dataSource: DataSource<SI>,
+                dataSource: DataElementSource<SI>,
                 aliasProvider: DataSourceAttributeAliasProvider<SI>,
             ): Builder {
                 this.aliasProvidersByDataSourceName.put(dataSource.name, aliasProvider)
@@ -120,7 +120,7 @@ internal data class DefaultMetamodelGraphCreationContext(
 
             override fun <SI : SourceIndex<SI>> addLastUpdatedProviderForDataSource(
                 lastUpdatedProvider: DataSourceAttributeLastUpdatedProvider<SI>,
-                dataSource: DataSource<SI>,
+                dataSource: DataElementSource<SI>,
             ): Builder {
                 this.lastUpdatedProvidersByDataSourceName.put(dataSource.name, lastUpdatedProvider)
                 return this
@@ -128,7 +128,7 @@ internal data class DefaultMetamodelGraphCreationContext(
 
             override fun <SI : SourceIndex<SI>> addEntityIdentifiersProviderForDataSource(
                 entityIdentifiersProvider: DataSourceEntityIdentifiersProvider<SI>,
-                dataSource: DataSource<SI>,
+                dataSource: DataElementSource<SI>,
             ): Builder {
                 this.entityIdentifiersProvidersByDataSourceName.put(
                     dataSource.name,

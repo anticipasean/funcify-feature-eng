@@ -11,7 +11,7 @@ import funcify.feature.schema.path.SchematicPath
  */
 interface SourceIndex<SI : SourceIndex<SI>> {
 
-    val dataSourceLookupKey: DataSource.Key<SI>
+    val dataSourceLookupKey: DataElementSource.Key<SI>
 
     val name: ConventionalName
 

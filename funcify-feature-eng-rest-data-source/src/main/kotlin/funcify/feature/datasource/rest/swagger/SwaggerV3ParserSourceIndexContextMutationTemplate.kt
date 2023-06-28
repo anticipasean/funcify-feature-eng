@@ -7,7 +7,7 @@ import funcify.feature.datasource.rest.schema.SwaggerParameterContainerType
 import funcify.feature.datasource.rest.schema.SwaggerRestApiSourceIndex
 import funcify.feature.datasource.rest.schema.SwaggerSourceAttribute
 import funcify.feature.datasource.rest.schema.SwaggerSourceContainerType
-import funcify.feature.schema.datasource.DataSource
+import funcify.feature.schema.datasource.DataElementSource
 import funcify.feature.schema.path.SchematicPath
 import io.swagger.v3.oas.models.OpenAPI
 import io.swagger.v3.oas.models.PathItem
@@ -26,7 +26,7 @@ interface SwaggerV3ParserSourceIndexContextMutationTemplate<WT> :
 
     override fun getDataSourceKeyForSwaggerSourceIndicesInContext(
         contextContainer: SwaggerSourceIndexContextContainer<WT>
-    ): DataSource.Key<RestApiSourceIndex>
+    ): DataElementSource.Key<RestApiSourceIndex>
 
     override fun getOpenAPIRepresentationInContext(
         contextContainer: SwaggerSourceIndexContextContainer<WT>

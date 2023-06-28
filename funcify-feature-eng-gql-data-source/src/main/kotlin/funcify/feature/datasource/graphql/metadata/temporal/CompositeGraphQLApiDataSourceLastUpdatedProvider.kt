@@ -1,7 +1,7 @@
 package funcify.feature.datasource.graphql.metadata.temporal
 
 import funcify.feature.datasource.graphql.schema.GraphQLSourceIndex
-import funcify.feature.schema.datasource.DataSource
+import funcify.feature.schema.datasource.DataElementSource
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flatten
@@ -27,7 +27,7 @@ internal class CompositeGraphQLApiDataSourceLastUpdatedProvider(
     }
 
     override fun provideTemporalAttributePathsInDataSourceForUseInLastUpdatedCalculations(
-        dataSource: DataSource<GraphQLSourceIndex>
+        dataSource: DataElementSource<GraphQLSourceIndex>
     ): Mono<ImmutableSet<SchematicPath>> {
         logger.info(
             """provide_temporal_attribute_paths_in_datasource_for_use_in_last_updated_calculations: 

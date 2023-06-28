@@ -8,7 +8,7 @@ import arrow.core.right
 import arrow.core.some
 import funcify.feature.materializer.schema.MaterializationMetamodel
 import funcify.feature.schema.MetamodelGraph
-import funcify.feature.schema.datasource.DataSource
+import funcify.feature.schema.datasource.DataElementSource
 import funcify.feature.schema.index.CompositeSourceAttribute
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.schema.vertex.SourceAttributeVertex
@@ -61,7 +61,7 @@ internal object SourceAttributeDataSourceAncestorPathFinder :
 
     private fun findAncestorOrKeepCurrentWithSameDataSource(
         currentPath: SchematicPath,
-        dataSourceKey: DataSource.Key<*>,
+        dataSourceKey: DataElementSource.Key<*>,
         metamodelGraph: MetamodelGraph
     ): SchematicPath {
         return currentPath

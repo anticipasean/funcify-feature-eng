@@ -2,7 +2,7 @@ package funcify.feature.datasource.tracking
 
 import arrow.core.Option
 import arrow.core.none
-import funcify.feature.schema.datasource.DataSource
+import funcify.feature.schema.datasource.DataElementSource
 
 /**
  *
@@ -18,11 +18,11 @@ fun interface TrackableJsonValuePublisherProvider {
             }
     }
 
-    fun canPublishTrackableValuesForDataSource(dataSourceKey: DataSource.Key<*>): Boolean {
+    fun canPublishTrackableValuesForDataSource(dataSourceKey: DataElementSource.Key<*>): Boolean {
         return getTrackableJsonValuePublisherForDataSource(dataSourceKey).isDefined()
     }
 
     fun getTrackableJsonValuePublisherForDataSource(
-        dataSourceKey: DataSource.Key<*>
+        dataSourceKey: DataElementSource.Key<*>
     ): Option<TrackableJsonValuePublisher>
 }

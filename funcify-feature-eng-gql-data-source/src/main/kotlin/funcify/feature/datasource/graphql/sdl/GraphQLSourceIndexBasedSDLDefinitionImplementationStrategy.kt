@@ -14,7 +14,7 @@ import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionCreationContex
 import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionImplementationStrategy
 import funcify.feature.datasource.sdl.impl.DataSourceIndexTypeBasedSDLDefinitionStrategy
 import funcify.feature.error.ServiceError
-import funcify.feature.schema.datasource.DataSource
+import funcify.feature.schema.datasource.DataElementSource
 import funcify.feature.schema.index.CompositeSourceAttribute
 import funcify.feature.schema.index.CompositeSourceContainerType
 import funcify.feature.tools.container.attempt.Try
@@ -178,7 +178,7 @@ internal class GraphQLSourceIndexBasedSDLDefinitionImplementationStrategy :
                 .keys
                 .asSequence()
                 .filter { dsKey -> dsKey.sourceIndexType.isSubclassOf(GraphQLSourceIndex::class) }
-                .filterIsInstance<DataSource.Key<GraphQLSourceIndex>>()
+                .filterIsInstance<DataElementSource.Key<GraphQLSourceIndex>>()
                 .map { dsKey ->
                     compositeSourceAttribute.getSourceAttributeForDataSourceKey<
                         GraphQLSourceIndex, GraphQLSourceAttribute>(dsKey)

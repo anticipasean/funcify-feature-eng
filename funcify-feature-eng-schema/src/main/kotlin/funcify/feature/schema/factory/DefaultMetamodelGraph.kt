@@ -4,7 +4,7 @@ import arrow.core.filterIsInstance
 import funcify.feature.schema.MetamodelGraph
 import funcify.feature.schema.SchematicEdge
 import funcify.feature.schema.SchematicVertex
-import funcify.feature.schema.datasource.DataSource
+import funcify.feature.schema.datasource.DataElementSource
 import funcify.feature.schema.directive.alias.AttributeAliasRegistry
 import funcify.feature.schema.directive.identifier.EntityRegistry
 import funcify.feature.schema.directive.temporal.LastUpdatedTemporalAttributePathRegistry
@@ -28,7 +28,7 @@ import kotlinx.collections.immutable.toPersistentSet
  * @created 4/2/22
  */
 internal data class DefaultMetamodelGraph(
-    override val dataSourcesByKey: PersistentMap<DataSource.Key<*>, DataSource<*>>,
+    override val dataSourcesByKey: PersistentMap<DataElementSource.Key<*>, DataElementSource<*>>,
     override val pathBasedGraph: PathBasedGraph<SchematicPath, SchematicVertex, SchematicEdge> =
         PathBasedGraph.emptyTwoToOnePathsToEdgeGraph(),
     override val attributeAliasRegistry: AttributeAliasRegistry,

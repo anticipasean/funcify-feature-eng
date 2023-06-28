@@ -3,7 +3,7 @@ package funcify.feature.datasource.graphql.schema
 import funcify.feature.datasource.graphql.error.GQLDataSourceErrorResponse
 import funcify.feature.datasource.graphql.error.GQLDataSourceException
 import funcify.feature.naming.ConventionalName
-import funcify.feature.schema.datasource.DataSource
+import funcify.feature.schema.datasource.DataElementSource
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentMap
 import funcify.feature.tools.extensions.StringExtensions.flatten
@@ -22,7 +22,7 @@ internal data class DefaultGraphQLParameterInputObjectContainerType(
     override val sourcePath: SchematicPath,
     override val name: ConventionalName,
     override val dataType: GraphQLInputObjectType,
-    override val dataSourceLookupKey: DataSource.Key<GraphQLSourceIndex>,
+    override val dataSourceLookupKey: DataElementSource.Key<GraphQLSourceIndex>,
     override val parameterAttributes: PersistentSet<GraphQLParameterAttribute> = persistentSetOf(),
 ) : GraphQLParameterContainerType {
 

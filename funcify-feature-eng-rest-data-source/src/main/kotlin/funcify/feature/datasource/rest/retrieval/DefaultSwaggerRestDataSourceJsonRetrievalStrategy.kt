@@ -8,7 +8,7 @@ import com.fasterxml.jackson.databind.jsonFormatVisitors.JsonFormatTypes
 import com.fasterxml.jackson.databind.node.JsonNodeFactory
 import com.fasterxml.jackson.databind.node.JsonNodeType
 import com.fasterxml.jackson.databind.node.ObjectNode
-import funcify.feature.datasource.rest.RestApiDataSource
+import funcify.feature.datasource.rest.RestApiDataElementSource
 import funcify.feature.datasource.rest.error.RestApiDataSourceException
 import funcify.feature.datasource.rest.error.RestApiErrorResponse
 import funcify.feature.datasource.rest.schema.RestApiSourceIndex
@@ -48,7 +48,7 @@ import reactor.util.retry.RetryBackoffSpec
  */
 internal class DefaultSwaggerRestDataSourceJsonRetrievalStrategy(
     private val jsonMapper: JsonMapper,
-    override val dataSource: RestApiDataSource,
+    override val dataSource: RestApiDataElementSource,
     override val parameterVertices:
         ImmutableSet<Either<ParameterJunctionVertex, ParameterLeafVertex>>,
     override val sourceVertices: ImmutableSet<Either<SourceJunctionVertex, SourceLeafVertex>>,
@@ -60,7 +60,7 @@ internal class DefaultSwaggerRestDataSourceJsonRetrievalStrategy(
         private const val METHOD_TAG = "execute_single_rest_api_post_request"
         private data class DefaultSwaggerRestApiJsonResponsePostProcessingContext(
             override val jsonMapper: JsonMapper,
-            override val dataSource: RestApiDataSource,
+            override val dataSource: RestApiDataElementSource,
             override val parameterVertices:
                 ImmutableSet<Either<ParameterJunctionVertex, ParameterLeafVertex>>,
             override val sourceVertices:

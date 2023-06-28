@@ -17,7 +17,7 @@ import funcify.feature.materializer.service.DefaultMaterializationGraphConnector
 import funcify.feature.materializer.spec.DefaultRetrievalFunctionSpec
 import funcify.feature.materializer.spec.RetrievalFunctionSpec
 import funcify.feature.schema.SchematicVertex
-import funcify.feature.schema.datasource.DataSource
+import funcify.feature.schema.datasource.DataElementSource
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.schema.vertex.ParameterAttributeVertex
 import funcify.feature.schema.vertex.ParameterJunctionVertex
@@ -158,7 +158,7 @@ internal class DefaultMaterializationGraphConnector(
     private fun selectDataSourceForSourceAttributeVertex(
         sourceAttributeVertex: SourceAttributeVertex,
         context: MaterializationGraphContext
-    ): Try<DataSource<*>> {
+    ): Try<DataElementSource<*>> {
         return sourceAttributeVertex.compositeAttribute
             .getSourceAttributeByDataSource()
             .keys
@@ -193,8 +193,8 @@ internal class DefaultMaterializationGraphConnector(
     }
 
     private fun dataSourceNotFoundExceptionSupplier(
-        dataSourceKey: DataSource.Key<*>,
-        availableDataSourceKeys: ImmutableSet<DataSource.Key<*>>
+        dataSourceKey: DataElementSource.Key<*>,
+        availableDataSourceKeys: ImmutableSet<DataElementSource.Key<*>>
     ): () -> MaterializerException {
         return { ->
             val dataSourceKeysAvailable =
@@ -204,7 +204,7 @@ internal class DefaultMaterializationGraphConnector(
                         separator = ", ",
                         prefix = "{ ",
                         postfix = " }",
-                        transform = { d -> "${d.name}: ${d.dataSourceType}" }
+                        transform = { d -> "${d.name}: ${d.sourceType}" }
                     )
             MaterializerException(
                 MaterializerErrorResponse.UNEXPECTED_ERROR,
@@ -258,7 +258,7 @@ internal class DefaultMaterializationGraphConnector(
 
     private fun specAlreadyDefinedForDifferentDataSourceExceptionSupplier(
         path: SchematicPath,
-        selectedDatasourceKey: DataSource.Key<*>,
+        selectedDatasourceKey: DataElementSource.Key<*>,
         retrievalFunctionSpecByTopSourceIndexPath:
             PersistentMap<SchematicPath, RetrievalFunctionSpec>
     ): () -> MaterializerException {
@@ -277,7 +277,7 @@ internal class DefaultMaterializationGraphConnector(
                         retrievalFunctionSpecByTopSourceIndexPath
                             .getOrNone(path)
                             .map(RetrievalFunctionSpec::dataSource)
-                            .map(DataSource<*>::key)
+                            .map(DataElementSource<*>::key)
                             .orNull()
                     )
             )

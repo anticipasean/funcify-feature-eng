@@ -1,6 +1,6 @@
 package funcify.feature.schema.factory
 
-import funcify.feature.schema.datasource.DataSource
+import funcify.feature.schema.datasource.DataElementSource
 import funcify.feature.schema.datasource.SourceIndex
 import funcify.feature.schema.directive.alias.DataSourceAttributeAliasProvider
 import funcify.feature.schema.directive.identifier.DataSourceEntityIdentifiersProvider
@@ -15,47 +15,47 @@ import funcify.feature.schema.strategy.SchematicVertexGraphRemappingStrategy
  */
 internal interface MetamodelGraphCreationStrategyTemplate<CTX> {
 
-    fun <SI : SourceIndex<SI>> addDataSource(dataSource: DataSource<SI>, contextContainer: CTX): CTX
+    fun <SI : SourceIndex<SI>> addDataSource(dataSource: DataElementSource<SI>, contextContainer: CTX): CTX
 
     fun <SI : SourceIndex<SI>> addAttributeAliasProviderForDataSource(
         attributeAliasProvider: DataSourceAttributeAliasProvider<SI>,
-        dataSource: DataSource<SI>,
+        dataSource: DataElementSource<SI>,
         contextContainer: CTX
     ): CTX
 
     fun <SI : SourceIndex<SI>> addLastUpdatedAttributeProviderForDataSource(
         lastUpdatedAttributeProvider: DataSourceAttributeLastUpdatedProvider<SI>,
-        dataSource: DataSource<SI>,
+        dataSource: DataElementSource<SI>,
         contextContainer: CTX
     ): CTX
 
     fun <SI : SourceIndex<SI>> addEntityIdentifiersProviderForDataSource(
         entityIdentifiersProvider: DataSourceEntityIdentifiersProvider<SI>,
-        dataSource: DataSource<SI>,
+        dataSource: DataElementSource<SI>,
         contextContainer: CTX
     ): CTX
 
     fun <SI : SourceIndex<SI>> createNewOrUpdateExistingSchematicVertex(
-        dataSource: DataSource<SI>,
+        dataSource: DataElementSource<SI>,
         sourcePath: SchematicPath,
         sourceIndex: SI,
         contextContainer: CTX
     ): CTX
 
     fun <SI : SourceIndex<SI>> fetchAliasesForDataSourceFromProvider(
-        dataSource: DataSource<SI>,
+        dataSource: DataElementSource<SI>,
         aliasProvider: DataSourceAttributeAliasProvider<SI>,
         contextContainer: CTX
     ): CTX
 
     fun <SI : SourceIndex<SI>> fetchLastUpdatedTemporalAttributesForDataSourceFromProvider(
-        dataSource: DataSource<SI>,
+        dataSource: DataElementSource<SI>,
         lastUpdatedProvider: DataSourceAttributeLastUpdatedProvider<SI>,
         contextContainer: CTX
     ): CTX
 
     fun <SI : SourceIndex<SI>> fetchEntityIdentifierAttributesForDataSourceFromProvider(
-        dataSource: DataSource<SI>,
+        dataSource: DataElementSource<SI>,
         entityIdentifiersProvider: DataSourceEntityIdentifiersProvider<SI>,
         contextContainer: CTX
     ): CTX

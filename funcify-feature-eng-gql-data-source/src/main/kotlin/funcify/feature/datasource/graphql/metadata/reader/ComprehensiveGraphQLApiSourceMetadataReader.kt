@@ -24,7 +24,7 @@ import funcify.feature.datasource.graphql.schema.GraphQLSourceContainerType
 import funcify.feature.datasource.graphql.schema.GraphQLSourceIndex
 import funcify.feature.datasource.graphql.schema.GraphQLSourceIndexFactory
 import funcify.feature.datasource.graphql.schema.GraphQLSourceMetamodel
-import funcify.feature.schema.datasource.DataSource
+import funcify.feature.schema.datasource.DataElementSource
 import funcify.feature.schema.datasource.SourceMetamodel
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.tools.container.attempt.Try
@@ -64,7 +64,7 @@ internal class ComprehensiveGraphQLApiSourceMetadataReader(
     }
 
     override fun readSourceMetamodelFromMetadata(
-        dataSourceKey: DataSource.Key<GraphQLSourceIndex>,
+        dataSourceKey: DataElementSource.Key<GraphQLSourceIndex>,
         metadataInput: GraphQLSchema,
     ): SourceMetamodel<GraphQLSourceIndex> {
         logger.debug(
@@ -103,7 +103,7 @@ internal class ComprehensiveGraphQLApiSourceMetadataReader(
     }
 
     private fun createRootQueryObjectTypeSourceIndexCreationContext(
-        dataSourceKey: DataSource.Key<GraphQLSourceIndex>,
+        dataSourceKey: DataElementSource.Key<GraphQLSourceIndex>,
         input: GraphQLSchema,
     ): Try<GraphQLSourceIndexCreationContext<*>> {
         val rootContext: GraphQLSourceIndexCreationContext<GraphQLObjectType> =

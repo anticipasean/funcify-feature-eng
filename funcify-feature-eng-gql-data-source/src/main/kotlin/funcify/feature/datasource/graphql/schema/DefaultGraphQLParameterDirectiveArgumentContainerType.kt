@@ -4,7 +4,7 @@ import arrow.core.Option
 import funcify.feature.datasource.graphql.error.GQLDataSourceErrorResponse
 import funcify.feature.datasource.graphql.error.GQLDataSourceException
 import funcify.feature.naming.ConventionalName
-import funcify.feature.schema.datasource.DataSource
+import funcify.feature.schema.datasource.DataElementSource
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentMap
 import funcify.feature.tools.extensions.StringExtensions.flatten
@@ -21,7 +21,7 @@ import kotlinx.collections.immutable.persistentSetOf
  * @created 2022-07-03
  */
 internal data class DefaultGraphQLParameterDirectiveArgumentContainerType(
-    override val dataSourceLookupKey: DataSource.Key<GraphQLSourceIndex>,
+    override val dataSourceLookupKey: DataElementSource.Key<GraphQLSourceIndex>,
     override val sourcePath: SchematicPath,
     override val name: ConventionalName,
     override val directiveArgument: Option<GraphQLAppliedDirectiveArgument>,

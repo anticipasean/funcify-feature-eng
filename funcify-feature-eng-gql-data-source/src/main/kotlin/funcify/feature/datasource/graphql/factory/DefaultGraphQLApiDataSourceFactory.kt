@@ -1,15 +1,15 @@
 package funcify.feature.datasource.graphql.factory
 
-import funcify.feature.datasource.graphql.GraphQLApiDataSource
+import funcify.feature.datasource.graphql.GraphQLApiDataElementSource
 import funcify.feature.datasource.graphql.GraphQLApiService
 import funcify.feature.datasource.graphql.error.GQLDataSourceErrorResponse
 import funcify.feature.datasource.graphql.error.GQLDataSourceException
 import funcify.feature.datasource.graphql.metadata.provider.GraphQLApiSourceMetadataProvider
 import funcify.feature.datasource.graphql.metadata.reader.GraphQLApiSourceMetadataReader
 import funcify.feature.datasource.graphql.schema.GraphQLSourceIndex
-import funcify.feature.schema.datasource.DataSource
-import funcify.feature.schema.datasource.DataSourceType
-import funcify.feature.schema.datasource.RawDataSourceType
+import funcify.feature.schema.datasource.DataElementSource
+import funcify.feature.schema.datasource.SourceType
+import funcify.feature.schema.datasource.RawSourceType
 import funcify.feature.schema.datasource.SourceMetamodel
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.OptionExtensions.toOption
@@ -32,24 +32,24 @@ internal class DefaultGraphQLApiDataSourceFactory(
 
         internal data class DefaultGraphQLApiDataSourceKey(
             override val name: String,
-        ) : DataSource.Key<GraphQLSourceIndex> {
-            override val dataSourceType: DataSourceType = RawDataSourceType.GRAPHQL_API
+        ) : DataElementSource.Key<GraphQLSourceIndex> {
+            override val sourceType: SourceType = RawSourceType.GRAPHQL_API
             override val sourceIndexType: KClass<GraphQLSourceIndex> = GraphQLSourceIndex::class
         }
 
-        internal data class DefaultGraphQLApiDataSource(
+        internal data class DefaultGraphQLApiDataElementSource(
             override val name: String,
             override val graphQLApiService: GraphQLApiService,
             override val graphQLSourceSchema: GraphQLSchema,
             override val sourceMetamodel: SourceMetamodel<GraphQLSourceIndex>,
-            override val key: DataSource.Key<GraphQLSourceIndex>
-        ) : GraphQLApiDataSource
+            override val key: DataElementSource.Key<GraphQLSourceIndex>
+                                                              ) : GraphQLApiDataElementSource
     }
 
     override fun createGraphQLApiDataSource(
         name: String,
         graphQLApiService: GraphQLApiService
-    ): GraphQLApiDataSource {
+    ): GraphQLApiDataElementSource {
         logger.info("create_graphql_api_data_source: [ name: $name ]")
         return graphQLApiSourceMetadataProvider
             .provideMetadata(graphQLApiService)
@@ -75,7 +75,7 @@ internal class DefaultGraphQLApiDataSourceFactory(
             }
             .map { gqlSchema: GraphQLSchema ->
                 val dataSourceKey = DefaultGraphQLApiDataSourceKey(name = name)
-                DefaultGraphQLApiDataSource(
+                DefaultGraphQLApiDataElementSource(
                     name = name,
                     graphQLApiService = graphQLApiService,
                     graphQLSourceSchema = gqlSchema,
@@ -85,7 +85,7 @@ internal class DefaultGraphQLApiDataSourceFactory(
                             gqlSchema
                         ),
                     key = dataSourceKey
-                )
+                                                  )
             }
             .orElseThrow()
     }

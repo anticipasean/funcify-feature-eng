@@ -1,7 +1,7 @@
 package funcify.feature.datasource.rest.schema
 
 import funcify.feature.naming.ConventionalName
-import funcify.feature.schema.datasource.DataSource
+import funcify.feature.schema.datasource.DataElementSource
 import funcify.feature.schema.path.SchematicPath
 import io.swagger.v3.oas.models.PathItem
 import kotlinx.collections.immutable.PersistentMap
@@ -15,7 +15,7 @@ import kotlinx.collections.immutable.persistentSetOf
  * @created 2022-07-10
  */
 internal data class DefaultSwaggerPathGroupSourceContainerType(
-    override val dataSourceLookupKey: DataSource.Key<RestApiSourceIndex>,
+    override val dataSourceLookupKey: DataElementSource.Key<RestApiSourceIndex>,
     override val sourcePath: SchematicPath,
     override val name: ConventionalName,
     override val pathItemsBySchematicPath: PersistentMap<SchematicPath, Pair<String, PathItem>>,

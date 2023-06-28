@@ -15,7 +15,7 @@ import funcify.feature.datasource.rest.swagger.DefaultSwaggerV3ParserSourceIndex
 import funcify.feature.datasource.rest.swagger.SwaggerV3ParserSourceIndexContext
 import funcify.feature.datasource.rest.swagger.SwaggerV3ParserSourceIndexContext.Companion.narrowed
 import funcify.feature.datasource.rest.swagger.SwaggerV3ParserSourceIndexFactory
-import funcify.feature.schema.datasource.DataSource
+import funcify.feature.schema.datasource.DataElementSource
 import funcify.feature.schema.datasource.SourceMetamodel
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
@@ -41,13 +41,13 @@ internal class DefaultSwaggerRestApiSourceMetadataReader(
     }
 
     override fun readSourceMetamodelFromMetadata(
-        dataSourceKey: DataSource.Key<RestApiSourceIndex>,
+        dataSourceKey: DataElementSource.Key<RestApiSourceIndex>,
         metadataInput: OpenAPI,
     ): SourceMetamodel<RestApiSourceIndex> {
         val dataSourceNameAndType: String =
             dataSourceKey.name
                 .toOption()
-                .zip(dataSourceKey.dataSourceType.toString().toOption())
+                .zip(dataSourceKey.sourceType.toString().toOption())
                 .map { (n, t) -> "{ name: $n, type: $t }" }
                 .orNull()
                 ?: "<NA>"

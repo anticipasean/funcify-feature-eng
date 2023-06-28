@@ -2,11 +2,11 @@ package funcify.feature.materializer.configuration
 
 import arrow.core.getOrElse
 import arrow.core.toOption
-import funcify.feature.datasource.graphql.GraphQLApiDataSource
+import funcify.feature.datasource.graphql.GraphQLApiDataElementSource
 import funcify.feature.datasource.graphql.metadata.alias.GraphQLApiDataSourceAliasProvider
 import funcify.feature.datasource.graphql.metadata.identifier.GraphQLApiDataSourceEntityIdentifiersProvider
 import funcify.feature.datasource.graphql.metadata.temporal.GraphQLApiDataSourceLastUpdatedAttributeProvider
-import funcify.feature.datasource.rest.RestApiDataSource
+import funcify.feature.datasource.rest.RestApiDataElementSource
 import funcify.feature.datasource.retrieval.SchematicPathBasedJsonRetrievalFunctionFactory
 import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionCreationContextFactory
 import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionImplementationStrategy
@@ -64,13 +64,13 @@ class MaterializerConfiguration {
     @Bean
     fun metamodelGraph(
         metamodelGraphFactory: MetamodelGraphFactory,
-        graphQLApiDataSources: ObjectProvider<GraphQLApiDataSource>,
+        graphQLApiDataSources: ObjectProvider<GraphQLApiDataElementSource>,
         graphQLApiDataSourceAliasProviders: ObjectProvider<GraphQLApiDataSourceAliasProvider>,
         graphQLApiDataSourceLastUpdatedAttributeProviders:
             ObjectProvider<GraphQLApiDataSourceLastUpdatedAttributeProvider>,
         graphQLApiDataSourceEntityIdentifiersProviders:
             ObjectProvider<GraphQLApiDataSourceEntityIdentifiersProvider>,
-        restApiDataSources: ObjectProvider<RestApiDataSource>,
+        restApiDataSources: ObjectProvider<RestApiDataElementSource>,
         schematicVertexGraphRemappingStrategyProvider:
             ObjectProvider<SchematicVertexGraphRemappingStrategy<MetamodelGraphCreationContext>>
     ): MetamodelGraph {
@@ -78,7 +78,7 @@ class MaterializerConfiguration {
             .flatMap { dsProvider -> dsProvider }
             .fold(metamodelGraphFactory.builder()) { builder, ds ->
                 when (ds) {
-                    is GraphQLApiDataSource -> {
+                    is GraphQLApiDataElementSource -> {
                         graphQLApiDataSourceEntityIdentifiersProviders.fold(
                             graphQLApiDataSourceLastUpdatedAttributeProviders.fold(
                                 graphQLApiDataSourceAliasProviders.fold(

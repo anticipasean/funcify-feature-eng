@@ -7,7 +7,7 @@ import funcify.feature.datasource.rest.schema.SwaggerParameterContainerType
 import funcify.feature.datasource.rest.schema.SwaggerRestApiSourceIndex
 import funcify.feature.datasource.rest.schema.SwaggerSourceAttribute
 import funcify.feature.datasource.rest.schema.SwaggerSourceContainerType
-import funcify.feature.schema.datasource.DataSource
+import funcify.feature.schema.datasource.DataElementSource
 import funcify.feature.schema.path.SchematicPath
 
 /**
@@ -19,7 +19,7 @@ interface SwaggerSourceIndexContextMutationTemplate<WT, O, P, REQ, RES, SCH> {
 
     fun getDataSourceKeyForSwaggerSourceIndicesInContext(
         contextContainer: SwaggerSourceIndexContextContainer<WT>
-    ): DataSource.Key<RestApiSourceIndex>
+    ): DataElementSource.Key<RestApiSourceIndex>
 
     fun shouldIncludeSourcePathAndPathInfo(
         sourcePath: SchematicPath,

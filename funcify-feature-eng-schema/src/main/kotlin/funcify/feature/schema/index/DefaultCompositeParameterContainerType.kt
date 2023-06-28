@@ -1,7 +1,7 @@
 package funcify.feature.schema.index
 
 import funcify.feature.naming.ConventionalName
-import funcify.feature.schema.datasource.DataSource
+import funcify.feature.schema.datasource.DataElementSource
 import funcify.feature.schema.datasource.ParameterContainerType
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.PersistentMap
@@ -15,12 +15,12 @@ import kotlinx.collections.immutable.persistentMapOf
 internal data class DefaultCompositeParameterContainerType(
     override val conventionalName: ConventionalName,
     private val parameterContainerTypeByDataSource:
-        PersistentMap<DataSource.Key<*>, ParameterContainerType<*, *>> =
+        PersistentMap<DataElementSource.Key<*>, ParameterContainerType<*, *>> =
         persistentMapOf()
 ) : CompositeParameterContainerType {
 
     override fun getParameterContainerTypeByDataSource():
-        ImmutableMap<DataSource.Key<*>, ParameterContainerType<*, *>> {
+        ImmutableMap<DataElementSource.Key<*>, ParameterContainerType<*, *>> {
         return parameterContainerTypeByDataSource
     }
 }

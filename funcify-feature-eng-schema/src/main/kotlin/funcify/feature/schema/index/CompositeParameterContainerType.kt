@@ -1,7 +1,7 @@
 package funcify.feature.schema.index
 
-import funcify.feature.schema.datasource.DataSource
-import funcify.feature.schema.datasource.DataSourceType
+import funcify.feature.schema.datasource.DataElementSource
+import funcify.feature.schema.datasource.SourceType
 import funcify.feature.schema.datasource.ParameterAttribute
 import funcify.feature.schema.datasource.ParameterContainerType
 import funcify.feature.schema.datasource.SourceIndex
@@ -15,9 +15,9 @@ import kotlinx.collections.immutable.ImmutableMap
  */
 interface CompositeParameterContainerType : CompositeParameterIndex {
 
-    override fun canBeProvidedTo(sourceType: DataSourceType): Boolean {
+    override fun canBeProvidedTo(sourceType: SourceType): Boolean {
         return getParameterContainerTypeByDataSource().streamEntries().anyMatch { entry ->
-            entry.key.dataSourceType == sourceType
+            entry.key.sourceType == sourceType
         }
     }
 
@@ -28,12 +28,12 @@ interface CompositeParameterContainerType : CompositeParameterIndex {
     }
 
     fun getParameterContainerTypeByDataSource():
-        ImmutableMap<DataSource.Key<*>, ParameterContainerType<*, *>>
+        ImmutableMap<DataElementSource.Key<*>, ParameterContainerType<*, *>>
 
     fun <
         SI : SourceIndex<SI>,
         PA : ParameterAttribute<SI>> getParameterContainerTypeForDataSourceKey(
-        key: DataSource.Key<SI>
+        key: DataElementSource.Key<SI>
     ): ParameterContainerType<SI, PA>? {
         @Suppress("UNCHECKED_CAST") //
         return getParameterContainerTypeByDataSource()[key] as? ParameterContainerType<SI, PA>

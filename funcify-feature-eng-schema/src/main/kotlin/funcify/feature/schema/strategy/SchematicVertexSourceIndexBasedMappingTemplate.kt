@@ -3,7 +3,7 @@ package funcify.feature.schema.strategy
 import arrow.core.identity
 import arrow.core.toOption
 import arrow.core.zip
-import funcify.feature.schema.datasource.DataSource
+import funcify.feature.schema.datasource.DataElementSource
 import funcify.feature.schema.datasource.ParameterAttribute
 import funcify.feature.schema.datasource.ParameterContainerType
 import funcify.feature.schema.datasource.SourceAttribute
@@ -112,14 +112,14 @@ interface SchematicVertexSourceIndexBasedMappingTemplate<C> :
     }
 
     fun onSourceIndexOnDataSourceOnSourceRootVertex(
-        dataSourceKey: DataSource.Key<*>,
+        dataSourceKey: DataElementSource.Key<*>,
         sourceContainerType: SourceContainerType<*, *>,
         sourceRootVertex: SourceRootVertex,
         context: C
     ): C
 
     fun onSourceIndicesOnDataSourceOnSourceJunctionVertex(
-        dataSourceKey: DataSource.Key<*>,
+        dataSourceKey: DataElementSource.Key<*>,
         sourceContainerType: SourceContainerType<*, *>,
         sourceAttribute: SourceAttribute<*>,
         sourceJunctionVertex: SourceJunctionVertex,
@@ -127,14 +127,14 @@ interface SchematicVertexSourceIndexBasedMappingTemplate<C> :
     ): C
 
     fun onSourceIndexOnDataSourceOnSourceLeafVertex(
-        dataSourceKey: DataSource.Key<*>,
+        dataSourceKey: DataElementSource.Key<*>,
         sourceAttribute: SourceAttribute<*>,
         sourceLeafVertex: SourceLeafVertex,
         context: C
     ): C
 
     fun onSourceIndicesOnDataSourceOnParameterJunctionVertex(
-        dataSourceKey: DataSource.Key<*>,
+        dataSourceKey: DataElementSource.Key<*>,
         parameterContainerType: ParameterContainerType<*, *>,
         parameterAttribute: ParameterAttribute<*>,
         parameterJunctionVertex: ParameterJunctionVertex,
@@ -142,7 +142,7 @@ interface SchematicVertexSourceIndexBasedMappingTemplate<C> :
     ): C
 
     fun onSourceIndexOnDataSourceOnParameterLeafVertex(
-        dataSourceKey: DataSource.Key<*>,
+        dataSourceKey: DataElementSource.Key<*>,
         parameterAttribute: ParameterAttribute<*>,
         parameterLeafVertex: ParameterLeafVertex,
         context: C

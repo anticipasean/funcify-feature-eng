@@ -1,8 +1,8 @@
 package funcify.feature.datasource.db.schema
 
-import funcify.feature.schema.datasource.DataSource
-import funcify.feature.schema.datasource.DataSourceType
-import funcify.feature.schema.datasource.RawDataSourceType
+import funcify.feature.schema.datasource.DataElementSource
+import funcify.feature.schema.datasource.SourceType
+import funcify.feature.schema.datasource.RawSourceType
 import kotlin.reflect.KClass
 
 /**
@@ -10,9 +10,9 @@ import kotlin.reflect.KClass
  * @author smccarron
  * @created 2022-06-20
  */
-data class JooqDataSourceKey(override val name: String) : DataSource.Key<RelDatabaseSourceIndex> {
+data class JooqDataSourceKey(override val name: String) : DataElementSource.Key<RelDatabaseSourceIndex> {
 
     override val sourceIndexType: KClass<RelDatabaseSourceIndex> = RelDatabaseSourceIndex::class
 
-    override val dataSourceType: DataSourceType = RawDataSourceType.RELATIONAL_DATABASE
+    override val sourceType: SourceType = RawSourceType.RELATIONAL_DATABASE
 }

@@ -6,7 +6,7 @@ package funcify.feature.schema.datasource
  * @author smccarron
  * @created 1/30/22
  */
-enum class RawDataSourceType : DataSourceType {
+enum class RawSourceType : SourceType {
 
     REST_API,
     GRAPHQL_API,

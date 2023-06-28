@@ -19,7 +19,7 @@ import funcify.feature.datasource.graphql.schema.GraphQLParameterContainerType
 import funcify.feature.datasource.graphql.schema.GraphQLSourceAttribute
 import funcify.feature.datasource.graphql.schema.GraphQLSourceContainerType
 import funcify.feature.datasource.graphql.schema.GraphQLSourceIndex
-import funcify.feature.schema.datasource.DataSource
+import funcify.feature.schema.datasource.DataElementSource
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flatten
@@ -58,7 +58,7 @@ internal object DefaultGraphQLSourceIndexCreationContextFactory : GraphQLSourceI
         private var graphqlParameterAttributesBySchematicPath:
             PersistentMap<SchematicPath, GraphQLParameterAttribute> =
             persistentMapOf(),
-        private var graphQLApiDataSourceKey: DataSource.Key<GraphQLSourceIndex>,
+        private var graphQLApiDataSourceKey: DataElementSource.Key<GraphQLSourceIndex>,
         private var parentPath: Option<SchematicPath>,
         private var currentElement: E
     ) : Builder<E> {
@@ -364,7 +364,7 @@ internal object DefaultGraphQLSourceIndexCreationContextFactory : GraphQLSourceI
         override val graphqlParameterAttributesBySchematicPath:
             PersistentMap<SchematicPath, GraphQLParameterAttribute> =
             persistentMapOf(),
-        override val graphQLApiDataSourceKey: DataSource.Key<GraphQLSourceIndex>,
+        override val graphQLApiDataSourceKey: DataElementSource.Key<GraphQLSourceIndex>,
         override val parentPath: Option<SchematicPath>,
         override val currentElement: GraphQLObjectType
     ) : OutputObjectTypeSourceIndexCreationContext {
@@ -410,7 +410,7 @@ internal object DefaultGraphQLSourceIndexCreationContextFactory : GraphQLSourceI
         override val graphqlParameterAttributesBySchematicPath:
             PersistentMap<SchematicPath, GraphQLParameterAttribute> =
             persistentMapOf(),
-        override val graphQLApiDataSourceKey: DataSource.Key<GraphQLSourceIndex>,
+        override val graphQLApiDataSourceKey: DataElementSource.Key<GraphQLSourceIndex>,
         override val parentPath: Option<SchematicPath>,
         override val currentElement: GraphQLFieldDefinition
     ) : FieldDefinitionSourceIndexCreationContext {
@@ -456,7 +456,7 @@ internal object DefaultGraphQLSourceIndexCreationContextFactory : GraphQLSourceI
         override val graphqlParameterAttributesBySchematicPath:
             PersistentMap<SchematicPath, GraphQLParameterAttribute> =
             persistentMapOf(),
-        override val graphQLApiDataSourceKey: DataSource.Key<GraphQLSourceIndex>,
+        override val graphQLApiDataSourceKey: DataElementSource.Key<GraphQLSourceIndex>,
         override val parentPath: Option<SchematicPath>,
         override val currentElement: GraphQLArgument
     ) : FieldArgumentParameterSourceIndexCreationContext {
@@ -502,7 +502,7 @@ internal object DefaultGraphQLSourceIndexCreationContextFactory : GraphQLSourceI
         override val graphqlParameterAttributesBySchematicPath:
             PersistentMap<SchematicPath, GraphQLParameterAttribute> =
             persistentMapOf(),
-        override val graphQLApiDataSourceKey: DataSource.Key<GraphQLSourceIndex>,
+        override val graphQLApiDataSourceKey: DataElementSource.Key<GraphQLSourceIndex>,
         override val parentPath: Option<SchematicPath>,
         override val currentElement: GraphQLInputObjectType
     ) : InputObjectTypeSourceIndexCreationContext {
@@ -548,7 +548,7 @@ internal object DefaultGraphQLSourceIndexCreationContextFactory : GraphQLSourceI
         override val graphqlParameterAttributesBySchematicPath:
             PersistentMap<SchematicPath, GraphQLParameterAttribute> =
             persistentMapOf(),
-        override val graphQLApiDataSourceKey: DataSource.Key<GraphQLSourceIndex>,
+        override val graphQLApiDataSourceKey: DataElementSource.Key<GraphQLSourceIndex>,
         override val parentPath: Option<SchematicPath>,
         override val currentElement: GraphQLInputObjectField
     ) : InputObjectFieldSourceIndexCreationContext {
@@ -594,7 +594,7 @@ internal object DefaultGraphQLSourceIndexCreationContextFactory : GraphQLSourceI
         override val graphqlParameterAttributesBySchematicPath:
             PersistentMap<SchematicPath, GraphQLParameterAttribute> =
             persistentMapOf(),
-        override val graphQLApiDataSourceKey: DataSource.Key<GraphQLSourceIndex>,
+        override val graphQLApiDataSourceKey: DataElementSource.Key<GraphQLSourceIndex>,
         override val parentPath: Option<SchematicPath>,
         override val currentElement: GraphQLAppliedDirective
     ) : DirectiveSourceIndexCreationContext {
@@ -640,7 +640,7 @@ internal object DefaultGraphQLSourceIndexCreationContextFactory : GraphQLSourceI
         override val graphqlParameterAttributesBySchematicPath:
             PersistentMap<SchematicPath, GraphQLParameterAttribute> =
             persistentMapOf(),
-        override val graphQLApiDataSourceKey: DataSource.Key<GraphQLSourceIndex>,
+        override val graphQLApiDataSourceKey: DataElementSource.Key<GraphQLSourceIndex>,
         override val parentPath: Option<SchematicPath>,
         override val currentElement: GraphQLAppliedDirectiveArgument
     ) : DirectiveArgumentSourceIndexCreationContext {
@@ -670,7 +670,7 @@ internal object DefaultGraphQLSourceIndexCreationContextFactory : GraphQLSourceI
     private val logger: Logger = loggerFor<DefaultGraphQLSourceIndexCreationContextFactory>()
 
     override fun createRootSourceIndexCreationContextForQueryGraphQLObjectType(
-        graphQLApiDataSourceKey: DataSource.Key<GraphQLSourceIndex>,
+        graphQLApiDataSourceKey: DataElementSource.Key<GraphQLSourceIndex>,
         graphQLObjectType: GraphQLObjectType
     ): GraphQLSourceIndexCreationContext<GraphQLObjectType> {
         logger.debug(

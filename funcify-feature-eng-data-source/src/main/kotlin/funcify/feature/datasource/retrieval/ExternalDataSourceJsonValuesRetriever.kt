@@ -2,7 +2,7 @@ package funcify.feature.datasource.retrieval
 
 import arrow.core.Either
 import com.fasterxml.jackson.databind.JsonNode
-import funcify.feature.schema.datasource.DataSource
+import funcify.feature.schema.datasource.DataElementSource
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.schema.vertex.ParameterJunctionVertex
 import funcify.feature.schema.vertex.ParameterLeafVertex
@@ -21,10 +21,10 @@ import reactor.core.publisher.Mono
 interface ExternalDataSourceJsonValuesRetriever :
     (ImmutableMap<SchematicPath, JsonNode>) -> Mono<ImmutableMap<SchematicPath, JsonNode>> {
 
-    val dataSourceKey: DataSource.Key<*>
+    val dataSourceKey: DataElementSource.Key<*>
         get() = dataSource.key
 
-    val dataSource: DataSource<*>
+    val dataSource: DataElementSource<*>
 
     val parameterPaths: ImmutableSet<SchematicPath>
 
@@ -36,7 +36,7 @@ interface ExternalDataSourceJsonValuesRetriever :
 
     interface Builder {
 
-        fun dataSource(dataSource: DataSource<*>): Builder
+        fun dataSource(dataSource: DataElementSource<*>): Builder
 
         fun addRequestParameter(
             parameterJunctionOrLeafVertex: Either<ParameterJunctionVertex, ParameterLeafVertex>

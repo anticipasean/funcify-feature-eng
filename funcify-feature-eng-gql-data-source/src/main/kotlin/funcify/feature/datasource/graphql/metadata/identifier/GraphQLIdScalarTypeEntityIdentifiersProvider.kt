@@ -6,7 +6,7 @@ import arrow.core.orElse
 import arrow.core.toOption
 import funcify.feature.datasource.graphql.schema.GraphQLSourceAttribute
 import funcify.feature.datasource.graphql.schema.GraphQLSourceIndex
-import funcify.feature.schema.datasource.DataSource
+import funcify.feature.schema.datasource.DataElementSource
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.MonoExtensions.widen
@@ -31,7 +31,7 @@ class GraphQLIdScalarTypeEntityIdentifiersProvider : GraphQLApiDataSourceEntityI
     }
 
     override fun provideEntityIdentifierSourceAttributePathsInDataSource(
-        dataSource: DataSource<GraphQLSourceIndex>
+        dataSource: DataElementSource<GraphQLSourceIndex>
     ): Mono<ImmutableSet<SchematicPath>> {
         logger.debug(
             "provide_entity_identifier_source_attribute_paths_in_data_source: [ datasource.key.name: {} ]",
@@ -39,7 +39,7 @@ class GraphQLIdScalarTypeEntityIdentifiersProvider : GraphQLApiDataSourceEntityI
         )
         return dataSource
             .toOption()
-            .map { ds: DataSource<GraphQLSourceIndex> -> ds.sourceMetamodel }
+            .map { ds: DataElementSource<GraphQLSourceIndex> -> ds.sourceMetamodel }
             .map { metamodel -> metamodel.sourceIndicesByPath.asSequence() }
             .fold(::emptySequence, ::identity)
             .flatMap { (sourcePath, srcIndices) ->

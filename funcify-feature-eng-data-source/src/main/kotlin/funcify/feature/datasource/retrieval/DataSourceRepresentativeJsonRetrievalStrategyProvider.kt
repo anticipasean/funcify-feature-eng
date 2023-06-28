@@ -1,7 +1,7 @@
 package funcify.feature.datasource.retrieval
 
 import arrow.core.Either
-import funcify.feature.schema.datasource.DataSource
+import funcify.feature.schema.datasource.DataElementSource
 import funcify.feature.schema.datasource.SourceIndex
 import funcify.feature.schema.vertex.ParameterJunctionVertex
 import funcify.feature.schema.vertex.ParameterLeafVertex
@@ -18,11 +18,11 @@ import kotlinx.collections.immutable.ImmutableSet
 interface DataSourceRepresentativeJsonRetrievalStrategyProvider<SI : SourceIndex<SI>> {
 
     fun providesJsonValueRetrieversForVerticesWithSourceIndicesIn(
-        dataSourceKey: DataSource.Key<*>
+        dataSourceKey: DataElementSource.Key<*>
     ): Boolean
 
     fun createExternalDataSourceJsonValuesRetrieverFor(
-        dataSource: DataSource<SI>,
+        dataSource: DataElementSource<SI>,
         sourceVertices: ImmutableSet<Either<SourceJunctionVertex, SourceLeafVertex>>,
         parameterVertices: ImmutableSet<Either<ParameterJunctionVertex, ParameterLeafVertex>>
     ): Try<ExternalDataSourceJsonValuesRetriever>

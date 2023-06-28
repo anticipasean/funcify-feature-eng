@@ -5,7 +5,7 @@ import arrow.core.left
 import arrow.core.right
 import funcify.feature.materializer.error.MaterializerErrorResponse
 import funcify.feature.materializer.error.MaterializerException
-import funcify.feature.schema.datasource.DataSource
+import funcify.feature.schema.datasource.DataElementSource
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.schema.vertex.ParameterJunctionVertex
 import funcify.feature.schema.vertex.ParameterLeafVertex
@@ -16,7 +16,7 @@ import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.persistentMapOf
 
 internal data class DefaultRetrievalFunctionSpec(
-    override val dataSource: DataSource<*>,
+    override val dataSource: DataElementSource<*>,
     override val sourceVerticesByPath:
         PersistentMap<SchematicPath, Either<SourceJunctionVertex, SourceLeafVertex>> =
         persistentMapOf(),
@@ -27,7 +27,7 @@ internal data class DefaultRetrievalFunctionSpec(
 
     companion object {
         private class DefaultSpecBuilder(
-            private var dataSource: DataSource<*>,
+            private var dataSource: DataElementSource<*>,
             private val sourceVerticesByPathBuilder:
                 PersistentMap.Builder<
                     SchematicPath, Either<SourceJunctionVertex, SourceLeafVertex>>,
@@ -36,7 +36,7 @@ internal data class DefaultRetrievalFunctionSpec(
                     SchematicPath, Either<ParameterJunctionVertex, ParameterLeafVertex>>
         ) : RetrievalFunctionSpec.SpecBuilder {
 
-            override fun dataSource(dataSource: DataSource<*>): RetrievalFunctionSpec.SpecBuilder {
+            override fun dataSource(dataSource: DataElementSource<*>): RetrievalFunctionSpec.SpecBuilder {
                 this.dataSource = dataSource
                 return this
             }

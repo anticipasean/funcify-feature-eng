@@ -1,7 +1,7 @@
 package funcify.feature.datasource.rest.retrieval
 
 import arrow.core.Either
-import funcify.feature.datasource.rest.RestApiDataSource
+import funcify.feature.datasource.rest.RestApiDataElementSource
 import funcify.feature.datasource.rest.schema.SwaggerParameterAttribute
 import funcify.feature.datasource.rest.schema.SwaggerSourceAttribute
 import funcify.feature.tools.json.JsonMapper
@@ -17,7 +17,7 @@ interface SwaggerRestApiJsonResponsePostProcessingContext {
 
     val jsonMapper: JsonMapper
 
-    val dataSource: RestApiDataSource
+    val dataSource: RestApiDataElementSource
 
     val parameterVertices: ImmutableSet<Either<ParameterJunctionVertex, ParameterLeafVertex>>
 

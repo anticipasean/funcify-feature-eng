@@ -1,6 +1,6 @@
 package funcify.feature.datasource.retrieval
 
-import funcify.feature.schema.datasource.DataSource
+import funcify.feature.schema.datasource.DataElementSource
 
 /**
  *
@@ -10,11 +10,11 @@ import funcify.feature.schema.datasource.DataSource
 interface SchematicPathBasedJsonRetrievalFunctionFactory {
 
     fun canBuildExternalDataSourceJsonValuesRetrieverForDataSource(
-        dataSourceKey: DataSource.Key<*>
+        dataSourceKey: DataElementSource.Key<*>
     ): Boolean
 
     fun canBuildTrackableJsonValueRetrieverOnBehalfOfDataSource(
-        dataSourceKey: DataSource.Key<*>
+        dataSourceKey: DataElementSource.Key<*>
     ): Boolean
 
     fun externalDataSourceJsonValuesRetrieverBuilder():

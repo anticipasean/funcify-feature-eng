@@ -1,7 +1,7 @@
 package funcify.feature.datasource.graphql.metadata.alias
 
 import funcify.feature.datasource.graphql.schema.GraphQLSourceIndex
-import funcify.feature.schema.datasource.DataSource
+import funcify.feature.schema.datasource.DataElementSource
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.MonoExtensions.widen
@@ -28,7 +28,7 @@ internal class CompositeGraphQLApiDataSourceAliasProvider(
     }
 
     override fun provideAnyAliasesForAttributePathsInDataSource(
-        dataSource: DataSource<GraphQLSourceIndex>
+        dataSource: DataElementSource<GraphQLSourceIndex>
     ): Mono<ImmutableMap<SchematicPath, ImmutableSet<String>>> {
         logger.debug(
             "provide_any_aliases_for_attribute_paths_in_datasource: [ datasource.name: ${dataSource.name} ]"

@@ -6,7 +6,7 @@ import arrow.core.filterIsInstance
 import arrow.core.toOption
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.node.ArrayNode
-import funcify.feature.datasource.graphql.GraphQLApiDataSource
+import funcify.feature.datasource.graphql.GraphQLApiDataElementSource
 import funcify.feature.datasource.graphql.error.GQLDataSourceErrorResponse
 import funcify.feature.datasource.graphql.error.GQLDataSourceException
 import funcify.feature.datasource.graphql.schema.GraphQLParameterAttribute
@@ -15,7 +15,7 @@ import funcify.feature.datasource.graphql.schema.GraphQLSourceIndex
 import funcify.feature.datasource.json.JsonNodeSchematicPathToValueMappingExtractor
 import funcify.feature.datasource.retrieval.DataSourceRepresentativeJsonRetrievalStrategy
 import funcify.feature.tools.json.JsonMapper
-import funcify.feature.schema.datasource.DataSource
+import funcify.feature.schema.datasource.DataElementSource
 import funcify.feature.schema.index.CompositeSourceAttribute
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.schema.vertex.ParameterJunctionVertex
@@ -47,7 +47,7 @@ import reactor.kotlin.core.publisher.switchIfEmpty
 internal class DefaultGraphQLDataSourceJsonRetrievalStrategy(
     private val asyncExecutor: Executor,
     private val jsonMapper: JsonMapper,
-    private val graphQLDataSource: GraphQLApiDataSource,
+    private val graphQLDataSource: GraphQLApiDataElementSource,
     override val parameterVertices:
         ImmutableSet<Either<ParameterJunctionVertex, ParameterLeafVertex>>,
     override val sourceVertices: ImmutableSet<Either<SourceJunctionVertex, SourceLeafVertex>>
@@ -59,7 +59,7 @@ internal class DefaultGraphQLDataSourceJsonRetrievalStrategy(
         private const val ERRORS_KEY = "errors"
     }
 
-    override val dataSource: DataSource<GraphQLSourceIndex> = graphQLDataSource
+    override val dataSource: DataElementSource<GraphQLSourceIndex> = graphQLDataSource
 
     override val parameterPaths: ImmutableSet<SchematicPath> by lazy { super.parameterPaths }
 

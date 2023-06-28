@@ -1,6 +1,6 @@
 package funcify.feature.datasource.rest.configuration
 
-import funcify.feature.datasource.rest.RestApiDataSource
+import funcify.feature.datasource.rest.RestApiDataElementSource
 import funcify.feature.datasource.rest.error.RestApiDataSourceException
 import funcify.feature.datasource.rest.error.RestApiErrorResponse
 import funcify.feature.datasource.rest.factory.DefaultRestApiDataSourceFactory
@@ -108,7 +108,7 @@ class RestApiDataSourceConfiguration {
 
     @Bean
     fun swaggerRestApiDataSourceSDLDefinitionImplementationStrategy(
-        restApiDataSourceProvider: ObjectProvider<RestApiDataSource>,
+        restApiDataSourceProvider: ObjectProvider<RestApiDataElementSource>,
         swaggerSourceIndexSDLTypeResolutionTemplateProvider:
             ObjectProvider<SwaggerSourceIndexSDLTypeResolutionStrategyTemplate>
     ): SchematicVertexSDLDefinitionImplementationStrategy {

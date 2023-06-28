@@ -6,7 +6,7 @@ import arrow.core.toOption
 import funcify.feature.naming.ConventionalName
 import funcify.feature.naming.impl.DefaultConventionalName
 import funcify.feature.naming.impl.DefaultNameSegment
-import funcify.feature.schema.datasource.DataSource
+import funcify.feature.schema.datasource.DataElementSource
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import kotlinx.collections.immutable.persistentListOf
@@ -44,7 +44,7 @@ data class JooqSourceAttribute(val jooqTableField: TableField<Record, *>) :
                 jooqTableField.name
             )
         }
-    override val dataSourceLookupKey: DataSource.Key<RelDatabaseSourceIndex> by lazy {
+    override val dataSourceLookupKey: DataElementSource.Key<RelDatabaseSourceIndex> by lazy {
         JooqDataSourceKey(
             jooqTableField.table?.catalog?.name
                 ?: throw IllegalArgumentException(
