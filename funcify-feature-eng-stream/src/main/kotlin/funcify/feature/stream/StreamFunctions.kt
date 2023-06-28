@@ -8,6 +8,7 @@ import graphql.ExecutionInput
 import graphql.ExecutionResult
 import graphql.GraphQL
 import graphql.schema.GraphQLSchema
+import graphql.schema.idl.SchemaPrinter
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Qualifier
@@ -32,8 +33,8 @@ class StreamFunctions {
         private val objectMapper: ObjectMapper = ObjectMapper()
         val QUERY: String =
             """
-                |query showFeatures(${'$'}showId: ID!){
-                |    show(showId: ${'$'}showId) {
+                |query showFeatures(${'$'}show_id: ID!){
+                |    show(showId: ${'$'}show_id) {
                 |        showId
                 |        title
                 |        releaseYear
@@ -77,6 +78,7 @@ class StreamFunctions {
         return { messagePublisher: Flux<Message<Any?>> ->
             messagePublisher.flatMap { m: Message<Any?> ->
                 logger.info("headers: {}", m.headers)
+                logger.info("schema: \n{}", SchemaPrinter().print(netflixShowsGraphQLSchema))
                 when (val pl: Any? = m.payload) {
                         null -> {
                             // TODO: Instate null node treatment here: Mono.just(nullNode)
@@ -149,7 +151,7 @@ class StreamFunctions {
                             .query(QUERY)
                             .variables(
                                 mapOf(
-                                    "showId" to requestBodyJson.get("show_id"),
+                                    "show_id" to requestBodyJson.get("show_id"),
                                     "somethingElse" to
                                         JsonNodeFactory.instance
                                             .objectNode()
