@@ -8,12 +8,12 @@ import arrow.core.orElse
 import arrow.core.toOption
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.node.ObjectNode
-import funcify.feature.datasource.tracking.TrackableValue
+import funcify.feature.schema.tracking.TrackableValue
 import funcify.feature.tools.json.JsonMapper
 import funcify.feature.materializer.error.MaterializerErrorResponse
 import funcify.feature.materializer.error.MaterializerException
 import funcify.feature.materializer.fetcher.SingleRequestFieldMaterializationSession
-import funcify.feature.datasource.json.JsonNodeToStandardValueConverter
+import funcify.feature.schema.json.JsonNodeToStandardValueConverter
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.OptionExtensions.toMono

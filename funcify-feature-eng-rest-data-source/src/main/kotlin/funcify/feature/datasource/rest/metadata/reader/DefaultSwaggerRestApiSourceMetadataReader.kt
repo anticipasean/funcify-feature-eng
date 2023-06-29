@@ -15,8 +15,7 @@ import funcify.feature.datasource.rest.swagger.DefaultSwaggerV3ParserSourceIndex
 import funcify.feature.datasource.rest.swagger.SwaggerV3ParserSourceIndexContext
 import funcify.feature.datasource.rest.swagger.SwaggerV3ParserSourceIndexContext.Companion.narrowed
 import funcify.feature.datasource.rest.swagger.SwaggerV3ParserSourceIndexFactory
-import funcify.feature.schema.datasource.DataElementSource
-import funcify.feature.schema.datasource.SourceMetamodel
+import funcify.feature.schema.dataelementsource.DataElementSource
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.PersistentMapExtensions.reduceEntriesToPersistentSetValueMap

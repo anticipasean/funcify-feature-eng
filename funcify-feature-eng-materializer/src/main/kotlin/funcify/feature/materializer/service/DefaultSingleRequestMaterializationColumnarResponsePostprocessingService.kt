@@ -5,7 +5,7 @@ import arrow.core.toOption
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.node.JsonNodeFactory
 import com.fasterxml.jackson.databind.node.ObjectNode
-import funcify.feature.datasource.json.JsonNodeSchematicPathToValueMappingExtractor
+import funcify.feature.schema.json.JsonNodeSchematicPathToValueMappingExtractor
 import funcify.feature.tools.json.JsonMapper
 import funcify.feature.materializer.context.document.ColumnarDocumentContext
 import funcify.feature.materializer.error.MaterializerErrorResponse

@@ -7,10 +7,9 @@ import funcify.feature.datasource.rest.error.RestApiErrorResponse
 import funcify.feature.datasource.rest.metadata.provider.RestApiMetadataProvider
 import funcify.feature.datasource.rest.metadata.reader.RestApiSourceMetadataReader
 import funcify.feature.datasource.rest.schema.RestApiSourceIndex
-import funcify.feature.schema.datasource.DataElementSource
-import funcify.feature.schema.datasource.SourceType
-import funcify.feature.schema.datasource.RawSourceType
-import funcify.feature.schema.datasource.SourceMetamodel
+import funcify.feature.schema.dataelementsource.DataElementSource
+import funcify.feature.schema.dataelementsource.SourceType
+import funcify.feature.schema.dataelementsource.RawSourceType
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.MonoExtensions.toTry
 import funcify.feature.tools.extensions.StringExtensions.flatten

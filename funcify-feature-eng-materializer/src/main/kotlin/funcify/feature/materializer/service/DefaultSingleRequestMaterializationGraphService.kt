@@ -14,7 +14,6 @@ import funcify.feature.materializer.error.MaterializerErrorResponse
 import funcify.feature.materializer.error.MaterializerException
 import funcify.feature.materializer.phase.DefaultRequestParameterMaterializationGraphPhase
 import funcify.feature.materializer.session.GraphQLSingleRequestSession
-import funcify.feature.schema.SchematicVertex
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.schema.vertex.ParameterJunctionVertex
 import funcify.feature.schema.vertex.ParameterLeafVertex

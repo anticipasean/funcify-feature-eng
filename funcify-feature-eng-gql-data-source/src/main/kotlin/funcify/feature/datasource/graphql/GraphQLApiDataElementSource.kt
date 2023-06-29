@@ -1,27 +1,20 @@
 package funcify.feature.datasource.graphql
 
-import funcify.feature.datasource.graphql.schema.GraphQLSourceIndex
-import funcify.feature.schema.datasource.DataElementSource
-import funcify.feature.schema.datasource.SourceType
-import funcify.feature.schema.datasource.RawSourceType
-import funcify.feature.schema.datasource.SourceMetamodel
-import graphql.schema.GraphQLSchema
+import funcify.feature.schema.dataelementsource.DataElementSource
+import funcify.feature.schema.dataelementsource.RawSourceType
+import funcify.feature.schema.dataelementsource.SourceType
+import graphql.schema.idl.TypeDefinitionRegistry
 
 /**
- *
  * @author smccarron
  * @created 4/10/22
  */
-interface GraphQLApiDataElementSource : DataElementSource<GraphQLSourceIndex> {
+interface GraphQLApiDataElementSource : DataElementSource {
 
     override val sourceType: SourceType
         get() = RawSourceType.GRAPHQL_API
 
     override val name: String
 
-    val graphQLApiService: GraphQLApiService
-
-    val graphQLSourceSchema: GraphQLSchema
-
-    override val sourceMetamodel: SourceMetamodel<GraphQLSourceIndex>
+    override val sourceTypeDefinitionRegistry: TypeDefinitionRegistry
 }

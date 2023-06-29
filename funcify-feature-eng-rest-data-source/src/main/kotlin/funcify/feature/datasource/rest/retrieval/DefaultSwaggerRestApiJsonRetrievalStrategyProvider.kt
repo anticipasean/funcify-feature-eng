@@ -3,9 +3,9 @@ package funcify.feature.datasource.rest.retrieval
 import arrow.core.Either
 import funcify.feature.datasource.rest.RestApiDataElementSource
 import funcify.feature.datasource.rest.schema.RestApiSourceIndex
-import funcify.feature.datasource.retrieval.ExternalDataSourceJsonValuesRetriever
+import funcify.feature.schema.dataelementsource.retrieval.DataElementJsonValueSource
 import funcify.feature.tools.json.JsonMapper
-import funcify.feature.schema.datasource.DataElementSource
+import funcify.feature.schema.dataelementsource.DataElementSource
 import funcify.feature.schema.vertex.ParameterJunctionVertex
 import funcify.feature.schema.vertex.ParameterLeafVertex
 import funcify.feature.schema.vertex.SourceJunctionVertex
@@ -36,7 +36,7 @@ internal class DefaultSwaggerRestApiJsonRetrievalStrategyProvider(
         dataSource: DataElementSource<RestApiSourceIndex>,
         sourceVertices: ImmutableSet<Either<SourceJunctionVertex, SourceLeafVertex>>,
         parameterVertices: ImmutableSet<Either<ParameterJunctionVertex, ParameterLeafVertex>>,
-    ): Try<ExternalDataSourceJsonValuesRetriever> {
+    ): Try<DataElementJsonValueSource> {
         logger.debug(
             """create_schematic_path_based_json_retrieval_function_for: [ 
             |data_source: ${dataSource.key}, 
@@ -45,13 +45,13 @@ internal class DefaultSwaggerRestApiJsonRetrievalStrategyProvider(
             |]""".flatten()
         )
         return Try.attempt {
-            DefaultSwaggerRestDataSourceJsonRetrievalStrategy(
+            DefaultSwaggerRestDataElementJsonRetrievalStrategy(
                 jsonMapper = jsonMapper,
                 dataSource = dataSource as RestApiDataElementSource,
                 parameterVertices = parameterVertices,
                 sourceVertices = sourceVertices,
                 postProcessingStrategy = postProcessingStrategy
-            )
+                                                              )
         }
     }
 }

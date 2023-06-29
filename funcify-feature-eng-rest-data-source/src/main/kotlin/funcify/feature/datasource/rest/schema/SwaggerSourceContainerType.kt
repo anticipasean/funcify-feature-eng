@@ -2,7 +2,6 @@ package funcify.feature.datasource.rest.schema
 
 import arrow.core.Option
 import arrow.core.none
-import funcify.feature.schema.datasource.SourceContainerType
 import funcify.feature.schema.path.SchematicPath
 import io.swagger.v3.oas.models.PathItem
 import io.swagger.v3.oas.models.media.Schema

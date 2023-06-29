@@ -1,7 +1,7 @@
 package funcify.feature.materializer.service
 
 import com.fasterxml.jackson.databind.JsonNode
-import funcify.feature.datasource.tracking.TrackableValue
+import funcify.feature.schema.tracking.TrackableValue
 import funcify.feature.materializer.fetcher.SingleRequestFieldMaterializationSession
 import funcify.feature.materializer.session.GraphQLSingleRequestSession
 

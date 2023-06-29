@@ -2,8 +2,8 @@ package funcify.feature.materializer.context.publishing
 
 import arrow.core.continuations.eagerEffect
 import com.fasterxml.jackson.databind.JsonNode
-import funcify.feature.datasource.tracking.TrackableJsonValuePublisher
-import funcify.feature.datasource.tracking.TrackableValue
+import funcify.feature.schema.tracking.FeatureJsonValuePublisher
+import funcify.feature.schema.tracking.TrackableValue
 import funcify.feature.materializer.context.publishing.TrackableValuePublishingContext.Builder
 import funcify.feature.materializer.dispatch.SourceIndexRequestDispatch.TrackableSingleJsonValueDispatch
 import funcify.feature.materializer.error.MaterializerErrorResponse
@@ -30,7 +30,7 @@ internal class DefaultTrackableValuePublishingContextFactory :
         internal class DefaultTrackableValuePublishingContextBuilder(
             private var session: GraphQLSingleRequestSession? = null,
             private var dispatchedRequest: TrackableSingleJsonValueDispatch? = null,
-            private var publisher: TrackableJsonValuePublisher? = null,
+            private var publisher: FeatureJsonValuePublisher? = null,
             private var calculatedValue: TrackableValue.CalculatedValue<JsonNode>? = null,
             private var lastUpdatedInstantsByPath: PersistentMap.Builder<SchematicPath, Instant> =
                 persistentMapOf<SchematicPath, Instant>().builder(),
@@ -54,7 +54,7 @@ internal class DefaultTrackableValuePublishingContextFactory :
             }
 
             override fun trackableJsonValuePublisher(
-                publisher: TrackableJsonValuePublisher
+                publisher: FeatureJsonValuePublisher
             ): Builder {
                 this.publisher = publisher
                 return this
@@ -153,7 +153,7 @@ internal class DefaultTrackableValuePublishingContextFactory :
         internal data class DefaultTrackableValuePublishingContext(
             override val session: GraphQLSingleRequestSession,
             override val dispatchedRequest: TrackableSingleJsonValueDispatch,
-            override val publisher: TrackableJsonValuePublisher,
+            override val publisher: FeatureJsonValuePublisher,
             override val calculatedValue: TrackableValue.CalculatedValue<JsonNode>,
             override val lastUpdatedInstantsByPath: ImmutableMap<SchematicPath, Instant>,
             override val entityIdentifierValuesByPath: ImmutableMap<SchematicPath, JsonNode>,

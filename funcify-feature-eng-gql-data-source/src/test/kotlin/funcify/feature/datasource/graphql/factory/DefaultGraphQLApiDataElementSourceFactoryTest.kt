@@ -6,8 +6,7 @@ import arrow.core.or
 import arrow.core.toOption
 import com.fasterxml.jackson.databind.ObjectMapper
 import funcify.feature.datasource.graphql.GraphQLApiDataElementSource
-import funcify.feature.datasource.graphql.metadata.MockGraphQLApiSourceMetadataProvider
-import funcify.feature.datasource.graphql.metadata.filter.InternalServiceTypesExcludingSourceMetadataFilter
+import funcify.feature.datasource.graphql.metadata.MockGraphQLApiMetadataProvider
 import funcify.feature.datasource.graphql.metadata.reader.ComprehensiveGraphQLApiSourceMetadataReader
 import funcify.feature.datasource.graphql.metadata.reader.DefaultGraphQLSourceIndexCreationContextFactory
 import funcify.feature.datasource.graphql.schema.DefaultGraphQLSourceAttribute
@@ -15,10 +14,9 @@ import funcify.feature.datasource.graphql.schema.DefaultGraphQLSourceContainerTy
 import funcify.feature.datasource.graphql.schema.DefaultGraphQLSourceIndexFactory
 import funcify.feature.json.JsonObjectMappingConfiguration
 import funcify.feature.schema.MetamodelGraph
-import funcify.feature.schema.SchematicVertex
 import funcify.feature.schema.configuration.SchemaConfiguration
-import funcify.feature.schema.datasource.DataElementSource
-import funcify.feature.schema.datasource.RawSourceType
+import funcify.feature.schema.dataelementsource.DataElementSource
+import funcify.feature.schema.dataelementsource.RawSourceType
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.schema.vertex.SourceJunctionVertex
 import funcify.feature.schema.vertex.SourceLeafVertex
@@ -32,10 +30,10 @@ import org.junit.jupiter.api.Test
 internal class DefaultGraphQLApiDataElementSourceFactoryTest {
 
     private val objectMapper: ObjectMapper = JsonObjectMappingConfiguration.objectMapper()
-    private val gqlDataSourceFactory: GraphQLApiDataSourceFactory =
-        DefaultGraphQLApiDataSourceFactory(
-            graphQLApiSourceMetadataProvider =
-                MockGraphQLApiSourceMetadataProvider(objectMapper = objectMapper),
+    private val gqlDataSourceFactory: GraphQLApiDataElementSourceProviderFactory =
+        DefaultGraphQLApiDataElementSourceProviderFactory(
+            graphQLApiMetadataProvider =
+                MockGraphQLApiMetadataProvider(objectMapper = objectMapper),
             graphQLApiSourceMetadataReader =
                 ComprehensiveGraphQLApiSourceMetadataReader(
                     graphQLSourceIndexFactory = DefaultGraphQLSourceIndexFactory(),
@@ -44,14 +42,14 @@ internal class DefaultGraphQLApiDataElementSourceFactoryTest {
                     graphQLApiSourceMetadataFilter =
                         InternalServiceTypesExcludingSourceMetadataFilter()
                 )
-        )
+                                                         )
 
     @Test
     fun createGraphQLApiDataSourceTest() {
         val graphQLApiDataSource: GraphQLApiDataElementSource =
             gqlDataSourceFactory.createGraphQLApiDataSource(
                 "myDataElements",
-                MockGraphQLApiSourceMetadataProvider.fakeService
+                MockGraphQLApiMetadataProvider.fakeService
             )
         Assertions.assertEquals("myDataElements", graphQLApiDataSource.name)
         Assertions.assertFalse(
@@ -74,7 +72,7 @@ internal class DefaultGraphQLApiDataElementSourceFactoryTest {
         val graphQLApiDataSource: GraphQLApiDataElementSource =
             gqlDataSourceFactory.createGraphQLApiDataSource(
                 "myDataElements",
-                MockGraphQLApiSourceMetadataProvider.fakeService
+                MockGraphQLApiMetadataProvider.fakeService
             )
         val schemaConfiguration = SchemaConfiguration()
         val defaultMetamodelGraphFactory =

@@ -13,7 +13,6 @@ import funcify.feature.materializer.service.MaterializationGraphQLWiringFactory
 import funcify.feature.naming.StandardNamingConventions
 import funcify.feature.scalar.registry.ScalarTypeRegistry
 import funcify.feature.schema.MetamodelGraph
-import funcify.feature.schema.SchematicVertex
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.schema.vertex.ParameterJunctionVertex
 import funcify.feature.schema.vertex.ParameterLeafVertex
@@ -36,8 +35,6 @@ import graphql.schema.GraphQLSchema
 import graphql.schema.idl.RuntimeWiring
 import graphql.schema.idl.SchemaGenerator
 import graphql.schema.idl.TypeDefinitionRegistry
-import kotlin.reflect.KType
-import kotlin.reflect.jvm.jvmErasure
 import kotlinx.collections.immutable.PersistentList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toPersistentList

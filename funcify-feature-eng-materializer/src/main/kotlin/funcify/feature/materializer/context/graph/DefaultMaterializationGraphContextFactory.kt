@@ -8,7 +8,6 @@ import funcify.feature.materializer.error.MaterializerException
 import funcify.feature.materializer.schema.MaterializationMetamodel
 import funcify.feature.materializer.schema.edge.RequestParameterEdge
 import funcify.feature.materializer.spec.RetrievalFunctionSpec
-import funcify.feature.schema.SchematicVertex
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.tools.container.graph.PathBasedGraph
 import graphql.language.OperationDefinition

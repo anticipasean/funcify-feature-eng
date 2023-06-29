@@ -2,7 +2,6 @@ package funcify.feature.materializer.schema.edge
 
 import arrow.core.Option
 import com.fasterxml.jackson.databind.JsonNode
-import funcify.feature.schema.SchematicEdge
 import funcify.feature.schema.path.SchematicPath
 import kotlinx.collections.immutable.ImmutableMap
 

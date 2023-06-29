@@ -5,7 +5,7 @@ import arrow.core.firstOrNone
 import arrow.core.left
 import arrow.core.right
 import arrow.core.toOption
-import funcify.feature.datasource.graphql.schema.GraphQLOutputFieldsContainerTypeExtractor
+import funcify.feature.datasource.graphql.type.GraphQLOutputFieldsContainerTypeExtractor
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.tools.extensions.SequenceExtensions.recurse
 import graphql.schema.GraphQLList

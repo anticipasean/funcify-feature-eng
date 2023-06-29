@@ -12,7 +12,7 @@ import funcify.feature.datasource.rest.schema.SwaggerSourceAttribute
 import funcify.feature.datasource.rest.schema.SwaggerSourceContainerType
 import funcify.feature.datasource.rest.swagger.SwaggerV3ParserSourceIndexContext.Companion.SV3PWT
 import funcify.feature.datasource.rest.swagger.SwaggerV3ParserSourceIndexContext.Companion.narrowed
-import funcify.feature.schema.datasource.DataElementSource
+import funcify.feature.schema.dataelementsource.DataElementSource
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import io.swagger.v3.oas.models.OpenAPI

@@ -1,7 +1,5 @@
 package funcify.feature.datasource.rest.schema
 
-import funcify.feature.schema.datasource.SourceIndex
-
 /**
  *
  * @author smccarron

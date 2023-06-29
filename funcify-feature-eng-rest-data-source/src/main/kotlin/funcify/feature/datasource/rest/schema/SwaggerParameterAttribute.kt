@@ -1,6 +1,5 @@
 package funcify.feature.datasource.rest.schema
 
-import funcify.feature.schema.datasource.ParameterAttribute
 import io.swagger.v3.oas.models.media.Schema
 
 /**

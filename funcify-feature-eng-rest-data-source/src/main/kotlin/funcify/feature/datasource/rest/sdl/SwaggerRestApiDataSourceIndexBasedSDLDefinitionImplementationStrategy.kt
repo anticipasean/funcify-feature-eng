@@ -11,7 +11,7 @@ import funcify.feature.datasource.sdl.DataSourceBasedSDLDefinitionStrategy
 import funcify.feature.datasource.sdl.DataSourceBasedSDLDefinitionStrategy.DataSourceAttribute
 import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionCreationContext
 import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionImplementationStrategy
-import funcify.feature.schema.datasource.RawSourceType
+import funcify.feature.schema.dataelementsource.RawSourceType
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.extensions.TryExtensions.successIfDefined

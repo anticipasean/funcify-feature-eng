@@ -7,7 +7,7 @@ import funcify.feature.datasource.rest.schema.SwaggerParameterContainerType
 import funcify.feature.datasource.rest.schema.SwaggerSourceAttribute
 import funcify.feature.datasource.rest.schema.SwaggerSourceContainerType
 import funcify.feature.datasource.rest.swagger.SwaggerV3ParserSourceIndexContext.Builder
-import funcify.feature.schema.datasource.DataElementSource
+import funcify.feature.schema.dataelementsource.DataElementSource
 import funcify.feature.schema.path.SchematicPath
 import io.swagger.v3.oas.models.OpenAPI
 import kotlinx.collections.immutable.PersistentMap

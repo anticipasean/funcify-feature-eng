@@ -2,7 +2,7 @@ package funcify.feature.datasource.rest.retrieval
 
 import arrow.core.toOption
 import com.fasterxml.jackson.databind.JsonNode
-import funcify.feature.datasource.json.JsonNodeSchematicPathToValueMappingExtractor
+import funcify.feature.schema.json.JsonNodeSchematicPathToValueMappingExtractor
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentMap

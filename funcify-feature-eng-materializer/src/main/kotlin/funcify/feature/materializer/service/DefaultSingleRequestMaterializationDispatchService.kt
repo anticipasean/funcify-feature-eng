@@ -3,12 +3,12 @@ package funcify.feature.materializer.service
 import arrow.core.*
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.node.JsonNodeFactory
-import funcify.feature.datasource.retrieval.BackupExternalDataSourceCalculatedJsonValueRetriever
-import funcify.feature.datasource.retrieval.ExternalDataSourceJsonValuesRetriever
-import funcify.feature.datasource.retrieval.SchematicPathBasedJsonRetrievalFunctionFactory
-import funcify.feature.datasource.retrieval.TrackableJsonValueRetriever
-import funcify.feature.datasource.tracking.TrackableValue
-import funcify.feature.datasource.tracking.TrackableValueFactory
+import funcify.feature.schema.dataelementsource.retrieval.BackupExternalDataSourceCalculatedJsonValueRetriever
+import funcify.feature.schema.dataelementsource.retrieval.DataElementJsonValueSource
+import funcify.feature.schema.dataelementsource.retrieval.SchematicPathBasedJsonRetrievalFunctionFactory
+import funcify.feature.schema.dataelementsource.retrieval.FeatureJsonValueStore
+import funcify.feature.schema.tracking.TrackableValue
+import funcify.feature.schema.tracking.TrackableValueFactory
 import funcify.feature.materializer.dispatch.DefaultSourceIndexRequestDispatchFactory
 import funcify.feature.materializer.dispatch.SourceIndexRequestDispatch.*
 import funcify.feature.materializer.dispatch.SourceIndexRequestDispatchFactory
@@ -22,7 +22,6 @@ import funcify.feature.materializer.schema.edge.RequestParameterEdge.*
 import funcify.feature.materializer.session.GraphQLSingleRequestSession
 import funcify.feature.materializer.spec.RetrievalFunctionSpec
 import funcify.feature.naming.StandardNamingConventions
-import funcify.feature.schema.SchematicVertex
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.schema.vertex.SourceContainerTypeVertex
 import funcify.feature.schema.vertex.SourceJunctionVertex
@@ -58,8 +57,7 @@ import reactor.core.scheduler.Schedulers
 import reactor.kotlin.core.publisher.ofType
 
 internal class DefaultSingleRequestMaterializationDispatchService(
-    private val schematicPathBasedJsonRetrievalFunctionFactory:
-        SchematicPathBasedJsonRetrievalFunctionFactory,
+    private val schematicPathBasedJsonRetrievalFunctionFactory: SchematicPathBasedJsonRetrievalFunctionFactory,
     private val trackableValueFactory: TrackableValueFactory,
     private val materializedTrackableValuePublishingService:
         MaterializedTrackableValuePublishingService,
@@ -80,10 +78,10 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                 PersistentMap<SchematicPath, RetrievalFunctionSpec> =
                 persistentMapOf(),
             val multiSrcIndexFunctionBySourceIndexPath:
-                PersistentMap<SchematicPath, ExternalDataSourceJsonValuesRetriever> =
+                PersistentMap<SchematicPath, DataElementJsonValueSource> =
                 persistentMapOf(),
             val singleSrcIndexCacheFunctionBySourceIndexPath:
-                PersistentMap<SchematicPath, TrackableJsonValueRetriever> =
+                PersistentMap<SchematicPath, FeatureJsonValueStore> =
                 persistentMapOf(),
             val singleSrcIndexBackupFunctionBySourceIndexPath:
                 PersistentMap<SchematicPath, BackupExternalDataSourceCalculatedJsonValueRetriever> =
@@ -222,14 +220,14 @@ internal class DefaultSingleRequestMaterializationDispatchService(
             .asSequence()
             .map { (p, m) ->
                 "path: $p, multiple_src_ind_request_dispatch: { source_indices: %s, param_indices: %s ]".format(
-                    m.externalDataSourceJsonValuesRetriever.sourcePaths
+                    m.dataElementJsonValueSource.sourcePaths
                         .asSequence()
                         .joinToString(", ", "{ ", " }"),
-                    m.externalDataSourceJsonValuesRetriever.parameterPaths.joinToString(
+                    m.dataElementJsonValueSource.parameterPaths.joinToString(
                         ", ",
                         "{ ",
                         " }"
-                    )
+                                                                            )
                 )
             }
             .joinToString(",\n", "multi_src_ind_request_dispatches: { \n", "\n}\n") +
@@ -239,10 +237,10 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                 .asSequence()
                 .map { (p, s) ->
                     "path: $p, single_src_ind_request_dispatch: { source_indices: %s, param_indices: %s ]".format(
-                        s.backupBaseExternalDataSourceJsonValuesRetriever.sourcePaths
+                        s.backupBaseDataElementJsonValueSource.sourcePaths
                             .asSequence()
                             .joinToString(", ", "{ ", " }"),
-                        s.backupBaseExternalDataSourceJsonValuesRetriever.parameterPaths
+                        s.backupBaseDataElementJsonValueSource.parameterPaths
                             .asSequence()
                             .joinToString(", ", "{ ", " }")
                     )
@@ -318,7 +316,7 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                         retrievalFunctionSpec.dataSource.key
                     ) -> {
                 schematicPathBasedJsonRetrievalFunctionFactory
-                    .trackableValueJsonRetrievalFunctionBuilder()
+                    .featureJsonValueStoreBuilder()
                     .cacheForDataSource(retrievalFunctionSpec.dataSource)
                     .build()
                     .zip(
@@ -328,8 +326,8 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                     )
                     .map {
                         (
-                            singleSrcIndCacheRetrFunc: TrackableJsonValueRetriever,
-                            multiSrcIndJsonRetrFunc: ExternalDataSourceJsonValuesRetriever
+                            singleSrcIndCacheRetrFunc: FeatureJsonValueStore,
+                            multiSrcIndJsonRetrFunc: DataElementJsonValueSource
                         ) ->
                         val backupFunction: BackupExternalDataSourceCalculatedJsonValueRetriever =
                             createBackupSingleSourceIndexJsonOptionRetrievalFunctionFor(
@@ -517,13 +515,13 @@ internal class DefaultSingleRequestMaterializationDispatchService(
 
     private fun createExternalDataSourceJsonValuesRetrieverForRetrievalFunctionSpec(
         retrievalFunctionSpec: RetrievalFunctionSpec
-    ): Try<ExternalDataSourceJsonValuesRetriever> {
+    ): Try<DataElementJsonValueSource> {
         return retrievalFunctionSpec.sourceVerticesByPath
             .asSequence()
             .fold(
                 retrievalFunctionSpec.parameterVerticesByPath.asSequence().fold(
                     schematicPathBasedJsonRetrievalFunctionFactory
-                        .externalDataSourceJsonValuesRetrieverBuilder()
+                        .dataElementJsonValueStoreBuilder()
                         .dataSource(retrievalFunctionSpec.dataSource)
                 ) { retrievalFunctionBuilder, (_, paramVert) ->
                     retrievalFunctionBuilder.addRequestParameter(paramVert)
@@ -537,13 +535,13 @@ internal class DefaultSingleRequestMaterializationDispatchService(
     private fun createBackupSingleSourceIndexJsonOptionRetrievalFunctionFor(
         sourceIndexPath: SchematicPath,
         retrievalSpec: RetrievalFunctionSpec,
-        multiSrcIndJsonRetrFunc: ExternalDataSourceJsonValuesRetriever,
+        multiSrcIndJsonRetrFunc: DataElementJsonValueSource,
         materializedParameterValuesByPath: PersistentMap<SchematicPath, JsonNode>,
         session: GraphQLSingleRequestSession
     ): BackupExternalDataSourceCalculatedJsonValueRetriever {
         return BackupExternalDataSourceCalculatedJsonValueRetriever {
-            trackableValue: TrackableValue<JsonNode>,
-            dispatchedParams: ImmutableMap<SchematicPath, Mono<JsonNode>> ->
+                trackableValue: TrackableValue<JsonNode>,
+                dispatchedParams: ImmutableMap<SchematicPath, Mono<JsonNode>> ->
             Flux.merge(
                     dispatchedParams
                         .asSequence()
@@ -831,7 +829,7 @@ internal class DefaultSingleRequestMaterializationDispatchService(
     private fun dependentFunctionsResolvedLastComparator(
         requestParameterMaterializationGraphPhase: RequestParameterMaterializationGraphPhase,
         requestCreationContext: RequestCreationContext
-    ): Comparator<Map.Entry<SchematicPath, TrackableJsonValueRetriever>> {
+    ): Comparator<Map.Entry<SchematicPath, FeatureJsonValueStore>> {
         return Comparator { e1, e2 ->
             requestCreationContext.multiSrcIndexFunctionBySourceIndexPath[e1.key]
                 .toOption()
@@ -881,13 +879,12 @@ internal class DefaultSingleRequestMaterializationDispatchService(
         phase: RequestParameterMaterializationGraphPhase,
         requestCreationContext: RequestCreationContext,
         dispatchedTrackableValueRequest: Mono<TrackableValue<JsonNode>>,
-        trackableJsonValueRetriever: TrackableJsonValueRetriever,
-        externalDataSourceJsonValuesRetriever: ExternalDataSourceJsonValuesRetriever,
-        backupExternalDataSourceCalculatedJsonValueRetriever:
-            BackupExternalDataSourceCalculatedJsonValueRetriever
+        featureJsonValueStore: FeatureJsonValueStore,
+        dataElementJsonValueSource: DataElementJsonValueSource,
+        backupExternalDataSourceCalculatedJsonValueRetriever: BackupExternalDataSourceCalculatedJsonValueRetriever
     ): Mono<TrackableValue<JsonNode>> {
         val deferredParameterValuesByParamPath: ImmutableMap<SchematicPath, Mono<JsonNode>> =
-            externalDataSourceJsonValuesRetriever.parameterPaths
+            dataElementJsonValueSource.parameterPaths
                 .stream()
                 // TODO: handle other edge types that could be mapped to params: materialized value
                 // edges

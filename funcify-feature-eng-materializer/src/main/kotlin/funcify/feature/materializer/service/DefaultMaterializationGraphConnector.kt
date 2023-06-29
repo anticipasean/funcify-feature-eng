@@ -6,7 +6,7 @@ import funcify.feature.tools.json.JsonMapper
 import funcify.feature.materializer.context.graph.MaterializationGraphContext
 import funcify.feature.materializer.error.MaterializerErrorResponse
 import funcify.feature.materializer.error.MaterializerException
-import funcify.feature.datasource.json.GraphQLValueToJsonNodeConverter
+import funcify.feature.schema.json.GraphQLValueToJsonNodeConverter
 import funcify.feature.materializer.schema.edge.RequestParameterEdge
 import funcify.feature.materializer.schema.edge.RequestParameterEdgeFactory
 import funcify.feature.materializer.schema.path.ListIndexedSchematicPathGraphQLSchemaBasedCalculator
@@ -16,8 +16,7 @@ import funcify.feature.materializer.schema.vertex.ParameterToSourceAttributeVert
 import funcify.feature.materializer.service.DefaultMaterializationGraphConnector.Companion.ContextUpdater
 import funcify.feature.materializer.spec.DefaultRetrievalFunctionSpec
 import funcify.feature.materializer.spec.RetrievalFunctionSpec
-import funcify.feature.schema.SchematicVertex
-import funcify.feature.schema.datasource.DataElementSource
+import funcify.feature.schema.dataelementsource.DataElementSource
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.schema.vertex.ParameterAttributeVertex
 import funcify.feature.schema.vertex.ParameterJunctionVertex

@@ -2,10 +2,10 @@ package funcify.feature.materializer.service
 
 import arrow.core.*
 import com.fasterxml.jackson.databind.JsonNode
-import funcify.feature.datasource.json.JsonNodeToStandardValueConverter
-import funcify.feature.datasource.tracking.TrackableJsonValuePublisher
-import funcify.feature.datasource.tracking.TrackableJsonValuePublisherProvider
-import funcify.feature.datasource.tracking.TrackableValue
+import funcify.feature.schema.json.JsonNodeToStandardValueConverter
+import funcify.feature.schema.tracking.FeatureJsonValuePublisher
+import funcify.feature.schema.tracking.TrackableJsonValuePublisherProvider
+import funcify.feature.schema.tracking.TrackableValue
 import funcify.feature.materializer.context.publishing.TrackableValuePublishingContext
 import funcify.feature.materializer.context.publishing.TrackableValuePublishingContextFactory
 import funcify.feature.materializer.dispatch.SourceIndexRequestDispatch
@@ -37,7 +37,6 @@ import java.util.stream.Stream.empty
 import java.util.stream.Stream.of
 import kotlin.reflect.KClass
 import kotlin.reflect.KType
-import kotlin.streams.toList
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.PersistentSet
 import kotlinx.collections.immutable.persistentMapOf
@@ -94,7 +93,7 @@ internal class DefaultMaterializedTrackableValuePublishingService(
                     SourceIndexRequestDispatch.TrackableSingleJsonValueDispatch ->
                 trackableJsonValuePublisherProvider
                     .getTrackableJsonValuePublisherForDataSource(
-                        trackableSingleJsonValueDispatch.trackableJsonValueRetriever
+                        trackableSingleJsonValueDispatch.featureJsonValueStore
                             .cacheForDataSourceKey
                     )
                     .map { publisher -> trackableSingleJsonValueDispatch to publisher }
@@ -129,7 +128,7 @@ internal class DefaultMaterializedTrackableValuePublishingService(
     private fun transitionCalculatedToTrackedAndPublish(
         publishingContext: TrackableValuePublishingContext
     ): Disposable {
-        val publisher: TrackableJsonValuePublisher = publishingContext.publisher
+        val publisher: FeatureJsonValuePublisher = publishingContext.publisher
         return Mono.defer {
                 findAnyLastUpdatedFieldValuesRelatedToThisFieldInContext(publishingContext)
             }
@@ -277,7 +276,7 @@ internal class DefaultMaterializedTrackableValuePublishingService(
                         |[ source_index_path: {} ]""".flatten(),
                         trackedValue.targetSourceIndexPath
                     )
-                    publisher.publishTrackableJsonValue(trackedValue)
+                    publisher.publish(trackedValue)
                 },
                 { t: Throwable ->
                     logger.error(
@@ -642,7 +641,7 @@ internal class DefaultMaterializedTrackableValuePublishingService(
         val dispatchedRequest: SourceIndexRequestDispatch.TrackableSingleJsonValueDispatch =
             publishingContext.dispatchedRequest
         val session: GraphQLSingleRequestSession = publishingContext.session
-        return dispatchedRequest.backupBaseExternalDataSourceJsonValuesRetriever.parameterPaths
+        return dispatchedRequest.backupBaseDataElementJsonValueSource.parameterPaths
             .asSequence()
             .filter { paramPath ->
                 session.requestParameterMaterializationGraphPhase

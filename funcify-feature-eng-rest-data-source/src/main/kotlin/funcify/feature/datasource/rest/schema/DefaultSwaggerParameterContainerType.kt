@@ -1,7 +1,7 @@
 package funcify.feature.datasource.rest.schema
 
 import funcify.feature.naming.ConventionalName
-import funcify.feature.schema.datasource.DataElementSource
+import funcify.feature.schema.dataelementsource.DataElementSource
 import funcify.feature.schema.path.SchematicPath
 import io.swagger.v3.oas.models.media.Schema
 import kotlinx.collections.immutable.PersistentMap
