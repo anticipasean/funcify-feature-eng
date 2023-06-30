@@ -4,15 +4,16 @@ import arrow.core.Option
 import arrow.core.getOrElse
 import arrow.core.toOption
 import com.fasterxml.jackson.databind.JsonNode
+import com.fasterxml.jackson.databind.node.NullNode
 import java.net.URI
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
 import kotlinx.collections.immutable.PersistentList
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentMapOf
-import org.springframework.web.util.UriComponentsBuilder
 
 /**
- *
  * @author smccarron
  * @created 2/20/22
  */
@@ -209,33 +210,54 @@ internal data class DefaultSchematicPath(
     }
 
     private val uri: URI by lazy {
-        directives
+        URI.create(
+            buildString {
+                append(scheme)
+                append(':')
+                append(
+                    pathSegments
+                        .asSequence()
+                        .map { ps: String -> URLEncoder.encode(ps, StandardCharsets.UTF_8) }
+                        .joinToString("/", "/")
+                )
+                if (arguments.isNotEmpty()) {
+                    append("?")
+                    append(convertJsonNodeMapToURIQueryParamFormat(arguments))
+                }
+                if (directives.isNotEmpty()) {
+                    append("#")
+                    append(convertJsonNodeMapToURIQueryParamFormat(directives))
+                }
+            }
+        )
+    }
+
+    private fun convertJsonNodeMapToURIQueryParamFormat(
+        jsonNodeMap: Map<String, JsonNode>
+    ): String {
+        return jsonNodeMap
             .asSequence()
-            .fold(
-                arguments
-                    .asSequence()
-                    .fold(
-                        UriComponentsBuilder.newInstance()
-                            .scheme(scheme)
-                            .path(pathSegments.joinToString(separator = "/", prefix = "/")),
-                        { ucb: UriComponentsBuilder, (key: String, value: JsonNode) ->
-                            if (value.isNull) {
-                                ucb.queryParam(key)
-                            } else {
-                                ucb.queryParam(key, value.asText(""))
-                            }
-                        }
-                    ),
-                { ucb: UriComponentsBuilder, (key: String, value: JsonNode) ->
-                    if (value.isEmpty()) {
-                        ucb.fragment(key)
-                    } else {
-                        ucb.fragment("${key}=${value.asText("")}")
+            .map { (k: String, v: JsonNode) ->
+                when (v) {
+                    is NullNode -> {
+                        URLEncoder.encode(k, StandardCharsets.UTF_8) to ""
+                    }
+                    else -> {
+                        URLEncoder.encode(k, StandardCharsets.UTF_8) to
+                            URLEncoder.encode(v.toString(), StandardCharsets.UTF_8)
                     }
                 }
-            )
-            .build()
-            .toUri()
+            }
+            .joinToString("&") { (k: String, v: String) ->
+                when {
+                    v.isBlank() -> {
+                        k
+                    }
+                    else -> {
+                        "${k}=${v}"
+                    }
+                }
+            }
     }
 
     private val internedParentPath: Option<SchematicPath> by lazy { super.getParentPath() }
