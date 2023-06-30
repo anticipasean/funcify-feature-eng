@@ -4,12 +4,12 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import funcify.feature.datasource.graphql.metadata.MockGraphQLApiMetadataProvider.Companion.fakeService
 import funcify.feature.json.JsonObjectMappingConfiguration
 import funcify.feature.tools.extensions.MonoExtensions.toTry
-import graphql.schema.GraphQLSchema
+import graphql.language.ObjectTypeDefinition
+import graphql.schema.idl.TypeDefinitionRegistry
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
 
 /**
- *
  * @author smccarron
  * @created 4/5/22
  */
@@ -20,17 +20,24 @@ internal class MockGraphQLApiMetadataProviderTest {
     @Test
     fun provideMockMetadataTest() {
         MockGraphQLApiMetadataProvider(objectMapper)
-            .provideMetadata(fakeService)
+            .provideTypeDefinitionRegistry(fakeService)
             .toTry()
             .fold(
-                { gqlSchema: GraphQLSchema ->
+                { td: TypeDefinitionRegistry ->
                     Assertions.assertEquals(
                         1,
-                        gqlSchema.queryType.definition?.fieldDefinitions?.size
+                        td.getType("Query", ObjectTypeDefinition::class.java)
+                            .orElse(null)
+                            ?.fieldDefinitions
+                            ?.size
                     )
                     Assertions.assertEquals(
                         "shows",
-                        gqlSchema.queryType?.definition?.fieldDefinitions?.get(0)?.name
+                        td.getType("Query", ObjectTypeDefinition::class.java)
+                            .orElse(null)
+                            ?.fieldDefinitions
+                            ?.get(0)
+                            ?.name
                     )
                 },
                 { thr: Throwable ->

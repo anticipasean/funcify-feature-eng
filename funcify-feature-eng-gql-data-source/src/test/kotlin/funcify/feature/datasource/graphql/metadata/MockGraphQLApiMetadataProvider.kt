@@ -36,7 +36,7 @@ import reactor.core.publisher.Mono
  * @created 4/4/22
  */
 class MockGraphQLApiMetadataProvider(val objectMapper: ObjectMapper) :
-    GraphQLApiMetadataProvider {
+    GraphQLApiMetadataProvider<GraphQLApiService> {
 
     companion object {
         /**

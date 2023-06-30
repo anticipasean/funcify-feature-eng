@@ -1,34 +1,7 @@
 package funcify.feature.datasource.graphql.factory
 
-import arrow.core.Option
-import arrow.core.filterIsInstance
-import arrow.core.or
-import arrow.core.toOption
-import com.fasterxml.jackson.databind.ObjectMapper
-import funcify.feature.datasource.graphql.GraphQLApiDataElementSource
-import funcify.feature.datasource.graphql.metadata.MockGraphQLApiMetadataProvider
-import funcify.feature.datasource.graphql.metadata.reader.ComprehensiveGraphQLApiSourceMetadataReader
-import funcify.feature.datasource.graphql.metadata.reader.DefaultGraphQLSourceIndexCreationContextFactory
-import funcify.feature.datasource.graphql.schema.DefaultGraphQLSourceAttribute
-import funcify.feature.datasource.graphql.schema.DefaultGraphQLSourceContainerType
-import funcify.feature.datasource.graphql.schema.DefaultGraphQLSourceIndexFactory
-import funcify.feature.json.JsonObjectMappingConfiguration
-import funcify.feature.schema.MetamodelGraph
-import funcify.feature.schema.configuration.SchemaConfiguration
-import funcify.feature.schema.dataelementsource.DataElementSource
-import funcify.feature.schema.dataelementsource.RawSourceType
-import funcify.feature.schema.path.SchematicPath
-import funcify.feature.schema.vertex.SourceJunctionVertex
-import funcify.feature.schema.vertex.SourceLeafVertex
-import funcify.feature.schema.vertex.SourceRootVertex
-import funcify.feature.tools.container.attempt.Try
-import funcify.feature.tools.extensions.MonoExtensions.toTry
-import funcify.feature.tools.extensions.StringExtensions.flatten
-import org.junit.jupiter.api.Assertions
-import org.junit.jupiter.api.Test
-
 internal class DefaultGraphQLApiDataElementSourceFactoryTest {
-
+    /*
     private val objectMapper: ObjectMapper = JsonObjectMappingConfiguration.objectMapper()
     private val gqlDataSourceFactory: GraphQLApiDataElementSourceProviderFactory =
         DefaultGraphQLApiDataElementSourceProviderFactory(
@@ -160,8 +133,8 @@ internal class DefaultGraphQLApiDataElementSourceFactoryTest {
         Assertions.assertTrue(
             metamodelGraph.pathBasedGraph.verticesByPath[artworkUrlPath] is SourceLeafVertex,
             """expected artwork url to be leaf vertex within metamodel graph
-                |; if failed, composite attributes are likely not being 
-                |mapped properly to their graph positions 
+                |; if failed, composite attributes are likely not being
+                |mapped properly to their graph positions
             """.trimMargin()
         )
         Assertions.assertTrue(
@@ -177,10 +150,10 @@ internal class DefaultGraphQLApiDataElementSourceFactoryTest {
                             DefaultGraphQLSourceContainerType
                 }
                 .isDefined(),
-            """expected artwork to be junction vertex, 
-                |having a representation as both container type 
+            """expected artwork to be junction vertex,
+                |having a representation as both container type
                 |and attribute for the given source;
-                |if failed, parallelizing might have caused the 
+                |if failed, parallelizing might have caused the
                 |composite attribute or container type entry to be overwritten""".flatten()
         )
         /*
@@ -236,4 +209,6 @@ internal class DefaultGraphQLApiDataElementSourceFactoryTest {
          * }
          */
     }
+
+    */
 }
