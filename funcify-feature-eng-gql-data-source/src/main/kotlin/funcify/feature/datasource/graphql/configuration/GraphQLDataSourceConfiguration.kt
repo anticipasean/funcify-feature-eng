@@ -4,6 +4,8 @@ import funcify.feature.datasource.graphql.factory.DefaultGraphQLApiDataElementSo
 import funcify.feature.datasource.graphql.factory.DefaultGraphQLApiServiceFactory
 import funcify.feature.datasource.graphql.factory.GraphQLApiDataElementSourceProviderFactory
 import funcify.feature.datasource.graphql.factory.GraphQLApiServiceFactory
+import funcify.feature.datasource.graphql.metadata.filter.InternalQueryExcludingTypeDefinitionRegistryFilter
+import funcify.feature.datasource.graphql.metadata.filter.TypeDefinitionRegistryFilter
 import funcify.feature.tools.json.JsonMapper
 import org.springframework.beans.factory.ObjectProvider
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
@@ -33,11 +35,20 @@ class GraphQLDataSourceConfiguration {
         )
     }
 
+    @Bean
+    fun internalQueryExcludingTypeDefinitionRegistryFilter(): InternalQueryExcludingTypeDefinitionRegistryFilter {
+        return InternalQueryExcludingTypeDefinitionRegistryFilter()
+    }
+
     @ConditionalOnMissingBean(value = [GraphQLApiDataElementSourceProviderFactory::class])
     @Bean
     fun graphQLApiDataElementSourceProviderFactory(
-        jsonMapper: JsonMapper
+        jsonMapper: JsonMapper,
+        typeDefinitionRegistryFilterProvider: ObjectProvider<TypeDefinitionRegistryFilter>
     ): GraphQLApiDataElementSourceProviderFactory {
-        return DefaultGraphQLApiDataElementSourceProviderFactory(jsonMapper = jsonMapper)
+        return DefaultGraphQLApiDataElementSourceProviderFactory(
+            jsonMapper = jsonMapper,
+            typeDefinitionRegistryFilters = typeDefinitionRegistryFilterProvider.toList()
+        )
     }
 }

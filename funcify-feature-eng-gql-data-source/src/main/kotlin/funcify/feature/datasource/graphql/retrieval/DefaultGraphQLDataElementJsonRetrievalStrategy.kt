@@ -1,50 +1,11 @@
 package funcify.feature.datasource.graphql.retrieval
 
-import arrow.core.Either
-import arrow.core.Option
-import arrow.core.filterIsInstance
-import arrow.core.toOption
-import com.fasterxml.jackson.databind.JsonNode
-import com.fasterxml.jackson.databind.node.ArrayNode
-import funcify.feature.datasource.graphql.GraphQLApiDataElementSource
-import funcify.feature.datasource.graphql.error.GQLDataSourceErrorResponse
-import funcify.feature.datasource.graphql.error.GQLDataSourceException
-import funcify.feature.datasource.graphql.schema.GraphQLParameterAttribute
-import funcify.feature.datasource.graphql.schema.GraphQLSourceAttribute
-import funcify.feature.datasource.graphql.schema.GraphQLSourceIndex
-import funcify.feature.schema.json.JsonNodeSchematicPathToValueMappingExtractor
-import funcify.feature.schema.dataelementsource.retrieval.DataElementRepresentativeJsonRetrievalStrategy
-import funcify.feature.tools.json.JsonMapper
-import funcify.feature.schema.dataelementsource.DataElementSource
-import funcify.feature.schema.index.CompositeSourceAttribute
-import funcify.feature.schema.path.SchematicPath
-import funcify.feature.schema.vertex.ParameterJunctionVertex
-import funcify.feature.schema.vertex.ParameterLeafVertex
-import funcify.feature.schema.vertex.SourceJunctionVertex
-import funcify.feature.schema.vertex.SourceLeafVertex
-import funcify.feature.tools.container.attempt.Try
-import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
-import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentMap
-import funcify.feature.tools.extensions.PersistentMapExtensions.toPersistentMap
-import funcify.feature.tools.extensions.SequenceExtensions.flatMapOptions
-import funcify.feature.tools.extensions.StringExtensions.flatten
-import graphql.language.AstPrinter
-import graphql.language.OperationDefinition
-import java.util.concurrent.Executor
-import kotlinx.collections.immutable.ImmutableMap
-import kotlinx.collections.immutable.ImmutableSet
-import kotlinx.collections.immutable.persistentSetOf
-import kotlinx.collections.immutable.toPersistentSet
-import org.slf4j.Logger
-import reactor.core.publisher.Mono
-import reactor.kotlin.core.publisher.switchIfEmpty
-
 /**
- *
  * @author smccarron
  * @created 2022-08-12
  */
-internal class DefaultGraphQLDataElementJsonRetrievalStrategy(
+internal class DefaultGraphQLDataElementJsonRetrievalStrategy {
+    /* (
     private val asyncExecutor: Executor,
     private val jsonMapper: JsonMapper,
     private val graphQLDataSource: GraphQLApiDataElementSource,
@@ -199,9 +160,9 @@ internal class DefaultGraphQLDataElementJsonRetrievalStrategy(
                             .joinToString(", ", "{ ", " }")
                     throw GQLDataSourceException(
                         GQLDataSourceErrorResponse.UNEXPECTED_ERROR,
-                        """the following parameter_vertices do not have 
-                            mappings to this data_source [ data_source.key: ${graphQLDataSource.key} ] 
-                            [ vertices: $vertexPaths 
+                        """the following parameter_vertices do not have
+                            mappings to this data_source [ data_source.key: ${graphQLDataSource.key} ]
+                            [ vertices: $vertexPaths
                             ]""".flatten()
                     )
                 }
@@ -239,9 +200,9 @@ internal class DefaultGraphQLDataElementJsonRetrievalStrategy(
                             .joinToString(", ", "{ ", " }")
                     throw GQLDataSourceException(
                         GQLDataSourceErrorResponse.UNEXPECTED_ERROR,
-                        """the following source_vertices do not have 
-                            mappings to this data_source [ data_source.key: ${graphQLDataSource.key} ] 
-                            [ vertices: $vertexPaths 
+                        """the following source_vertices do not have
+                            mappings to this data_source [ data_source.key: ${graphQLDataSource.key} ]
+                            [ vertices: $vertexPaths
                             ]""".flatten()
                     )
                 }
@@ -293,8 +254,8 @@ internal class DefaultGraphQLDataElementJsonRetrievalStrategy(
             .mapFailure { t ->
                 GQLDataSourceException(
                     GQLDataSourceErrorResponse.UNEXPECTED_ERROR,
-                    """error occurred when transforming source and 
-                       |parameter paths and values into graphql 
+                    """error occurred when transforming source and
+                       |parameter paths and values into graphql
                        |query string
                        |[ parameter_paths: $parameterPathsSetStr ]""".flatten(),
                     t
@@ -337,10 +298,10 @@ internal class DefaultGraphQLDataElementJsonRetrievalStrategy(
                             Mono.error<JsonNode> {
                                 GQLDataSourceException(
                                     GQLDataSourceErrorResponse.MALFORMED_CONTENT_RECEIVED,
-                                    """response_json from 
-                                    |[ graphql_data_source.service.name: ${graphQLDataSource.graphQLApiService.serviceName} ] 
-                                    |is not in the expected format; 
-                                    |lacks an non-empty object value for 
+                                    """response_json from
+                                    |[ graphql_data_source.service.name: ${graphQLDataSource.graphQLApiService.serviceName} ]
+                                    |is not in the expected format;
+                                    |lacks an non-empty object value for
                                     |key [ ${DATA_KEY} ]""".flatten()
                                 )
                             }
@@ -373,4 +334,6 @@ internal class DefaultGraphQLDataElementJsonRetrievalStrategy(
             )
         }
     }
+
+     */
 }

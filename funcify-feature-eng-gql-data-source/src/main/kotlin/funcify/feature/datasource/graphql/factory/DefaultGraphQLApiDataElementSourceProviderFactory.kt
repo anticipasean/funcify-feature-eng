@@ -6,10 +6,13 @@ import funcify.feature.datasource.graphql.GraphQLApiDataElementSourceProvider
 import funcify.feature.datasource.graphql.GraphQLApiService
 import funcify.feature.datasource.graphql.SchemaOnlyDataElementSource
 import funcify.feature.datasource.graphql.ServiceBackedDataElementSource
+import funcify.feature.datasource.graphql.metadata.filter.CompositeTypeDefinitionRegistryFilter
+import funcify.feature.datasource.graphql.metadata.filter.TypeDefinitionRegistryFilter
 import funcify.feature.datasource.graphql.metadata.provider.GraphQLApiSchemaFileMetadataProvider
 import funcify.feature.datasource.graphql.metadata.provider.GraphQLApiServiceMetadataProvider
 import funcify.feature.error.ServiceError
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
+import funcify.feature.tools.extensions.ResultExtensions.toMono
 import funcify.feature.tools.json.JsonMapper
 import graphql.schema.idl.TypeDefinitionRegistry
 import org.slf4j.Logger
@@ -17,12 +20,14 @@ import org.springframework.core.io.ClassPathResource
 import reactor.core.publisher.Mono
 
 internal class DefaultGraphQLApiDataElementSourceProviderFactory(
-    private val jsonMapper: JsonMapper
+    private val jsonMapper: JsonMapper,
+    private val typeDefinitionRegistryFilters: List<TypeDefinitionRegistryFilter> = listOf()
 ) : GraphQLApiDataElementSourceProviderFactory {
 
     companion object {
 
         internal class DefaultBuilder(
+            private val typeDefinitionRegistryFilter: TypeDefinitionRegistryFilter,
             private val jsonMapper: JsonMapper,
             private var name: String? = null,
             private var service: GraphQLApiService? = null,
@@ -69,20 +74,24 @@ internal class DefaultGraphQLApiDataElementSourceProviderFactory(
                                 DefaultServiceAndSchemaBackedDataElementSourceProvider(
                                     name = name!!,
                                     graphQLApiService = service!!,
-                                    schemaClassPathResource = schemaClassPathResource!!
+                                    schemaClassPathResource = schemaClassPathResource!!,
+                                    typeDefinitionRegistryFilter = typeDefinitionRegistryFilter,
                                 )
                             }
                             schemaClassPathResource != null -> {
                                 DefaultSchemaBackedDataElementSourceProvider(
                                     name = name!!,
-                                    schemaClassPathResource = schemaClassPathResource!!
+                                    schemaClassPathResource = schemaClassPathResource!!,
+                                    typeDefinitionRegistryFilter = typeDefinitionRegistryFilter,
                                 )
                             }
                             else -> {
                                 DefaultServiceBackedDataElementSourceProvider(
                                     name = name!!,
                                     graphQLApiService = service!!,
-                                    metadataProvider = GraphQLApiServiceMetadataProvider(jsonMapper)
+                                    metadataProvider =
+                                        GraphQLApiServiceMetadataProvider(jsonMapper),
+                                    typeDefinitionRegistryFilter = typeDefinitionRegistryFilter,
                                 )
                             }
                         }
@@ -106,7 +115,8 @@ internal class DefaultGraphQLApiDataElementSourceProviderFactory(
             private val graphQLApiService: GraphQLApiService,
             private val schemaClassPathResource: ClassPathResource,
             private val metadataProvider: GraphQLApiSchemaFileMetadataProvider =
-                GraphQLApiSchemaFileMetadataProvider()
+                GraphQLApiSchemaFileMetadataProvider(),
+            private val typeDefinitionRegistryFilter: TypeDefinitionRegistryFilter
         ) : GraphQLApiDataElementSourceProvider {
 
             companion object {
@@ -118,6 +128,9 @@ internal class DefaultGraphQLApiDataElementSourceProviderFactory(
                 logger.info("get_latest_data_element_source: [ name: {} ]", name)
                 return metadataProvider
                     .provideTypeDefinitionRegistry(schemaClassPathResource)
+                    .flatMap { td: TypeDefinitionRegistry ->
+                        typeDefinitionRegistryFilter.filter(td).toMono()
+                    }
                     .map { td: TypeDefinitionRegistry ->
                         DefaultServiceBackedDataElementSource(
                             name = name,
@@ -131,7 +144,8 @@ internal class DefaultGraphQLApiDataElementSourceProviderFactory(
         internal class DefaultServiceBackedDataElementSourceProvider(
             override val name: String,
             private val graphQLApiService: GraphQLApiService,
-            private val metadataProvider: GraphQLApiServiceMetadataProvider
+            private val metadataProvider: GraphQLApiServiceMetadataProvider,
+            private val typeDefinitionRegistryFilter: TypeDefinitionRegistryFilter
         ) : GraphQLApiDataElementSourceProvider {
 
             companion object {
@@ -141,14 +155,18 @@ internal class DefaultGraphQLApiDataElementSourceProviderFactory(
 
             override fun getLatestDataElementSource(): Mono<GraphQLApiDataElementSource> {
                 logger.info("get_latest_data_element_source: [ name: {} ]", name)
-                return metadataProvider.provideTypeDefinitionRegistry(graphQLApiService).map {
-                    td: TypeDefinitionRegistry ->
-                    DefaultServiceBackedDataElementSource(
-                        name = name,
-                        sourceTypeDefinitionRegistry = td,
-                        graphQLApiService = graphQLApiService
-                    )
-                }
+                return metadataProvider
+                    .provideTypeDefinitionRegistry(graphQLApiService)
+                    .flatMap { td: TypeDefinitionRegistry ->
+                        typeDefinitionRegistryFilter.filter(td).toMono()
+                    }
+                    .map { td: TypeDefinitionRegistry ->
+                        DefaultServiceBackedDataElementSource(
+                            name = name,
+                            sourceTypeDefinitionRegistry = td,
+                            graphQLApiService = graphQLApiService
+                        )
+                    }
             }
         }
 
@@ -156,7 +174,8 @@ internal class DefaultGraphQLApiDataElementSourceProviderFactory(
             override val name: String,
             private val schemaClassPathResource: ClassPathResource,
             private val metadataProvider: GraphQLApiSchemaFileMetadataProvider =
-                GraphQLApiSchemaFileMetadataProvider()
+                GraphQLApiSchemaFileMetadataProvider(),
+            private val typeDefinitionRegistryFilter: TypeDefinitionRegistryFilter
         ) : GraphQLApiDataElementSourceProvider {
 
             companion object {
@@ -168,6 +187,9 @@ internal class DefaultGraphQLApiDataElementSourceProviderFactory(
                 logger.info("get_latest_data_element_source: [ name: {} ]", name)
                 return metadataProvider
                     .provideTypeDefinitionRegistry(schemaClassPathResource)
+                    .flatMap { td: TypeDefinitionRegistry ->
+                        typeDefinitionRegistryFilter.filter(td).toMono()
+                    }
                     .map { td: TypeDefinitionRegistry ->
                         DefaultSchemaOnlyDataElementSource(
                             name = name,
@@ -190,6 +212,10 @@ internal class DefaultGraphQLApiDataElementSourceProviderFactory(
     }
 
     override fun builder(): GraphQLApiDataElementSourceProvider.Builder {
-        return DefaultBuilder(jsonMapper = jsonMapper)
+        return DefaultBuilder(
+            jsonMapper = jsonMapper,
+            typeDefinitionRegistryFilter =
+                CompositeTypeDefinitionRegistryFilter(typeDefinitionRegistryFilters)
+        )
     }
 }
