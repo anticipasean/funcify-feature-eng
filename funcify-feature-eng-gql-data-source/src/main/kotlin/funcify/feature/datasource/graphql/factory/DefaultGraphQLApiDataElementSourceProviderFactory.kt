@@ -21,7 +21,6 @@ internal class DefaultGraphQLApiDataElementSourceProviderFactory(
 ) : GraphQLApiDataElementSourceProviderFactory {
 
     companion object {
-        private val logger: Logger = loggerFor<DefaultGraphQLApiServiceFactory>()
 
         internal class DefaultBuilder(
             private val jsonMapper: JsonMapper,
@@ -29,6 +28,10 @@ internal class DefaultGraphQLApiDataElementSourceProviderFactory(
             private var service: GraphQLApiService? = null,
             private var schemaClassPathResource: ClassPathResource? = null
         ) : GraphQLApiDataElementSourceProvider.Builder {
+
+            companion object {
+                private val logger: Logger = loggerFor<DefaultBuilder>()
+            }
 
             override fun name(name: String): GraphQLApiDataElementSourceProvider.Builder {
                 this.name = name
@@ -50,6 +53,12 @@ internal class DefaultGraphQLApiDataElementSourceProviderFactory(
             }
 
             override fun build(): GraphQLApiDataElementSourceProvider {
+                if (logger.isDebugEnabled) {
+                    logger.debug(
+                        "build: [ graphql_api_data_element_source_provider.name: {} ]",
+                        name
+                    )
+                }
                 return eagerEffect<String, GraphQLApiDataElementSourceProvider> {
                         ensure(name != null) { "name of data_element_source not provided" }
                         ensure(service != null || schemaClassPathResource != null) {
@@ -79,7 +88,14 @@ internal class DefaultGraphQLApiDataElementSourceProviderFactory(
                         }
                     }
                     .fold(
-                        { message: String -> throw ServiceError.of(message) },
+                        { message: String ->
+                            logger.error(
+                                "build: [ status: failed ][ graphql_api_data_element_source_provider.name: {} ][ message: {} ]",
+                                name,
+                                message
+                            )
+                            throw ServiceError.of(message)
+                        },
                         { p: GraphQLApiDataElementSourceProvider -> p }
                     )
             }
@@ -93,7 +109,13 @@ internal class DefaultGraphQLApiDataElementSourceProviderFactory(
                 GraphQLApiSchemaFileMetadataProvider()
         ) : GraphQLApiDataElementSourceProvider {
 
+            companion object {
+                private val logger: Logger =
+                    loggerFor<DefaultServiceAndSchemaBackedDataElementSourceProvider>()
+            }
+
             override fun getLatestDataElementSource(): Mono<GraphQLApiDataElementSource> {
+                logger.info("get_latest_data_element_source: [ name: {} ]", name)
                 return metadataProvider
                     .provideTypeDefinitionRegistry(schemaClassPathResource)
                     .map { td: TypeDefinitionRegistry ->
@@ -112,7 +134,13 @@ internal class DefaultGraphQLApiDataElementSourceProviderFactory(
             private val metadataProvider: GraphQLApiServiceMetadataProvider
         ) : GraphQLApiDataElementSourceProvider {
 
+            companion object {
+                private val logger: Logger =
+                    loggerFor<DefaultServiceBackedDataElementSourceProvider>()
+            }
+
             override fun getLatestDataElementSource(): Mono<GraphQLApiDataElementSource> {
+                logger.info("get_latest_data_element_source: [ name: {} ]", name)
                 return metadataProvider.provideTypeDefinitionRegistry(graphQLApiService).map {
                     td: TypeDefinitionRegistry ->
                     DefaultServiceBackedDataElementSource(
@@ -131,7 +159,13 @@ internal class DefaultGraphQLApiDataElementSourceProviderFactory(
                 GraphQLApiSchemaFileMetadataProvider()
         ) : GraphQLApiDataElementSourceProvider {
 
+            companion object {
+                private val logger: Logger =
+                    loggerFor<DefaultSchemaBackedDataElementSourceProvider>()
+            }
+
             override fun getLatestDataElementSource(): Mono<GraphQLApiDataElementSource> {
+                logger.info("get_latest_data_element_source: [ name: {} ]", name)
                 return metadataProvider
                     .provideTypeDefinitionRegistry(schemaClassPathResource)
                     .map { td: TypeDefinitionRegistry ->
