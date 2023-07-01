@@ -6,8 +6,8 @@ import arrow.core.none
 import arrow.core.some
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.node.JsonNodeFactory
-import funcify.feature.tools.json.JacksonJsonNodeComparator
 import funcify.feature.tools.extensions.JsonNodeExtensions.removeAllChildKeyValuePairsFromRightmostObjectNode
+import funcify.feature.tools.json.JacksonJsonNodeComparator
 import java.math.BigDecimal
 import java.net.URI
 import kotlinx.collections.immutable.ImmutableList
@@ -41,31 +41,24 @@ interface SchematicPath : Comparable<SchematicPath> {
 
         private val stringKeyJsonValueMapComparator: Comparator<Map<String, JsonNode>> by lazy {
             val jsonNodeComparator: Comparator<JsonNode> = JacksonJsonNodeComparator
-            Comparator<Map<String, JsonNode>> { map1, map2 -> //
+            Comparator<Map<String, JsonNode>> { m1, m2 -> //
                 /*
                  * Early exit approach: First non-matching pair found returns comparison value else considered equal
                  */
-                when (val mapSizeComparison: Int = map1.size.compareTo(map2.size)) {
-                    0 -> {
-                        map1
-                            .asSequence()
-                            .zip(map2.asSequence())
-                            .map { (e1, e2) ->
-                                e1.key.compareTo(e2.key).let { keyComp ->
-                                    if (keyComp != 0) {
-                                        keyComp
-                                    } else {
-                                        jsonNodeComparator.compare(e1.value, e2.value)
-                                    }
-                                }
+                m1.asSequence()
+                    .zip(m2.asSequence()) {
+                        e1: Map.Entry<String, JsonNode>,
+                        e2: Map.Entry<String, JsonNode> ->
+                        e1.key.compareTo(e2.key).let { keyComparison: Int ->
+                            if (keyComparison != 0) {
+                                keyComparison
+                            } else {
+                                jsonNodeComparator.compare(e1.value, e2.value)
                             }
-                            .firstOrNull { keyOrValCompResult -> keyOrValCompResult != 0 }
-                            ?: 0
+                        }
                     }
-                    else -> {
-                        mapSizeComparison
-                    }
-                }
+                    .firstOrNull { keyOrValComparison: Int -> keyOrValComparison != 0 }
+                    ?: m1.size.compareTo(m2.size)
             }
         }
 
@@ -74,16 +67,10 @@ interface SchematicPath : Comparable<SchematicPath> {
                 /*
                  * Early exit approach: First non-matching pair found returns comparison value else considered equal
                  */
-                when (val listSizeComparison: Int = l1.size.compareTo(l2.size)) {
-                    0 -> {
-                        l1.asSequence()
-                            .zip(l2.asSequence())
-                            .map { (s1, s2) -> s1.compareTo(s2) }
-                            .firstOrNull { compResult -> compResult != 0 }
-                            ?: 0
-                    }
-                    else -> listSizeComparison
-                }
+                l1.asSequence()
+                    .zip(l2.asSequence()) { s1: String, s2: String -> s1.compareTo(s2) }
+                    .firstOrNull { comparison: Int -> comparison != 0 }
+                    ?: l1.size.compareTo(l2.size)
             }
         }
 
@@ -111,6 +98,7 @@ interface SchematicPath : Comparable<SchematicPath> {
      *     }
      * }
      * ```
+     *
      * in GraphQL query form
      */
     val pathSegments: ImmutableList<String>
@@ -125,8 +113,8 @@ interface SchematicPath : Comparable<SchematicPath> {
 
     /**
      * Represented by URI fragments `#uppercase&aliases=names=amount_remaining_3m_1m,amt_rem_3m1m`
-     * in URI form and schema directives `@uppercase @aliases(names: ["amount_remaining_3m_1m",
-     * "amt_rem_3m1m" ])` in GraphQL SDL form
+     * in URI form and schema directives `@uppercase @aliases(names:
+     * ["amount_remaining_3m_1m", "amt_rem_3m1m" ])` in GraphQL SDL form
      */
     val directives: ImmutableMap<String, JsonNode>
 
@@ -144,11 +132,11 @@ interface SchematicPath : Comparable<SchematicPath> {
     /**
      * One schematic path is a parent to another when:
      * - parent has the same path segments _up to_ the child's final segment and neither parent nor
-     * child schematic path represents parameters (=> have arguments or directives) to a source
-     * container or attribute type e.g. `(Parent) gqls:/path_1 -> (Child) gqls:/path_1/path_2`
+     *   child schematic path represents parameters (=> have arguments or directives) to a source
+     *   container or attribute type e.g. `(Parent) gqls:/path_1 -> (Child) gqls:/path_1/path_2`
      * - parent has the same path segments as child does but child has arguments and/or directives
-     * indicating it is a parameter specification for the parent source container or attribute type
-     * e.g. `(Parent) gqls:/path_1 -> (Child) gqls:/path_1?argument_1=1`
+     *   indicating it is a parameter specification for the parent source container or attribute
+     *   type e.g. `(Parent) gqls:/path_1 -> (Child) gqls:/path_1?argument_1=1`
      *
      * There is not a parent-child relationship when one path represents different parameters than
      * another _on the same_ source container or attribute type: `gqls:/path_1?argument_1=1 NOT
@@ -240,11 +228,11 @@ interface SchematicPath : Comparable<SchematicPath> {
      *
      * One schematic path is a child to another when:
      * - child has N-1 path segments the same as the parent and neither parent nor child schematic
-     * path represents parameters (=> have arguments or directives) to a source container or
-     * attribute type e.g. `(Child) gqls:/path_1/path_2 -> (Parent) gqls:/path_1`
+     *   path represents parameters (=> have arguments or directives) to a source container or
+     *   attribute type e.g. `(Child) gqls:/path_1/path_2 -> (Parent) gqls:/path_1`
      * - child has the same path segments as parent does but child has arguments and/or directives
-     * indicating it is a parameter specification for the parent source container or attribute type
-     * e.g. `(Child) gqls:/path_1?argument_1=1 -> (Parent) gqls:/path_1`
+     *   indicating it is a parameter specification for the parent source container or attribute
+     *   type e.g. `(Child) gqls:/path_1?argument_1=1 -> (Parent) gqls:/path_1`
      *
      * There is not a parent-child relationship when one path represents different parameters than
      * another _on the same_ source container or attribute type: `gqls:/path_1?argument_1=1 NOT
@@ -520,11 +508,11 @@ interface SchematicPath : Comparable<SchematicPath> {
     /**
      * A parent path is:
      * - one that represents the container if the current path represents an attribute on that
-     * container
+     *   container
      *
      * _OR_
      * - one that represents an attribute on a data source to which the value represented by the
-     * current path may be passed as a parameter
+     *   current path may be passed as a parameter
      */
     fun getParentPath(): Option<SchematicPath> {
         return when {
