@@ -7,9 +7,8 @@ import funcify.feature.datasource.rest.error.RestApiErrorResponse
 import funcify.feature.datasource.rest.metadata.provider.RestApiMetadataProvider
 import funcify.feature.datasource.rest.metadata.reader.RestApiSourceMetadataReader
 import funcify.feature.datasource.rest.schema.RestApiSourceIndex
-import funcify.feature.schema.dataelementsource.DataElementSource
-import funcify.feature.schema.dataelementsource.SourceType
-import funcify.feature.schema.dataelementsource.RawSourceType
+import funcify.feature.schema.dataelement.DataElementSource
+import funcify.feature.schema.SourceType
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.MonoExtensions.toTry
 import funcify.feature.tools.extensions.StringExtensions.flatten
@@ -49,7 +48,7 @@ internal class DefaultRestApiDataSourceFactory<MD>(
             .provideMetadata(service)
             .map { metadata: MD ->
                 val dataSourceKey: DataElementSource.Key<RestApiSourceIndex> =
-                    DefaultRestApiDataSourceKey(name, RawSourceType.REST_API)
+                    DefaultRestApiDataSourceKey(name, DataElementSourceType.REST_API)
                 dataSourceKey to
                     restApiSourceMetadataReader.readSourceMetamodelFromMetadata(
                         dataSourceKey,

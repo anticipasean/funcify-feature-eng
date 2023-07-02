@@ -1,5 +1,6 @@
-package funcify.feature.schema.dataelementsource
+package funcify.feature.schema.dataelement
 
+import funcify.feature.schema.SourceType
 import reactor.core.publisher.Mono
 
 /**

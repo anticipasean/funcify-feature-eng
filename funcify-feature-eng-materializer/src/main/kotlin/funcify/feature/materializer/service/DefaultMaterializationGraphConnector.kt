@@ -16,7 +16,7 @@ import funcify.feature.materializer.schema.vertex.ParameterToSourceAttributeVert
 import funcify.feature.materializer.service.DefaultMaterializationGraphConnector.Companion.ContextUpdater
 import funcify.feature.materializer.spec.DefaultRetrievalFunctionSpec
 import funcify.feature.materializer.spec.RetrievalFunctionSpec
-import funcify.feature.schema.dataelementsource.DataElementSource
+import funcify.feature.schema.dataelement.DataElementSource
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.schema.vertex.ParameterAttributeVertex
 import funcify.feature.schema.vertex.ParameterJunctionVertex

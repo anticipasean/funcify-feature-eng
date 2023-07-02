@@ -1,9 +1,7 @@
 package funcify.feature.materializer.dispatch
 
 import com.fasterxml.jackson.databind.JsonNode
-import funcify.feature.schema.dataelementsource.retrieval.BackupExternalDataSourceCalculatedJsonValueRetriever
-import funcify.feature.schema.dataelementsource.retrieval.DataElementJsonValueSource
-import funcify.feature.schema.dataelementsource.retrieval.FeatureJsonValueStore
+import funcify.feature.schema.feature.FeatureJsonValueStore
 import funcify.feature.schema.tracking.TrackableValue
 import funcify.feature.materializer.spec.RetrievalFunctionSpec
 import funcify.feature.schema.path.SchematicPath

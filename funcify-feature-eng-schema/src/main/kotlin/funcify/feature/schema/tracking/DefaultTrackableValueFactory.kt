@@ -4,11 +4,11 @@ import arrow.core.Option
 import arrow.core.orElse
 import arrow.core.toOption
 import com.fasterxml.jackson.databind.JsonNode
+import funcify.feature.error.ServiceError
+import funcify.feature.schema.path.SchematicPath
 import funcify.feature.schema.tracking.TrackableValue.CalculatedValue
 import funcify.feature.schema.tracking.TrackableValue.PlannedValue
 import funcify.feature.schema.tracking.TrackableValue.TrackedValue
-import funcify.feature.error.ServiceError
-import funcify.feature.schema.path.SchematicPath
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.container.attempt.Try.Companion.filterInstanceOf
 import funcify.feature.tools.extensions.StringExtensions.flatten
@@ -25,7 +25,6 @@ import kotlinx.collections.immutable.toPersistentMap
 import kotlinx.collections.immutable.toPersistentSet
 
 /**
- *
  * @author smccarron
  * @created 2022-09-05
  */
@@ -39,7 +38,7 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
                 PersistentMap.Builder<SchematicPath, JsonNode> =
                 persistentMapOf<SchematicPath, JsonNode>().builder(),
             protected open var graphQLOutputType: GraphQLOutputType? = null,
-                                                                             ) : TrackableValue.Builder<B> {
+        ) : TrackableValue.Builder<B> {
 
             override fun targetSourceIndexPath(targetSourceIndexPath: SchematicPath): B {
                 this.targetSourceIndexPath = targetSourceIndexPath
@@ -111,7 +110,7 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
                     existingPlannedValue?.contextualParameters?.toPersistentMap()?.builder()
                         ?: persistentMapOf<SchematicPath, JsonNode>().builder(),
                 graphQLOutputType = existingPlannedValue?.graphQLOutputType
-                                                         ),
+            ),
             PlannedValue.Builder<DefaultPlannedValueBuilder<V>> {
 
             override fun <V> buildForInstanceOf(): Try<PlannedValue<V>> {
@@ -128,7 +127,8 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
                             ServiceError.of(
                                 """at least one contextual_parameter 
                                     |must be provided for association and/or identification 
-                                    |of the planned_value""".flatten()
+                                    |of the planned_value"""
+                                    .flatten()
                             )
                         )
                     }
@@ -167,7 +167,7 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
                 targetSourceIndexPath = targetSourceIndexPath,
                 contextualParameters = contextualParameters,
                 graphQLOutputType = graphQLOutputType
-                                                            ),
+            ),
             CalculatedValue.Builder<DefaultCalculatedValueBuilder<V>, V> {
 
             override fun calculatedValue(calculatedValue: V): DefaultCalculatedValueBuilder<V> {
@@ -196,7 +196,8 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
                             ServiceError.of(
                                 """at least one contextual_parameter 
                                     |must be provided for association and/or identification 
-                                    |of the calculated_value""".flatten()
+                                    |of the calculated_value"""
+                                    .flatten()
                             )
                         )
                     }
@@ -211,7 +212,8 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
                         Try.failure(
                             ServiceError.of(
                                 """calculated_value and calculated_timestamp 
-                                    |must be provided for calculated_value creation""".flatten()
+                                    |must be provided for calculated_value creation"""
+                                    .flatten()
                             )
                         )
                     }
@@ -274,7 +276,7 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
                 targetSourceIndexPath = targetSourceIndexPath,
                 contextualParameters = contextualParameters,
                 graphQLOutputType = graphQLOutputType
-                                                         ),
+            ),
             TrackedValue.Builder<DefaultTrackedValueBuilder<V>, V> {
 
             override fun canonicalPath(
@@ -343,7 +345,8 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
                             ServiceError.of(
                                 """at least one contextual_parameter 
                                     |must be provided for association and/or identification 
-                                    |of the tracked_value""".flatten()
+                                    |of the tracked_value"""
+                                    .flatten()
                             )
                         )
                     }
@@ -358,7 +361,8 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
                         Try.failure(
                             ServiceError.of(
                                 """both a tracked_value and value_at_timestamp 
-                                |must be provided for creation of a tracked_value""".flatten()
+                                |must be provided for creation of a tracked_value"""
+                                    .flatten()
                             )
                         )
                     }

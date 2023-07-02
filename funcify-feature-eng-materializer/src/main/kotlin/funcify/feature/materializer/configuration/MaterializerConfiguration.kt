@@ -7,10 +7,8 @@ import funcify.feature.datasource.graphql.metadata.alias.GraphQLApiDataSourceAli
 import funcify.feature.datasource.graphql.metadata.identifier.GraphQLApiDataSourceEntityIdentifiersProvider
 import funcify.feature.datasource.graphql.metadata.temporal.GraphQLApiDataSourceLastUpdatedAttributeProvider
 import funcify.feature.datasource.rest.RestApiDataElementSource
-import funcify.feature.schema.dataelementsource.retrieval.SchematicPathBasedJsonRetrievalFunctionFactory
 import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionCreationContextFactory
 import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionImplementationStrategy
-import funcify.feature.schema.tracking.TrackableJsonValuePublisherProvider
 import funcify.feature.schema.tracking.TrackableValueFactory
 import funcify.feature.error.FeatureEngCommonException
 import funcify.feature.tools.json.JsonMapper

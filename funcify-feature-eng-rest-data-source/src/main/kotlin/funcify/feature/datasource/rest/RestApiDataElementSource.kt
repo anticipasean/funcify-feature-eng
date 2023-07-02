@@ -1,9 +1,8 @@
 package funcify.feature.datasource.rest
 
 import funcify.feature.datasource.rest.schema.RestApiSourceIndex
-import funcify.feature.schema.dataelementsource.DataElementSource
-import funcify.feature.schema.dataelementsource.SourceType
-import funcify.feature.schema.dataelementsource.RawSourceType
+import funcify.feature.schema.dataelement.DataElementSource
+import funcify.feature.schema.SourceType
 
 /**
  *
@@ -13,7 +12,7 @@ import funcify.feature.schema.dataelementsource.RawSourceType
 interface RestApiDataElementSource : DataElementSource<RestApiSourceIndex> {
 
     override val sourceType: SourceType
-        get() = RawSourceType.REST_API
+        get() = DataElementSourceType.REST_API
 
     override val name: String
 

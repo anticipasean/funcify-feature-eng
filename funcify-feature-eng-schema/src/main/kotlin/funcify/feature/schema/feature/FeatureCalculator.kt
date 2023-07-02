@@ -1,12 +1,14 @@
-package funcify.feature.schema.dataelementsource
+package funcify.feature.schema.feature
 
 import graphql.schema.idl.TypeDefinitionRegistry
 
-interface DataElementSource {
+/**
+ * @author smccarron
+ * @created 2023-07-01
+ */
+interface FeatureCalculator {
 
     val name: String
-
-    val sourceType: SourceType
 
     val sourceTypeDefinitionRegistry: TypeDefinitionRegistry
 }

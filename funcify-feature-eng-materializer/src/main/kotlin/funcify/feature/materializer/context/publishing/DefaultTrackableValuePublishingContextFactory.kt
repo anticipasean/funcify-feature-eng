@@ -2,7 +2,7 @@ package funcify.feature.materializer.context.publishing
 
 import arrow.core.continuations.eagerEffect
 import com.fasterxml.jackson.databind.JsonNode
-import funcify.feature.schema.tracking.FeatureJsonValuePublisher
+import funcify.feature.schema.feature.FeatureJsonValuePublisher
 import funcify.feature.schema.tracking.TrackableValue
 import funcify.feature.materializer.context.publishing.TrackableValuePublishingContext.Builder
 import funcify.feature.materializer.dispatch.SourceIndexRequestDispatch.TrackableSingleJsonValueDispatch

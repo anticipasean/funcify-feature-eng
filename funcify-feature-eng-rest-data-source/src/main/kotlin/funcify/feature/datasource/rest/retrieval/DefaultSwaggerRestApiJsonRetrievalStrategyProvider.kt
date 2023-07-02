@@ -3,9 +3,8 @@ package funcify.feature.datasource.rest.retrieval
 import arrow.core.Either
 import funcify.feature.datasource.rest.RestApiDataElementSource
 import funcify.feature.datasource.rest.schema.RestApiSourceIndex
-import funcify.feature.schema.dataelementsource.retrieval.DataElementJsonValueSource
 import funcify.feature.tools.json.JsonMapper
-import funcify.feature.schema.dataelementsource.DataElementSource
+import funcify.feature.schema.dataelement.DataElementSource
 import funcify.feature.schema.vertex.ParameterJunctionVertex
 import funcify.feature.schema.vertex.ParameterLeafVertex
 import funcify.feature.schema.vertex.SourceJunctionVertex

@@ -1,7 +1,7 @@
 package funcify.feature.materializer.context.publishing
 
 import com.fasterxml.jackson.databind.JsonNode
-import funcify.feature.schema.tracking.FeatureJsonValuePublisher
+import funcify.feature.schema.feature.FeatureJsonValuePublisher
 import funcify.feature.schema.tracking.TrackableValue
 import funcify.feature.materializer.dispatch.SourceIndexRequestDispatch
 import funcify.feature.materializer.session.GraphQLSingleRequestSession

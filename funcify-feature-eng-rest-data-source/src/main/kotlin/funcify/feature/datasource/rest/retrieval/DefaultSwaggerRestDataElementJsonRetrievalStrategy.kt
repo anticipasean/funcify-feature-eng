@@ -15,7 +15,6 @@ import funcify.feature.datasource.rest.schema.RestApiSourceIndex
 import funcify.feature.datasource.rest.schema.SwaggerParameterAttribute
 import funcify.feature.datasource.rest.schema.SwaggerRestApiSourceMetamodel
 import funcify.feature.datasource.rest.schema.SwaggerSourceAttribute
-import funcify.feature.schema.dataelementsource.retrieval.DataElementRepresentativeJsonRetrievalStrategy
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.schema.vertex.ParameterJunctionVertex
 import funcify.feature.schema.vertex.ParameterLeafVertex

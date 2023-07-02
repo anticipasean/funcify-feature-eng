@@ -11,7 +11,6 @@ import funcify.feature.datasource.sdl.DataSourceBasedSDLDefinitionStrategy
 import funcify.feature.datasource.sdl.DataSourceBasedSDLDefinitionStrategy.DataSourceAttribute
 import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionCreationContext
 import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionImplementationStrategy
-import funcify.feature.schema.dataelementsource.RawSourceType
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.extensions.TryExtensions.successIfDefined
@@ -59,7 +58,7 @@ internal class SwaggerRestApiDataSourceIndexBasedSDLDefinitionImplementationStra
                 expectedName = restApiDataSource.name
             ),
             DataSourceBasedSDLDefinitionStrategy.dataSourceTypeAttribute(
-                expectedDataSourceType = RawSourceType.REST_API
+                expectedDataSourceType = DataElementSourceType.REST_API
             ),
             DataSourceBasedSDLDefinitionStrategy.sourceIndexTypeAttribute(
                 expectedSourceIndexType = RestApiSourceIndex::class

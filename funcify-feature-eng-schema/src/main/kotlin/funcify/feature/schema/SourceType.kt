@@ -1,4 +1,4 @@
-package funcify.feature.schema.dataelementsource
+package funcify.feature.schema
 
 
 /**

@@ -1,6 +1,7 @@
-package funcify.feature.schema.tracking
+package funcify.feature.schema.feature
 
 import com.fasterxml.jackson.databind.JsonNode
+import funcify.feature.schema.tracking.TrackableValue
 
 /**
  * @author smccarron

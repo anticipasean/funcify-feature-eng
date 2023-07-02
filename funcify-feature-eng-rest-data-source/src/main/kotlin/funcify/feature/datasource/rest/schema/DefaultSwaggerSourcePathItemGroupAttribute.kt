@@ -1,7 +1,7 @@
 package funcify.feature.datasource.rest.schema
 
 import funcify.feature.naming.ConventionalName
-import funcify.feature.schema.dataelementsource.DataElementSource
+import funcify.feature.schema.dataelement.DataElementSource
 import funcify.feature.schema.path.SchematicPath
 
 /**

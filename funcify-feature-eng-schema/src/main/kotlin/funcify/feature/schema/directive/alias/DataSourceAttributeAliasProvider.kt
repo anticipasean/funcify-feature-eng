@@ -1,6 +1,6 @@
 package funcify.feature.schema.directive.alias
 
-import funcify.feature.schema.dataelementsource.DataElementSource
+import funcify.feature.schema.dataelement.DataElementSource
 import funcify.feature.schema.path.SchematicPath
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.ImmutableSet

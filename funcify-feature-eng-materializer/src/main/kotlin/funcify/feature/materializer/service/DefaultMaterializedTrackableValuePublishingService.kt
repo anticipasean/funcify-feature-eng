@@ -3,8 +3,7 @@ package funcify.feature.materializer.service
 import arrow.core.*
 import com.fasterxml.jackson.databind.JsonNode
 import funcify.feature.schema.json.JsonNodeToStandardValueConverter
-import funcify.feature.schema.tracking.FeatureJsonValuePublisher
-import funcify.feature.schema.tracking.TrackableJsonValuePublisherProvider
+import funcify.feature.schema.feature.FeatureJsonValuePublisher
 import funcify.feature.schema.tracking.TrackableValue
 import funcify.feature.materializer.context.publishing.TrackableValuePublishingContext
 import funcify.feature.materializer.context.publishing.TrackableValuePublishingContextFactory

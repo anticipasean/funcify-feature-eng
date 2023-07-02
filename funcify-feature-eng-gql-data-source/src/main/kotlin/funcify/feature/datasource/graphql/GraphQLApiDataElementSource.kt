@@ -1,8 +1,7 @@
 package funcify.feature.datasource.graphql
 
-import funcify.feature.schema.dataelementsource.DataElementSource
-import funcify.feature.schema.dataelementsource.RawSourceType
-import funcify.feature.schema.dataelementsource.SourceType
+import funcify.feature.schema.dataelement.DataElementSource
+import funcify.feature.schema.SourceType
 import graphql.schema.idl.TypeDefinitionRegistry
 
 /**
@@ -12,7 +11,7 @@ import graphql.schema.idl.TypeDefinitionRegistry
 interface GraphQLApiDataElementSource : DataElementSource {
 
     override val sourceType: SourceType
-        get() = RawSourceType.GRAPHQL_API
+        get() = GraphQLSourceType
 
     override val name: String
 

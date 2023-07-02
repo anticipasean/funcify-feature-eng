@@ -3,10 +3,7 @@ package funcify.feature.materializer.service
 import arrow.core.*
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.node.JsonNodeFactory
-import funcify.feature.schema.dataelementsource.retrieval.BackupExternalDataSourceCalculatedJsonValueRetriever
-import funcify.feature.schema.dataelementsource.retrieval.DataElementJsonValueSource
-import funcify.feature.schema.dataelementsource.retrieval.SchematicPathBasedJsonRetrievalFunctionFactory
-import funcify.feature.schema.dataelementsource.retrieval.FeatureJsonValueStore
+import funcify.feature.schema.feature.FeatureJsonValueStore
 import funcify.feature.schema.tracking.TrackableValue
 import funcify.feature.schema.tracking.TrackableValueFactory
 import funcify.feature.materializer.dispatch.DefaultSourceIndexRequestDispatchFactory

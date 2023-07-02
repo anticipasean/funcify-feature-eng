@@ -7,7 +7,7 @@ import funcify.feature.datasource.rest.schema.SwaggerParameterContainerType
 import funcify.feature.datasource.rest.schema.SwaggerRestApiSourceIndex
 import funcify.feature.datasource.rest.schema.SwaggerSourceAttribute
 import funcify.feature.datasource.rest.schema.SwaggerSourceContainerType
-import funcify.feature.schema.dataelementsource.DataElementSource
+import funcify.feature.schema.dataelement.DataElementSource
 import funcify.feature.schema.path.SchematicPath
 
 /**

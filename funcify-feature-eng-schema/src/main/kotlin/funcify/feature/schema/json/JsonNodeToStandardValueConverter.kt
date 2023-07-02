@@ -30,19 +30,19 @@ import graphql.schema.GraphQLNonNull
 import graphql.schema.GraphQLOutputType
 import graphql.schema.GraphQLScalarType
 import graphql.schema.GraphQLType
+import java.math.BigDecimal
+import java.util.*
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toPersistentList
 import org.slf4j.Logger
-import java.math.BigDecimal
-import java.util.*
 
 /**
  * Converter to mimic what GraphQL does after something is returned as a DataFetcherResult<R> (R
  * value) Implementation Notes:
  * - The most likely candidate type's serialization should be applied before less likely candidate
- * type's
+ *   type's
  * - given a TextNode and an expected type of ID, test for UUID compatibility before an integral ID
- * type
+ *   type
  */
 object JsonNodeToStandardValueConverter : (JsonNode, GraphQLOutputType) -> Option<Any> {
 
@@ -60,8 +60,9 @@ object JsonNodeToStandardValueConverter : (JsonNode, GraphQLOutputType) -> Optio
         val graphQLType: GraphQLType = unwrapNonNullIfPresent(expectedGraphQLOutputType)
         return when (resultJson.nodeType) {
             JsonNodeType.MISSING,
-            JsonNodeType.NULL
-            -> none()
+            JsonNodeType.NULL -> {
+                none()
+            }
             JsonNodeType.BOOLEAN -> {
                 when (graphQLType) {
                     Scalars.GraphQLBoolean -> {
@@ -266,7 +267,8 @@ object JsonNodeToStandardValueConverter : (JsonNode, GraphQLOutputType) -> Optio
                 """error occurred when serializing numeric_node as 
                     |special_decimal_type: [ decimal_scalar_type: {} ] 
                     |[ error.type: {}, error.message: {} ]
-                    |""".flatten(),
+                    |"""
+                    .flatten(),
                 decimalScalarType
                     .toOption()
                     .filterIsInstance<GraphQLScalarType>()
@@ -275,7 +277,7 @@ object JsonNodeToStandardValueConverter : (JsonNode, GraphQLOutputType) -> Optio
                 t::class.simpleName,
                 t.message,
                 t
-                       )
+            )
             none()
         }
     }
@@ -304,7 +306,8 @@ object JsonNodeToStandardValueConverter : (JsonNode, GraphQLOutputType) -> Optio
                 """error occurred when serializing numeric_node as 
                     |special_decimal_type: [ decimal_scalar_type: {} ] 
                     |[ error.type: {}, error.message: {} ]
-                    |""".flatten(),
+                    |"""
+                    .flatten(),
                 decimalScalarType
                     .toOption()
                     .filterIsInstance<GraphQLScalarType>()
@@ -313,7 +316,7 @@ object JsonNodeToStandardValueConverter : (JsonNode, GraphQLOutputType) -> Optio
                 t::class.simpleName,
                 t.message,
                 t
-                       )
+            )
             none()
         }
     }
@@ -333,11 +336,10 @@ object JsonNodeToStandardValueConverter : (JsonNode, GraphQLOutputType) -> Optio
                     .orElse { textNode.asText("").toOption().filter { s -> s.isNotBlank() } }
             }
             ExtendedScalars.UUID -> {
-                Try.attempt { ExtendedScalars.UUID.coercing.serialize(textNode.asText("")) }
-                    .getSuccess()
+                ExtendedScalars.UUID.coercing.serialize(textNode.asText("")).toOption()
             }
             Scalars.GraphQLInt -> {
-                Try.attempt { textNode.asText("").toBigInteger() }.getSuccess()
+                textNode.asText("").toBigIntegerOrNull().toOption()
             }
             Scalars.GraphQLString -> {
                 textNode.asText("").some()
@@ -355,12 +357,10 @@ object JsonNodeToStandardValueConverter : (JsonNode, GraphQLOutputType) -> Optio
                 serializeTextIntoDecimalScalarType(expectedGraphQLType, textNode.asText(""))
             }
             ExtendedScalars.DateTime -> {
-                Try.attempt { ExtendedScalars.DateTime.coercing.serialize(textNode.asText("")) }
-                    .getSuccess()
+                ExtendedScalars.DateTime.coercing.serialize(textNode.asText("")).toOption()
             }
             ExtendedScalars.Date -> {
-                Try.attempt { ExtendedScalars.Date.coercing.serialize(textNode.asText("")) }
-                    .getSuccess()
+                ExtendedScalars.Date.coercing.serialize(textNode.asText("")).toOption()
             }
             else -> {
                 textNode.asText("").some()
