@@ -6,9 +6,12 @@ import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.module.jsonSchema.JsonSchema
 import funcify.feature.error.ServiceError
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
+import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.transformer.jq.JacksonJqTransformer
 import graphql.language.Type
 import net.thisptr.jackson.jq.JsonQuery
+import net.thisptr.jackson.jq.Versions
+import net.thisptr.jackson.jq.exception.JsonQueryException
 import org.slf4j.Logger
 import reactor.core.publisher.Mono
 
@@ -24,7 +27,7 @@ internal class DefaultJacksonJqTransformerFactory : JacksonJqTransformerFactory 
             private var name: String? = null,
             private var expression: String? = null,
             private var inputSchema: JsonSchema? = null,
-            private var outputSchema: JsonSchema? = null
+            private var outputSchema: JsonSchema? = null,
         ) : JacksonJqTransformer.Builder {
 
             companion object {
@@ -57,8 +60,21 @@ internal class DefaultJacksonJqTransformerFactory : JacksonJqTransformerFactory 
                 }
                 return eagerEffect<String, JacksonJqTransformer> {
                         ensureNotNull(name) { "name has not been provided" }
+                        ensureNotNull(expression) { "expression has not been provided" }
+                        ensure(expression!!.isNotBlank()) { "the provided expression is blank" }
                         ensureNotNull(inputSchema) { "inputSchema has not been provided" }
                         ensureNotNull(outputSchema) { "outputSchema has not been provided" }
+                        val jq: JsonQuery =
+                            try {
+                                JsonQuery.compile(expression, Versions.JQ_1_6)
+                            } catch (e: JsonQueryException) {
+                                shift(
+                                    """expression [ %s ] did not compile successfully: 
+                                        |[ type: %s, message: %s ]"""
+                                        .flatten()
+                                        .format(expression, e::class.qualifiedName, e.message)
+                                )
+                            }
                         TODO()
                     }
                     .fold(

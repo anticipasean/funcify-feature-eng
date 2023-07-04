@@ -1,4 +1,4 @@
-package funcify.feature.datasource.graphql.sdl
+package funcify.feature.schema.sdl
 
 import arrow.core.Either
 import arrow.core.Option
@@ -7,8 +7,7 @@ import arrow.core.left
 import arrow.core.none
 import arrow.core.right
 import arrow.core.some
-import funcify.feature.datasource.graphql.error.GQLDataSourceErrorResponse
-import funcify.feature.datasource.graphql.error.GQLDataSourceException
+import funcify.feature.error.ServiceError
 import funcify.feature.tools.control.TraversalFunctions
 import funcify.feature.tools.extensions.FunctionExtensions.compose
 import funcify.feature.tools.extensions.StringExtensions.flatten
@@ -142,8 +141,9 @@ object GraphQLNonNullableSDLTypeComposer : (GraphQLType) -> Type<*> {
                    |neither an input or output type 
                    |so an SDL Type<*> instance cannot be determined: 
                    |[ actual: ${graphQLInputOrOutputType::class.qualifiedName} 
-                   |]""".flatten()
-            throw GQLDataSourceException(GQLDataSourceErrorResponse.SCHEMA_CREATION_ERROR, message)
+                   |]"""
+                    .flatten()
+            throw ServiceError.of(message)
         }
         return TraversalFunctions.recurseWithOption(
                 TypeCompositionContext(outerGraphQLType = graphQLInputOrOutputType),
@@ -161,19 +161,19 @@ object GraphQLNonNullableSDLTypeComposer : (GraphQLType) -> Type<*> {
 
     private fun unnamedGraphQLInputOrOutputTypeGraphQLSchemaCreationError(
         graphQLInputOrOutputType: GraphQLType
-    ): GQLDataSourceException {
+    ): ServiceError {
         val inputOrOutputType: String =
             if (graphQLInputOrOutputType is GraphQLInputType) {
                 "input_type"
             } else {
                 "output_type"
             }
-        return GQLDataSourceException(
-            GQLDataSourceErrorResponse.SCHEMA_CREATION_ERROR,
+        return ServiceError.of(
             """graphql_field_definition.${inputOrOutputType} [ type.to_string: 
                 |$graphQLInputOrOutputType ] 
                 |does not have name for use in SDL type creation
-                |""".flatten()
+                |"""
+                .flatten()
         )
     }
 }
