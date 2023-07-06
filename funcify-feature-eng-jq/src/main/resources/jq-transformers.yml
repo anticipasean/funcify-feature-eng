@@ -3,7 +3,5 @@
   input_schema:
     type: number
   output_schema:
-    type:
-     - number
-     - null
+    type: number
   expression: "numbers | if . >= 0.0 then . else null end"

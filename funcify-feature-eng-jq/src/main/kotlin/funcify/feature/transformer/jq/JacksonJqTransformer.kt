@@ -2,6 +2,7 @@ package funcify.feature.transformer.jq
 
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.module.jsonSchema.JsonSchema
+import funcify.feature.tools.container.attempt.Try
 import graphql.language.Type
 import net.thisptr.jackson.jq.JsonQuery
 import reactor.core.publisher.Mono
@@ -26,7 +27,7 @@ interface JacksonJqTransformer {
 
     val graphQLSDLOutputType: Type<*>
 
-    fun transform(input: JsonNode): Mono<JsonNode>
+    fun transform(input: JsonNode): Mono<out JsonNode>
 
     interface Builder {
 
@@ -38,6 +39,6 @@ interface JacksonJqTransformer {
 
         fun outputSchema(outputSchema: JsonSchema): Builder
 
-        fun build(): Result<JacksonJqTransformer>
+        fun build(): Try<JacksonJqTransformer>
     }
 }

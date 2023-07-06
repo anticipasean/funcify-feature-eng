@@ -3,9 +3,11 @@ package funcify.feature.error
 import arrow.core.foldLeft
 import arrow.core.getOrElse
 import arrow.core.toOption
+import arrow.typeclasses.Monoid
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.node.JsonNodeFactory
 import com.fasterxml.jackson.databind.node.ObjectNode
+import funcify.feature.error.DefaultServiceErrorFactory.DefaultServiceErrorMonoid.combine
 import funcify.feature.tools.extensions.ThrowableExtensions.possiblyNestedHeadStackTraceElement
 import kotlinx.collections.immutable.PersistentList
 import kotlinx.collections.immutable.PersistentMap
@@ -14,7 +16,6 @@ import kotlinx.collections.immutable.persistentMapOf
 import org.springframework.http.HttpStatus
 
 /**
- *
  * @author smccarron
  * @created 2022-11-11
  */
@@ -197,7 +198,9 @@ internal object DefaultServiceErrorFactory : ServiceErrorFactory {
                     "service_error_history" to
                         serviceErrorHistory.fold(
                             JsonNodeFactory.instance.arrayNode(serviceErrorHistory.size)
-                        ) { an, se -> an.add(se.toJsonNode()) },
+                        ) { an, se ->
+                            an.add(se.toJsonNode())
+                        },
                 )
                 .foldLeft(JsonNodeFactory.instance.objectNode()) { on, (k, v) -> on.set(k, v) }
         }
@@ -214,6 +217,17 @@ internal object DefaultServiceErrorFactory : ServiceErrorFactory {
                 )
                 .build()
         }
+
+        override fun toJsonNode(): JsonNode {
+            return jsonNodeForm
+        }
+
+        override fun plus(other: ServiceError): ServiceError {
+            return this.combine(other)
+        }
+    }
+
+    internal object DefaultServiceErrorMonoid : Monoid<ServiceError> {
 
         override fun empty(): ServiceError {
             return DEFAULT_SERVICE_ERROR
@@ -245,10 +259,6 @@ internal object DefaultServiceErrorFactory : ServiceErrorFactory {
                     }
                 }
             }
-        }
-
-        override fun toJsonNode(): JsonNode {
-            return jsonNodeForm
         }
     }
 

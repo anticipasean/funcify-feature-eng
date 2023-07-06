@@ -2,6 +2,7 @@ package funcify.feature.transformer.jq
 
 import funcify.feature.schema.SourceType
 import funcify.feature.schema.transformer.TransformerSourceProvider
+import org.springframework.core.io.ClassPathResource
 import reactor.core.publisher.Mono
 
 /**
@@ -21,6 +22,8 @@ interface JacksonJqTransformerSourceProvider :
     interface Builder {
 
         fun name(name: String): Builder
+
+        fun transformerYamlFile(classpathResource: ClassPathResource): Builder
 
         fun build(): JacksonJqTransformerSourceProvider
 

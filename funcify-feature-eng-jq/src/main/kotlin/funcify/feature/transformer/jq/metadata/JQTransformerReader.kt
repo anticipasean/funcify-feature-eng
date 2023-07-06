@@ -1,6 +1,6 @@
 package funcify.feature.transformer.jq.metadata
 
-import graphql.schema.idl.TypeDefinitionRegistry
+import funcify.feature.transformer.jq.JacksonJqTransformer
 import reactor.core.publisher.Mono
 
 /**
@@ -9,6 +9,5 @@ import reactor.core.publisher.Mono
  */
 interface JQTransformerReader<in R> {
 
-    fun readMetadata(resource: R): Mono<TypeDefinitionRegistry>
-
+    fun readTransformers(resource: R): Mono<out List<JacksonJqTransformer>>
 }
