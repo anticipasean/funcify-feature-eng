@@ -2,7 +2,12 @@ package funcify.feature.transformer.jq.metadata
 
 import funcify.feature.error.ServiceError
 import funcify.feature.tools.container.attempt.Try
-import funcify.feature.transformer.jq.JacksonJqTransformer
+import funcify.feature.transformer.jq.JqTransformer
+import funcify.feature.transformer.jq.metadata.JqTransformerTypeDefinitionEnvironment.Companion.DEFAULT_DESCRIPTION_FORMAT
+import funcify.feature.transformer.jq.metadata.JqTransformerTypeDefinitionEnvironment.Companion.DEFAULT_INPUT_ARGUMENT_NAME
+import funcify.feature.transformer.jq.metadata.JqTransformerTypeDefinitionEnvironment.Companion.QUERY_OBJECT_TYPE_NAME
+import funcify.feature.transformer.jq.metadata.JqTransformerTypeDefinitionEnvironment.Companion.TRANSFORMER_FIELD_NAME
+import funcify.feature.transformer.jq.metadata.JqTransformerTypeDefinitionEnvironment.Companion.TRANSFORMER_OBJECT_TYPE_NAME
 import graphql.GraphQLError
 import graphql.language.Description
 import graphql.language.FieldDefinition
@@ -15,19 +20,14 @@ import graphql.language.TypeName
 import graphql.schema.idl.TypeDefinitionRegistry
 import java.util.*
 
-internal object TransformerTypeDefinitionRegistryCreator :
-    (Iterable<JacksonJqTransformer>) -> TypeDefinitionRegistry {
+internal object DefaultJqTransformerTypeDefinitionFactory : JqTransformerTypeDefinitionFactory {
 
-    private const val DEFAULT_INPUT_ARGUMENT_NAME = "input"
-    private const val DEFAULT_DESCRIPTION_FORMAT = "jq [ expression: \"%s\" ]"
-    private const val JQ_TRANSFORMER_OBJECT_TYPE_NAME = "Jq"
-    private const val TRANSFORMER_OBJECT_TYPE_NAME = "Transformer"
-    private const val QUERY_OBJECT_TYPE_NAME = "Query"
-
-    override fun invoke(transformers: Iterable<JacksonJqTransformer>): TypeDefinitionRegistry {
-        return transformers
+    override fun createTypeDefinitionRegistry(
+        environment: JqTransformerTypeDefinitionEnvironment
+    ): Result<TypeDefinitionRegistry> {
+        return environment.jqTransformers
             .asSequence()
-            .map { t: JacksonJqTransformer ->
+            .map { t: JqTransformer ->
                 FieldDefinition.newFieldDefinition()
                     .name(t.name)
                     .type(t.graphQLSDLOutputType)
@@ -42,7 +42,12 @@ internal object TransformerTypeDefinitionRegistryCreator :
                     .build()
             }
             .fold(
-                ObjectTypeDefinition.newObjectTypeDefinition().name(JQ_TRANSFORMER_OBJECT_TYPE_NAME)
+                ObjectTypeDefinition.newObjectTypeDefinition()
+                    .name(
+                        environment.transformerSourceName.replaceFirstChar { c: Char ->
+                            c.uppercase()
+                        }
+                    )
             ) { otdb: ObjectTypeDefinition.Builder, fd: FieldDefinition ->
                 otdb.fieldDefinition(fd)
             }
@@ -54,7 +59,7 @@ internal object TransformerTypeDefinitionRegistryCreator :
                             .name(TRANSFORMER_OBJECT_TYPE_NAME)
                             .fieldDefinition(
                                 FieldDefinition.newFieldDefinition()
-                                    .name(jqTypeDef.name.lowercase())
+                                    .name(environment.transformerSourceName)
                                     .type(TypeName.newTypeName(jqTypeDef.name).build())
                                     .build()
                             )
@@ -63,7 +68,7 @@ internal object TransformerTypeDefinitionRegistryCreator :
                             .name(QUERY_OBJECT_TYPE_NAME)
                             .fieldDefinition(
                                 FieldDefinition.newFieldDefinition()
-                                    .name(TRANSFORMER_OBJECT_TYPE_NAME.lowercase())
+                                    .name(TRANSFORMER_FIELD_NAME)
                                     .type(
                                         TypeName.newTypeName(TRANSFORMER_OBJECT_TYPE_NAME).build()
                                     )
@@ -92,11 +97,11 @@ internal object TransformerTypeDefinitionRegistryCreator :
                         }
                     }
             }
-            .orElseThrow()
+            .toResult()
     }
 
     private fun createInputValueDefinitionForTransformer(
-        transformer: JacksonJqTransformer
+        transformer: JqTransformer
     ): InputValueDefinition {
         return InputValueDefinition.newInputValueDefinition()
             .name(DEFAULT_INPUT_ARGUMENT_NAME)

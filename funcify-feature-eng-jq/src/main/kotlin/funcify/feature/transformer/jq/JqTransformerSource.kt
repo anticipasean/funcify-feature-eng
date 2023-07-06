@@ -9,15 +9,14 @@ import kotlinx.collections.immutable.ImmutableMap
  * @author smccarron
  * @created 2023-07-02
  */
-interface JacksonJqTransformerSource : TransformerSource {
+interface JqTransformerSource : TransformerSource {
 
     override val name: String
 
     override val sourceType: SourceType
-        get() = JacksonJqSourceType
+        get() = JqSourceType
 
     override val sourceTypeDefinitionRegistry: TypeDefinitionRegistry
 
-    val transformersByName: ImmutableMap<String, JacksonJqTransformer>
-
+    val transformersByName: ImmutableMap<String, JqTransformer>
 }

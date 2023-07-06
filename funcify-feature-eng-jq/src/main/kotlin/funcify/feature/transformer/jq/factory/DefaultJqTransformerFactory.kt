@@ -13,7 +13,7 @@ import funcify.feature.schema.sdl.JsonSchemaToNullableSDLTypeComposer
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flatten
-import funcify.feature.transformer.jq.JacksonJqTransformer
+import funcify.feature.transformer.jq.JqTransformer
 import graphql.language.Type
 import net.thisptr.jackson.jq.BuiltinFunctionLoader
 import net.thisptr.jackson.jq.JsonQuery
@@ -30,7 +30,7 @@ import reactor.core.publisher.Mono
  * @author smccarron
  * @created 2023-07-03
  */
-internal class DefaultJacksonJqTransformerFactory : JacksonJqTransformerFactory {
+internal class DefaultJqTransformerFactory : JqTransformerFactory {
 
     companion object {
 
@@ -58,37 +58,37 @@ internal class DefaultJacksonJqTransformerFactory : JacksonJqTransformerFactory 
             private var expression: String? = null,
             private var inputSchema: JsonSchema? = null,
             private var outputSchema: JsonSchema? = null,
-        ) : JacksonJqTransformer.Builder {
+        ) : JqTransformer.Builder {
 
             companion object {
-                private val logger: Logger = loggerFor<DefaultJacksonJqTransformerFactory>()
+                private val logger: Logger = loggerFor<DefaultJqTransformerFactory>()
             }
 
-            override fun name(name: String): JacksonJqTransformer.Builder {
+            override fun name(name: String): JqTransformer.Builder {
                 this.name = name
                 return this
             }
 
-            override fun expression(expression: String): JacksonJqTransformer.Builder {
+            override fun expression(expression: String): JqTransformer.Builder {
                 this.expression = expression
                 return this
             }
 
-            override fun inputSchema(inputSchema: JsonSchema): JacksonJqTransformer.Builder {
+            override fun inputSchema(inputSchema: JsonSchema): JqTransformer.Builder {
                 this.inputSchema = inputSchema
                 return this
             }
 
-            override fun outputSchema(outputSchema: JsonSchema): JacksonJqTransformer.Builder {
+            override fun outputSchema(outputSchema: JsonSchema): JqTransformer.Builder {
                 this.outputSchema = outputSchema
                 return this
             }
 
-            override fun build(): Try<JacksonJqTransformer> {
+            override fun build(): Try<JqTransformer> {
                 if (logger.isDebugEnabled) {
                     logger.debug("build: [ name: {} ]", name)
                 }
-                return eagerEffect<ServiceError, JacksonJqTransformer> {
+                return eagerEffect<ServiceError, JqTransformer> {
                         ensureNotNull(name) { ServiceError.of("name has not been provided") }
                         ensureNotNull(expression) {
                             ServiceError.of("expression has not been provided")
@@ -153,7 +153,7 @@ internal class DefaultJacksonJqTransformerFactory : JacksonJqTransformerFactory 
                                     }
                                 )
                             }
-                        DefaultJacksonJqTransformer(
+                        DefaultJqTransformer(
                             rootScope = rootScope,
                             name = name!!,
                             expression = expression!!,
@@ -172,12 +172,12 @@ internal class DefaultJacksonJqTransformerFactory : JacksonJqTransformerFactory 
                             )
                             Try.failure(se)
                         },
-                        { j: JacksonJqTransformer -> Try.success(j) }
+                        { j: JqTransformer -> Try.success(j) }
                     )
             }
         }
 
-        internal class DefaultJacksonJqTransformer(
+        internal class DefaultJqTransformer(
             private val rootScope: Scope,
             override val name: String,
             override val expression: String,
@@ -186,10 +186,10 @@ internal class DefaultJacksonJqTransformerFactory : JacksonJqTransformerFactory 
             override val outputSchema: JsonSchema,
             override val graphQLSDLInputType: Type<*>,
             override val graphQLSDLOutputType: Type<*>,
-        ) : JacksonJqTransformer {
+        ) : JqTransformer {
 
             companion object {
-                private val logger: Logger = loggerFor<DefaultJacksonJqTransformer>()
+                private val logger: Logger = loggerFor<DefaultJqTransformer>()
             }
             private val objectMapper: ObjectMapper by lazy { ObjectMapper() }
             private val inputSchemaAsNode: JsonNode by lazy {
@@ -246,7 +246,7 @@ internal class DefaultJacksonJqTransformerFactory : JacksonJqTransformerFactory 
                     }
                     .doOnNext { jn: JsonNode? ->
                         if (logger.isDebugEnabled) {
-                            logger.debug("transform: [ on_next: { json_node: {}} ]", jn)
+                            logger.debug("transform: [ on_next: { json_node: {} } ]", jn)
                         }
                     }
                     .map { jn: JsonNode? -> jn ?: JsonNodeFactory.instance.nullNode() }
@@ -323,7 +323,7 @@ internal class DefaultJacksonJqTransformerFactory : JacksonJqTransformerFactory 
         }
     }
 
-    override fun builder(): JacksonJqTransformer.Builder {
+    override fun builder(): JqTransformer.Builder {
         return DefaultBuilder(rootScope = rootScope.orElseThrow())
     }
 }

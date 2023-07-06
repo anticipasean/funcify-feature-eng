@@ -6,12 +6,13 @@ import funcify.feature.error.ServiceError
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.json.JsonMapper
-import funcify.feature.transformer.jq.JacksonJqTransformer
-import funcify.feature.transformer.jq.JacksonJqTransformerSource
-import funcify.feature.transformer.jq.JacksonJqTransformerSourceProvider
-import funcify.feature.transformer.jq.metadata.JQTransformerReader
-import funcify.feature.transformer.jq.metadata.TransformerTypeDefinitionRegistryCreator
-import funcify.feature.transformer.jq.yml.JQTransformerYamlReader
+import funcify.feature.transformer.jq.JqTransformer
+import funcify.feature.transformer.jq.JqTransformerSource
+import funcify.feature.transformer.jq.JqTransformerSourceProvider
+import funcify.feature.transformer.jq.metadata.JqTransformerReader
+import funcify.feature.transformer.jq.metadata.JqTransformerTypeDefinitionEnvironment
+import funcify.feature.transformer.jq.metadata.JqTransformerTypeDefinitionFactory
+import funcify.feature.transformer.jq.yml.JqTransformerYamlReader
 import graphql.schema.idl.TypeDefinitionRegistry
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.persistentMapOf
@@ -23,51 +24,54 @@ import reactor.core.publisher.Mono
  * @author smccarron
  * @created 2023-07-02
  */
-internal class DefaultJacksonJqTransformerSourceProviderFactory(
+internal class DefaultJqTransformerSourceProviderFactory(
     private val jsonMapper: JsonMapper,
-    private val jacksonJqTransformerFactory: JacksonJqTransformerFactory
-) : JacksonJqTransformerSourceProviderFactory {
+    private val jqTransformerFactory: JqTransformerFactory,
+    private val jqTransformerTypeDefinitionFactory: JqTransformerTypeDefinitionFactory
+) : JqTransformerSourceProviderFactory {
 
     companion object {
         internal class DefaultBuilder(
             private val jsonMapper: JsonMapper,
-            private val jacksonJqTransformerFactory: JacksonJqTransformerFactory,
+            private val jqTransformerFactory: JqTransformerFactory,
+            private val jqTransformerTypeDefinitionFactory: JqTransformerTypeDefinitionFactory,
             private var name: String? = null,
             private var yamlClassPathResource: ClassPathResource? = null,
-        ) : JacksonJqTransformerSourceProvider.Builder {
+        ) : JqTransformerSourceProvider.Builder {
 
             companion object {
                 private val logger: Logger = loggerFor<DefaultBuilder>()
             }
 
-            override fun name(name: String): JacksonJqTransformerSourceProvider.Builder {
+            override fun name(name: String): JqTransformerSourceProvider.Builder {
                 this.name = name
                 return this
             }
 
             override fun transformerYamlFile(
                 classpathResource: ClassPathResource
-            ): JacksonJqTransformerSourceProvider.Builder {
+            ): JqTransformerSourceProvider.Builder {
                 this.yamlClassPathResource = classpathResource
                 return this
             }
 
-            override fun build(): JacksonJqTransformerSourceProvider {
+            override fun build(): JqTransformerSourceProvider {
                 if (logger.isDebugEnabled) {
                     logger.debug("build: [ name: {} ]", name)
                 }
-                return eagerEffect<String, JacksonJqTransformerSourceProvider> {
+                return eagerEffect<String, JqTransformerSourceProvider> {
                         ensureNotNull(name) { "name has not been provided" }
                         ensure(yamlClassPathResource != null) {
                             """yaml_classpath_resource or other resource for 
                                 |obtaining metadata has not been provided"""
                                 .flatten()
                         }
-                        YamlResourceJacksonJqTransformerSourceProvider(
+                        YamlResourceJqTransformerSourceProvider(
                             name = name!!,
                             yamlClassPathResource = yamlClassPathResource!!,
                             jqTransformerReader =
-                                JQTransformerYamlReader(jsonMapper, jacksonJqTransformerFactory)
+                                JqTransformerYamlReader(jsonMapper, jqTransformerFactory),
+                            jqTransformerTypeDefinitionFactory = jqTransformerTypeDefinitionFactory
                         )
                     }
                     .fold(
@@ -75,25 +79,26 @@ internal class DefaultJacksonJqTransformerSourceProviderFactory(
                             logger.error("build: [ status: failed ][ message: {} ]", message)
                             throw ServiceError.of(message)
                         },
-                        { p: JacksonJqTransformerSourceProvider -> p }
+                        { p: JqTransformerSourceProvider -> p }
                     )
             }
         }
 
-        internal class YamlResourceJacksonJqTransformerSourceProvider(
+        internal class YamlResourceJqTransformerSourceProvider(
             override val name: String,
             private val yamlClassPathResource: ClassPathResource,
-            private val jqTransformerReader: JQTransformerReader<ClassPathResource>
-        ) : JacksonJqTransformerSourceProvider {
+            private val jqTransformerReader: JqTransformerReader<ClassPathResource>,
+            private val jqTransformerTypeDefinitionFactory: JqTransformerTypeDefinitionFactory
+        ) : JqTransformerSourceProvider {
 
-            override fun getLatestTransformerSource(): Mono<JacksonJqTransformerSource> {
+            override fun getLatestTransformerSource(): Mono<JqTransformerSource> {
                 return jqTransformerReader
                     .readTransformers(yamlClassPathResource)
-                    .flatMap { jjts: List<JacksonJqTransformer> ->
-                        val transformersByName: PersistentMap<String, JacksonJqTransformer> =
+                    .flatMap { jjts: List<JqTransformer> ->
+                        val transformersByName: PersistentMap<String, JqTransformer> =
                             jjts.asSequence().fold(persistentMapOf()) {
-                                pm: PersistentMap<String, JacksonJqTransformer>,
-                                jt: JacksonJqTransformer ->
+                                pm: PersistentMap<String, JqTransformer>,
+                                jt: JqTransformer ->
                                 pm.put(jt.name, jt)
                             }
                         if (transformersByName.size == jjts.size) {
@@ -102,34 +107,39 @@ internal class DefaultJacksonJqTransformerSourceProviderFactory(
                             Mono.error {
                                 ServiceError.of(
                                     """there exists at least one non-unique 
-                                    |jackson_jq_transformer name"""
+                                    |jq_transformer name"""
                                         .flatten()
                                 )
                             }
                         }
                     }
-                    .flatMap { jjtsByName: PersistentMap<String, JacksonJqTransformer> ->
+                    .flatMap { jjtsByName: PersistentMap<String, JqTransformer> ->
                         try {
                             Mono.just(
-                                DefaultJacksonJqTransformerSource(
+                                DefaultJqTransformerSource(
                                     name = name,
                                     sourceTypeDefinitionRegistry =
-                                        TransformerTypeDefinitionRegistryCreator.invoke(
-                                            jjtsByName.values
-                                        ),
+                                        jqTransformerTypeDefinitionFactory
+                                            .createTypeDefinitionRegistry(
+                                                DefaultJacksonJqTypeDefinitionEnvironment(
+                                                    name,
+                                                    jjtsByName.values.toList()
+                                                )
+                                            )
+                                            .getOrThrow(),
                                     transformersByName = jjtsByName,
                                 )
                             )
                         } catch (t: Throwable) {
                             when (t) {
                                 is ServiceError -> {
-                                    Mono.error<JacksonJqTransformerSource>(t)
+                                    Mono.error<JqTransformerSource>(t)
                                 }
                                 else -> {
                                     Mono.error {
                                         ServiceError.builder()
                                             .message(
-                                                """jackson_jq_transformer_source 
+                                                """jq_transformer_source 
                                                 |type_definition_registry creation error"""
                                                     .flatten()
                                             )
@@ -143,19 +153,25 @@ internal class DefaultJacksonJqTransformerSourceProviderFactory(
             }
         }
 
-        internal class DefaultJacksonJqTransformerSource(
+        internal data class DefaultJacksonJqTypeDefinitionEnvironment(
+            override val transformerSourceName: String,
+            override val jqTransformers: List<JqTransformer>
+        ) : JqTransformerTypeDefinitionEnvironment {}
+
+        internal class DefaultJqTransformerSource(
             override val name: String,
             override val sourceTypeDefinitionRegistry: TypeDefinitionRegistry =
                 TypeDefinitionRegistry(),
-            override val transformersByName: PersistentMap<String, JacksonJqTransformer> =
+            override val transformersByName: PersistentMap<String, JqTransformer> =
                 persistentMapOf(),
-        ) : JacksonJqTransformerSource {}
+        ) : JqTransformerSource {}
     }
 
-    override fun builder(): JacksonJqTransformerSourceProvider.Builder {
+    override fun builder(): JqTransformerSourceProvider.Builder {
         return DefaultBuilder(
             jsonMapper = jsonMapper,
-            jacksonJqTransformerFactory = jacksonJqTransformerFactory
+            jqTransformerFactory = jqTransformerFactory,
+            jqTransformerTypeDefinitionFactory = jqTransformerTypeDefinitionFactory
         )
     }
 }

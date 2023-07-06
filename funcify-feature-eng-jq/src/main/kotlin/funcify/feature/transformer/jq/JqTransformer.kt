@@ -11,7 +11,7 @@ import reactor.core.publisher.Mono
  * @author smccarron
  * @created 2023-07-03
  */
-interface JacksonJqTransformer {
+interface JqTransformer {
 
     val name: String
 
@@ -39,6 +39,6 @@ interface JacksonJqTransformer {
 
         fun outputSchema(outputSchema: JsonSchema): Builder
 
-        fun build(): Try<JacksonJqTransformer>
+        fun build(): Try<JqTransformer>
     }
 }

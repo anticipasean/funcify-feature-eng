@@ -2,9 +2,9 @@ package funcify.feature.transformer.jq
 
 import funcify.feature.schema.SourceType
 
-object JacksonJqSourceType: SourceType {
+object JqSourceType: SourceType {
 
     override val name: String
-        get() = "JacksonJq"
+        get() = "Jq"
 
 }

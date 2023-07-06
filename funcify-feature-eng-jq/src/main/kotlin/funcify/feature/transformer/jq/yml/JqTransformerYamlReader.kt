@@ -13,9 +13,9 @@ import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.MonoExtensions.widen
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.json.JsonMapper
-import funcify.feature.transformer.jq.JacksonJqTransformer
-import funcify.feature.transformer.jq.factory.JacksonJqTransformerFactory
-import funcify.feature.transformer.jq.metadata.JQTransformerReader
+import funcify.feature.transformer.jq.JqTransformer
+import funcify.feature.transformer.jq.factory.JqTransformerFactory
+import funcify.feature.transformer.jq.metadata.JqTransformerReader
 import kotlinx.collections.immutable.PersistentList
 import kotlinx.collections.immutable.persistentListOf
 import org.slf4j.Logger
@@ -26,16 +26,16 @@ import reactor.core.publisher.Mono
  * @author smccarron
  * @created 2023-07-03
  */
-class JQTransformerYamlReader(
+class JqTransformerYamlReader(
     private val jsonMapper: JsonMapper,
-    private val jacksonJqTransformerFactory: JacksonJqTransformerFactory
-) : JQTransformerReader<ClassPathResource> {
+    private val jqTransformerFactory: JqTransformerFactory
+) : JqTransformerReader<ClassPathResource> {
 
     companion object {
-        private val logger: Logger = loggerFor<JQTransformerYamlReader>()
+        private val logger: Logger = loggerFor<JqTransformerYamlReader>()
     }
 
-    override fun readTransformers(resource: ClassPathResource): Mono<List<JacksonJqTransformer>> {
+    override fun readTransformers(resource: ClassPathResource): Mono<List<JqTransformer>> {
         logger.info("read_metadata: [ resource.path: {} ]", resource.path)
         return Try.success(resource)
             .filter(ClassPathResource::exists) { c: ClassPathResource ->
@@ -62,7 +62,7 @@ class JQTransformerYamlReader(
                     Try.success(
                         jsonMapper.jacksonObjectMapper
                             .copyWith(YAMLFactory.builder().build())
-                            .readValue<JQTransformerDefinitions?>(c.inputStream)
+                            .readValue<JqTransformerDefinitions?>(c.inputStream)
                             ?: throw ServiceError.of(
                                 """null value interpreted for yaml resource: 
                                 |[ resource.path: %s ]"""
@@ -73,10 +73,10 @@ class JQTransformerYamlReader(
                 } catch (e: Exception) {
                     when (e) {
                         is ServiceError -> {
-                            Try.failure<JQTransformerDefinitions>(e)
+                            Try.failure<JqTransformerDefinitions>(e)
                         }
                         else -> {
-                            Try.failure<JQTransformerDefinitions>(
+                            Try.failure<JqTransformerDefinitions>(
                                 ServiceError.builder()
                                     .message(
                                         """JSON processing error occurred when 
@@ -92,7 +92,7 @@ class JQTransformerYamlReader(
                     }
                 }
             }
-            .flatMap { j: JQTransformerDefinitions ->
+            .flatMap { j: JqTransformerDefinitions ->
                 convertJQTransformerDefinitionsIntoSDLDefinitions(j)
             }
             .toMono()
@@ -100,12 +100,12 @@ class JQTransformerYamlReader(
     }
 
     private fun convertJQTransformerDefinitionsIntoSDLDefinitions(
-        jqTransformerDefinitions: JQTransformerDefinitions
-    ): Try<List<JacksonJqTransformer>> {
+        jqTransformerDefinitions: JqTransformerDefinitions
+    ): Try<List<JqTransformer>> {
         return jqTransformerDefinitions.transformerDefinitions
             .asSequence()
-            .map { j: JQTransformerDefinition ->
-                jacksonJqTransformerFactory
+            .map { j: JqTransformerDefinition ->
+                jqTransformerFactory
                     .builder()
                     .name(j.name)
                     .expression(j.expression)
@@ -113,12 +113,12 @@ class JQTransformerYamlReader(
                     .outputSchema(j.outputSchema)
                     .build()
             }
-            .fold(Try.success(persistentListOf<JacksonJqTransformer>())) {
-                accumulateResult: Try<PersistentList<JacksonJqTransformer>>,
-                result: Try<JacksonJqTransformer> ->
+            .fold(Try.success(persistentListOf<JqTransformer>())) {
+                accumulateResult: Try<PersistentList<JqTransformer>>,
+                result: Try<JqTransformer> ->
                 when {
                     result.isSuccess() -> {
-                        accumulateResult.map { pl: PersistentList<JacksonJqTransformer> ->
+                        accumulateResult.map { pl: PersistentList<JqTransformer> ->
                             pl.add(result.orNull()!!)
                         }
                     }
@@ -133,7 +133,7 @@ class JQTransformerYamlReader(
                                     .filterIsInstance<ServiceError>()
                                     .orElse {
                                         ServiceError.builder()
-                                            .message("jackson_jq_transformer creation error")
+                                            .message("jq_transformer creation error")
                                             .cause(accumulateResult.throwable)
                                             .build()
                                             .some()
@@ -144,15 +144,13 @@ class JQTransformerYamlReader(
                                             .filterIsInstance<ServiceError>()
                                             .orElse {
                                                 ServiceError.builder()
-                                                    .message(
-                                                        "jackson_jq_transformer creation error"
-                                                    )
+                                                    .message("jq_transformer creation error")
                                                     .cause(result.getFailure().orNull()!!)
                                                     .build()
                                                     .some()
                                             }
                                     ) { se1: ServiceError, se2: ServiceError ->
-                                        Try.failure<PersistentList<JacksonJqTransformer>>(se1 + se2)
+                                        Try.failure<PersistentList<JqTransformer>>(se1 + se2)
                                     }
                                     .orNull()!!
                             }

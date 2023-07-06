@@ -5,7 +5,7 @@ import com.fasterxml.jackson.annotation.JsonProperty
 import com.fasterxml.jackson.module.jsonSchema.JsonSchema
 
 @JsonIgnoreProperties(ignoreUnknown = true)
-data class JQTransformerDefinition(
+data class JqTransformerDefinition(
     @JsonProperty("name") //
     val name: String,
     @JsonProperty("input_schema") //

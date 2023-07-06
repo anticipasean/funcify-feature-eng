@@ -9,15 +9,15 @@ import reactor.core.publisher.Mono
  * @author smccarron
  * @created 2023-07-02
  */
-interface JacksonJqTransformerSourceProvider :
-    TransformerSourceProvider<JacksonJqTransformerSource> {
+interface JqTransformerSourceProvider :
+    TransformerSourceProvider<JqTransformerSource> {
 
     override val name: String
 
     override val sourceType: SourceType
-        get() = JacksonJqSourceType
+        get() = JqSourceType
 
-    override fun getLatestTransformerSource(): Mono<JacksonJqTransformerSource>
+    override fun getLatestTransformerSource(): Mono<JqTransformerSource>
 
     interface Builder {
 
@@ -25,7 +25,7 @@ interface JacksonJqTransformerSourceProvider :
 
         fun transformerYamlFile(classpathResource: ClassPathResource): Builder
 
-        fun build(): JacksonJqTransformerSourceProvider
+        fun build(): JqTransformerSourceProvider
 
     }
 }
