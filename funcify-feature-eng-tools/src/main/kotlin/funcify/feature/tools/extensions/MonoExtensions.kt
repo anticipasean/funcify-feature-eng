@@ -1,19 +1,39 @@
 package funcify.feature.tools.extensions
 
 import funcify.feature.tools.container.async.KFuture
+import funcify.feature.tools.container.attempt.Success
 import funcify.feature.tools.container.attempt.Try
 import java.util.concurrent.CompletableFuture
 import reactor.core.publisher.Mono
 
 object MonoExtensions {
 
+    private val NULL_RESULT_EXCEPTION: IllegalArgumentException by lazy {
+        IllegalArgumentException(
+            "%s.result must be non-null but given result is null".format(
+                Success::class.qualifiedName
+            )
+        )
+    }
+
     fun <T> Mono<T>?.toTry(): Try<T> {
-        return when {
-            this == null -> {
-                Try.nullableSuccess<T>(null)
+        return when (this) {
+            null -> {
+                Try.failure<T>(NULL_RESULT_EXCEPTION)
             }
             else -> {
-                this.toKFuture().get()
+                try {
+                    when (val result: T? = this.block()) {
+                        null -> {
+                            Try.failure<T>(NULL_RESULT_EXCEPTION)
+                        }
+                        else -> {
+                            Try.success(result)
+                        }
+                    }
+                } catch (t: Throwable) {
+                    Try.failure<T>(t)
+                }
             }
         }
     }

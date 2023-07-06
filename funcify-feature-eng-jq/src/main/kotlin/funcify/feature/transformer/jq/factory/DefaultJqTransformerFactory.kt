@@ -212,7 +212,7 @@ internal class DefaultJqTransformerFactory : JqTransformerFactory {
                                 throw ServiceError.of(
                                     "input_node [ %s ] flagged as invalid per input_schema [ %s ]",
                                     input,
-                                    inputSchema
+                                    inputSchemaAsNode
                                 )
                             }
                         } catch (t: Throwable) {

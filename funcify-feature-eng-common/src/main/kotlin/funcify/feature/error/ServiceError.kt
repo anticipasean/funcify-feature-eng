@@ -61,7 +61,7 @@ abstract class ServiceError(
         }
 
         fun of(message: String, vararg args: Any?): ServiceError {
-            return builder().message(message, args).build()
+            return builder().message(message, *args).build()
         }
 
         fun downstreamServiceUnavailableErrorBuilder(): Builder {

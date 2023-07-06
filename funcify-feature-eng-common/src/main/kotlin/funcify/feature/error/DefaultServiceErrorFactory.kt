@@ -49,7 +49,7 @@ internal object DefaultServiceErrorFactory : ServiceErrorFactory {
         }
 
         override fun message(template: String, vararg args: Any?): ServiceError.Builder {
-            this.message = String.format(template, args)
+            this.message = String.format(template, *args)
             return this
         }
 

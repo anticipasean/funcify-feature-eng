@@ -91,7 +91,13 @@ internal class DefaultJqTransformerSourceProviderFactory(
             private val jqTransformerTypeDefinitionFactory: JqTransformerTypeDefinitionFactory
         ) : JqTransformerSourceProvider {
 
+            companion object {
+                private val logger: Logger = loggerFor<YamlResourceJqTransformerSourceProvider>()
+            }
+
             override fun getLatestTransformerSource(): Mono<JqTransformerSource> {
+                val methodTag: String = "get_latest_transformer_source"
+                logger.info("$methodTag: [ name: {} ]", name)
                 return jqTransformerReader
                     .readTransformers(yamlClassPathResource)
                     .flatMap { jjts: List<JqTransformer> ->
@@ -149,6 +155,13 @@ internal class DefaultJqTransformerSourceProviderFactory(
                                 }
                             }
                         }
+                    }
+                    .doOnError { t: Throwable ->
+                        logger.error(
+                            "$methodTag: [ status: failed ][ type: {}, message: {} ]",
+                            t::class.qualifiedName,
+                            t.message
+                        )
                     }
             }
         }

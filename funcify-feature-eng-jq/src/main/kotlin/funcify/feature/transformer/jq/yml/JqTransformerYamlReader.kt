@@ -62,7 +62,7 @@ class JqTransformerYamlReader(
                     Try.success(
                         jsonMapper.jacksonObjectMapper
                             .copyWith(YAMLFactory.builder().build())
-                            .readValue<JqTransformerDefinitions?>(c.inputStream)
+                            .readValue<List<JqTransformerDefinition>?>(c.inputStream)
                             ?: throw ServiceError.of(
                                 """null value interpreted for yaml resource: 
                                 |[ resource.path: %s ]"""
@@ -73,10 +73,10 @@ class JqTransformerYamlReader(
                 } catch (e: Exception) {
                     when (e) {
                         is ServiceError -> {
-                            Try.failure<JqTransformerDefinitions>(e)
+                            Try.failure<List<JqTransformerDefinition>>(e)
                         }
                         else -> {
-                            Try.failure<JqTransformerDefinitions>(
+                            Try.failure<List<JqTransformerDefinition>>(
                                 ServiceError.builder()
                                     .message(
                                         """JSON processing error occurred when 
@@ -92,7 +92,7 @@ class JqTransformerYamlReader(
                     }
                 }
             }
-            .flatMap { j: JqTransformerDefinitions ->
+            .flatMap { j: List<JqTransformerDefinition> ->
                 convertJQTransformerDefinitionsIntoSDLDefinitions(j)
             }
             .toMono()
@@ -100,9 +100,9 @@ class JqTransformerYamlReader(
     }
 
     private fun convertJQTransformerDefinitionsIntoSDLDefinitions(
-        jqTransformerDefinitions: JqTransformerDefinitions
+        jqTransformerDefinitions: List<JqTransformerDefinition>
     ): Try<List<JqTransformer>> {
-        return jqTransformerDefinitions.transformerDefinitions
+        return jqTransformerDefinitions
             .asSequence()
             .map { j: JqTransformerDefinition ->
                 jqTransformerFactory

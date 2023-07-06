@@ -5,3 +5,4 @@
   output_schema:
     type: number
   expression: "numbers | if . >= 0.0 then . else null end"
+...
