@@ -9,8 +9,7 @@ import reactor.core.publisher.Mono
  * @author smccarron
  * @created 2023-07-02
  */
-interface JqTransformerSourceProvider :
-    TransformerSourceProvider<JqTransformerSource> {
+interface JqTransformerSourceProvider : TransformerSourceProvider<JqTransformerSource> {
 
     override val name: String
 
@@ -26,6 +25,5 @@ interface JqTransformerSourceProvider :
         fun transformerYamlFile(classpathResource: ClassPathResource): Builder
 
         fun build(): JqTransformerSourceProvider
-
     }
 }

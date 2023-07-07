@@ -14,6 +14,7 @@ import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.transformer.jq.JqTransformer
+import funcify.feature.transformer.jq.JqTransformerFactory
 import graphql.language.Type
 import net.thisptr.jackson.jq.BuiltinFunctionLoader
 import net.thisptr.jackson.jq.JsonQuery

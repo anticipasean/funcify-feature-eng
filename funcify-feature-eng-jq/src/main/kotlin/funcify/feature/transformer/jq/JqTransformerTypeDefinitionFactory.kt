@@ -1,5 +1,6 @@
-package funcify.feature.transformer.jq.metadata
+package funcify.feature.transformer.jq
 
+import funcify.feature.transformer.jq.env.JqTransformerTypeDefinitionEnvironment
 import graphql.schema.idl.TypeDefinitionRegistry
 
 /**

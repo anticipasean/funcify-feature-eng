@@ -1,4 +1,4 @@
-package funcify.feature.transformer.jq.metadata
+package funcify.feature.transformer.jq.env
 
 import funcify.feature.transformer.jq.JqTransformer
 

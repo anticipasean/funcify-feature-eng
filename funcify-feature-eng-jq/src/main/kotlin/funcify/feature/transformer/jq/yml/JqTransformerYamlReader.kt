@@ -14,8 +14,9 @@ import funcify.feature.tools.extensions.MonoExtensions.widen
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.json.JsonMapper
 import funcify.feature.transformer.jq.JqTransformer
-import funcify.feature.transformer.jq.factory.JqTransformerFactory
-import funcify.feature.transformer.jq.metadata.JqTransformerReader
+import funcify.feature.transformer.jq.JqTransformerFactory
+import funcify.feature.transformer.jq.definition.JqTransformerDefinition
+import funcify.feature.transformer.jq.metadata.reader.JqTransformerReader
 import kotlinx.collections.immutable.PersistentList
 import kotlinx.collections.immutable.persistentListOf
 import org.slf4j.Logger

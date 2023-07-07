@@ -12,10 +12,7 @@ import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.json.JsonMapper
 import funcify.feature.transformer.jq.factory.DefaultJqTransformerFactory
 import funcify.feature.transformer.jq.factory.DefaultJqTransformerSourceProviderFactory
-import funcify.feature.transformer.jq.factory.JqTransformerFactory
-import funcify.feature.transformer.jq.factory.JqTransformerSourceProviderFactory
 import funcify.feature.transformer.jq.metadata.DefaultJqTransformerTypeDefinitionFactory
-import funcify.feature.transformer.jq.metadata.JqTransformerTypeDefinitionFactory
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
 import org.springframework.core.io.ClassPathResource

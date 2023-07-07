@@ -1,6 +1,4 @@
-package funcify.feature.transformer.jq.factory
-
-import funcify.feature.transformer.jq.JqTransformerSourceProvider
+package funcify.feature.transformer.jq
 
 /**
  * @author smccarron
