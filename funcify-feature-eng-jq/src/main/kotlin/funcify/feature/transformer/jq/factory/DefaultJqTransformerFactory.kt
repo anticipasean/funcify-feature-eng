@@ -35,26 +35,23 @@ internal class DefaultJqTransformerFactory : JqTransformerFactory {
 
     companion object {
 
-        private val rootScope: Try<Scope> by lazy {
-            try {
-                Try.success(
+        private val rootScopeAttempt: Try<Scope> by lazy {
+            Try.attempt {
                     Scope.newEmptyScope().apply {
                         BuiltinFunctionLoader.getInstance().loadFunctions(Versions.JQ_1_6, this)
                         this.moduleLoader = BuiltinModuleLoader.getInstance()
                     }
-                )
-            } catch (t: Throwable) {
-                Try.failure(
+                }
+                .mapFailure { t: Throwable ->
                     ServiceError.builder()
                         .message("failed to create root_scope for jq transformers")
                         .cause(t)
                         .build()
-                )
-            }
+                }
         }
 
         internal class DefaultBuilder(
-            private val rootScope: Scope,
+            private val rootScopeAttempt: Try<Scope>,
             private var name: String? = null,
             private var expression: String? = null,
             private var inputSchema: JsonSchema? = null,
@@ -90,6 +87,12 @@ internal class DefaultJqTransformerFactory : JqTransformerFactory {
                     logger.debug("build: [ name: {} ]", name)
                 }
                 return eagerEffect<ServiceError, JqTransformer> {
+                        val rootScope: Scope =
+                            try {
+                                rootScopeAttempt.orElseThrow()
+                            } catch (se: ServiceError) {
+                                shift(se)
+                            }
                         ensureNotNull(name) { ServiceError.of("name has not been provided") }
                         ensureNotNull(expression) {
                             ServiceError.of("expression has not been provided")
@@ -259,6 +262,9 @@ internal class DefaultJqTransformerFactory : JqTransformerFactory {
                                     jns.isEmpty() -> {
                                         Mono.just(JsonNodeFactory.instance.arrayNode(0))
                                     }
+                                    jns.size == 1 && jns[0].isArray -> {
+                                        Mono.just(jns[0])
+                                    }
                                     else -> {
                                         Mono.fromSupplier {
                                             jns.asSequence()
@@ -325,6 +331,6 @@ internal class DefaultJqTransformerFactory : JqTransformerFactory {
     }
 
     override fun builder(): JqTransformer.Builder {
-        return DefaultBuilder(rootScope = rootScope.orElseThrow())
+        return DefaultBuilder(rootScopeAttempt = rootScopeAttempt)
     }
 }

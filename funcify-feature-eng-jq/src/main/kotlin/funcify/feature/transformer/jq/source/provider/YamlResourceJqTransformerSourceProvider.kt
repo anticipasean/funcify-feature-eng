@@ -10,6 +10,7 @@ import funcify.feature.transformer.jq.JqTransformerTypeDefinitionFactory
 import funcify.feature.transformer.jq.env.DefaultJacksonJqTypeDefinitionEnvironment
 import funcify.feature.transformer.jq.metadata.reader.JqTransformerReader
 import funcify.feature.transformer.jq.source.DefaultJqTransformerSource
+import graphql.schema.idl.TypeDefinitionRegistry
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.persistentMapOf
 import org.slf4j.Logger
@@ -28,19 +29,19 @@ internal class YamlResourceJqTransformerSourceProvider(
             LoggerExtensions.loggerFor<YamlResourceJqTransformerSourceProvider>()
     }
 
-    override fun getLatestTransformerSource(): Mono<JqTransformerSource> {
+    override fun getLatestTransformerSource(): Mono<out JqTransformerSource> {
         val methodTag: String = "get_latest_transformer_source"
         logger.info("$methodTag: [ name: {} ]", name)
         return jqTransformerReader
             .readTransformers(yamlClassPathResource)
-            .flatMap { jjts: List<JqTransformer> ->
+            .flatMap { jts: List<JqTransformer> ->
                 val transformersByName: PersistentMap<String, JqTransformer> =
-                    jjts.asSequence().fold(persistentMapOf()) {
+                    jts.asSequence().fold(persistentMapOf()) {
                         pm: PersistentMap<String, JqTransformer>,
                         jt: JqTransformer ->
                         pm.put(jt.name, jt)
                     }
-                if (transformersByName.size == jjts.size) {
+                if (transformersByName.size == jts.size) {
                     Mono.just(transformersByName)
                 } else {
                     Mono.error {
@@ -52,42 +53,22 @@ internal class YamlResourceJqTransformerSourceProvider(
                     }
                 }
             }
-            .flatMap { jjtsByName: PersistentMap<String, JqTransformer> ->
-                try {
-                    Mono.just(
-                        DefaultJqTransformerSource(
-                            name = name,
-                            sourceTypeDefinitionRegistry =
-                                jqTransformerTypeDefinitionFactory
-                                    .createTypeDefinitionRegistry(
-                                        DefaultJacksonJqTypeDefinitionEnvironment(
-                                            name,
-                                            jjtsByName.values.toList()
-                                        )
-                                    )
-                                    .getOrThrow(),
-                            transformersByName = jjtsByName,
+            .flatMap { jtsByName: PersistentMap<String, JqTransformer> ->
+                jqTransformerTypeDefinitionFactory
+                    .createTypeDefinitionRegistry(
+                        DefaultJacksonJqTypeDefinitionEnvironment(
+                            transformerSourceName = name,
+                            jqTransformers = jtsByName.values.toList()
                         )
                     )
-                } catch (t: Throwable) {
-                    when (t) {
-                        is ServiceError -> {
-                            Mono.error<JqTransformerSource>(t)
-                        }
-                        else -> {
-                            Mono.error {
-                                ServiceError.builder()
-                                    .message(
-                                        """jq_transformer_source 
-                                        |type_definition_registry creation error"""
-                                            .flatten()
-                                    )
-                                    .cause(t)
-                                    .build()
-                            }
-                        }
+                    .map { tdr: TypeDefinitionRegistry ->
+                        DefaultJqTransformerSource(
+                            name = name,
+                            sourceTypeDefinitionRegistry = tdr,
+                            jqTransformersByName = jtsByName,
+                        )
                     }
-                }
+                    .toMono()
             }
             .doOnError { t: Throwable ->
                 logger.error(

@@ -54,7 +54,7 @@ class JqTransformerYamlTest {
             Assertions.assertDoesNotThrow<JqTransformerSource> {
                 jqTransformerSourceProvider.getLatestTransformerSource().toFuture().join()
             }
-        Assertions.assertEquals(1, jqTransformerSource.transformersByName.size) {
+        Assertions.assertEquals(1, jqTransformerSource.jqTransformersByName.size) {
             "size unexpected"
         }
         // println(
@@ -75,12 +75,12 @@ class JqTransformerYamlTest {
         // )
         Assertions.assertEquals(
             "negative_to_null",
-            jqTransformerSource.transformersByName.asSequence().first().key
+            jqTransformerSource.jqTransformersByName.asSequence().first().key
         ) {
             "transformersByName[0].key does not match"
         }
         val jqTransformer: JqTransformer =
-            jqTransformerSource.transformersByName["negative_to_null"]!!
+            jqTransformerSource.jqTransformersByName["negative_to_null"]!!
         val serviceError: ServiceError =
             Assertions.assertThrows(
                 ServiceError::class.java,

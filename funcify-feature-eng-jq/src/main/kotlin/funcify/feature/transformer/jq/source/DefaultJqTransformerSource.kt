@@ -9,5 +9,5 @@ import kotlinx.collections.immutable.persistentMapOf
 internal class DefaultJqTransformerSource(
     override val name: String,
     override val sourceTypeDefinitionRegistry: TypeDefinitionRegistry = TypeDefinitionRegistry(),
-    override val transformersByName: PersistentMap<String, JqTransformer> = persistentMapOf(),
+    override val jqTransformersByName: PersistentMap<String, JqTransformer> = persistentMapOf(),
 ) : JqTransformerSource

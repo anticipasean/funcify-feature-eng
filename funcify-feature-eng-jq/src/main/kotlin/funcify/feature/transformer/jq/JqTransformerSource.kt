@@ -18,5 +18,5 @@ interface JqTransformerSource : TransformerSource {
 
     override val sourceTypeDefinitionRegistry: TypeDefinitionRegistry
 
-    val transformersByName: ImmutableMap<String, JqTransformer>
+    val jqTransformersByName: ImmutableMap<String, JqTransformer>
 }

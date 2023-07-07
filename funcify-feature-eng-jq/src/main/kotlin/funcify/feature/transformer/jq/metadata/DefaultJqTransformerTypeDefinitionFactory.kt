@@ -26,7 +26,7 @@ internal object DefaultJqTransformerTypeDefinitionFactory : JqTransformerTypeDef
 
     override fun createTypeDefinitionRegistry(
         environment: JqTransformerTypeDefinitionEnvironment
-    ): Result<TypeDefinitionRegistry> {
+    ): Try<TypeDefinitionRegistry> {
         return environment.jqTransformers
             .asSequence()
             .map { t: JqTransformer ->
@@ -99,7 +99,6 @@ internal object DefaultJqTransformerTypeDefinitionFactory : JqTransformerTypeDef
                         }
                     }
             }
-            .toResult()
     }
 
     private fun createInputValueDefinitionForTransformer(

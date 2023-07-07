@@ -13,8 +13,8 @@ interface JqTransformerTypeDefinitionEnvironment {
         const val DEFAULT_DESCRIPTION_FORMAT = "jq [ expression: \"%s\" ]"
         const val DEFAULT_JQ_TRANSFORMER_FIELD_NAME = "jq"
         const val DEFAULT_JQ_TRANSFORMER_OBJECT_TYPE_NAME = "Jq"
-        const val TRANSFORMER_OBJECT_TYPE_NAME = "Transformer"
         const val TRANSFORMER_FIELD_NAME = "transformer"
+        const val TRANSFORMER_OBJECT_TYPE_NAME = "Transformer"
         const val QUERY_OBJECT_TYPE_NAME = "Query"
     }
 

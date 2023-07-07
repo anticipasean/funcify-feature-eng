@@ -16,7 +16,7 @@ interface JqTransformerSourceProvider : TransformerSourceProvider<JqTransformerS
     override val sourceType: SourceType
         get() = JqSourceType
 
-    override fun getLatestTransformerSource(): Mono<JqTransformerSource>
+    override fun getLatestTransformerSource(): Mono<out JqTransformerSource>
 
     interface Builder {
 
