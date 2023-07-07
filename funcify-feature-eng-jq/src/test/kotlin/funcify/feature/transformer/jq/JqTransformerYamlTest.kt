@@ -4,9 +4,6 @@ import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.node.JsonNodeFactory
 import funcify.feature.error.ServiceError
 import funcify.feature.json.JsonObjectMappingConfiguration
-import funcify.feature.tools.container.attempt.Failure
-import funcify.feature.tools.container.attempt.Success
-import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.MonoExtensions.toTry
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.json.JsonMapper
@@ -91,16 +88,7 @@ class JqTransformerYamlTest {
                     jqTransformer
                         .transform(JsonNodeFactory.instance.objectNode().put("input", -1))
                         .toTry()
-                        .let { t: Try<JsonNode> ->
-                            when (t) {
-                                is Success<JsonNode> -> {
-                                    t.result
-                                }
-                                is Failure<JsonNode> -> {
-                                    throw t.throwable
-                                }
-                            }
-                        }
+                        .orElseThrow()
                 },
                 {
                     """service_error expected since transformer input definition 
@@ -114,10 +102,16 @@ class JqTransformerYamlTest {
                 serviceError.message
             )
         }
-        val result: JsonNode =
+        val result1: JsonNode =
             Assertions.assertDoesNotThrow<JsonNode> {
                 jqTransformer.transform(JsonNodeFactory.instance.numberNode(-1)).toFuture().join()
             }
-        Assertions.assertTrue(result.isNull)
+        Assertions.assertTrue(result1.isNull)
+        val result2: JsonNode =
+            Assertions.assertDoesNotThrow<JsonNode> {
+                jqTransformer.transform(JsonNodeFactory.instance.numberNode(1)).toFuture().join()
+            }
+        Assertions.assertTrue(result2.isNumber)
+        Assertions.assertEquals(1, result2.intValue())
     }
 }
