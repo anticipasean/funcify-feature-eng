@@ -2,12 +2,7 @@ package funcify.feature.transformer.jq.factory
 
 import arrow.core.continuations.eagerEffect
 import arrow.core.continuations.ensureNotNull
-import com.fasterxml.jackson.databind.JsonNode
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.databind.node.ArrayNode
-import com.fasterxml.jackson.databind.node.JsonNodeFactory
 import com.fasterxml.jackson.module.jsonSchema.JsonSchema
-import com.github.fge.jsonschema.main.JsonSchemaFactory
 import funcify.feature.error.ServiceError
 import funcify.feature.schema.sdl.JsonSchemaToNullableSDLTypeComposer
 import funcify.feature.tools.container.attempt.Try
@@ -15,6 +10,7 @@ import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.transformer.jq.JqTransformer
 import funcify.feature.transformer.jq.JqTransformerFactory
+import funcify.feature.transformer.jq.jackson.DefaultJacksonJqTransformer
 import graphql.language.Type
 import net.thisptr.jackson.jq.BuiltinFunctionLoader
 import net.thisptr.jackson.jq.JsonQuery
@@ -23,9 +19,6 @@ import net.thisptr.jackson.jq.Versions
 import net.thisptr.jackson.jq.exception.JsonQueryException
 import net.thisptr.jackson.jq.module.loaders.BuiltinModuleLoader
 import org.slf4j.Logger
-import reactor.core.publisher.Flux
-import reactor.core.publisher.FluxSink
-import reactor.core.publisher.Mono
 
 /**
  * @author smccarron
@@ -35,7 +28,7 @@ internal class DefaultJqTransformerFactory : JqTransformerFactory {
 
     companion object {
 
-        private val rootScopeAttempt: Try<Scope> by lazy {
+        private val rootJacksonJqScopeAttempt: Try<Scope> by lazy {
             Try.attempt {
                     Scope.newEmptyScope().apply {
                         BuiltinFunctionLoader.getInstance().loadFunctions(Versions.JQ_1_6, this)
@@ -44,14 +37,18 @@ internal class DefaultJqTransformerFactory : JqTransformerFactory {
                 }
                 .mapFailure { t: Throwable ->
                     ServiceError.builder()
-                        .message("failed to create root_scope for jq transformers")
+                        .message(
+                            """failed to create jackson-jq root_scope 
+                            |for jackson-jq transformers"""
+                                .flatten()
+                        )
                         .cause(t)
                         .build()
                 }
         }
 
         internal class DefaultBuilder(
-            private val rootScopeAttempt: Try<Scope>,
+            private val rootJacksonJqScopeAttempt: Try<Scope>,
             private var name: String? = null,
             private var expression: String? = null,
             private var inputSchema: JsonSchema? = null,
@@ -89,7 +86,7 @@ internal class DefaultJqTransformerFactory : JqTransformerFactory {
                 return eagerEffect<ServiceError, JqTransformer> {
                         val rootScope: Scope =
                             try {
-                                rootScopeAttempt.orElseThrow()
+                                rootJacksonJqScopeAttempt.orElseThrow()
                             } catch (se: ServiceError) {
                                 shift(se)
                             }
@@ -157,11 +154,11 @@ internal class DefaultJqTransformerFactory : JqTransformerFactory {
                                     }
                                 )
                             }
-                        DefaultJqTransformer(
+                        DefaultJacksonJqTransformer(
                             rootScope = rootScope,
+                            jsonQuery = jq,
                             name = name!!,
                             expression = expression!!,
-                            jsonQuery = jq,
                             inputSchema = inputSchema!!,
                             outputSchema = outputSchema!!,
                             graphQLSDLInputType = sdlInputType,
@@ -180,157 +177,9 @@ internal class DefaultJqTransformerFactory : JqTransformerFactory {
                     )
             }
         }
-
-        internal class DefaultJqTransformer(
-            private val rootScope: Scope,
-            override val name: String,
-            override val expression: String,
-            override val jsonQuery: JsonQuery,
-            override val inputSchema: JsonSchema,
-            override val outputSchema: JsonSchema,
-            override val graphQLSDLInputType: Type<*>,
-            override val graphQLSDLOutputType: Type<*>,
-        ) : JqTransformer {
-
-            companion object {
-                private val logger: Logger = loggerFor<DefaultJqTransformer>()
-            }
-            private val objectMapper: ObjectMapper by lazy { ObjectMapper() }
-            private val inputSchemaAsNode: JsonNode by lazy {
-                objectMapper.valueToTree(inputSchema)
-            }
-
-            override fun transform(input: JsonNode): Mono<out JsonNode> {
-                if (logger.isDebugEnabled) {
-                    logger.debug("transform: [ name: {}, input: {} ]", name, input)
-                }
-                return Mono.fromCallable {
-                        try {
-                            if (
-                                JsonSchemaFactory.byDefault()
-                                    .getJsonSchema(inputSchemaAsNode)
-                                    .validInstance(input)
-                            ) {
-                                input
-                            } else {
-                                throw ServiceError.of(
-                                    "input_node [ %s ] flagged as invalid per input_schema [ %s ]",
-                                    input,
-                                    inputSchemaAsNode
-                                )
-                            }
-                        } catch (t: Throwable) {
-                            when (t) {
-                                is ServiceError -> {
-                                    throw t
-                                }
-                                else -> {
-                                    throw ServiceError.builder()
-                                        .message("unable to validate schema of input_node")
-                                        .cause(t)
-                                        .build()
-                                }
-                            }
-                        }
-                    }
-                    .flatMapMany { j: JsonNode ->
-                        Flux.create<JsonNode?> { s: FluxSink<JsonNode?> ->
-                            try {
-                                jsonQuery.apply(Scope.newChildScope(rootScope), j, s::next)
-                                s.complete()
-                            } catch (t: Throwable) {
-                                s.error(
-                                    ServiceError.builder()
-                                        .message("json query execution error")
-                                        .cause(t)
-                                        .build()
-                                )
-                            }
-                        }
-                    }
-                    .doOnNext { jn: JsonNode? ->
-                        if (logger.isDebugEnabled) {
-                            logger.debug("transform: [ on_next: { json_node: {} } ]", jn)
-                        }
-                    }
-                    .map { jn: JsonNode? -> jn ?: JsonNodeFactory.instance.nullNode() }
-                    .collectList()
-                    .flatMap { jns: List<JsonNode> ->
-                        when {
-                            outputSchema.isArraySchema -> {
-                                when {
-                                    jns.isEmpty() -> {
-                                        Mono.just(JsonNodeFactory.instance.arrayNode(0))
-                                    }
-                                    jns.size == 1 && jns[0].isArray -> {
-                                        Mono.just(jns[0])
-                                    }
-                                    else -> {
-                                        Mono.fromSupplier {
-                                            jns.asSequence()
-                                                .fold(
-                                                    JsonNodeFactory.instance.arrayNode(jns.size),
-                                                    ArrayNode::add
-                                                )
-                                        }
-                                    }
-                                }
-                            }
-                            outputSchema.isObjectSchema || outputSchema.isAnySchema -> {
-                                when {
-                                    jns.isEmpty() -> {
-                                        Mono.just(JsonNodeFactory.instance.objectNode())
-                                    }
-                                    jns.size == 1 -> {
-                                        Mono.just(jns[0])
-                                    }
-                                    else -> {
-                                        Mono.error<JsonNode> {
-                                            ServiceError.of(
-                                                """more than one json_node result received 
-                                                |from jq as output for object type
-                                                |from json_query: [ %s ]"""
-                                                    .flatten(),
-                                                jns.asSequence().withIndex().joinToString(", ") {
-                                                    (idx: Int, jn: JsonNode) ->
-                                                    "[$idx]: \"$jn\""
-                                                }
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                            else -> {
-                                when {
-                                    jns.isEmpty() -> {
-                                        Mono.just(JsonNodeFactory.instance.nullNode())
-                                    }
-                                    jns.size == 1 -> {
-                                        Mono.just(jns[0])
-                                    }
-                                    else -> {
-                                        Mono.error<JsonNode> {
-                                            ServiceError.of(
-                                                """more than one json_node result received 
-                                                |from jq as output for scalar type
-                                                |from json_query: [ %s ]"""
-                                                    .flatten(),
-                                                jns.asSequence().withIndex().joinToString(", ") {
-                                                    (idx: Int, jn: JsonNode) ->
-                                                    "[$idx]: \"$jn\""
-                                                }
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-            }
-        }
     }
 
     override fun builder(): JqTransformer.Builder {
-        return DefaultBuilder(rootScopeAttempt = rootScopeAttempt)
+        return DefaultBuilder(rootJacksonJqScopeAttempt = rootJacksonJqScopeAttempt)
     }
 }

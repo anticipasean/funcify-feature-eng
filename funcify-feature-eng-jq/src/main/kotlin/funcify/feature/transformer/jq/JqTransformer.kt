@@ -4,7 +4,6 @@ import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.module.jsonSchema.JsonSchema
 import funcify.feature.tools.container.attempt.Try
 import graphql.language.Type
-import net.thisptr.jackson.jq.JsonQuery
 import reactor.core.publisher.Mono
 
 /**
@@ -16,8 +15,6 @@ interface JqTransformer {
     val name: String
 
     val expression: String
-
-    val jsonQuery: JsonQuery
 
     val inputSchema: JsonSchema
 
