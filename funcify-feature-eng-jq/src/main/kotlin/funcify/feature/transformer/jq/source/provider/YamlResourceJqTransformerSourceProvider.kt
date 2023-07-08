@@ -1,5 +1,9 @@
 package funcify.feature.transformer.jq.source.provider
 
+import arrow.core.filterIsInstance
+import arrow.core.getOrElse
+import arrow.core.some
+import com.fasterxml.jackson.databind.JsonNode
 import funcify.feature.error.ServiceError
 import funcify.feature.tools.extensions.LoggerExtensions
 import funcify.feature.tools.extensions.StringExtensions.flatten
@@ -72,9 +76,13 @@ internal class YamlResourceJqTransformerSourceProvider(
             }
             .doOnError { t: Throwable ->
                 logger.error(
-                    "$methodTag: [ status: failed ][ type: {}, message: {} ]",
+                    "$methodTag: [ status: failed ][ type: {}, message/json: {} ]",
                     t::class.qualifiedName,
-                    t.message
+                    t.some()
+                        .filterIsInstance<ServiceError>()
+                        .mapNotNull(ServiceError::toJsonNode)
+                        .mapNotNull(JsonNode::toString)
+                        .getOrElse { t.message }
                 )
             }
     }
