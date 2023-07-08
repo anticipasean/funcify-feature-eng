@@ -7,7 +7,7 @@ import com.fasterxml.jackson.databind.node.JsonNodeFactory
 import com.fasterxml.jackson.module.jsonSchema.JsonSchema
 import com.github.fge.jsonschema.main.JsonSchemaFactory
 import funcify.feature.error.ServiceError
-import funcify.feature.tools.extensions.LoggerExtensions
+import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.transformer.jq.JqTransformer
 import graphql.language.Type
@@ -30,7 +30,7 @@ internal class DefaultJacksonJqTransformer(
 ) : JqTransformer {
 
     companion object {
-        private val logger: Logger = LoggerExtensions.loggerFor<DefaultJacksonJqTransformer>()
+        private val logger: Logger = loggerFor<DefaultJacksonJqTransformer>()
     }
     private val objectMapper: ObjectMapper by lazy { ObjectMapper() }
     private val inputSchemaAsNode: JsonNode by lazy { objectMapper.valueToTree(inputSchema) }
@@ -111,7 +111,7 @@ internal class DefaultJacksonJqTransformer(
                             }
                         }
                     }
-                    outputSchema.isObjectSchema || outputSchema.isAnySchema -> {
+                    outputSchema.isObjectSchema -> {
                         when {
                             jns.isEmpty() -> {
                                 Mono.just(JsonNodeFactory.instance.objectNode())
