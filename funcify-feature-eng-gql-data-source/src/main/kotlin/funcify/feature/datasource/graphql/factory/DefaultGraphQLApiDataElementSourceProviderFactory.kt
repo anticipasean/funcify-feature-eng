@@ -3,6 +3,7 @@ package funcify.feature.datasource.graphql.factory
 import arrow.core.continuations.eagerEffect
 import funcify.feature.datasource.graphql.GraphQLApiDataElementSource
 import funcify.feature.datasource.graphql.GraphQLApiDataElementSourceProvider
+import funcify.feature.datasource.graphql.GraphQLApiDataElementSourceProviderFactory
 import funcify.feature.datasource.graphql.GraphQLApiService
 import funcify.feature.datasource.graphql.SchemaOnlyDataElementSource
 import funcify.feature.datasource.graphql.ServiceBackedDataElementSource

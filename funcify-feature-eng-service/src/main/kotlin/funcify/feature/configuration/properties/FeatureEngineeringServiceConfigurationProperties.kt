@@ -1,7 +1,7 @@
 package funcify.feature.configuration.properties
 
 import funcify.feature.datasource.graphql.GraphQLApiService
-import funcify.feature.datasource.graphql.factory.GraphQLApiServiceFactory
+import funcify.feature.datasource.graphql.GraphQLApiServiceFactory
 import funcify.feature.naming.StandardNamingConventions
 import funcify.feature.tool.validation.ValidTimeZone
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor

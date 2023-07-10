@@ -1,6 +1,4 @@
-package funcify.feature.datasource.graphql.factory
-
-import funcify.feature.datasource.graphql.GraphQLApiDataElementSourceProvider
+package funcify.feature.datasource.graphql
 
 /**
  * @author smccarron

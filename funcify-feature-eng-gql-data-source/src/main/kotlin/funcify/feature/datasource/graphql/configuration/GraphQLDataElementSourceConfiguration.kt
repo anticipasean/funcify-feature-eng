@@ -1,9 +1,9 @@
 package funcify.feature.datasource.graphql.configuration
 
+import funcify.feature.datasource.graphql.GraphQLApiDataElementSourceProviderFactory
+import funcify.feature.datasource.graphql.GraphQLApiServiceFactory
 import funcify.feature.datasource.graphql.factory.DefaultGraphQLApiDataElementSourceProviderFactory
 import funcify.feature.datasource.graphql.factory.DefaultGraphQLApiServiceFactory
-import funcify.feature.datasource.graphql.factory.GraphQLApiDataElementSourceProviderFactory
-import funcify.feature.datasource.graphql.factory.GraphQLApiServiceFactory
 import funcify.feature.datasource.graphql.metadata.filter.InternalQueryExcludingTypeDefinitionRegistryFilter
 import funcify.feature.datasource.graphql.metadata.filter.TypeDefinitionRegistryFilter
 import funcify.feature.tools.json.JsonMapper
@@ -19,7 +19,7 @@ import org.springframework.context.annotation.Configuration
  * @created 4/11/22
  */
 @Configuration
-class GraphQLDataSourceConfiguration {
+class GraphQLDataElementSourceConfiguration {
 
     @ConditionalOnMissingBean(value = [GraphQLApiServiceFactory::class])
     @Bean
@@ -36,7 +36,8 @@ class GraphQLDataSourceConfiguration {
     }
 
     @Bean
-    fun internalQueryExcludingTypeDefinitionRegistryFilter(): InternalQueryExcludingTypeDefinitionRegistryFilter {
+    fun internalQueryExcludingTypeDefinitionRegistryFilter():
+        InternalQueryExcludingTypeDefinitionRegistryFilter {
         return InternalQueryExcludingTypeDefinitionRegistryFilter()
     }
 

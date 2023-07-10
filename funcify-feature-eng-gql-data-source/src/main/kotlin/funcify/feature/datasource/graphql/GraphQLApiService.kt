@@ -1,6 +1,7 @@
 package funcify.feature.datasource.graphql
 
 import com.fasterxml.jackson.databind.JsonNode
+import funcify.feature.tools.container.attempt.Try
 import graphql.introspection.IntrospectionQuery
 import reactor.core.publisher.Mono
 import java.time.Duration
@@ -47,6 +48,6 @@ interface GraphQLApiService {
 
         fun timeoutAfter(elapsedTime: Duration): Builder
 
-        fun build(): GraphQLApiService
+        fun build(): Try<GraphQLApiService>
     }
 }
