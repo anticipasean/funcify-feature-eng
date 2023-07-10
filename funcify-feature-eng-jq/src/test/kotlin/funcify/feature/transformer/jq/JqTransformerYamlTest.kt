@@ -49,6 +49,7 @@ class JqTransformerYamlTest {
                     .name("jq")
                     .transformerYamlFile(yamlClassPathResource)
                     .build()
+                    .orElseThrow()
             }
         val jqTransformerSource: JqTransformerSource =
             Assertions.assertDoesNotThrow<JqTransformerSource> {
