@@ -102,6 +102,9 @@ configure(sharedToolsKotlinProjects) {
                     if (d.requested.group == 'org.junit.jupiter') {
                         d.useVersion(jUnitJupiterVersion)
                     }
+                    if (d.requested.group == 'org.junit.platform') {
+                        d.useVersion(jUnitPlatformVersion)
+                    }
                     if (d.requested.group.startsWith('com.fasterxml.jackson.')) {
                         d.useVersion(jacksonVersion)
                     }
@@ -161,6 +164,12 @@ configure(apacheBeamSubProjects) {
                     if (d.requested.group == 'org.xerial.snappy' && d.requested.name == 'snappy-java') {
                         // versions [1.1.8.3, 1.1.8.4] have support for Mac.aarch64 but lack ZappyOutputStream implementations
                         d.useVersion("1.1.8.2")
+                    }
+                    if (d.requested.group == 'org.junit.jupiter') {
+                        d.useVersion(jUnitJupiterVersion)
+                    }
+                    if (d.requested.group == 'org.junit.platform') {
+                        d.useVersion(jUnitPlatformVersion)
                     }
                     if (d.requested.group.startsWith('com.fasterxml.jackson.')) {
                         d.useVersion(jacksonVersion)
@@ -268,6 +277,9 @@ configure(streamSubProjects) {
                     if (d.requested.group == 'org.junit.jupiter') {
                         d.useVersion(jUnitJupiterVersion)
                     }
+                    if (d.requested.group == 'org.junit.platform') {
+                        d.useVersion(jUnitPlatformVersion)
+                    }
                     if (d.requested.group.startsWith('com.fasterxml.jackson.')) {
                         d.useVersion(jacksonVersion)
                     }
@@ -357,6 +369,21 @@ configure(mainKotlinSubProjects) {
     sourceCompatibility = sourceCompatibility
     targetCompatibility = targetCompatibility
     configurations {
+        all {
+            resolutionStrategy { org.gradle.api.artifacts.ResolutionStrategy r ->
+                r.eachDependency { org.gradle.api.artifacts.DependencyResolveDetails d ->
+                    if (d.requested.group == 'org.junit.jupiter') {
+                        d.useVersion(jUnitJupiterVersion)
+                    }
+                    if (d.requested.group == 'org.junit.platform') {
+                        d.useVersion(jUnitPlatformVersion)
+                    }
+                    if (d.requested.group.startsWith('com.fasterxml.jackson.')) {
+                        d.useVersion(jacksonVersion)
+                    }
+                }
+            }
+        }
         kotlinDeps {
             dependencies {
                 implementation("org.jetbrains.kotlin:kotlin-stdlib:${kotlinVersion}")

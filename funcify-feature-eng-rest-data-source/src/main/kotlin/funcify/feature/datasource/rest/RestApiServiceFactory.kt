@@ -1,4 +1,4 @@
-package funcify.feature.datasource.rest.factory
+package funcify.feature.datasource.rest
 
 import funcify.feature.datasource.rest.RestApiService
 

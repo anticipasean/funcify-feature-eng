@@ -1,24 +1,14 @@
 package funcify.feature.datasource.rest.retrieval
 
-import arrow.core.Either
 import funcify.feature.datasource.rest.RestApiDataElementSource
-import funcify.feature.datasource.rest.schema.SwaggerParameterAttribute
-import funcify.feature.datasource.rest.schema.SwaggerSourceAttribute
 import funcify.feature.tools.json.JsonMapper
-import funcify.feature.schema.path.SchematicPath
-import funcify.feature.schema.vertex.ParameterJunctionVertex
-import funcify.feature.schema.vertex.ParameterLeafVertex
-import funcify.feature.schema.vertex.SourceJunctionVertex
-import funcify.feature.schema.vertex.SourceLeafVertex
-import kotlinx.collections.immutable.ImmutableMap
-import kotlinx.collections.immutable.ImmutableSet
 
 interface SwaggerRestApiJsonResponsePostProcessingContext {
 
     val jsonMapper: JsonMapper
 
     val dataSource: RestApiDataElementSource
-
+    /*
     val parameterVertices: ImmutableSet<Either<ParameterJunctionVertex, ParameterLeafVertex>>
 
     val sourceVertices: ImmutableSet<Either<SourceJunctionVertex, SourceLeafVertex>>
@@ -32,5 +22,5 @@ interface SwaggerRestApiJsonResponsePostProcessingContext {
 
     val swaggerParameterAttributesByVertexPath: ImmutableMap<SchematicPath, SwaggerParameterAttribute>
 
-    val sourceVertexPathBySourceIndexPath: ImmutableMap<SchematicPath, SchematicPath>
+    val sourceVertexPathBySourceIndexPath: ImmutableMap<SchematicPath, SchematicPath>*/
 }

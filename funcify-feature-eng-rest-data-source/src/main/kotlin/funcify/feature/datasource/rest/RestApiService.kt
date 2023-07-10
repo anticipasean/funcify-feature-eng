@@ -1,11 +1,11 @@
 package funcify.feature.datasource.rest
 
+import funcify.feature.tools.container.attempt.Try
 import java.time.Duration
 import org.springframework.boot.web.reactive.function.client.WebClientCustomizer
 import org.springframework.web.reactive.function.client.WebClient
 
 /**
- *
  * @author smccarron
  * @created 2/16/22
  */
@@ -41,6 +41,6 @@ interface RestApiService {
 
         fun timeoutAfter(elapsedTime: Duration): Builder
 
-        fun build(): RestApiService
+        fun build(): Try<RestApiService>
     }
 }

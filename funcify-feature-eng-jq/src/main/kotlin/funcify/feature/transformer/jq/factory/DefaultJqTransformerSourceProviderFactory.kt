@@ -3,6 +3,7 @@ package funcify.feature.transformer.jq.factory
 import arrow.core.continuations.eagerEffect
 import arrow.core.continuations.ensureNotNull
 import funcify.feature.error.ServiceError
+import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.json.JsonMapper
@@ -50,7 +51,7 @@ internal class DefaultJqTransformerSourceProviderFactory(
                 return this
             }
 
-            override fun build(): JqTransformerSourceProvider {
+            override fun build(): Try<JqTransformerSourceProvider> {
                 if (logger.isDebugEnabled) {
                     logger.debug("build: [ name: {} ]", name)
                 }
@@ -72,9 +73,9 @@ internal class DefaultJqTransformerSourceProviderFactory(
                     .fold(
                         { message: String ->
                             logger.error("build: [ status: failed ][ message: {} ]", message)
-                            throw ServiceError.of(message)
+                            Try.failure(ServiceError.of(message))
                         },
-                        { p: JqTransformerSourceProvider -> p }
+                        { p: JqTransformerSourceProvider -> Try.success(p) }
                     )
             }
         }

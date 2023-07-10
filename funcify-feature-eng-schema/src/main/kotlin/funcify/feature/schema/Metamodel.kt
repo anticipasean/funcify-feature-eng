@@ -38,6 +38,6 @@ interface Metamodel {
 
         fun addFeatureCalculatorProvider(provider: FeatureCalculatorProvider<*>): Builder
 
-        fun build(): Mono<Metamodel>
+        fun build(): Mono<out Metamodel>
     }
 }

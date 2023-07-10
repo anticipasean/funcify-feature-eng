@@ -11,6 +11,7 @@ import funcify.feature.datasource.graphql.metadata.filter.TypeDefinitionRegistry
 import funcify.feature.datasource.graphql.metadata.provider.GraphQLApiSchemaFileMetadataProvider
 import funcify.feature.datasource.graphql.metadata.provider.GraphQLApiServiceMetadataProvider
 import funcify.feature.error.ServiceError
+import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.ResultExtensions.toMono
 import funcify.feature.tools.json.JsonMapper
@@ -57,7 +58,7 @@ internal class DefaultGraphQLApiDataElementSourceProviderFactory(
                 return this
             }
 
-            override fun build(): GraphQLApiDataElementSourceProvider {
+            override fun build(): Try<GraphQLApiDataElementSourceProvider> {
                 if (logger.isDebugEnabled) {
                     logger.debug(
                         "build: [ graphql_api_data_element_source_provider.name: {} ]",
@@ -103,9 +104,9 @@ internal class DefaultGraphQLApiDataElementSourceProviderFactory(
                                 name,
                                 message
                             )
-                            throw ServiceError.of(message)
+                            Try.failure(ServiceError.of(message))
                         },
-                        { p: GraphQLApiDataElementSourceProvider -> p }
+                        { p: GraphQLApiDataElementSourceProvider -> Try.success(p) }
                     )
             }
         }
