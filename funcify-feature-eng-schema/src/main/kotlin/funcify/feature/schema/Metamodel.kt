@@ -34,9 +34,27 @@ interface Metamodel {
 
         fun addDataElementSourceProvider(provider: DataElementSourceProvider<*>): Builder
 
+        //TODO: fun removeDataElementSourceProvider(name: String): Builder
+
+        //TODO: fun removeDataElementSourceProviderIf(condition: (DataElementSourceProvider<*>) -> Boolean): Builder
+
+        //TODO: fun clearDataElementSourceProviders(): Builder
+
         fun addTransformerSourceProvider(provider: TransformerSourceProvider<*>): Builder
 
+        //TODO: fun removeTransformerSourceProvider(name: String): Builder
+
+        //TODO: fun removeTransformerSourceProviderIf(condition: (TransformerSourceProvider<*>) -> Boolean): Builder
+
+        //TODO: fun clearTransformerSourceProviders(): Builder
+
         fun addFeatureCalculatorProvider(provider: FeatureCalculatorProvider<*>): Builder
+
+        //TODO: fun removeFeatureCalculatorProvider(name: String): Builder
+
+        //TODO: fun removeFeatureCalculatorProviderIf(condition: (FeatureCalculatorProvider<*>) -> Boolean): Builder
+
+        //TODO: fun clearFeatureCalculatorProviders(): Builder
 
         fun build(): Mono<out Metamodel>
     }

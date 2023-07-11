@@ -2,6 +2,7 @@ package funcify.feature.schema.feature
 
 import com.fasterxml.jackson.databind.JsonNode
 import funcify.feature.schema.tracking.TrackableValue
+import reactor.core.publisher.Mono
 
 /**
  * @author smccarron
@@ -9,7 +10,5 @@ import funcify.feature.schema.tracking.TrackableValue
  */
 fun interface FeatureJsonValuePublisher {
 
-    // TODO: Consider updating contract with return type Mono<Unit|Void> to
-    // signal failure or completion to consumer
-    fun publish(featureJsonValue: TrackableValue<JsonNode>)
+    fun publishToStore(featureJsonValue: TrackableValue<JsonNode>): Mono<TrackableValue<JsonNode>>
 }

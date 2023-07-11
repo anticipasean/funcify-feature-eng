@@ -2,14 +2,10 @@ package funcify.feature.schema.factory
 
 import funcify.feature.schema.Metamodel
 import funcify.feature.schema.MetamodelFactory
-import funcify.feature.schema.dataelement.DataElementSource
 import funcify.feature.schema.dataelement.DataElementSourceProvider
-import funcify.feature.schema.feature.FeatureCalculator
+import funcify.feature.schema.environment.DefaultMetamodelCompositionEnvironment
 import funcify.feature.schema.feature.FeatureCalculatorProvider
-import funcify.feature.schema.transformer.TransformerSource
 import funcify.feature.schema.transformer.TransformerSourceProvider
-import graphql.schema.idl.TypeDefinitionRegistry
-import kotlinx.collections.immutable.PersistentMap
 import reactor.core.publisher.Mono
 
 /**
@@ -51,26 +47,20 @@ internal class DefaultMetamodelFactory : MetamodelFactory {
             }
 
             override fun build(): Mono<out Metamodel> {
-
-                TODO("Not yet implemented")
+                return MetamodelComposer.invoke(
+                    DefaultMetamodelCompositionEnvironment(
+                        dataElementSourceProviders = dataElementSourceProviders,
+                        transformerSourceProviders = transformerSourceProviders,
+                        featureCalculatorProviders = featureCalculatorProviders
+                    )
+                )
             }
         }
 
-        internal data class DefaultMetamodel(
-            override val typeDefinitionRegistry: TypeDefinitionRegistry,
-            override val dataElementSourcesByName: PersistentMap<String, DataElementSource>,
-            override val dataElementSourceProvidersByName:
-                PersistentMap<String, DataElementSourceProvider<*>>,
-            override val transformerSourcesByName: PersistentMap<String, TransformerSource>,
-            override val transformerSourceProvidersByName:
-                PersistentMap<String, TransformerSourceProvider<*>>,
-            override val featureCalculatorsByName: PersistentMap<String, FeatureCalculator>,
-            override val featureCalculatorProvidersByName:
-                PersistentMap<String, FeatureCalculatorProvider<*>>,
-        ) : Metamodel {}
     }
 
     override fun builder(): Metamodel.Builder {
-        TODO("Not yet implemented")
+        return DefaultBuilder()
     }
+
 }
