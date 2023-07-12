@@ -15,11 +15,24 @@ import kotlinx.collections.immutable.ImmutableMap
  */
 interface MetamodelBuildContext {
 
+    companion object {
+
+        fun empty(): MetamodelBuildContext {
+            return DefaultMetamodelBuildContext.empty()
+        }
+    }
+
     val dataElementSourceProviders: ImmutableList<DataElementSourceProvider<*>>
 
     val transformerSourceProviders: ImmutableList<TransformerSourceProvider<*>>
 
     val featureCalculatorProviders: ImmutableList<FeatureCalculatorProvider<*>>
+
+    val transformerSourceProvidersByName: ImmutableMap<String, TransformerSourceProvider<*>>
+
+    val dataElementSourceProvidersByName: ImmutableMap<String, DataElementSourceProvider<*>>
+
+    val featureCalculatorProvidersByName: ImmutableMap<String, FeatureCalculatorProvider<*>>
 
     val transformerSourcesByName: ImmutableMap<String, TransformerSource>
 
@@ -31,13 +44,43 @@ interface MetamodelBuildContext {
 
     interface Builder {
 
+        fun addAllTransformerSourceProviders(
+            transformerSourceProviders: Iterable<TransformerSourceProvider<*>>
+        ): Builder {
+            return transformerSourceProviders.fold(this) {
+                b: Builder,
+                tsp: TransformerSourceProvider<*> ->
+                b.addTransformerSourceProvider(tsp)
+            }
+        }
+
         fun addTransformerSourceProvider(
             transformerSourceProvider: TransformerSourceProvider<*>
         ): Builder
 
+        fun addAllDataElementSourceProviders(
+            dataElementSourceProviders: Iterable<DataElementSourceProvider<*>>
+        ): Builder {
+            return dataElementSourceProviders.fold(this) {
+                b: Builder,
+                desp: DataElementSourceProvider<*> ->
+                b.addDataElementSourceProvider(desp)
+            }
+        }
+
         fun addDataElementSourceProvider(
             dataElementSourceProvider: DataElementSourceProvider<*>
         ): Builder
+
+        fun addAllFeatureCalculatorProviders(
+            featureCalculatorProviders: Iterable<FeatureCalculatorProvider<*>>
+        ): Builder {
+            return featureCalculatorProviders.fold(this) {
+                b: Builder,
+                fcp: FeatureCalculatorProvider<*> ->
+                b.addFeatureCalculatorProvider(fcp)
+            }
+        }
 
         fun addFeatureCalculatorProvider(
             featureCalculatorProvider: FeatureCalculatorProvider<*>

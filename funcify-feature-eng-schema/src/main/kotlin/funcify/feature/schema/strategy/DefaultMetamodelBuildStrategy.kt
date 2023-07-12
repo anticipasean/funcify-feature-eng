@@ -1,4 +1,4 @@
-package funcify.feature.schema.factory
+package funcify.feature.schema.strategy
 
 import arrow.core.Either
 import arrow.core.filterIsInstance
@@ -10,9 +10,11 @@ import arrow.core.some
 import arrow.core.toOption
 import funcify.feature.error.ServiceError
 import funcify.feature.schema.Metamodel
+import funcify.feature.schema.MetamodelBuildStrategy
+import funcify.feature.schema.context.MetamodelBuildContext
 import funcify.feature.schema.dataelement.DataElementSource
 import funcify.feature.schema.dataelement.DataElementSourceProvider
-import funcify.feature.schema.context.MetamodelBuildContext
+import funcify.feature.schema.factory.DefaultMetamodel
 import funcify.feature.schema.feature.FeatureCalculator
 import funcify.feature.schema.feature.FeatureCalculatorProvider
 import funcify.feature.schema.transformer.TransformerSource
@@ -20,7 +22,6 @@ import funcify.feature.schema.transformer.TransformerSourceProvider
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.OptionExtensions.recurse
 import funcify.feature.tools.extensions.OptionExtensions.toOption
-import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentMap
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tree.PersistentTree
 import funcify.feature.tree.path.TreePath
@@ -33,18 +34,21 @@ import graphql.language.ObjectTypeDefinition
 import graphql.language.Type
 import graphql.language.TypeName
 import graphql.schema.idl.TypeDefinitionRegistry
+import kotlinx.collections.immutable.toPersistentMap
 import org.slf4j.Logger
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 
-internal object MetamodelComposer : (MetamodelBuildContext) -> Mono<out Metamodel> {
+internal class DefaultMetamodelBuildStrategy() : MetamodelBuildStrategy {
 
-    private const val QUERY_OBJECT_TYPE_NAME = "Query"
-    private val logger: Logger = loggerFor<MetamodelComposer>()
+    companion object {
+        private const val QUERY_OBJECT_TYPE_NAME = "Query"
+        private val logger: Logger = loggerFor<DefaultMetamodelBuildStrategy>()
+    }
 
-    override fun invoke(context: MetamodelBuildContext): Mono<out Metamodel> {
+    override fun buildMetamodel(context: MetamodelBuildContext): Mono<out Metamodel> {
         logger.info(
-            """invoke: [ context { 
+            """build_metamodel: [ context {
                 |transformerSourceProviders.size: {}, 
                 |dataElementSourceProviders.size: {}, 
                 |featureCalculatorProviders.size: {} } ]"""
@@ -53,79 +57,68 @@ internal object MetamodelComposer : (MetamodelBuildContext) -> Mono<out Metamode
             context.dataElementSourceProviders.size,
             context.featureCalculatorProviders.size
         )
-        Mono.fromSupplier {
-                DefaultMetamodel(
-                    transformerSourceProvidersByName =
-                        context.transformerSourceProviders
-                            .asSequence()
-                            .map { tsp: TransformerSourceProvider<*> -> tsp.name to tsp }
-                            .reducePairsToPersistentMap(),
-                    dataElementSourceProvidersByName =
-                        context.dataElementSourceProviders
-                            .asSequence()
-                            .map { desp: DataElementSourceProvider<*> -> desp.name to desp }
-                            .reducePairsToPersistentMap(),
-                    featureCalculatorProvidersByName =
-                        context.featureCalculatorProviders
-                            .asSequence()
-                            .map { fcp: FeatureCalculatorProvider<*> -> fcp.name to fcp }
-                            .reducePairsToPersistentMap(),
-                )
-            }
-            .flatMap(validateProviders(context))
-            .flatMap { metamodel: DefaultMetamodel ->
-                Flux.fromIterable(context.transformerSourceProviders)
+        Mono.just(context)
+            .flatMap(validateSourceProviders())
+            .flatMap { ctx: MetamodelBuildContext ->
+                Flux.fromIterable(ctx.transformerSourceProviders)
                     .flatMap { tsp: TransformerSourceProvider<*> ->
                         tsp.getLatestTransformerSource()
                             .flatMap(validateTransformerSourceForProvider(tsp))
+                            .cache()
                     }
-                    .reduce(metamodel) { mm: DefaultMetamodel, ts: TransformerSource ->
-                        mm.copy(
-                            transformerSourcesByName = mm.transformerSourcesByName.put(ts.name, ts)
-                        )
+                    .reduce(ctx) { c: MetamodelBuildContext, ts: TransformerSource ->
+                        c.update { addTransformerSource(ts) }
                     }
             }
-            .flatMap { metamodel: DefaultMetamodel ->
-                Flux.fromIterable(context.dataElementSourceProviders)
+            .flatMap { ctx: MetamodelBuildContext ->
+                Flux.fromIterable(ctx.dataElementSourceProviders)
                     .flatMap { desp: DataElementSourceProvider<*> ->
                         desp
                             .getLatestDataElementSource()
                             .flatMap(validateDataElementSourceForProvider(desp))
+                            .cache()
                     }
-                    .reduce(metamodel) { mm: DefaultMetamodel, des: DataElementSource ->
-                        mm.copy(
-                            dataElementSourcesByName =
-                                mm.dataElementSourcesByName.put(des.name, des)
-                        )
+                    .reduce(ctx) { c: MetamodelBuildContext, des: DataElementSource ->
+                        c.update { addDataElementSource(des) }
                     }
             }
-            .flatMap { metamodel: DefaultMetamodel ->
-                Flux.fromIterable(context.featureCalculatorProviders)
+            .flatMap { ctx: MetamodelBuildContext ->
+                Flux.fromIterable(ctx.featureCalculatorProviders)
                     .flatMap { fcp: FeatureCalculatorProvider<*> ->
                         fcp.getLatestFeatureCalculator()
                             .flatMap(validateFeatureCalculatorForProvider(fcp))
+                            .cache()
                     }
-                    .reduce(metamodel) { mm: DefaultMetamodel, fc: FeatureCalculator ->
-                        mm.copy(
-                            featureCalculatorsByName = mm.featureCalculatorsByName.put(fc.name, fc)
-                        )
+                    .reduce(ctx) { c: MetamodelBuildContext, fc: FeatureCalculator ->
+                        c.update { addFeatureCalculator(fc) }
                     }
+            }
+            .map { ctx: MetamodelBuildContext ->
+                DefaultMetamodel(
+                    transformerSourceProvidersByName =
+                        ctx.transformerSourceProvidersByName.toPersistentMap(),
+                    dataElementSourceProvidersByName =
+                        ctx.dataElementSourceProvidersByName.toPersistentMap(),
+                    featureCalculatorProvidersByName =
+                        ctx.featureCalculatorProvidersByName.toPersistentMap(),
+                    transformerSourcesByName = ctx.transformerSourcesByName.toPersistentMap(),
+                    dataElementSourcesByName = ctx.dataElementSourcesByName.toPersistentMap(),
+                    featureCalculatorsByName = ctx.featureCalculatorsByName.toPersistentMap()
+                )
             }
 
         TODO()
     }
 
-    private fun validateProviders(
-        environment: MetamodelBuildContext
-    ): (DefaultMetamodel) -> Mono<DefaultMetamodel> {
-        return { metamodel: DefaultMetamodel ->
+    private fun validateSourceProviders(): (MetamodelBuildContext) -> Mono<MetamodelBuildContext> {
+        return { context: MetamodelBuildContext ->
             when {
-                environment.transformerSourceProviders.size !=
-                    metamodel.transformerSourceProvidersByName.size -> {
-                    Mono.error<DefaultMetamodel> {
+                context.transformerSourceProviders.size !=
+                    context.transformerSourceProvidersByName.size -> {
+                    Mono.error<MetamodelBuildContext> {
                         ServiceError.of(
                             "non-unique transformer_source_provider.name: [ duplicates for [ %s ] ]",
-                            environment.transformerSourceProviders
+                            context.transformerSourceProviders
                                 .asSequence()
                                 .map { tsp: TransformerSourceProvider<*> -> tsp.name }
                                 .groupBy { k -> k }
@@ -136,12 +129,12 @@ internal object MetamodelComposer : (MetamodelBuildContext) -> Mono<out Metamode
                         )
                     }
                 }
-                environment.dataElementSourceProviders.size !=
-                    metamodel.dataElementSourceProvidersByName.size -> {
-                    Mono.error<DefaultMetamodel> {
+                context.dataElementSourceProviders.size !=
+                    context.dataElementSourceProvidersByName.size -> {
+                    Mono.error<MetamodelBuildContext> {
                         ServiceError.of(
                             "non-unique data_element_source_providers.name: [ duplicates for [ %s ] ]",
-                            environment.dataElementSourceProviders
+                            context.dataElementSourceProviders
                                 .asSequence()
                                 .map { desp: DataElementSourceProvider<*> -> desp.name }
                                 .groupBy { k -> k }
@@ -152,12 +145,12 @@ internal object MetamodelComposer : (MetamodelBuildContext) -> Mono<out Metamode
                         )
                     }
                 }
-                environment.featureCalculatorProviders.size !=
-                    metamodel.featureCalculatorProvidersByName.size -> {
-                    Mono.error<DefaultMetamodel> {
+                context.featureCalculatorProviders.size !=
+                    context.featureCalculatorProvidersByName.size -> {
+                    Mono.error<MetamodelBuildContext> {
                         ServiceError.of(
                             "non-unique feature_calculator_provider.name: [ duplicates for [ %s ] ]",
-                            environment.featureCalculatorProviders
+                            context.featureCalculatorProviders
                                 .asSequence()
                                 .map { fcp: FeatureCalculatorProvider<*> -> fcp.name }
                                 .groupBy { k -> k }
@@ -169,7 +162,7 @@ internal object MetamodelComposer : (MetamodelBuildContext) -> Mono<out Metamode
                     }
                 }
                 else -> {
-                    Mono.just(metamodel)
+                    Mono.just(context)
                 }
             }
         }
@@ -179,35 +172,49 @@ internal object MetamodelComposer : (MetamodelBuildContext) -> Mono<out Metamode
         provider: TransformerSourceProvider<TS>
     ): (TS) -> Mono<TS> {
         return { transformerSource: TS ->
-            createTreeFromTypeDefinitionRegistryQueryNode(
-                    transformerSource.sourceTypeDefinitionRegistry
-                )
-                .flatMap { pt: PersistentTree<Node<*>> ->
-                    val transformerQueryPath: TreePath = TreePath.of { pathSegment("transformer") }
-                    when {
-                        transformerQueryPath !in pt -> {
-                            Mono.error<TS> {
-                                ServiceError.of(
-                                    "transformer_query_path not found in transformer_source.source_type_definition_registry [ name: %s ]",
-                                    transformerSource.name
-                                )
-                            }
-                        }
-                        pt[transformerQueryPath]
-                            .filter { subTree: PersistentTree<Node<*>> -> subTree.size() == 0 }
-                            .isDefined() -> {
-                            Mono.error<TS> {
-                                ServiceError.of(
-                                    "at least one field_definition must exist on Transformer type definition corresponding to transformers of transformer_source [ name: %s ]",
-                                    transformerSource.name
-                                )
-                            }
-                        }
-                        else -> {
-                            Mono.just(transformerSource)
-                        }
+            when {
+                transformerSource.name != provider.name -> {
+                    Mono.error<TS> {
+                        ServiceError.of(
+                            "transformer_source.name does not match transformer_source_provider.name [ provider.name: %s, source.name: %s ]",
+                            provider.name,
+                            transformerSource.name
+                        )
                     }
                 }
+                else -> {
+                    Mono.just(transformerSource)
+                }
+            }.flatMap { ts: TS ->
+                createTreeFromTypeDefinitionRegistryQueryNode(ts.sourceTypeDefinitionRegistry)
+                    .flatMap { pt: PersistentTree<Node<*>> ->
+                        val transformerQueryPath: TreePath =
+                            TreePath.of { pathSegment("transformer") }
+                        when {
+                            transformerQueryPath !in pt -> {
+                                Mono.error<TS> {
+                                    ServiceError.of(
+                                        "transformer_query_path not found in transformer_source.source_type_definition_registry [ name: %s ]",
+                                        ts.name
+                                    )
+                                }
+                            }
+                            pt[transformerQueryPath]
+                                .filter { subTree: PersistentTree<Node<*>> -> subTree.size() == 0 }
+                                .isDefined() -> {
+                                Mono.error<TS> {
+                                    ServiceError.of(
+                                        "at least one field_definition must exist on Transformer type definition corresponding to transformers of transformer_source [ name: %s ]",
+                                        ts.name
+                                    )
+                                }
+                            }
+                            else -> {
+                                Mono.just(ts)
+                            }
+                        }
+                    }
+            }
         }
     }
 
@@ -288,35 +295,49 @@ internal object MetamodelComposer : (MetamodelBuildContext) -> Mono<out Metamode
         provider: DataElementSourceProvider<DES>
     ): (DES) -> Mono<DES> {
         return { dataElementSource: DES ->
-            createTreeFromTypeDefinitionRegistryQueryNode(
-                    dataElementSource.sourceTypeDefinitionRegistry
-                )
-                .flatMap { pt: PersistentTree<Node<*>> ->
-                    val dataElementQueryPath: TreePath = TreePath.of { pathSegment("dataElement") }
-                    when {
-                        dataElementQueryPath !in pt -> {
-                            Mono.error<DES> {
-                                ServiceError.of(
-                                    "data_element_query_path not found in data_element_source.source_type_definition_registry [ name: %s ]",
-                                    dataElementSource.name
-                                )
-                            }
-                        }
-                        pt[dataElementQueryPath]
-                            .filter { subTree: PersistentTree<Node<*>> -> subTree.size() == 0 }
-                            .isDefined() -> {
-                            Mono.error<DES> {
-                                ServiceError.of(
-                                    "at least one field_definition must exist on DataElement type definition corresponding to data elements of data_element_source [ name: %s ]",
-                                    dataElementSource.name
-                                )
-                            }
-                        }
-                        else -> {
-                            Mono.just(dataElementSource)
-                        }
+            when {
+                dataElementSource.name != provider.name -> {
+                    Mono.error<DES> {
+                        ServiceError.of(
+                            "data_element_source.name does not match provider.name: [ provider.name: %s, source.name: %s ]",
+                            provider.name,
+                            dataElementSource.name
+                        )
                     }
                 }
+                else -> {
+                    Mono.just(dataElementSource)
+                }
+            }.flatMap { des: DES ->
+                createTreeFromTypeDefinitionRegistryQueryNode(des.sourceTypeDefinitionRegistry)
+                    .flatMap { pt: PersistentTree<Node<*>> ->
+                        val dataElementQueryPath: TreePath =
+                            TreePath.of { pathSegment("dataElement") }
+                        when {
+                            dataElementQueryPath !in pt -> {
+                                Mono.error<DES> {
+                                    ServiceError.of(
+                                        "data_element_query_path not found in data_element_source.source_type_definition_registry [ name: %s ]",
+                                        des.name
+                                    )
+                                }
+                            }
+                            pt[dataElementQueryPath]
+                                .filter { subTree: PersistentTree<Node<*>> -> subTree.size() == 0 }
+                                .isDefined() -> {
+                                Mono.error<DES> {
+                                    ServiceError.of(
+                                        "at least one field_definition must exist on DataElement type definition corresponding to data elements of data_element_source [ name: %s ]",
+                                        des.name
+                                    )
+                                }
+                            }
+                            else -> {
+                                Mono.just(des)
+                            }
+                        }
+                    }
+            }
         }
     }
 

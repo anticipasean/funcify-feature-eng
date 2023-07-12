@@ -12,21 +12,35 @@ import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentMapOf
 
 internal data class DefaultMetamodelBuildContext(
-    override val transformerSourceProviders: PersistentList<TransformerSourceProvider<*>> =
-        persistentListOf(),
-    override val dataElementSourceProviders: PersistentList<DataElementSourceProvider<*>> =
-        persistentListOf(),
-    override val featureCalculatorProviders: PersistentList<FeatureCalculatorProvider<*>> =
-        persistentListOf(),
-    override val transformerSourcesByName: PersistentMap<String, TransformerSource> =
-        persistentMapOf(),
-    override val dataElementSourcesByName: PersistentMap<String, DataElementSource> =
-        persistentMapOf(),
-    override val featureCalculatorsByName: PersistentMap<String, FeatureCalculator> =
-        persistentMapOf(),
+    override val transformerSourceProviders: PersistentList<TransformerSourceProvider<*>>,
+    override val dataElementSourceProviders: PersistentList<DataElementSourceProvider<*>>,
+    override val featureCalculatorProviders: PersistentList<FeatureCalculatorProvider<*>>,
+    override val transformerSourceProvidersByName:
+        PersistentMap<String, TransformerSourceProvider<*>>,
+    override val dataElementSourceProvidersByName:
+        PersistentMap<String, DataElementSourceProvider<*>>,
+    override val featureCalculatorProvidersByName:
+        PersistentMap<String, FeatureCalculatorProvider<*>>,
+    override val transformerSourcesByName: PersistentMap<String, TransformerSource>,
+    override val dataElementSourcesByName: PersistentMap<String, DataElementSource>,
+    override val featureCalculatorsByName: PersistentMap<String, FeatureCalculator>,
 ) : MetamodelBuildContext {
 
     companion object {
+
+        fun empty(): DefaultMetamodelBuildContext {
+            return DefaultMetamodelBuildContext(
+                transformerSourceProviders = persistentListOf(),
+                dataElementSourceProviders = persistentListOf(),
+                featureCalculatorProviders = persistentListOf(),
+                transformerSourceProvidersByName = persistentMapOf(),
+                dataElementSourceProvidersByName = persistentMapOf(),
+                featureCalculatorProvidersByName = persistentMapOf(),
+                transformerSourcesByName = persistentMapOf(),
+                dataElementSourcesByName = persistentMapOf(),
+                featureCalculatorsByName = persistentMapOf()
+            )
+        }
 
         internal class DefaultBuilder(
             private val dataElementSourceProviders:
@@ -35,6 +49,12 @@ internal data class DefaultMetamodelBuildContext(
                 PersistentList.Builder<TransformerSourceProvider<*>>,
             private val featureCalculatorProviders:
                 PersistentList.Builder<FeatureCalculatorProvider<*>>,
+            private val transformerSourceProvidersByName:
+                PersistentMap.Builder<String, TransformerSourceProvider<*>>,
+            private val dataElementSourceProvidersByName:
+                PersistentMap.Builder<String, DataElementSourceProvider<*>>,
+            private val featureCalculatorProvidersByName:
+                PersistentMap.Builder<String, FeatureCalculatorProvider<*>>,
             private val transformerSourcesByName: PersistentMap.Builder<String, TransformerSource>,
             private val dataElementSourcesByName: PersistentMap.Builder<String, DataElementSource>,
             private val featureCalculatorsByName: PersistentMap.Builder<String, FeatureCalculator>,
@@ -43,7 +63,11 @@ internal data class DefaultMetamodelBuildContext(
             override fun addTransformerSourceProvider(
                 transformerSourceProvider: TransformerSourceProvider<*>
             ): MetamodelBuildContext.Builder {
-                transformerSourceProviders.add(transformerSourceProvider)
+                this.transformerSourceProviders.add(transformerSourceProvider)
+                this.transformerSourceProvidersByName.put(
+                    transformerSourceProvider.name,
+                    transformerSourceProvider
+                )
                 return this
             }
 
@@ -51,6 +75,10 @@ internal data class DefaultMetamodelBuildContext(
                 dataElementSourceProvider: DataElementSourceProvider<*>
             ): MetamodelBuildContext.Builder {
                 this.dataElementSourceProviders.add(dataElementSourceProvider)
+                this.dataElementSourceProvidersByName.put(
+                    dataElementSourceProvider.name,
+                    dataElementSourceProvider
+                )
                 return this
             }
 
@@ -58,6 +86,10 @@ internal data class DefaultMetamodelBuildContext(
                 featureCalculatorProvider: FeatureCalculatorProvider<*>
             ): MetamodelBuildContext.Builder {
                 this.featureCalculatorProviders.add(featureCalculatorProvider)
+                this.featureCalculatorProvidersByName.put(
+                    featureCalculatorProvider.name,
+                    featureCalculatorProvider
+                )
                 return this
             }
 
@@ -87,6 +119,9 @@ internal data class DefaultMetamodelBuildContext(
                     transformerSourceProviders = transformerSourceProviders.build(),
                     dataElementSourceProviders = dataElementSourceProviders.build(),
                     featureCalculatorProviders = featureCalculatorProviders.build(),
+                    transformerSourceProvidersByName = transformerSourceProvidersByName.build(),
+                    dataElementSourceProvidersByName = dataElementSourceProvidersByName.build(),
+                    featureCalculatorProvidersByName = featureCalculatorProvidersByName.build(),
                     transformerSourcesByName = transformerSourcesByName.build(),
                     dataElementSourcesByName = dataElementSourcesByName.build(),
                     featureCalculatorsByName = featureCalculatorsByName.build(),
@@ -104,6 +139,12 @@ internal data class DefaultMetamodelBuildContext(
                     transformerSourceProviders = this.transformerSourceProviders.builder(),
                     dataElementSourceProviders = this.dataElementSourceProviders.builder(),
                     featureCalculatorProviders = this.featureCalculatorProviders.builder(),
+                    transformerSourceProvidersByName =
+                        this.transformerSourceProvidersByName.builder(),
+                    dataElementSourceProvidersByName =
+                        this.dataElementSourceProvidersByName.builder(),
+                    featureCalculatorProvidersByName =
+                        this.featureCalculatorProvidersByName.builder(),
                     transformerSourcesByName = this.transformerSourcesByName.builder(),
                     dataElementSourcesByName = this.dataElementSourcesByName.builder(),
                     featureCalculatorsByName = this.featureCalculatorsByName.builder()

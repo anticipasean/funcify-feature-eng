@@ -1,6 +1,7 @@
 package funcify.feature.schema.factory
 
 import funcify.feature.schema.Metamodel
+import funcify.feature.schema.MetamodelBuildStrategy
 import funcify.feature.schema.MetamodelFactory
 import funcify.feature.schema.context.DefaultMetamodelBuildContext
 import funcify.feature.schema.dataelement.DataElementSourceProvider
@@ -13,11 +14,13 @@ import reactor.core.publisher.Mono
  * @author smccarron
  * @created 2023-07-09
  */
-internal class DefaultMetamodelFactory : MetamodelFactory {
+internal class DefaultMetamodelFactory(private val metamodelBuildStrategy: MetamodelBuildStrategy) :
+    MetamodelFactory {
 
     companion object {
 
         internal class DefaultBuilder(
+            private val metamodelBuildStrategy: MetamodelBuildStrategy,
             private val dataElementSourceProviders: MutableList<DataElementSourceProvider<*>> =
                 mutableListOf<DataElementSourceProvider<*>>(),
             private val transformerSourceProviders: MutableList<TransformerSourceProvider<*>> =
@@ -48,7 +51,7 @@ internal class DefaultMetamodelFactory : MetamodelFactory {
             }
 
             override fun build(): Mono<out Metamodel> {
-                return MetamodelComposer.invoke(
+                return metamodelBuildStrategy.buildMetamodel(
                     DefaultMetamodelBuildContext(
                         dataElementSourceProviders = dataElementSourceProviders.toPersistentList(),
                         transformerSourceProviders = transformerSourceProviders.toPersistentList(),
@@ -60,6 +63,6 @@ internal class DefaultMetamodelFactory : MetamodelFactory {
     }
 
     override fun builder(): Metamodel.Builder {
-        return DefaultBuilder()
+        return DefaultBuilder(metamodelBuildStrategy)
     }
 }
