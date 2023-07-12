@@ -1,13 +1,11 @@
 package funcify.feature.schema.dataelement
 
-import funcify.feature.schema.SourceType
+import funcify.feature.schema.Source
 import graphql.schema.idl.TypeDefinitionRegistry
 
-interface DataElementSource {
+interface DataElementSource : Source {
 
-    val name: String
+    override val name: String
 
-    val sourceType: SourceType
-
-    val sourceTypeDefinitionRegistry: TypeDefinitionRegistry
+    override val sourceTypeDefinitionRegistry: TypeDefinitionRegistry
 }

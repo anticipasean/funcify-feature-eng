@@ -1,6 +1,5 @@
 package funcify.feature.datasource.rest
 
-import funcify.feature.schema.SourceType
 import funcify.feature.schema.dataelement.DataElementSourceProvider
 import funcify.feature.tools.container.attempt.Try
 import reactor.core.publisher.Mono
@@ -12,9 +11,6 @@ import reactor.core.publisher.Mono
 interface RestApiDataElementSourceProvider : DataElementSourceProvider<RestApiDataElementSource> {
 
     override val name: String
-
-    override val sourceType: SourceType
-        get() = RestApiSourceType
 
     override fun getLatestDataElementSource(): Mono<out RestApiDataElementSource>
 

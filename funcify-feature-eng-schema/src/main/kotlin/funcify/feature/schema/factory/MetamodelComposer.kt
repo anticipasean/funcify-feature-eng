@@ -12,7 +12,7 @@ import funcify.feature.error.ServiceError
 import funcify.feature.schema.Metamodel
 import funcify.feature.schema.dataelement.DataElementSource
 import funcify.feature.schema.dataelement.DataElementSourceProvider
-import funcify.feature.schema.environment.MetamodelCompositionEnvironment
+import funcify.feature.schema.context.MetamodelBuildContext
 import funcify.feature.schema.feature.FeatureCalculator
 import funcify.feature.schema.feature.FeatureCalculatorProvider
 import funcify.feature.schema.transformer.TransformerSource
@@ -37,44 +37,44 @@ import org.slf4j.Logger
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 
-internal object MetamodelComposer : (MetamodelCompositionEnvironment) -> Mono<out Metamodel> {
+internal object MetamodelComposer : (MetamodelBuildContext) -> Mono<out Metamodel> {
 
     private const val QUERY_OBJECT_TYPE_NAME = "Query"
     private val logger: Logger = loggerFor<MetamodelComposer>()
 
-    override fun invoke(environment: MetamodelCompositionEnvironment): Mono<out Metamodel> {
+    override fun invoke(context: MetamodelBuildContext): Mono<out Metamodel> {
         logger.info(
-            """invoke: [ environment { 
+            """invoke: [ context { 
                 |transformerSourceProviders.size: {}, 
                 |dataElementSourceProviders.size: {}, 
                 |featureCalculatorProviders.size: {} } ]"""
                 .flatten(),
-            environment.transformerSourceProviders.size,
-            environment.dataElementSourceProviders.size,
-            environment.featureCalculatorProviders.size
+            context.transformerSourceProviders.size,
+            context.dataElementSourceProviders.size,
+            context.featureCalculatorProviders.size
         )
         Mono.fromSupplier {
                 DefaultMetamodel(
                     transformerSourceProvidersByName =
-                        environment.transformerSourceProviders
+                        context.transformerSourceProviders
                             .asSequence()
                             .map { tsp: TransformerSourceProvider<*> -> tsp.name to tsp }
                             .reducePairsToPersistentMap(),
                     dataElementSourceProvidersByName =
-                        environment.dataElementSourceProviders
+                        context.dataElementSourceProviders
                             .asSequence()
                             .map { desp: DataElementSourceProvider<*> -> desp.name to desp }
                             .reducePairsToPersistentMap(),
                     featureCalculatorProvidersByName =
-                        environment.featureCalculatorProviders
+                        context.featureCalculatorProviders
                             .asSequence()
                             .map { fcp: FeatureCalculatorProvider<*> -> fcp.name to fcp }
                             .reducePairsToPersistentMap(),
                 )
             }
-            .flatMap(validateProviders(environment))
+            .flatMap(validateProviders(context))
             .flatMap { metamodel: DefaultMetamodel ->
-                Flux.fromIterable(environment.transformerSourceProviders)
+                Flux.fromIterable(context.transformerSourceProviders)
                     .flatMap { tsp: TransformerSourceProvider<*> ->
                         tsp.getLatestTransformerSource()
                             .flatMap(validateTransformerSourceForProvider(tsp))
@@ -86,7 +86,7 @@ internal object MetamodelComposer : (MetamodelCompositionEnvironment) -> Mono<ou
                     }
             }
             .flatMap { metamodel: DefaultMetamodel ->
-                Flux.fromIterable(environment.dataElementSourceProviders)
+                Flux.fromIterable(context.dataElementSourceProviders)
                     .flatMap { desp: DataElementSourceProvider<*> ->
                         desp
                             .getLatestDataElementSource()
@@ -100,7 +100,7 @@ internal object MetamodelComposer : (MetamodelCompositionEnvironment) -> Mono<ou
                     }
             }
             .flatMap { metamodel: DefaultMetamodel ->
-                Flux.fromIterable(environment.featureCalculatorProviders)
+                Flux.fromIterable(context.featureCalculatorProviders)
                     .flatMap { fcp: FeatureCalculatorProvider<*> ->
                         fcp.getLatestFeatureCalculator()
                             .flatMap(validateFeatureCalculatorForProvider(fcp))
@@ -116,7 +116,7 @@ internal object MetamodelComposer : (MetamodelCompositionEnvironment) -> Mono<ou
     }
 
     private fun validateProviders(
-        environment: MetamodelCompositionEnvironment
+        environment: MetamodelBuildContext
     ): (DefaultMetamodel) -> Mono<DefaultMetamodel> {
         return { metamodel: DefaultMetamodel ->
             when {

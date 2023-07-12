@@ -1,6 +1,5 @@
 package funcify.feature.transformer.jq
 
-import funcify.feature.schema.SourceType
 import funcify.feature.schema.transformer.TransformerSourceProvider
 import funcify.feature.tools.container.attempt.Try
 import org.springframework.core.io.ClassPathResource
@@ -13,9 +12,6 @@ import reactor.core.publisher.Mono
 interface JqTransformerSourceProvider : TransformerSourceProvider<JqTransformerSource> {
 
     override val name: String
-
-    override val sourceType: SourceType
-        get() = JqSourceType
 
     override fun getLatestTransformerSource(): Mono<out JqTransformerSource>
 

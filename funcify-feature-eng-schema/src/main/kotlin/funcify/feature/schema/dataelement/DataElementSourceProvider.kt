@@ -1,6 +1,5 @@
 package funcify.feature.schema.dataelement
 
-import funcify.feature.schema.SourceType
 import reactor.core.publisher.Mono
 
 /**
@@ -10,8 +9,6 @@ import reactor.core.publisher.Mono
 interface DataElementSourceProvider<out DES : DataElementSource> {
 
     val name: String
-
-    val sourceType: SourceType
-
+    
     fun getLatestDataElementSource(): Mono<out DES>
 }

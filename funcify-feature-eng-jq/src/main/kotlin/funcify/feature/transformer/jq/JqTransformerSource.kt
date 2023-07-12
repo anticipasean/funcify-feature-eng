@@ -1,6 +1,5 @@
 package funcify.feature.transformer.jq
 
-import funcify.feature.schema.SourceType
 import funcify.feature.schema.transformer.TransformerSource
 import graphql.schema.idl.TypeDefinitionRegistry
 import kotlinx.collections.immutable.ImmutableMap
@@ -12,9 +11,6 @@ import kotlinx.collections.immutable.ImmutableMap
 interface JqTransformerSource : TransformerSource {
 
     override val name: String
-
-    override val sourceType: SourceType
-        get() = JqSourceType
 
     override val sourceTypeDefinitionRegistry: TypeDefinitionRegistry
 

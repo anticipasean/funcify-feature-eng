@@ -2,10 +2,11 @@ package funcify.feature.schema.factory
 
 import funcify.feature.schema.Metamodel
 import funcify.feature.schema.MetamodelFactory
+import funcify.feature.schema.context.DefaultMetamodelBuildContext
 import funcify.feature.schema.dataelement.DataElementSourceProvider
-import funcify.feature.schema.environment.DefaultMetamodelCompositionEnvironment
 import funcify.feature.schema.feature.FeatureCalculatorProvider
 import funcify.feature.schema.transformer.TransformerSourceProvider
+import kotlinx.collections.immutable.toPersistentList
 import reactor.core.publisher.Mono
 
 /**
@@ -48,19 +49,17 @@ internal class DefaultMetamodelFactory : MetamodelFactory {
 
             override fun build(): Mono<out Metamodel> {
                 return MetamodelComposer.invoke(
-                    DefaultMetamodelCompositionEnvironment(
-                        dataElementSourceProviders = dataElementSourceProviders,
-                        transformerSourceProviders = transformerSourceProviders,
-                        featureCalculatorProviders = featureCalculatorProviders
+                    DefaultMetamodelBuildContext(
+                        dataElementSourceProviders = dataElementSourceProviders.toPersistentList(),
+                        transformerSourceProviders = transformerSourceProviders.toPersistentList(),
+                        featureCalculatorProviders = featureCalculatorProviders.toPersistentList()
                     )
                 )
             }
         }
-
     }
 
     override fun builder(): Metamodel.Builder {
         return DefaultBuilder()
     }
-
 }

@@ -1,7 +1,6 @@
 package funcify.feature.datasource.graphql
 
 import funcify.feature.schema.dataelement.DataElementSourceProvider
-import funcify.feature.schema.SourceType
 import funcify.feature.tools.container.attempt.Try
 import org.springframework.core.io.ClassPathResource
 import reactor.core.publisher.Mono
@@ -14,9 +13,6 @@ interface GraphQLApiDataElementSourceProvider :
     DataElementSourceProvider<GraphQLApiDataElementSource> {
 
     override val name: String
-
-    override val sourceType: SourceType
-        get() = GraphQLSourceType
 
     override fun getLatestDataElementSource(): Mono<GraphQLApiDataElementSource>
 

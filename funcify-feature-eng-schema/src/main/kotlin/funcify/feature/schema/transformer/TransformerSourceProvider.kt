@@ -1,6 +1,5 @@
 package funcify.feature.schema.transformer
 
-import funcify.feature.schema.SourceType
 import reactor.core.publisher.Mono
 
 /**
@@ -10,8 +9,6 @@ import reactor.core.publisher.Mono
 interface TransformerSourceProvider<out TS : TransformerSource> {
 
     val name: String
-
-    val sourceType: SourceType
 
     fun getLatestTransformerSource(): Mono<out TS>
 }

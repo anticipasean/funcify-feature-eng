@@ -1,14 +1,15 @@
 package funcify.feature.schema.feature
 
+import funcify.feature.schema.Source
 import graphql.schema.idl.TypeDefinitionRegistry
 
 /**
  * @author smccarron
  * @created 2023-07-01
  */
-interface FeatureCalculator {
+interface FeatureCalculator : Source {
 
-    val name: String
+    override val name: String
 
-    val sourceTypeDefinitionRegistry: TypeDefinitionRegistry
+    override val sourceTypeDefinitionRegistry: TypeDefinitionRegistry
 }

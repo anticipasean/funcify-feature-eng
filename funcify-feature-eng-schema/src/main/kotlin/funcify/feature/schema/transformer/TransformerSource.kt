@@ -1,19 +1,15 @@
 package funcify.feature.schema.transformer
 
-import funcify.feature.schema.SourceType
+import funcify.feature.schema.Source
 import graphql.schema.idl.TypeDefinitionRegistry
 
 /**
- *
  * @author smccarron
  * @created 2023-07-01
  */
-interface TransformerSource {
+interface TransformerSource : Source {
 
-    val name: String
+    override val name: String
 
-    val sourceType: SourceType
-
-    val sourceTypeDefinitionRegistry: TypeDefinitionRegistry
-
+    override val sourceTypeDefinitionRegistry: TypeDefinitionRegistry
 }

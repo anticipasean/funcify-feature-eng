@@ -1,6 +1,5 @@
 package funcify.feature.datasource.rest
 
-import funcify.feature.schema.SourceType
 import funcify.feature.schema.dataelement.DataElementSource
 import graphql.schema.idl.TypeDefinitionRegistry
 
@@ -11,9 +10,6 @@ import graphql.schema.idl.TypeDefinitionRegistry
 interface RestApiDataElementSource : DataElementSource {
 
     override val name: String
-
-    override val sourceType: SourceType
-        get() = RestApiSourceType
 
     override val sourceTypeDefinitionRegistry: TypeDefinitionRegistry
 
