@@ -1,4 +1,4 @@
-package funcify.feature.schema.factory
+package funcify.feature.schema.metamodel
 
 import funcify.feature.schema.Metamodel
 import funcify.feature.schema.dataelement.DataElementSource

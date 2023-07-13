@@ -1,14 +1,15 @@
 package funcify.feature.schema.transformer
 
+import funcify.feature.schema.SourceProvider
 import reactor.core.publisher.Mono
 
 /**
  * @author smccarron
  * @created 2023-07-01
  */
-interface TransformerSourceProvider<out TS : TransformerSource> {
+interface TransformerSourceProvider<out TS : TransformerSource> : SourceProvider<TS> {
 
-    val name: String
+    override val name: String
 
-    fun getLatestTransformerSource(): Mono<out TS>
+    override fun getLatestSource(): Mono<out TS>
 }

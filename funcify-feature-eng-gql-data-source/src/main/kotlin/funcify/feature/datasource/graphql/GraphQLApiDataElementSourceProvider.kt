@@ -14,7 +14,7 @@ interface GraphQLApiDataElementSourceProvider :
 
     override val name: String
 
-    override fun getLatestDataElementSource(): Mono<GraphQLApiDataElementSource>
+    override fun getLatestSource(): Mono<out GraphQLApiDataElementSource>
 
     interface Builder {
 

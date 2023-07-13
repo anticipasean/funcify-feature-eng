@@ -53,7 +53,7 @@ class JqTransformerYamlTest {
             }
         val jqTransformerSource: JqTransformerSource =
             Assertions.assertDoesNotThrow<JqTransformerSource> {
-                jqTransformerSourceProvider.getLatestTransformerSource().toFuture().join()
+                jqTransformerSourceProvider.getLatestSource().toFuture().join()
             }
         Assertions.assertEquals(1, jqTransformerSource.jqTransformersByName.size) {
             "size unexpected"

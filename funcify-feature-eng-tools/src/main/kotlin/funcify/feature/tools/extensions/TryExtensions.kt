@@ -35,7 +35,7 @@ object TryExtensions {
         return Failure<S>(this)
     }
 
-    inline fun <reified S> Result<S>.toTry(): Try<S> {
+    inline fun <reified S : Any> Result<S>.toTry(): Try<S> {
         return this.fold({ s: S -> Success<S>(s) }, { t: Throwable -> Failure<S>(t) })
     }
 }

@@ -9,6 +9,7 @@ import arrow.core.none
 import arrow.core.right
 import arrow.core.some
 import arrow.core.toOption
+import com.fasterxml.jackson.databind.JsonNode
 import funcify.feature.error.ServiceError
 import funcify.feature.scalar.registry.ScalarTypeRegistry
 import funcify.feature.schema.Metamodel
@@ -17,9 +18,9 @@ import funcify.feature.schema.Source
 import funcify.feature.schema.context.MetamodelBuildContext
 import funcify.feature.schema.dataelement.DataElementSource
 import funcify.feature.schema.dataelement.DataElementSourceProvider
-import funcify.feature.schema.factory.DefaultMetamodel
 import funcify.feature.schema.feature.FeatureCalculator
 import funcify.feature.schema.feature.FeatureCalculatorProvider
+import funcify.feature.schema.metamodel.DefaultMetamodel
 import funcify.feature.schema.transformer.TransformerSource
 import funcify.feature.schema.transformer.TransformerSourceProvider
 import funcify.feature.tools.container.attempt.Try
@@ -49,6 +50,7 @@ internal class DefaultMetamodelBuildStrategy(private val scalarTypeRegistry: Sca
     MetamodelBuildStrategy {
 
     companion object {
+        private const val MAIN_METHOD_TAG = "build_metamodel"
         private const val QUERY_OBJECT_TYPE_NAME = "Query"
         private const val TRANSFORMER_FIELD_NAME = "transformer"
         private const val TRANSFORMER_OBJECT_TYPE_NAME = "Transformer"
@@ -61,51 +63,20 @@ internal class DefaultMetamodelBuildStrategy(private val scalarTypeRegistry: Sca
 
     override fun buildMetamodel(context: MetamodelBuildContext): Mono<out Metamodel> {
         logger.info(
-            """build_metamodel: [ context {
-                |transformerSourceProviders.size: {}, 
-                |dataElementSourceProviders.size: {}, 
-                |featureCalculatorProviders.size: {} } ]"""
+            """{}: [ context {
+            |transformerSourceProviders.size: {}, 
+            |dataElementSourceProviders.size: {}, 
+            |featureCalculatorProviders.size: {} 
+            |} ]"""
                 .flatten(),
+            MAIN_METHOD_TAG,
             context.transformerSourceProviders.size,
             context.dataElementSourceProviders.size,
             context.featureCalculatorProviders.size
         )
         return Mono.just(context)
             .flatMap(validateSourceProviders())
-            .flatMap { ctx: MetamodelBuildContext ->
-                Flux.fromIterable(ctx.transformerSourceProviders)
-                    .flatMap { tsp: TransformerSourceProvider<*> ->
-                        tsp.getLatestTransformerSource()
-                            .flatMap(validateTransformerSourceForProvider(tsp))
-                            .cache()
-                    }
-                    .reduce(ctx) { c: MetamodelBuildContext, ts: TransformerSource ->
-                        c.update { addTransformerSource(ts) }
-                    }
-            }
-            .flatMap { ctx: MetamodelBuildContext ->
-                Flux.fromIterable(ctx.dataElementSourceProviders)
-                    .flatMap { desp: DataElementSourceProvider<*> ->
-                        desp
-                            .getLatestDataElementSource()
-                            .flatMap(validateDataElementSourceForProvider(desp))
-                            .cache()
-                    }
-                    .reduce(ctx) { c: MetamodelBuildContext, des: DataElementSource ->
-                        c.update { addDataElementSource(des) }
-                    }
-            }
-            .flatMap { ctx: MetamodelBuildContext ->
-                Flux.fromIterable(ctx.featureCalculatorProviders)
-                    .flatMap { fcp: FeatureCalculatorProvider<*> ->
-                        fcp.getLatestFeatureCalculator()
-                            .flatMap(validateFeatureCalculatorForProvider(fcp))
-                            .cache()
-                    }
-                    .reduce(ctx) { c: MetamodelBuildContext, fc: FeatureCalculator ->
-                        c.update { addFeatureCalculator(fc) }
-                    }
-            }
+            .flatMap(extractSourcesFromSourceProviders())
             .flatMap(createTypeDefinitionRegistryFromSources())
             .map { ctx: MetamodelBuildContext ->
                 DefaultMetamodel(
@@ -121,6 +92,9 @@ internal class DefaultMetamodelBuildStrategy(private val scalarTypeRegistry: Sca
                     typeDefinitionRegistry = ctx.typeDefinitionRegistry,
                 )
             }
+            .doOnSuccess(logSuccessfulStatus())
+            .doOnError(logFailedStatus())
+            .cache()
     }
 
     private fun validateSourceProviders(): (MetamodelBuildContext) -> Mono<MetamodelBuildContext> {
@@ -181,6 +155,47 @@ internal class DefaultMetamodelBuildStrategy(private val scalarTypeRegistry: Sca
         }
     }
 
+    private fun extractSourcesFromSourceProviders():
+        (MetamodelBuildContext) -> Mono<MetamodelBuildContext> {
+        return { context: MetamodelBuildContext ->
+            Mono.just(context)
+                .flatMap { ctx: MetamodelBuildContext ->
+                    Flux.fromIterable(ctx.transformerSourceProviders)
+                        .flatMap { tsp: TransformerSourceProvider<*> ->
+                            tsp.getLatestSource()
+                                .flatMap(validateTransformerSourceForProvider(tsp))
+                                .cache()
+                        }
+                        .reduce(ctx) { c: MetamodelBuildContext, ts: TransformerSource ->
+                            c.update { addTransformerSource(ts) }
+                        }
+                }
+                .flatMap { ctx: MetamodelBuildContext ->
+                    Flux.fromIterable(ctx.dataElementSourceProviders)
+                        .flatMap { desp: DataElementSourceProvider<*> ->
+                            desp
+                                .getLatestSource()
+                                .flatMap(validateDataElementSourceForProvider(desp))
+                                .cache()
+                        }
+                        .reduce(ctx) { c: MetamodelBuildContext, des: DataElementSource ->
+                            c.update { addDataElementSource(des) }
+                        }
+                }
+                .flatMap { ctx: MetamodelBuildContext ->
+                    Flux.fromIterable(ctx.featureCalculatorProviders)
+                        .flatMap { fcp: FeatureCalculatorProvider<*> ->
+                            fcp.getLatestSource()
+                                .flatMap(validateFeatureCalculatorForProvider(fcp))
+                                .cache()
+                        }
+                        .reduce(ctx) { c: MetamodelBuildContext, fc: FeatureCalculator ->
+                            c.update { addFeatureCalculator(fc) }
+                        }
+                }
+        }
+    }
+
     private fun <TS : TransformerSource> validateTransformerSourceForProvider(
         provider: TransformerSourceProvider<TS>
     ): (TS) -> Mono<TS> {
@@ -207,7 +222,7 @@ internal class DefaultMetamodelBuildStrategy(private val scalarTypeRegistry: Sca
                             pt.children().count() != 1 -> {
                                 Mono.error<TS> {
                                     ServiceError.of(
-                                        "one query with [ name: %s, type.name: %s ] should be provided by transformer_source.source_type_definition_registry [ query.field_definitions.size: %s ]",
+                                        "only one query with [ name: %s, type.name: %s ] should be provided by transformer_source.source_type_definition_registry [ query.field_definitions.size: %s ]",
                                         TRANSFORMER_FIELD_NAME,
                                         TRANSFORMER_OBJECT_TYPE_NAME,
                                         pt.children().count()
@@ -342,7 +357,7 @@ internal class DefaultMetamodelBuildStrategy(private val scalarTypeRegistry: Sca
                             pt.children().count() != 1 -> {
                                 Mono.error<DES> {
                                     ServiceError.of(
-                                        "one query with [ name: %s, type.name: %s ] should be provided by data_element_source.source_type_definition_registry [ query.field_definitions.size: %s ]",
+                                        "only one query with [ name: %s, type.name: %s ] should be provided by data_element_source.source_type_definition_registry [ query.field_definitions.size: %s ]",
                                         DATA_ELEMENT_FIELD_NAME,
                                         DATA_ELEMENT_OBJECT_TYPE_NAME,
                                         pt.children().count()
@@ -403,7 +418,7 @@ internal class DefaultMetamodelBuildStrategy(private val scalarTypeRegistry: Sca
                             pt.children().count() != 1 -> {
                                 Mono.error<FC> {
                                     ServiceError.of(
-                                        "one query with [ name: %s, type.name: %s ] should be provided by feature_calculator.source_type_definition_registry [ query.field_definitions.size: %s ]",
+                                        "only one query with [ name: %s, type.name: %s ] should be provided by feature_calculator.source_type_definition_registry [ query.field_definitions.size: %s ]",
                                         FEATURE_FIELD_NAME,
                                         FEATURE_OBJECT_TYPE_NAME,
                                         pt.children().count()
@@ -446,12 +461,14 @@ internal class DefaultMetamodelBuildStrategy(private val scalarTypeRegistry: Sca
                 .concatWith(Flux.fromIterable(context.dataElementSourcesByName.values))
                 .concatWith(Flux.fromIterable(context.featureCalculatorsByName.values))
                 .reduce(addScalarTypeDefinitionsToContextTypeDefinitionRegistry(context)) {
-                    ca: Try<MetamodelBuildContext>,
+                    ctxResult: Try<MetamodelBuildContext>,
                     s: Source ->
-                    ca.flatMap { c: MetamodelBuildContext ->
+                    ctxResult.flatMap { c: MetamodelBuildContext ->
                         Try.attempt {
                                 c.typeDefinitionRegistry.merge(s.sourceTypeDefinitionRegistry)
-                                c
+                            }
+                            .map { updatedTdr: TypeDefinitionRegistry ->
+                                c.update { typeDefinitionRegistry(updatedTdr) }
                             }
                             .mapFailure { t: Throwable ->
                                 ServiceError.builder()
@@ -465,7 +482,7 @@ internal class DefaultMetamodelBuildStrategy(private val scalarTypeRegistry: Sca
                             }
                     }
                 }
-                .flatMap { ctxAttempt: Try<MetamodelBuildContext> -> ctxAttempt.toMono() }
+                .flatMap(Try<MetamodelBuildContext>::toMono)
                 .cache()
         }
     }
@@ -473,31 +490,81 @@ internal class DefaultMetamodelBuildStrategy(private val scalarTypeRegistry: Sca
     private fun addScalarTypeDefinitionsToContextTypeDefinitionRegistry(
         context: MetamodelBuildContext
     ): Try<MetamodelBuildContext> {
-        return Try.success(context).flatMap { c: MetamodelBuildContext ->
-            c.typeDefinitionRegistry
-                .addAll(scalarTypeRegistry.getAllScalarDefinitions())
-                .toOption()
-                .map { e: GraphQLError ->
-                    when (e) {
-                        is RuntimeException -> {
-                            ServiceError.builder()
-                                .message(
-                                    "error occurred when adding scalar definitions to context.type_definition_registry"
-                                )
-                                .cause(e)
-                                .build()
-                                .failure<MetamodelBuildContext>()
-                        }
-                        else -> {
-                            ServiceError.of(
-                                    "error occurred when adding scalar definitions to context.type_definition_registry: [ %s ]",
-                                    e.toSpecification()
-                                )
-                                .failure<MetamodelBuildContext>()
-                        }
+        val tdr: TypeDefinitionRegistry = context.typeDefinitionRegistry
+        return tdr.addAll(scalarTypeRegistry.getAllScalarDefinitions())
+            .toOption()
+            .map { e: GraphQLError ->
+                when (e) {
+                    is RuntimeException -> {
+                        ServiceError.builder()
+                            .message(
+                                "error occurred when adding scalar definitions to context.type_definition_registry"
+                            )
+                            .cause(e)
+                            .build()
+                            .failure<TypeDefinitionRegistry>()
+                    }
+                    else -> {
+                        ServiceError.of(
+                                "error occurred when adding scalar definitions to context.type_definition_registry: [ %s ]",
+                                Try.attempt { e.toSpecification() }
+                                    .orElseGet {
+                                        mapOf("errorType" to e.errorType, "message" to e.message)
+                                    }
+                                    .asSequence()
+                                    .joinToString(", ") { (k, v) -> "$k: $v" }
+                            )
+                            .failure<TypeDefinitionRegistry>()
                     }
                 }
-                .getOrElse { Try.success(c) }
+            }
+            .getOrElse { Try.success(tdr) }
+            .map { updatedTdr: TypeDefinitionRegistry ->
+                context.update { typeDefinitionRegistry(updatedTdr) }
+            }
+    }
+
+    private fun logSuccessfulStatus(): (Metamodel) -> Unit {
+        return { mm: Metamodel ->
+            logger.debug(
+                """{}: [ status: successful ]
+                |[ metamodel
+                |.type_definition_registry
+                |.query_object_type
+                |.field_definitions.name: {} ]"""
+                    .flatten(),
+                MAIN_METHOD_TAG,
+                mm.typeDefinitionRegistry
+                    .getType(QUERY_OBJECT_TYPE_NAME, ObjectTypeDefinition::class.java)
+                    .toOption()
+                    .mapNotNull(ObjectTypeDefinition::getFieldDefinitions)
+                    .map { fds: List<FieldDefinition> ->
+                        fds.asSequence()
+                            .map { fd: FieldDefinition -> fd.name }
+                            .joinToString(", ", "[ ", " ]")
+                    }
+                    .getOrElse { "<NA>" }
+            )
+        }
+    }
+
+    private fun logFailedStatus(): (Throwable) -> Unit {
+        return { t: Throwable ->
+            logger.error(
+                """{}: [ status: failed ]
+                |[ type: {}, message/json: {} ]"""
+                    .flatten(),
+                MAIN_METHOD_TAG,
+                t.toOption()
+                    .filterIsInstance<ServiceError>()
+                    .and(ServiceError::class.qualifiedName.toOption())
+                    .getOrElse { t::class.qualifiedName },
+                t.toOption()
+                    .filterIsInstance<ServiceError>()
+                    .mapNotNull(ServiceError::toJsonNode)
+                    .map(JsonNode::toString)
+                    .getOrElse { t.message }
+            )
         }
     }
 }

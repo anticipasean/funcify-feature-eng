@@ -13,7 +13,7 @@ interface JqTransformerSourceProvider : TransformerSourceProvider<JqTransformerS
 
     override val name: String
 
-    override fun getLatestTransformerSource(): Mono<out JqTransformerSource>
+    override fun getLatestSource(): Mono<out JqTransformerSource>
 
     interface Builder {
 

@@ -1,14 +1,15 @@
 package funcify.feature.schema.feature
 
+import funcify.feature.schema.SourceProvider
 import reactor.core.publisher.Mono
 
 /**
  * @author smccarron
  * @created 2023-07-02
  */
-interface FeatureCalculatorProvider<out FC : FeatureCalculator> {
+interface FeatureCalculatorProvider<out FC : FeatureCalculator> : SourceProvider<FC> {
 
-    val name: String
+    override val name: String
 
-    fun getLatestFeatureCalculator(): Mono<out FC>
+    override fun getLatestSource(): Mono<out FC>
 }

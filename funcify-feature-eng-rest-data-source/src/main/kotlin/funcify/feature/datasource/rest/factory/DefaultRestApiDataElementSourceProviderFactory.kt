@@ -49,7 +49,7 @@ internal class DefaultRestApiDataElementSourceProviderFactory : RestApiDataEleme
             private val restApiService: RestApiService
         ) : RestApiDataElementSourceProvider {
 
-            override fun getLatestDataElementSource(): Mono<out RestApiDataElementSource> {
+            override fun getLatestSource(): Mono<out RestApiDataElementSource> {
                 TODO("Not yet implemented")
             }
         }

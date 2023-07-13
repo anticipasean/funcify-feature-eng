@@ -12,7 +12,7 @@ interface RestApiDataElementSourceProvider : DataElementSourceProvider<RestApiDa
 
     override val name: String
 
-    override fun getLatestDataElementSource(): Mono<out RestApiDataElementSource>
+    override fun getLatestSource(): Mono<out RestApiDataElementSource>
 
     interface Builder {
 

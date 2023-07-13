@@ -126,7 +126,7 @@ internal class DefaultGraphQLApiDataElementSourceProviderFactory(
                     loggerFor<DefaultServiceAndSchemaBackedDataElementSourceProvider>()
             }
 
-            override fun getLatestDataElementSource(): Mono<GraphQLApiDataElementSource> {
+            override fun getLatestSource(): Mono<GraphQLApiDataElementSource> {
                 logger.info("get_latest_data_element_source: [ name: {} ]", name)
                 return metadataProvider
                     .provideTypeDefinitionRegistry(schemaClassPathResource)
@@ -155,7 +155,7 @@ internal class DefaultGraphQLApiDataElementSourceProviderFactory(
                     loggerFor<DefaultServiceBackedDataElementSourceProvider>()
             }
 
-            override fun getLatestDataElementSource(): Mono<GraphQLApiDataElementSource> {
+            override fun getLatestSource(): Mono<GraphQLApiDataElementSource> {
                 logger.info("get_latest_data_element_source: [ name: {} ]", name)
                 return metadataProvider
                     .provideTypeDefinitionRegistry(graphQLApiService)
@@ -185,7 +185,7 @@ internal class DefaultGraphQLApiDataElementSourceProviderFactory(
                     loggerFor<DefaultSchemaBackedDataElementSourceProvider>()
             }
 
-            override fun getLatestDataElementSource(): Mono<GraphQLApiDataElementSource> {
+            override fun getLatestSource(): Mono<GraphQLApiDataElementSource> {
                 logger.info("get_latest_data_element_source: [ name: {} ]", name)
                 return metadataProvider
                     .provideTypeDefinitionRegistry(schemaClassPathResource)

@@ -33,7 +33,7 @@ internal class YamlResourceJqTransformerSourceProvider(
             LoggerExtensions.loggerFor<YamlResourceJqTransformerSourceProvider>()
     }
 
-    override fun getLatestTransformerSource(): Mono<out JqTransformerSource> {
+    override fun getLatestSource(): Mono<out JqTransformerSource> {
         val methodTag: String = "get_latest_transformer_source"
         logger.info("$methodTag: [ name: {} ]", name)
         return jqTransformerReader

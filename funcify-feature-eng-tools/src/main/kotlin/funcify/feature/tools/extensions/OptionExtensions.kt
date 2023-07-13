@@ -1,7 +1,9 @@
 package funcify.feature.tools.extensions
 
 import arrow.core.Either
+import arrow.core.None
 import arrow.core.Option
+import arrow.core.Some
 import arrow.core.none
 import funcify.feature.tools.control.TraversalFunctions
 import java.util.*
@@ -11,7 +13,6 @@ import kotlinx.collections.immutable.persistentSetOf
 import reactor.core.publisher.Mono
 
 /**
- *
  * @author smccarron
  * @created 4/5/22
  */
@@ -30,22 +31,29 @@ object OptionExtensions {
     }
 
     fun <T> Optional<T?>?.toOption(): Option<T> {
-        return when {
-            this == null -> none()
-            this.isEmpty -> none()
+        return when (this) {
+            null -> {
+                None
+            }
             else -> {
-                Option.fromNullable(this.get())
+                when (val t: T? = this.orElse(null)) {
+                    null -> None
+                    else -> Some<T>(t)
+                }
             }
         }
     }
 
     fun <T> Option<T?>?.toMono(): Mono<T> {
-        return when {
-            this == null -> {
+        return when (this) {
+            null -> {
                 Mono.empty<T>()
             }
             else -> {
-                this.fold({ Mono.empty<T>() }, { t: T? -> Mono.justOrEmpty(t) })
+                when (val t: T? = this.orNull()) {
+                    null -> Mono.empty<T>()
+                    else -> Mono.just(t)
+                }
             }
         }
     }
