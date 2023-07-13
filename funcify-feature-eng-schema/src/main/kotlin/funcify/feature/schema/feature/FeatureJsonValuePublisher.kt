@@ -8,7 +8,9 @@ import reactor.core.publisher.Mono
  * @author smccarron
  * @created 2022-09-05
  */
-fun interface FeatureJsonValuePublisher {
+interface FeatureJsonValuePublisher {
+
+    val name: String
 
     fun publishToStore(featureJsonValue: TrackableValue<JsonNode>): Mono<TrackableValue<JsonNode>>
 }

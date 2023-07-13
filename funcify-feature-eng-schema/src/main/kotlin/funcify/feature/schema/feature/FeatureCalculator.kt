@@ -9,7 +9,18 @@ import graphql.schema.idl.TypeDefinitionRegistry
  */
 interface FeatureCalculator : Source {
 
+    companion object {
+        const val FEATURE_STORE_NOT_PROVIDED: String = "<NA>"
+        const val FEATURE_PUBLISHER_NOT_PROVIDED: String = "<NA>"
+    }
+
     override val name: String
+
+    val featureStoreName: String
+        get() = FEATURE_STORE_NOT_PROVIDED
+
+    val featurePublisherName: String
+        get() = FEATURE_PUBLISHER_NOT_PROVIDED
 
     override val sourceTypeDefinitionRegistry: TypeDefinitionRegistry
 }

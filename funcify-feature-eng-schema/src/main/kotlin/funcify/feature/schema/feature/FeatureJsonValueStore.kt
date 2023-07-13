@@ -16,10 +16,4 @@ interface FeatureJsonValueStore {
         plannedValue: TrackableValue.PlannedValue<JsonNode>
     ): Mono<TrackableValue<JsonNode>>
 
-    interface Builder {
-
-        fun name(name: String): Builder
-
-        fun build(): FeatureJsonValueStore
-    }
 }

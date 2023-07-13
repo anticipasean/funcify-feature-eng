@@ -4,6 +4,8 @@ import funcify.feature.schema.dataelement.DataElementSource
 import funcify.feature.schema.dataelement.DataElementSourceProvider
 import funcify.feature.schema.feature.FeatureCalculator
 import funcify.feature.schema.feature.FeatureCalculatorProvider
+import funcify.feature.schema.feature.FeatureJsonValuePublisher
+import funcify.feature.schema.feature.FeatureJsonValueStore
 import funcify.feature.schema.transformer.TransformerSource
 import funcify.feature.schema.transformer.TransformerSourceProvider
 import graphql.schema.idl.TypeDefinitionRegistry
@@ -16,6 +18,8 @@ internal data class DefaultMetamodelBuildContext(
     override val transformerSourceProviders: PersistentList<TransformerSourceProvider<*>>,
     override val dataElementSourceProviders: PersistentList<DataElementSourceProvider<*>>,
     override val featureCalculatorProviders: PersistentList<FeatureCalculatorProvider<*>>,
+    override val featureJsonValueStoresByName: PersistentMap<String, FeatureJsonValueStore>,
+    override val featureJsonValuePublishersByName: PersistentMap<String, FeatureJsonValuePublisher>,
     override val transformerSourceProvidersByName:
         PersistentMap<String, TransformerSourceProvider<*>>,
     override val dataElementSourceProvidersByName:
@@ -35,6 +39,8 @@ internal data class DefaultMetamodelBuildContext(
                 transformerSourceProviders = persistentListOf(),
                 dataElementSourceProviders = persistentListOf(),
                 featureCalculatorProviders = persistentListOf(),
+                featureJsonValueStoresByName = persistentMapOf(),
+                featureJsonValuePublishersByName = persistentMapOf(),
                 transformerSourceProvidersByName = persistentMapOf(),
                 dataElementSourceProvidersByName = persistentMapOf(),
                 featureCalculatorProvidersByName = persistentMapOf(),
@@ -52,6 +58,10 @@ internal data class DefaultMetamodelBuildContext(
                 PersistentList.Builder<TransformerSourceProvider<*>>,
             private val featureCalculatorProviders:
                 PersistentList.Builder<FeatureCalculatorProvider<*>>,
+            private val featureJsonValueStoresByName:
+                PersistentMap.Builder<String, FeatureJsonValueStore>,
+            private val featureJsonValuePublishersByName:
+                PersistentMap.Builder<String, FeatureJsonValuePublisher>,
             private val transformerSourceProvidersByName:
                 PersistentMap.Builder<String, TransformerSourceProvider<*>>,
             private val dataElementSourceProvidersByName:
@@ -125,11 +135,33 @@ internal data class DefaultMetamodelBuildContext(
                 return this
             }
 
+            override fun addFeatureJsonValueStore(
+                featureJsonValueStore: FeatureJsonValueStore
+            ): MetamodelBuildContext.Builder {
+                this.featureJsonValueStoresByName.put(
+                    featureJsonValueStore.name,
+                    featureJsonValueStore
+                )
+                return this
+            }
+
+            override fun addFeatureJsonValuePublisher(
+                featureJsonValuePublisher: FeatureJsonValuePublisher
+            ): MetamodelBuildContext.Builder {
+                this.featureJsonValuePublishersByName.put(
+                    featureJsonValuePublisher.name,
+                    featureJsonValuePublisher
+                )
+                return this
+            }
+
             override fun build(): MetamodelBuildContext {
                 return DefaultMetamodelBuildContext(
                     transformerSourceProviders = transformerSourceProviders.build(),
                     dataElementSourceProviders = dataElementSourceProviders.build(),
                     featureCalculatorProviders = featureCalculatorProviders.build(),
+                    featureJsonValueStoresByName = featureJsonValueStoresByName.build(),
+                    featureJsonValuePublishersByName = featureJsonValuePublishersByName.build(),
                     transformerSourceProvidersByName = transformerSourceProvidersByName.build(),
                     dataElementSourceProvidersByName = dataElementSourceProvidersByName.build(),
                     featureCalculatorProvidersByName = featureCalculatorProvidersByName.build(),
@@ -151,6 +183,9 @@ internal data class DefaultMetamodelBuildContext(
                     transformerSourceProviders = this.transformerSourceProviders.builder(),
                     dataElementSourceProviders = this.dataElementSourceProviders.builder(),
                     featureCalculatorProviders = this.featureCalculatorProviders.builder(),
+                    featureJsonValueStoresByName = this.featureJsonValueStoresByName.builder(),
+                    featureJsonValuePublishersByName =
+                        this.featureJsonValuePublishersByName.builder(),
                     transformerSourceProvidersByName =
                         this.transformerSourceProvidersByName.builder(),
                     dataElementSourceProvidersByName =

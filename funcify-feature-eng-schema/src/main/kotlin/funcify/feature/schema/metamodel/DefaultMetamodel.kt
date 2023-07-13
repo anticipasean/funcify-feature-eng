@@ -5,27 +5,24 @@ import funcify.feature.schema.dataelement.DataElementSource
 import funcify.feature.schema.dataelement.DataElementSourceProvider
 import funcify.feature.schema.feature.FeatureCalculator
 import funcify.feature.schema.feature.FeatureCalculatorProvider
+import funcify.feature.schema.feature.FeatureJsonValuePublisher
+import funcify.feature.schema.feature.FeatureJsonValueStore
 import funcify.feature.schema.transformer.TransformerSource
 import funcify.feature.schema.transformer.TransformerSourceProvider
 import graphql.schema.idl.TypeDefinitionRegistry
 import kotlinx.collections.immutable.PersistentMap
-import kotlinx.collections.immutable.persistentMapOf
 
 internal data class DefaultMetamodel(
     override val dataElementSourceProvidersByName:
-        PersistentMap<String, DataElementSourceProvider<*>> =
-        persistentMapOf(),
+        PersistentMap<String, DataElementSourceProvider<*>>,
     override val transformerSourceProvidersByName:
-        PersistentMap<String, TransformerSourceProvider<*>> =
-        persistentMapOf(),
+        PersistentMap<String, TransformerSourceProvider<*>>,
     override val featureCalculatorProvidersByName:
-        PersistentMap<String, FeatureCalculatorProvider<*>> =
-        persistentMapOf(),
-    override val dataElementSourcesByName: PersistentMap<String, DataElementSource> =
-        persistentMapOf(),
-    override val transformerSourcesByName: PersistentMap<String, TransformerSource> =
-        persistentMapOf(),
-    override val featureCalculatorsByName: PersistentMap<String, FeatureCalculator> =
-        persistentMapOf(),
-    override val typeDefinitionRegistry: TypeDefinitionRegistry = TypeDefinitionRegistry(),
+        PersistentMap<String, FeatureCalculatorProvider<*>>,
+    override val featureJsonValueStoresByName: PersistentMap<String, FeatureJsonValueStore>,
+    override val featureJsonValuePublishersByName: PersistentMap<String, FeatureJsonValuePublisher>,
+    override val dataElementSourcesByName: PersistentMap<String, DataElementSource>,
+    override val transformerSourcesByName: PersistentMap<String, TransformerSource>,
+    override val featureCalculatorsByName: PersistentMap<String, FeatureCalculator>,
+    override val typeDefinitionRegistry: TypeDefinitionRegistry,
 ) : Metamodel {}

@@ -4,6 +4,8 @@ import funcify.feature.schema.dataelement.DataElementSource
 import funcify.feature.schema.dataelement.DataElementSourceProvider
 import funcify.feature.schema.feature.FeatureCalculator
 import funcify.feature.schema.feature.FeatureCalculatorProvider
+import funcify.feature.schema.feature.FeatureJsonValuePublisher
+import funcify.feature.schema.feature.FeatureJsonValueStore
 import funcify.feature.schema.transformer.TransformerSource
 import funcify.feature.schema.transformer.TransformerSourceProvider
 import graphql.schema.idl.TypeDefinitionRegistry
@@ -28,6 +30,10 @@ interface MetamodelBuildContext {
     val transformerSourceProviders: ImmutableList<TransformerSourceProvider<*>>
 
     val featureCalculatorProviders: ImmutableList<FeatureCalculatorProvider<*>>
+
+    val featureJsonValueStoresByName: ImmutableMap<String, FeatureJsonValueStore>
+
+    val featureJsonValuePublishersByName: ImmutableMap<String, FeatureJsonValuePublisher>
 
     val transformerSourceProvidersByName: ImmutableMap<String, TransformerSourceProvider<*>>
 
@@ -96,6 +102,30 @@ interface MetamodelBuildContext {
         fun addFeatureCalculator(featureCalculator: FeatureCalculator): Builder
 
         fun typeDefinitionRegistry(typeDefinitionRegistry: TypeDefinitionRegistry): Builder
+
+        fun addAllFeatureJsonValueStores(
+            featureJsonValueStores: Iterable<FeatureJsonValueStore>
+        ): Builder {
+            return featureJsonValueStores.fold(this) { b: Builder, fjvs: FeatureJsonValueStore ->
+                b.addFeatureJsonValueStore(fjvs)
+            }
+        }
+
+        fun addFeatureJsonValueStore(featureJsonValueStore: FeatureJsonValueStore): Builder
+
+        fun addAllFeatureJsonValuePublishers(
+            featureJsonValuePublishers: Iterable<FeatureJsonValuePublisher>
+        ): Builder {
+            return featureJsonValuePublishers.fold(this) {
+                b: Builder,
+                fjvp: FeatureJsonValuePublisher ->
+                b.addFeatureJsonValuePublisher(fjvp)
+            }
+        }
+
+        fun addFeatureJsonValuePublisher(
+            featureJsonValuePublisher: FeatureJsonValuePublisher
+        ): Builder
 
         fun build(): MetamodelBuildContext
     }

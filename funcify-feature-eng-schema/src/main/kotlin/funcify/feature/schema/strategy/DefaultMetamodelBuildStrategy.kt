@@ -86,6 +86,10 @@ internal class DefaultMetamodelBuildStrategy(private val scalarTypeRegistry: Sca
                         ctx.dataElementSourceProvidersByName.toPersistentMap(),
                     featureCalculatorProvidersByName =
                         ctx.featureCalculatorProvidersByName.toPersistentMap(),
+                    featureJsonValueStoresByName =
+                        ctx.featureJsonValueStoresByName.toPersistentMap(),
+                    featureJsonValuePublishersByName =
+                        ctx.featureJsonValuePublishersByName.toPersistentMap(),
                     transformerSourcesByName = ctx.transformerSourcesByName.toPersistentMap(),
                     dataElementSourcesByName = ctx.dataElementSourcesByName.toPersistentMap(),
                     featureCalculatorsByName = ctx.featureCalculatorsByName.toPersistentMap(),
@@ -186,7 +190,7 @@ internal class DefaultMetamodelBuildStrategy(private val scalarTypeRegistry: Sca
                     Flux.fromIterable(ctx.featureCalculatorProviders)
                         .flatMap { fcp: FeatureCalculatorProvider<*> ->
                             fcp.getLatestSource()
-                                .flatMap(validateFeatureCalculatorForProvider(fcp))
+                                .flatMap(validateFeatureCalculatorForProvider(fcp, ctx))
                                 .cache()
                         }
                         .reduce(ctx) { c: MetamodelBuildContext, fc: FeatureCalculator ->
@@ -394,63 +398,97 @@ internal class DefaultMetamodelBuildStrategy(private val scalarTypeRegistry: Sca
     }
 
     private fun <FC : FeatureCalculator> validateFeatureCalculatorForProvider(
-        provider: FeatureCalculatorProvider<FC>
+        provider: FeatureCalculatorProvider<*>,
+        context: MetamodelBuildContext
     ): (FC) -> Mono<FC> {
         return { featureCalculator: FC ->
             when {
-                featureCalculator.name != provider.name -> {
-                    Mono.error<FC> {
-                        ServiceError.of(
-                            "feature_calculator.name does not match provider.name: [ provider.name: %s, source.name: %s ]",
-                            provider.name,
-                            featureCalculator.name
-                        )
-                    }
-                }
-                else -> {
-                    Mono.just(featureCalculator)
-                }
-            }.flatMap { fc: FC ->
-                createTreeFromTypeDefinitionRegistryQueryNode(fc.sourceTypeDefinitionRegistry)
-                    .flatMap { pt: PersistentTree<Node<*>> ->
-                        val featurePath: TreePath = TreePath.of { pathSegment(FEATURE_FIELD_NAME) }
-                        when {
-                            pt.children().count() != 1 -> {
-                                Mono.error<FC> {
-                                    ServiceError.of(
-                                        "only one query with [ name: %s, type.name: %s ] should be provided by feature_calculator.source_type_definition_registry [ query.field_definitions.size: %s ]",
-                                        FEATURE_FIELD_NAME,
-                                        FEATURE_OBJECT_TYPE_NAME,
-                                        pt.children().count()
-                                    )
-                                }
-                            }
-                            featurePath !in pt -> {
-                                Mono.error<FC> {
-                                    ServiceError.of(
-                                        "field_definition [ name: %s ] not found in feature_calculator.source_type_definition_registry [ feature_calculator.name: %s ]",
-                                        FEATURE_FIELD_NAME,
-                                        fc.name
-                                    )
-                                }
-                            }
-                            pt[featurePath]
-                                .filter { subTree: PersistentTree<Node<*>> -> subTree.size() == 0 }
-                                .isDefined() -> {
-                                Mono.error<FC> {
-                                    ServiceError.of(
-                                        "at least one field_definition must exist on [ type.name: %s ] implementing type definition corresponding to features of feature_calculator [ name: %s ]",
-                                        FEATURE_OBJECT_TYPE_NAME,
-                                        fc.name
-                                    )
-                                }
-                            }
-                            else -> {
-                                Mono.just(fc)
-                            }
+                    featureCalculator.name != provider.name -> {
+                        Mono.error<FC> {
+                            ServiceError.of(
+                                "feature_calculator.name does not match provider.name: [ provider.name: %s, source.name: %s ]",
+                                provider.name,
+                                featureCalculator.name
+                            )
                         }
                     }
-            }
+                    else -> {
+                        Mono.just(featureCalculator)
+                    }
+                }
+                .flatMap { fc: FC ->
+                    createTreeFromTypeDefinitionRegistryQueryNode(fc.sourceTypeDefinitionRegistry)
+                        .flatMap { pt: PersistentTree<Node<*>> ->
+                            val featurePath: TreePath =
+                                TreePath.of { pathSegment(FEATURE_FIELD_NAME) }
+                            when {
+                                pt.children().count() != 1 -> {
+                                    Mono.error<FC> {
+                                        ServiceError.of(
+                                            "only one query with [ name: %s, type.name: %s ] should be provided by feature_calculator.source_type_definition_registry [ query.field_definitions.size: %s ]",
+                                            FEATURE_FIELD_NAME,
+                                            FEATURE_OBJECT_TYPE_NAME,
+                                            pt.children().count()
+                                        )
+                                    }
+                                }
+                                featurePath !in pt -> {
+                                    Mono.error<FC> {
+                                        ServiceError.of(
+                                            "field_definition [ name: %s ] not found in feature_calculator.source_type_definition_registry [ feature_calculator.name: %s ]",
+                                            FEATURE_FIELD_NAME,
+                                            fc.name
+                                        )
+                                    }
+                                }
+                                pt[featurePath]
+                                    .filter { subTree: PersistentTree<Node<*>> ->
+                                        subTree.size() == 0
+                                    }
+                                    .isDefined() -> {
+                                    Mono.error<FC> {
+                                        ServiceError.of(
+                                            "at least one field_definition must exist on [ type.name: %s ] implementing type definition corresponding to features of feature_calculator [ name: %s ]",
+                                            FEATURE_OBJECT_TYPE_NAME,
+                                            fc.name
+                                        )
+                                    }
+                                }
+                                else -> {
+                                    Mono.just(fc)
+                                }
+                            }
+                        }
+                }
+                .flatMap { fc: FC ->
+                    when {
+                        FeatureCalculator.FEATURE_STORE_NOT_PROVIDED != fc.featureStoreName &&
+                            fc.featureStoreName !in context.featureJsonValueStoresByName -> {
+                            Mono.error<FC> {
+                                ServiceError.of(
+                                    "feature_store [ name: %s ] not found in list of provided feature_stores: [ %s ]",
+                                    fc.featureStoreName,
+                                    context.featureJsonValueStoresByName.keys.joinToString(", ")
+                                )
+                            }
+                        }
+                        FeatureCalculator.FEATURE_PUBLISHER_NOT_PROVIDED !=
+                            fc.featurePublisherName &&
+                            fc.featurePublisherName !in
+                                context.featureJsonValuePublishersByName -> {
+                            Mono.error<FC> {
+                                ServiceError.of(
+                                    "feature_publisher [ name: %s ] not found in list of provided feature_publishers: [ %s ]",
+                                    fc.featurePublisherName,
+                                    context.featureJsonValuePublishersByName.keys.joinToString(", ")
+                                )
+                            }
+                        }
+                        else -> {
+                            Mono.just(fc)
+                        }
+                    }
+                }
         }
     }
 

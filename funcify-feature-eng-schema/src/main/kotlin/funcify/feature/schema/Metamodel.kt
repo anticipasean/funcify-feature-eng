@@ -4,6 +4,8 @@ import funcify.feature.schema.dataelement.DataElementSource
 import funcify.feature.schema.dataelement.DataElementSourceProvider
 import funcify.feature.schema.feature.FeatureCalculator
 import funcify.feature.schema.feature.FeatureCalculatorProvider
+import funcify.feature.schema.feature.FeatureJsonValuePublisher
+import funcify.feature.schema.feature.FeatureJsonValueStore
 import funcify.feature.schema.transformer.TransformerSource
 import funcify.feature.schema.transformer.TransformerSourceProvider
 import graphql.schema.idl.TypeDefinitionRegistry
@@ -30,6 +32,10 @@ interface Metamodel {
 
     val featureCalculatorProvidersByName: ImmutableMap<String, FeatureCalculatorProvider<*>>
 
+    val featureJsonValueStoresByName: ImmutableMap<String, FeatureJsonValueStore>
+
+    val featureJsonValuePublishersByName: ImmutableMap<String, FeatureJsonValuePublisher>
+
     interface Builder {
 
         fun addDataElementSourceProvider(provider: DataElementSourceProvider<*>): Builder
@@ -55,6 +61,10 @@ interface Metamodel {
         //TODO: fun removeFeatureCalculatorProviderIf(condition: (FeatureCalculatorProvider<*>) -> Boolean): Builder
 
         //TODO: fun clearFeatureCalculatorProviders(): Builder
+
+        fun addFeatureJsonValueStore(featureJsonValueStore: FeatureJsonValueStore): Builder
+
+        fun addFeatureJsonValuePublisher(featureJsonValuePublisher: FeatureJsonValuePublisher): Builder
 
         fun build(): Mono<out Metamodel>
     }
