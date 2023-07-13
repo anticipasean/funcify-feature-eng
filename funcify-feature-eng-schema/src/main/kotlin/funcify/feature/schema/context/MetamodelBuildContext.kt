@@ -6,6 +6,7 @@ import funcify.feature.schema.feature.FeatureCalculator
 import funcify.feature.schema.feature.FeatureCalculatorProvider
 import funcify.feature.schema.transformer.TransformerSource
 import funcify.feature.schema.transformer.TransformerSourceProvider
+import graphql.schema.idl.TypeDefinitionRegistry
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableMap
 
@@ -39,6 +40,8 @@ interface MetamodelBuildContext {
     val dataElementSourcesByName: ImmutableMap<String, DataElementSource>
 
     val featureCalculatorsByName: ImmutableMap<String, FeatureCalculator>
+
+    val typeDefinitionRegistry: TypeDefinitionRegistry
 
     fun update(transformer: Builder.() -> Builder): MetamodelBuildContext
 
@@ -91,6 +94,8 @@ interface MetamodelBuildContext {
         fun addDataElementSource(dataElementSource: DataElementSource): Builder
 
         fun addFeatureCalculator(featureCalculator: FeatureCalculator): Builder
+
+        fun typeDefinitionRegistry(typeDefinitionRegistry: TypeDefinitionRegistry): Builder
 
         fun build(): MetamodelBuildContext
     }

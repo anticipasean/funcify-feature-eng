@@ -21,11 +21,11 @@ internal data class DefaultMetamodel(
     override val featureCalculatorProvidersByName:
         PersistentMap<String, FeatureCalculatorProvider<*>> =
         persistentMapOf(),
-    override val typeDefinitionRegistry: TypeDefinitionRegistry = TypeDefinitionRegistry(),
     override val dataElementSourcesByName: PersistentMap<String, DataElementSource> =
         persistentMapOf(),
     override val transformerSourcesByName: PersistentMap<String, TransformerSource> =
         persistentMapOf(),
     override val featureCalculatorsByName: PersistentMap<String, FeatureCalculator> =
         persistentMapOf(),
+    override val typeDefinitionRegistry: TypeDefinitionRegistry = TypeDefinitionRegistry(),
 ) : Metamodel {}

@@ -3,11 +3,10 @@ package funcify.feature.schema.factory
 import funcify.feature.schema.Metamodel
 import funcify.feature.schema.MetamodelBuildStrategy
 import funcify.feature.schema.MetamodelFactory
-import funcify.feature.schema.context.DefaultMetamodelBuildContext
+import funcify.feature.schema.context.MetamodelBuildContext
 import funcify.feature.schema.dataelement.DataElementSourceProvider
 import funcify.feature.schema.feature.FeatureCalculatorProvider
 import funcify.feature.schema.transformer.TransformerSourceProvider
-import kotlinx.collections.immutable.toPersistentList
 import reactor.core.publisher.Mono
 
 /**
@@ -52,11 +51,11 @@ internal class DefaultMetamodelFactory(private val metamodelBuildStrategy: Metam
 
             override fun build(): Mono<out Metamodel> {
                 return metamodelBuildStrategy.buildMetamodel(
-                    DefaultMetamodelBuildContext(
-                        dataElementSourceProviders = dataElementSourceProviders.toPersistentList(),
-                        transformerSourceProviders = transformerSourceProviders.toPersistentList(),
-                        featureCalculatorProviders = featureCalculatorProviders.toPersistentList()
-                    )
+                    MetamodelBuildContext.empty().update {
+                        addAllTransformerSourceProviders(transformerSourceProviders)
+                        addAllDataElementSourceProviders(dataElementSourceProviders)
+                        addAllFeatureCalculatorProviders(featureCalculatorProviders)
+                    }
                 )
             }
         }

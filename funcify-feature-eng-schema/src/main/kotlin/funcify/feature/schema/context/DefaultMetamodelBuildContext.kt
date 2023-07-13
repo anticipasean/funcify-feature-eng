@@ -6,6 +6,7 @@ import funcify.feature.schema.feature.FeatureCalculator
 import funcify.feature.schema.feature.FeatureCalculatorProvider
 import funcify.feature.schema.transformer.TransformerSource
 import funcify.feature.schema.transformer.TransformerSourceProvider
+import graphql.schema.idl.TypeDefinitionRegistry
 import kotlinx.collections.immutable.PersistentList
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.persistentListOf
@@ -24,6 +25,7 @@ internal data class DefaultMetamodelBuildContext(
     override val transformerSourcesByName: PersistentMap<String, TransformerSource>,
     override val dataElementSourcesByName: PersistentMap<String, DataElementSource>,
     override val featureCalculatorsByName: PersistentMap<String, FeatureCalculator>,
+    override val typeDefinitionRegistry: TypeDefinitionRegistry,
 ) : MetamodelBuildContext {
 
     companion object {
@@ -38,7 +40,8 @@ internal data class DefaultMetamodelBuildContext(
                 featureCalculatorProvidersByName = persistentMapOf(),
                 transformerSourcesByName = persistentMapOf(),
                 dataElementSourcesByName = persistentMapOf(),
-                featureCalculatorsByName = persistentMapOf()
+                featureCalculatorsByName = persistentMapOf(),
+                typeDefinitionRegistry = TypeDefinitionRegistry()
             )
         }
 
@@ -58,6 +61,7 @@ internal data class DefaultMetamodelBuildContext(
             private val transformerSourcesByName: PersistentMap.Builder<String, TransformerSource>,
             private val dataElementSourcesByName: PersistentMap.Builder<String, DataElementSource>,
             private val featureCalculatorsByName: PersistentMap.Builder<String, FeatureCalculator>,
+            private var typeDefinitionRegistry: TypeDefinitionRegistry,
         ) : MetamodelBuildContext.Builder {
 
             override fun addTransformerSourceProvider(
@@ -114,6 +118,13 @@ internal data class DefaultMetamodelBuildContext(
                 return this
             }
 
+            override fun typeDefinitionRegistry(
+                typeDefinitionRegistry: TypeDefinitionRegistry
+            ): MetamodelBuildContext.Builder {
+                this.typeDefinitionRegistry = typeDefinitionRegistry
+                return this
+            }
+
             override fun build(): MetamodelBuildContext {
                 return DefaultMetamodelBuildContext(
                     transformerSourceProviders = transformerSourceProviders.build(),
@@ -125,6 +136,7 @@ internal data class DefaultMetamodelBuildContext(
                     transformerSourcesByName = transformerSourcesByName.build(),
                     dataElementSourcesByName = dataElementSourcesByName.build(),
                     featureCalculatorsByName = featureCalculatorsByName.build(),
+                    typeDefinitionRegistry = typeDefinitionRegistry
                 )
             }
         }
@@ -147,7 +159,8 @@ internal data class DefaultMetamodelBuildContext(
                         this.featureCalculatorProvidersByName.builder(),
                     transformerSourcesByName = this.transformerSourcesByName.builder(),
                     dataElementSourcesByName = this.dataElementSourcesByName.builder(),
-                    featureCalculatorsByName = this.featureCalculatorsByName.builder()
+                    featureCalculatorsByName = this.featureCalculatorsByName.builder(),
+                    typeDefinitionRegistry = this.typeDefinitionRegistry,
                 )
             )
             .build()

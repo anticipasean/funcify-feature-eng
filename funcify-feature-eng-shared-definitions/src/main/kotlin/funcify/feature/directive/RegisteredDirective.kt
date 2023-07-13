@@ -2,13 +2,8 @@ package funcify.feature.directive
 
 import graphql.Scalars
 import graphql.introspection.Introspection
-import graphql.language.Description
-import graphql.language.DirectiveDefinition
-import graphql.language.DirectiveLocation
-import graphql.language.InputValueDefinition
-import graphql.language.NonNullType
-import graphql.language.SourceLocation
-import graphql.language.TypeName
+import graphql.language.*
+import graphql.scalars.ExtendedScalars
 
 object RegisteredDirective : MaterializationDirective {
 
@@ -37,12 +32,26 @@ object RegisteredDirective : MaterializationDirective {
                 .type(NonNullType.newNonNullType(TypeName(Scalars.GraphQLString.name)).build())
                 .build(),
             InputValueDefinition.newInputValueDefinition()
-                .name("valueType")
-                .type(NonNullType.newNonNullType(TypeName(Scalars.GraphQLString.name)).build())
+                .name("dataElementInputs")
+                .type(
+                    NonNullType.newNonNullType(
+                            ListType.newListType(TypeName(Scalars.GraphQLString.name)).build()
+                        )
+                        .build()
+                )
+                .description(
+                    Description(
+                        "names of data_elements to be passed in as arguments",
+                        SourceLocation.EMPTY,
+                        false
+                    )
+                )
+                .defaultValue(ArrayValue.newArrayValue().build())
                 .build(),
             InputValueDefinition.newInputValueDefinition()
                 .name("defaultValue")
-                .type(NonNullType.newNonNullType(TypeName(Scalars.GraphQLString.name)).build())
+                .type(TypeName(ExtendedScalars.Json.name))
+                .defaultValue(NullValue.of())
                 .build()
         )
     }
