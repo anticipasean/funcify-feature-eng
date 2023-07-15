@@ -1,16 +1,9 @@
 package funcify.feature.schema.strategy
 
-import arrow.core.Either
-import arrow.core.filterIsInstance
-import arrow.core.getOrElse
-import arrow.core.identity
-import arrow.core.left
-import arrow.core.none
-import arrow.core.right
-import arrow.core.some
-import arrow.core.toOption
+import arrow.core.*
 import com.fasterxml.jackson.databind.JsonNode
 import funcify.feature.error.ServiceError
+import funcify.feature.naming.StandardNamingConventions
 import funcify.feature.scalar.registry.ScalarTypeRegistry
 import funcify.feature.schema.Metamodel
 import funcify.feature.schema.MetamodelBuildStrategy
@@ -30,7 +23,6 @@ import funcify.feature.tools.extensions.OptionExtensions.toOption
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.extensions.TryExtensions.failure
 import funcify.feature.tree.PersistentTree
-import funcify.feature.tree.path.TreePath
 import graphql.GraphQLError
 import graphql.language.FieldDefinition
 import graphql.language.ImplementingTypeDefinition
@@ -38,9 +30,12 @@ import graphql.language.ListType
 import graphql.language.Node
 import graphql.language.NonNullType
 import graphql.language.ObjectTypeDefinition
+import graphql.language.SDLDefinition
 import graphql.language.Type
 import graphql.language.TypeName
 import graphql.schema.idl.TypeDefinitionRegistry
+import kotlin.reflect.KClass
+import kotlin.reflect.KType
 import kotlinx.collections.immutable.toPersistentMap
 import org.slf4j.Logger
 import reactor.core.publisher.Flux
@@ -218,48 +213,93 @@ internal class DefaultMetamodelBuildStrategy(private val scalarTypeRegistry: Sca
                     Mono.just(transformerSource)
                 }
             }.flatMap { ts: TS ->
-                createTreeFromTypeDefinitionRegistryQueryNode(ts.sourceTypeDefinitionRegistry)
-                    .flatMap { pt: PersistentTree<Node<*>> ->
-                        val transformerQueryPath: TreePath =
-                            TreePath.of { pathSegment(TRANSFORMER_FIELD_NAME) }
-                        when {
-                            pt.children().count() != 1 -> {
-                                Mono.error<TS> {
-                                    ServiceError.of(
-                                        "only one query with [ name: %s, type.name: %s ] should be provided by transformer_source.source_type_definition_registry [ query.field_definitions.size: %s ]",
-                                        TRANSFORMER_FIELD_NAME,
-                                        TRANSFORMER_OBJECT_TYPE_NAME,
-                                        pt.children().count()
-                                    )
-                                }
-                            }
-                            transformerQueryPath !in pt -> {
-                                Mono.error<TS> {
-                                    ServiceError.of(
-                                        "field_definition [ name: %s ] not found in transformer_source.source_type_definition_registry [ transformer_source.name: %s ]",
-                                        TRANSFORMER_FIELD_NAME,
-                                        ts.name
-                                    )
-                                }
-                            }
-                            pt[transformerQueryPath]
-                                .filter { subTree: PersistentTree<Node<*>> -> subTree.size() == 0 }
-                                .isDefined() -> {
-                                Mono.error<TS> {
-                                    ServiceError.of(
-                                        "at least one field_definition must exist on [ type.name: %s ] type definition corresponding to transformers of transformer_source [ transformer_source.name: %s ]",
-                                        TRANSFORMER_OBJECT_TYPE_NAME,
-                                        ts.name
-                                    )
-                                }
-                            }
-                            else -> {
-                                Mono.just(ts)
+                createTypeDefinitionRegistryFromSource(ts).flatMap { tdr: TypeDefinitionRegistry ->
+                    when {
+                        !tdr.hasType(TypeName.newTypeName(QUERY_OBJECT_TYPE_NAME).build()) -> {
+                            Mono.error<TS> {
+                                ServiceError.of(
+                                    "transformer_source [ name: %s ] does not contain any %s object type definition/extension definition",
+                                    ts.name,
+                                    QUERY_OBJECT_TYPE_NAME
+                                )
                             }
                         }
+                        else -> {
+                            Mono.just(ts)
+                        }
                     }
+                }
             }
         }
+    }
+
+    private fun createTypeDefinitionRegistryFromSource(
+        source: Source
+    ): Mono<out TypeDefinitionRegistry> {
+        val sourceTypeName: String by lazy {
+            when (source) {
+                is TransformerSource -> {
+                    TransformerSource::class.simpleName
+                }
+                is DataElementSource -> {
+                    DataElementSource::class.simpleName
+                }
+                is FeatureCalculator -> {
+                    FeatureCalculator::class.simpleName
+                }
+                else -> {
+                    source::class
+                        .supertypes
+                        .asSequence()
+                        .mapNotNull { kt: KType -> kt.classifier }
+                        .filterIsInstance<KClass<*>>()
+                        .map { kc: KClass<*> -> kc.simpleName }
+                        .firstOrNull()
+                }
+            }.let { name: String? ->
+                StandardNamingConventions.SNAKE_CASE.deriveName(name ?: "<NA>").qualifiedForm
+            }
+        }
+        return source.sourceSDLDefinitions
+            .asSequence()
+            .fold(Try.success(TypeDefinitionRegistry())) {
+                tdrAttempt: Try<TypeDefinitionRegistry>,
+                sd: SDLDefinition<*>,
+                ->
+                tdrAttempt.flatMap { tdr: TypeDefinitionRegistry ->
+                    when (val possibleError: Option<GraphQLError> = tdr.add(sd).toOption()) {
+                        is Some<GraphQLError> -> {
+                            val message: String =
+                                "%s.source_sdl_definitions: [ validation: failed ]".format(
+                                    sourceTypeName
+                                )
+                            when (val e: GraphQLError = possibleError.orNull()!!) {
+                                is Throwable -> {
+                                    ServiceError.builder().message(message).cause(e).build()
+                                }
+                                else -> {
+                                    ServiceError.of(
+                                        "$message[ graphql_error: %s ]",
+                                        Try.attempt { e.toSpecification() }
+                                            .orElseGet {
+                                                mapOf(
+                                                    "errorType" to e.errorType,
+                                                    "message" to e.message
+                                                )
+                                            }
+                                            .asSequence()
+                                            .joinToString(", ", "{ ", " }") { (k, v) -> "$k: $v" }
+                                    )
+                                }
+                            }.failure<TypeDefinitionRegistry>()
+                        }
+                        else -> {
+                            Try.success(tdr)
+                        }
+                    }
+                }
+            }
+            .toMono()
     }
 
     private fun createTreeFromTypeDefinitionRegistryQueryNode(
@@ -353,46 +393,22 @@ internal class DefaultMetamodelBuildStrategy(private val scalarTypeRegistry: Sca
                     Mono.just(dataElementSource)
                 }
             }.flatMap { des: DES ->
-                createTreeFromTypeDefinitionRegistryQueryNode(des.sourceTypeDefinitionRegistry)
-                    .flatMap { pt: PersistentTree<Node<*>> ->
-                        val dataElementQueryPath: TreePath =
-                            TreePath.of { pathSegment(DATA_ELEMENT_FIELD_NAME) }
-                        when {
-                            pt.children().count() != 1 -> {
-                                Mono.error<DES> {
-                                    ServiceError.of(
-                                        "only one query with [ name: %s, type.name: %s ] should be provided by data_element_source.source_type_definition_registry [ query.field_definitions.size: %s ]",
-                                        DATA_ELEMENT_FIELD_NAME,
-                                        DATA_ELEMENT_OBJECT_TYPE_NAME,
-                                        pt.children().count()
-                                    )
-                                }
-                            }
-                            dataElementQueryPath !in pt -> {
-                                Mono.error<DES> {
-                                    ServiceError.of(
-                                        "field_definition [ name: %s ] not found in data_element_source.source_type_definition_registry [ name: %s ]",
-                                        DATA_ELEMENT_FIELD_NAME,
-                                        des.name
-                                    )
-                                }
-                            }
-                            pt[dataElementQueryPath]
-                                .filter { subTree: PersistentTree<Node<*>> -> subTree.size() == 0 }
-                                .isDefined() -> {
-                                Mono.error<DES> {
-                                    ServiceError.of(
-                                        "at least one field_definition must exist on [ type.name: %s ] implementing type definition corresponding to data elements of data_element_source [ name: %s ]",
-                                        DATA_ELEMENT_OBJECT_TYPE_NAME,
-                                        des.name
-                                    )
-                                }
-                            }
-                            else -> {
-                                Mono.just(des)
+                createTypeDefinitionRegistryFromSource(des).flatMap { tdr: TypeDefinitionRegistry ->
+                    when {
+                        !tdr.hasType(TypeName.newTypeName(QUERY_OBJECT_TYPE_NAME).build()) -> {
+                            Mono.error<DES> {
+                                ServiceError.of(
+                                    "data_element_source [ name: %s ] does not contain any %s object type or extension definition",
+                                    des.name,
+                                    QUERY_OBJECT_TYPE_NAME
+                                )
                             }
                         }
+                        else -> {
+                            Mono.just(des)
+                        }
                     }
+                }
             }
         }
     }
@@ -417,48 +433,23 @@ internal class DefaultMetamodelBuildStrategy(private val scalarTypeRegistry: Sca
                     }
                 }
                 .flatMap { fc: FC ->
-                    createTreeFromTypeDefinitionRegistryQueryNode(fc.sourceTypeDefinitionRegistry)
-                        .flatMap { pt: PersistentTree<Node<*>> ->
-                            val featurePath: TreePath =
-                                TreePath.of { pathSegment(FEATURE_FIELD_NAME) }
-                            when {
-                                pt.children().count() != 1 -> {
-                                    Mono.error<FC> {
-                                        ServiceError.of(
-                                            "only one query with [ name: %s, type.name: %s ] should be provided by feature_calculator.source_type_definition_registry [ query.field_definitions.size: %s ]",
-                                            FEATURE_FIELD_NAME,
-                                            FEATURE_OBJECT_TYPE_NAME,
-                                            pt.children().count()
-                                        )
-                                    }
-                                }
-                                featurePath !in pt -> {
-                                    Mono.error<FC> {
-                                        ServiceError.of(
-                                            "field_definition [ name: %s ] not found in feature_calculator.source_type_definition_registry [ feature_calculator.name: %s ]",
-                                            FEATURE_FIELD_NAME,
-                                            fc.name
-                                        )
-                                    }
-                                }
-                                pt[featurePath]
-                                    .filter { subTree: PersistentTree<Node<*>> ->
-                                        subTree.size() == 0
-                                    }
-                                    .isDefined() -> {
-                                    Mono.error<FC> {
-                                        ServiceError.of(
-                                            "at least one field_definition must exist on [ type.name: %s ] implementing type definition corresponding to features of feature_calculator [ name: %s ]",
-                                            FEATURE_OBJECT_TYPE_NAME,
-                                            fc.name
-                                        )
-                                    }
-                                }
-                                else -> {
-                                    Mono.just(fc)
+                    createTypeDefinitionRegistryFromSource(fc).flatMap { tdr: TypeDefinitionRegistry
+                        ->
+                        when {
+                            !tdr.hasType(TypeName.newTypeName(QUERY_OBJECT_TYPE_NAME).build()) -> {
+                                Mono.error<FC> {
+                                    ServiceError.of(
+                                        "feature_calculator [ name: %s ] does not contain any %s object type definition/extension definition",
+                                        fc.name,
+                                        QUERY_OBJECT_TYPE_NAME
+                                    )
                                 }
                             }
+                            else -> {
+                                Mono.just(fc)
+                            }
                         }
+                    }
                 }
                 .flatMap { fc: FC ->
                     when {
@@ -502,22 +493,43 @@ internal class DefaultMetamodelBuildStrategy(private val scalarTypeRegistry: Sca
                     ctxResult: Try<MetamodelBuildContext>,
                     s: Source ->
                     ctxResult.flatMap { c: MetamodelBuildContext ->
-                        Try.attempt {
-                                c.typeDefinitionRegistry.merge(s.sourceTypeDefinitionRegistry)
+                        when (
+                            val possibleError: Option<GraphQLError> =
+                                c.typeDefinitionRegistry.addAll(s.sourceSDLDefinitions).toOption()
+                        ) {
+                            is Some<GraphQLError> -> {
+                                val message: String =
+                                    """error [ type: %s ] occurred when merging 
+                                        |[ source.name: %s ] sdl definitions with 
+                                        |metamodel_build_context.type_definition_registry"""
+                                        .flatten()
+                                        .format(possibleError.value::class.qualifiedName)
+                                when (val e: GraphQLError = possibleError.value) {
+                                    is Throwable -> {
+                                        ServiceError.builder().message(message).cause(e).build()
+                                    }
+                                    else -> {
+                                        ServiceError.of(
+                                            "$message[ graphql_error: %s ]",
+                                            Try.attempt { e.toSpecification() }
+                                                .orElseGet {
+                                                    mapOf(
+                                                        "errorType" to e.errorType,
+                                                        "message" to e.message
+                                                    )
+                                                }
+                                                .asSequence()
+                                                .joinToString(", ", "{ ", " }") { (k, v) ->
+                                                    "$k: $v"
+                                                }
+                                        )
+                                    }
+                                }.failure<MetamodelBuildContext>()
                             }
-                            .map { updatedTdr: TypeDefinitionRegistry ->
-                                c.update { typeDefinitionRegistry(updatedTdr) }
+                            else -> {
+                                Try.success(c)
                             }
-                            .mapFailure { t: Throwable ->
-                                ServiceError.builder()
-                                    .message(
-                                        "error [ type: %s ] occurred when merging [ source.name: %s ].source_type_definition_registry with metamodel_build_context.type_definition_registry",
-                                        t::class.qualifiedName,
-                                        s.name
-                                    )
-                                    .cause(t)
-                                    .build()
-                            }
+                        }
                     }
                 }
                 .flatMap(Try<MetamodelBuildContext>::toMono)
@@ -533,7 +545,7 @@ internal class DefaultMetamodelBuildStrategy(private val scalarTypeRegistry: Sca
             .toOption()
             .map { e: GraphQLError ->
                 when (e) {
-                    is RuntimeException -> {
+                    is Throwable -> {
                         ServiceError.builder()
                             .message(
                                 "error occurred when adding scalar definitions to context.type_definition_registry"

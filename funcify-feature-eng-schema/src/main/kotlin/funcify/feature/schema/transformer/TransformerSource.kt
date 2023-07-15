@@ -1,7 +1,8 @@
 package funcify.feature.schema.transformer
 
 import funcify.feature.schema.Source
-import graphql.schema.idl.TypeDefinitionRegistry
+import graphql.language.SDLDefinition
+import kotlinx.collections.immutable.ImmutableSet
 
 /**
  * @author smccarron
@@ -11,5 +12,5 @@ interface TransformerSource : Source {
 
     override val name: String
 
-    override val sourceTypeDefinitionRegistry: TypeDefinitionRegistry
+    override val sourceSDLDefinitions: ImmutableSet<SDLDefinition<*>>
 }

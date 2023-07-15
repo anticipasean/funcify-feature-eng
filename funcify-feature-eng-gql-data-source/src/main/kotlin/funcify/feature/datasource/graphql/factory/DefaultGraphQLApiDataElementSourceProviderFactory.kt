@@ -12,11 +12,14 @@ import funcify.feature.datasource.graphql.metadata.filter.TypeDefinitionRegistry
 import funcify.feature.datasource.graphql.metadata.provider.GraphQLApiSchemaFileMetadataProvider
 import funcify.feature.datasource.graphql.metadata.provider.GraphQLApiServiceMetadataProvider
 import funcify.feature.error.ServiceError
+import funcify.feature.schema.sdl.SDLDefinitionsSetExtractor
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.ResultExtensions.toMono
 import funcify.feature.tools.json.JsonMapper
+import graphql.language.SDLDefinition
 import graphql.schema.idl.TypeDefinitionRegistry
+import kotlinx.collections.immutable.PersistentSet
 import org.slf4j.Logger
 import org.springframework.core.io.ClassPathResource
 import reactor.core.publisher.Mono
@@ -130,13 +133,13 @@ internal class DefaultGraphQLApiDataElementSourceProviderFactory(
                 logger.info("get_latest_data_element_source: [ name: {} ]", name)
                 return metadataProvider
                     .provideTypeDefinitionRegistry(schemaClassPathResource)
-                    .flatMap { td: TypeDefinitionRegistry ->
-                        typeDefinitionRegistryFilter.filter(td).toMono()
+                    .flatMap { tdr: TypeDefinitionRegistry ->
+                        typeDefinitionRegistryFilter.filter(tdr).toMono()
                     }
-                    .map { td: TypeDefinitionRegistry ->
+                    .map { tdr: TypeDefinitionRegistry ->
                         DefaultServiceBackedDataElementSource(
                             name = name,
-                            sourceTypeDefinitionRegistry = td,
+                            sourceSDLDefinitions = SDLDefinitionsSetExtractor(tdr),
                             graphQLApiService = graphQLApiService
                         )
                     }
@@ -162,10 +165,10 @@ internal class DefaultGraphQLApiDataElementSourceProviderFactory(
                     .flatMap { td: TypeDefinitionRegistry ->
                         typeDefinitionRegistryFilter.filter(td).toMono()
                     }
-                    .map { td: TypeDefinitionRegistry ->
+                    .map { tdr: TypeDefinitionRegistry ->
                         DefaultServiceBackedDataElementSource(
                             name = name,
-                            sourceTypeDefinitionRegistry = td,
+                            sourceSDLDefinitions = SDLDefinitionsSetExtractor(tdr),
                             graphQLApiService = graphQLApiService
                         )
                     }
@@ -189,13 +192,13 @@ internal class DefaultGraphQLApiDataElementSourceProviderFactory(
                 logger.info("get_latest_data_element_source: [ name: {} ]", name)
                 return metadataProvider
                     .provideTypeDefinitionRegistry(schemaClassPathResource)
-                    .flatMap { td: TypeDefinitionRegistry ->
-                        typeDefinitionRegistryFilter.filter(td).toMono()
+                    .flatMap { tdr: TypeDefinitionRegistry ->
+                        typeDefinitionRegistryFilter.filter(tdr).toMono()
                     }
-                    .map { td: TypeDefinitionRegistry ->
+                    .map { tdr: TypeDefinitionRegistry ->
                         DefaultSchemaOnlyDataElementSource(
                             name = name,
-                            sourceTypeDefinitionRegistry = td
+                            sourceSDLDefinitions = SDLDefinitionsSetExtractor(tdr)
                         )
                     }
             }
@@ -203,13 +206,13 @@ internal class DefaultGraphQLApiDataElementSourceProviderFactory(
 
         internal class DefaultServiceBackedDataElementSource(
             override val name: String,
-            override val sourceTypeDefinitionRegistry: TypeDefinitionRegistry,
+            override val sourceSDLDefinitions: PersistentSet<SDLDefinition<*>>,
             override val graphQLApiService: GraphQLApiService
         ) : ServiceBackedDataElementSource {}
 
         internal class DefaultSchemaOnlyDataElementSource(
             override val name: String,
-            override val sourceTypeDefinitionRegistry: TypeDefinitionRegistry
+            override val sourceSDLDefinitions: PersistentSet<SDLDefinition<*>>
         ) : SchemaOnlyDataElementSource {}
     }
 

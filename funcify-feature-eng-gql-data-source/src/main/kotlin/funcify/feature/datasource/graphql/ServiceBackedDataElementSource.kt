@@ -1,6 +1,7 @@
 package funcify.feature.datasource.graphql
 
-import graphql.schema.idl.TypeDefinitionRegistry
+import graphql.language.SDLDefinition
+import kotlinx.collections.immutable.ImmutableSet
 
 /**
  * @author smccarron
@@ -10,7 +11,7 @@ interface ServiceBackedDataElementSource : GraphQLApiDataElementSource {
 
     override val name: String
 
-    override val sourceTypeDefinitionRegistry: TypeDefinitionRegistry
+    override val sourceSDLDefinitions: ImmutableSet<SDLDefinition<*>>
 
     val graphQLApiService: GraphQLApiService
 }

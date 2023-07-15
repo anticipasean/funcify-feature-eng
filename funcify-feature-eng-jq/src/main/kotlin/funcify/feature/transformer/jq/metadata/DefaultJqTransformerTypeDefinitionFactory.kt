@@ -8,14 +8,11 @@ import funcify.feature.transformer.jq.env.JqTransformerTypeDefinitionEnvironment
 import funcify.feature.transformer.jq.env.JqTransformerTypeDefinitionEnvironment.Companion.DEFAULT_DESCRIPTION_FORMAT
 import funcify.feature.transformer.jq.env.JqTransformerTypeDefinitionEnvironment.Companion.DEFAULT_INPUT_ARGUMENT_NAME
 import funcify.feature.transformer.jq.env.JqTransformerTypeDefinitionEnvironment.Companion.QUERY_OBJECT_TYPE_NAME
-import funcify.feature.transformer.jq.env.JqTransformerTypeDefinitionEnvironment.Companion.TRANSFORMER_FIELD_NAME
-import funcify.feature.transformer.jq.env.JqTransformerTypeDefinitionEnvironment.Companion.TRANSFORMER_OBJECT_TYPE_NAME
 import graphql.GraphQLError
 import graphql.language.Description
 import graphql.language.FieldDefinition
 import graphql.language.InputValueDefinition
 import graphql.language.ObjectTypeDefinition
-import graphql.language.ObjectTypeExtensionDefinition
 import graphql.language.SourceLocation
 import graphql.language.TypeDefinition
 import graphql.language.TypeName
@@ -57,23 +54,12 @@ internal object DefaultJqTransformerTypeDefinitionFactory : JqTransformerTypeDef
             .let { jqTypeDef: ObjectTypeDefinition ->
                 sequenceOf(
                         jqTypeDef,
-                        ObjectTypeExtensionDefinition.newObjectTypeExtensionDefinition()
-                            .name(TRANSFORMER_OBJECT_TYPE_NAME)
+                        ObjectTypeDefinition.newObjectTypeDefinition()
+                            .name(QUERY_OBJECT_TYPE_NAME)
                             .fieldDefinition(
                                 FieldDefinition.newFieldDefinition()
                                     .name(environment.transformerSourceName)
                                     .type(TypeName.newTypeName(jqTypeDef.name).build())
-                                    .build()
-                            )
-                            .build(),
-                        ObjectTypeExtensionDefinition.newObjectTypeExtensionDefinition()
-                            .name(QUERY_OBJECT_TYPE_NAME)
-                            .fieldDefinition(
-                                FieldDefinition.newFieldDefinition()
-                                    .name(TRANSFORMER_FIELD_NAME)
-                                    .type(
-                                        TypeName.newTypeName(TRANSFORMER_OBJECT_TYPE_NAME).build()
-                                    )
                                     .build()
                             )
                             .build()

@@ -5,6 +5,7 @@ import arrow.core.getOrElse
 import arrow.core.some
 import com.fasterxml.jackson.databind.JsonNode
 import funcify.feature.error.ServiceError
+import funcify.feature.schema.sdl.SDLDefinitionsSetExtractor
 import funcify.feature.tools.extensions.LoggerExtensions
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.transformer.jq.JqTransformer
@@ -68,7 +69,7 @@ internal class YamlResourceJqTransformerSourceProvider(
                     .map { tdr: TypeDefinitionRegistry ->
                         DefaultJqTransformerSource(
                             name = name,
-                            sourceTypeDefinitionRegistry = tdr,
+                            sourceSDLDefinitions = SDLDefinitionsSetExtractor(tdr),
                             jqTransformersByName = jtsByName,
                         )
                     }
