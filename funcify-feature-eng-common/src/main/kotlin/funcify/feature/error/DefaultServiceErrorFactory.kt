@@ -53,7 +53,7 @@ internal object DefaultServiceErrorFactory : ServiceErrorFactory {
             return this
         }
 
-        override fun cause(throwable: Throwable): ServiceError.Builder {
+        override fun cause(throwable: Throwable?): ServiceError.Builder {
             var t: Throwable? = throwable
             while (t?.cause != null) {
                 t = t.cause
@@ -123,19 +123,19 @@ internal object DefaultServiceErrorFactory : ServiceErrorFactory {
         override fun build(): ServiceError {
             if (!message.contains(Regex(" with cause ")) && cause != null) {
                 val c: Throwable = cause!!
-                message =
-                    StringBuilder(message)
-                        .append(" with cause ")
-                        .append(
-                            mapOf(
-                                    "type" to c::class.simpleName,
-                                    "message" to c.message,
-                                    "stacktrace[0]" to c.possiblyNestedHeadStackTraceElement()
-                                )
-                                .asSequence()
-                                .joinToString(", ", "[ ", " ]") { (k, v) -> "$k: $v" }
-                        )
-                        .toString()
+                message = buildString {
+                    append(message)
+                    append(" with cause ")
+                    append(
+                        mapOf(
+                                "type" to c::class.simpleName,
+                                "message" to c.message,
+                                "stacktrace[0]" to c.possiblyNestedHeadStackTraceElement()
+                            )
+                            .asSequence()
+                            .joinToString(", ", "[ ", " ]") { (k, v) -> "$k: $v" }
+                    )
+                }
             }
             return DefaultServiceError(
                 serverHttpResponse = serverHttpResponse,

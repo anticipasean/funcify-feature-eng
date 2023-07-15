@@ -97,7 +97,7 @@ abstract class ServiceError(
 
         fun message(template: String, vararg args: Any?): Builder
 
-        fun cause(throwable: Throwable): Builder
+        fun cause(throwable: Throwable?): Builder
 
         fun addServiceErrorToHistory(serviceError: ServiceError): Builder
 
