@@ -11,6 +11,8 @@ import funcify.feature.schema.Source
 import funcify.feature.schema.context.MetamodelBuildContext
 import funcify.feature.schema.dataelement.DataElementSource
 import funcify.feature.schema.dataelement.DataElementSourceProvider
+import funcify.feature.schema.directive.alias.AliasDirectiveVisitor
+import funcify.feature.schema.directive.alias.AttributeAliasRegistry
 import funcify.feature.schema.feature.FeatureCalculator
 import funcify.feature.schema.feature.FeatureCalculatorProvider
 import funcify.feature.schema.metamodel.DefaultMetamodel
@@ -30,6 +32,11 @@ import funcify.feature.tree.PersistentTree
 import graphql.GraphQLError
 import graphql.language.*
 import graphql.schema.idl.TypeDefinitionRegistry
+import graphql.util.TraversalControl
+import graphql.util.Traverser
+import graphql.util.TraverserContext
+import graphql.util.TraverserResult
+import graphql.util.TraverserVisitorStub
 import kotlin.reflect.KClass
 import kotlin.reflect.KType
 import kotlin.reflect.full.isSubclassOf
@@ -74,6 +81,7 @@ internal class DefaultMetamodelBuildStrategy(private val scalarTypeRegistry: Sca
             .flatMap(validateSourceProviders())
             .flatMap(extractSourcesFromSourceProviders())
             .flatMap(createTypeDefinitionRegistryFromSources())
+            .flatMap(createAliasRegistryFromTypeDefinitionRegistry())
             .map { ctx: MetamodelBuildContext ->
                 DefaultMetamodel(
                     transformerSourceProvidersByName =
@@ -90,6 +98,10 @@ internal class DefaultMetamodelBuildStrategy(private val scalarTypeRegistry: Sca
                     dataElementSourcesByName = ctx.dataElementSourcesByName.toPersistentMap(),
                     featureCalculatorsByName = ctx.featureCalculatorsByName.toPersistentMap(),
                     typeDefinitionRegistry = ctx.typeDefinitionRegistry,
+                    attributeAliasRegistry = ctx.attributeAliasRegistry,
+                    entityRegistry = ctx.entityRegistry,
+                    lastUpdatedTemporalAttributePathRegistry =
+                        ctx.lastUpdatedTemporalAttributePathRegistry
                 )
             }
             .doOnSuccess(logSuccessfulStatus())
@@ -844,6 +856,81 @@ internal class DefaultMetamodelBuildStrategy(private val scalarTypeRegistry: Sca
                 }
                 .toMono()
                 .widen()
+        }
+    }
+
+    private fun createAliasRegistryFromTypeDefinitionRegistry():
+        (MetamodelBuildContext) -> Mono<MetamodelBuildContext> {
+        return { context: MetamodelBuildContext ->
+            context.typeDefinitionRegistry
+                .getType(QUERY_OBJECT_TYPE_NAME, ObjectTypeDefinition::class.java)
+                .toOption()
+                .flatMap { otd: ObjectTypeDefinition ->
+                    Traverser.breadthFirst<Node<*>>(
+                            { n: Node<*> ->
+                                when (n) {
+                                    is ObjectTypeDefinition -> {
+                                        if (n.name == QUERY_OBJECT_TYPE_NAME) {
+                                            n.fieldDefinitions
+                                                .filter { fd: FieldDefinition ->
+                                                    fd.name == DATA_ELEMENT_FIELD_NAME
+                                                }
+                                                .toList()
+                                        } else {
+                                            n.fieldDefinitions
+                                        }
+                                    }
+                                    is FieldDefinition -> {
+                                        listOf(n.type)
+                                    }
+                                    is Type<*> -> {
+                                        n.toOption()
+                                            .recurse { t: Type<*> ->
+                                                when (t) {
+                                                    is NonNullType -> t.type.left().some()
+                                                    is ListType -> t.type.left().some()
+                                                    is TypeName -> t.right().some()
+                                                    else -> none()
+                                                }
+                                            }
+                                            .flatMap { tn: TypeName ->
+                                                context.typeDefinitionRegistry
+                                                    .getType(
+                                                        tn,
+                                                        ImplementingTypeDefinition::class.java
+                                                    )
+                                                    .toOption()
+                                            }
+                                            .map { itd: ImplementingTypeDefinition<*> ->
+                                                listOf(itd)
+                                            }
+                                            .getOrElse { emptyList() }
+                                    }
+                                    else -> {
+                                        emptyList<Node<*>>()
+                                    }
+                                }
+                            },
+                            null,
+                            AttributeAliasRegistry.newRegistry()
+                        )
+                        .traverse(
+                            otd,
+                            object : TraverserVisitorStub<Node<*>>() {
+                                override fun enter(
+                                    context: TraverserContext<Node<*>>
+                                ): TraversalControl {
+                                    return context
+                                        .thisNode()
+                                        .accept(context, AliasDirectiveVisitor())
+                                }
+                            }
+                        )
+                        .toOption()
+                        .map { tr: TraverserResult -> tr.accumulatedResult }
+                        .filterIsInstance<AttributeAliasRegistry>()
+                }
+            TODO()
         }
     }
 

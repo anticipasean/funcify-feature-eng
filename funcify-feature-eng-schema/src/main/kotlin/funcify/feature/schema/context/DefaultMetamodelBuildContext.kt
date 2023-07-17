@@ -2,6 +2,9 @@ package funcify.feature.schema.context
 
 import funcify.feature.schema.dataelement.DataElementSource
 import funcify.feature.schema.dataelement.DataElementSourceProvider
+import funcify.feature.schema.directive.alias.AttributeAliasRegistry
+import funcify.feature.schema.directive.identifier.EntityRegistry
+import funcify.feature.schema.directive.temporal.LastUpdatedTemporalAttributePathRegistry
 import funcify.feature.schema.feature.FeatureCalculator
 import funcify.feature.schema.feature.FeatureCalculatorProvider
 import funcify.feature.schema.feature.FeatureJsonValuePublisher
@@ -30,6 +33,9 @@ internal data class DefaultMetamodelBuildContext(
     override val dataElementSourcesByName: PersistentMap<String, DataElementSource>,
     override val featureCalculatorsByName: PersistentMap<String, FeatureCalculator>,
     override val typeDefinitionRegistry: TypeDefinitionRegistry,
+    override val attributeAliasRegistry: AttributeAliasRegistry,
+    override val entityRegistry: EntityRegistry,
+    override val lastUpdatedTemporalAttributePathRegistry: LastUpdatedTemporalAttributePathRegistry,
 ) : MetamodelBuildContext {
 
     companion object {
@@ -47,7 +53,11 @@ internal data class DefaultMetamodelBuildContext(
                 transformerSourcesByName = persistentMapOf(),
                 dataElementSourcesByName = persistentMapOf(),
                 featureCalculatorsByName = persistentMapOf(),
-                typeDefinitionRegistry = TypeDefinitionRegistry()
+                typeDefinitionRegistry = TypeDefinitionRegistry(),
+                attributeAliasRegistry = AttributeAliasRegistry.newRegistry(),
+                entityRegistry = EntityRegistry.newRegistry(),
+                lastUpdatedTemporalAttributePathRegistry =
+                    LastUpdatedTemporalAttributePathRegistry.newRegistry()
             )
         }
 
@@ -72,6 +82,10 @@ internal data class DefaultMetamodelBuildContext(
             private val dataElementSourcesByName: PersistentMap.Builder<String, DataElementSource>,
             private val featureCalculatorsByName: PersistentMap.Builder<String, FeatureCalculator>,
             private var typeDefinitionRegistry: TypeDefinitionRegistry,
+            private var attributeAliasRegistry: AttributeAliasRegistry,
+            private var entityRegistry: EntityRegistry,
+            private var lastUpdatedTemporalAttributePathRegistry:
+                LastUpdatedTemporalAttributePathRegistry,
         ) : MetamodelBuildContext.Builder {
 
             override fun addTransformerSourceProvider(
@@ -155,6 +169,28 @@ internal data class DefaultMetamodelBuildContext(
                 return this
             }
 
+            override fun attributeAliasRegistry(
+                attributeAliasRegistry: AttributeAliasRegistry
+            ): MetamodelBuildContext.Builder {
+                this.attributeAliasRegistry = attributeAliasRegistry
+                return this
+            }
+
+            override fun entityRegistry(
+                entityRegistry: EntityRegistry
+            ): MetamodelBuildContext.Builder {
+                this.entityRegistry = entityRegistry
+                return this
+            }
+
+            override fun lastUpdatedTemporalAttributePathRegistry(
+                lastUpdatedTemporalAttributePathRegistry: LastUpdatedTemporalAttributePathRegistry
+            ): MetamodelBuildContext.Builder {
+                this.lastUpdatedTemporalAttributePathRegistry =
+                    lastUpdatedTemporalAttributePathRegistry
+                return this
+            }
+
             override fun build(): MetamodelBuildContext {
                 return DefaultMetamodelBuildContext(
                     transformerSourceProviders = transformerSourceProviders.build(),
@@ -168,7 +204,11 @@ internal data class DefaultMetamodelBuildContext(
                     transformerSourcesByName = transformerSourcesByName.build(),
                     dataElementSourcesByName = dataElementSourcesByName.build(),
                     featureCalculatorsByName = featureCalculatorsByName.build(),
-                    typeDefinitionRegistry = typeDefinitionRegistry
+                    typeDefinitionRegistry = typeDefinitionRegistry,
+                    attributeAliasRegistry = attributeAliasRegistry,
+                    entityRegistry = entityRegistry,
+                    lastUpdatedTemporalAttributePathRegistry =
+                        lastUpdatedTemporalAttributePathRegistry
                 )
             }
         }
@@ -196,6 +236,10 @@ internal data class DefaultMetamodelBuildContext(
                     dataElementSourcesByName = this.dataElementSourcesByName.builder(),
                     featureCalculatorsByName = this.featureCalculatorsByName.builder(),
                     typeDefinitionRegistry = this.typeDefinitionRegistry,
+                    attributeAliasRegistry = this.attributeAliasRegistry,
+                    entityRegistry = this.entityRegistry,
+                    lastUpdatedTemporalAttributePathRegistry =
+                        this.lastUpdatedTemporalAttributePathRegistry
                 )
             )
             .build()

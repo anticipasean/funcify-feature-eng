@@ -2,6 +2,9 @@ package funcify.feature.schema.context
 
 import funcify.feature.schema.dataelement.DataElementSource
 import funcify.feature.schema.dataelement.DataElementSourceProvider
+import funcify.feature.schema.directive.alias.AttributeAliasRegistry
+import funcify.feature.schema.directive.identifier.EntityRegistry
+import funcify.feature.schema.directive.temporal.LastUpdatedTemporalAttributePathRegistry
 import funcify.feature.schema.feature.FeatureCalculator
 import funcify.feature.schema.feature.FeatureCalculatorProvider
 import funcify.feature.schema.feature.FeatureJsonValuePublisher
@@ -48,6 +51,12 @@ interface MetamodelBuildContext {
     val featureCalculatorsByName: ImmutableMap<String, FeatureCalculator>
 
     val typeDefinitionRegistry: TypeDefinitionRegistry
+
+    val attributeAliasRegistry: AttributeAliasRegistry
+
+    val entityRegistry: EntityRegistry
+
+    val lastUpdatedTemporalAttributePathRegistry: LastUpdatedTemporalAttributePathRegistry
 
     fun update(transformer: Builder.() -> Builder): MetamodelBuildContext
 
@@ -126,6 +135,12 @@ interface MetamodelBuildContext {
         fun addFeatureJsonValuePublisher(
             featureJsonValuePublisher: FeatureJsonValuePublisher
         ): Builder
+
+        fun attributeAliasRegistry(attributeAliasRegistry: AttributeAliasRegistry): Builder
+
+        fun entityRegistry(entityRegistry: EntityRegistry): Builder
+
+        fun lastUpdatedTemporalAttributePathRegistry(lastUpdatedTemporalAttributePathRegistry: LastUpdatedTemporalAttributePathRegistry): Builder
 
         fun build(): MetamodelBuildContext
     }

@@ -2,6 +2,9 @@ package funcify.feature.schema
 
 import funcify.feature.schema.dataelement.DataElementSource
 import funcify.feature.schema.dataelement.DataElementSourceProvider
+import funcify.feature.schema.directive.alias.AttributeAliasRegistry
+import funcify.feature.schema.directive.identifier.EntityRegistry
+import funcify.feature.schema.directive.temporal.LastUpdatedTemporalAttributePathRegistry
 import funcify.feature.schema.feature.FeatureCalculator
 import funcify.feature.schema.feature.FeatureCalculatorProvider
 import funcify.feature.schema.feature.FeatureJsonValuePublisher
@@ -19,6 +22,12 @@ import reactor.core.publisher.Mono
 interface Metamodel {
 
     val typeDefinitionRegistry: TypeDefinitionRegistry
+
+    val attributeAliasRegistry: AttributeAliasRegistry
+
+    val entityRegistry: EntityRegistry
+
+    val lastUpdatedTemporalAttributePathRegistry: LastUpdatedTemporalAttributePathRegistry
 
     val dataElementSourcesByName: ImmutableMap<String, DataElementSource>
 
@@ -40,31 +49,36 @@ interface Metamodel {
 
         fun addDataElementSourceProvider(provider: DataElementSourceProvider<*>): Builder
 
-        //TODO: fun removeDataElementSourceProvider(name: String): Builder
+        // TODO: fun removeDataElementSourceProvider(name: String): Builder
 
-        //TODO: fun removeDataElementSourceProviderIf(condition: (DataElementSourceProvider<*>) -> Boolean): Builder
+        // TODO: fun removeDataElementSourceProviderIf(condition: (DataElementSourceProvider<*>) ->
+        // Boolean): Builder
 
-        //TODO: fun clearDataElementSourceProviders(): Builder
+        // TODO: fun clearDataElementSourceProviders(): Builder
 
         fun addTransformerSourceProvider(provider: TransformerSourceProvider<*>): Builder
 
-        //TODO: fun removeTransformerSourceProvider(name: String): Builder
+        // TODO: fun removeTransformerSourceProvider(name: String): Builder
 
-        //TODO: fun removeTransformerSourceProviderIf(condition: (TransformerSourceProvider<*>) -> Boolean): Builder
+        // TODO: fun removeTransformerSourceProviderIf(condition: (TransformerSourceProvider<*>) ->
+        // Boolean): Builder
 
-        //TODO: fun clearTransformerSourceProviders(): Builder
+        // TODO: fun clearTransformerSourceProviders(): Builder
 
         fun addFeatureCalculatorProvider(provider: FeatureCalculatorProvider<*>): Builder
 
-        //TODO: fun removeFeatureCalculatorProvider(name: String): Builder
+        // TODO: fun removeFeatureCalculatorProvider(name: String): Builder
 
-        //TODO: fun removeFeatureCalculatorProviderIf(condition: (FeatureCalculatorProvider<*>) -> Boolean): Builder
+        // TODO: fun removeFeatureCalculatorProviderIf(condition: (FeatureCalculatorProvider<*>) ->
+        // Boolean): Builder
 
-        //TODO: fun clearFeatureCalculatorProviders(): Builder
+        // TODO: fun clearFeatureCalculatorProviders(): Builder
 
         fun addFeatureJsonValueStore(featureJsonValueStore: FeatureJsonValueStore): Builder
 
-        fun addFeatureJsonValuePublisher(featureJsonValuePublisher: FeatureJsonValuePublisher): Builder
+        fun addFeatureJsonValuePublisher(
+            featureJsonValuePublisher: FeatureJsonValuePublisher
+        ): Builder
 
         fun build(): Mono<out Metamodel>
     }
