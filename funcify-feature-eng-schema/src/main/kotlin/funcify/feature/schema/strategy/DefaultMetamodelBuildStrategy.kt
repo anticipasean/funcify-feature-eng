@@ -2,6 +2,9 @@ package funcify.feature.schema.strategy
 
 import arrow.core.*
 import com.fasterxml.jackson.databind.JsonNode
+import funcify.feature.directive.AliasDirective
+import funcify.feature.directive.LastUpdatedDirective
+import funcify.feature.directive.MaterializationDirective
 import funcify.feature.error.ServiceError
 import funcify.feature.naming.StandardNamingConventions
 import funcify.feature.scalar.registry.ScalarTypeRegistry
@@ -547,9 +550,12 @@ internal class DefaultMetamodelBuildStrategy(private val scalarTypeRegistry: Sca
         (MetamodelBuildContext) -> Mono<MetamodelBuildContext> {
         return { context: MetamodelBuildContext ->
             createTypeDefinitionRegistriesForEachSourceType(context)
-                .reduce(addScalarTypeDefinitionsToContextTypeDefinitionRegistry(context)) {
-                    ctxResult: Try<MetamodelBuildContext>,
-                    tdr: TypeDefinitionRegistry ->
+                .reduce(
+                    addScalarTypeDefinitionsToContextTypeDefinitionRegistry(context).flatMap {
+                        ctx: MetamodelBuildContext ->
+                        addDirectiveDefinitionsToContextTypeDefinitionRegistry(context)
+                    }
+                ) { ctxResult: Try<MetamodelBuildContext>, tdr: TypeDefinitionRegistry ->
                     ctxResult.flatMap { c: MetamodelBuildContext ->
                         when (
                             val mergeAttempt: Try<TypeDefinitionRegistry> =
@@ -759,7 +765,47 @@ internal class DefaultMetamodelBuildStrategy(private val scalarTypeRegistry: Sca
     private fun addDirectiveDefinitionsToContextTypeDefinitionRegistry(
         context: MetamodelBuildContext
     ): Try<MetamodelBuildContext> {
-        TODO()
+        return sequenceOf<MaterializationDirective>(AliasDirective, LastUpdatedDirective).fold(
+            Try.success(context)
+        ) { ctxAttempt: Try<MetamodelBuildContext>, md: MaterializationDirective ->
+            ctxAttempt.flatMap { c: MetamodelBuildContext ->
+                when (
+                    val possibleError: Option<GraphQLError> =
+                        c.typeDefinitionRegistry.add(md.directiveDefinition).toOption()
+                ) {
+                    is Some<GraphQLError> -> {
+                        val message: String =
+                            """error [ type: %s ]
+                            |when adding directive definition [ name: %s ] 
+                            |to context.type_definition_registry
+                            """
+                                .flatten()
+                        when (val e: GraphQLError = possibleError.value) {
+                            is Throwable -> {
+                                ServiceError.builder().message(message).cause(e).build()
+                            }
+                            else -> {
+                                ServiceError.of(
+                                    "$message[ graphql_error: %s ]",
+                                    Try.attempt { e.toSpecification() }
+                                        .orElseGet {
+                                            mapOf(
+                                                "errorType" to e.errorType,
+                                                "message" to e.message
+                                            )
+                                        }
+                                        .asSequence()
+                                        .joinToString(", ", "{ ", " }") { (k, v) -> "$k: $v" }
+                                )
+                            }
+                        }.failure<MetamodelBuildContext>()
+                    }
+                    else -> {
+                        Try.success(c.update { typeDefinitionRegistry(c.typeDefinitionRegistry) })
+                    }
+                }
+            }
+        }
     }
 
     private fun createTopLevelQueryObjectTypeDefinitionBasedOnSourceTypes():

@@ -16,12 +16,13 @@ object AliasDirective : MaterializationDirective {
     override val name: String = "alias"
 
     override val description: String =
-        "Indicates a different name that the corresponding field_definition may have"
+        "Indicates a different name that the corresponding argument or field_definition may have"
 
     override val supportedDirectiveLocations: List<DirectiveLocation> by lazy {
         listOf(
                 Introspection.DirectiveLocation.FIELD_DEFINITION,
-                Introspection.DirectiveLocation.INPUT_FIELD_DEFINITION
+                Introspection.DirectiveLocation.INPUT_FIELD_DEFINITION,
+                Introspection.DirectiveLocation.ARGUMENT_DEFINITION
             )
             .map { iDirLoc -> DirectiveLocation(iDirLoc.name) }
     }

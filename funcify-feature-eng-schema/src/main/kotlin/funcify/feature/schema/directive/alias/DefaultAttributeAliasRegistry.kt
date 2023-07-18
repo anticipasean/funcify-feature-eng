@@ -3,6 +3,9 @@ package funcify.feature.schema.directive.alias
 import arrow.core.Option
 import arrow.core.identity
 import arrow.core.toOption
+import com.fasterxml.jackson.databind.node.ArrayNode
+import com.fasterxml.jackson.databind.node.JsonNodeFactory
+import com.fasterxml.jackson.databind.node.ObjectNode
 import funcify.feature.naming.ConventionalName
 import funcify.feature.naming.StandardNamingConventions
 import funcify.feature.schema.path.SchematicPath
@@ -95,8 +98,7 @@ internal data class DefaultAttributeAliasRegistry(
                 }
                 return verticesByStandardAndAliasQualifiedNames[
                         StandardNamingConventions.SNAKE_CASE.deriveName(unnormalizedName)
-                            .qualifiedForm
-                    ]
+                            .qualifiedForm]
                     .toOption()
                     .fold(::persistentSetOf, ::identity)
             }
@@ -194,13 +196,13 @@ internal data class DefaultAttributeAliasRegistry(
 
     override fun getParameterVertexPathsWithSimilarNameOrAlias(
         name: String
-                                                              ): ImmutableSet<SchematicPath> {
+    ): ImmutableSet<SchematicPath> {
         return memoizingParameterAttributeVertexAliasMapper.invoke(name)
     }
 
     override fun getParameterVertexPathsWithSimilarNameOrAlias(
         conventionalName: ConventionalName
-                                                              ): ImmutableSet<SchematicPath> {
+    ): ImmutableSet<SchematicPath> {
         return if (
             conventionalName.namingConventionKey ==
                 StandardNamingConventions.SNAKE_CASE.conventionKey
@@ -211,5 +213,31 @@ internal data class DefaultAttributeAliasRegistry(
                 conventionalName.nameSegments.joinToString("_") { ns -> ns.value.lowercase() }
             )
         }
+    }
+
+    private val computedStringForm: String by lazy {
+        parameterAttributeVerticesByStandardAndAliasQualifiedNames
+            .asSequence()
+            .fold(
+                sourceAttributeVerticesByStandardAndAliasQualifiedNames.asSequence().fold(
+                    JsonNodeFactory.instance.objectNode()
+                ) { on: ObjectNode, (name: String, path: SchematicPath) ->
+                    on.put(name, path.toString())
+                }
+            ) { on: ObjectNode, (name: String, paths: PersistentSet<SchematicPath>) ->
+                on.set<ObjectNode>(
+                    name,
+                    paths.asSequence().fold(JsonNodeFactory.instance.arrayNode()) {
+                        an: ArrayNode,
+                        p: SchematicPath ->
+                        an.add(p.toString())
+                    }
+                )
+            }
+            .toString()
+    }
+
+    override fun toString(): String {
+        return computedStringForm
     }
 }
