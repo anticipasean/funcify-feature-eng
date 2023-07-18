@@ -1,18 +1,10 @@
 package funcify.feature.schema.path
 
 import arrow.core.Option
-import arrow.core.getOrElse
 import arrow.core.none
 import arrow.core.some
-import com.fasterxml.jackson.databind.JsonNode
-import com.fasterxml.jackson.databind.node.JsonNodeFactory
-import funcify.feature.tools.extensions.JsonNodeExtensions.removeAllChildKeyValuePairsFromRightmostObjectNode
-import funcify.feature.tools.json.JacksonJsonNodeComparator
-import java.math.BigDecimal
 import java.net.URI
 import kotlinx.collections.immutable.ImmutableList
-import kotlinx.collections.immutable.ImmutableMap
-import kotlinx.collections.immutable.toPersistentMap
 
 /**
  * Represents a data element, derived or raw, within the schema, its arguments / parameters, and any
@@ -39,29 +31,6 @@ interface SchematicPath : Comparable<SchematicPath> {
             return rootPath.transform(builderFunction)
         }
 
-        private val stringKeyJsonValueMapComparator: Comparator<Map<String, JsonNode>> by lazy {
-            val jsonNodeComparator: Comparator<JsonNode> = JacksonJsonNodeComparator
-            Comparator<Map<String, JsonNode>> { m1, m2 -> //
-                /*
-                 * Early exit approach: First non-matching pair found returns comparison value else considered equal
-                 */
-                m1.asSequence()
-                    .zip(m2.asSequence()) {
-                        e1: Map.Entry<String, JsonNode>,
-                        e2: Map.Entry<String, JsonNode> ->
-                        e1.key.compareTo(e2.key).let { keyComparison: Int ->
-                            if (keyComparison != 0) {
-                                keyComparison
-                            } else {
-                                jsonNodeComparator.compare(e1.value, e2.value)
-                            }
-                        }
-                    }
-                    .firstOrNull { keyOrValComparison: Int -> keyOrValComparison != 0 }
-                    ?: m1.size.compareTo(m2.size)
-            }
-        }
-
         private val stringListComparator: Comparator<List<String>> by lazy {
             Comparator<List<String>> { l1, l2 -> //
                 /*
@@ -74,16 +43,55 @@ interface SchematicPath : Comparable<SchematicPath> {
             }
         }
 
+        private val namedPathPairComparator:
+            Comparator<Option<Pair<String, List<String>>>> by lazy {
+            Comparator<Option<Pair<String, List<String>>>> { pair1, pair2 -> //
+                when (val p1: Pair<String, List<String>>? = pair1.orNull()) {
+                    null -> {
+                        when (pair2.orNull()) {
+                            null -> {
+                                0
+                            }
+                            else -> {
+                                -1
+                            }
+                        }
+                    }
+                    else -> {
+                        when (val p2: Pair<String, List<String>>? = pair2.orNull()) {
+                            null -> {
+                                1
+                            }
+                            else -> {
+                                p1.first.compareTo(p2.first).let { keyComparison: Int ->
+                                    if (keyComparison != 0) {
+                                        keyComparison
+                                    } else {
+                                        stringListComparator.compare(p1.second, p2.second)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         private val schematicPathComparator: Comparator<SchematicPath> by lazy {
             Comparator.comparing(SchematicPath::scheme, String::compareTo)
                 .thenComparing(SchematicPath::pathSegments, stringListComparator)
-                .thenComparing(SchematicPath::arguments, stringKeyJsonValueMapComparator)
-                .thenComparing(SchematicPath::directives, stringKeyJsonValueMapComparator)
+                .thenComparing(SchematicPath::argument, namedPathPairComparator)
+                .thenComparing(SchematicPath::directive, namedPathPairComparator)
         }
 
         @JvmStatic
         fun comparator(): Comparator<SchematicPath> {
             return schematicPathComparator
+        }
+
+        @JvmStatic
+        fun parse(input: String): SchematicPath {
+            return SchematicPathParser.invoke(input).orElseThrow()
         }
     }
 
@@ -93,30 +101,61 @@ interface SchematicPath : Comparable<SchematicPath> {
      * query/mutation/subscription graph structure:
      * ```
      * user(id: 123) {
-     *     transactions(filter: { correlation_id: { eq: "82b1d1cd-8020-41f1-9536-dc143c320ff1" } }) {
+     *     transactions(
+     *       filter: {
+     *         correlation_id: { eq: "82b1d1cd-8020-41f1-9536-dc143c320ff1" } @alias(name: "traceId")
+     *       }
+     *     ) {
      *         messageBody
      *     }
      * }
      * ```
      *
-     * in GraphQL query form
+     * in GraphQL query form where the referent is the `messageBody` field
      */
     val pathSegments: ImmutableList<String>
 
     /**
-     * Represented by URI query parameters
-     * `?correlation_id=82b1d1cd-8020-41f1-9536-dc143c320ff1&user_id=123` in URI form and contextual
-     * input arguments `node(context: {"correlation_id":
-     * "82b1d1cd-8020-41f1-9536-dc143c320ff1","user_id": 123})` in GraphQL SDL form
+     * Represented by URI query parameters `?filter=/correlation_id/eq` in URI form and a
+     * query/mutation/subscription graph structure:
+     * ```
+     * user(id: 123) {
+     *     transactions(
+     *       filter: {
+     *         correlation_id: { eq: "82b1d1cd-8020-41f1-9536-dc143c320ff1" } @alias(name: "traceId")
+     *       }
+     *     ) {
+     *         messageBody
+     *     }
+     * }
+     * ```
+     *
+     * in GraphQL query form where the referent is `eq`, the key to the value being passed as an
+     * input object to `correlation_id`, an input object to `filter`, an argument to field
+     * `transactions` => `/user/transactions?filter=/correlation_id/eq`
      */
-    val arguments: ImmutableMap<String, JsonNode>
+    val argument: Option<Pair<String, ImmutableList<String>>>
 
     /**
-     * Represented by URI fragments `#uppercase&aliases=names=amount_remaining_3m_1m,amt_rem_3m1m`
-     * in URI form and schema directives `@uppercase @aliases(names:
-     * ["amount_remaining_3m_1m", "amt_rem_3m1m" ])` in GraphQL SDL form
+     * Represented by URI fragments `#alias` in URI form and a query/mutation/subscription graph
+     * structure:
+     * ```
+     * user(id: 123) {
+     *     transactions(
+     *       filter: {
+     *         correlation_id: { eq: "82b1d1cd-8020-41f1-9536-dc143c320ff1" } @alias(name: "traceId")
+     *       }
+     *     ) {
+     *         messageBody
+     *     }
+     * }
+     * ```
+     *
+     * in GraphQL query form where the referent is `alias`, a directive on `correlation_id`, an
+     * input object to `filter`, an argument to field `transactions` =>
+     * `/user/transactions?filter=/correlation_id#alias`
      */
-    val directives: ImmutableMap<String, JsonNode>
+    val directive: Option<Pair<String, ImmutableList<String>>>
 
     /** URI representation of path on which feature function is located within service context */
     fun toURI(): URI
@@ -126,472 +165,51 @@ interface SchematicPath : Comparable<SchematicPath> {
      * represents a parameter to some source container or attribute type
      */
     fun isRoot(): Boolean {
-        return pathSegments.isEmpty() && arguments.isEmpty() && directives.isEmpty()
-    }
-
-    /**
-     * One schematic path is a parent to another when:
-     * - parent has the same path segments _up to_ the child's final segment and neither parent nor
-     *   child schematic path represents parameters (=> have arguments or directives) to a source
-     *   container or attribute type e.g. `(Parent) gqls:/path_1 -> (Child) gqls:/path_1/path_2`
-     * - parent has the same path segments as child does but child has arguments and/or directives
-     *   indicating it is a parameter specification for the parent source container or attribute
-     *   type e.g. `(Parent) gqls:/path_1 -> (Child) gqls:/path_1?argument_1=1`
-     *
-     * There is not a parent-child relationship when one path represents different parameters than
-     * another _on the same_ source container or attribute type: `gqls:/path_1?argument_1=1 NOT
-     * PARENT TO to gqls:/path_1#directive_1=23.3`
-     */
-    fun isParentTo(other: SchematicPath): Boolean {
-        /**
-         * Strategy: Attempt to make quick decisions based on size differences in path_segment lists
-         * before checking for equality between path_segments
-         */
-        return when {
-            this.scheme != other.scheme -> {
-                false
-            }
-            this.pathSegments.size > other.pathSegments.size -> {
-                false
-            }
-            /**
-             * All but last segment on other must match and both paths cannot represent parameter
-             * indices (=> have arguments or directives)
-             */
-            this.pathSegments.size + 1 == other.pathSegments.size -> {
-                pathSegments
-                    .asSequence()
-                    .zip(other.pathSegments.asSequence().take(this.pathSegments.size)) { t, o ->
-                        t == o
-                    }
-                    .all { matched -> matched } &&
-                    arguments.isEmpty() &&
-                    directives.isEmpty() &&
-                    other.arguments.isEmpty() &&
-                    other.directives.isEmpty()
-            }
-            /**
-             * All segments on both paths must match and other path must represent a parameter
-             * junction index on this path
-             */
-            this.pathSegments.size == other.pathSegments.size &&
-                this.arguments.isEmpty() &&
-                this.directives.isEmpty() &&
-                (other.arguments.isNotEmpty() || other.directives.isNotEmpty()) -> {
-                this.pathSegments
-                    .asSequence()
-                    .zip(other.pathSegments.asSequence()) { t, o -> t == o }
-                    .all { matched -> matched } &&
-                    other.arguments.all { entry -> entry.value.isNull || entry.value.isEmpty } &&
-                    other.directives.all { entry -> entry.value.isNull || entry.value.isEmpty }
-            }
-            /**
-             * All segments on both paths must match and other path must represent a parameter
-             * attribute index on this parameter junction index path
-             */
-            this.pathSegments.size == other.pathSegments.size &&
-                (this.arguments.isNotEmpty() || this.directives.isNotEmpty()) &&
-                (other.arguments.isNotEmpty() || other.directives.isNotEmpty()) -> {
-                this.pathSegments
-                    .asSequence()
-                    .zip(other.pathSegments.asSequence()) { t, o -> t == o }
-                    .all { matched -> matched } &&
-                    (when (
-                        val argumentsRelationshipType =
-                            JsonObjectHierarchyAssessor
-                                .findRelationshipTypeBetweenTwoJsonObjectMaps(
-                                    this.arguments,
-                                    other.arguments
-                                )
-                    ) {
-                        JsonObjectHierarchyAssessor.RelationshipType.IDENTITY -> {
-                            JsonObjectHierarchyAssessor
-                                .findRelationshipTypeBetweenTwoJsonObjectMaps(
-                                    this.directives,
-                                    other.directives
-                                ) == JsonObjectHierarchyAssessor.RelationshipType.PARENT_CHILD
-                        }
-                        else -> {
-                            argumentsRelationshipType ==
-                                JsonObjectHierarchyAssessor.RelationshipType.PARENT_CHILD &&
-                                (this.directives.isEmpty() && other.directives.isEmpty())
-                        }
-                    })
-            }
-            else -> {
-                false
-            }
-        }
-    }
-    /**
-     * Inverse of #isParentTo logic:
-     *
-     * One schematic path is a child to another when:
-     * - child has N-1 path segments the same as the parent and neither parent nor child schematic
-     *   path represents parameters (=> have arguments or directives) to a source container or
-     *   attribute type e.g. `(Child) gqls:/path_1/path_2 -> (Parent) gqls:/path_1`
-     * - child has the same path segments as parent does but child has arguments and/or directives
-     *   indicating it is a parameter specification for the parent source container or attribute
-     *   type e.g. `(Child) gqls:/path_1?argument_1=1 -> (Parent) gqls:/path_1`
-     *
-     * There is not a parent-child relationship when one path represents different parameters than
-     * another _on the same_ source container or attribute type: `gqls:/path_1?argument_1=1 NOT
-     * CHILD TO to gqls:/path_1#directive_1=23.3`
-     */
-    fun isChildTo(other: SchematicPath): Boolean {
-        /**
-         * Strategy: Attempt to make quick decisions based on size differences in path_segment lists
-         * before checking for equality between path_segments
-         */
-        return when {
-            this.scheme != other.scheme -> {
-                false
-            }
-            this.pathSegments.size < other.pathSegments.size -> {
-                false
-            }
-            /**
-             * All path_segments _up to last one_ must match and neither path can represent a
-             * parameter index (=> have arguments or directives)
-             */
-            this.pathSegments.size == other.pathSegments.size + 1 &&
-                arguments.isEmpty() &&
-                directives.isEmpty() &&
-                other.arguments.isEmpty() &&
-                other.directives.isEmpty() -> {
-                this.pathSegments
-                    .asSequence()
-                    .take(other.pathSegments.size)
-                    .zip(other.pathSegments.asSequence()) { t, o -> t == o }
-                    .all { matched -> matched }
-            }
-            /**
-             * All path_segments must match and this path must represent a parameter junction index
-             * on the other path (=> have arguments or directives)
-             */
-            this.pathSegments.size == other.pathSegments.size &&
-                (this.arguments.isNotEmpty() || this.directives.isNotEmpty()) &&
-                other.arguments.isEmpty() &&
-                other.directives.isEmpty() -> {
-                this.pathSegments
-                    .asSequence()
-                    .zip(other.pathSegments.asSequence()) { t, o -> t == o }
-                    .all { matched -> matched } &&
-                    this.arguments.all { entry -> entry.value.isNull || entry.value.isEmpty } &&
-                    this.directives.all { entry -> entry.value.isNull || entry.value.isEmpty }
-            }
-            /**
-             * All segments on both paths must match and this path must represent a parameter
-             * attribute index on the other parameter junction index
-             */
-            this.pathSegments.size == other.pathSegments.size &&
-                (this.arguments.isNotEmpty() || this.directives.isNotEmpty()) &&
-                (other.arguments.isNotEmpty() || other.directives.isNotEmpty()) -> {
-                this.pathSegments
-                    .asSequence()
-                    .zip(other.pathSegments.asSequence()) { t, o -> t == o }
-                    .all { matched -> matched } &&
-                    (when (
-                        val argumentsRelationshipType =
-                            JsonObjectHierarchyAssessor
-                                .findRelationshipTypeBetweenTwoJsonObjectMaps(
-                                    this.arguments,
-                                    other.arguments
-                                )
-                    ) {
-                        JsonObjectHierarchyAssessor.RelationshipType.IDENTITY -> {
-                            JsonObjectHierarchyAssessor
-                                .findRelationshipTypeBetweenTwoJsonObjectMaps(
-                                    this.directives,
-                                    other.directives
-                                ) == JsonObjectHierarchyAssessor.RelationshipType.CHILD_PARENT
-                        }
-                        else -> {
-                            argumentsRelationshipType ==
-                                JsonObjectHierarchyAssessor.RelationshipType.CHILD_PARENT &&
-                                this.directives.isEmpty() &&
-                                other.directives.isEmpty()
-                        }
-                    })
-            }
-            else -> {
-                false
-            }
-        }
-    }
-
-    /**
-     * Siblings must represent the same parent source container or attribute type within the schema
-     * (=> share the same N - 1 path segments)
-     *
-     * e.g. `gqls:/path_1/path_2/path_3 IS SIBLING TO gqls:/path_1/path_2/path_4`
-     *
-     * OR
-     *
-     * represent parameters on the same parent source container or attribute type within the schema
-     * (=> share the same N path segments) but represent different parameters on that source
-     * container or attribute type:
-     *
-     * e.g. `gqls:/path_1/path_2?argument_1=1 IS SIBLING TO gqls:/path_1/path_2#directive_1=1`
-     */
-    fun isSiblingTo(other: SchematicPath): Boolean {
-        /**
-         * Strategy: Attempt to make quick decisions based on size differences in path_segment lists
-         * before checking for equality between path_segments
-         */
-        return when {
-            this.scheme != other.scheme -> {
-                false
-            }
-            else -> {
-                this.getParentPath()
-                    .zip(other.getParentPath(), schematicPathComparator::compare)
-                    .map { comp -> comp == 0 }
-                    .getOrElse { false }
-            }
-        }
-    }
-
-    /**
-     * Has all path segments in common up to other.path_segments.size - 1 index and with all path
-     * segments being equal, this path is a parameter index (child) to the other
-     */
-    fun isDescendentOf(other: SchematicPath): Boolean {
-        /**
-         * Strategy: Attempt to make quick decisions based on size differences in path_segment lists
-         * before checking for equality between path_segments
-         */
-        return when {
-            this.scheme != other.scheme -> {
-                false
-            }
-            /** if other has more path segments, not a descendent but could be an ancestor */
-            this.pathSegments.size < other.pathSegments.size -> {
-                false
-            }
-            /**
-             * if the other has fewer or the same number of path segments and does not represent an
-             * argument or directive
-             */
-            this.pathSegments.size >= other.pathSegments.size &&
-                other.arguments.isEmpty() &&
-                other.directives.isEmpty() -> {
-                this.pathSegments
-                    .asSequence()
-                    .take(other.pathSegments.size)
-                    .zip(other.pathSegments.asSequence()) { t, o -> t == o }
-                    .all { matched -> matched }
-            }
-            /** both represent parameter indices */
-            this.pathSegments.size == other.pathSegments.size &&
-                (this.arguments.isNotEmpty() || this.directives.isNotEmpty()) &&
-                (other.arguments.isNotEmpty() || other.directives.isNotEmpty()) -> {
-                this.pathSegments
-                    .asSequence()
-                    .zip(other.pathSegments.asSequence()) { t, o -> t == o }
-                    .all { matched -> matched } &&
-                    (when (
-                        val argumentsRelationshipType =
-                            JsonObjectHierarchyAssessor
-                                .findRelationshipTypeBetweenTwoJsonObjectMaps(
-                                    this.arguments,
-                                    other.arguments
-                                )
-                    ) {
-                        JsonObjectHierarchyAssessor.RelationshipType.IDENTITY -> {
-                            JsonObjectHierarchyAssessor
-                                .findRelationshipTypeBetweenTwoJsonObjectMaps(
-                                    this.directives,
-                                    other.directives
-                                ) in
-                                setOf(
-                                    JsonObjectHierarchyAssessor.RelationshipType
-                                        .DESCENDENT_ANCESTOR,
-                                    JsonObjectHierarchyAssessor.RelationshipType.CHILD_PARENT
-                                )
-                        }
-                        else -> {
-                            argumentsRelationshipType in
-                                setOf(
-                                    JsonObjectHierarchyAssessor.RelationshipType
-                                        .DESCENDENT_ANCESTOR,
-                                    JsonObjectHierarchyAssessor.RelationshipType.CHILD_PARENT
-                                ) && this.directives.isEmpty() && other.directives.isEmpty()
-                        }
-                    })
-            }
-            else -> {
-                false
-            }
-        }
-    }
-
-    /**
-     * Has all path segments in common up to this.path_segments.size - 1 index and with all path
-     * segments being equal, this path is not a parameter index (child) for the other
-     */
-    fun isAncestorOf(other: SchematicPath): Boolean {
-        /**
-         * Strategy: Attempt to make quick decisions based on size differences in path_segment lists
-         * before checking for equality between path_segments
-         */
-        return when {
-            this.scheme != other.scheme -> {
-                false
-            }
-            /** if other has fewer path segments, not an ancestor but could be descendent */
-            this.pathSegments.size > other.pathSegments.size -> {
-                false
-            }
-            /**
-             * if this has fewer or the same number of path segments and does not represent an
-             * argument or directive
-             */
-            this.pathSegments.size <= other.pathSegments.size &&
-                this.arguments.isEmpty() &&
-                this.directives.isEmpty() -> {
-                this.pathSegments
-                    .asSequence()
-                    .zip(other.pathSegments.asSequence().take(this.pathSegments.size)) { t, o ->
-                        t == o
-                    }
-                    .all { matched -> matched }
-            }
-            /**
-             * if this has the same number of path segments and represents an argument or directive
-             */
-            this.pathSegments.size == other.pathSegments.size &&
-                (arguments.isNotEmpty() || directives.isNotEmpty()) &&
-                (other.arguments.isNotEmpty() || other.directives.isNotEmpty()) -> {
-                this.pathSegments
-                    .asSequence()
-                    .zip(other.pathSegments.asSequence()) { t, o -> t == o }
-                    .all { matched -> matched } &&
-                    (when (
-                        val argumentsRelationship =
-                            JsonObjectHierarchyAssessor
-                                .findRelationshipTypeBetweenTwoJsonObjectMaps(
-                                    this.arguments,
-                                    other.arguments
-                                )
-                    ) {
-                        JsonObjectHierarchyAssessor.RelationshipType.IDENTITY -> {
-                            JsonObjectHierarchyAssessor
-                                .findRelationshipTypeBetweenTwoJsonObjectMaps(
-                                    this.directives,
-                                    other.directives
-                                ) in
-                                setOf(
-                                    JsonObjectHierarchyAssessor.RelationshipType
-                                        .ANCESTOR_DESCENDENT,
-                                    JsonObjectHierarchyAssessor.RelationshipType.PARENT_CHILD
-                                )
-                        }
-                        else -> {
-                            argumentsRelationship in
-                                setOf(
-                                    JsonObjectHierarchyAssessor.RelationshipType
-                                        .ANCESTOR_DESCENDENT,
-                                    JsonObjectHierarchyAssessor.RelationshipType.PARENT_CHILD
-                                ) && this.directives.isEmpty() && other.directives.isEmpty()
-                        }
-                    })
-            }
-            else -> {
-                false
-            }
-        }
+        return pathSegments.isEmpty() && argument.isEmpty() && directive.isEmpty()
     }
 
     fun level(): Int = pathSegments.size
 
-    /**
-     * A parent path is:
-     * - one that represents the container if the current path represents an attribute on that
-     *   container
-     *
-     * _OR_
-     * - one that represents an attribute on a data source to which the value represented by the
-     *   current path may be passed as a parameter
-     */
     fun getParentPath(): Option<SchematicPath> {
         return when {
-            isRoot() -> {
+            pathSegments.isEmpty() && argument.isEmpty() && directive.isEmpty() -> {
                 none<SchematicPath>()
             }
-            arguments.isEmpty() && directives.isEmpty() -> {
+            argument.isEmpty() && directive.isEmpty() -> {
                 transform { dropPathSegment() }.some()
             }
-            arguments.isNotEmpty() &&
-                directives.isEmpty() &&
-                arguments.size == 1 &&
-                arguments.firstNotNullOf { (_, value) -> value.isNull || value.isEmpty } -> {
-                transform { clearArguments() }.some()
+            argument
+                .filter { (_: String, pathSegments: ImmutableList<String>) ->
+                    pathSegments.isEmpty()
+                }
+                .isDefined() && directive.isEmpty() -> {
+                transform { clearArgument() }.some()
             }
-            arguments.isEmpty() &&
-                directives.isNotEmpty() &&
-                directives.size == 1 &&
-                directives.firstNotNullOf { (_, value) -> value.isNull || value.isEmpty } -> {
-                transform { clearDirectives() }.some()
+            argument.isEmpty() &&
+                directive
+                    .filter { (_: String, pathSegments: ImmutableList<String>) ->
+                        pathSegments.isEmpty()
+                    }
+                    .isDefined() -> {
+                transform { clearDirective() }.some()
+            }
+            argument
+                .filter { (_: String, pathSegments: ImmutableList<String>) ->
+                    pathSegments.isNotEmpty()
+                }
+                .isDefined() && directive.isEmpty() -> {
+                transform { dropArgumentPathSegment() }.some()
+            }
+            argument.isDefined() &&
+                directive
+                    .filter { (_: String, pathSegments: ImmutableList<String>) ->
+                        pathSegments.isEmpty()
+                    }
+                    .isDefined() -> {
+                transform { clearDirective() }.some()
             }
             else -> {
-                /**
-                 * Remove the last directive if it represents a container: null or empty json node
-                 * Else, make the last directive json value null node
-                 */
-                if (directives.isNotEmpty()) {
-                    val lastKey = directives.keys.last()
-                    directives[lastKey]?.let { jn ->
-                        // represents a scalar value, array, or null so remove entry with last_key
-                        if (jn.isEmpty || !jn.isObject) {
-                            transform {
-                                    clearDirectives()
-                                        .directives(directives.toPersistentMap().remove(lastKey))
-                                }
-                                .some()
-                        } else {
-                            // represents an object so remove rightmost child keyvalue pair,
-                            // potentially nested
-                            transform {
-                                    directive(
-                                        lastKey,
-                                        jn.removeAllChildKeyValuePairsFromRightmostObjectNode()
-                                    )
-                                }
-                                .some()
-                        }
-                    }
-                        ?: none<SchematicPath>()
-                    /**
-                     * Remove the last argument if it represents a container: null or empty Else,
-                     * make the last argument json value null node
-                     */
-                } else if (arguments.isNotEmpty()) {
-                    val lastKey = arguments.keys.last()
-                    arguments[lastKey]?.let { jn ->
-                        // represents a scalar value, array, or null so remove entry with last_key
-                        if (jn.isEmpty || !jn.isObject) {
-                            transform {
-                                    clearArguments()
-                                        .arguments(arguments.toPersistentMap().remove(lastKey))
-                                }
-                                .some()
-                        } else {
-                            // represents an object so remove rightmost child keyvalue pair,
-                            // potentially nested
-                            transform {
-                                    argument(
-                                        lastKey,
-                                        jn.removeAllChildKeyValuePairsFromRightmostObjectNode()
-                                    )
-                                }
-                                .some()
-                        }
-                    }
-                        ?: none<SchematicPath>()
-                } else {
-                    none<SchematicPath>()
-                }
+                transform { dropDirectivePathSegment() }.some()
             }
         }
     }
@@ -628,89 +246,37 @@ interface SchematicPath : Comparable<SchematicPath> {
 
         fun clearPathSegments(): Builder
 
-        fun argument(key: String, value: JsonNode): Builder
+        fun argument(name: String, pathSegments: List<String>): Builder
 
-        fun argument(key: String, stringValue: String): Builder {
-            return argument(key, JsonNodeFactory.instance.textNode(stringValue))
-        }
+        fun argument(name: String, vararg pathSegment: String): Builder
 
-        fun argument(key: String, intValue: Int): Builder {
-            return argument(key, JsonNodeFactory.instance.numberNode(intValue))
-        }
+        fun prependArgumentPathSegment(vararg pathSegment: String): Builder
 
-        fun argument(key: String, longValue: Long): Builder {
-            return argument(key, JsonNodeFactory.instance.numberNode(longValue))
-        }
+        fun prependArgumentPathSegments(pathSegments: List<String>): Builder
 
-        fun argument(key: String, doubleValue: Double): Builder {
-            return argument(key, JsonNodeFactory.instance.numberNode(doubleValue))
-        }
+        fun appendArgumentPathSegment(vararg pathSegment: String): Builder
 
-        fun argument(key: String, floatValue: Float): Builder {
-            return argument(key, JsonNodeFactory.instance.numberNode(floatValue))
-        }
+        fun appendArgumentPathSegments(pathSegments: List<String>): Builder
 
-        fun argument(key: String, bigDecimalValue: BigDecimal): Builder {
-            return argument(key, JsonNodeFactory.instance.numberNode(bigDecimalValue))
-        }
+        fun dropArgumentPathSegment(): Builder
 
-        fun argument(key: String, booleanValue: Boolean): Builder {
-            return argument(key, JsonNodeFactory.instance.booleanNode(booleanValue))
-        }
+        fun clearArgument(): Builder
 
-        fun argument(key: String): Builder {
-            return argument(key, JsonNodeFactory.instance.nullNode())
-        }
+        fun directive(name: String, pathSegments: List<String>): Builder
 
-        fun argument(keyValuePair: Pair<String, JsonNode>): Builder
+        fun directive(name: String, vararg pathSegment: String): Builder
 
-        fun arguments(keyValuePairs: Map<String, JsonNode>): Builder
+        fun prependDirectivePathSegment(vararg pathSegment: String): Builder
 
-        fun dropArgument(key: String): Builder
+        fun prependDirectivePathSegments(pathSegments: List<String>): Builder
 
-        fun clearArguments(): Builder
+        fun appendDirectivePathSegment(vararg pathSegment: String): Builder
 
-        fun directive(key: String, value: JsonNode): Builder
+        fun appendDirectivePathSegments(pathSegments: List<String>): Builder
 
-        fun directive(key: String, stringValue: String): Builder {
-            return directive(key, JsonNodeFactory.instance.textNode(stringValue))
-        }
+        fun dropDirectivePathSegment(): Builder
 
-        fun directive(key: String, intValue: Int): Builder {
-            return directive(key, JsonNodeFactory.instance.numberNode(intValue))
-        }
-
-        fun directive(key: String, longValue: Long): Builder {
-            return directive(key, JsonNodeFactory.instance.numberNode(longValue))
-        }
-
-        fun directive(key: String, doubleValue: Double): Builder {
-            return directive(key, JsonNodeFactory.instance.numberNode(doubleValue))
-        }
-
-        fun directive(key: String, floatValue: Float): Builder {
-            return directive(key, JsonNodeFactory.instance.numberNode(floatValue))
-        }
-
-        fun directive(key: String, bigDecimalValue: BigDecimal): Builder {
-            return directive(key, JsonNodeFactory.instance.numberNode(bigDecimalValue))
-        }
-
-        fun directive(key: String, booleanValue: Boolean): Builder {
-            return directive(key, JsonNodeFactory.instance.booleanNode(booleanValue))
-        }
-
-        fun directive(key: String): Builder {
-            return directive(key, JsonNodeFactory.instance.nullNode())
-        }
-
-        fun directive(keyValuePair: Pair<String, JsonNode>): Builder
-
-        fun directives(keyValuePairs: Map<String, JsonNode>): Builder
-
-        fun dropDirective(key: String): Builder
-
-        fun clearDirectives(): Builder
+        fun clearDirective(): Builder
 
         fun build(): SchematicPath
     }

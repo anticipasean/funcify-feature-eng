@@ -1,16 +1,113 @@
 package funcify.feature.schema.path
 
-import arrow.core.some
-import com.fasterxml.jackson.databind.JsonNode
-import com.fasterxml.jackson.databind.node.JsonNodeFactory
-import com.fasterxml.jackson.databind.node.ObjectNode
-import com.fasterxml.jackson.databind.node.TextNode
-import funcify.feature.naming.encoder.URICompatibleStringEncoder
+import arrow.core.compareTo
+import kotlinx.collections.immutable.ImmutableList
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
 
 internal class SchematicPathTest {
 
+    @Test
+    fun pathSegmentsOnlyTest() {
+        val p1: SchematicPath = SchematicPath.getRootPath()
+        val p2: SchematicPath = p1.transform { appendPathSegment("pets") }
+        Assertions.assertNotEquals(0, p2.pathSegments.compareTo(p1.pathSegments))
+        Assertions.assertEquals(1, p2.pathSegments.size)
+        Assertions.assertEquals(0, p2.getParentPath().orNull()?.pathSegments?.size)
+    }
+
+    @Test
+    fun pathSegmentsAndArgumentsTest() {
+        val p1: SchematicPath = SchematicPath.getRootPath()
+        val p2: SchematicPath =
+            p1.transform {
+                appendPathSegment("pets")
+                argument("breed")
+            }
+        Assertions.assertNotEquals(0, p2.pathSegments.compareTo(p1.pathSegments))
+        Assertions.assertEquals(1, p2.pathSegments.size)
+        Assertions.assertEquals(1, p2.getParentPath().orNull()?.pathSegments?.size)
+        Assertions.assertEquals(p1.transform { pathSegment("pets") }, p2.getParentPath().orNull())
+    }
+
+    @Test
+    fun pathSegmentsArgumentsAndDirectivesTest() {
+        val p1: SchematicPath = SchematicPath.getRootPath()
+        val p2: SchematicPath =
+            p1.transform {
+                appendPathSegment("pets")
+                argument("breed")
+                directive("alias")
+            }
+        Assertions.assertNotEquals(0, p2.pathSegments.compareTo(p1.pathSegments))
+        Assertions.assertEquals(1, p2.pathSegments.size)
+        Assertions.assertEquals(1, p2.getParentPath().orNull()?.pathSegments?.size)
+        Assertions.assertEquals(
+            p1.transform {
+                pathSegment("pets")
+                argument("breed")
+            },
+            p2.getParentPath().orNull()
+        )
+    }
+
+    @Test
+    fun argumentsOnlyTest() {
+        val p1: SchematicPath = SchematicPath.getRootPath()
+        val p2: SchematicPath =
+            p1.transform {
+                appendPathSegment("pets")
+                argument("breed", "name")
+            }
+        Assertions.assertNotEquals(0, p2.pathSegments.compareTo(p1.pathSegments))
+        Assertions.assertEquals(1, p2.pathSegments.size)
+        Assertions.assertEquals(1, p2.getParentPath().orNull()?.pathSegments?.size)
+        Assertions.assertTrue(
+            p2.argument.isDefined() &&
+                p2.argument
+                    .filter { (_: String, pathSegments: ImmutableList<String>) ->
+                        pathSegments.isNotEmpty()
+                    }
+                    .isDefined()
+        )
+        Assertions.assertEquals(
+            p1.transform {
+                pathSegment("pets")
+                argument("breed")
+            },
+            p2.getParentPath().orNull()
+        )
+    }
+
+    @Test
+    fun directivesOnlyTest() {
+        val p1: SchematicPath = SchematicPath.getRootPath()
+        val p2: SchematicPath =
+            p1.transform {
+                appendPathSegment("pets")
+                directive("format", "uppercase")
+            }
+        Assertions.assertNotEquals(0, p2.pathSegments.compareTo(p1.pathSegments))
+        Assertions.assertEquals(1, p2.pathSegments.size)
+        Assertions.assertEquals(1, p2.getParentPath().orNull()?.pathSegments?.size)
+        Assertions.assertTrue(
+            p2.argument.isEmpty() &&
+                p2.directive
+                    .filter { (_: String, pathSegments: ImmutableList<String>) ->
+                        pathSegments.isNotEmpty()
+                    }
+                    .isDefined()
+        )
+        Assertions.assertEquals(
+            p1.transform {
+                pathSegment("pets")
+                directive("format")
+            },
+            p2.getParentPath().orNull()
+        )
+    }
+
+    /*
     @Test
     fun argumentDisplayTest() {
         val path1: SchematicPath = SchematicPath.getRootPath()
@@ -183,5 +280,5 @@ internal class SchematicPathTest {
                 .isDefined(),
             "parent_path expected to have format argument with empty object"
         )
-    }
+    }*/
 }

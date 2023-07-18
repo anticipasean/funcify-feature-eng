@@ -9,8 +9,6 @@ import arrow.core.none
 import arrow.core.right
 import arrow.core.some
 import arrow.core.toOption
-import com.fasterxml.jackson.databind.node.JsonNodeFactory
-import com.fasterxml.jackson.databind.node.ObjectNode
 import funcify.feature.directive.AliasDirective
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
@@ -132,7 +130,7 @@ internal class AliasRegistryComposer {
                                             .mapNotNull(Breadcrumb<Node<*>>::getNode)
                                             .filterIsInstance<FieldDefinition>()
                                             .isDefined() -> {
-                                            JsonNodeFactory.instance.nullNode()
+                                            emptyList<String>()
                                         }
                                         else -> {
                                             context.breadcrumbs
@@ -147,18 +145,8 @@ internal class AliasRegistryComposer {
                                                 .asSequence()
                                                 .mapNotNull(Breadcrumb<Node<*>>::getNode)
                                                 .filterIsInstance<InputValueDefinition>()
-                                                .fold(JsonNodeFactory.instance.objectNode()) {
-                                                    on: ObjectNode,
-                                                    ivd: InputValueDefinition,
-                                                    ->
-                                                    if (on.isEmpty) {
-                                                        on.putNull(ivd.name)
-                                                    } else {
-                                                        JsonNodeFactory.instance
-                                                            .objectNode()
-                                                            .set(ivd.name, on)
-                                                    }
-                                                }
+                                                .map(InputValueDefinition::getName)
+                                                .toList()
                                         }
                                     }
                                 )

@@ -2,16 +2,15 @@ package funcify.feature.schema.path
 
 import arrow.core.Option
 import arrow.core.getOrElse
+import arrow.core.none
+import arrow.core.some
 import arrow.core.toOption
-import com.fasterxml.jackson.databind.JsonNode
-import com.fasterxml.jackson.databind.node.NullNode
 import java.net.URI
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 import kotlinx.collections.immutable.PersistentList
-import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.persistentListOf
-import kotlinx.collections.immutable.persistentMapOf
+import kotlinx.collections.immutable.toPersistentList
 
 /**
  * @author smccarron
@@ -20,8 +19,8 @@ import kotlinx.collections.immutable.persistentMapOf
 internal data class DefaultSchematicPath(
     override val scheme: String = SchematicPath.GRAPHQL_SCHEMATIC_PATH_SCHEME,
     override val pathSegments: PersistentList<String> = persistentListOf(),
-    override val arguments: PersistentMap<String, JsonNode> = persistentMapOf(),
-    override val directives: PersistentMap<String, JsonNode> = persistentMapOf()
+    override val argument: Option<Pair<String, PersistentList<String>>> = none(),
+    override val directive: Option<Pair<String, PersistentList<String>>> = none()
 ) : SchematicPath {
 
     companion object {
@@ -30,13 +29,16 @@ internal data class DefaultSchematicPath(
             SchematicPath.Builder {
 
             private var inputScheme: String = schematicPath.scheme
-
             private val pathBuilder: PersistentList.Builder<String> =
                 schematicPath.pathSegments.builder()
-            private val argsBuilder: PersistentMap.Builder<String, JsonNode> =
-                schematicPath.arguments.builder()
-            private val dirsBuilder: PersistentMap.Builder<String, JsonNode> =
-                schematicPath.directives.builder()
+            private var argumentName: String? = schematicPath.argument.orNull()?.first
+            private var argumentPathBuilder: PersistentList.Builder<String> =
+                schematicPath.argument.orNull()?.second?.builder()
+                    ?: persistentListOf<String>().builder()
+            private var directiveName: String? = schematicPath.directive.orNull()?.first
+            private var directivePathBuilder: PersistentList.Builder<String> =
+                schematicPath.directive.orNull()?.second?.builder()
+                    ?: persistentListOf<String>().builder()
 
             override fun scheme(scheme: String): SchematicPath.Builder {
                 inputScheme =
@@ -108,93 +110,243 @@ internal data class DefaultSchematicPath(
                 return this
             }
 
-            override fun argument(key: String, value: JsonNode): SchematicPath.Builder {
-                key.toOption()
-                    .map { k -> k.trim() }
-                    .filter { s -> s.isNotEmpty() }
-                    .tap { k -> argsBuilder[k] = value }
-                return this
+            override fun argument(name: String, pathSegments: List<String>): SchematicPath.Builder {
+                return when (val trimmedName: String = name.trim()) {
+                    "" -> {
+                        this
+                    }
+                    else -> {
+                        this.argumentName = trimmedName
+                        this.argumentPathBuilder =
+                            pathSegments
+                                .asSequence()
+                                .map { s -> s.trim() }
+                                .filter { s -> s.isNotEmpty() }
+                                .toPersistentList()
+                                .builder()
+                        this
+                    }
+                }
             }
 
-            override fun argument(keyValuePair: Pair<String, JsonNode>): SchematicPath.Builder {
-                keyValuePair.first
-                    .toOption()
-                    .map { k -> k.trim() }
-                    .filter { k -> k.isNotEmpty() }
-                    .tap { k -> argsBuilder[k] = keyValuePair.second }
-                return this
+            override fun argument(name: String, vararg pathSegment: String): SchematicPath.Builder {
+                return when (val trimmedName: String = name.trim()) {
+                    "" -> {
+                        this
+                    }
+                    else -> {
+                        this.argumentName = trimmedName
+                        this.argumentPathBuilder =
+                            pathSegment
+                                .asSequence()
+                                .map { s -> s.trim() }
+                                .filter { s -> s.isNotEmpty() }
+                                .toPersistentList()
+                                .builder()
+                        this
+                    }
+                }
             }
 
-            override fun arguments(keyValuePairs: Map<String, JsonNode>): SchematicPath.Builder {
-                keyValuePairs.asSequence().fold(argsBuilder) { ab, (key, value) ->
-                    key.toOption()
-                        .map { k -> k.trim() }
+            override fun prependArgumentPathSegment(
+                vararg pathSegment: String
+            ): SchematicPath.Builder {
+                if (this.argumentName != null && pathSegment.isNotEmpty()) {
+                    (pathSegment.size - 1)
+                        .downTo(0)
+                        .asSequence()
+                        .map { i: Int -> pathSegment[i] }
+                        .map { s -> s.trim() }
                         .filter { s -> s.isNotEmpty() }
-                        .fold(
-                            { ab },
-                            { k ->
-                                ab[k] = value
-                                ab
-                            }
-                        )
+                        .fold(this.argumentPathBuilder) { apb, s ->
+                            apb.add(0, s)
+                            apb
+                        }
                 }
                 return this
             }
 
-            override fun dropArgument(key: String): SchematicPath.Builder {
-                if (key in argsBuilder) {
-                    argsBuilder.remove(key)
+            override fun prependArgumentPathSegments(
+                pathSegments: List<String>
+            ): SchematicPath.Builder {
+                if (this.argumentName != null && pathSegments.isNotEmpty()) {
+                    this.argumentPathBuilder.addAll(
+                        0,
+                        pathSegments
+                            .asSequence()
+                            .map { s -> s.trim() }
+                            .filter { s -> s.isNotEmpty() }
+                            .toList()
+                    )
                 }
                 return this
             }
 
-            override fun clearArguments(): SchematicPath.Builder {
-                argsBuilder.clear()
-                return this
-            }
-
-            override fun directive(key: String, value: JsonNode): SchematicPath.Builder {
-                key.toOption()
-                    .map { k -> k.trim() }
-                    .filter { k -> k.isNotEmpty() }
-                    .tap { k -> dirsBuilder[k] = value }
-                return this
-            }
-
-            override fun directive(keyValuePair: Pair<String, JsonNode>): SchematicPath.Builder {
-                keyValuePair.first
-                    .toOption()
-                    .map { k -> k.trim() }
-                    .filter { k -> k.isNotEmpty() }
-                    .tap { k -> dirsBuilder[k] = keyValuePair.second }
-                return this
-            }
-
-            override fun directives(keyValuePairs: Map<String, JsonNode>): SchematicPath.Builder {
-                keyValuePairs.asSequence().fold(dirsBuilder) { db, (key, value) ->
-                    key.toOption()
-                        .map { k -> k.trim() }
-                        .filter { k -> k.isNotEmpty() }
-                        .fold(
-                            { db },
-                            { k ->
-                                db[k] = value
-                                db
-                            }
-                        )
+            override fun appendArgumentPathSegment(
+                vararg pathSegment: String
+            ): SchematicPath.Builder {
+                if (this.argumentName != null) {
+                    pathSegment
+                        .asSequence()
+                        .map { s -> s.trim() }
+                        .filter { s -> s.isNotEmpty() }
+                        .fold(argumentPathBuilder) { apb, s ->
+                            apb.add(s)
+                            apb
+                        }
                 }
                 return this
             }
 
-            override fun dropDirective(key: String): SchematicPath.Builder {
-                if (key in dirsBuilder) {
-                    dirsBuilder.remove(key)
+            override fun appendArgumentPathSegments(
+                pathSegments: List<String>
+            ): SchematicPath.Builder {
+                if (this.argumentName != null) {
+                    pathSegments
+                        .asSequence()
+                        .map { s -> s.trim() }
+                        .filter { s -> s.isNotEmpty() }
+                        .fold(argumentPathBuilder) { apb, s ->
+                            apb.add(s)
+                            apb
+                        }
                 }
                 return this
             }
 
-            override fun clearDirectives(): SchematicPath.Builder {
-                dirsBuilder.clear()
+            override fun dropArgumentPathSegment(): SchematicPath.Builder {
+                if (this.argumentName != null && this.argumentPathBuilder.isNotEmpty()) {
+                    this.argumentPathBuilder.removeLast()
+                }
+                return this
+            }
+
+            override fun clearArgument(): SchematicPath.Builder {
+                this.argumentName = null
+                this.argumentPathBuilder.clear()
+                return this
+            }
+
+            override fun directive(
+                name: String,
+                pathSegments: List<String>
+            ): SchematicPath.Builder {
+                return when (val trimmedName: String = name.trim()) {
+                    "" -> {
+                        this
+                    }
+                    else -> {
+                        this.directiveName = trimmedName
+                        this.directivePathBuilder =
+                            pathSegments
+                                .asSequence()
+                                .map { s -> s.trim() }
+                                .filter { s -> s.isNotEmpty() }
+                                .toPersistentList()
+                                .builder()
+                        this
+                    }
+                }
+            }
+
+            override fun directive(
+                name: String,
+                vararg pathSegment: String
+            ): SchematicPath.Builder {
+                return when (val trimmedName: String = name.trim()) {
+                    "" -> {
+                        this
+                    }
+                    else -> {
+                        this.directiveName = trimmedName
+                        this.directivePathBuilder =
+                            pathSegment
+                                .asSequence()
+                                .map { s -> s.trim() }
+                                .filter { s -> s.isNotEmpty() }
+                                .toPersistentList()
+                                .builder()
+                        this
+                    }
+                }
+            }
+
+            override fun prependDirectivePathSegment(
+                vararg pathSegment: String
+            ): SchematicPath.Builder {
+                if (this.directiveName != null && pathSegment.isNotEmpty()) {
+                    (pathSegment.size - 1)
+                        .downTo(0)
+                        .asSequence()
+                        .map { i: Int -> pathSegment[i] }
+                        .map { s -> s.trim() }
+                        .filter { s -> s.isNotEmpty() }
+                        .fold(directivePathBuilder) { dpb, s ->
+                            dpb.add(0, s)
+                            dpb
+                        }
+                }
+                return this
+            }
+
+            override fun prependDirectivePathSegments(
+                pathSegments: List<String>
+            ): SchematicPath.Builder {
+                if (this.directiveName != null && pathSegments.isNotEmpty()) {
+                    this.directivePathBuilder.addAll(
+                        0,
+                        pathSegments
+                            .asSequence()
+                            .map { s -> s.trim() }
+                            .filter { s -> s.isNotEmpty() }
+                            .toList()
+                    )
+                }
+                return this
+            }
+
+            override fun appendDirectivePathSegment(
+                vararg pathSegment: String
+            ): SchematicPath.Builder {
+                if (this.directiveName != null) {
+                    pathSegment
+                        .asSequence()
+                        .map { s -> s.trim() }
+                        .filter { s -> s.isNotEmpty() }
+                        .fold(directivePathBuilder) { dpb, s ->
+                            dpb.add(s)
+                            dpb
+                        }
+                }
+                return this
+            }
+
+            override fun appendDirectivePathSegments(
+                pathSegments: List<String>
+            ): SchematicPath.Builder {
+                if (this.directiveName != null) {
+                    pathSegments
+                        .asSequence()
+                        .map { s -> s.trim() }
+                        .filter { s -> s.isNotEmpty() }
+                        .fold(directivePathBuilder) { dpb, s ->
+                            dpb.add(s)
+                            dpb
+                        }
+                }
+                return this
+            }
+
+            override fun dropDirectivePathSegment(): SchematicPath.Builder {
+                if (directiveName != null && directivePathBuilder.isNotEmpty()) {
+                    directivePathBuilder.removeLast()
+                }
+                return this
+            }
+
+            override fun clearDirective(): SchematicPath.Builder {
+                this.directiveName = null
+                this.directivePathBuilder.clear()
                 return this
             }
 
@@ -202,8 +354,24 @@ internal data class DefaultSchematicPath(
                 return DefaultSchematicPath(
                     scheme = inputScheme,
                     pathSegments = pathBuilder.build(),
-                    arguments = argsBuilder.build(),
-                    directives = dirsBuilder.build()
+                    argument =
+                        when (argumentName) {
+                            null -> {
+                                none()
+                            }
+                            else -> {
+                                (argumentName!! to argumentPathBuilder.build()).some()
+                            }
+                        },
+                    directive =
+                        when (directiveName) {
+                            null -> {
+                                none()
+                            }
+                            else -> {
+                                (directiveName!! to directivePathBuilder.build()).some()
+                            }
+                        }
                 )
             }
         }
@@ -220,44 +388,32 @@ internal data class DefaultSchematicPath(
                         .map { ps: String -> URLEncoder.encode(ps, StandardCharsets.UTF_8) }
                         .joinToString("/", "/")
                 )
-                if (arguments.isNotEmpty()) {
+                if (argument.isDefined()) {
                     append("?")
-                    append(convertJsonNodeMapToURIQueryParamFormat(arguments))
+                    append(argument.orNull()?.first)
+                    if (argument.orNull()?.second?.isNotEmpty() == true) {
+                        append("=")
+                        append(
+                            (argument.orNull()?.second?.asSequence() ?: emptySequence())
+                                .map { ps: String -> URLEncoder.encode(ps, StandardCharsets.UTF_8) }
+                                .joinToString("/", "/")
+                        )
+                    }
                 }
-                if (directives.isNotEmpty()) {
+                if (directive.isDefined()) {
                     append("#")
-                    append(convertJsonNodeMapToURIQueryParamFormat(directives))
+                    append(directive.orNull()?.first)
+                    if (directive.orNull()?.second?.isNotEmpty() == true) {
+                        append("=")
+                        append(
+                            (directive.orNull()?.second?.asSequence() ?: emptySequence())
+                                .map { ps: String -> URLEncoder.encode(ps, StandardCharsets.UTF_8) }
+                                .joinToString("/", "/")
+                        )
+                    }
                 }
             }
         )
-    }
-
-    private fun convertJsonNodeMapToURIQueryParamFormat(
-        jsonNodeMap: Map<String, JsonNode>
-    ): String {
-        return jsonNodeMap
-            .asSequence()
-            .map { (k: String, v: JsonNode) ->
-                when (v) {
-                    is NullNode -> {
-                        URLEncoder.encode(k, StandardCharsets.UTF_8) to ""
-                    }
-                    else -> {
-                        URLEncoder.encode(k, StandardCharsets.UTF_8) to
-                            URLEncoder.encode(v.toString(), StandardCharsets.UTF_8)
-                    }
-                }
-            }
-            .joinToString("&") { (k: String, v: String) ->
-                when {
-                    v.isBlank() -> {
-                        k
-                    }
-                    else -> {
-                        "${k}=${v}"
-                    }
-                }
-            }
     }
 
     private val internedParentPath: Option<SchematicPath> by lazy { super.getParentPath() }
@@ -273,8 +429,7 @@ internal data class DefaultSchematicPath(
     override fun transform(
         mapper: SchematicPath.Builder.() -> SchematicPath.Builder
     ): SchematicPath {
-        val builder: SchematicPath.Builder = DefaultBuilder(this)
-        return mapper.invoke(builder).build()
+        return mapper.invoke(DefaultBuilder(this)).build()
     }
 
     override fun toString(): String {
@@ -282,14 +437,36 @@ internal data class DefaultSchematicPath(
     }
 
     override fun toDecodedURIString(): String {
-        val builder = StringBuilder(uri.scheme).append(':').append(uri.path)
-        return when {
-            arguments.isNotEmpty() && directives.isEmpty() -> builder.append('?').append(uri.query)
-            arguments.isEmpty() && directives.isNotEmpty() ->
-                builder.append('#').append(uri.fragment)
-            arguments.isNotEmpty() && directives.isNotEmpty() ->
-                builder.append('?').append(uri.query).append('#').append(uri.fragment)
-            else -> builder
-        }.toString()
+        return buildString {
+            append(scheme)
+            append(':')
+            append(pathSegments.asSequence().joinToString("/", "/"))
+            if (argument.isDefined()) {
+                append("?")
+                append(argument.orNull()?.first)
+                if (argument.orNull()?.second?.isNotEmpty() == true) {
+                    append("=")
+                    append(
+                        (argument.orNull()?.second?.asSequence() ?: emptySequence()).joinToString(
+                            "/",
+                            "/"
+                        )
+                    )
+                }
+            }
+            if (directive.isDefined()) {
+                append("#")
+                append(directive.orNull()?.first)
+                if (directive.orNull()?.second?.isNotEmpty() == true) {
+                    append("=")
+                    append(
+                        (directive.orNull()?.second?.asSequence() ?: emptySequence()).joinToString(
+                            "/",
+                            "/"
+                        )
+                    )
+                }
+            }
+        }
     }
 }

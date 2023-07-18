@@ -109,7 +109,7 @@ internal data class DefaultAttributeAliasRegistry(
         sourceVertexPath: SchematicPath,
         alias: String
     ): AttributeAliasRegistry {
-        if (sourceVertexPath.arguments.isNotEmpty()) {
+        if (sourceVertexPath.argument.isNotEmpty()) {
             return registerParameterVertexPathWithAlias(sourceVertexPath, alias)
         }
         val aliasQualifiedName: String =
@@ -149,7 +149,7 @@ internal data class DefaultAttributeAliasRegistry(
         parameterVertexPath: SchematicPath,
         alias: String,
     ): AttributeAliasRegistry {
-        if (parameterVertexPath.arguments.isEmpty()) {
+        if (parameterVertexPath.argument.isEmpty()) {
             return registerSourceVertexPathWithAlias(parameterVertexPath, alias)
         }
         val aliasQualifiedName: String =

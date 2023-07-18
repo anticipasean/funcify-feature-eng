@@ -96,8 +96,8 @@ internal data class DefaultLastUpdatedTemporalAttributePathRegistry(
                 else -> {
                     path
                         .some()
-                        .filter { p -> p.arguments.isEmpty() && p.directives.isEmpty() }
-                        .orElse { path.transform { clearArguments().clearDirectives() }.some() }
+                        .filter { p -> p.argument.isEmpty() && p.directive.isEmpty() }
+                        .orElse { path.transform { clearArgument().clearDirective() }.some() }
                         .recurse { p ->
                             p.getParentPath()
                                 .flatMap { pp

@@ -7,6 +7,7 @@ import arrow.core.toOption
 import funcify.feature.directive.AliasDirective
 import funcify.feature.directive.MaterializationDirective
 import funcify.feature.error.ServiceError
+import funcify.feature.schema.path.SchematicPath
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.OptionExtensions.toOption
 import graphql.GraphQLError
@@ -96,10 +97,36 @@ class AliasRegistryTest {
             AliasRegistryComposer().createAliasRegistry(tdr)
         Assertions.assertTrue(aliasRegistryOpt.isDefined())
         println("registry: %s".format(aliasRegistryOpt.orNull()))
+        """
+            {
+              "show_id": "mlfs:/shows/id",
+              "id": "mlfs:/shows/id",
+              "reviewer_name": "mlfs:/shows/reviews/username",
+              "username": "mlfs:/shows/reviews/username",
+              "minimum_star_score": [
+                "mlfs:/shows/reviews?minStarScore"
+              ],
+              "min_star_score": [
+                "mlfs:/shows/reviews?minStarScore"
+              ],
+              "upper": [
+                "mlfs:/shows/title?format=/uppercase"
+              ],
+              "uppercase": [
+                "mlfs:/shows/title?format=/uppercase"
+              ]
+            }
+        """
+            .trimIndent()
+        val aliasRegistry: AttributeAliasRegistry = aliasRegistryOpt.orNull()!!
+        Assertions.assertTrue(aliasRegistry.containsSimilarSourceAttributeNameOrAlias("username"))
         Assertions.assertTrue(
-            aliasRegistryOpt
-                .getOrElse { AttributeAliasRegistry.newRegistry() }
-                .containsSimilarSourceAttributeNameOrAlias("username")
+            aliasRegistry.containsSimilarParameterAttributeNameOrAlias("minimumStarScore")
+        )
+        Assertions.assertTrue(aliasRegistry.containsSimilarParameterAttributeNameOrAlias("upper"))
+        Assertions.assertEquals(
+            listOf(SchematicPath.parse("mlfs:/shows/reviews?minStarScore")),
+            aliasRegistry.getParameterVertexPathsWithSimilarNameOrAlias("minStarScore").toList()
         )
     }
 }

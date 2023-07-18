@@ -66,7 +66,7 @@ internal class DefaultEntityRegistry(
         return when {
             // Path cannot represent a parameter vertex, as even parameter containers are not
             // required in any sense to have unique identifier attributes
-            path.arguments.isNotEmpty() || path.directives.isNotEmpty() -> {
+            path.argument.isNotEmpty() || path.directive.isNotEmpty() -> {
                 this
             }
             else -> {
@@ -117,8 +117,8 @@ internal class DefaultEntityRegistry(
                 else -> {
                     path
                         .some()
-                        .filter { p -> p.arguments.isEmpty() && p.directives.isEmpty() }
-                        .orElse { path.transform { clearArguments().clearDirectives() }.some() }
+                        .filter { p -> p.argument.isEmpty() && p.directive.isEmpty() }
+                        .orElse { path.transform { clearArgument().clearDirective() }.some() }
                         .recurse { p ->
                             p.getParentPath()
                                 .flatMap { pp ->
@@ -156,8 +156,8 @@ internal class DefaultEntityRegistry(
                 else -> {
                     path
                         .some()
-                        .filter { p -> p.arguments.isEmpty() && p.directives.isEmpty() }
-                        .orElse { path.transform { clearArguments().clearDirectives() }.some() }
+                        .filter { p -> p.argument.isEmpty() && p.directive.isEmpty() }
+                        .orElse { path.transform { clearArgument().clearDirective() }.some() }
                         .recurse { p ->
                             p.getParentPath()
                                 .filter { pp ->
