@@ -377,7 +377,7 @@ internal data class DefaultSchematicPath(
         }
     }
 
-    private val uri: URI by lazy {
+    private val internedURI: URI by lazy {
         URI.create(
             buildString {
                 append(scheme)
@@ -419,7 +419,7 @@ internal data class DefaultSchematicPath(
     private val internedParentPath: Option<SchematicPath> by lazy { super.getParentPath() }
 
     override fun toURI(): URI {
-        return uri
+        return internedURI
     }
 
     override fun getParentPath(): Option<SchematicPath> {
@@ -433,7 +433,7 @@ internal data class DefaultSchematicPath(
     }
 
     override fun toString(): String {
-        return uri.toASCIIString()
+        return internedURI.toASCIIString()
     }
 
     override fun toDecodedURIString(): String {

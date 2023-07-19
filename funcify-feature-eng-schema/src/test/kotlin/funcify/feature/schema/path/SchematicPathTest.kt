@@ -2,6 +2,7 @@ package funcify.feature.schema.path
 
 import arrow.core.compareTo
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
 
@@ -105,6 +106,25 @@ internal class SchematicPathTest {
             },
             p2.getParentPath().orNull()
         )
+    }
+
+    @Test
+    fun parseTest() {
+        val sp: SchematicPath =
+            Assertions.assertDoesNotThrow<SchematicPath> {
+                SchematicPath.parseOrThrow("mlfs:/pets/dogs?breed=/size/small#format=/camelCase")
+            }
+        Assertions.assertEquals(2, sp.pathSegments.size)
+        Assertions.assertEquals(persistentListOf("pets", "dogs"), sp.pathSegments)
+        Assertions.assertEquals("breed", sp.argument.orNull()?.first)
+        Assertions.assertEquals(persistentListOf("size", "small"), sp.argument.orNull()?.second)
+        Assertions.assertEquals("format", sp.directive.orNull()?.first)
+        Assertions.assertEquals(persistentListOf("camelCase"), sp.directive.orNull()?.second)
+        val expectedParentPath: SchematicPath =
+            Assertions.assertDoesNotThrow<SchematicPath> {
+                SchematicPath.parseOrThrow("mlfs:/pets/dogs?breed=/size/small#format")
+            }
+        Assertions.assertEquals(expectedParentPath, sp.getParentPath().orNull())
     }
 
     /*

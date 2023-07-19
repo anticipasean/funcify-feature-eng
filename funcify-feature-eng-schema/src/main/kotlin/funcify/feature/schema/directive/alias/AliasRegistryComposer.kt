@@ -1,14 +1,6 @@
 package funcify.feature.schema.directive.alias
 
-import arrow.core.Option
-import arrow.core.filterIsInstance
-import arrow.core.getOrElse
-import arrow.core.identity
-import arrow.core.left
-import arrow.core.none
-import arrow.core.right
-import arrow.core.some
-import arrow.core.toOption
+import arrow.core.*
 import funcify.feature.directive.AliasDirective
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
@@ -56,10 +48,10 @@ internal class AliasRegistryComposer {
                 node: Directive,
                 context: TraverserContext<Node<*>>
             ): TraversalControl {
-                logger.info(
-                    "visit_directive: [ node.name: {}, context.this_node.type: {} ]",
+                logger.debug(
+                    "visit_directive: [ node.name: {}, context.parent_node.type: {} ]",
                     node.name,
-                    context.thisNode()::class.simpleName
+                    context.parentNode::class.simpleName
                 )
                 if (node.name == AliasDirective.name) {
                     addAliasToRegistry(context, node)
@@ -68,19 +60,19 @@ internal class AliasRegistryComposer {
             }
 
             private fun addAliasToRegistry(context: TraverserContext<Node<*>>, node: Directive) {
-                logger.info(
-                    "alias directive found: {}",
-                    context.breadcrumbs.asSequence().withIndex().joinToString(",\n", "[ ", " ]") {
-                        (idx: Int, bc: Breadcrumb<Node<*>>) ->
-                        "[$idx][ type: ${bc.node::class.simpleName}, name: %s ]".format(
-                            bc.node
-                                .toOption()
-                                .filterIsInstance<NamedNode<*>>()
-                                .map(NamedNode<*>::getName)
-                                .getOrElse { "<NA>" }
-                        )
-                    }
-                )
+                // logger.info(
+                //    "alias directive found: {}",
+                //    context.breadcrumbs.asSequence().withIndex().joinToString(",\n", "[ ", " ]") {
+                //        (idx: Int, bc: Breadcrumb<Node<*>>) ->
+                //        "[$idx][ type: ${bc.node::class.simpleName}, name: %s ]".format(
+                //            bc.node
+                //                .toOption()
+                //                .filterIsInstance<NamedNode<*>>()
+                //                .map(NamedNode<*>::getName)
+                //                .getOrElse { "<NA>" }
+                //        )
+                //    }
+                // )
                 val aliasRegistry: AttributeAliasRegistry =
                     context.getNewAccumulate<AttributeAliasRegistry>()
                 val sp: SchematicPath =
@@ -91,9 +83,9 @@ internal class AliasRegistryComposer {
                                     context.breadcrumbs
                                         .asReversed()
                                         .asSequence()
-                                        .mapNotNull { bc: Breadcrumb<Node<*>> -> bc.node }
+                                        .mapNotNull(Breadcrumb<Node<*>>::getNode)
                                         .filterIsInstance<FieldDefinition>()
-                                        .map { fd: FieldDefinition -> fd.name }
+                                        .map(FieldDefinition::getName)
                                         .toList()
                                 )
                             }
@@ -106,7 +98,7 @@ internal class AliasRegistryComposer {
                                         .asSequence()
                                         .mapNotNull(Breadcrumb<Node<*>>::getNode)
                                         .filterIsInstance<FieldDefinition>()
-                                        .map { fd: FieldDefinition -> fd.name }
+                                        .map(FieldDefinition::getName)
                                         .toList()
                                 )
                                 argument(
@@ -138,9 +130,8 @@ internal class AliasRegistryComposer {
                                                 .takeWhile { bc: Breadcrumb<Node<*>> ->
                                                     bc.node !is FieldDefinition
                                                 }
-                                                .toList()
-                                                .asReversed()
-                                                .drop(1)
+                                                .toMutableList()
+                                                .apply { removeLastOrNull() }
                                                 .asReversed()
                                                 .asSequence()
                                                 .mapNotNull(Breadcrumb<Node<*>>::getNode)
@@ -156,7 +147,9 @@ internal class AliasRegistryComposer {
                             SchematicPath.getRootPath()
                         }
                     }
-                logger.info("alias schematicPath: {}", sp)
+                if (logger.isDebugEnabled) {
+                    logger.debug("add_alias_to_registry: [ created_path: {} ]", sp)
+                }
                 val updatedRegistry: AttributeAliasRegistry =
                     when (val parentNode: Node<*> = context.parentNode) {
                         is FieldDefinition -> {
@@ -165,8 +158,8 @@ internal class AliasRegistryComposer {
                                         .toOption()
                                         .map(Argument::getValue)
                                         .filterIsInstance<StringValue>()
-                                        .map(StringValue::getValue),
-                                    parentNode.name.some()
+                                        .map(StringValue::getValue)
+                                        .filter(String::isNotBlank)
                                 )
                                 .flatMapOptions()
                                 .fold(aliasRegistry) { ar: AttributeAliasRegistry, n: String ->
@@ -179,8 +172,8 @@ internal class AliasRegistryComposer {
                                         .toOption()
                                         .map(Argument::getValue)
                                         .filterIsInstance<StringValue>()
-                                        .map(StringValue::getValue),
-                                    parentNode.name.some()
+                                        .map(StringValue::getValue)
+                                        .filter(String::isNotBlank)
                                 )
                                 .flatMapOptions()
                                 .fold(aliasRegistry) { ar: AttributeAliasRegistry, n: String ->
@@ -209,10 +202,9 @@ internal class AliasRegistryComposer {
                 .getType(QUERY_OBJECT_TYPE_NAME, ObjectTypeDefinition::class.java)
                 .toOption()
                 .map(ObjectTypeDefinition::getFieldDefinitions)
-                .map { fds: List<FieldDefinition> ->
-                    fds.asSequence().map { fd: FieldDefinition -> fd.name }
-                }
+                .map(List<FieldDefinition>::asSequence)
                 .fold(::emptySequence, ::identity)
+                .map(FieldDefinition::getName)
                 .joinToString(", ", "[ ", " ]")
         )
         return typeDefinitionRegistry
@@ -226,7 +218,7 @@ internal class AliasRegistryComposer {
                     )
                     .traverse(otd, GraphQLNodeTraversalVisitor(AliasDirectiveVisitor()))
                     .toOption()
-                    .map { tr: TraverserResult -> tr.accumulatedResult }
+                    .mapNotNull(TraverserResult::getAccumulatedResult)
                     .filterIsInstance<AttributeAliasRegistry>()
             }
     }
@@ -250,10 +242,23 @@ internal class AliasRegistryComposer {
                                 else -> none()
                             }
                         }
-                        .flatMap { tn: TypeName ->
-                            typeDefinitionRegistry
-                                .getType(tn.name, ObjectTypeDefinition::class.java)
+                        .flatMap { typeName: TypeName ->
+                            typeName
                                 .toOption()
+                                .filter(typeDefinitionRegistry::isObjectTypeOrInterface)
+                                .flatMap { tn: TypeName ->
+                                    typeDefinitionRegistry
+                                        .getType(tn.name, ObjectTypeDefinition::class.java)
+                                        .toOption()
+                                        .orElse {
+                                            typeDefinitionRegistry
+                                                .getType(
+                                                    tn.name,
+                                                    InterfaceTypeDefinition::class.java
+                                                )
+                                                .toOption()
+                                        }
+                                }
                         }
                         .map { itd: ImplementingTypeDefinition<*> ->
                             buildList<Node<*>> {

@@ -31,67 +31,27 @@ interface SchematicPath : Comparable<SchematicPath> {
             return rootPath.transform(builderFunction)
         }
 
-        private val stringListComparator: Comparator<List<String>> by lazy {
-            Comparator<List<String>> { l1, l2 -> //
-                /*
-                 * Early exit approach: First non-matching pair found returns comparison value else considered equal
-                 */
-                l1.asSequence()
-                    .zip(l2.asSequence()) { s1: String, s2: String -> s1.compareTo(s2) }
-                    .firstOrNull { comparison: Int -> comparison != 0 }
-                    ?: l1.size.compareTo(l2.size)
-            }
-        }
-
-        private val namedPathPairComparator:
-            Comparator<Option<Pair<String, List<String>>>> by lazy {
-            Comparator<Option<Pair<String, List<String>>>> { pair1, pair2 -> //
-                when (val p1: Pair<String, List<String>>? = pair1.orNull()) {
-                    null -> {
-                        when (pair2.orNull()) {
-                            null -> {
-                                0
-                            }
-                            else -> {
-                                -1
-                            }
-                        }
-                    }
-                    else -> {
-                        when (val p2: Pair<String, List<String>>? = pair2.orNull()) {
-                            null -> {
-                                1
-                            }
-                            else -> {
-                                p1.first.compareTo(p2.first).let { keyComparison: Int ->
-                                    if (keyComparison != 0) {
-                                        keyComparison
-                                    } else {
-                                        stringListComparator.compare(p1.second, p2.second)
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        private val schematicPathComparator: Comparator<SchematicPath> by lazy {
-            Comparator.comparing(SchematicPath::scheme, String::compareTo)
-                .thenComparing(SchematicPath::pathSegments, stringListComparator)
-                .thenComparing(SchematicPath::argument, namedPathPairComparator)
-                .thenComparing(SchematicPath::directive, namedPathPairComparator)
-        }
-
         @JvmStatic
         fun comparator(): Comparator<SchematicPath> {
-            return schematicPathComparator
+            return SchematicPathComparator
         }
 
+        /** @param input in the form of a URI string */
         @JvmStatic
-        fun parse(input: String): SchematicPath {
-            return SchematicPathParser.invoke(input).orElseThrow()
+        fun parseOrThrow(input: String): SchematicPath {
+            return SchematicPathParser(input).orElseThrow()
+        }
+
+        /** @param input in the form of a URI string */
+        @JvmStatic
+        fun parseOrNull(input: String): SchematicPath? {
+            return SchematicPathParser(input).orNull()
+        }
+
+        /** @param input in the form of a URI */
+        @JvmStatic
+        fun fromURIOrThrow(input: URI): SchematicPath {
+            return SchematicPathParser.fromURI(input).orElseThrow()
         }
     }
 
@@ -111,7 +71,8 @@ interface SchematicPath : Comparable<SchematicPath> {
      * }
      * ```
      *
-     * in GraphQL query form where the referent is the `messageBody` field
+     * in GraphQL query form where the referent is the `messageBody` field =>
+     * `/user/transactions/messageBody`
      */
     val pathSegments: ImmutableList<String>
 

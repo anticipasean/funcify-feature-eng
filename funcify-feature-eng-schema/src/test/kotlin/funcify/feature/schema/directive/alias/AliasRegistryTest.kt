@@ -4,6 +4,7 @@ import arrow.core.Option
 import arrow.core.filterIsInstance
 import arrow.core.getOrElse
 import arrow.core.toOption
+import ch.qos.logback.classic.Level
 import funcify.feature.directive.AliasDirective
 import funcify.feature.directive.MaterializationDirective
 import funcify.feature.error.ServiceError
@@ -14,7 +15,9 @@ import graphql.GraphQLError
 import graphql.schema.idl.SchemaParser
 import graphql.schema.idl.TypeDefinitionRegistry
 import org.junit.jupiter.api.Assertions
+import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
+import org.slf4j.LoggerFactory
 
 /**
  * @author smccarron
@@ -30,7 +33,7 @@ class AliasRegistryTest {
         private val exampleDGSSchema: String =
             """
                     |type Query {
-                    |    shows(titleFilter: String): [Show]
+                    |    shows(titleFilter: String): [Show] @alias(name: "tvShows")
                     |}
                     |
                     |type Show {
@@ -40,7 +43,7 @@ class AliasRegistryTest {
                     |    reviews(
                     |      minStarScore: Int = 0 @alias(name: "minimumStarScore")
                     |    ): [Review]
-                    |    artwork: [Image]
+                    |    artwork(limits: ImageLimits): [Image]
                     |}
                     |
                     |input TitleFormat {
@@ -57,9 +60,39 @@ class AliasRegistryTest {
                     |    url: String
                     |}
                     |
+                    |input ImageLimits {
+                    |    fileLimits: FileLimits = { maxSize: 4.0 }
+                    |    imageNames: [String!]! = []
+                    |    includeNames: String = ".*"
+                    |    excludeNames: String = ""
+                    |}
+                    |
+                    |input FileLimits {
+                    |    minSize: Float = 0.0 @alias(name: "minimumSize")
+                    |    maxSize: Float = 2.0 @alias(name: "maximumSize")
+                    |    unit: SizeUnit = MB  
+                    |}
+                    |
+                    |enum SizeUnit {
+                    |    GB
+                    |    MB
+                    |    KB
+                    |}
+                    |
                     |scalar DateTime
                     """
                 .trimMargin()
+        @JvmStatic
+        @BeforeAll
+        internal fun setUp() {
+            (LoggerFactory.getILoggerFactory() as? ch.qos.logback.classic.LoggerContext)?.let {
+                lc: ch.qos.logback.classic.LoggerContext ->
+                lc.getLogger(AliasRegistryComposer::class.java.packageName)?.let {
+                    l: ch.qos.logback.classic.Logger ->
+                    l.level = Level.DEBUG
+                }
+            }
+        }
     }
 
     @Test
@@ -96,37 +129,21 @@ class AliasRegistryTest {
         val aliasRegistryOpt: Option<AttributeAliasRegistry> =
             AliasRegistryComposer().createAliasRegistry(tdr)
         Assertions.assertTrue(aliasRegistryOpt.isDefined())
-        println("registry: %s".format(aliasRegistryOpt.orNull()))
-        """
-            {
-              "show_id": "mlfs:/shows/id",
-              "id": "mlfs:/shows/id",
-              "reviewer_name": "mlfs:/shows/reviews/username",
-              "username": "mlfs:/shows/reviews/username",
-              "minimum_star_score": [
-                "mlfs:/shows/reviews?minStarScore"
-              ],
-              "min_star_score": [
-                "mlfs:/shows/reviews?minStarScore"
-              ],
-              "upper": [
-                "mlfs:/shows/title?format=/uppercase"
-              ],
-              "uppercase": [
-                "mlfs:/shows/title?format=/uppercase"
-              ]
-            }
-        """
-            .trimIndent()
         val aliasRegistry: AttributeAliasRegistry = aliasRegistryOpt.orNull()!!
-        Assertions.assertTrue(aliasRegistry.containsSimilarSourceAttributeNameOrAlias("username"))
+        Assertions.assertTrue(
+            aliasRegistry.containsSimilarSourceAttributeNameOrAlias("reviewerName")
+        )
         Assertions.assertTrue(
             aliasRegistry.containsSimilarParameterAttributeNameOrAlias("minimumStarScore")
         )
         Assertions.assertTrue(aliasRegistry.containsSimilarParameterAttributeNameOrAlias("upper"))
         Assertions.assertEquals(
-            listOf(SchematicPath.parse("mlfs:/shows/reviews?minStarScore")),
-            aliasRegistry.getParameterVertexPathsWithSimilarNameOrAlias("minStarScore").toList()
+            setOf(SchematicPath.parseOrThrow("mlfs:/shows/reviews?minStarScore")),
+            aliasRegistry.getParameterVertexPathsWithSimilarNameOrAlias("minimumStarScore")
+        )
+        Assertions.assertEquals(
+            setOf(SchematicPath.parseOrThrow("mlfs:/shows/artwork?limits=/fileLimits/maxSize")),
+            aliasRegistry.getParameterVertexPathsWithSimilarNameOrAlias("maximumSize"),
         )
     }
 }

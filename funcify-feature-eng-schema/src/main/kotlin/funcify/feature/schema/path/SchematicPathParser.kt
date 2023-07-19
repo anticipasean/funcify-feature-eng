@@ -3,7 +3,11 @@ package funcify.feature.schema.path
 import funcify.feature.tools.container.attempt.Try
 import java.net.URI
 
-object SchematicPathParser : (String) -> Try<SchematicPath> {
+internal object SchematicPathParser : (String) -> Try<SchematicPath> {
+
+    fun fromURI(inputUri: URI): Try<SchematicPath> {
+        return Try.attempt { SchematicPath.of(extractSchematicPathComponentsFromUri(inputUri)) }
+    }
 
     override fun invoke(input: String): Try<SchematicPath> {
         return Try.attempt { URI.create(input) }
@@ -15,7 +19,7 @@ object SchematicPathParser : (String) -> Try<SchematicPath> {
     ): (SchematicPath.Builder) -> SchematicPath.Builder {
         return { builder: SchematicPath.Builder ->
             builder.scheme(uri.scheme)
-            builder.pathSegments(uri.path.splitToSequence('/').toList())
+            builder.pathSegments(uri.path.split('/'))
             if (uri.query?.isNotEmpty() == true) {
                 val args: List<String> = uri.query.split('=')
                 when (args.size) {

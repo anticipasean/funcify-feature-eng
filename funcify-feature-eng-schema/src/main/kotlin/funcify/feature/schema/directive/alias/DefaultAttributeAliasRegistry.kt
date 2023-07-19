@@ -3,6 +3,7 @@ package funcify.feature.schema.directive.alias
 import arrow.core.Option
 import arrow.core.identity
 import arrow.core.toOption
+import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.node.ArrayNode
 import com.fasterxml.jackson.databind.node.JsonNodeFactory
 import com.fasterxml.jackson.databind.node.ObjectNode
@@ -109,6 +110,9 @@ internal data class DefaultAttributeAliasRegistry(
         sourceVertexPath: SchematicPath,
         alias: String
     ): AttributeAliasRegistry {
+        if (sourceVertexPath.directive.isDefined()) {
+            return this
+        }
         if (sourceVertexPath.argument.isNotEmpty()) {
             return registerParameterVertexPathWithAlias(sourceVertexPath, alias)
         }
@@ -149,6 +153,9 @@ internal data class DefaultAttributeAliasRegistry(
         parameterVertexPath: SchematicPath,
         alias: String,
     ): AttributeAliasRegistry {
+        if (parameterVertexPath.directive.isDefined()) {
+            return this
+        }
         if (parameterVertexPath.argument.isEmpty()) {
             return registerSourceVertexPathWithAlias(parameterVertexPath, alias)
         }
@@ -216,25 +223,35 @@ internal data class DefaultAttributeAliasRegistry(
     }
 
     private val computedStringForm: String by lazy {
-        parameterAttributeVerticesByStandardAndAliasQualifiedNames
-            .asSequence()
-            .fold(
-                sourceAttributeVerticesByStandardAndAliasQualifiedNames.asSequence().fold(
-                    JsonNodeFactory.instance.objectNode()
-                ) { on: ObjectNode, (name: String, path: SchematicPath) ->
-                    on.put(name, path.toString())
-                }
-            ) { on: ObjectNode, (name: String, paths: PersistentSet<SchematicPath>) ->
-                on.set<ObjectNode>(
-                    name,
-                    paths.asSequence().fold(JsonNodeFactory.instance.arrayNode()) {
-                        an: ArrayNode,
-                        p: SchematicPath ->
-                        an.add(p.toString())
+        sequenceOf(
+                "names_for_parameter_fields" to
+                    parameterAttributeVerticesByStandardAndAliasQualifiedNames.asSequence().fold(
+                        JsonNodeFactory.instance.objectNode()
+                    ) { on: ObjectNode, (name: String, paths: PersistentSet<SchematicPath>) ->
+                        on.set<ObjectNode>(
+                            name,
+                            paths.asSequence().fold(JsonNodeFactory.instance.arrayNode()) {
+                                an: ArrayNode,
+                                p: SchematicPath ->
+                                an.add(p.toString())
+                            }
+                        )
+                    },
+                "names_for_source_fields" to
+                    sourceAttributeVerticesByStandardAndAliasQualifiedNames.asSequence().fold(
+                        JsonNodeFactory.instance.objectNode()
+                    ) { on: ObjectNode, (name: String, path: SchematicPath) ->
+                        on.put(name, path.toString())
                     }
-                )
+            )
+            .fold(JsonNodeFactory.instance.objectNode()) {
+                on: ObjectNode,
+                (name: String, value: ObjectNode) ->
+                on.set<ObjectNode>(name, value)
             }
-            .toString()
+            .let { on: ObjectNode ->
+                ObjectMapper().writerWithDefaultPrettyPrinter().writeValueAsString(on)
+            }
     }
 
     override fun toString(): String {
