@@ -132,45 +132,49 @@ interface SchematicPath : Comparable<SchematicPath> {
     fun level(): Int = pathSegments.size
 
     fun getParentPath(): Option<SchematicPath> {
-        return when {
-            pathSegments.isEmpty() && argument.isEmpty() && directive.isEmpty() -> {
-                none<SchematicPath>()
-            }
-            argument.isEmpty() && directive.isEmpty() -> {
-                transform { dropPathSegment() }.some()
-            }
-            argument
-                .filter { (_: String, pathSegments: ImmutableList<String>) ->
-                    pathSegments.isEmpty()
-                }
-                .isDefined() && directive.isEmpty() -> {
-                transform { clearArgument() }.some()
-            }
-            argument.isEmpty() &&
-                directive
-                    .filter { (_: String, pathSegments: ImmutableList<String>) ->
-                        pathSegments.isEmpty()
+        return when (
+            val directiveNamePathPair: Pair<String, ImmutableList<String>>? = directive.orNull()
+        ) {
+            null -> {
+                when (
+                    val argumentNamePathPair: Pair<String, ImmutableList<String>>? =
+                        argument.orNull()
+                ) {
+                    null -> {
+                        if (pathSegments.isNotEmpty()) {
+                            // Case 1: Reference to a field, not an argument or directive
+                            // => Parent is another field or root itself
+                            transform { dropPathSegment() }.some()
+                        } else {
+                            // Case 2: Reference to root: Query object type
+                            // => No parent to root
+                            none()
+                        }
                     }
-                    .isDefined() -> {
-                transform { clearDirective() }.some()
-            }
-            argument
-                .filter { (_: String, pathSegments: ImmutableList<String>) ->
-                    pathSegments.isNotEmpty()
-                }
-                .isDefined() && directive.isEmpty() -> {
-                transform { dropArgumentPathSegment() }.some()
-            }
-            argument.isDefined() &&
-                directive
-                    .filter { (_: String, pathSegments: ImmutableList<String>) ->
-                        pathSegments.isEmpty()
+                    else -> {
+                        if (argumentNamePathPair.second.isNotEmpty()) {
+                            // Case 3: Reference to a field within an argument value
+                            // => Parent is another field within the argument value or the argument
+                            // itself
+                            transform { dropArgumentPathSegment() }.some()
+                        } else {
+                            // Case 4: Reference to an argument
+                            // => Parent is the field on which the argument is found
+                            transform { clearArgument() }.some()
+                        }
                     }
-                    .isDefined() -> {
-                transform { clearDirective() }.some()
+                }
             }
             else -> {
-                transform { dropDirectivePathSegment() }.some()
+                if (directiveNamePathPair.second.isNotEmpty()) {
+                    // Case 5: Reference to a field within a directive value
+                    // => Parent is another field within the directive value or the directive itself
+                    transform { dropDirectivePathSegment() }.some()
+                } else {
+                    // Case 6: Reference to a directive
+                    // => Parent is the argument or field on which this is a directive
+                    transform { clearDirective() }.some()
+                }
             }
         }
     }
