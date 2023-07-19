@@ -16,6 +16,8 @@ import funcify.feature.schema.dataelement.DataElementSource
 import funcify.feature.schema.dataelement.DataElementSourceProvider
 import funcify.feature.schema.directive.alias.AliasRegistryComposer
 import funcify.feature.schema.directive.alias.AttributeAliasRegistry
+import funcify.feature.schema.directive.temporal.LastUpdatedTemporalAttributeRegistry
+import funcify.feature.schema.directive.temporal.LastUpdatedTemporalAttributeRegistryComposer
 import funcify.feature.schema.feature.FeatureCalculator
 import funcify.feature.schema.feature.FeatureCalculatorProvider
 import funcify.feature.schema.metamodel.DefaultMetamodel
@@ -26,12 +28,10 @@ import funcify.feature.tools.container.attempt.Success
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.MonoExtensions.widen
-import funcify.feature.tools.extensions.OptionExtensions.recurse
 import funcify.feature.tools.extensions.OptionExtensions.toOption
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.extensions.TryExtensions.failure
 import funcify.feature.tools.extensions.TryExtensions.successIfDefined
-import funcify.feature.tree.PersistentTree
 import graphql.GraphQLError
 import graphql.language.*
 import graphql.schema.idl.TypeDefinitionRegistry
@@ -80,6 +80,7 @@ internal class DefaultMetamodelBuildStrategy(private val scalarTypeRegistry: Sca
             .flatMap(extractSourcesFromSourceProviders())
             .flatMap(createTypeDefinitionRegistryFromSources())
             .flatMap(createAliasRegistryFromTypeDefinitionRegistry())
+            .flatMap(createLastUpdatedTemporalAttributeRegistryFromTypeDefinitionRegistry())
             .map { ctx: MetamodelBuildContext ->
                 DefaultMetamodel(
                     transformerSourceProvidersByName =
@@ -98,8 +99,8 @@ internal class DefaultMetamodelBuildStrategy(private val scalarTypeRegistry: Sca
                     typeDefinitionRegistry = ctx.typeDefinitionRegistry,
                     attributeAliasRegistry = ctx.attributeAliasRegistry,
                     entityRegistry = ctx.entityRegistry,
-                    lastUpdatedTemporalAttributePathRegistry =
-                        ctx.lastUpdatedTemporalAttributePathRegistry
+                    lastUpdatedTemporalAttributeRegistry =
+                        ctx.lastUpdatedTemporalAttributeRegistry
                 )
             }
             .doOnSuccess(logSuccessfulStatus())
@@ -345,79 +346,6 @@ internal class DefaultMetamodelBuildStrategy(private val scalarTypeRegistry: Sca
                 }
             }
             .toMono()
-    }
-
-    private fun createTreeFromTypeDefinitionRegistryQueryNode(
-        typeDefinitionRegistry: TypeDefinitionRegistry
-    ): Mono<PersistentTree<Node<*>>> {
-        return Mono.defer {
-                when (
-                    val queryObjectTypeDefinition: ObjectTypeDefinition? =
-                        typeDefinitionRegistry
-                            .getType(QUERY_OBJECT_TYPE_NAME, ObjectTypeDefinition::class.java)
-                            .orElse(null)
-                ) {
-                    null -> {
-                        Mono.error<Node<*>> {
-                            ServiceError.of(
-                                "root query type definition or extension definition not provided in type_definition_registry"
-                            )
-                        }
-                    }
-                    else -> {
-                        Mono.just<Node<*>>(queryObjectTypeDefinition)
-                    }
-                }
-            }
-            .map { queryNode: Node<*> ->
-                val visitedImplementingTypeNamesSet: MutableSet<String> = mutableSetOf()
-                PersistentTree.fromSequenceTraversal<Node<*>>(queryNode) { n: Node<*> ->
-                    when (n) {
-                        is ImplementingTypeDefinition<*> -> {
-                            if (n.name in visitedImplementingTypeNamesSet) {
-                                emptySequence()
-                            } else {
-                                n.fieldDefinitions
-                                    .asSequence()
-                                    .map { fd: FieldDefinition -> (fd.name to fd).right() }
-                                    .also { visitedImplementingTypeNamesSet.add(n.name) }
-                            }
-                        }
-                        is FieldDefinition -> {
-                            n.type
-                                .toOption()
-                                .recurse { t: Type<*> ->
-                                    when (t) {
-                                        is NonNullType -> t.type.left().some()
-                                        is ListType -> t.type.left().some()
-                                        is TypeName -> t.name.right().some()
-                                        else -> none()
-                                    }
-                                }
-                                .flatMap { typeName: String ->
-                                    typeDefinitionRegistry
-                                        .getType(typeName)
-                                        .toOption()
-                                        .filterIsInstance<ImplementingTypeDefinition<*>>()
-                                }
-                                .map { itd: ImplementingTypeDefinition<*> ->
-                                    if (itd.name in visitedImplementingTypeNamesSet) {
-                                        emptySequence()
-                                    } else {
-                                        itd.fieldDefinitions
-                                            .asSequence()
-                                            .map { fd: FieldDefinition -> (fd.name to fd).right() }
-                                            .also { visitedImplementingTypeNamesSet.add(itd.name) }
-                                    }
-                                }
-                                .fold(::emptySequence, ::identity)
-                        }
-                        else -> {
-                            emptySequence<Either<Node<*>, Pair<String, Node<*>>>>()
-                        }
-                    }
-                }
-            }
     }
 
     private fun <DES : DataElementSource> validateDataElementSourceForProvider(
@@ -922,6 +850,26 @@ internal class DefaultMetamodelBuildStrategy(private val scalarTypeRegistry: Sca
                 .toMono()
                 .map { aar: AttributeAliasRegistry ->
                     context.update { attributeAliasRegistry(aar) }
+                }
+        }
+    }
+
+    private fun createLastUpdatedTemporalAttributeRegistryFromTypeDefinitionRegistry():
+        (MetamodelBuildContext) -> Mono<MetamodelBuildContext> {
+        return { context: MetamodelBuildContext ->
+            LastUpdatedTemporalAttributeRegistryComposer()
+                .createLastUpdatedTemporalAttributeRegistry(context.typeDefinitionRegistry)
+                .successIfDefined {
+                    ServiceError.of(
+                        """unable to create last_updated_temporal_attribute_registry 
+                        |from type_definition_registry; 
+                        |query_object_type_definition not found"""
+                            .flatten()
+                    )
+                }
+                .toMono()
+                .map { lutapr: LastUpdatedTemporalAttributeRegistry ->
+                    context.update { lastUpdatedTemporalAttributePathRegistry(lutapr) }
                 }
         }
     }

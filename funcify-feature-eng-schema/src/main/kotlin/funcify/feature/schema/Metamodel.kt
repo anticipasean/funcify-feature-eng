@@ -4,7 +4,7 @@ import funcify.feature.schema.dataelement.DataElementSource
 import funcify.feature.schema.dataelement.DataElementSourceProvider
 import funcify.feature.schema.directive.alias.AttributeAliasRegistry
 import funcify.feature.schema.directive.identifier.EntityRegistry
-import funcify.feature.schema.directive.temporal.LastUpdatedTemporalAttributePathRegistry
+import funcify.feature.schema.directive.temporal.LastUpdatedTemporalAttributeRegistry
 import funcify.feature.schema.feature.FeatureCalculator
 import funcify.feature.schema.feature.FeatureCalculatorProvider
 import funcify.feature.schema.feature.FeatureJsonValuePublisher
@@ -27,7 +27,7 @@ interface Metamodel {
 
     val entityRegistry: EntityRegistry
 
-    val lastUpdatedTemporalAttributePathRegistry: LastUpdatedTemporalAttributePathRegistry
+    val lastUpdatedTemporalAttributeRegistry: LastUpdatedTemporalAttributeRegistry
 
     val dataElementSourcesByName: ImmutableMap<String, DataElementSource>
 

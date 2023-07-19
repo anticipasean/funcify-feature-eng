@@ -5,7 +5,7 @@ import funcify.feature.schema.dataelement.DataElementSource
 import funcify.feature.schema.dataelement.DataElementSourceProvider
 import funcify.feature.schema.directive.alias.AttributeAliasRegistry
 import funcify.feature.schema.directive.identifier.EntityRegistry
-import funcify.feature.schema.directive.temporal.LastUpdatedTemporalAttributePathRegistry
+import funcify.feature.schema.directive.temporal.LastUpdatedTemporalAttributeRegistry
 import funcify.feature.schema.feature.FeatureCalculator
 import funcify.feature.schema.feature.FeatureCalculatorProvider
 import funcify.feature.schema.feature.FeatureJsonValuePublisher
@@ -30,5 +30,5 @@ internal data class DefaultMetamodel(
     override val typeDefinitionRegistry: TypeDefinitionRegistry,
     override val attributeAliasRegistry: AttributeAliasRegistry,
     override val entityRegistry: EntityRegistry,
-    override val lastUpdatedTemporalAttributePathRegistry: LastUpdatedTemporalAttributePathRegistry,
+    override val lastUpdatedTemporalAttributeRegistry: LastUpdatedTemporalAttributeRegistry,
 ) : Metamodel {}

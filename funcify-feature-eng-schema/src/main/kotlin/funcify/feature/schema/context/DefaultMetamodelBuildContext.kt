@@ -4,7 +4,7 @@ import funcify.feature.schema.dataelement.DataElementSource
 import funcify.feature.schema.dataelement.DataElementSourceProvider
 import funcify.feature.schema.directive.alias.AttributeAliasRegistry
 import funcify.feature.schema.directive.identifier.EntityRegistry
-import funcify.feature.schema.directive.temporal.LastUpdatedTemporalAttributePathRegistry
+import funcify.feature.schema.directive.temporal.LastUpdatedTemporalAttributeRegistry
 import funcify.feature.schema.feature.FeatureCalculator
 import funcify.feature.schema.feature.FeatureCalculatorProvider
 import funcify.feature.schema.feature.FeatureJsonValuePublisher
@@ -35,7 +35,7 @@ internal data class DefaultMetamodelBuildContext(
     override val typeDefinitionRegistry: TypeDefinitionRegistry,
     override val attributeAliasRegistry: AttributeAliasRegistry,
     override val entityRegistry: EntityRegistry,
-    override val lastUpdatedTemporalAttributePathRegistry: LastUpdatedTemporalAttributePathRegistry,
+    override val lastUpdatedTemporalAttributeRegistry: LastUpdatedTemporalAttributeRegistry,
 ) : MetamodelBuildContext {
 
     companion object {
@@ -56,8 +56,8 @@ internal data class DefaultMetamodelBuildContext(
                 typeDefinitionRegistry = TypeDefinitionRegistry(),
                 attributeAliasRegistry = AttributeAliasRegistry.newRegistry(),
                 entityRegistry = EntityRegistry.newRegistry(),
-                lastUpdatedTemporalAttributePathRegistry =
-                    LastUpdatedTemporalAttributePathRegistry.newRegistry()
+                lastUpdatedTemporalAttributeRegistry =
+                    LastUpdatedTemporalAttributeRegistry.newRegistry()
             )
         }
 
@@ -84,8 +84,8 @@ internal data class DefaultMetamodelBuildContext(
             private var typeDefinitionRegistry: TypeDefinitionRegistry,
             private var attributeAliasRegistry: AttributeAliasRegistry,
             private var entityRegistry: EntityRegistry,
-            private var lastUpdatedTemporalAttributePathRegistry:
-                LastUpdatedTemporalAttributePathRegistry,
+            private var lastUpdatedTemporalAttributeRegistry:
+                LastUpdatedTemporalAttributeRegistry,
         ) : MetamodelBuildContext.Builder {
 
             override fun addTransformerSourceProvider(
@@ -184,10 +184,10 @@ internal data class DefaultMetamodelBuildContext(
             }
 
             override fun lastUpdatedTemporalAttributePathRegistry(
-                lastUpdatedTemporalAttributePathRegistry: LastUpdatedTemporalAttributePathRegistry
+                lastUpdatedTemporalAttributeRegistry: LastUpdatedTemporalAttributeRegistry
             ): MetamodelBuildContext.Builder {
-                this.lastUpdatedTemporalAttributePathRegistry =
-                    lastUpdatedTemporalAttributePathRegistry
+                this.lastUpdatedTemporalAttributeRegistry =
+                    lastUpdatedTemporalAttributeRegistry
                 return this
             }
 
@@ -207,8 +207,8 @@ internal data class DefaultMetamodelBuildContext(
                     typeDefinitionRegistry = typeDefinitionRegistry,
                     attributeAliasRegistry = attributeAliasRegistry,
                     entityRegistry = entityRegistry,
-                    lastUpdatedTemporalAttributePathRegistry =
-                        lastUpdatedTemporalAttributePathRegistry
+                    lastUpdatedTemporalAttributeRegistry =
+                        lastUpdatedTemporalAttributeRegistry
                 )
             }
         }
@@ -238,8 +238,8 @@ internal data class DefaultMetamodelBuildContext(
                     typeDefinitionRegistry = this.typeDefinitionRegistry,
                     attributeAliasRegistry = this.attributeAliasRegistry,
                     entityRegistry = this.entityRegistry,
-                    lastUpdatedTemporalAttributePathRegistry =
-                        this.lastUpdatedTemporalAttributePathRegistry
+                    lastUpdatedTemporalAttributeRegistry =
+                        this.lastUpdatedTemporalAttributeRegistry
                 )
             )
             .build()

@@ -9,19 +9,19 @@ import kotlinx.collections.immutable.ImmutableSet
  * @author smccarron
  * @created 2022-07-25
  */
-interface LastUpdatedTemporalAttributePathRegistry {
+interface LastUpdatedTemporalAttributeRegistry {
 
     companion object {
 
         @JvmStatic
-        fun newRegistry(): LastUpdatedTemporalAttributePathRegistry {
-            return DefaultLastUpdatedTemporalAttributePathRegistry()
+        fun newRegistry(): LastUpdatedTemporalAttributeRegistry {
+            return DefaultLastUpdatedTemporalAttributeRegistry()
         }
     }
 
     fun registerSchematicPathAsMappingToLastUpdatedTemporalAttributeVertex(
         path: SchematicPath
-    ): LastUpdatedTemporalAttributePathRegistry
+    ): LastUpdatedTemporalAttributeRegistry
 
     fun pathBelongsToLastUpdatedTemporalAttributeVertex(path: SchematicPath): Boolean
 
