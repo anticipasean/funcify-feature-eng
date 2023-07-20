@@ -99,8 +99,7 @@ internal class DefaultMetamodelBuildStrategy(private val scalarTypeRegistry: Sca
                     typeDefinitionRegistry = ctx.typeDefinitionRegistry,
                     attributeAliasRegistry = ctx.attributeAliasRegistry,
                     entityRegistry = ctx.entityRegistry,
-                    lastUpdatedTemporalAttributeRegistry =
-                        ctx.lastUpdatedTemporalAttributeRegistry
+                    lastUpdatedTemporalAttributeRegistry = ctx.lastUpdatedTemporalAttributeRegistry
                 )
             }
             .doOnSuccess(logSuccessfulStatus())
@@ -481,7 +480,7 @@ internal class DefaultMetamodelBuildStrategy(private val scalarTypeRegistry: Sca
                 .reduce(
                     addScalarTypeDefinitionsToContextTypeDefinitionRegistry(context).flatMap {
                         ctx: MetamodelBuildContext ->
-                        addDirectiveDefinitionsToContextTypeDefinitionRegistry(context)
+                        addDirectiveDefinitionsToContextTypeDefinitionRegistry(ctx)
                     }
                 ) { ctxResult: Try<MetamodelBuildContext>, tdr: TypeDefinitionRegistry ->
                     ctxResult.flatMap { c: MetamodelBuildContext ->

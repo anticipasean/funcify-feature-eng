@@ -10,13 +10,23 @@ object SDLDefinitionsSetExtractor : (TypeDefinitionRegistry) -> PersistentSet<SD
     override fun invoke(
         typeDefinitionRegistry: TypeDefinitionRegistry
     ): PersistentSet<SDLDefinition<*>> {
-        return typeDefinitionRegistry.parseOrder.inOrder
-            .asSequence()
-            .flatMap { (_: String, tds: List<SDLDefinition<*>>) -> tds.asSequence() }
-            .fold(persistentSetOf<SDLDefinition<*>>()) {
-                ps: PersistentSet<SDLDefinition<*>>,
-                sd: SDLDefinition<*> ->
-                ps.add(sd)
-            }
+        return sequenceOf<Iterable<SDLDefinition<*>>>(
+                typeDefinitionRegistry.types().values,
+                typeDefinitionRegistry.directiveDefinitions.values,
+                typeDefinitionRegistry.scalars().values
+            )
+            .plus(
+                sequenceOf<Map<String, List<SDLDefinition<*>>>>(
+                        typeDefinitionRegistry.inputObjectTypeExtensions(),
+                        typeDefinitionRegistry.interfaceTypeExtensions(),
+                        typeDefinitionRegistry.objectTypeExtensions(),
+                        typeDefinitionRegistry.unionTypeExtensions(),
+                        typeDefinitionRegistry.enumTypeExtensions(),
+                        typeDefinitionRegistry.scalarTypeExtensions()
+                    )
+                    .flatMap(Map<String, List<SDLDefinition<*>>>::values)
+            )
+            .flatMap(Iterable<SDLDefinition<*>>::asSequence)
+            .fold(persistentSetOf<SDLDefinition<*>>(), PersistentSet<SDLDefinition<*>>::add)
     }
 }
