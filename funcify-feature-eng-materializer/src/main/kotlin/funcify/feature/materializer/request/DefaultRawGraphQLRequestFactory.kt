@@ -30,7 +30,7 @@ internal class DefaultRawGraphQLRequestFactory : RawGraphQLRequestFactory {
             private var executionId: ExecutionId = UNSET_EXECUTION_ID,
             private var uri: URI = UNSET_URI,
             private var headers: MessageHeaders = MessageHeaders(mapOf()),
-            private var principalPublisher: Mono<Principal> = Mono.empty(),
+            private var principalPublisher: Mono<out Principal> = Mono.empty(),
             private var rawGraphQLQueryText: String = UNSET_RAW_GRAPHQL_QUERY_TEXT,
             private var operationName: String = UNSET_OPERATION_NAME,
             private var variables: MutableMap<String, Any?> = mutableMapOf(),
@@ -61,7 +61,7 @@ internal class DefaultRawGraphQLRequestFactory : RawGraphQLRequestFactory {
             }
 
             override fun principalPublisher(
-                principalPublisher: Mono<Principal>
+                principalPublisher: Mono<out Principal>
             ): RawGraphQLRequest.Builder {
                 this.principalPublisher = principalPublisher
                 return this
@@ -173,7 +173,7 @@ internal class DefaultRawGraphQLRequestFactory : RawGraphQLRequestFactory {
             override val executionId: ExecutionId,
             override val uri: URI,
             override val headers: MessageHeaders,
-            override val principalPublisher: Mono<Principal> = Mono.empty(),
+            override val principalPublisher: Mono<out Principal> = Mono.empty(),
             override val rawGraphQLQueryText: String = "",
             override val operationName: String = "",
             override val variables: PersistentMap<String, Any?> = persistentMapOf(),

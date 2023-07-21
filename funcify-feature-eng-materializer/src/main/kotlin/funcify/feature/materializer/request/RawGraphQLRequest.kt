@@ -7,6 +7,7 @@ import java.util.*
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableMap
 import org.springframework.http.HttpHeaders
+import org.springframework.messaging.MessageHeaders
 import reactor.core.publisher.Mono
 
 /**
@@ -22,9 +23,9 @@ interface RawGraphQLRequest {
 
     val uri: URI
 
-    val headers: HttpHeaders
+    val headers: MessageHeaders
 
-    val principalPublisher: Mono<Principal>
+    val principalPublisher: Mono<out Principal>
 
     val rawGraphQLQueryText: String
 
@@ -46,9 +47,9 @@ interface RawGraphQLRequest {
 
         fun uri(uri: URI): Builder
 
-        fun headers(headers: HttpHeaders): Builder
+        fun headers(headers: MessageHeaders): Builder
 
-        fun principalPublisher(principalPublisher: Mono<Principal>): Builder
+        fun principalPublisher(principalPublisher: Mono<out Principal>): Builder
 
         fun rawGraphQLQueryText(rawGraphQLQueryText: String): Builder
 

@@ -1,19 +1,17 @@
 package funcify.feature.spring.service
 
+import funcify.feature.error.ServiceError
 import funcify.feature.materializer.request.RawGraphQLRequest
 import funcify.feature.materializer.response.SerializedGraphQLResponse
 import funcify.feature.materializer.session.GraphQLSingleRequestSession
 import funcify.feature.materializer.session.GraphQLSingleRequestSessionCoordinator
 import funcify.feature.materializer.session.GraphQLSingleRequestSessionFactory
-import funcify.feature.spring.error.FeatureEngSpringWebFluxException
-import funcify.feature.spring.error.SpringWebFluxErrorResponse
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import org.slf4j.Logger
 import reactor.core.publisher.Mono
 
 /**
- *
  * @author smccarron
  * @created 2/20/22
  */
@@ -33,7 +31,8 @@ internal class SpringGraphQLSingleRequestExecutor(
             """execute_single_request: 
                 |[ raw_graphql_request.request_id: 
                 |${rawGraphQLRequest.requestId} ]
-                |""".flatten()
+                |"""
+                .flatten()
         )
         return graphQLSingleRequestSessionFactory
             .createSessionForSingleRequest(rawGraphQLRequest)
@@ -46,12 +45,12 @@ internal class SpringGraphQLSingleRequestExecutor(
                         val message =
                             """session was not updated such that 
                               |a serialized_graphql_response was added to it
-                              |""".flatten()
+                              |"""
+                                .flatten()
                         Mono.error(
-                            FeatureEngSpringWebFluxException(
-                                SpringWebFluxErrorResponse.NO_RESPONSE_PROVIDED,
-                                message
-                            )
+                            ServiceError.downstreamServiceUnavailableErrorBuilder()
+                                .message(message)
+                                .build()
                         )
                     },
                     { sr -> Mono.just(sr) }

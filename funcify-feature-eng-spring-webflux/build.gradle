@@ -3,6 +3,8 @@ dependencies {
      * Project Dependencies
      */
     implementation(project(':funcify-feature-eng-tools'))
+    implementation(project(':funcify-feature-eng-tree'))
+    implementation(project(':funcify-feature-eng-graph'))
     implementation(project(':funcify-feature-eng-schema'))
     implementation(project(':funcify-feature-eng-common'))
     implementation(project(":funcify-feature-eng-shared-definitions"))

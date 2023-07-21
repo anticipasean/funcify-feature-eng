@@ -10,14 +10,11 @@ import arrow.core.toOption
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.node.ArrayNode
 import com.fasterxml.jackson.databind.node.JsonNodeFactory
-import funcify.feature.error.FeatureEngCommonException
-import funcify.feature.tools.json.JsonMapper
+import funcify.feature.error.ServiceError
 import funcify.feature.materializer.request.GraphQLExecutionInputCustomizer
 import funcify.feature.materializer.request.RawGraphQLRequest
 import funcify.feature.materializer.request.RawGraphQLRequestFactory
 import funcify.feature.materializer.response.SerializedGraphQLResponse
-import funcify.feature.spring.error.FeatureEngSpringWebFluxException
-import funcify.feature.spring.error.SpringWebFluxErrorResponse
 import funcify.feature.spring.service.GraphQLSingleRequestExecutor
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.container.attempt.Try.Companion.filterInstanceOf
@@ -30,15 +27,18 @@ import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPer
 import funcify.feature.tools.extensions.StreamExtensions.flatMapOptions
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.extensions.ThrowableExtensions.possiblyNestedHeadStackTraceElement
+import funcify.feature.tools.json.JsonMapper
 import graphql.GraphQLError
 import graphql.execution.AbortExecutionException
 import java.util.*
+import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.persistentMapOf
+import kotlinx.collections.immutable.toPersistentList
 import org.slf4j.Logger
 import org.springframework.core.ParameterizedTypeReference
-import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
+import org.springframework.messaging.MessageHeaders
 import org.springframework.web.reactive.function.server.HandlerFunction
 import org.springframework.web.reactive.function.server.ServerRequest
 import org.springframework.web.reactive.function.server.ServerResponse
@@ -47,7 +47,6 @@ import reactor.core.publisher.Timed
 import reactor.core.scheduler.Schedulers
 
 /**
- *
  * @author smccarron
  * @created 2/19/22
  */
@@ -65,7 +64,6 @@ internal class GraphQLWebFluxHandlerFunction(
         private const val OUTPUT_KEY = "output"
         private const val ERRORS_KEY = "errors"
         private const val OPERATION_NAME_KEY = "operationName"
-        private const val MEDIA_TYPE_APPLICATION_GRAPHQL_VALUE = "application/graphql"
         private val STR_KEY_MAP_PARAMETERIZED_TYPE_REF =
             object : ParameterizedTypeReference<Map<String, Any?>>() {}
 
@@ -78,21 +76,22 @@ internal class GraphQLWebFluxHandlerFunction(
                 .getOrElse { Locale.getDefault() }
         }
 
-        private fun <T> T?.toMono(nullableParameterName: String): Mono<T> {
-            return this.toOption()
-                .map { t -> Mono.just(t) }
-                .getOrElse {
-                    val message =
-                        """[ parameter: $nullableParameterName ] is null but 
-                       |is required for processing this request successfully
-                       |""".flatten()
-                    Mono.error(
-                        FeatureEngSpringWebFluxException(
-                            SpringWebFluxErrorResponse.INVALID_INPUT,
-                            message
-                        )
-                    )
+        private fun <T : Any> T?.toMono(nullableParameterName: String): Mono<T> {
+            return when (this) {
+                null -> {
+                    Mono.error<T> {
+                        val message =
+                            """[ parameter: $nullableParameterName ] is null but 
+                            |is required for processing this request successfully
+                            |"""
+                                .flatten()
+                        ServiceError.invalidRequestErrorBuilder().message(message).build()
+                    }
                 }
+                else -> {
+                    Mono.just<T>(this)
+                }
+            }
         }
     }
 
@@ -105,10 +104,7 @@ internal class GraphQLWebFluxHandlerFunction(
             }
             .flatMap(convertAggregateSerializedGraphQLResponseIntoServerResponse())
             .doOnError(logAnyErrorsBeforeCreatingServerResponse())
-            .onErrorResume(
-                FeatureEngCommonException::class.java,
-                convertCommonExceptionTypeIntoServerResponse()
-            )
+            .onErrorResume(ServiceError::class.java, convertCommonExceptionTypeIntoServerResponse())
             .onErrorResume(
                 { t: Throwable -> t is GraphQLError },
                 convertGraphQLErrorTypeIntoServerResponse()
@@ -136,11 +132,12 @@ internal class GraphQLWebFluxHandlerFunction(
     private fun convertServerRequestIntoRawGraphQLRequest(
         request: ServerRequest
     ): Mono<RawGraphQLRequest> {
-        return when (request.headers().firstHeader(HttpHeaders.CONTENT_TYPE)) {
-            MEDIA_TYPE_APPLICATION_GRAPHQL_VALUE -> {
+        return when (request.headers().contentType().orElse(null)) {
+            MediaType.APPLICATION_GRAPHQL_RESPONSE,
+            MediaType.APPLICATION_GRAPHQL -> {
                 transformRawGraphQLOperationTextIntoRawGraphQLRequest(request)
             }
-            MediaType.APPLICATION_JSON_VALUE -> {
+            MediaType.APPLICATION_JSON -> {
                 transformJsonIntoRawGraphQLRequest(request)
             }
             else -> {
@@ -154,16 +151,15 @@ internal class GraphQLWebFluxHandlerFunction(
     ): Mono<RawGraphQLRequest> {
         return request
             .bodyToMono(STR_KEY_MAP_PARAMETERIZED_TYPE_REF)
-            .flatMap { nullableStrKeyMap -> nullableStrKeyMap.toMono("string_key_map") }
-            .zipWith(request.principal()) { strKeyMap, principal ->
-                strKeyMap to principal.toOption()
+            .flatMap { nullableStrKeyMap: Map<String, Any?>? ->
+                nullableStrKeyMap.toMono("string_key_map")
             }
-            .map { (strKeyMap, principalOpt) ->
+            .map { strKeyMap: Map<String, Any?> ->
                 rawGraphQLRequestFactory
                     .builder()
                     .uri(request.uri())
-                    .headers(extractReadOnlyHttpHeadersFromRequest(request))
-                    .principalPublisher(principalOpt.orNull())
+                    .headers(extractMessageHeadersFromRequest(request))
+                    .principalPublisher(request.principal())
                     .operationName(
                         strKeyMap[OPERATION_NAME_KEY]
                             .toOption()
@@ -190,18 +186,17 @@ internal class GraphQLWebFluxHandlerFunction(
         request: ServerRequest
     ): Mono<RawGraphQLRequest> {
         return request
-            .bodyToMono(JsonNode::class.java)
-            .flatMap { nullableQueryJson -> nullableQueryJson.toMono("json_node_form_of_input") }
-            .zipWith(request.principal()) { queryJson, principal ->
-                queryJson to principal.toOption()
+            .bodyToMono<JsonNode?>(JsonNode::class.java)
+            .flatMap { nullableQueryJson: JsonNode? ->
+                nullableQueryJson.toMono("json_node_form_of_input")
             }
-            .map { (queryJson, principalOpt) ->
+            .map { queryJson: JsonNode ->
                 rawGraphQLRequestFactory
                     .builder()
                     .uri(request.uri())
-                    .headers(extractReadOnlyHttpHeadersFromRequest(request))
+                    .headers(extractMessageHeadersFromRequest(request))
                     .operationName(queryJson.findPath(OPERATION_NAME_KEY).asText(""))
-                    .principalPublisher(principalOpt.orNull())
+                    .principalPublisher(request.principal())
                     .rawGraphQLQueryText(queryJson.findPath(QUERY_KEY).asText(""))
                     .variables(extractGraphQLVariablesFromJson(queryJson))
                     .locale(extractLocaleFromRequest(request))
@@ -227,17 +222,16 @@ internal class GraphQLWebFluxHandlerFunction(
         request: ServerRequest
     ): Mono<RawGraphQLRequest> {
         return request
-            .bodyToMono(String::class.java)
-            .flatMap { nullableQueryText -> nullableQueryText.toMono("raw_graphql_text_input") }
-            .zipWith(request.principal()) { queryText, principal ->
-                queryText to principal.toOption()
+            .bodyToMono<String?>(String::class.java)
+            .flatMap { nullableQueryText: String? ->
+                nullableQueryText.toMono("raw_graphql_text_input")
             }
-            .map { (queryText, principalOpt) ->
+            .map { queryText: String ->
                 rawGraphQLRequestFactory
                     .builder()
                     .uri(request.uri())
-                    .headers(extractReadOnlyHttpHeadersFromRequest(request))
-                    .principalPublisher(principalOpt.orNull())
+                    .headers(extractMessageHeadersFromRequest(request))
+                    .principalPublisher(request.principal())
                     .rawGraphQLQueryText(queryText)
                     .variables(request.queryParams().toSingleValueMap())
                     .locale(extractLocaleFromRequest(request))
@@ -289,8 +283,24 @@ internal class GraphQLWebFluxHandlerFunction(
             .getOrElse { persistentMapOf<String, Any?>() }
     }
 
-    private fun extractReadOnlyHttpHeadersFromRequest(request: ServerRequest): HttpHeaders {
-        return HttpHeaders.readOnlyHttpHeaders(request.headers().asHttpHeaders())
+    private fun extractMessageHeadersFromRequest(request: ServerRequest): MessageHeaders {
+        return MessageHeaders(
+            request.headers().asHttpHeaders().asSequence().fold(persistentMapOf<String, Any?>()) {
+                pm: PersistentMap<String, Any?>,
+                (k: String, v: List<String>?) ->
+                when (v?.size ?: 0) {
+                    0 -> {
+                        pm.put(k, null)
+                    }
+                    1 -> {
+                        pm.put(k, v[0])
+                    }
+                    else -> {
+                        pm.put(k, v.toPersistentList())
+                    }
+                }
+            }
+        )
     }
 
     private fun convertAggregateSerializedGraphQLResponseIntoServerResponse():
@@ -334,12 +344,12 @@ internal class GraphQLWebFluxHandlerFunction(
                                 |into specification for api_response 
                                 |[ type: Map<String, Any?> ] given cause: 
                                 |[ type: ${t::class.qualifiedName}, 
-                                |message: ${t.message} ]""".flatten()
-                            FeatureEngSpringWebFluxException(
-                                SpringWebFluxErrorResponse.EXECUTION_RESULT_ISSUE,
-                                message,
-                                t
-                            )
+                                |message: ${t.message} ]"""
+                                    .flatten()
+                            ServiceError.downstreamResponseErrorBuilder()
+                                .message(message)
+                                .cause(t)
+                                .build()
                         }
                         .toMono()
                         .flatMap { spec ->
@@ -354,81 +364,48 @@ internal class GraphQLWebFluxHandlerFunction(
 
     private fun logAnyErrorsBeforeCreatingServerResponse(): (Throwable) -> Unit {
         return { t: Throwable ->
-            logger.error(
-                "handle: [ error(s) occurred ] [ type: {}, message: {}, stack_trace_element[0]: {} ]",
-                t::class.simpleName,
-                t.message,
-                t.possiblyNestedHeadStackTraceElement()
-            )
-        }
-    }
-
-    private fun convertCommonExceptionTypeIntoServerResponse():
-        (FeatureEngCommonException) -> Mono<out ServerResponse> {
-        return { commonException: FeatureEngCommonException ->
-            when {
-                commonException.errorResponse.responseIfGraphQL.isDefined() -> {
-                    val graphQLError: GraphQLError =
-                        commonException.errorResponse.responseIfGraphQL.orNull()!!
-                    commonException.errorResponse.responseStatusIfHttp
-                        .map { httpStatus: HttpStatus -> ServerResponse.status(httpStatus) }
-                        .getOrElse { ServerResponse.status(HttpStatus.INTERNAL_SERVER_ERROR) }
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .bodyValue(
-                            mapOf(
-                                "errors" to
-                                    JsonNodeFactory.instance
-                                        .arrayNode()
-                                        .add(
-                                            convertGraphQLErrorWithinCommonExceptionIntoErrorJsonNode(
-                                                graphQLError,
-                                                commonException
-                                            )
-                                        )
-                            )
-                        )
+            when (t) {
+                is ServiceError -> {
+                    logger.error(
+                        "handle: [ error(s) occurred ] [ type: {}, json: {} ]",
+                        t::class.simpleName,
+                        t.toJsonNode()
+                    )
                 }
                 else -> {
-                    commonException.errorResponse.responseStatusIfHttp
-                        .map { httpStatus: HttpStatus -> ServerResponse.status(httpStatus) }
-                        .getOrElse { ServerResponse.status(HttpStatus.INTERNAL_SERVER_ERROR) }
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .bodyValue(
-                            mapOf(
-                                "errors" to
-                                    JsonNodeFactory.instance
-                                        .arrayNode()
-                                        .add(
-                                            mapOf(
-                                                    "errorType" to
-                                                        commonException::class.simpleName,
-                                                    "message" to commonException.message
-                                                )
-                                                .asSequence()
-                                                .fold(JsonNodeFactory.instance.objectNode()) {
-                                                    on,
-                                                    (k, v) ->
-                                                    on.put(k, v)
-                                                }
-                                        )
-                            )
-                        )
+                    logger.error(
+                        "handle: [ error(s) occurred ] [ type: {}, message: {}, stack_trace_element[0]: {} ]",
+                        t::class.simpleName,
+                        t.message,
+                        t.possiblyNestedHeadStackTraceElement()
+                    )
                 }
             }
         }
     }
 
+    private fun convertCommonExceptionTypeIntoServerResponse():
+        (ServiceError) -> Mono<out ServerResponse> {
+        return { serviceError: ServiceError ->
+            ServerResponse.status(serviceError.serverHttpResponse)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(
+                    mapOf<String, JsonNode>(
+                        ERRORS_KEY to
+                            JsonNodeFactory.instance.arrayNode().add(serviceError.toJsonNode())
+                    )
+                )
+        }
+    }
+
     private fun convertGraphQLErrorWithinCommonExceptionIntoErrorJsonNode(
         graphQLError: GraphQLError,
-        commonException: FeatureEngCommonException,
+        serviceError: ServiceError,
     ): JsonNode {
         return convertGraphQLErrorIntoErrorJsonNode(graphQLError).fold(::identity) { _: Throwable ->
             jsonMapper
                 .fromKotlinObject(
-                    mapOf(
-                        "errorType" to graphQLError.errorType,
-                        "message" to commonException.message
-                    )
+                    mapOf("errorType" to graphQLError.errorType, "message" to serviceError.message)
                 )
                 .toJsonNode()
                 .orElseGet { JsonNodeFactory.instance.nullNode() }
@@ -473,7 +450,8 @@ internal class GraphQLWebFluxHandlerFunction(
                     |convert_graphql_error_into_error_json_node: 
                     |[ status: removing 'cause' from spec for brevity in response payload ]
                     |[ cause: { type: {}, message: {} ]
-                    """.flatten(),
+                    """
+                        .flatten(),
                     causeOpt.map { t -> t::class.simpleName }.getOrElse { "<NA>" },
                     causeOpt.map { t -> t.message }.getOrElse { "<NA>" }
                 )
@@ -498,11 +476,13 @@ internal class GraphQLWebFluxHandlerFunction(
                             .add(
                                 convertGraphQLErrorWithinCommonExceptionIntoErrorJsonNode(
                                     gqlError,
-                                    FeatureEngSpringWebFluxException(
-                                        SpringWebFluxErrorResponse.NO_RESPONSE_PROVIDED,
-                                        """a serialized_graphql_response was not received 
-                                        |from upstream likely due to aborted execution""".flatten()
-                                    )
+                                    ServiceError.downstreamResponseErrorBuilder()
+                                        .message(
+                                            """a serialized_graphql_response was not received 
+                                        |from upstream likely due to aborted execution"""
+                                                .flatten()
+                                        )
+                                        .build()
                                 )
                             )
                 )
@@ -538,7 +518,8 @@ internal class GraphQLWebFluxHandlerFunction(
                    |uncaught non-platform exception thrown: 
                    |[ type: ${err::class.qualifiedName}, 
                    |message: ${err.message} 
-                   |]""".flatten(),
+                   |]"""
+                    .flatten(),
                 err
             )
             ServerResponse.status(HttpStatus.INTERNAL_SERVER_ERROR)
