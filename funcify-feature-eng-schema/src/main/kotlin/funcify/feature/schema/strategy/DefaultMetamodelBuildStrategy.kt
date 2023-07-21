@@ -698,15 +698,32 @@ internal class DefaultMetamodelBuildStrategy(private val scalarTypeRegistry: Sca
             ctxAttempt.flatMap { c: MetamodelBuildContext ->
                 when (
                     val possibleError: Option<GraphQLError> =
-                        c.typeDefinitionRegistry.add(md.directiveDefinition).toOption()
+                        c.typeDefinitionRegistry
+                            .addAll(
+                                sequenceOf(md.directiveDefinition)
+                                    .plus(md.referencedInputObjectTypeDefinitions)
+                                    .plus(md.referencedEnumTypeDefinitions)
+                                    .toList()
+                            )
+                            .toOption()
                 ) {
                     is Some<GraphQLError> -> {
                         val message: String =
                             """error [ type: %s ]
                             |when adding directive definition [ name: %s ] 
+                            |and its referenced input object types [ names: %s ]
                             |to context.type_definition_registry
                             """
                                 .flatten()
+                                .format(
+                                    possibleError.value::class.simpleName,
+                                    md.directiveDefinition.name,
+                                    md.referencedInputObjectTypeDefinitions
+                                        .asSequence()
+                                        .plus(md.referencedEnumTypeDefinitions)
+                                        .map(SDLNamedDefinition<*>::getName)
+                                        .joinToString(", ")
+                                )
                         when (val e: GraphQLError = possibleError.value) {
                             is Throwable -> {
                                 ServiceError.builder().message(message).cause(e).build()
