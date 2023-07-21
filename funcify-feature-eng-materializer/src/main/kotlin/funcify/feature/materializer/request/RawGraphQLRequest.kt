@@ -1,6 +1,5 @@
 package funcify.feature.materializer.request
 
-import arrow.core.Option
 import graphql.execution.ExecutionId
 import java.net.URI
 import java.security.Principal
@@ -8,6 +7,7 @@ import java.util.*
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableMap
 import org.springframework.http.HttpHeaders
+import reactor.core.publisher.Mono
 
 /**
  *
@@ -24,7 +24,7 @@ interface RawGraphQLRequest {
 
     val headers: HttpHeaders
 
-    val principal: Option<Principal>
+    val principalPublisher: Mono<Principal>
 
     val rawGraphQLQueryText: String
 
@@ -48,7 +48,7 @@ interface RawGraphQLRequest {
 
         fun headers(headers: HttpHeaders): Builder
 
-        fun principal(principal: Principal?): Builder
+        fun principalPublisher(principalPublisher: Mono<Principal>): Builder
 
         fun rawGraphQLQueryText(rawGraphQLQueryText: String): Builder
 

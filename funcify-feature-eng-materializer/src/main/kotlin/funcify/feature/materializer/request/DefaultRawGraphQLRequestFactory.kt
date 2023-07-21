@@ -1,10 +1,6 @@
 package funcify.feature.materializer.request
 
-import arrow.core.Option
-import arrow.core.none
-import arrow.core.toOption
-import funcify.feature.materializer.error.MaterializerErrorResponse
-import funcify.feature.materializer.error.MaterializerException
+import funcify.feature.error.ServiceError
 import funcify.feature.schema.path.SchematicPath
 import graphql.execution.ExecutionId
 import java.net.URI
@@ -16,7 +12,8 @@ import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.toPersistentList
 import kotlinx.collections.immutable.toPersistentMap
-import org.springframework.http.HttpHeaders
+import org.springframework.messaging.MessageHeaders
+import reactor.core.publisher.Mono
 
 internal class DefaultRawGraphQLRequestFactory : RawGraphQLRequestFactory {
 
@@ -32,8 +29,8 @@ internal class DefaultRawGraphQLRequestFactory : RawGraphQLRequestFactory {
             private var requestId: UUID = UNSET_REQUEST_ID,
             private var executionId: ExecutionId = UNSET_EXECUTION_ID,
             private var uri: URI = UNSET_URI,
-            private var headers: HttpHeaders = HttpHeaders(),
-            private var principal: Option<Principal> = none(),
+            private var headers: MessageHeaders = MessageHeaders(mapOf()),
+            private var principalPublisher: Mono<Principal> = Mono.empty(),
             private var rawGraphQLQueryText: String = UNSET_RAW_GRAPHQL_QUERY_TEXT,
             private var operationName: String = UNSET_OPERATION_NAME,
             private var variables: MutableMap<String, Any?> = mutableMapOf(),
@@ -58,13 +55,15 @@ internal class DefaultRawGraphQLRequestFactory : RawGraphQLRequestFactory {
                 return this
             }
 
-            override fun headers(headers: HttpHeaders): RawGraphQLRequest.Builder {
+            override fun headers(headers: MessageHeaders): RawGraphQLRequest.Builder {
                 this.headers = headers
                 return this
             }
 
-            override fun principal(principal: Principal?): RawGraphQLRequest.Builder {
-                this.principal = principal.toOption()
+            override fun principalPublisher(
+                principalPublisher: Mono<Principal>
+            ): RawGraphQLRequest.Builder {
+                this.principalPublisher = principalPublisher
                 return this
             }
 
@@ -139,16 +138,16 @@ internal class DefaultRawGraphQLRequestFactory : RawGraphQLRequestFactory {
                 return when {
                     rawGraphQLQueryText == UNSET_RAW_GRAPHQL_QUERY_TEXT &&
                         expectedOutputFieldNames.isEmpty() -> {
-                        throw MaterializerException(
-                            MaterializerErrorResponse.INVALID_GRAPHQL_REQUEST,
-                            "either raw_graphql_query_text or expected_output_field_names must be provided"
-                        )
+                        throw ServiceError.invalidRequestErrorBuilder()
+                            .message(
+                                "either raw_graphql_query_text or expected_output_field_names must be provided"
+                            )
+                            .build()
                     }
                     uri == UNSET_URI -> {
-                        throw MaterializerException(
-                            MaterializerErrorResponse.INVALID_GRAPHQL_REQUEST,
-                            "uri is missing"
-                        )
+                        throw ServiceError.invalidRequestErrorBuilder()
+                            .message("uri is missing")
+                            .build()
                     }
                     else -> {
                         DefaultRawGraphQLRequest(
@@ -156,7 +155,7 @@ internal class DefaultRawGraphQLRequestFactory : RawGraphQLRequestFactory {
                             executionId = validatedExecutionId,
                             uri = uri,
                             headers = headers,
-                            principal = principal,
+                            principalPublisher = principalPublisher,
                             rawGraphQLQueryText = rawGraphQLQueryText,
                             operationName = operationName,
                             variables = variables.toPersistentMap(),
@@ -173,8 +172,8 @@ internal class DefaultRawGraphQLRequestFactory : RawGraphQLRequestFactory {
             override val requestId: UUID,
             override val executionId: ExecutionId,
             override val uri: URI,
-            override val headers: HttpHeaders,
-            override val principal: Option<Principal> = none(),
+            override val headers: MessageHeaders,
+            override val principalPublisher: Mono<Principal> = Mono.empty(),
             override val rawGraphQLQueryText: String = "",
             override val operationName: String = "",
             override val variables: PersistentMap<String, Any?> = persistentMapOf(),

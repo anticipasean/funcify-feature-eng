@@ -163,7 +163,7 @@ internal class GraphQLWebFluxHandlerFunction(
                     .builder()
                     .uri(request.uri())
                     .headers(extractReadOnlyHttpHeadersFromRequest(request))
-                    .principal(principalOpt.orNull())
+                    .principalPublisher(principalOpt.orNull())
                     .operationName(
                         strKeyMap[OPERATION_NAME_KEY]
                             .toOption()
@@ -201,7 +201,7 @@ internal class GraphQLWebFluxHandlerFunction(
                     .uri(request.uri())
                     .headers(extractReadOnlyHttpHeadersFromRequest(request))
                     .operationName(queryJson.findPath(OPERATION_NAME_KEY).asText(""))
-                    .principal(principalOpt.orNull())
+                    .principalPublisher(principalOpt.orNull())
                     .rawGraphQLQueryText(queryJson.findPath(QUERY_KEY).asText(""))
                     .variables(extractGraphQLVariablesFromJson(queryJson))
                     .locale(extractLocaleFromRequest(request))
@@ -237,7 +237,7 @@ internal class GraphQLWebFluxHandlerFunction(
                     .builder()
                     .uri(request.uri())
                     .headers(extractReadOnlyHttpHeadersFromRequest(request))
-                    .principal(principalOpt.orNull())
+                    .principalPublisher(principalOpt.orNull())
                     .rawGraphQLQueryText(queryText)
                     .variables(request.queryParams().toSingleValueMap())
                     .locale(extractLocaleFromRequest(request))

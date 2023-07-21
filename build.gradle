@@ -45,11 +45,15 @@ ext.apacheBeamSubProjects = subprojects.findAll { Project p ->
 ext.streamSubProjects = subprojects.findAll { Project p ->
     p.name.endsWith("-stream")
 }
+ext.materializerProjects = subprojects.findAll { Project p ->
+    p.name.endsWith("-materializer")
+}
 ext.mainKotlinSubProjects = subprojects.findAll { Project p ->
     [ext.sharedGraphQLDefinitionKotlinProjects,
      ext.sharedToolsKotlinProjects,
      ext.apacheBeamSubProjects,
-     ext.streamSubProjects].stream().noneMatch { Set<Project> s ->
+     ext.streamSubProjects,
+     ext.materializerProjects].stream().noneMatch { Set<Project> s ->
         s.contains(p)
     }
 }
@@ -93,9 +97,9 @@ configure(sharedToolsKotlinProjects) {
     sourceCompatibility = sourceCompatibility
     targetCompatibility = targetCompatibility
     configurations {
-        all {
-            resolutionStrategy { org.gradle.api.artifacts.ResolutionStrategy r ->
-                r.eachDependency { org.gradle.api.artifacts.DependencyResolveDetails d ->
+        configureEach { org.gradle.api.artifacts.Configuration c ->
+            c.resolutionStrategy { org.gradle.api.artifacts.ResolutionStrategy rs ->
+                rs.eachDependency { org.gradle.api.artifacts.DependencyResolveDetails d ->
                     if (d.requested.group == 'org.reactivestreams') {
                         d.useVersion(reactiveStreamsVersion)
                     }
@@ -158,9 +162,9 @@ configure(apacheBeamSubProjects) {
     sourceCompatibility = sourceCompatibility
     targetCompatibility = targetCompatibility
     configurations {
-        all { Configuration c ->
-            c.resolutionStrategy { ResolutionStrategy r ->
-                r.eachDependency { DependencyResolveDetails d ->
+        configureEach { org.gradle.api.artifacts.Configuration c ->
+            c.resolutionStrategy { org.gradle.api.artifacts.ResolutionStrategy rs ->
+                rs.eachDependency { org.gradle.api.artifacts.DependencyResolveDetails d ->
                     if (d.requested.group == 'org.xerial.snappy' && d.requested.name == 'snappy-java') {
                         // versions [1.1.8.3, 1.1.8.4] have support for Mac.aarch64 but lack ZappyOutputStream implementations
                         d.useVersion("1.1.8.2")
@@ -260,9 +264,9 @@ configure(streamSubProjects) {
     sourceCompatibility = sourceCompatibility
     targetCompatibility = targetCompatibility
     configurations {
-        all {
-            resolutionStrategy { org.gradle.api.artifacts.ResolutionStrategy r ->
-                r.eachDependency { org.gradle.api.artifacts.DependencyResolveDetails d ->
+        configureEach { org.gradle.api.artifacts.Configuration c ->
+            c.resolutionStrategy { org.gradle.api.artifacts.ResolutionStrategy rs ->
+                rs.eachDependency { org.gradle.api.artifacts.DependencyResolveDetails d ->
                     // gcp pubsub 4.5.0 uses spring-boot 3.0.6 => Update spring-boot version
                     if (d.requested.group == 'org.springframework.boot') {
                         d.useVersion(springBootPluginVersion)
@@ -362,6 +366,103 @@ configure(streamSubProjects) {
     }
 }
 
+configure(materializerProjects) {
+    apply plugin: 'idea'
+    apply plugin: 'org.jetbrains.kotlin.jvm'
+    apply plugin: 'org.jetbrains.kotlin.plugin.spring'
+    sourceCompatibility = sourceCompatibility
+    targetCompatibility = targetCompatibility
+    configurations {
+        configureEach { org.gradle.api.artifacts.Configuration c ->
+            c.resolutionStrategy { org.gradle.api.artifacts.ResolutionStrategy rs ->
+                rs.eachDependency { org.gradle.api.artifacts.DependencyResolveDetails d ->
+                    // gcp pubsub 4.5.0 uses spring-boot 3.0.6 => Update spring-boot version
+                    if (d.requested.group == 'org.springframework.boot') {
+                        d.useVersion(springBootPluginVersion)
+                    }
+                    // gcp stream-binder 4.5.0 uses spring-framework 6.0.9 => Update springframework version
+                    if (d.requested.group == 'org.springframework') {
+                        d.useVersion(springFrameworkVersion)
+                    }
+                    if (d.requested.group == 'org.reactivestreams') {
+                        d.useVersion(reactiveStreamsVersion)
+                    }
+                    if (d.requested.group == 'org.junit.jupiter') {
+                        d.useVersion(jUnitJupiterVersion)
+                    }
+                    if (d.requested.group == 'org.junit.platform') {
+                        d.useVersion(jUnitPlatformVersion)
+                    }
+                    if (d.requested.group.startsWith('com.fasterxml.jackson.')) {
+                        d.useVersion(jacksonVersion)
+                    }
+                }
+            }
+        }
+        kotlinDeps {
+            dependencies {
+                implementation("org.jetbrains.kotlin:kotlin-stdlib:${kotlinVersion}")
+                implementation("org.jetbrains.kotlin:kotlin-reflect:${kotlinVersion}")
+                implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8:${kotlinVersion}")
+                implementation("org.jetbrains.kotlin:kotlin-noarg:${kotlinVersion}")
+                implementation("org.jetbrains.kotlinx:kotlinx-collections-immutable-jvm:${kotlinxImmutableCollectionsVersion}")
+            }
+        }
+        graphql {
+            dependencies {
+                implementation("com.graphql-java:graphql-java:${graphQLJavaVersion}")
+                implementation("com.graphql-java:graphql-java-extended-scalars:${graphQLJavaExtScalarsVersion}")
+                /**
+                 * graphql-java has guava dependency
+                 */
+                implementation("com.google.guava:guava:${guavaVersion}")
+            }
+        }
+        arrow {
+            dependencies {
+                implementation("io.arrow-kt:arrow-core:${arrowStackVersion}")
+            }
+        }
+        reactor {
+            dependencies {
+                implementation("org.reactivestreams:reactive-streams:${reactiveStreamsVersion}")
+                implementation("io.projectreactor:reactor-core:${reactorCoreVersion}")
+                implementation("io.projectreactor.addons:reactor-extra:${reactorExtraVersion}")
+                implementation("io.projectreactor.kotlin:reactor-kotlin-extensions:${reactorKotlinExtensionsVersion}")
+                testImplementation("io.projectreactor:reactor-test:${reactorCoreVersion}")
+            }
+        }
+        junit {
+            dependencies {
+                testImplementation(platform("org.junit:junit-bom:${jUnitJupiterVersion}"))
+                testImplementation("org.junit.jupiter:junit-jupiter:${jUnitJupiterVersion}")
+            }
+        }
+        jackson {
+            dependencies {
+                implementation("com.fasterxml.jackson.core:jackson-annotations:${jacksonVersion}")
+                implementation("com.fasterxml.jackson.core:jackson-core:${jacksonVersion}")
+                implementation("com.fasterxml.jackson.core:jackson-databind:${jacksonVersion}")
+                implementation("com.fasterxml.jackson.datatype:jackson-datatype-jdk8:${jacksonVersion}")
+                implementation("com.fasterxml.jackson.datatype:jackson-datatype-jsr310:${jacksonVersion}")
+                implementation("com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:${jacksonVersion}")
+                implementation("com.fasterxml.jackson.module:jackson-module-kotlin:${jacksonVersion}")
+                implementation("com.fasterxml.jackson.module:jackson-module-parameter-names:${jacksonVersion}")
+                implementation("com.fasterxml.jackson.module:jackson-module-jsonSchema:${jacksonVersion}")
+            }
+        }
+        spring {
+            dependencies {
+                implementation("org.springframework:spring-messaging:${springFrameworkVersion}")
+            }
+        }
+    }
+
+    test {
+        useJUnitPlatform()
+    }
+}
+
 configure(mainKotlinSubProjects) {
     apply plugin: 'idea'
     apply plugin: 'org.jetbrains.kotlin.jvm'
@@ -369,9 +470,9 @@ configure(mainKotlinSubProjects) {
     sourceCompatibility = sourceCompatibility
     targetCompatibility = targetCompatibility
     configurations {
-        all {
-            resolutionStrategy { org.gradle.api.artifacts.ResolutionStrategy r ->
-                r.eachDependency { org.gradle.api.artifacts.DependencyResolveDetails d ->
+        configureEach { org.gradle.api.artifacts.Configuration c ->
+            c.resolutionStrategy { org.gradle.api.artifacts.ResolutionStrategy rs ->
+                rs.eachDependency { org.gradle.api.artifacts.DependencyResolveDetails d ->
                     if (d.requested.group == 'org.junit.jupiter') {
                         d.useVersion(jUnitJupiterVersion)
                     }
@@ -438,6 +539,7 @@ configure(mainKotlinSubProjects) {
             dependencies {
                 implementation("org.springframework.boot:spring-boot-starter-webflux:${springBootPluginVersion}")
                 implementation("org.springframework.boot:spring-boot-starter-security:${springBootPluginVersion}")
+                implementation("org.springframework:spring-messaging:${springFrameworkVersion}")
                 testImplementation("org.springframework.boot:spring-boot-starter-test:${springBootPluginVersion}")
             }
         }
