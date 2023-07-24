@@ -2,9 +2,7 @@ package funcify.feature.schema.strategy
 
 import arrow.core.*
 import com.fasterxml.jackson.databind.JsonNode
-import funcify.feature.directive.AliasDirective
-import funcify.feature.directive.LastUpdatedDirective
-import funcify.feature.directive.MaterializationDirective
+import funcify.feature.directive.MaterializationDirectiveRegistry
 import funcify.feature.error.ServiceError
 import funcify.feature.naming.StandardNamingConventions
 import funcify.feature.scalar.registry.ScalarTypeRegistry
@@ -46,8 +44,10 @@ import org.slf4j.Logger
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 
-internal class DefaultMetamodelBuildStrategy(private val scalarTypeRegistry: ScalarTypeRegistry) :
-    MetamodelBuildStrategy {
+internal class DefaultMetamodelBuildStrategy(
+    private val scalarTypeRegistry: ScalarTypeRegistry,
+    private val materializationDirectiveRegistry: MaterializationDirectiveRegistry
+) : MetamodelBuildStrategy {
 
     companion object {
         private const val MAIN_METHOD_TAG = "build_metamodel"
@@ -64,7 +64,7 @@ internal class DefaultMetamodelBuildStrategy(private val scalarTypeRegistry: Sca
 
     override fun buildMetamodel(context: MetamodelBuildContext): Mono<out Metamodel> {
         logger.info(
-            """{}: [ context {
+            """{}: [ context { 
             |transformerSourceProviders.size: {}, 
             |dataElementSourceProviders.size: {}, 
             |featureCalculatorProviders.size: {} 
@@ -477,12 +477,9 @@ internal class DefaultMetamodelBuildStrategy(private val scalarTypeRegistry: Sca
         (MetamodelBuildContext) -> Mono<MetamodelBuildContext> {
         return { context: MetamodelBuildContext ->
             createTypeDefinitionRegistriesForEachSourceType(context)
-                .reduce(
-                    addScalarTypeDefinitionsToContextTypeDefinitionRegistry(context).flatMap {
-                        ctx: MetamodelBuildContext ->
-                        addDirectiveDefinitionsToContextTypeDefinitionRegistry(ctx)
-                    }
-                ) { ctxResult: Try<MetamodelBuildContext>, tdr: TypeDefinitionRegistry ->
+                .reduce(addDirectiveDefinitionsToContextTypeDefinitionRegistry(context)) {
+                    ctxResult: Try<MetamodelBuildContext>,
+                    tdr: TypeDefinitionRegistry ->
                     ctxResult.flatMap { c: MetamodelBuildContext ->
                         when (
                             val mergeAttempt: Try<TypeDefinitionRegistry> =
@@ -598,7 +595,12 @@ internal class DefaultMetamodelBuildStrategy(private val scalarTypeRegistry: Sca
                 } to ps.addAll(dl)
             }
             .map { (otdb: ObjectTypeDefinition.Builder, ps: PersistentSet<SDLDefinition<*>>) ->
-                ps.add(otdb.build())
+                otdb.build().let { otd: ObjectTypeDefinition ->
+                    when {
+                        otd.fieldDefinitions.size > 0 -> ps.add(otd)
+                        else -> ps
+                    }
+                }
             }
             .flatMap { defSet: PersistentSet<SDLDefinition<*>> ->
                 defSet
@@ -692,86 +694,93 @@ internal class DefaultMetamodelBuildStrategy(private val scalarTypeRegistry: Sca
     private fun addDirectiveDefinitionsToContextTypeDefinitionRegistry(
         context: MetamodelBuildContext
     ): Try<MetamodelBuildContext> {
-        return sequenceOf<MaterializationDirective>(AliasDirective, LastUpdatedDirective).fold(
-            Try.success(context)
-        ) { ctxAttempt: Try<MetamodelBuildContext>, md: MaterializationDirective ->
-            ctxAttempt.flatMap { c: MetamodelBuildContext ->
-                when (
-                    val possibleError: Option<GraphQLError> =
-                        c.typeDefinitionRegistry
-                            .addAll(
-                                sequenceOf(md.directiveDefinition)
-                                    .plus(md.referencedInputObjectTypeDefinitions)
-                                    .plus(md.referencedEnumTypeDefinitions)
-                                    .toList()
+        return sequenceOf<List<SDLDefinition<*>>>(
+                materializationDirectiveRegistry.getAllDirectiveDefinitions(),
+                materializationDirectiveRegistry.getAllReferencedInputObjectTypeDefinitions(),
+                materializationDirectiveRegistry.getAllReferencedEnumTypeDefinitions()
+            )
+            .flatten()
+            .fold(Try.success(context)) {
+                ctxAttempt: Try<MetamodelBuildContext>,
+                sd: SDLDefinition<*> ->
+                ctxAttempt.flatMap { c: MetamodelBuildContext ->
+                    when (
+                        val possibleError: Option<GraphQLError> =
+                            c.typeDefinitionRegistry.add(sd).toOption()
+                    ) {
+                        is Some<GraphQLError> -> {
+                            val message: String =
+                                """error [ type: %s ]
+                                |when adding 
+                                |materialization_directive_registry.sdl_definition [ name: %s ]
+                                """
+                                    .flatten()
+                                    .format(
+                                        possibleError.value::class.simpleName,
+                                        sd.toOption()
+                                            .filterIsInstance<SDLNamedDefinition<*>>()
+                                            .map(SDLNamedDefinition<*>::getName)
+                                            .getOrElse { "<NA>" }
+                                    )
+                            when (val e: GraphQLError = possibleError.value) {
+                                is Throwable -> {
+                                    ServiceError.builder().message(message).cause(e).build()
+                                }
+                                else -> {
+                                    ServiceError.of(
+                                        "$message[ graphql_error: %s ]",
+                                        Try.attempt { e.toSpecification() }
+                                            .orElseGet {
+                                                mapOf(
+                                                    "errorType" to e.errorType,
+                                                    "message" to e.message
+                                                )
+                                            }
+                                            .asSequence()
+                                            .joinToString(", ", "{ ", " }") { (k, v) -> "$k: $v" }
+                                    )
+                                }
+                            }.failure<MetamodelBuildContext>()
+                        }
+                        else -> {
+                            Try.success(
+                                c.update { typeDefinitionRegistry(c.typeDefinitionRegistry) }
                             )
-                            .toOption()
-                ) {
-                    is Some<GraphQLError> -> {
-                        val message: String =
-                            """error [ type: %s ]
-                            |when adding directive definition [ name: %s ] 
-                            |and its referenced input object types [ names: %s ]
-                            |to context.type_definition_registry
-                            """
-                                .flatten()
-                                .format(
-                                    possibleError.value::class.simpleName,
-                                    md.directiveDefinition.name,
-                                    md.referencedInputObjectTypeDefinitions
-                                        .asSequence()
-                                        .plus(md.referencedEnumTypeDefinitions)
-                                        .map(SDLNamedDefinition<*>::getName)
-                                        .joinToString(", ")
-                                )
-                        when (val e: GraphQLError = possibleError.value) {
-                            is Throwable -> {
-                                ServiceError.builder().message(message).cause(e).build()
-                            }
-                            else -> {
-                                ServiceError.of(
-                                    "$message[ graphql_error: %s ]",
-                                    Try.attempt { e.toSpecification() }
-                                        .orElseGet {
-                                            mapOf(
-                                                "errorType" to e.errorType,
-                                                "message" to e.message
-                                            )
-                                        }
-                                        .asSequence()
-                                        .joinToString(", ", "{ ", " }") { (k, v) -> "$k: $v" }
-                                )
-                            }
-                        }.failure<MetamodelBuildContext>()
-                    }
-                    else -> {
-                        Try.success(c.update { typeDefinitionRegistry(c.typeDefinitionRegistry) })
+                        }
                     }
                 }
             }
-        }
+        // .peekIfSuccess { ctx: MetamodelBuildContext ->
+        //    logger.info(
+        //        "current_type_definition_registry: \n{}",
+        //        sequenceOf<Iterable<SDLDefinition<*>>>(
+        //                ctx.typeDefinitionRegistry.directiveDefinitions.values,
+        //                ctx.typeDefinitionRegistry
+        //                    .getTypes(InputObjectTypeDefinition::class.java)
+        //                    .asIterable(),
+        //                ctx.typeDefinitionRegistry
+        //                    .getTypes(EnumTypeDefinition::class.java)
+        //                    .asIterable()
+        //            )
+        //            .flatten()
+        //            .joinToString("\n\n") { sd: SDLDefinition<*> ->
+        //                AstPrinter.printAst(sd)
+        //            }
+        //    )
+        // }
     }
 
     private fun createTopLevelQueryObjectTypeDefinitionBasedOnSourceTypes():
         (MetamodelBuildContext) -> Mono<MetamodelBuildContext> {
         return { context: MetamodelBuildContext ->
-            context.typeDefinitionRegistry
-                .getType(TRANSFORMER_OBJECT_TYPE_NAME, ObjectTypeDefinition::class.java)
-                .toOption()
-                .map(ObjectTypeDefinition::getName)
+            TRANSFORMER_OBJECT_TYPE_NAME.some()
                 .map(TypeName.newTypeName()::name)
                 .map(TypeName.Builder::build)
                 .zip(
-                    context.typeDefinitionRegistry
-                        .getType(DATA_ELEMENT_OBJECT_TYPE_NAME, ObjectTypeDefinition::class.java)
-                        .toOption()
-                        .map(ObjectTypeDefinition::getName)
+                    DATA_ELEMENT_OBJECT_TYPE_NAME.some()
                         .map(TypeName.newTypeName()::name)
                         .map(TypeName.Builder::build),
-                    context.typeDefinitionRegistry
-                        .getType(FEATURE_OBJECT_TYPE_NAME, ObjectTypeDefinition::class.java)
-                        .toOption()
-                        .map(ObjectTypeDefinition::getName)
+                    FEATURE_OBJECT_TYPE_NAME.some()
                         .map(TypeName.newTypeName()::name)
                         .map(TypeName.Builder::build)
                 ) { tn1: TypeName, tn2: TypeName, tn3: TypeName ->
@@ -780,6 +789,15 @@ internal class DefaultMetamodelBuildStrategy(private val scalarTypeRegistry: Sca
                             DATA_ELEMENT_FIELD_NAME to tn2,
                             FEATURE_FIELD_NAME to tn3
                         )
+                        .filter { (fieldName: String, tn: TypeName) ->
+                            context.typeDefinitionRegistry
+                                .getType(tn, ObjectTypeDefinition::class.java)
+                                .toOption()
+                                .map(ObjectTypeDefinition::getFieldDefinitions)
+                                .map(List<FieldDefinition>::size)
+                                .filter { s: Int -> s > 0 }
+                                .isDefined()
+                        }
                         .map { (fieldName: String, tn: TypeName) ->
                             FieldDefinition.newFieldDefinition().name(fieldName).type(tn).build()
                         }

@@ -8,8 +8,6 @@ import com.fasterxml.jackson.databind.node.JsonNodeFactory
 import com.fasterxml.jackson.databind.node.ObjectNode
 import funcify.feature.datasource.graphql.GraphQLApiService
 import funcify.feature.datasource.graphql.GraphQLApiServiceFactory
-import funcify.feature.datasource.graphql.error.GQLDataSourceErrorResponse
-import funcify.feature.datasource.graphql.error.GQLDataSourceException
 import funcify.feature.error.ServiceError
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.StringExtensions.flatten
@@ -206,14 +204,12 @@ internal class DefaultGraphQLApiServiceFactory(
                                         }
                                     }
                             }
-                            .onErrorResume(IllegalArgumentException::class.java) {
+                            .onErrorMap(IllegalArgumentException::class.java) {
                                 e: IllegalArgumentException ->
-                                Mono.error(
-                                    GQLDataSourceException(
-                                        GQLDataSourceErrorResponse.JSON_CONVERSION_ISSUE,
-                                        e
-                                    )
-                                )
+                                ServiceError.builder()
+                                    .message("error converting variables into JSON")
+                                    .cause(e)
+                                    .build()
                             }
                     return webClient
                         .post()
@@ -225,16 +221,17 @@ internal class DefaultGraphQLApiServiceFactory(
                             if (cr.statusCode().isError) {
                                 cr.bodyToMono(String::class.java).flatMap { responseBody: String ->
                                     Mono.error<JsonNode>(
-                                        GQLDataSourceException(
-                                            GQLDataSourceErrorResponse.CLIENT_ERROR,
-                                            """
-                                        |client_response.status: 
-                                        |[ code: ${cr.statusCode().value()}, 
-                                        |reason: ${HttpStatus.valueOf(cr.statusCode().value()).reasonPhrase} ] 
-                                        |[ body: "$responseBody" ]
-                                        """
-                                                .flatten()
-                                        )
+                                        ServiceError.downstreamResponseErrorBuilder()
+                                            .message(
+                                                """
+                                                |client_response.status: 
+                                                |[ code: ${cr.statusCode().value()}, 
+                                                |reason: ${HttpStatus.valueOf(cr.statusCode().value()).reasonPhrase} ] 
+                                                |[ body: "$responseBody" ]
+                                                """
+                                                    .flatten()
+                                            )
+                                            .build()
                                     )
                                 }
                             } else {

@@ -4,8 +4,7 @@ import arrow.core.filterIsInstance
 import arrow.core.toOption
 import com.fasterxml.jackson.databind.JsonNode
 import funcify.feature.datasource.graphql.GraphQLApiService
-import funcify.feature.datasource.graphql.error.GQLDataSourceErrorResponse
-import funcify.feature.datasource.graphql.error.GQLDataSourceException
+import funcify.feature.error.ServiceError
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.PersistentListExtensions.reduceToPersistentList
@@ -57,10 +56,9 @@ internal class GraphQLApiServiceMetadataProvider(private val jsonMapper: JsonMap
                     jn.has(GRAPHQL_RESPONSE_ERRORS_KEY) -> {
                         Mono.error {
                             val errorsNode: JsonNode = jn.get(GRAPHQL_RESPONSE_ERRORS_KEY)
-                            GQLDataSourceException(
-                                GQLDataSourceErrorResponse.CLIENT_ERROR,
-                                "reported_graphql_errors: [ $errorsNode ]"
-                            )
+                            ServiceError.downstreamResponseErrorBuilder()
+                                .message("reported_graphql_errors: [ $errorsNode ]")
+                                .build()
                         }
                     }
                     else -> {
@@ -69,10 +67,7 @@ internal class GraphQLApiServiceMetadataProvider(private val jsonMapper: JsonMap
                                 """json_node is not in expected format 
                                     |i.e. has element with key [ "data" ]"""
                                     .flatten()
-                            GQLDataSourceException(
-                                GQLDataSourceErrorResponse.MALFORMED_CONTENT_RECEIVED,
-                                message
-                            )
+                            ServiceError.downstreamResponseErrorBuilder().message(message).build()
                         }
                     }
                 }
@@ -111,11 +106,10 @@ internal class GraphQLApiServiceMetadataProvider(private val jsonMapper: JsonMap
             .map { sdlDefinitions: PersistentList<SDLDefinition<*>> ->
                 TypeDefinitionRegistry().apply {
                     addAll(sdlDefinitions).ifPresent { gqlerror: GraphQLError ->
-                        throw GQLDataSourceException(
-                            GQLDataSourceErrorResponse.Companion.GQLSpecificErrorResponse(gqlerror),
-                            "error during type_definition_registry creation",
-                            gqlerror as? Throwable
-                        )
+                        ServiceError.builder()
+                            .message("error during type_definition_registry creation")
+                            .cause(gqlerror as? Throwable)
+                            .build()
                     }
                 }
             }

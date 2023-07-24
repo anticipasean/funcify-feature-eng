@@ -3,7 +3,10 @@ package funcify.feature.stream
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.node.JsonNodeFactory
-import funcify.feature.stream.graphql.NetflixShowsGraphQL
+import funcify.feature.datasource.graphql.GraphQLApiDataElementSourceProvider
+import funcify.feature.datasource.graphql.GraphQLApiDataElementSourceProviderFactory
+import funcify.feature.materializer.schema.MaterializationMetamodel
+import funcify.feature.materializer.schema.MaterializationMetamodelBroker
 import graphql.ExecutionInput
 import graphql.ExecutionResult
 import graphql.GraphQL
@@ -11,7 +14,6 @@ import graphql.schema.GraphQLSchema
 import graphql.schema.idl.SchemaPrinter
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
-import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.boot.SpringApplication
 import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.context.annotation.Bean
@@ -64,74 +66,112 @@ class StreamFunctions {
         return ClassPathResource("netflix_movies_and_tv_shows.graphqls")
     }
 
-    @Bean(name = ["netflixShowsGraphQLSchema"])
+    @Bean(name = ["netflixShowsGraphQLDataElementSourceProvider"])
+    fun netflixShowsGraphQLDataElementSourceProvider(
+        graphQLSchemaFile: ClassPathResource,
+        graphQLApiDataElementSourceProviderFactory: GraphQLApiDataElementSourceProviderFactory
+    ): GraphQLApiDataElementSourceProvider {
+        return graphQLApiDataElementSourceProviderFactory
+            .builder()
+            .name("netflix_shows")
+            .graphQLSchemaClasspathResource(graphQLSchemaFile)
+            .build()
+            .peek(
+                { p: GraphQLApiDataElementSourceProvider ->
+                    logger.info(
+                        "netflixShowsGraphQLDataElementSourceProvider: [ status: success ][ name: {} ]",
+                        p.name
+                    )
+                },
+                { t: Throwable ->
+                    logger.error(
+                        "netflixShowsGraphQLDataElementSourceProvider: [ status: failure ][ type: {}, message: {} ]",
+                        t::class.qualifiedName,
+                        t.message
+                    )
+                }
+            )
+            .orElseThrow()
+    }
+
+    /*@Bean(name = ["netflixShowsGraphQLSchema"])
     fun netflixShowsGraphQLSchema(
         @Qualifier("graphQLSchemaFile") graphQLSchemaFile: ClassPathResource
     ): GraphQLSchema {
         return NetflixShowsGraphQL.createGraphQLSchemaFromFile(graphQLSchemaFile.file)
-    }
+    }*/
 
     @Bean
     fun materializeFeatures(
-        @Qualifier("netflixShowsGraphQLSchema") netflixShowsGraphQLSchema: GraphQLSchema
+        metamodelBroker: MaterializationMetamodelBroker
     ): (Flux<Message<Any?>>) -> Flux<Message<JsonNode>> {
         return { messagePublisher: Flux<Message<Any?>> ->
-            messagePublisher.flatMap { m: Message<Any?> ->
-                logger.info("headers: {}", m.headers)
-                logger.info("schema: \n{}", SchemaPrinter().print(netflixShowsGraphQLSchema))
-                when (val pl: Any? = m.payload) {
-                        null -> {
-                            // TODO: Instate null node treatment here: Mono.just(nullNode)
-                            // or Mono.empty<JsonNode>()
-                            Mono.just(JsonNodeFactory.instance.nullNode())
-                        }
-                        is ByteArray -> {
-                            Mono.fromSupplier {
-                                try {
-                                    // TODO: Instate null node treatment here: Mono.just(nullNode)
-                                    // or Mono.empty<JsonNode>()
-                                    objectMapper.readTree(pl) ?: JsonNodeFactory.instance.nullNode()
-                                } catch (t: Throwable) {
+            messagePublisher
+                .zipWith(metamodelBroker.fetchLatestMaterializationMetamodel(), ::Pair)
+                .flatMap { (m: Message<Any?>, mm: MaterializationMetamodel) ->
+                    logger.info("headers: {}", m.headers)
+                    logger.info(
+                        "schema: \n{}",
+                        SchemaPrinter().print(mm.materializationGraphQLSchema)
+                    )
+                    when (val pl: Any? = m.payload) {
+                            null -> {
+                                // TODO: Instate null node treatment here: Mono.just(nullNode)
+                                // or Mono.empty<JsonNode>()
+                                Mono.just(JsonNodeFactory.instance.nullNode())
+                            }
+                            is ByteArray -> {
+                                Mono.fromSupplier {
+                                    try {
+                                        // TODO: Instate null node treatment here:
+                                        // Mono.just(nullNode)
+                                        // or Mono.empty<JsonNode>()
+                                        objectMapper.readTree(pl)
+                                            ?: JsonNodeFactory.instance.nullNode()
+                                    } catch (t: Throwable) {
+                                        JsonNodeFactory.instance
+                                            .objectNode()
+                                            .put("errorType", t::class.qualifiedName)
+                                            .put("errorMessage", t.message)
+                                    }
+                                }
+                            }
+                            is String -> {
+                                Mono.just(JsonNodeFactory.instance.textNode(pl))
+                            }
+                            is JsonNode -> {
+                                Mono.just(pl)
+                            }
+                            else -> {
+                                Mono.fromSupplier {
+                                    val supportedPayloadTypes: String =
+                                        sequenceOf(
+                                                ByteArray::class.qualifiedName,
+                                                String::class.qualifiedName,
+                                                JsonNode::class.qualifiedName
+                                            )
+                                            .joinToString(", ", "[ ", " ]")
+                                    val message: String =
+                                        """unsupported message payload type: 
+                                    |[ expected: one of %s, actual: %s ]"""
+                                            .trimMargin()
+                                            .replace(System.lineSeparator(), "")
+                                            .format(supportedPayloadTypes, pl::class.qualifiedName)
                                     JsonNodeFactory.instance
                                         .objectNode()
-                                        .put("errorType", t::class.qualifiedName)
-                                        .put("errorMessage", t.message)
+                                        .put(
+                                            "errorType",
+                                            IllegalArgumentException::class.qualifiedName
+                                        )
+                                        .put("errorMessage", message)
                                 }
                             }
                         }
-                        is String -> {
-                            Mono.just(JsonNodeFactory.instance.textNode(pl))
+                        .flatMap { jn: JsonNode ->
+                            executeGraphQLRequestWithSchema(jn, mm.materializationGraphQLSchema)
                         }
-                        is JsonNode -> {
-                            Mono.just(pl)
-                        }
-                        else -> {
-                            Mono.fromSupplier {
-                                val supportedPayloadTypes: String =
-                                    sequenceOf(
-                                            ByteArray::class.qualifiedName,
-                                            String::class.qualifiedName,
-                                            JsonNode::class.qualifiedName
-                                        )
-                                        .joinToString(", ", "[ ", " ]")
-                                val message: String =
-                                    """unsupported message payload type: 
-                                    |[ expected: one of %s, actual: %s ]"""
-                                        .trimMargin()
-                                        .replace(System.lineSeparator(), "")
-                                        .format(supportedPayloadTypes, pl::class.qualifiedName)
-                                JsonNodeFactory.instance
-                                    .objectNode()
-                                    .put("errorType", IllegalArgumentException::class.qualifiedName)
-                                    .put("errorMessage", message)
-                            }
-                        }
-                    }
-                    .flatMap { jn: JsonNode ->
-                        executeGraphQLRequestWithSchema(jn, netflixShowsGraphQLSchema)
-                    }
-                    .map { jn: JsonNode -> GenericMessage<JsonNode>(jn, m.headers) }
-            }
+                        .map { jn: JsonNode -> GenericMessage<JsonNode>(jn, m.headers) }
+                }
         }
     }
 

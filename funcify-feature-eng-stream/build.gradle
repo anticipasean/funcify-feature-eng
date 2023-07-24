@@ -3,13 +3,13 @@ dependencies {
     /**
      * Project Dependencies
      */
-    //implementation(project(":funcify-feature-eng-data-source"))
     implementation(project(":funcify-feature-eng-shared-definitions"))
-    //implementation(project(':funcify-feature-eng-common'))
-    //implementation(project(':funcify-feature-eng-gql-data-source'))
-    //implementation(project(':funcify-feature-eng-materializer'))
-    //implementation(project(':funcify-feature-eng-naming'))
-    //implementation(project(':funcify-feature-eng-schema'))
+    implementation(project(':funcify-feature-eng-common'))
+    implementation(project(':funcify-feature-eng-gql-data-source'))
+    implementation(project(':funcify-feature-eng-graph'))
+    implementation(project(':funcify-feature-eng-materializer-v2'))
+    implementation(project(':funcify-feature-eng-naming'))
+    implementation(project(':funcify-feature-eng-schema'))
     implementation(project(':funcify-feature-eng-tools'))
-    //implementation(project(':funcify-feature-eng-tree'))
+    implementation(project(':funcify-feature-eng-tree'))
 }

@@ -1,6 +1,56 @@
 scalar Date
+scalar JSON
 
-directive @alias(name: String! = "") on INPUT_FIELD_DEFINITION | FIELD_DEFINITION
+"Indicates a different name that the corresponding argument or field_definition may have"
+directive @alias(name: String! = "") repeatable on FIELD_DEFINITION | INPUT_FIELD_DEFINITION | ARGUMENT_DEFINITION
+
+directive @discriminator(
+    "Field name that is unique to this subtype of the @subtyping annotated interface if SUBTYPE_FIELD_NAME strategy is selected"
+    fieldName: String = null,
+    "Field value that is unique to this subtype of the @subtyping annotated interface if SUBTYPE_FIELD_VALUE strategy is selected and a discriminatorFieldName has been supplied"
+    fieldValue: JSON = null
+) on OBJECT
+
+"""
+Indicates temporal field represents latest datetime
+at which the given object type instance is considered "current".
+
+There should at most be one field within a given
+object type definition that represents
+the latest timestamp
+
+"""
+directive @last_updated on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
+
+"""
+Indicates a field has a corresponding entry in the
+feature registry
+
+Provides information regarding what implementation status
+the feature definition has and whether a default value should
+be provided
+
+"""
+directive @registered(
+    status: String!,
+    "names of data_elements to be passed in as arguments"
+    dataElementInputs: [String]! = [],
+    defaultValue: JSON = null
+) on FIELD_DEFINITION
+
+"Indicates how an interface type may be resolved into an object type"
+directive @subtyping(
+    strategy: SubtypingStrategy! = SUBTYPE_FIELD_NAME,
+    "Name of field on parent interface that will have one of the @discriminator-directive values, required if SUBTYPE_FIELD_VALUE strategy is selected"
+    discriminatorFieldName: String
+) on INTERFACE
+
+enum SubtypingStrategy {
+    "@discriminator directive on annotated object subtype contains the name of the field unique to the subtype to be used to select that subtype when resolving parent interface type"
+    SUBTYPE_FIELD_NAME
+    "@discriminator directive on annotated object subtype contains the value of the field unique to the subtype to be used to select that subtype when resolving parent interface type"
+    SUBTYPE_FIELD_VALUE
+}
 
 schema {
     query: Query
@@ -10,8 +60,9 @@ type Query {
     show(showId: ID): Show
 }
 
-interface Show {
+interface Show @subtyping(strategy: SUBTYPE_FIELD_VALUE, discriminatorFieldName: "showType"){
     showId: ID!
+    showType: String!
     title: String!
     releaseYear: Int!
     director: Director
@@ -22,8 +73,9 @@ interface Show {
     dateAdded: Date!
 }
 
-type Movie implements Show {
+type Movie implements Show @discriminator(fieldValue: "Movie") {
     showId: ID!
+    showType: String!
     title: String!
     releaseYear: Int!
     director: Director
@@ -35,8 +87,9 @@ type Movie implements Show {
     duration: Int
 }
 
-type TVShow implements Show {
+type TVShow implements Show @discriminator(fieldValue: "TV Show"){
     showId: ID!
+    showType: String!
     title: String!
     releaseYear: Int!
     director: Director

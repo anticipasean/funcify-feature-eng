@@ -21,6 +21,7 @@ import graphql.language.*
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentMap
+import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.PersistentSet
@@ -74,7 +75,7 @@ object GraphQLQueryPathBasedComposer {
         return graphQLSourcePaths
             .asSequence()
             .filter { sp ->
-                sp.pathSegments.size >= 1 && sp.arguments.isEmpty() && sp.directives.isEmpty()
+                sp.pathSegments.size >= 1 && sp.argument.isEmpty() && sp.directive.isEmpty()
             }
             .fold(persistentSetOf()) { sourceAttributePathSet, sourceIndexPath ->
                 if (sourceIndexPath in sourceAttributePathSet) {
@@ -118,7 +119,7 @@ object GraphQLQueryPathBasedComposer {
             parameterValuesByVertexPath
                 .asSequence()
                 .filter { (p, _) ->
-                    p.arguments.size == 1 &&
+                    p.argument.isDefined() &&
                         /*
                          * Check that parameter_path does not introduce new query branches
                          * but remains on the path of one of the source_attribute paths
@@ -126,9 +127,12 @@ object GraphQLQueryPathBasedComposer {
                         p.getParentPath()
                             .recurse { pp ->
                                 when {
-                                    pp.arguments.isNotEmpty() ->
+                                    pp.argument.isNotEmpty() -> {
                                         pp.getParentPath().map { ppp -> ppp.left() }
-                                    else -> pp.right().some()
+                                    }
+                                    else -> {
+                                        pp.right().some()
+                                    }
                                 }
                             }
                             .filter { ancestorPath -> ancestorPath in sourceAttributePathsSet }
@@ -138,12 +142,11 @@ object GraphQLQueryPathBasedComposer {
                 .fold(sourceAttributesOnlyOperationDefinition) {
                     opDef: OperationDefinition,
                     (parameterAttributePath: SchematicPath, parameterAttributeValue: JsonNode) ->
-                    parameterAttributePath.arguments
-                        .asSequence()
-                        .firstOrNull()
-                        .toOption()
-                        .map { (argName, _) -> argName to parameterAttributeValue }
-                        .map { keyValuePair ->
+                    parameterAttributePath.argument
+                        .map { (argName: String, _: ImmutableList<String>) ->
+                            argName to parameterAttributeValue
+                        }
+                        .map { keyValuePair: Pair<String, JsonNode> ->
                             ParameterAttributeQueryCompositionContext(
                                 opDef,
                                 LinkedList(parameterAttributePath.pathSegments),

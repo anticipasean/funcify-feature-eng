@@ -46,7 +46,7 @@ ext.streamSubProjects = subprojects.findAll { Project p ->
     p.name.endsWith("-stream")
 }
 ext.materializerProjects = subprojects.findAll { Project p ->
-    p.name.endsWith("-materializer")
+    p.name.endsWith("-materializer") || p.name.endsWith("-materializer-v2")
 }
 ext.mainKotlinSubProjects = subprojects.findAll { Project p ->
     [ext.sharedGraphQLDefinitionKotlinProjects,
@@ -453,6 +453,7 @@ configure(materializerProjects) {
         }
         spring {
             dependencies {
+                implementation("org.springframework.boot:spring-boot-starter:${springBootPluginVersion}")
                 implementation("org.springframework:spring-messaging:${springFrameworkVersion}")
             }
         }

@@ -50,8 +50,8 @@ class JsonObjectMappingConfiguration {
      * that might be missing depending on the autoconfiguration setup
      *
      * @return customization function to be called by {@link
-     * org.springframework.boot.autoconfigure.jackson.JacksonAutoConfiguration} if present and the
-     * application context calls it
+     *   org.springframework.boot.autoconfigure.jackson.JacksonAutoConfiguration} if present and the
+     *   application context calls it
      */
     @Bean
     fun jsonObjectMappingBuilderCustomizer(): Jackson2ObjectMapperBuilderCustomizer {
@@ -81,7 +81,7 @@ class JsonObjectMappingConfiguration {
          * methods
          *
          * @return consumer that takes a jackson object mapper builder and customizes it for this
-         * application
+         *   application
          */
         @JvmStatic
         private fun builderCustomizationConsumer(): (Jackson2ObjectMapperBuilder) -> Unit {
@@ -248,7 +248,7 @@ class JsonObjectMappingConfiguration {
     }
 
     @Bean
-    fun jsonMapper(
+    fun jsonMapperTool(
         objectMapper: ObjectMapper,
         configuration: com.jayway.jsonpath.Configuration
     ): JsonMapper {

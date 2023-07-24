@@ -5,8 +5,6 @@ import arrow.core.continuations.eagerEffect
 import com.fasterxml.jackson.annotation.JsonProperty
 import funcify.feature.datasource.rest.RestApiService
 import funcify.feature.datasource.rest.RestApiServiceFactory
-import funcify.feature.datasource.rest.error.RestApiDataSourceException
-import funcify.feature.datasource.rest.error.RestApiErrorResponse
 import funcify.feature.error.ServiceError
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
@@ -174,11 +172,10 @@ internal class DefaultRestApiServiceFactory(
                 logger.debug("get_web_client: [ service_name: {} ]", serviceName)
                 return Try.attempt { backingWebClient }
                     .orElseThrow { t: Throwable ->
-                        RestApiDataSourceException(
-                            RestApiErrorResponse.UNEXPECTED_ERROR,
-                            "error occurred when creating backing web client instance",
-                            t
-                        )
+                        ServiceError.builder()
+                            .message("error occurred when creating backing web client instance")
+                            .cause(t)
+                            .build()
                     }
             }
         }
