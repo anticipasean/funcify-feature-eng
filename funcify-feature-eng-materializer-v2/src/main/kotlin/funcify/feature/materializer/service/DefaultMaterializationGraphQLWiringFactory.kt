@@ -1,6 +1,5 @@
 package funcify.feature.materializer.service
 
-import arrow.core.filterIsInstance
 import arrow.core.toOption
 import funcify.feature.error.ServiceError
 import funcify.feature.materializer.type.MaterializationInterfaceSubtypeResolverFactory
@@ -10,8 +9,9 @@ import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.extensions.TryExtensions.successIfDefined
 import graphql.language.ScalarTypeDefinition
 import graphql.schema.DataFetcherFactory
-import graphql.schema.GraphQLNamedOutputType
+import graphql.schema.GraphQLOutputType
 import graphql.schema.GraphQLScalarType
+import graphql.schema.GraphQLTypeUtil
 import graphql.schema.TypeResolver
 import graphql.schema.idl.FieldWiringEnvironment
 import graphql.schema.idl.InterfaceWiringEnvironment
@@ -81,16 +81,14 @@ internal class DefaultMaterializationGraphQLWiringFactory(
     }
 
     override fun providesDataFetcherFactory(environment: FieldWiringEnvironment): Boolean {
-        val graphQLFieldTypeName =
-            environment.fieldType
-                .toOption()
-                .filterIsInstance<GraphQLNamedOutputType>()
-                .map(GraphQLNamedOutputType::getName)
-                .orNull()
+        val graphQLFieldTypeName: String? =
+            environment.fieldType?.let { got: GraphQLOutputType ->
+                GraphQLTypeUtil.simplePrint(got)
+            }
         logger.debug(
             """provides_data_fetcher_factory: [ environment: 
                 |{ field_definition.name: {}, 
-                |field_type: {}
+                |field_type: {} 
                 |} ]"""
                 .flatten(),
             environment.fieldDefinition.name,
@@ -102,12 +100,10 @@ internal class DefaultMaterializationGraphQLWiringFactory(
     override fun <T> getDataFetcherFactory(
         environment: FieldWiringEnvironment
     ): DataFetcherFactory<T> {
-        val graphQLFieldTypeName =
-            environment.fieldType
-                .toOption()
-                .filterIsInstance<GraphQLNamedOutputType>()
-                .map(GraphQLNamedOutputType::getName)
-                .orNull()
+        val graphQLFieldTypeName: String? =
+            environment.fieldType?.let { got: GraphQLOutputType ->
+                GraphQLTypeUtil.simplePrint(got)
+            }
         logger.debug(
             """get_data_fetcher_factory: [ environment: 
             |{ field_definition.name: %s, 

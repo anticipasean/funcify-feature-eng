@@ -16,7 +16,7 @@ server:
 
 logging:
   level:
-    funcify.feature: INFO # Can toggle if debug level needed during local testing
+    funcify.feature: DEBUG # Can toggle if debug level needed during local testing
 
 feature-eng-service:
   system-default-time-zone: UTC

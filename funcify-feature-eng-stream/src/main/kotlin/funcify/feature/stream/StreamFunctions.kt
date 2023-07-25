@@ -11,7 +11,6 @@ import graphql.ExecutionInput
 import graphql.ExecutionResult
 import graphql.GraphQL
 import graphql.schema.GraphQLSchema
-import graphql.schema.idl.SchemaPrinter
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.boot.SpringApplication
@@ -36,20 +35,22 @@ class StreamFunctions {
         val QUERY: String =
             """
                 |query showFeatures(${'$'}show_id: ID!){
-                |    show(showId: ${'$'}show_id) {
-                |        showId
-                |        title
-                |        releaseYear
-                |        director {
-                |            name
+                |    dataElement {
+                |        show(showId: ${'$'}show_id) {
+                |            showId
+                |            title
+                |            releaseYear
+                |            director {
+                |                name
+                |            }
+                |            cast {
+                |                name
+                |            }
+                |            audienceSuitabilityRating
+                |            productionCountry
+                |            genres
+                |            dateAdded
                 |        }
-                |        cast {
-                |            name
-                |        }
-                |        audienceSuitabilityRating
-                |        productionCountry
-                |        genres
-                |        dateAdded
                 |    }
                 |}
             """
@@ -110,10 +111,6 @@ class StreamFunctions {
                 .zipWith(metamodelBroker.fetchLatestMaterializationMetamodel(), ::Pair)
                 .flatMap { (m: Message<Any?>, mm: MaterializationMetamodel) ->
                     logger.info("headers: {}", m.headers)
-                    logger.info(
-                        "schema: \n{}",
-                        SchemaPrinter().print(mm.materializationGraphQLSchema)
-                    )
                     when (val pl: Any? = m.payload) {
                             null -> {
                                 // TODO: Instate null node treatment here: Mono.just(nullNode)

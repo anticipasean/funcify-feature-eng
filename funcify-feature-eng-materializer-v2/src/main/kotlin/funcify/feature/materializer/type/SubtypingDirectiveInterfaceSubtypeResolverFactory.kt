@@ -4,6 +4,7 @@ import arrow.core.filterIsInstance
 import arrow.core.getOrElse
 import arrow.core.left
 import arrow.core.none
+import arrow.core.orElse
 import arrow.core.right
 import arrow.core.some
 import arrow.core.toOption
@@ -13,10 +14,12 @@ import funcify.feature.directive.DiscriminatorDirective
 import funcify.feature.directive.SubtypingDirective
 import funcify.feature.error.ServiceError
 import funcify.feature.schema.json.GraphQLValueToJsonNodeConverter
+import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.OptionExtensions.recurse
 import funcify.feature.tools.extensions.SequenceExtensions.firstOrNone
 import funcify.feature.tools.extensions.StringExtensions.flatten
+import funcify.feature.tools.extensions.TryExtensions.failure
 import funcify.feature.tools.extensions.TryExtensions.successIfDefined
 import graphql.TypeResolutionEnvironment
 import graphql.language.*
@@ -24,6 +27,7 @@ import graphql.schema.GraphQLInterfaceType
 import graphql.schema.GraphQLList
 import graphql.schema.GraphQLNonNull
 import graphql.schema.GraphQLType
+import graphql.schema.GraphQLTypeUtil
 import graphql.schema.TypeResolver
 import graphql.schema.idl.InterfaceWiringEnvironment
 import graphql.schema.idl.TypeDefinitionRegistry
@@ -48,6 +52,12 @@ internal class SubtypingDirectiveInterfaceSubtypeResolverFactory :
 
     companion object {
         private val logger: Logger = loggerFor<SubtypingDirectiveInterfaceSubtypeResolverFactory>()
+        private const val STRATEGY_ARGUMENT_NAME: String = "strategy"
+        private const val DISCRIMINATOR_FIELD_NAME_ARGUMENT_NAME: String = "discriminatorFieldName"
+        private const val FIELD_NAME_ARGUMENT_NAME: String = "fieldName"
+        private const val FIELD_VALUE_ARGUMENT_NAME: String = "fieldValue"
+        private const val FIELD_NAME_SUBTYPING_STRATEGY_ENUM_VALUE: String = "SUBTYPE_FIELD_NAME"
+        private const val FIELD_VALUE_SUBTYPING_STRATEGY_ENUM_VALUE: String = "SUBTYPE_FIELD_VALUE"
 
         private class GraphQLNodeTraversalVisitor(private val nodeVisitor: NodeVisitor) :
             TraverserVisitorStub<Node<*>>() {
@@ -105,37 +115,39 @@ internal class SubtypingDirectiveInterfaceSubtypeResolverFactory :
             ) {
                 when (
                     val strategyName: String =
-                        (node.getArgument("strategy")?.value as? EnumValue
-                                ?: EnumValue("SUBTYPE_FIELD_NAME"))
+                        (node.getArgument(STRATEGY_ARGUMENT_NAME)?.value as? EnumValue
+                                ?: EnumValue(FIELD_NAME_SUBTYPING_STRATEGY_ENUM_VALUE))
                             .name
                 ) {
-                    "SUBTYPE_FIELD_NAME" -> {
+                    FIELD_NAME_SUBTYPING_STRATEGY_ENUM_VALUE -> {
                         context.parentNode
                             .toOption()
                             .filterIsInstance<InterfaceTypeDefinition>()
                             .map { itd: InterfaceTypeDefinition ->
-                                SubtypeFieldNameStrategy(
+                                SubtypeFieldNameStrategySpec(
                                     interfaceTypeName = itd.name,
                                     objectSubtypeNames = persistentListOf(),
-                                    discriminatorFieldNameByObjectSubtypeName = persistentMapOf()
+                                    objectSubtypeNameByDiscriminatorFieldName = persistentMapOf()
                                 )
                             }
-                            .tap { sfns: SubtypeFieldNameStrategy -> context.setAccumulate(sfns) }
+                            .tap { sfns: SubtypeFieldNameStrategySpec ->
+                                context.setAccumulate(sfns)
+                            }
                     }
-                    "SUBTYPE_FIELD_VALUE" -> {
+                    FIELD_VALUE_SUBTYPING_STRATEGY_ENUM_VALUE -> {
                         context.parentNode
                             .toOption()
                             .filterIsInstance<InterfaceTypeDefinition>()
                             .zip(
                                 node
-                                    .getArgument("discriminatorFieldName")
+                                    .getArgument(DISCRIMINATOR_FIELD_NAME_ARGUMENT_NAME)
                                     .toOption()
                                     .map(Argument::getValue)
                                     .filterIsInstance<StringValue>()
                                     .mapNotNull(StringValue::getValue)
                                     .filter(String::isNotBlank),
                                 node
-                                    .getArgument("discriminatorFieldName")
+                                    .getArgument(DISCRIMINATOR_FIELD_NAME_ARGUMENT_NAME)
                                     .toOption()
                                     .map(Argument::getValue)
                                     .filterIsInstance<StringValue>()
@@ -156,15 +168,64 @@ internal class SubtypingDirectiveInterfaceSubtypeResolverFactory :
                                 ::Triple
                             )
                             .map { (itd: InterfaceTypeDefinition, dfn: String, dft: Type<*>) ->
-                                SubtypeFieldValueStrategy(
+                                SubtypeFieldValueStrategySpec(
                                     interfaceTypeName = itd.name,
                                     objectSubtypeNames = persistentListOf(),
                                     discriminatorFieldName = dfn,
                                     discriminatorFieldType = dft,
-                                    discriminatorFieldValueByObjectSubtypeName = persistentMapOf()
+                                    objectSubtypeNameByDiscriminatorFieldValue = persistentMapOf()
                                 )
                             }
-                            .tap { sfvs: SubtypeFieldValueStrategy -> context.setAccumulate(sfvs) }
+                            .tap { sfvs: SubtypeFieldValueStrategySpec ->
+                                context.setAccumulate(sfvs)
+                            }
+                            .orElse {
+                                val interfaceTypeName: String =
+                                    context.parentNode
+                                        .toOption()
+                                        .filterIsInstance<InterfaceTypeDefinition>()
+                                        .map(InterfaceTypeDefinition::getName)
+                                        .getOrElse { "<NA>" }
+                                val message: String =
+                                    if (
+                                        node
+                                            .getArgument(DISCRIMINATOR_FIELD_NAME_ARGUMENT_NAME)
+                                            ?.value is NullValue
+                                    ) {
+                                        """argument "%s" not supplied for [ strategy: %s ] 
+                                        |in @%s directive argument on 
+                                        |[ interface.name: %s ]"""
+                                            .flatten()
+                                            .format(
+                                                DISCRIMINATOR_FIELD_NAME_ARGUMENT_NAME,
+                                                FIELD_VALUE_SUBTYPING_STRATEGY_ENUM_VALUE,
+                                                SubtypingDirective.name,
+                                                interfaceTypeName
+                                            )
+                                    } else {
+                                        """argument "%s" supplied for [ strategy: %s ] 
+                                        |in @%s directive argument does not map 
+                                        |to field_definition.name on 
+                                        |[ interface.name: %s ]"""
+                                            .flatten()
+                                            .format(
+                                                DISCRIMINATOR_FIELD_NAME_ARGUMENT_NAME,
+                                                FIELD_VALUE_SUBTYPING_STRATEGY_ENUM_VALUE,
+                                                SubtypingDirective.name,
+                                                interfaceTypeName
+                                            )
+                                    }
+                                SubtypingStrategyErrorsSpec(
+                                        interfaceTypeName = interfaceTypeName,
+                                        objectSubtypeNames = persistentListOf(),
+                                        validationErrors =
+                                            persistentListOf(ServiceError.of(message))
+                                    )
+                                    .toOption()
+                                    .tap { sses: SubtypingStrategyErrorsSpec ->
+                                        context.setAccumulate(sses)
+                                    }
+                            }
                     }
                     else -> {
                         val message: String =
@@ -172,11 +233,18 @@ internal class SubtypingDirectiveInterfaceSubtypeResolverFactory :
                             |[ name: %s ]"""
                                 .flatten()
                                 .format(strategyName)
-                        logger.error(
-                            "create_subtyping_strategy_for_directive: [ status: failed ][ message: {} ]",
-                            message
+                        context.setAccumulate(
+                            SubtypingStrategyErrorsSpec(
+                                interfaceTypeName =
+                                    context.parentNode
+                                        .toOption()
+                                        .filterIsInstance<InterfaceTypeDefinition>()
+                                        .map(InterfaceTypeDefinition::getName)
+                                        .getOrElse { "<NA>" },
+                                objectSubtypeNames = persistentListOf(),
+                                validationErrors = persistentListOf(ServiceError.of(message))
+                            )
                         )
-                        throw ServiceError.of(message)
                     }
                 }
             }
@@ -186,16 +254,16 @@ internal class SubtypingDirectiveInterfaceSubtypeResolverFactory :
                 context: TraverserContext<Node<*>>
             ) {
                 when (
-                    val strategy: SubtypingStrategy? =
-                        context.getNewAccumulate<SubtypingStrategy?>()
+                    val strategy: SubtypingStrategySpec? =
+                        context.getNewAccumulate<SubtypingStrategySpec?>()
                 ) {
-                    is SubtypeFieldNameStrategy -> {
+                    is SubtypeFieldNameStrategySpec -> {
                         context.parentNode
                             .toOption()
                             .filterIsInstance<ObjectTypeDefinition>()
                             .zip(
                                 node
-                                    .getArgument("fieldName")
+                                    .getArgument(FIELD_NAME_ARGUMENT_NAME)
                                     .toOption()
                                     .map(Argument::getValue)
                                     .filterIsInstance<StringValue>()
@@ -215,64 +283,146 @@ internal class SubtypingDirectiveInterfaceSubtypeResolverFactory :
                             .map { (otd: ObjectTypeDefinition, fd: FieldDefinition) ->
                                 strategy.copy(
                                     objectSubtypeNames = strategy.objectSubtypeNames.add(otd.name),
-                                    discriminatorFieldNameByObjectSubtypeName =
-                                        strategy.discriminatorFieldNameByObjectSubtypeName.put(
-                                            otd.name,
-                                            fd.name
+                                    objectSubtypeNameByDiscriminatorFieldName =
+                                        strategy.objectSubtypeNameByDiscriminatorFieldName.put(
+                                            fd.name,
+                                            otd.name
                                         )
                                 )
                             }
-                            .tap { sfns: SubtypeFieldNameStrategy -> context.setAccumulate(sfns) }
+                            .tap { sfns: SubtypeFieldNameStrategySpec ->
+                                context.setAccumulate(sfns)
+                            }
+                            .orElse {
+                                val objectTypeName: String =
+                                    context.parentNode
+                                        .toOption()
+                                        .filterIsInstance<ObjectTypeDefinition>()
+                                        .map(ObjectTypeDefinition::getName)
+                                        .getOrElse { "<NA>" }
+                                val message: String =
+                                    if (
+                                        node.getArgument(FIELD_NAME_ARGUMENT_NAME)?.value
+                                            is NullValue
+                                    ) {
+                                        """null value supplied for 
+                                        |argument "%s" on @%s 
+                                        |directive on [ object.name: %s ]"""
+                                            .flatten()
+                                            .format(
+                                                FIELD_NAME_ARGUMENT_NAME,
+                                                DiscriminatorDirective.name,
+                                                objectTypeName
+                                            )
+                                    } else {
+                                        """value supplied for 
+                                        |argument "%s" on @%s 
+                                        |directive does not map to a 
+                                        |field_definition.name on [ object.name: %s ]"""
+                                            .flatten()
+                                            .format(
+                                                FIELD_NAME_ARGUMENT_NAME,
+                                                DiscriminatorDirective.name,
+                                                objectTypeName
+                                            )
+                                    }
+                                SubtypingStrategyErrorsSpec(
+                                        interfaceTypeName = strategy.interfaceTypeName,
+                                        objectSubtypeNames =
+                                            strategy.objectSubtypeNames.add(objectTypeName),
+                                        validationErrors =
+                                            persistentListOf(ServiceError.of(message))
+                                    )
+                                    .toOption()
+                                    .tap { sses: SubtypingStrategyErrorsSpec ->
+                                        context.setAccumulate(sses)
+                                    }
+                            }
                     }
-                    is SubtypeFieldValueStrategy -> {
+                    is SubtypeFieldValueStrategySpec -> {
                         context.parentNode
                             .toOption()
                             .filterIsInstance<ObjectTypeDefinition>()
                             .zip(
                                 node
-                                    .getArgument("fieldValue")
+                                    .getArgument(FIELD_VALUE_ARGUMENT_NAME)
                                     .toOption()
                                     .map(Argument::getValue)
-                                    .filterIsInstance<ObjectValue>()
                                     .flatMap(GraphQLValueToJsonNodeConverter)
+                                    .filterNot(JsonNode::isNull)
                             )
                             .map { (otd: ObjectTypeDefinition, jv: JsonNode) ->
                                 strategy.copy(
                                     objectSubtypeNames = strategy.objectSubtypeNames.add(otd.name),
-                                    discriminatorFieldValueByObjectSubtypeName =
-                                        strategy.discriminatorFieldValueByObjectSubtypeName.put(
-                                            otd.name,
-                                            jv
+                                    objectSubtypeNameByDiscriminatorFieldValue =
+                                        strategy.objectSubtypeNameByDiscriminatorFieldValue.put(
+                                            jv,
+                                            otd.name
                                         )
                                 )
                             }
-                            .tap { sfvs: SubtypeFieldValueStrategy -> context.setAccumulate(sfvs) }
+                            .tap { sfvs: SubtypeFieldValueStrategySpec ->
+                                context.setAccumulate(sfvs)
+                            }
+                            .orElse {
+                                val objectTypeName: String =
+                                    context.parentNode
+                                        .toOption()
+                                        .filterIsInstance<ObjectTypeDefinition>()
+                                        .map(ObjectTypeDefinition::getName)
+                                        .getOrElse { "<NA>" }
+                                val message: String =
+                                    """null or missing value supplied for 
+                                        |argument "%s" on @%s 
+                                        |directive on [ object %s ]"""
+                                        .flatten()
+                                        .format(
+                                            FIELD_VALUE_ARGUMENT_NAME,
+                                            DiscriminatorDirective.name,
+                                            objectTypeName
+                                        )
+                                SubtypingStrategyErrorsSpec(
+                                        interfaceTypeName = strategy.interfaceTypeName,
+                                        objectSubtypeNames =
+                                            strategy.objectSubtypeNames.add(objectTypeName),
+                                        validationErrors =
+                                            persistentListOf(ServiceError.of(message))
+                                    )
+                                    .toOption()
+                                    .tap { sses: SubtypingStrategyErrorsSpec ->
+                                        context.setAccumulate(sses)
+                                    }
+                            }
                     }
-                    else -> {
-                        // TODO: Create errors and pass them up to factory level
-                    }
+                    else -> {}
                 }
             }
         }
 
-        private sealed interface SubtypingStrategy {
+        private sealed interface SubtypingStrategySpec {
             val interfaceTypeName: String
             val objectSubtypeNames: ImmutableList<String>
         }
 
-        private data class SubtypeFieldNameStrategy(
+        private data class SubtypeFieldNameStrategySpec(
             override val interfaceTypeName: String,
             override val objectSubtypeNames: PersistentList<String>,
-            val discriminatorFieldNameByObjectSubtypeName: PersistentMap<String, String>
-        ) : SubtypingStrategy
+            val objectSubtypeNameByDiscriminatorFieldName: PersistentMap<String, String>
+        ) : SubtypingStrategySpec
 
-        private data class SubtypeFieldValueStrategy(
+        private data class SubtypeFieldValueStrategySpec(
             override val interfaceTypeName: String,
             override val objectSubtypeNames: PersistentList<String>,
             val discriminatorFieldName: String,
             val discriminatorFieldType: Type<*>,
-            val discriminatorFieldValueByObjectSubtypeName: PersistentMap<String, JsonNode>
-        ) : SubtypingStrategy
+            val objectSubtypeNameByDiscriminatorFieldValue: PersistentMap<JsonNode, String>
+        ) : SubtypingStrategySpec
+
+        private data class SubtypingStrategyErrorsSpec(
+            override val interfaceTypeName: String,
+            override val objectSubtypeNames: PersistentList<String>,
+            val validationErrors: PersistentList<ServiceError>
+        ) : SubtypingStrategySpec
     }
 
     override fun createTypeResolver(environment: InterfaceWiringEnvironment): TypeResolver {
@@ -291,17 +441,7 @@ internal class SubtypingDirectiveInterfaceSubtypeResolverFactory :
             )
             .toOption()
             .mapNotNull(TraverserResult::getAccumulatedResult)
-            .filterIsInstance<SubtypingStrategy>()
-            .map { ss: SubtypingStrategy ->
-                when (ss) {
-                    is SubtypeFieldNameStrategy -> {
-                        createSubtypeFieldNameStrategyTypeResolver(ss)
-                    }
-                    is SubtypeFieldValueStrategy -> {
-                        createSubtypeFieldValueStrategyTypeResolver(ss)
-                    }
-                }
-            }
+            .filterIsInstance<SubtypingStrategySpec>()
             .successIfDefined {
                 ServiceError.of(
                     """unable to use directives to 
@@ -311,6 +451,27 @@ internal class SubtypingDirectiveInterfaceSubtypeResolverFactory :
                         .flatten(),
                     environment.interfaceTypeDefinition.name
                 )
+            }
+            .flatMap { ss: SubtypingStrategySpec ->
+                when (ss) {
+                    is SubtypeFieldNameStrategySpec -> {
+                        Try.success(createSubtypeFieldNameStrategyTypeResolver(ss))
+                    }
+                    is SubtypeFieldValueStrategySpec -> {
+                        Try.success(createSubtypeFieldValueStrategyTypeResolver(ss))
+                    }
+                    is SubtypingStrategyErrorsSpec -> {
+                        ss.validationErrors
+                            .fold(ServiceError.builder().build(), ServiceError::plus)
+                            .also { se: ServiceError ->
+                                logger.error(
+                                    "create_type_resolver: [ status: failed ][ json: {} ]",
+                                    se.toJsonNode()
+                                )
+                            }
+                            .failure<TypeResolver>()
+                    }
+                }
             }
             .orElseThrow()
     }
@@ -325,7 +486,6 @@ internal class SubtypingDirectiveInterfaceSubtypeResolverFactory :
                             n.getDirectives(SubtypingDirective.name),
                             typeDefinitionRegistry.getImplementationsOf(n)
                         )
-                        .asSequence()
                         .flatten()
                         .toList()
                 }
@@ -340,13 +500,13 @@ internal class SubtypingDirectiveInterfaceSubtypeResolverFactory :
     }
 
     private fun createSubtypeFieldNameStrategyTypeResolver(
-        subtypeFieldNameStrategy: SubtypeFieldNameStrategy
+        subtypeFieldNameStrategy: SubtypeFieldNameStrategySpec
     ): TypeResolver {
         return TypeResolver { env: TypeResolutionEnvironment ->
             logger.info(
-                "resolve: [ env.field.name: {}, env.fieldType: {} ]",
+                "resolve_object_type: [ env.field.name: {}, env.fieldType: {} ]",
                 env.field.name,
-                env.fieldType
+                GraphQLTypeUtil.simplePrint(env.fieldType)
             )
             env.fieldType
                 .toOption()
@@ -362,15 +522,16 @@ internal class SubtypingDirectiveInterfaceSubtypeResolverFactory :
                     git.name == subtypeFieldNameStrategy.interfaceTypeName
                 }
                 .and(
-                    subtypeFieldNameStrategy.discriminatorFieldNameByObjectSubtypeName
+                    subtypeFieldNameStrategy.objectSubtypeNameByDiscriminatorFieldName
                         .asSequence()
-                        .firstOrNone { (otdn: String, fn: String) -> env.selectionSet.contains(fn) }
+                        .firstOrNone { (fn: String, otdn: String) -> env.selectionSet.contains(fn) }
                 )
-                .flatMap { (otdn: String, fn: String) -> env.schema.getObjectType(otdn).toOption() }
+                .flatMap { (fn: String, otdn: String) -> env.schema.getObjectType(otdn).toOption() }
                 .successIfDefined {
                     ServiceError.of(
-                        "unable to resolve object_type for environment: [ field.name: %s ]",
-                        env.field.name
+                        "unable to resolve object_type for environment: [ field.name: %s, field.type: %s ]",
+                        env.field.name,
+                        GraphQLTypeUtil.simplePrint(env.fieldType)
                     )
                 }
                 .orElseThrow()
@@ -378,13 +539,13 @@ internal class SubtypingDirectiveInterfaceSubtypeResolverFactory :
     }
 
     private fun createSubtypeFieldValueStrategyTypeResolver(
-        subtypeFieldValueStrategy: SubtypeFieldValueStrategy
+        subtypeFieldValueStrategy: SubtypeFieldValueStrategySpec
     ): TypeResolver {
         return TypeResolver { env: TypeResolutionEnvironment ->
             logger.info(
-                "resolve: [ env.field.name: {}, env.fieldType: {} ]",
+                "resolve_object_type: [ env.field.name: {}, env.fieldType: {} ]",
                 env.field.name,
-                env.fieldType
+                GraphQLTypeUtil.simplePrint(env.fieldType)
             )
             env.fieldType
                 .toOption()
@@ -403,24 +564,32 @@ internal class SubtypingDirectiveInterfaceSubtypeResolverFactory :
                     subtypeFieldValueStrategy.discriminatorFieldName
                         .some()
                         .flatMap { fn: String ->
-                            env.getLocalContext<JsonNode?>()
+                            env.getObject<JsonNode?>()
                                 .toOption()
                                 .filterIsInstance<ObjectNode>()
                                 .mapNotNull { on: ObjectNode -> on.get(fn) }
+                                .orElse {
+                                    env.getObject<Map<String, Any?>?>()
+                                        .toOption()
+                                        .filterIsInstance<Map<String, Any?>>()
+                                        .mapNotNull { m: Map<String, Any?> -> m[fn] }
+                                        .filterIsInstance<JsonNode>()
+                                }
                         }
                         .flatMap { jv: JsonNode ->
-                            subtypeFieldValueStrategy.discriminatorFieldValueByObjectSubtypeName
+                            subtypeFieldValueStrategy.objectSubtypeNameByDiscriminatorFieldValue
                                 .asSequence()
-                                .firstOrNone { (otdn: String, jn: JsonNode) -> jv == jn }
+                                .firstOrNone { (jn: JsonNode, otdn: String) -> jv == jn }
                         }
                 )
-                .flatMap { (otdn: String, jn: JsonNode) ->
+                .flatMap { (jn: JsonNode, otdn: String) ->
                     env.schema.getObjectType(otdn).toOption()
                 }
                 .successIfDefined {
                     ServiceError.of(
-                        "unable to resolve object_type for environment: [ field.name: %s ]",
-                        env.field.name
+                        "unable to resolve object_type for environment: [ field.name: %s, field.type: %s ]",
+                        env.field.name,
+                        GraphQLTypeUtil.simplePrint(env.fieldType)
                     )
                 }
                 .orElseThrow()
