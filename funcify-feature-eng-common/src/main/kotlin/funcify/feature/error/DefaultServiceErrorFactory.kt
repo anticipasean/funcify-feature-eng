@@ -192,9 +192,9 @@ internal object DefaultServiceErrorFactory : ServiceErrorFactory {
              * Exclude extensions from json_node since extensions may not be serializable into JSON
              */
             mapOf(
-                    "server_http_response" to serverHttpResponseJson,
                     "message" to JsonNodeFactory.instance.textNode(message),
                     "cause" to causeJson,
+                    "server_http_response" to serverHttpResponseJson,
                     "service_error_history" to
                         serviceErrorHistory.fold(
                             JsonNodeFactory.instance.arrayNode(serviceErrorHistory.size)
