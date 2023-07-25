@@ -567,7 +567,7 @@ internal class DefaultMetamodelBuildStrategy(
                                     Mono.error<ObjectTypeDefinition> {
                                         ServiceError.of(
                                             """one and only one %s object_type_definition 
-                                            |should be provided 
+                                            |should be provided for
                                             |[ source.name: %s, source.type: %s ]"""
                                                 .flatten(),
                                             QUERY_OBJECT_TYPE_NAME,
@@ -594,11 +594,15 @@ internal class DefaultMetamodelBuildStrategy(
                     otb.fieldDefinition(fd)
                 } to ps.addAll(dl)
             }
-            .map { (otdb: ObjectTypeDefinition.Builder, ps: PersistentSet<SDLDefinition<*>>) ->
+            .flatMap { (otdb: ObjectTypeDefinition.Builder, ps: PersistentSet<SDLDefinition<*>>) ->
                 otdb.build().let { otd: ObjectTypeDefinition ->
                     when {
-                        otd.fieldDefinitions.size > 0 -> ps.add(otd)
-                        else -> ps
+                        otd.fieldDefinitions.size > 0 -> {
+                            Mono.just(ps.add(otd))
+                        }
+                        else -> {
+                            Mono.empty()
+                        }
                     }
                 }
             }
@@ -773,33 +777,26 @@ internal class DefaultMetamodelBuildStrategy(
     private fun createTopLevelQueryObjectTypeDefinitionBasedOnSourceTypes():
         (MetamodelBuildContext) -> Mono<MetamodelBuildContext> {
         return { context: MetamodelBuildContext ->
-            TRANSFORMER_OBJECT_TYPE_NAME.some()
-                .map(TypeName.newTypeName()::name)
-                .map(TypeName.Builder::build)
-                .zip(
-                    DATA_ELEMENT_OBJECT_TYPE_NAME.some()
-                        .map(TypeName.newTypeName()::name)
-                        .map(TypeName.Builder::build),
-                    FEATURE_OBJECT_TYPE_NAME.some()
-                        .map(TypeName.newTypeName()::name)
-                        .map(TypeName.Builder::build)
-                ) { tn1: TypeName, tn2: TypeName, tn3: TypeName ->
+            Try.attempt {
                     sequenceOf(
-                            TRANSFORMER_FIELD_NAME to tn1,
-                            DATA_ELEMENT_FIELD_NAME to tn2,
-                            FEATURE_FIELD_NAME to tn3
+                            TRANSFORMER_FIELD_NAME to TRANSFORMER_OBJECT_TYPE_NAME,
+                            DATA_ELEMENT_FIELD_NAME to DATA_ELEMENT_OBJECT_TYPE_NAME,
+                            FEATURE_FIELD_NAME to FEATURE_OBJECT_TYPE_NAME
                         )
-                        .filter { (fieldName: String, tn: TypeName) ->
+                        .filter { (_: String, objectTypeName: String) ->
                             context.typeDefinitionRegistry
-                                .getType(tn, ObjectTypeDefinition::class.java)
+                                .getType(objectTypeName, ObjectTypeDefinition::class.java)
                                 .toOption()
                                 .map(ObjectTypeDefinition::getFieldDefinitions)
                                 .map(List<FieldDefinition>::size)
                                 .filter { s: Int -> s > 0 }
                                 .isDefined()
                         }
-                        .map { (fieldName: String, tn: TypeName) ->
-                            FieldDefinition.newFieldDefinition().name(fieldName).type(tn).build()
+                        .map { (fieldName: String, objectTypeName: String) ->
+                            FieldDefinition.newFieldDefinition()
+                                .name(fieldName)
+                                .type(TypeName.newTypeName(objectTypeName).build())
+                                .build()
                         }
                         .fold(
                             ObjectTypeDefinition.newObjectTypeDefinition()
@@ -809,20 +806,40 @@ internal class DefaultMetamodelBuildStrategy(
                         }
                         .build()
                 }
-                .successIfDefined {
+                .filter({ otd: ObjectTypeDefinition -> otd.fieldDefinitions.size > 0 }) {
+                    otd: ObjectTypeDefinition ->
                     ServiceError.of(
-                        """object_type_definitions have not been generated 
-                        |in context.type_definition_registry 
-                        |for all source_types: [ type_names: %s ]"""
-                            .flatten(),
-                        sequenceOf(
-                                TRANSFORMER_OBJECT_TYPE_NAME,
-                                DATA_ELEMENT_OBJECT_TYPE_NAME,
-                                FEATURE_OBJECT_TYPE_NAME
+                        """root object_type_definition [ name: %s ] 
+                            |is invalid given all 
+                            |expected field definitions [ %s ] 
+                            |point to object_type_definitions 
+                            |without any field_definitions"""
+                            .flatten()
+                            .format(
+                                QUERY_OBJECT_TYPE_NAME,
+                                sequenceOf(
+                                        TRANSFORMER_FIELD_NAME,
+                                        DATA_ELEMENT_FIELD_NAME,
+                                        FEATURE_FIELD_NAME
+                                    )
+                                    .joinToString(", ")
                             )
-                            .joinToString(", ")
                     )
                 }
+                // .successIfDefined {
+                //    ServiceError.of(
+                //        """object_type_definitions have not been generated
+                //        |in context.type_definition_registry
+                //        |for all source_types: [ type_names: %s ]"""
+                //            .flatten(),
+                //        sequenceOf(
+                //                TRANSFORMER_OBJECT_TYPE_NAME,
+                //                DATA_ELEMENT_OBJECT_TYPE_NAME,
+                //                FEATURE_OBJECT_TYPE_NAME
+                //            )
+                //            .joinToString(", ")
+                //    )
+                // }
                 .flatMap { otd: ObjectTypeDefinition ->
                     when (
                         val possibleError: Option<GraphQLError> =
