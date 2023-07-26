@@ -17,6 +17,7 @@ server:
 logging:
   level:
     funcify.feature: DEBUG # Can toggle if debug level needed during local testing
+    graphql: DEBUG
 
 feature-eng-service:
   system-default-time-zone: UTC

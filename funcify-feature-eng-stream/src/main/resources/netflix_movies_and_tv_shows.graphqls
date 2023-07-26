@@ -60,9 +60,9 @@ type Query {
     show(showId: ID): Show
 }
 
-interface Show @subtyping(strategy: SUBTYPE_FIELD_VALUE, discriminatorFieldName: "showType"){
+interface Show @subtyping(strategy: SUBTYPE_FIELD_VALUE, discriminatorFieldName: "type"){
     showId: ID!
-    showType: String!
+    type: String!
     title: String!
     releaseYear: Int!
     director: Director
@@ -75,7 +75,7 @@ interface Show @subtyping(strategy: SUBTYPE_FIELD_VALUE, discriminatorFieldName:
 
 type Movie implements Show @discriminator(fieldValue: "Movie") {
     showId: ID!
-    showType: String!
+    type: String!
     title: String!
     releaseYear: Int!
     director: Director
@@ -89,7 +89,7 @@ type Movie implements Show @discriminator(fieldValue: "Movie") {
 
 type TVShow implements Show @discriminator(fieldValue: "TV Show"){
     showId: ID!
-    showType: String!
+    type: String!
     title: String!
     releaseYear: Int!
     director: Director

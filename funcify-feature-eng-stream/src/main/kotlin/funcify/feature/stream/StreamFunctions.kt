@@ -7,10 +7,20 @@ import funcify.feature.datasource.graphql.GraphQLApiDataElementSourceProvider
 import funcify.feature.datasource.graphql.GraphQLApiDataElementSourceProviderFactory
 import funcify.feature.materializer.schema.MaterializationMetamodel
 import funcify.feature.materializer.schema.MaterializationMetamodelBroker
+import funcify.feature.schema.path.SchematicPath
 import graphql.ExecutionInput
 import graphql.ExecutionResult
 import graphql.GraphQL
+import graphql.introspection.IntrospectionQuery
 import graphql.schema.GraphQLSchema
+import java.util.concurrent.CompletableFuture
+import org.dataloader.BatchLoaderEnvironment
+import org.dataloader.DataLoader
+import org.dataloader.DataLoaderFactory
+import org.dataloader.DataLoaderOptions
+import org.dataloader.DataLoaderRegistry
+import org.dataloader.MappedBatchLoaderWithContext
+import org.dataloader.stats.SimpleStatisticsCollector
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.boot.SpringApplication
@@ -166,6 +176,7 @@ class StreamFunctions {
                         }
                         .flatMap { jn: JsonNode ->
                             executeGraphQLRequestWithSchema(jn, mm.materializationGraphQLSchema)
+                            // executeGraphQLIntrospectionRequestWithSchema(mm.materializationGraphQLSchema)
                         }
                         .map { jn: JsonNode -> GenericMessage<JsonNode>(jn, m.headers) }
                 }
@@ -199,6 +210,11 @@ class StreamFunctions {
                             // TODO: Consider creating UnprocessedCSVJSON type and accompanying
                             // types
                             .root(requestBodyJson)
+                            .dataLoaderRegistry(
+                                DataLoaderRegistry.newRegistry()
+                                    .register("show", createShowDataLoader())
+                                    .build()
+                            )
                     )
             )
             .map { er: ExecutionResult ->
@@ -211,5 +227,64 @@ class StreamFunctions {
                         .put("errorMessage", t.message)
                 }
             }
+    }
+
+    private fun executeGraphQLIntrospectionRequestWithSchema(
+        netflixShowsGraphQLSchema: GraphQLSchema
+    ): Mono<JsonNode> {
+        logger.info(
+            "execute_graphql_introspection_request_with_schema: [ query[0:10]: {} ]",
+            IntrospectionQuery.INTROSPECTION_QUERY.asSequence().take(10).joinToString("", "", "...")
+        )
+        return Mono.fromFuture(
+                GraphQL.newGraphQL(netflixShowsGraphQLSchema)
+                    .build()
+                    .executeAsync(
+                        ExecutionInput.newExecutionInput()
+                            .query(IntrospectionQuery.INTROSPECTION_QUERY)
+                    )
+            )
+            .map { er: ExecutionResult ->
+                try {
+                    objectMapper.valueToTree<JsonNode>(er.toSpecification())
+                } catch (t: Throwable) {
+                    JsonNodeFactory.instance
+                        .objectNode()
+                        .put("errorType", t::class.qualifiedName)
+                        .put("errorMessage", t.message)
+                }
+            }
+    }
+
+    private fun createShowDataLoader(): DataLoader<SchematicPath, JsonNode> {
+        val mappedBatchLoaderWithContext: MappedBatchLoaderWithContext<SchematicPath, JsonNode> =
+            MappedBatchLoaderWithContext {
+                keys: MutableSet<SchematicPath>,
+                environment: BatchLoaderEnvironment ->
+                logger.info(
+                    "mapped_batch_loader_with_context: [ status: loading ]\n[ keys: {}, \nenvironment.context: {}, \nenvironment.key_context[:]: {}\n ]",
+                    keys.asSequence().joinToString(",\n "),
+                    environment.getContext(),
+                    environment.keyContexts.asSequence().joinToString(",\n ", "{ ", " }") { (k, v)
+                        ->
+                        "$k=${v::class.qualifiedName }}"
+                    }
+                )
+                CompletableFuture.supplyAsync {
+                    logger.info("mapped_batch_loader_with_context: [ status: dispatched ]")
+                    keys
+                        .asSequence()
+                        .map { k: SchematicPath ->
+                            k to JsonNodeFactory.instance.textNode(k.toString())
+                        }
+                        .toMap()
+                }
+            }
+        return DataLoaderFactory.newMappedDataLoader(
+            mappedBatchLoaderWithContext,
+            DataLoaderOptions.newOptions()
+                .setBatchLoaderContextProvider { null }
+                .setStatisticsCollector { SimpleStatisticsCollector() }
+        )
     }
 }

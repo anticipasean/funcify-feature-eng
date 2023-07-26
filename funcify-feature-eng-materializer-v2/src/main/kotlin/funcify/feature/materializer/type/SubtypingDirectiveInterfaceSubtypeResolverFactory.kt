@@ -66,7 +66,12 @@ internal class SubtypingDirectiveInterfaceSubtypeResolverFactory :
                 return context.thisNode().accept(context, nodeVisitor)
             }
         }
-
+        // TODO: Implement more advanced traversal/strategy that considers possibility of more than
+        // one discriminator directive of object subtypes, each being applicable to a different
+        // subtyping
+        // strategy on a different parent interface type
+        // Important since interfaces can implement interfaces and objects can implement more than
+        // one interface
         private class SubtypingDirectiveVisitor : NodeVisitorStub() {
 
             companion object {
@@ -543,9 +548,10 @@ internal class SubtypingDirectiveInterfaceSubtypeResolverFactory :
     ): TypeResolver {
         return TypeResolver { env: TypeResolutionEnvironment ->
             logger.info(
-                "resolve_object_type: [ env.field.name: {}, env.fieldType: {} ]",
+                "resolve_object_type: [ env.field.name: {}, env.fieldType: {}, env.object: {} ]",
                 env.field.name,
-                GraphQLTypeUtil.simplePrint(env.fieldType)
+                GraphQLTypeUtil.simplePrint(env.fieldType),
+                env.getObject()
             )
             env.fieldType
                 .toOption()

@@ -21,7 +21,6 @@ object DiscriminatorDirective : MaterializationDirective {
             |Either a fieldName or a fieldValue 
             |should be supplied but not both"""
             .trimMargin()
-            .replace(System.lineSeparator(), "")
 
     override val supportedDirectiveLocations: List<DirectiveLocation> by lazy {
         sequenceOf(Introspection.DirectiveLocation.OBJECT)
@@ -37,14 +36,12 @@ object DiscriminatorDirective : MaterializationDirective {
                 |subtype of the @subtyping annotated interface 
                 |if SUBTYPE_FIELD_NAME strategy is selected"""
                 .trimMargin()
-                .replace(System.lineSeparator(), "")
         val fieldValueDescription: String =
             """Field value that is unique to this 
                 |subtype of the @subtyping annotated interface 
                 |if SUBTYPE_FIELD_VALUE strategy is selected 
                 |and a discriminatorFieldName has been supplied"""
                 .trimMargin()
-                .replace(System.lineSeparator(), "")
         listOf(
             InputValueDefinition.newInputValueDefinition()
                 .name("fieldName")

@@ -25,7 +25,6 @@ object SubtypingDirective : MaterializationDirective {
                 |that will have one of the @discriminator-directive 
                 |values, required if SUBTYPE_FIELD_VALUE strategy is selected"""
                 .trimMargin()
-                .replace(System.lineSeparator(), "")
         listOf(
             InputValueDefinition.newInputValueDefinition()
                 .name("strategy")
@@ -53,14 +52,12 @@ object SubtypingDirective : MaterializationDirective {
                 |unique to the subtype to be used to select 
                 |that subtype when resolving parent interface type"""
                 .trimMargin()
-                .replace(System.lineSeparator(), "")
         val subtypeFieldValueDescription: String =
             """@discriminator directive on annotated object subtype 
                 |contains the value of the field 
                 |unique to the subtype to be used to select 
                 |that subtype when resolving parent interface type"""
                 .trimMargin()
-                .replace(System.lineSeparator(), "")
         listOf(
             EnumTypeDefinition.newEnumTypeDefinition()
                 .name("SubtypingStrategy")

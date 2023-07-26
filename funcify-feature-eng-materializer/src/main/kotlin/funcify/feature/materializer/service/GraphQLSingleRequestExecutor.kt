@@ -1,4 +1,4 @@
-package funcify.feature.spring.service
+package funcify.feature.materializer.service
 
 import funcify.feature.materializer.request.RawGraphQLRequest
 import funcify.feature.materializer.response.SerializedGraphQLResponse

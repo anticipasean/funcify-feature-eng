@@ -2,13 +2,10 @@ package funcify.feature.spring.configuration
 
 import funcify.feature.materializer.request.GraphQLExecutionInputCustomizer
 import funcify.feature.materializer.request.RawGraphQLRequestFactory
-import funcify.feature.materializer.session.GraphQLSingleRequestSessionCoordinator
-import funcify.feature.materializer.session.GraphQLSingleRequestSessionFactory
+import funcify.feature.materializer.service.GraphQLSingleRequestExecutor
 import funcify.feature.spring.configuration.SpringGraphQLWebFluxConfiguration.Companion.GraphiQlResourceHints
 import funcify.feature.spring.router.GraphQLWebFluxHandlerFunction
 import funcify.feature.spring.router.GraphiQLWebFluxHandlerFunction
-import funcify.feature.spring.service.GraphQLSingleRequestExecutor
-import funcify.feature.spring.service.SpringGraphQLSingleRequestExecutor
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.json.JsonMapper
 import org.slf4j.Logger
@@ -52,17 +49,6 @@ class SpringGraphQLWebFluxConfiguration {
                 hints.resources().registerPattern(GRAPHIQL_INDEX_HTML_PATH)
             }
         }
-    }
-
-    @Bean
-    fun springGraphQLSingleRequestExecutor(
-        graphQLSingleRequestSessionFactory: GraphQLSingleRequestSessionFactory,
-        graphQLSingleRequestSessionCoordinator: GraphQLSingleRequestSessionCoordinator,
-    ): GraphQLSingleRequestExecutor {
-        return SpringGraphQLSingleRequestExecutor(
-            graphQLSingleRequestSessionFactory = graphQLSingleRequestSessionFactory,
-            graphQLSingleRequestSessionCoordinator = graphQLSingleRequestSessionCoordinator
-        )
     }
 
     @Bean

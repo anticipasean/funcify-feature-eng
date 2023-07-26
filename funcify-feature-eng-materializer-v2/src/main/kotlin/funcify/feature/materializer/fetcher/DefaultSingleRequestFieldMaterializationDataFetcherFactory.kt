@@ -1,13 +1,12 @@
 package funcify.feature.materializer.fetcher
 
-import arrow.core.filterIsInstance
-import arrow.core.toOption
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import graphql.execution.DataFetcherResult
 import graphql.schema.DataFetcher
 import graphql.schema.DataFetcherFactoryEnvironment
-import graphql.schema.GraphQLNamedOutputType
+import graphql.schema.GraphQLOutputType
+import graphql.schema.GraphQLTypeUtil
 import java.util.concurrent.CompletionStage
 import org.slf4j.Logger
 
@@ -24,13 +23,9 @@ internal class DefaultSingleRequestFieldMaterializationDataFetcherFactory(
         environment: DataFetcherFactoryEnvironment?
     ): DataFetcher<CompletionStage<out DataFetcherResult<Any?>>> {
         val fieldTypeName: String? =
-            environment
-                ?.fieldDefinition
-                ?.type
-                .toOption()
-                .filterIsInstance<GraphQLNamedOutputType>()
-                .map(GraphQLNamedOutputType::getName)
-                .orNull()
+            environment?.fieldDefinition?.type?.let { got: GraphQLOutputType ->
+                GraphQLTypeUtil.simplePrint(got)
+            }
         logger.debug(
             """get: [ data_fetcher_factory_environment: 
             |[ graphql_field_definition: 

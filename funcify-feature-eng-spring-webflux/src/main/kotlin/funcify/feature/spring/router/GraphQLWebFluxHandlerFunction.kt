@@ -15,7 +15,7 @@ import funcify.feature.materializer.request.GraphQLExecutionInputCustomizer
 import funcify.feature.materializer.request.RawGraphQLRequest
 import funcify.feature.materializer.request.RawGraphQLRequestFactory
 import funcify.feature.materializer.response.SerializedGraphQLResponse
-import funcify.feature.spring.service.GraphQLSingleRequestExecutor
+import funcify.feature.materializer.service.GraphQLSingleRequestExecutor
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.container.attempt.Try.Companion.filterInstanceOf
 import funcify.feature.tools.container.attempt.Try.Companion.flatMapFailure

@@ -57,7 +57,7 @@ class MaterializerConfiguration {
     @ConditionalOnMissingBean(value = [ReactiveDataFetcher::class])
     @Bean
     fun reactiveDataFetcher(): ReactiveDataFetcher<Any> {
-        return DummyReactiveDataFetcher<Any>()
+        return DummyReactiveDataFetcher()
     }
 
     @ConditionalOnMissingBean(value = [DataFetcherFactory::class])
@@ -146,4 +146,6 @@ class MaterializerConfiguration {
         )
         return broker
     }
+
+
 }

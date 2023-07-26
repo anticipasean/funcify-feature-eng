@@ -1,4 +1,4 @@
-package funcify.feature.spring.service
+package funcify.feature.materializer.service
 
 import funcify.feature.error.ServiceError
 import funcify.feature.materializer.request.RawGraphQLRequest
@@ -33,7 +33,7 @@ internal class SpringGraphQLSingleRequestExecutor(
                 |${rawGraphQLRequest.requestId} ]
                 |"""
                 .flatten()
-        )
+                   )
         return graphQLSingleRequestSessionFactory
             .createSessionForSingleRequest(rawGraphQLRequest)
             .flatMap { session: GraphQLSingleRequestSession ->

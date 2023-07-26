@@ -9,9 +9,7 @@ import funcify.feature.datasource.graphql.metadata.temporal.GraphQLApiDataSource
 import funcify.feature.datasource.rest.RestApiDataElementSource
 import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionCreationContextFactory
 import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionImplementationStrategy
-import funcify.feature.schema.tracking.TrackableValueFactory
 import funcify.feature.error.FeatureEngCommonException
-import funcify.feature.tools.json.JsonMapper
 import funcify.feature.materializer.context.document.DefaultColumnarDocumentContextFactory
 import funcify.feature.materializer.context.graph.DefaultMaterializationGraphContextFactory
 import funcify.feature.materializer.context.publishing.DefaultTrackableValuePublishingContextFactory
@@ -39,9 +37,11 @@ import funcify.feature.schema.MetamodelGraph
 import funcify.feature.schema.factory.MetamodelGraphCreationContext
 import funcify.feature.schema.factory.MetamodelGraphFactory
 import funcify.feature.schema.strategy.SchematicVertexGraphRemappingStrategy
+import funcify.feature.schema.tracking.TrackableValueFactory
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.MonoExtensions.toTry
 import funcify.feature.tools.extensions.StringExtensions.flatten
+import funcify.feature.tools.json.JsonMapper
 import graphql.execution.ExecutionStrategy
 import graphql.schema.GraphQLSchema
 import graphql.schema.idl.SchemaPrinter
@@ -87,7 +87,9 @@ class MaterializerConfiguration {
                             ) { bldr, prov ->
                                 bldr.addLastUpdatedAttributeProviderForDataSource(prov, ds)
                             }
-                        ) { bldr, prov -> bldr.addEntityIdentifiersProviderForDataSource(prov, ds) }
+                        ) { bldr, prov ->
+                            bldr.addEntityIdentifiersProviderForDataSource(prov, ds)
+                        }
                     }
                     // break out any other datasource specific providers into separate cases or
                     // create generic function to add the other providers when support for them
@@ -113,14 +115,16 @@ class MaterializerConfiguration {
                     """metamodel_graph: [ status: success ] 
                             |[ metamodel_graph [ vertices.size: ${mmg.pathBasedGraph.vertices.size}, 
                             |vertices[0].path: $firstVertexPath ] ]
-                            |""".flatten()
+                            |"""
+                        .flatten()
                 )
             }
             .doOnError { t: Throwable ->
                 logger.error(
                     """metamodel_graph: [ status: failed ] 
                     |[ message: ${t.message} ]
-                    |""".flatten(),
+                    |"""
+                        .flatten(),
                     t
                 )
             }
@@ -221,7 +225,8 @@ class MaterializerConfiguration {
     @ConditionalOnMissingBean(value = [SingleRequestMaterializationDispatchService::class])
     @Bean
     fun singleRequestMaterializationDispatchService(
-        schematicPathBasedJsonRetrievalFunctionFactory: SchematicPathBasedJsonRetrievalFunctionFactory,
+        schematicPathBasedJsonRetrievalFunctionFactory:
+            SchematicPathBasedJsonRetrievalFunctionFactory,
         trackableValueFactory: TrackableValueFactory,
         materializedTrackableValuePublishingService: MaterializedTrackableValuePublishingService
     ): SingleRequestMaterializationDispatchService {
@@ -300,7 +305,8 @@ class MaterializerConfiguration {
                         """materialization_graphql_schema: [ status: success ] 
                             |[ graphql_schema.query_type.field_definitions.size: 
                             |${gs.queryType.fieldDefinitions.size} ]
-                            |""".flatten()
+                            |"""
+                            .flatten()
                     )
                     logger.info("materialization_graphql_schema: \n{}", SchemaPrinter().print(gs))
                 },
@@ -391,6 +397,17 @@ class MaterializerConfiguration {
             singleRequestMaterializationGraphService = singleRequestMaterializationGraphService,
             singleRequestMaterializationPreprocessingService =
                 singleRequestMaterializationDispatchService
+        )
+    }
+
+    @Bean
+    fun springGraphQLSingleRequestExecutor(
+        graphQLSingleRequestSessionFactory: GraphQLSingleRequestSessionFactory,
+        graphQLSingleRequestSessionCoordinator: GraphQLSingleRequestSessionCoordinator,
+    ): GraphQLSingleRequestExecutor {
+        return SpringGraphQLSingleRequestExecutor(
+            graphQLSingleRequestSessionFactory = graphQLSingleRequestSessionFactory,
+            graphQLSingleRequestSessionCoordinator = graphQLSingleRequestSessionCoordinator
         )
     }
 }
