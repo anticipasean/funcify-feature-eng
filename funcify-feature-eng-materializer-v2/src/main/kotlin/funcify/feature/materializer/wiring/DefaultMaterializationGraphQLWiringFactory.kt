@@ -1,4 +1,4 @@
-package funcify.feature.materializer.service
+package funcify.feature.materializer.wiring
 
 import arrow.core.toOption
 import funcify.feature.error.ServiceError
@@ -36,7 +36,7 @@ internal class DefaultMaterializationGraphQLWiringFactory(
             |]"""
                 .flatten(),
             environment.scalarTypeDefinition.name
-        )
+                    )
         return environment.scalarTypeDefinition
             .toOption()
             .mapNotNull { sd: ScalarTypeDefinition ->
@@ -68,7 +68,7 @@ internal class DefaultMaterializationGraphQLWiringFactory(
         logger.debug(
             "provides_type_resolver: [ environment.interface_type_definition.name: {} ]",
             environment.interfaceTypeDefinition.name
-        )
+                    )
         return true
     }
 
@@ -76,7 +76,7 @@ internal class DefaultMaterializationGraphQLWiringFactory(
         logger.debug(
             "get_type_resolver: [ environment.interface_type_definition.name: {} ]",
             environment.interfaceTypeDefinition.name
-        )
+                    )
         return materializationInterfaceSubtypeResolverFactory.createTypeResolver(environment)
     }
 
@@ -93,7 +93,7 @@ internal class DefaultMaterializationGraphQLWiringFactory(
                 .flatten(),
             environment.fieldDefinition.name,
             graphQLFieldTypeName
-        )
+                    )
         return true
     }
 
@@ -111,7 +111,7 @@ internal class DefaultMaterializationGraphQLWiringFactory(
             |} ]"""
                 .flatten()
                 .format(environment.fieldDefinition?.name, graphQLFieldTypeName)
-        )
+                    )
         @Suppress("UNCHECKED_CAST") //
         val typedDataFetcherFactory: DataFetcherFactory<T> =
             dataFetcherFactory as DataFetcherFactory<T>

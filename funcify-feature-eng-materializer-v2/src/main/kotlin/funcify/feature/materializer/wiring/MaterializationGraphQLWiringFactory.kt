@@ -1,4 +1,4 @@
-package funcify.feature.materializer.service
+package funcify.feature.materializer.wiring
 
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import graphql.ErrorType

@@ -1,5 +1,12 @@
 package funcify.feature.materializer.configuration
 
+import funcify.feature.materializer.context.document.DefaultColumnarDocumentContextFactory
+import funcify.feature.materializer.document.DefaultMaterializationPreparsedDocumentProvider
+import funcify.feature.materializer.document.DefaultSingleRequestMaterializationColumnarDocumentPreprocessingService
+import funcify.feature.materializer.document.DefaultSingleRequestMaterializationColumnarResponsePostprocessingService
+import funcify.feature.materializer.document.MaterializationPreparsedDocumentProvider
+import funcify.feature.materializer.document.SingleRequestMaterializationColumnarDocumentPreprocessingService
+import funcify.feature.materializer.document.SingleRequestMaterializationColumnarResponsePostprocessingService
 import funcify.feature.materializer.fetcher.DefaultSingleRequestFieldMaterializationDataFetcherFactory
 import funcify.feature.materializer.fetcher.DummyReactiveDataFetcher
 import funcify.feature.materializer.fetcher.ReactiveDataFetcher
@@ -12,14 +19,25 @@ import funcify.feature.materializer.schema.DefaultMaterializationMetamodel
 import funcify.feature.materializer.schema.DefaultMaterializationMetamodelBroker
 import funcify.feature.materializer.schema.MaterializationGraphQLSchemaFactory
 import funcify.feature.materializer.schema.MaterializationMetamodelBroker
-import funcify.feature.materializer.service.DefaultMaterializationGraphQLWiringFactory
-import funcify.feature.materializer.service.MaterializationGraphQLWiringFactory
+import funcify.feature.materializer.service.DefaultGraphQLSingleRequestMaterializationQueryExecutionStrategy
+import funcify.feature.materializer.service.DefaultSingleRequestMaterializationExecutionResultPostprocessingService
+import funcify.feature.materializer.service.GraphQLSingleRequestExecutor
+import funcify.feature.materializer.service.SingleRequestMaterializationExecutionResultPostprocessingService
+import funcify.feature.materializer.service.SpringGraphQLSingleRequestExecutor
+import funcify.feature.materializer.session.DefaultGraphQLSingleRequestSessionCoordinator
+import funcify.feature.materializer.session.DefaultGraphQLSingleRequestSessionFactory
+import funcify.feature.materializer.session.GraphQLSingleRequestSessionCoordinator
+import funcify.feature.materializer.session.GraphQLSingleRequestSessionFactory
 import funcify.feature.materializer.type.MaterializationInterfaceSubtypeResolverFactory
 import funcify.feature.materializer.type.SubtypingDirectiveInterfaceSubtypeResolverFactory
+import funcify.feature.materializer.wiring.DefaultMaterializationGraphQLWiringFactory
+import funcify.feature.materializer.wiring.MaterializationGraphQLWiringFactory
 import funcify.feature.scalar.registry.ScalarTypeRegistry
 import funcify.feature.schema.Metamodel
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flatten
+import funcify.feature.tools.json.JsonMapper
+import graphql.execution.AsyncExecutionStrategy
 import graphql.execution.DataFetcherResult
 import graphql.schema.DataFetcherFactory
 import graphql.schema.GraphQLSchema
@@ -147,5 +165,106 @@ class MaterializerConfiguration {
         return broker
     }
 
+    @ConditionalOnMissingBean(value = [GraphQLSingleRequestSessionFactory::class])
+    @Bean
+    fun graphQLSingleRequestSessionFactory(
+        materializationMetamodelBroker: MaterializationMetamodelBroker
+    ): GraphQLSingleRequestSessionFactory {
+        return DefaultGraphQLSingleRequestSessionFactory(
+            materializationMetamodelBroker = materializationMetamodelBroker
+        )
+    }
 
+    @ConditionalOnMissingBean(
+        value = [SingleRequestMaterializationColumnarDocumentPreprocessingService::class]
+    )
+    @Bean
+    fun singleRequestMaterializationColumnarDocumentPreprocessingService(
+        jsonMapper: JsonMapper
+    ): SingleRequestMaterializationColumnarDocumentPreprocessingService {
+        return DefaultSingleRequestMaterializationColumnarDocumentPreprocessingService(
+            jsonMapper = jsonMapper,
+            columnarDocumentContextFactory = DefaultColumnarDocumentContextFactory()
+        )
+    }
+
+    @ConditionalOnMissingBean(value = [MaterializationPreparsedDocumentProvider::class])
+    @Bean
+    fun materializationPreparsedDocumentProvider(
+        jsonMapper: JsonMapper,
+        singleRequestMaterializationColumnarDocumentPreprocessingService:
+            SingleRequestMaterializationColumnarDocumentPreprocessingService
+    ): MaterializationPreparsedDocumentProvider {
+        return DefaultMaterializationPreparsedDocumentProvider(
+            jsonMapper = jsonMapper,
+            singleRequestMaterializationColumnarDocumentPreprocessingService =
+                singleRequestMaterializationColumnarDocumentPreprocessingService
+        )
+    }
+
+    @ConditionalOnMissingBean(
+        value = [SingleRequestMaterializationColumnarResponsePostprocessingService::class]
+    )
+    @Bean
+    fun singleRequestMaterializationColumnarResponsePostprocessingService(
+        jsonMapper: JsonMapper,
+        serializedGraphQLResponseFactory: SerializedGraphQLResponseFactory
+    ): SingleRequestMaterializationColumnarResponsePostprocessingService {
+        return DefaultSingleRequestMaterializationColumnarResponsePostprocessingService(
+            jsonMapper = jsonMapper,
+            serializedGraphQLResponseFactory = serializedGraphQLResponseFactory
+        )
+    }
+
+    @ConditionalOnMissingBean(
+        value = [SingleRequestMaterializationExecutionResultPostprocessingService::class]
+    )
+    @Bean
+    fun singleRequestMaterializationExecutionResultPostprocessingService(
+        serializedGraphQLResponseFactory: SerializedGraphQLResponseFactory,
+        singleRequestMaterializationColumnarResponsePostprocessingService:
+            SingleRequestMaterializationColumnarResponsePostprocessingService
+    ): SingleRequestMaterializationExecutionResultPostprocessingService {
+        return DefaultSingleRequestMaterializationExecutionResultPostprocessingService(
+            serializedGraphQLResponseFactory = serializedGraphQLResponseFactory,
+            singleRequestMaterializationColumnarResponsePostprocessingService =
+                singleRequestMaterializationColumnarResponsePostprocessingService
+        )
+    }
+
+    @ConditionalOnMissingBean(value = [AsyncExecutionStrategy::class])
+    @Bean
+    fun queryAsyncExecutionStrategy(): AsyncExecutionStrategy {
+        return DefaultGraphQLSingleRequestMaterializationQueryExecutionStrategy()
+    }
+
+    @ConditionalOnMissingBean(value = [GraphQLSingleRequestSessionCoordinator::class])
+    @Bean
+    fun graphQLSingleRequestSessionCoordinator(
+        materializationPreparsedDocumentProvider: MaterializationPreparsedDocumentProvider,
+        queryAsyncExecutionStrategy: AsyncExecutionStrategy,
+        singleRequestMaterializationExecutionResultPostprocessingService:
+            SingleRequestMaterializationExecutionResultPostprocessingService,
+        serializedGraphQLResponseFactory: SerializedGraphQLResponseFactory,
+    ): GraphQLSingleRequestSessionCoordinator {
+        return DefaultGraphQLSingleRequestSessionCoordinator(
+            materializationPreparsedDocumentProvider = materializationPreparsedDocumentProvider,
+            queryAsyncExecutionStrategy = queryAsyncExecutionStrategy,
+            singleRequestMaterializationExecutionResultPostprocessingService =
+                singleRequestMaterializationExecutionResultPostprocessingService,
+            serializedGraphQLResponseFactory = serializedGraphQLResponseFactory
+        )
+    }
+
+    @ConditionalOnMissingBean(value = [GraphQLSingleRequestExecutor::class])
+    @Bean
+    fun springGraphQLSingleRequestExecutor(
+        graphQLSingleRequestSessionFactory: GraphQLSingleRequestSessionFactory,
+        graphQLSingleRequestSessionCoordinator: GraphQLSingleRequestSessionCoordinator,
+    ): GraphQLSingleRequestExecutor {
+        return SpringGraphQLSingleRequestExecutor(
+            graphQLSingleRequestSessionFactory = graphQLSingleRequestSessionFactory,
+            graphQLSingleRequestSessionCoordinator = graphQLSingleRequestSessionCoordinator
+        )
+    }
 }

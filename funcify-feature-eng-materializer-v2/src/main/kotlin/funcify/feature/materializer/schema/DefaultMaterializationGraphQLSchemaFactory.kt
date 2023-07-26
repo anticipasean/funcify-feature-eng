@@ -1,8 +1,7 @@
 package funcify.feature.materializer.schema
 
 import funcify.feature.error.ServiceError
-import funcify.feature.materializer.service.MaterializationGraphQLWiringFactory
-import funcify.feature.scalar.registry.ScalarTypeRegistry
+import funcify.feature.materializer.wiring.MaterializationGraphQLWiringFactory
 import funcify.feature.schema.Metamodel
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
