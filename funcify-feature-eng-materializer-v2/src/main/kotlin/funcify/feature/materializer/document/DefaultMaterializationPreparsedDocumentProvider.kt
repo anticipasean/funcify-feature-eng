@@ -1,5 +1,7 @@
 package funcify.feature.materializer.document
 
+import arrow.core.filterIsInstance
+import arrow.core.getOrElse
 import arrow.core.identity
 import arrow.core.toOption
 import funcify.feature.error.ServiceError
@@ -7,12 +9,17 @@ import funcify.feature.materializer.session.GraphQLSingleRequestSession
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.MonoExtensions.widen
+import funcify.feature.tools.extensions.SequenceExtensions.firstOrNone
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.json.JsonMapper
 import graphql.ExecutionInput
 import graphql.GraphQLError
 import graphql.execution.preparsed.PreparsedDocumentEntry
+import graphql.language.AstPrinter
+import graphql.language.Definition
 import graphql.language.Document
+import graphql.language.NamedNode
+import graphql.language.OperationDefinition
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentMap
@@ -102,7 +109,7 @@ internal class DefaultMaterializationPreparsedDocumentProvider(
             val contextKeys: String =
                 executionInput.graphQLContext
                     .stream()
-                    .map { (k, _) -> Objects.toString(k, "<NA>") }
+                    .map { (k: Any?, _: Any?) -> Objects.toString(k, "<NA>") }
                     .sorted()
                     .collect(Collectors.joining(", ", "{ ", " }"))
             ServiceError.of(
@@ -145,17 +152,35 @@ internal class DefaultMaterializationPreparsedDocumentProvider(
                 val documentDefinitionsAsStr =
                     preparsedDocumentEntry.document
                         .toOption()
-                        .map { doc -> doc.definitions }
+                        .map(Document::getDefinitions)
                         .fold(::emptyList, ::identity)
+                        .asSequence()
+                        .map { d: Definition<*> ->
+                            d.toOption()
+                                .filterIsInstance<NamedNode<*>>()
+                                .map(NamedNode<*>::getName)
+                                .getOrElse { "<NA>" } to (d::class.simpleName ?: "<NA>")
+                        }
                         .joinToString(
-                            separator = ",\n",
+                            separator = ",",
                             prefix = "{ ",
                             postfix = " }",
-                            transform = { def -> def.toString() }
+                            transform = { (n: String, t: String) -> "[ name: $n, type: $t ]" }
                         )
                 logger.debug(
                     "$methodTag: [ status: success ] [ entry.definitions: $documentDefinitionsAsStr ]"
                 )
+                if (logger.isDebugEnabled) {
+                    logger.debug(
+                        "operation_definition: \n{}",
+                        preparsedDocumentEntry.document.definitions
+                            .asSequence()
+                            .filterIsInstance<OperationDefinition>()
+                            .firstOrNone()
+                            .map(AstPrinter::printAst)
+                            .getOrElse { "<NA>" }
+                    )
+                }
             }
         }
     }

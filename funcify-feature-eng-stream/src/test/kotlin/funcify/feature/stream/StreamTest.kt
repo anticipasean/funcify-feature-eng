@@ -51,11 +51,13 @@ class StreamTest {
                                         }
                                     Stream.empty<JsonNode>()
                                 } else {
-                                    val rowJson: ObjectNode = JsonNodeFactory.instance.objectNode()
-                                    header.entries.asSequence().forEach { (k: String, idx: Int) ->
-                                        rowJson.put(k, c.get(idx))
-                                    }
-                                    Stream.of(rowJson)
+                                    Stream.of(
+                                        header.entries.asSequence().fold(
+                                            JsonNodeFactory.instance.objectNode()
+                                        ) { rowJson: ObjectNode, (k: String, idx: Int) ->
+                                            rowJson.put(k, c.get(idx))
+                                        }
+                                    )
                                 }
                             }
                             .findFirst()

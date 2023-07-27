@@ -5,8 +5,10 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.node.JsonNodeFactory
 import funcify.feature.datasource.graphql.GraphQLApiDataElementSourceProvider
 import funcify.feature.datasource.graphql.GraphQLApiDataElementSourceProviderFactory
-import funcify.feature.materializer.schema.MaterializationMetamodel
-import funcify.feature.materializer.schema.MaterializationMetamodelBroker
+import funcify.feature.materializer.request.RawGraphQLRequest
+import funcify.feature.materializer.request.RawGraphQLRequestFactory
+import funcify.feature.materializer.response.SerializedGraphQLResponse
+import funcify.feature.materializer.service.GraphQLSingleRequestExecutor
 import funcify.feature.schema.path.SchematicPath
 import graphql.ExecutionInput
 import graphql.ExecutionResult
@@ -42,9 +44,10 @@ class StreamFunctions {
     companion object {
         private val logger: Logger = LoggerFactory.getLogger(StreamFunctions::class.java)
         private val objectMapper: ObjectMapper = ObjectMapper()
+        const val OPERATION_NAME: String = "showFeatures"
         val QUERY: String =
             """
-                |query showFeatures(${'$'}show_id: ID!){
+                |query ${OPERATION_NAME}(${'$'}show_id: ID!){
                 |    dataElement {
                 |        show(showId: ${'$'}show_id) {
                 |            showId
@@ -114,72 +117,94 @@ class StreamFunctions {
 
     @Bean
     fun materializeFeatures(
-        metamodelBroker: MaterializationMetamodelBroker
+        rawGraphQLRequestFactory: RawGraphQLRequestFactory,
+        graphQLSingleRequestExecutor: GraphQLSingleRequestExecutor
     ): (Flux<Message<Any?>>) -> Flux<Message<JsonNode>> {
         return { messagePublisher: Flux<Message<Any?>> ->
-            messagePublisher
-                .zipWith(metamodelBroker.fetchLatestMaterializationMetamodel(), ::Pair)
-                .flatMap { (m: Message<Any?>, mm: MaterializationMetamodel) ->
-                    logger.info("headers: {}", m.headers)
-                    when (val pl: Any? = m.payload) {
-                            null -> {
-                                // TODO: Instate null node treatment here: Mono.just(nullNode)
-                                // or Mono.empty<JsonNode>()
-                                Mono.just(JsonNodeFactory.instance.nullNode())
-                            }
-                            is ByteArray -> {
-                                Mono.fromSupplier {
-                                    try {
-                                        // TODO: Instate null node treatment here:
-                                        // Mono.just(nullNode)
-                                        // or Mono.empty<JsonNode>()
-                                        objectMapper.readTree(pl)
-                                            ?: JsonNodeFactory.instance.nullNode()
-                                    } catch (t: Throwable) {
-                                        JsonNodeFactory.instance
-                                            .objectNode()
-                                            .put("errorType", t::class.qualifiedName)
-                                            .put("errorMessage", t.message)
-                                    }
-                                }
-                            }
-                            is String -> {
-                                Mono.just(JsonNodeFactory.instance.textNode(pl))
-                            }
-                            is JsonNode -> {
-                                Mono.just(pl)
-                            }
-                            else -> {
-                                Mono.fromSupplier {
-                                    val supportedPayloadTypes: String =
-                                        sequenceOf(
-                                                ByteArray::class.qualifiedName,
-                                                String::class.qualifiedName,
-                                                JsonNode::class.qualifiedName
-                                            )
-                                            .joinToString(", ", "[ ", " ]")
-                                    val message: String =
-                                        """unsupported message payload type: 
-                                    |[ expected: one of %s, actual: %s ]"""
-                                            .trimMargin()
-                                            .replace(System.lineSeparator(), "")
-                                            .format(supportedPayloadTypes, pl::class.qualifiedName)
+            messagePublisher.flatMap { m: Message<Any?> ->
+                logger.info("headers: {}", m.headers)
+                when (val pl: Any? = m.payload) {
+                        null -> {
+                            // TODO: Instate null node treatment here: Mono.just(nullNode)
+                            // or Mono.empty<JsonNode>()
+                            Mono.just(JsonNodeFactory.instance.nullNode())
+                        }
+                        is ByteArray -> {
+                            Mono.fromSupplier {
+                                try {
+                                    // TODO: Instate null node treatment here:
+                                    // Mono.just(nullNode)
+                                    // or Mono.empty<JsonNode>()
+                                    objectMapper.readTree(pl) ?: JsonNodeFactory.instance.nullNode()
+                                } catch (t: Throwable) {
                                     JsonNodeFactory.instance
                                         .objectNode()
-                                        .put(
-                                            "errorType",
-                                            IllegalArgumentException::class.qualifiedName
-                                        )
-                                        .put("errorMessage", message)
+                                        .put("errorType", t::class.qualifiedName)
+                                        .put("errorMessage", t.message)
                                 }
                             }
                         }
-                        .flatMap { jn: JsonNode ->
-                            executeGraphQLRequestWithSchema(jn, mm.materializationGraphQLSchema)
-                            // executeGraphQLIntrospectionRequestWithSchema(mm.materializationGraphQLSchema)
+                        is String -> {
+                            Mono.just(JsonNodeFactory.instance.textNode(pl))
                         }
-                        .map { jn: JsonNode -> GenericMessage<JsonNode>(jn, m.headers) }
-                }
+                        is JsonNode -> {
+                            Mono.just(pl)
+                        }
+                        else -> {
+                            Mono.error<JsonNode> {
+                                val supportedPayloadTypes: String =
+                                    sequenceOf(
+                                            ByteArray::class.qualifiedName,
+                                            String::class.qualifiedName,
+                                            JsonNode::class.qualifiedName
+                                        )
+                                        .joinToString(", ", "[ ", " ]")
+                                val message: String =
+                                    """unsupported message payload type: 
+                                        |[ expected: one of %s, actual: %s ]"""
+                                        .trimMargin()
+                                        .replace(System.lineSeparator(), "")
+                                        .format(supportedPayloadTypes, pl::class.qualifiedName)
+                                IllegalArgumentException(message)
+                            }
+                        }
+                    }
+                    .map { jn: JsonNode ->
+                        rawGraphQLRequestFactory
+                            .builder()
+                            .operationName(OPERATION_NAME)
+                            .headers(m.headers)
+                            .rawGraphQLQueryText(QUERY)
+                            .variable("inputContext", jn)
+                            .variable("show_id", jn.get("show_id"))
+                            .build()
+                    }
+                    .flatMap { rr: RawGraphQLRequest ->
+                        graphQLSingleRequestExecutor
+                            .executeSingleRequest(rr)
+                            .map { sgr: SerializedGraphQLResponse -> sgr.executionResult }
+                            .map { er: ExecutionResult ->
+                                objectMapper.valueToTree<JsonNode>(er.toSpecification())
+                            }
+                            .doOnError { t: Throwable ->
+                                logger.error(
+                                    "materialize_features: [ status: failed ][ type: {}, message: {} ]",
+                                    t::class.qualifiedName,
+                                    t.message,
+                                    t
+                                )
+                            }
+                            .onErrorResume { t: Throwable ->
+                                Mono.just(
+                                    JsonNodeFactory.instance
+                                        .objectNode()
+                                        .put("errorType", t::class.simpleName)
+                                        .put("message", t.message)
+                                )
+                            }
+                    }
+                    .map { jn: JsonNode -> GenericMessage<JsonNode>(jn, m.headers) }
+            }
         }
     }
 

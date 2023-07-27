@@ -16,7 +16,11 @@ object AliasDirective : MaterializationDirective {
     override val name: String = "alias"
 
     override val description: String =
-        "Indicates a different name that the corresponding argument or field_definition may have"
+        """Indicates a different name that 
+            |the corresponding argument or field_definition 
+            |may have when specified as a field_name 
+            |in an "output" variable"""
+            .trimMargin()
 
     override val supportedDirectiveLocations: List<DirectiveLocation> by lazy {
         listOf(

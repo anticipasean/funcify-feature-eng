@@ -8,8 +8,6 @@ import funcify.feature.materializer.document.MaterializationPreparsedDocumentPro
 import funcify.feature.materializer.document.SingleRequestMaterializationColumnarDocumentPreprocessingService
 import funcify.feature.materializer.document.SingleRequestMaterializationColumnarResponsePostprocessingService
 import funcify.feature.materializer.fetcher.DefaultSingleRequestFieldMaterializationDataFetcherFactory
-import funcify.feature.materializer.fetcher.DummyReactiveDataFetcher
-import funcify.feature.materializer.fetcher.ReactiveDataFetcher
 import funcify.feature.materializer.request.DefaultRawGraphQLRequestFactory
 import funcify.feature.materializer.request.RawGraphQLRequestFactory
 import funcify.feature.materializer.response.DefaultSerializedGraphQLResponseFactory
@@ -21,8 +19,10 @@ import funcify.feature.materializer.schema.MaterializationGraphQLSchemaFactory
 import funcify.feature.materializer.schema.MaterializationMetamodelBroker
 import funcify.feature.materializer.service.DefaultGraphQLSingleRequestMaterializationQueryExecutionStrategy
 import funcify.feature.materializer.service.DefaultSingleRequestMaterializationExecutionResultPostprocessingService
+import funcify.feature.materializer.service.DefaultSingleRequestMaterializationOrchestratorService
 import funcify.feature.materializer.service.GraphQLSingleRequestExecutor
 import funcify.feature.materializer.service.SingleRequestMaterializationExecutionResultPostprocessingService
+import funcify.feature.materializer.service.SingleRequestMaterializationOrchestratorService
 import funcify.feature.materializer.service.SpringGraphQLSingleRequestExecutor
 import funcify.feature.materializer.session.DefaultGraphQLSingleRequestSessionCoordinator
 import funcify.feature.materializer.session.DefaultGraphQLSingleRequestSessionFactory
@@ -72,18 +72,24 @@ class MaterializerConfiguration {
         return DefaultSerializedGraphQLResponseFactory()
     }
 
-    @ConditionalOnMissingBean(value = [ReactiveDataFetcher::class])
+    @ConditionalOnMissingBean(value = [SingleRequestMaterializationOrchestratorService::class])
     @Bean
-    fun reactiveDataFetcher(): ReactiveDataFetcher<Any> {
-        return DummyReactiveDataFetcher()
+    fun singleRequestMaterializationOrchestratorService(
+        jsonMapper: JsonMapper
+    ): SingleRequestMaterializationOrchestratorService {
+        return DefaultSingleRequestMaterializationOrchestratorService(jsonMapper = jsonMapper)
     }
 
     @ConditionalOnMissingBean(value = [DataFetcherFactory::class])
     @Bean
     fun dataFetcherFactory(
-        reactiveDataFetcher: ReactiveDataFetcher<Any>
+        singleRequestMaterializationOrchestratorService:
+            SingleRequestMaterializationOrchestratorService,
     ): DataFetcherFactory<CompletionStage<out DataFetcherResult<Any?>>> {
-        return DefaultSingleRequestFieldMaterializationDataFetcherFactory(reactiveDataFetcher)
+        return DefaultSingleRequestFieldMaterializationDataFetcherFactory(
+            singleRequestMaterializationOrchestratorService =
+                singleRequestMaterializationOrchestratorService
+        )
     }
 
     @ConditionalOnMissingBean(value = [MaterializationInterfaceSubtypeResolverFactory::class])

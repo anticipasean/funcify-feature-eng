@@ -23,7 +23,8 @@ import reactor.core.publisher.Mono
  */
 internal class DefaultSingleRequestMaterializationExecutionResultPostprocessingService(
     private val serializedGraphQLResponseFactory: SerializedGraphQLResponseFactory,
-    private val singleRequestMaterializationColumnarResponsePostprocessingService: SingleRequestMaterializationColumnarResponsePostprocessingService
+    private val singleRequestMaterializationColumnarResponsePostprocessingService:
+        SingleRequestMaterializationColumnarResponsePostprocessingService
 ) : SingleRequestMaterializationExecutionResultPostprocessingService {
 
     companion object {
@@ -35,13 +36,19 @@ internal class DefaultSingleRequestMaterializationExecutionResultPostprocessingS
         executionResult: ExecutionResult
     ): Mono<GraphQLSingleRequestSession> {
         logger.info(
-            "postprocess_execution_result: [ execution_result: { is_data_present: {}, extensions.size: {} } ]",
+            "postprocess_execution_result: [ execution_result: { is_data_present: {}, extensions.size: {}, extensions.keys: {} } ]",
             executionResult.isDataPresent,
             executionResult
                 .toOption()
                 .mapNotNull(ExecutionResult::getExtensions)
                 .map(Map<Any?, Any?>::size)
-                .getOrElse { -1 }
+                .getOrElse { -1 },
+            executionResult
+                .toOption()
+                .mapNotNull(ExecutionResult::getExtensions)
+                .map(Map<Any?, Any?>::keys)
+                .getOrElse { emptySet() }
+                .joinToString(", ")
         )
         return when {
             executionResult.extensions == null -> {
@@ -58,12 +65,12 @@ internal class DefaultSingleRequestMaterializationExecutionResultPostprocessingS
                             .filterIsInstance<ColumnarDocumentContext>()
                     )
                     .toMono()
-                    .flatMap { (session, columnarDocumentContext) ->
+                    .flatMap { (s: GraphQLSingleRequestSession, cdc: ColumnarDocumentContext) ->
                         singleRequestMaterializationColumnarResponsePostprocessingService
                             .postprocessColumnarExecutionResult(
                                 createExecutionResultWithoutExtensions(executionResult),
-                                columnarDocumentContext,
-                                session
+                                cdc,
+                                s
                             )
                     }
             }
