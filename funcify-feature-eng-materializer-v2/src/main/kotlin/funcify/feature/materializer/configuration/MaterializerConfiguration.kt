@@ -33,7 +33,7 @@ import funcify.feature.materializer.type.SubtypingDirectiveInterfaceSubtypeResol
 import funcify.feature.materializer.wiring.DefaultMaterializationGraphQLWiringFactory
 import funcify.feature.materializer.wiring.MaterializationGraphQLWiringFactory
 import funcify.feature.scalar.registry.ScalarTypeRegistry
-import funcify.feature.schema.Metamodel
+import funcify.feature.schema.FeatureEngineeringModel
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.json.JsonMapper
@@ -126,11 +126,11 @@ class MaterializerConfiguration {
     @ConditionalOnMissingBean(value = [GraphQLSchema::class])
     @Bean
     fun materializationGraphQLSchema(
-        metamodel: Metamodel,
+        featureEngineeringModel: FeatureEngineeringModel,
         materializationGraphQLSchemaFactory: MaterializationGraphQLSchemaFactory
     ): GraphQLSchema {
         return materializationGraphQLSchemaFactory
-            .createGraphQLSchemaFromMetamodel(metamodel)
+            .createGraphQLSchemaFromMetamodel(featureEngineeringModel)
             .peek(
                 { gs: GraphQLSchema ->
                     logger.info(
@@ -152,13 +152,13 @@ class MaterializerConfiguration {
     @ConditionalOnMissingBean(value = [MaterializationMetamodelBroker::class])
     @Bean
     fun materializationMetamodelBroker(
-        metamodel: Metamodel,
+        featureEngineeringModel: FeatureEngineeringModel,
         materializationGraphQLSchema: GraphQLSchema
     ): MaterializationMetamodelBroker {
         val broker: MaterializationMetamodelBroker = DefaultMaterializationMetamodelBroker()
         broker.pushNewMaterializationMetamodel(
             DefaultMaterializationMetamodel(
-                metamodel = metamodel,
+                featureEngineeringModel = featureEngineeringModel,
                 materializationGraphQLSchema = materializationGraphQLSchema
             )
         )

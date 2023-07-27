@@ -2,7 +2,7 @@ package funcify.feature.materializer.schema
 
 import funcify.feature.error.ServiceError
 import funcify.feature.materializer.wiring.MaterializationGraphQLWiringFactory
-import funcify.feature.schema.Metamodel
+import funcify.feature.schema.FeatureEngineeringModel
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flatten
@@ -23,10 +23,10 @@ internal class DefaultMaterializationGraphQLSchemaFactory(
         private const val QUERY_OBJECT_TYPE_NAME: String = "Query"
     }
 
-    override fun createGraphQLSchemaFromMetamodel(metamodel: Metamodel): Try<GraphQLSchema> {
+    override fun createGraphQLSchemaFromMetamodel(featureEngineeringModel: FeatureEngineeringModel): Try<GraphQLSchema> {
         logger.info(
             """create_graphql_schema_from_metamodel: [ Query.field_definitions.name: {} ]""".flatten(),
-            metamodel.typeDefinitionRegistry
+            featureEngineeringModel.typeDefinitionRegistry
                 .getType(
                     TypeName.newTypeName(QUERY_OBJECT_TYPE_NAME).build(),
                     ObjectTypeDefinition::class.java
@@ -40,7 +40,7 @@ internal class DefaultMaterializationGraphQLSchemaFactory(
         return Try.attempt {
                 SchemaGenerator()
                     .makeExecutableSchema(
-                        metamodel.typeDefinitionRegistry,
+                        featureEngineeringModel.typeDefinitionRegistry,
                         RuntimeWiring.newRuntimeWiring()
                             .wiringFactory(materializationGraphQLWiringFactory)
                             .build()

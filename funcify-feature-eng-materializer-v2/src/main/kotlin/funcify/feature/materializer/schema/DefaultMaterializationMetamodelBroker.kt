@@ -13,7 +13,7 @@ internal class DefaultMaterializationMetamodelBroker() : MaterializationMetamode
         private val logger: Logger = loggerFor<DefaultMaterializationMetamodelBroker>()
     }
 
-    private val schemaAtTimestampHolder: AtomicRef<MaterializationMetamodel?> = AtomicRef()
+    private val materializationMetamodelHolder: AtomicRef<MaterializationMetamodel?> = AtomicRef()
 
     override fun pushNewMaterializationMetamodel(
         materializationMetamodel: MaterializationMetamodel
@@ -26,33 +26,35 @@ internal class DefaultMaterializationMetamodelBroker() : MaterializationMetamode
             materializationMetamodel.created,
             materializationMetamodel.materializationGraphQLSchema.queryType.fieldDefinitions.size
         )
-        schemaAtTimestampHolder.getAndUpdate { metamodel ->
-            if (metamodel == null) {
+        materializationMetamodelHolder.getAndUpdate { current: MaterializationMetamodel? ->
+            if (current == null) {
                 materializationMetamodel
-            } else if (metamodel.created < materializationMetamodel.created) {
+            } else if (current.created < materializationMetamodel.created) {
                 materializationMetamodel
             } else {
-                metamodel
+                current
             }
         }
     }
 
     override fun fetchLatestMaterializationMetamodel(): Mono<MaterializationMetamodel> {
         logger.info("fetch_latest_materialization_schema: []")
-        return Mono.fromSupplier { ->
+        return Mono.defer {
             when (
                 val materializationMetamodel: MaterializationMetamodel? =
-                    schemaAtTimestampHolder.get()
+                    materializationMetamodelHolder.get()
             ) {
                 null -> {
-                    throw ServiceError.builder()
-                        .message(
-                            "no materialization_metamodel has been provided to this broker instance"
-                        )
-                        .build()
+                    Mono.error {
+                        ServiceError.builder()
+                            .message(
+                                "no materialization_metamodel has been provided to this broker instance"
+                            )
+                            .build()
+                    }
                 }
                 else -> {
-                    materializationMetamodel
+                    Mono.just(materializationMetamodel)
                 }
             }
         }

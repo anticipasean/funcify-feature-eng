@@ -140,6 +140,8 @@ internal class GraphQLWebFluxHandlerFunction(
             MediaType.APPLICATION_JSON -> {
                 transformJsonIntoRawGraphQLRequest(request)
             }
+            // TODO: Add support for persisted queries wherein Apollo-style hash has been submitted
+            // in lieu of query text
             else -> {
                 transformStringKeyMapIntoRawGraphQLRequest(request)
             }

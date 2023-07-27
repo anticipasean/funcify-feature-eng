@@ -1,5 +1,6 @@
 package funcify.feature.schema.context
 
+import funcify.feature.schema.context.FeatureEngineeringModelBuildContext.Builder
 import funcify.feature.schema.dataelement.DataElementSource
 import funcify.feature.schema.dataelement.DataElementSourceProvider
 import funcify.feature.schema.directive.alias.AttributeAliasRegistry
@@ -17,7 +18,7 @@ import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentMapOf
 
-internal data class DefaultMetamodelBuildContext(
+internal data class DefaultFeatureEngineeringModelBuildContext(
     override val transformerSourceProviders: PersistentList<TransformerSourceProvider<*>>,
     override val dataElementSourceProviders: PersistentList<DataElementSourceProvider<*>>,
     override val featureCalculatorProviders: PersistentList<FeatureCalculatorProvider<*>>,
@@ -36,12 +37,12 @@ internal data class DefaultMetamodelBuildContext(
     override val attributeAliasRegistry: AttributeAliasRegistry,
     override val entityRegistry: EntityRegistry,
     override val lastUpdatedTemporalAttributeRegistry: LastUpdatedTemporalAttributeRegistry,
-) : MetamodelBuildContext {
+) : FeatureEngineeringModelBuildContext {
 
     companion object {
 
-        fun empty(): DefaultMetamodelBuildContext {
-            return DefaultMetamodelBuildContext(
+        fun empty(): DefaultFeatureEngineeringModelBuildContext {
+            return DefaultFeatureEngineeringModelBuildContext(
                 transformerSourceProviders = persistentListOf(),
                 dataElementSourceProviders = persistentListOf(),
                 featureCalculatorProviders = persistentListOf(),
@@ -84,13 +85,12 @@ internal data class DefaultMetamodelBuildContext(
             private var typeDefinitionRegistry: TypeDefinitionRegistry,
             private var attributeAliasRegistry: AttributeAliasRegistry,
             private var entityRegistry: EntityRegistry,
-            private var lastUpdatedTemporalAttributeRegistry:
-                LastUpdatedTemporalAttributeRegistry,
-        ) : MetamodelBuildContext.Builder {
+            private var lastUpdatedTemporalAttributeRegistry: LastUpdatedTemporalAttributeRegistry,
+        ) : Builder {
 
             override fun addTransformerSourceProvider(
                 transformerSourceProvider: TransformerSourceProvider<*>
-            ): MetamodelBuildContext.Builder {
+            ): Builder {
                 this.transformerSourceProviders.add(transformerSourceProvider)
                 this.transformerSourceProvidersByName.put(
                     transformerSourceProvider.name,
@@ -101,7 +101,7 @@ internal data class DefaultMetamodelBuildContext(
 
             override fun addDataElementSourceProvider(
                 dataElementSourceProvider: DataElementSourceProvider<*>
-            ): MetamodelBuildContext.Builder {
+            ): Builder {
                 this.dataElementSourceProviders.add(dataElementSourceProvider)
                 this.dataElementSourceProvidersByName.put(
                     dataElementSourceProvider.name,
@@ -112,7 +112,7 @@ internal data class DefaultMetamodelBuildContext(
 
             override fun addFeatureCalculatorProvider(
                 featureCalculatorProvider: FeatureCalculatorProvider<*>
-            ): MetamodelBuildContext.Builder {
+            ): Builder {
                 this.featureCalculatorProviders.add(featureCalculatorProvider)
                 this.featureCalculatorProvidersByName.put(
                     featureCalculatorProvider.name,
@@ -121,37 +121,31 @@ internal data class DefaultMetamodelBuildContext(
                 return this
             }
 
-            override fun addTransformerSource(
-                transformerSource: TransformerSource
-            ): MetamodelBuildContext.Builder {
+            override fun addTransformerSource(transformerSource: TransformerSource): Builder {
                 this.transformerSourcesByName.put(transformerSource.name, transformerSource)
                 return this
             }
 
-            override fun addDataElementSource(
-                dataElementSource: DataElementSource
-            ): MetamodelBuildContext.Builder {
+            override fun addDataElementSource(dataElementSource: DataElementSource): Builder {
                 this.dataElementSourcesByName.put(dataElementSource.name, dataElementSource)
                 return this
             }
 
-            override fun addFeatureCalculator(
-                featureCalculator: FeatureCalculator
-            ): MetamodelBuildContext.Builder {
+            override fun addFeatureCalculator(featureCalculator: FeatureCalculator): Builder {
                 this.featureCalculatorsByName.put(featureCalculator.name, featureCalculator)
                 return this
             }
 
             override fun typeDefinitionRegistry(
                 typeDefinitionRegistry: TypeDefinitionRegistry
-            ): MetamodelBuildContext.Builder {
+            ): Builder {
                 this.typeDefinitionRegistry = typeDefinitionRegistry
                 return this
             }
 
             override fun addFeatureJsonValueStore(
                 featureJsonValueStore: FeatureJsonValueStore
-            ): MetamodelBuildContext.Builder {
+            ): Builder {
                 this.featureJsonValueStoresByName.put(
                     featureJsonValueStore.name,
                     featureJsonValueStore
@@ -161,7 +155,7 @@ internal data class DefaultMetamodelBuildContext(
 
             override fun addFeatureJsonValuePublisher(
                 featureJsonValuePublisher: FeatureJsonValuePublisher
-            ): MetamodelBuildContext.Builder {
+            ): Builder {
                 this.featureJsonValuePublishersByName.put(
                     featureJsonValuePublisher.name,
                     featureJsonValuePublisher
@@ -171,28 +165,25 @@ internal data class DefaultMetamodelBuildContext(
 
             override fun attributeAliasRegistry(
                 attributeAliasRegistry: AttributeAliasRegistry
-            ): MetamodelBuildContext.Builder {
+            ): Builder {
                 this.attributeAliasRegistry = attributeAliasRegistry
                 return this
             }
 
-            override fun entityRegistry(
-                entityRegistry: EntityRegistry
-            ): MetamodelBuildContext.Builder {
+            override fun entityRegistry(entityRegistry: EntityRegistry): Builder {
                 this.entityRegistry = entityRegistry
                 return this
             }
 
             override fun lastUpdatedTemporalAttributePathRegistry(
                 lastUpdatedTemporalAttributeRegistry: LastUpdatedTemporalAttributeRegistry
-            ): MetamodelBuildContext.Builder {
-                this.lastUpdatedTemporalAttributeRegistry =
-                    lastUpdatedTemporalAttributeRegistry
+            ): Builder {
+                this.lastUpdatedTemporalAttributeRegistry = lastUpdatedTemporalAttributeRegistry
                 return this
             }
 
-            override fun build(): MetamodelBuildContext {
-                return DefaultMetamodelBuildContext(
+            override fun build(): FeatureEngineeringModelBuildContext {
+                return DefaultFeatureEngineeringModelBuildContext(
                     transformerSourceProviders = transformerSourceProviders.build(),
                     dataElementSourceProviders = dataElementSourceProviders.build(),
                     featureCalculatorProviders = featureCalculatorProviders.build(),
@@ -207,16 +198,13 @@ internal data class DefaultMetamodelBuildContext(
                     typeDefinitionRegistry = typeDefinitionRegistry,
                     attributeAliasRegistry = attributeAliasRegistry,
                     entityRegistry = entityRegistry,
-                    lastUpdatedTemporalAttributeRegistry =
-                        lastUpdatedTemporalAttributeRegistry
+                    lastUpdatedTemporalAttributeRegistry = lastUpdatedTemporalAttributeRegistry
                 )
             }
         }
     }
 
-    override fun update(
-        transformer: MetamodelBuildContext.Builder.() -> MetamodelBuildContext.Builder
-    ): MetamodelBuildContext {
+    override fun update(transformer: Builder.() -> Builder): FeatureEngineeringModelBuildContext {
         return transformer
             .invoke(
                 DefaultBuilder(
@@ -238,8 +226,7 @@ internal data class DefaultMetamodelBuildContext(
                     typeDefinitionRegistry = this.typeDefinitionRegistry,
                     attributeAliasRegistry = this.attributeAliasRegistry,
                     entityRegistry = this.entityRegistry,
-                    lastUpdatedTemporalAttributeRegistry =
-                        this.lastUpdatedTemporalAttributeRegistry
+                    lastUpdatedTemporalAttributeRegistry = this.lastUpdatedTemporalAttributeRegistry
                 )
             )
             .build()

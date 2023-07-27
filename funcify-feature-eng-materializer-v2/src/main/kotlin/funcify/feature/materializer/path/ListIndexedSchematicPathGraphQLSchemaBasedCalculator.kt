@@ -8,9 +8,11 @@ import arrow.core.toOption
 import funcify.feature.datasource.graphql.type.GraphQLOutputFieldsContainerTypeExtractor
 import funcify.feature.schema.path.SchematicPath
 import funcify.feature.tools.extensions.SequenceExtensions.recurse
+import graphql.schema.GraphQLFieldDefinition
 import graphql.schema.GraphQLList
 import graphql.schema.GraphQLNonNull
 import graphql.schema.GraphQLSchema
+import kotlinx.collections.immutable.PersistentList
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentMap
 import kotlinx.collections.immutable.toPersistentList
@@ -55,7 +57,7 @@ internal object ListIndexedSchematicPathGraphQLSchemaBasedCalculator :
                     }
                 }
                 .fold(::emptySequence, ::sequenceOf)
-                .recurse { (ps, gqlf) ->
+                .recurse { (ps: PersistentList<String>, gqlf: GraphQLFieldDefinition) ->
                     when (gqlf.type) {
                         is GraphQLNonNull -> {
                             if ((gqlf.type as GraphQLNonNull).wrappedType is GraphQLList) {

@@ -11,6 +11,7 @@ import funcify.feature.schema.feature.FeatureJsonValuePublisher
 import funcify.feature.schema.feature.FeatureJsonValueStore
 import funcify.feature.schema.transformer.TransformerSource
 import funcify.feature.schema.transformer.TransformerSourceProvider
+import graphql.schema.FieldCoordinates
 import graphql.schema.idl.TypeDefinitionRegistry
 import kotlinx.collections.immutable.ImmutableMap
 import reactor.core.publisher.Mono
@@ -19,8 +20,17 @@ import reactor.core.publisher.Mono
  * @author smccarron
  * @created 2023-06-30
  */
-interface Metamodel {
+interface FeatureEngineeringModel {
 
+    val transformerFieldCoordinates: FieldCoordinates
+
+    val dataElementFieldCoordinates: FieldCoordinates
+
+    val featureFieldCoordinates: FieldCoordinates
+
+    /**
+     * Dangerous because this object is mutable
+     */
     val typeDefinitionRegistry: TypeDefinitionRegistry
 
     val attributeAliasRegistry: AttributeAliasRegistry
@@ -80,6 +90,6 @@ interface Metamodel {
             featureJsonValuePublisher: FeatureJsonValuePublisher
         ): Builder
 
-        fun build(): Mono<out Metamodel>
+        fun build(): Mono<out FeatureEngineeringModel>
     }
 }

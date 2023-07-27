@@ -6,10 +6,10 @@ import funcify.feature.directive.MaterializationDirectiveRegistry
 import funcify.feature.error.ServiceError
 import funcify.feature.naming.StandardNamingConventions
 import funcify.feature.scalar.registry.ScalarTypeRegistry
-import funcify.feature.schema.Metamodel
-import funcify.feature.schema.MetamodelBuildStrategy
+import funcify.feature.schema.FeatureEngineeringModel
+import funcify.feature.schema.FeatureEngineeringModelBuildStrategy
 import funcify.feature.schema.Source
-import funcify.feature.schema.context.MetamodelBuildContext
+import funcify.feature.schema.context.FeatureEngineeringModelBuildContext
 import funcify.feature.schema.dataelement.DataElementSource
 import funcify.feature.schema.dataelement.DataElementSourceProvider
 import funcify.feature.schema.directive.alias.AliasRegistryComposer
@@ -18,7 +18,7 @@ import funcify.feature.schema.directive.temporal.LastUpdatedTemporalAttributeReg
 import funcify.feature.schema.directive.temporal.LastUpdatedTemporalAttributeRegistryComposer
 import funcify.feature.schema.feature.FeatureCalculator
 import funcify.feature.schema.feature.FeatureCalculatorProvider
-import funcify.feature.schema.metamodel.DefaultMetamodel
+import funcify.feature.schema.metamodel.DefaultFeatureEngineeringModel
 import funcify.feature.schema.transformer.TransformerSource
 import funcify.feature.schema.transformer.TransformerSourceProvider
 import funcify.feature.tools.container.attempt.Failure
@@ -32,7 +32,9 @@ import funcify.feature.tools.extensions.TryExtensions.failure
 import funcify.feature.tools.extensions.TryExtensions.successIfDefined
 import graphql.GraphQLError
 import graphql.language.*
+import graphql.schema.FieldCoordinates
 import graphql.schema.idl.TypeDefinitionRegistry
+import graphql.schema.idl.TypeUtil
 import kotlin.reflect.KClass
 import kotlin.reflect.KType
 import kotlin.reflect.full.isSubclassOf
@@ -44,10 +46,10 @@ import org.slf4j.Logger
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 
-internal class DefaultMetamodelBuildStrategy(
+internal class DefaultFeatureEngineeringModelBuildStrategy(
     private val scalarTypeRegistry: ScalarTypeRegistry,
     private val materializationDirectiveRegistry: MaterializationDirectiveRegistry
-) : MetamodelBuildStrategy {
+) : FeatureEngineeringModelBuildStrategy {
 
     companion object {
         private const val MAIN_METHOD_TAG = "build_metamodel"
@@ -57,12 +59,14 @@ internal class DefaultMetamodelBuildStrategy(
         private const val TRANSFORMER_OBJECT_TYPE_NAME = "Transformer"
         private const val DATA_ELEMENT_FIELD_NAME = "dataElement"
         private const val DATA_ELEMENT_OBJECT_TYPE_NAME = "DataElement"
-        private const val FEATURE_FIELD_NAME = "feature"
+        private const val FEATURE_FIELD_NAME = "features"
         private const val FEATURE_OBJECT_TYPE_NAME = "Feature"
-        private val logger: Logger = loggerFor<DefaultMetamodelBuildStrategy>()
+        private val logger: Logger = loggerFor<DefaultFeatureEngineeringModelBuildStrategy>()
     }
 
-    override fun buildMetamodel(context: MetamodelBuildContext): Mono<out Metamodel> {
+    override fun buildFeatureEngineeringModel(
+        context: FeatureEngineeringModelBuildContext
+    ): Mono<out FeatureEngineeringModel> {
         logger.info(
             """{}: [ context { 
             |transformerSourceProviders.size: {}, 
@@ -81,8 +85,20 @@ internal class DefaultMetamodelBuildStrategy(
             .flatMap(createTypeDefinitionRegistryFromSources())
             .flatMap(createAliasRegistryFromTypeDefinitionRegistry())
             .flatMap(createLastUpdatedTemporalAttributeRegistryFromTypeDefinitionRegistry())
-            .map { ctx: MetamodelBuildContext ->
-                DefaultMetamodel(
+            .map { ctx: FeatureEngineeringModelBuildContext ->
+                DefaultFeatureEngineeringModel(
+                    transformerFieldCoordinates =
+                        FieldCoordinates.coordinates(
+                            QUERY_OBJECT_TYPE_NAME,
+                            TRANSFORMER_FIELD_NAME
+                        ),
+                    dataElementFieldCoordinates =
+                        FieldCoordinates.coordinates(
+                            QUERY_OBJECT_TYPE_NAME,
+                            DATA_ELEMENT_FIELD_NAME
+                        ),
+                    featureFieldCoordinates =
+                        FieldCoordinates.coordinates(QUERY_OBJECT_TYPE_NAME, FEATURE_FIELD_NAME),
                     transformerSourceProvidersByName =
                         ctx.transformerSourceProvidersByName.toPersistentMap(),
                     dataElementSourceProvidersByName =
@@ -107,12 +123,13 @@ internal class DefaultMetamodelBuildStrategy(
             .cache()
     }
 
-    private fun validateSourceProviders(): (MetamodelBuildContext) -> Mono<MetamodelBuildContext> {
-        return { context: MetamodelBuildContext ->
+    private fun validateSourceProviders():
+        (FeatureEngineeringModelBuildContext) -> Mono<FeatureEngineeringModelBuildContext> {
+        return { context: FeatureEngineeringModelBuildContext ->
             when {
                 context.transformerSourceProviders.size !=
                     context.transformerSourceProvidersByName.size -> {
-                    Mono.error<MetamodelBuildContext> {
+                    Mono.error<FeatureEngineeringModelBuildContext> {
                         ServiceError.of(
                             "non-unique transformer_source_provider.name: [ duplicates for [ %s ] ]",
                             context.transformerSourceProviders
@@ -128,7 +145,7 @@ internal class DefaultMetamodelBuildStrategy(
                 }
                 context.dataElementSourceProviders.size !=
                     context.dataElementSourceProvidersByName.size -> {
-                    Mono.error<MetamodelBuildContext> {
+                    Mono.error<FeatureEngineeringModelBuildContext> {
                         ServiceError.of(
                             "non-unique data_element_source_providers.name: [ duplicates for [ %s ] ]",
                             context.dataElementSourceProviders
@@ -144,7 +161,7 @@ internal class DefaultMetamodelBuildStrategy(
                 }
                 context.featureCalculatorProviders.size !=
                     context.featureCalculatorProvidersByName.size -> {
-                    Mono.error<MetamodelBuildContext> {
+                    Mono.error<FeatureEngineeringModelBuildContext> {
                         ServiceError.of(
                             "non-unique feature_calculator_provider.name: [ duplicates for [ %s ] ]",
                             context.featureCalculatorProviders
@@ -166,7 +183,7 @@ internal class DefaultMetamodelBuildStrategy(
                     .flatMap(ImmutableSet<String>::asSequence)
                     .groupBy { k -> k }
                     .any { (_: String, v: List<String>) -> v.size > 1 } -> {
-                    Mono.error<MetamodelBuildContext> {
+                    Mono.error<FeatureEngineeringModelBuildContext> {
                         ServiceError.of(
                             "non-unique source_provider.name: [ duplicates for [ %s ] ]",
                             sequenceOf(
@@ -190,21 +207,22 @@ internal class DefaultMetamodelBuildStrategy(
     }
 
     private fun extractSourcesFromSourceProviders():
-        (MetamodelBuildContext) -> Mono<MetamodelBuildContext> {
-        return { context: MetamodelBuildContext ->
+        (FeatureEngineeringModelBuildContext) -> Mono<FeatureEngineeringModelBuildContext> {
+        return { context: FeatureEngineeringModelBuildContext ->
             Mono.just(context)
-                .flatMap { ctx: MetamodelBuildContext ->
+                .flatMap { ctx: FeatureEngineeringModelBuildContext ->
                     Flux.fromIterable(ctx.transformerSourceProviders)
                         .flatMap { tsp: TransformerSourceProvider<*> ->
                             tsp.getLatestSource()
                                 .flatMap(validateTransformerSourceForProvider(tsp))
                                 .cache()
                         }
-                        .reduce(ctx) { c: MetamodelBuildContext, ts: TransformerSource ->
+                        .reduce(ctx) { c: FeatureEngineeringModelBuildContext, ts: TransformerSource
+                            ->
                             c.update { addTransformerSource(ts) }
                         }
                 }
-                .flatMap { ctx: MetamodelBuildContext ->
+                .flatMap { ctx: FeatureEngineeringModelBuildContext ->
                     Flux.fromIterable(ctx.dataElementSourceProviders)
                         .flatMap { desp: DataElementSourceProvider<*> ->
                             desp
@@ -212,18 +230,21 @@ internal class DefaultMetamodelBuildStrategy(
                                 .flatMap(validateDataElementSourceForProvider(desp))
                                 .cache()
                         }
-                        .reduce(ctx) { c: MetamodelBuildContext, des: DataElementSource ->
+                        .reduce(ctx) {
+                            c: FeatureEngineeringModelBuildContext,
+                            des: DataElementSource ->
                             c.update { addDataElementSource(des) }
                         }
                 }
-                .flatMap { ctx: MetamodelBuildContext ->
+                .flatMap { ctx: FeatureEngineeringModelBuildContext ->
                     Flux.fromIterable(ctx.featureCalculatorProviders)
                         .flatMap { fcp: FeatureCalculatorProvider<*> ->
                             fcp.getLatestSource()
                                 .flatMap(validateFeatureCalculatorForProvider(fcp, ctx))
                                 .cache()
                         }
-                        .reduce(ctx) { c: MetamodelBuildContext, fc: FeatureCalculator ->
+                        .reduce(ctx) { c: FeatureEngineeringModelBuildContext, fc: FeatureCalculator
+                            ->
                             c.update { addFeatureCalculator(fc) }
                         }
                 }
@@ -264,7 +285,8 @@ internal class DefaultMetamodelBuildStrategy(
                             Mono.error<TS> {
                                 ServiceError.of(
                                     "transformer_source [ name: %s ] should not contain any %s object type or extension",
-                                    ts.name
+                                    ts.name,
+                                    MUTATION_OBJECT_TYPE_NAME
                                 )
                             }
                         }
@@ -395,7 +417,7 @@ internal class DefaultMetamodelBuildStrategy(
 
     private fun <FC : FeatureCalculator> validateFeatureCalculatorForProvider(
         provider: FeatureCalculatorProvider<*>,
-        context: MetamodelBuildContext
+        context: FeatureEngineeringModelBuildContext
     ): (FC) -> Mono<FC> {
         return { featureCalculator: FC ->
             when {
@@ -474,13 +496,13 @@ internal class DefaultMetamodelBuildStrategy(
     }
 
     private fun createTypeDefinitionRegistryFromSources():
-        (MetamodelBuildContext) -> Mono<MetamodelBuildContext> {
-        return { context: MetamodelBuildContext ->
+        (FeatureEngineeringModelBuildContext) -> Mono<FeatureEngineeringModelBuildContext> {
+        return { context: FeatureEngineeringModelBuildContext ->
             createTypeDefinitionRegistriesForEachSourceType(context)
                 .reduce(addDirectiveDefinitionsToContextTypeDefinitionRegistry(context)) {
-                    ctxResult: Try<MetamodelBuildContext>,
+                    ctxResult: Try<FeatureEngineeringModelBuildContext>,
                     tdr: TypeDefinitionRegistry ->
-                    ctxResult.flatMap { c: MetamodelBuildContext ->
+                    ctxResult.flatMap { c: FeatureEngineeringModelBuildContext ->
                         when (
                             val mergeAttempt: Try<TypeDefinitionRegistry> =
                                 Try.attempt { c.typeDefinitionRegistry.merge(tdr) }
@@ -492,7 +514,7 @@ internal class DefaultMetamodelBuildStrategy(
                                         |metamodel_build_context.type_definition_registry"""
                                         .flatten()
                                         .format(mergeAttempt.throwable::class.qualifiedName)
-                                Try.failure<MetamodelBuildContext>(
+                                Try.failure<FeatureEngineeringModelBuildContext>(
                                     ServiceError.builder()
                                         .message(message)
                                         .cause(mergeAttempt.throwable)
@@ -507,14 +529,14 @@ internal class DefaultMetamodelBuildStrategy(
                         }
                     }
                 }
-                .flatMap(Try<MetamodelBuildContext>::toMono)
+                .flatMap(Try<FeatureEngineeringModelBuildContext>::toMono)
                 .flatMap(createTopLevelQueryObjectTypeDefinitionBasedOnSourceTypes())
                 .cache()
         }
     }
 
     private fun createTypeDefinitionRegistriesForEachSourceType(
-        context: MetamodelBuildContext
+        context: FeatureEngineeringModelBuildContext
     ): Flux<out TypeDefinitionRegistry> {
         return Flux.concat(
             createTypeDefinitionRegistryForSourceType(
@@ -661,8 +683,8 @@ internal class DefaultMetamodelBuildStrategy(
     }
 
     private fun addScalarTypeDefinitionsToContextTypeDefinitionRegistry(
-        context: MetamodelBuildContext
-    ): Try<MetamodelBuildContext> {
+        context: FeatureEngineeringModelBuildContext
+    ): Try<FeatureEngineeringModelBuildContext> {
         val tdr: TypeDefinitionRegistry = context.typeDefinitionRegistry
         return tdr.addAll(scalarTypeRegistry.getAllScalarDefinitions())
             .toOption()
@@ -696,8 +718,8 @@ internal class DefaultMetamodelBuildStrategy(
     }
 
     private fun addDirectiveDefinitionsToContextTypeDefinitionRegistry(
-        context: MetamodelBuildContext
-    ): Try<MetamodelBuildContext> {
+        context: FeatureEngineeringModelBuildContext
+    ): Try<FeatureEngineeringModelBuildContext> {
         return sequenceOf<List<SDLDefinition<*>>>(
                 materializationDirectiveRegistry.getAllDirectiveDefinitions(),
                 materializationDirectiveRegistry.getAllReferencedInputObjectTypeDefinitions(),
@@ -705,9 +727,9 @@ internal class DefaultMetamodelBuildStrategy(
             )
             .flatten()
             .fold(Try.success(context)) {
-                ctxAttempt: Try<MetamodelBuildContext>,
+                ctxAttempt: Try<FeatureEngineeringModelBuildContext>,
                 sd: SDLDefinition<*> ->
-                ctxAttempt.flatMap { c: MetamodelBuildContext ->
+                ctxAttempt.flatMap { c: FeatureEngineeringModelBuildContext ->
                     when (
                         val possibleError: Option<GraphQLError> =
                             c.typeDefinitionRegistry.add(sd).toOption()
@@ -744,7 +766,7 @@ internal class DefaultMetamodelBuildStrategy(
                                             .joinToString(", ", "{ ", " }") { (k, v) -> "$k: $v" }
                                     )
                                 }
-                            }.failure<MetamodelBuildContext>()
+                            }.failure<FeatureEngineeringModelBuildContext>()
                         }
                         else -> {
                             Try.success(
@@ -775,8 +797,8 @@ internal class DefaultMetamodelBuildStrategy(
     }
 
     private fun createTopLevelQueryObjectTypeDefinitionBasedOnSourceTypes():
-        (MetamodelBuildContext) -> Mono<MetamodelBuildContext> {
-        return { context: MetamodelBuildContext ->
+        (FeatureEngineeringModelBuildContext) -> Mono<FeatureEngineeringModelBuildContext> {
+        return { context: FeatureEngineeringModelBuildContext ->
             Try.attempt {
                     sequenceOf(
                             TRANSFORMER_FIELD_NAME to TRANSFORMER_OBJECT_TYPE_NAME,
@@ -793,10 +815,26 @@ internal class DefaultMetamodelBuildStrategy(
                                 .isDefined()
                         }
                         .map { (fieldName: String, objectTypeName: String) ->
-                            FieldDefinition.newFieldDefinition()
-                                .name(fieldName)
-                                .type(TypeName.newTypeName(objectTypeName).build())
-                                .build()
+                            if (fieldName == FEATURE_FIELD_NAME) {
+                                FieldDefinition.newFieldDefinition()
+                                    .name(fieldName)
+                                    .type(
+                                        NonNullType.newNonNullType()
+                                            .type(
+                                                ListType.newListType(
+                                                        TypeName.newTypeName(objectTypeName).build()
+                                                    )
+                                                    .build()
+                                            )
+                                            .build()
+                                    )
+                                    .build()
+                            } else {
+                                FieldDefinition.newFieldDefinition()
+                                    .name(fieldName)
+                                    .type(TypeName.newTypeName(objectTypeName).build())
+                                    .build()
+                            }
                         }
                         .fold(
                             ObjectTypeDefinition.newObjectTypeDefinition()
@@ -886,8 +924,8 @@ internal class DefaultMetamodelBuildStrategy(
     }
 
     private fun createAliasRegistryFromTypeDefinitionRegistry():
-        (MetamodelBuildContext) -> Mono<MetamodelBuildContext> {
-        return { context: MetamodelBuildContext ->
+        (FeatureEngineeringModelBuildContext) -> Mono<FeatureEngineeringModelBuildContext> {
+        return { context: FeatureEngineeringModelBuildContext ->
             AliasRegistryComposer()
                 .createAliasRegistry(context.typeDefinitionRegistry)
                 .successIfDefined {
@@ -906,8 +944,8 @@ internal class DefaultMetamodelBuildStrategy(
     }
 
     private fun createLastUpdatedTemporalAttributeRegistryFromTypeDefinitionRegistry():
-        (MetamodelBuildContext) -> Mono<MetamodelBuildContext> {
-        return { context: MetamodelBuildContext ->
+        (FeatureEngineeringModelBuildContext) -> Mono<FeatureEngineeringModelBuildContext> {
+        return { context: FeatureEngineeringModelBuildContext ->
             LastUpdatedTemporalAttributeRegistryComposer()
                 .createLastUpdatedTemporalAttributeRegistry(context.typeDefinitionRegistry)
                 .successIfDefined {
@@ -925,8 +963,8 @@ internal class DefaultMetamodelBuildStrategy(
         }
     }
 
-    private fun logSuccessfulStatus(): (Metamodel) -> Unit {
-        return { mm: Metamodel ->
+    private fun logSuccessfulStatus(): (FeatureEngineeringModel) -> Unit {
+        return { mm: FeatureEngineeringModel ->
             logger.debug(
                 """{}: [ status: successful ]
                 |[ metamodel
@@ -941,14 +979,7 @@ internal class DefaultMetamodelBuildStrategy(
                     .mapNotNull(ObjectTypeDefinition::getFieldDefinitions)
                     .map { fds: List<FieldDefinition> ->
                         fds.asSequence()
-                            .map { fd: FieldDefinition ->
-                                fd.name to
-                                    fd.type
-                                        .toOption()
-                                        .filterIsInstance<NamedNode<*>>()
-                                        .map(NamedNode<*>::getName)
-                                        .getOrElse { "<NA>" }
-                            }
+                            .map { fd: FieldDefinition -> fd.name to TypeUtil.simplePrint(fd.type) }
                             .map { (fn: String, ft: String) -> "$fn: $ft" }
                             .joinToString(", ", "[ ", " ]")
                     }

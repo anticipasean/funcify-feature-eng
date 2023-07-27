@@ -2,15 +2,15 @@ package funcify.feature.schema.configuration
 
 import funcify.feature.directive.MaterializationDirectiveRegistry
 import funcify.feature.scalar.registry.ScalarTypeRegistry
-import funcify.feature.schema.Metamodel
-import funcify.feature.schema.MetamodelBuildStrategy
-import funcify.feature.schema.MetamodelFactory
+import funcify.feature.schema.FeatureEngineeringModel
+import funcify.feature.schema.FeatureEngineeringModelBuildStrategy
+import funcify.feature.schema.FeatureEngineeringModelFactory
 import funcify.feature.schema.dataelement.DataElementSourceProvider
-import funcify.feature.schema.factory.DefaultMetamodelFactory
+import funcify.feature.schema.factory.DefaultFeatureEngineeringModelFactory
 import funcify.feature.schema.feature.FeatureCalculatorProvider
 import funcify.feature.schema.feature.FeatureJsonValuePublisher
 import funcify.feature.schema.feature.FeatureJsonValueStore
-import funcify.feature.schema.strategy.DefaultMetamodelBuildStrategy
+import funcify.feature.schema.strategy.DefaultFeatureEngineeringModelBuildStrategy
 import funcify.feature.schema.transformer.TransformerSourceProvider
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import graphql.language.FieldDefinition
@@ -40,13 +40,13 @@ class SchemaConfiguration {
         return MaterializationDirectiveRegistry.standardRegistry()
     }
 
-    @ConditionalOnMissingBean(value = [MetamodelBuildStrategy::class])
+    @ConditionalOnMissingBean(value = [FeatureEngineeringModelBuildStrategy::class])
     @Bean
-    fun metamodelBuildStrategy(
+    fun featureEngineeringModelBuildStrategy(
         scalarTypeRegistryProvider: ObjectProvider<ScalarTypeRegistry>,
         materializationDirectiveRegistryProvider: ObjectProvider<MaterializationDirectiveRegistry>
-    ): MetamodelBuildStrategy {
-        return DefaultMetamodelBuildStrategy(
+    ): FeatureEngineeringModelBuildStrategy {
+        return DefaultFeatureEngineeringModelBuildStrategy(
             scalarTypeRegistry =
                 scalarTypeRegistryProvider.getIfAvailable {
                     ScalarTypeRegistry.materializationRegistry()
@@ -58,51 +58,55 @@ class SchemaConfiguration {
         )
     }
 
-    @ConditionalOnMissingBean(value = [MetamodelFactory::class])
+    @ConditionalOnMissingBean(value = [FeatureEngineeringModelFactory::class])
     @Bean
-    fun metamodelFactory(metamodelBuildStrategy: MetamodelBuildStrategy): MetamodelFactory {
-        return DefaultMetamodelFactory(metamodelBuildStrategy = metamodelBuildStrategy)
+    fun featureEngineeringModelFactory(
+        featureEngineeringModelBuildStrategy: FeatureEngineeringModelBuildStrategy
+    ): FeatureEngineeringModelFactory {
+        return DefaultFeatureEngineeringModelFactory(
+            featureEngineeringModelBuildStrategy = featureEngineeringModelBuildStrategy
+        )
     }
 
-    @ConditionalOnMissingBean(value = [Metamodel::class])
+    @ConditionalOnMissingBean(value = [FeatureEngineeringModel::class])
     @Bean
     fun metamodel(
-        metamodelFactory: MetamodelFactory,
+        featureEngineeringModelFactory: FeatureEngineeringModelFactory,
         transformerSourceProviders: ObjectProvider<TransformerSourceProvider<*>>,
         dataElementSourceProviders: ObjectProvider<DataElementSourceProvider<*>>,
         featureCalculatorProviders: ObjectProvider<FeatureCalculatorProvider<*>>,
         featureJsonValueStoreProviders: ObjectProvider<FeatureJsonValueStore>,
         featureJsonValuePublisherProviders: ObjectProvider<FeatureJsonValuePublisher>
-    ): Metamodel {
-        val builder: Metamodel.Builder = metamodelFactory.builder()
+    ): FeatureEngineeringModel {
+        val builder: FeatureEngineeringModel.Builder = featureEngineeringModelFactory.builder()
         transformerSourceProviders
             .asSequence()
-            .fold(builder, Metamodel.Builder::addTransformerSourceProvider)
+            .fold(builder, FeatureEngineeringModel.Builder::addTransformerSourceProvider)
         dataElementSourceProviders
             .asSequence()
-            .fold(builder, Metamodel.Builder::addDataElementSourceProvider)
+            .fold(builder, FeatureEngineeringModel.Builder::addDataElementSourceProvider)
         featureCalculatorProviders
             .asSequence()
-            .fold(builder, Metamodel.Builder::addFeatureCalculatorProvider)
+            .fold(builder, FeatureEngineeringModel.Builder::addFeatureCalculatorProvider)
         featureJsonValueStoreProviders
             .asSequence()
-            .fold(builder, Metamodel.Builder::addFeatureJsonValueStore)
+            .fold(builder, FeatureEngineeringModel.Builder::addFeatureJsonValueStore)
         featureJsonValuePublisherProviders
             .asSequence()
-            .fold(builder, Metamodel.Builder::addFeatureJsonValuePublisher)
+            .fold(builder, FeatureEngineeringModel.Builder::addFeatureJsonValuePublisher)
         return builder
             .build()
             .doOnError { t: Throwable ->
                 logger.error(
-                    "build_metamodel: [ status failed ][ type: {}, message: {} ]",
+                    "build_feature_engineering_model: [ status failed ][ type: {}, message: {} ]",
                     t::class.simpleName,
                     t.message
                 )
             }
-            .doOnNext { mm: Metamodel ->
+            .doOnNext { fem: FeatureEngineeringModel ->
                 logger.info(
-                    "build_metamodel: [ status: success ][ metamodel.type_definition_registry.query_object_type.field_definitions.name: {} ]",
-                    mm.typeDefinitionRegistry
+                    "build_feature_engineering_model: [ status: success ][ model.type_definition_registry.query_object_type.field_definitions.name: {} ]",
+                    fem.typeDefinitionRegistry
                         .getType("Query", ObjectTypeDefinition::class.java)
                         .map(ObjectTypeDefinition::getFieldDefinitions)
                         .map(List<FieldDefinition>::asSequence)

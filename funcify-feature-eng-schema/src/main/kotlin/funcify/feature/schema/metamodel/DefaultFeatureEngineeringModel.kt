@@ -1,6 +1,6 @@
 package funcify.feature.schema.metamodel
 
-import funcify.feature.schema.Metamodel
+import funcify.feature.schema.FeatureEngineeringModel
 import funcify.feature.schema.dataelement.DataElementSource
 import funcify.feature.schema.dataelement.DataElementSourceProvider
 import funcify.feature.schema.directive.alias.AttributeAliasRegistry
@@ -12,10 +12,14 @@ import funcify.feature.schema.feature.FeatureJsonValuePublisher
 import funcify.feature.schema.feature.FeatureJsonValueStore
 import funcify.feature.schema.transformer.TransformerSource
 import funcify.feature.schema.transformer.TransformerSourceProvider
+import graphql.schema.FieldCoordinates
 import graphql.schema.idl.TypeDefinitionRegistry
 import kotlinx.collections.immutable.PersistentMap
 
-internal data class DefaultMetamodel(
+internal data class DefaultFeatureEngineeringModel(
+    override val transformerFieldCoordinates: FieldCoordinates,
+    override val dataElementFieldCoordinates: FieldCoordinates,
+    override val featureFieldCoordinates: FieldCoordinates,
     override val dataElementSourceProvidersByName:
         PersistentMap<String, DataElementSourceProvider<*>>,
     override val transformerSourceProvidersByName:
@@ -31,4 +35,4 @@ internal data class DefaultMetamodel(
     override val attributeAliasRegistry: AttributeAliasRegistry,
     override val entityRegistry: EntityRegistry,
     override val lastUpdatedTemporalAttributeRegistry: LastUpdatedTemporalAttributeRegistry,
-) : Metamodel {}
+) : FeatureEngineeringModel {}

@@ -4,7 +4,7 @@ import arrow.core.Option
 import funcify.feature.materializer.request.RawGraphQLRequest
 import funcify.feature.materializer.response.SerializedGraphQLResponse
 import funcify.feature.materializer.schema.MaterializationMetamodel
-import funcify.feature.schema.Metamodel
+import funcify.feature.schema.FeatureEngineeringModel
 import graphql.language.Document
 import graphql.language.OperationDefinition
 import graphql.schema.GraphQLSchema
@@ -27,8 +27,8 @@ interface GraphQLSingleRequestSession : MaterializationSession {
 
     override val materializationMetamodel: MaterializationMetamodel
 
-    val metamodel: Metamodel
-        get() = materializationMetamodel.metamodel
+    val featureEngineeringModel: FeatureEngineeringModel
+        get() = materializationMetamodel.featureEngineeringModel
 
     val materializationSchema: GraphQLSchema
         get() = materializationMetamodel.materializationGraphQLSchema

@@ -1,9 +1,9 @@
 package funcify.feature.schema.factory
 
-import funcify.feature.schema.Metamodel
-import funcify.feature.schema.MetamodelBuildStrategy
-import funcify.feature.schema.MetamodelFactory
-import funcify.feature.schema.context.MetamodelBuildContext
+import funcify.feature.schema.FeatureEngineeringModel
+import funcify.feature.schema.FeatureEngineeringModelBuildStrategy
+import funcify.feature.schema.FeatureEngineeringModelFactory
+import funcify.feature.schema.context.FeatureEngineeringModelBuildContext
 import funcify.feature.schema.dataelement.DataElementSourceProvider
 import funcify.feature.schema.feature.FeatureCalculatorProvider
 import funcify.feature.schema.feature.FeatureJsonValuePublisher
@@ -15,13 +15,13 @@ import reactor.core.publisher.Mono
  * @author smccarron
  * @created 2023-07-09
  */
-internal class DefaultMetamodelFactory(private val metamodelBuildStrategy: MetamodelBuildStrategy) :
-    MetamodelFactory {
+internal class DefaultFeatureEngineeringModelFactory(private val featureEngineeringModelBuildStrategy: FeatureEngineeringModelBuildStrategy) :
+    FeatureEngineeringModelFactory {
 
     companion object {
 
         internal class DefaultBuilder(
-            private val metamodelBuildStrategy: MetamodelBuildStrategy,
+            private val featureEngineeringModelBuildStrategy: FeatureEngineeringModelBuildStrategy,
             private val dataElementSourceProviders: MutableList<DataElementSourceProvider<*>> =
                 mutableListOf(),
             private val transformerSourceProviders: MutableList<TransformerSourceProvider<*>> =
@@ -32,58 +32,58 @@ internal class DefaultMetamodelFactory(private val metamodelBuildStrategy: Metam
                 mutableListOf(),
             private val featureJsonValuePublishers: MutableList<FeatureJsonValuePublisher> =
                 mutableListOf()
-        ) : Metamodel.Builder {
+        ) : FeatureEngineeringModel.Builder {
 
             override fun addDataElementSourceProvider(
                 provider: DataElementSourceProvider<*>
-            ): Metamodel.Builder {
+            ): FeatureEngineeringModel.Builder {
                 this.dataElementSourceProviders.add(provider)
                 return this
             }
 
             override fun addTransformerSourceProvider(
                 provider: TransformerSourceProvider<*>
-            ): Metamodel.Builder {
+            ): FeatureEngineeringModel.Builder {
                 this.transformerSourceProviders.add(provider)
                 return this
             }
 
             override fun addFeatureCalculatorProvider(
                 provider: FeatureCalculatorProvider<*>
-            ): Metamodel.Builder {
+            ): FeatureEngineeringModel.Builder {
                 this.featureCalculatorProviders.add(provider)
                 return this
             }
 
             override fun addFeatureJsonValueStore(
                 featureJsonValueStore: FeatureJsonValueStore
-            ): Metamodel.Builder {
+            ): FeatureEngineeringModel.Builder {
                 this.featureJsonValueStores.add(featureJsonValueStore)
                 return this
             }
 
             override fun addFeatureJsonValuePublisher(
                 featureJsonValuePublisher: FeatureJsonValuePublisher
-            ): Metamodel.Builder {
+            ): FeatureEngineeringModel.Builder {
                 this.featureJsonValuePublishers.add(featureJsonValuePublisher)
                 return this
             }
 
-            override fun build(): Mono<out Metamodel> {
-                return metamodelBuildStrategy.buildMetamodel(
-                    MetamodelBuildContext.empty().update {
+            override fun build(): Mono<out FeatureEngineeringModel> {
+                return featureEngineeringModelBuildStrategy.buildFeatureEngineeringModel(
+                    FeatureEngineeringModelBuildContext.empty().update {
                         addAllTransformerSourceProviders(transformerSourceProviders)
                         addAllDataElementSourceProviders(dataElementSourceProviders)
                         addAllFeatureCalculatorProviders(featureCalculatorProviders)
                         addAllFeatureJsonValueStores(featureJsonValueStores)
                         addAllFeatureJsonValuePublishers(featureJsonValuePublishers)
                     }
-                )
+                                                                                        )
             }
         }
     }
 
-    override fun builder(): Metamodel.Builder {
-        return DefaultBuilder(metamodelBuildStrategy)
+    override fun builder(): FeatureEngineeringModel.Builder {
+        return DefaultBuilder(featureEngineeringModelBuildStrategy)
     }
 }

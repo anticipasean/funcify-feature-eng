@@ -19,12 +19,12 @@ import kotlinx.collections.immutable.ImmutableMap
  * @author smccarron
  * @created 2023-07-11
  */
-interface MetamodelBuildContext {
+interface FeatureEngineeringModelBuildContext {
 
     companion object {
 
-        fun empty(): MetamodelBuildContext {
-            return DefaultMetamodelBuildContext.empty()
+        fun empty(): FeatureEngineeringModelBuildContext {
+            return DefaultFeatureEngineeringModelBuildContext.empty()
         }
     }
 
@@ -58,7 +58,7 @@ interface MetamodelBuildContext {
 
     val lastUpdatedTemporalAttributeRegistry: LastUpdatedTemporalAttributeRegistry
 
-    fun update(transformer: Builder.() -> Builder): MetamodelBuildContext
+    fun update(transformer: Builder.() -> Builder): FeatureEngineeringModelBuildContext
 
     interface Builder {
 
@@ -140,8 +140,10 @@ interface MetamodelBuildContext {
 
         fun entityRegistry(entityRegistry: EntityRegistry): Builder
 
-        fun lastUpdatedTemporalAttributePathRegistry(lastUpdatedTemporalAttributeRegistry: LastUpdatedTemporalAttributeRegistry): Builder
+        fun lastUpdatedTemporalAttributePathRegistry(
+            lastUpdatedTemporalAttributeRegistry: LastUpdatedTemporalAttributeRegistry
+        ): Builder
 
-        fun build(): MetamodelBuildContext
+        fun build(): FeatureEngineeringModelBuildContext
     }
 }
