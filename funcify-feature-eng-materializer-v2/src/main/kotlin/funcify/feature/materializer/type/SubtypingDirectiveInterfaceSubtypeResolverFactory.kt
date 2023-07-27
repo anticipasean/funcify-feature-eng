@@ -430,6 +430,14 @@ internal class SubtypingDirectiveInterfaceSubtypeResolverFactory :
         ) : SubtypingStrategySpec
     }
 
+    override fun providesTypeResolver(environment: InterfaceWiringEnvironment): Boolean {
+        logger.debug(
+            "provides_type_resolver: [ environment.interface_type_definition.name: {} ]",
+            environment.interfaceTypeDefinition.name
+        )
+        return environment.interfaceTypeDefinition.hasDirective(SubtypingDirective.name)
+    }
+
     override fun createTypeResolver(environment: InterfaceWiringEnvironment): TypeResolver {
         logger.debug(
             "create_type_resolver: [ environment.interface_type_definition.name: {} ]",
