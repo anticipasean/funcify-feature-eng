@@ -4,10 +4,13 @@ import arrow.core.Option
 import arrow.core.none
 import arrow.core.some
 import arrow.core.toOption
+import funcify.feature.materializer.loader.DefaultReactiveDataLoaderRegistry
+import funcify.feature.materializer.loader.ReactiveDataLoaderRegistry
 import funcify.feature.materializer.request.RawGraphQLRequest
 import funcify.feature.materializer.response.SerializedGraphQLResponse
 import funcify.feature.materializer.schema.MaterializationMetamodel
 import funcify.feature.materializer.session.GraphQLSingleRequestSession.Builder
+import funcify.feature.schema.path.SchematicPath
 import graphql.language.Document
 import graphql.language.OperationDefinition
 import kotlinx.collections.immutable.ImmutableMap
@@ -24,6 +27,8 @@ internal data class DefaultGraphQLSingleRequestSession(
     override val document: Option<Document> = none(),
     override val operationDefinition: Option<OperationDefinition> = none(),
     override val processedQueryVariables: ImmutableMap<String, Any?> = persistentMapOf(),
+    override val reactiveDataLoaderRegistry: ReactiveDataLoaderRegistry<SchematicPath> =
+        DefaultReactiveDataLoaderRegistry<SchematicPath>(),
     override val serializedGraphQLResponse: Option<SerializedGraphQLResponse> = none(),
 ) : GraphQLSingleRequestSession {
 
@@ -36,6 +41,8 @@ internal data class DefaultGraphQLSingleRequestSession(
                 currentSession.operationDefinition,
             private var processedQueryVariables: ImmutableMap<String, Any?> =
                 currentSession.processedQueryVariables,
+            private var reactiveDataLoaderRegistry: ReactiveDataLoaderRegistry<SchematicPath> =
+                currentSession.reactiveDataLoaderRegistry,
             private var serializedGraphQLResponse: Option<SerializedGraphQLResponse> =
                 currentSession.serializedGraphQLResponse
         ) : Builder {
@@ -57,6 +64,13 @@ internal data class DefaultGraphQLSingleRequestSession(
                 return this
             }
 
+            override fun reactiveDataLoaderRegistry(
+                reactiveDataLoaderRegistry: ReactiveDataLoaderRegistry<SchematicPath>
+            ): Builder {
+                this.reactiveDataLoaderRegistry = reactiveDataLoaderRegistry
+                return this
+            }
+
             override fun serializedGraphQLResponse(
                 serializedGraphQLResponse: SerializedGraphQLResponse
             ): Builder {
@@ -69,6 +83,7 @@ internal data class DefaultGraphQLSingleRequestSession(
                     document = document,
                     operationDefinition = operationDefinition,
                     processedQueryVariables = processedQueryVariables,
+                    reactiveDataLoaderRegistry = reactiveDataLoaderRegistry,
                     serializedGraphQLResponse = serializedGraphQLResponse
                 )
             }

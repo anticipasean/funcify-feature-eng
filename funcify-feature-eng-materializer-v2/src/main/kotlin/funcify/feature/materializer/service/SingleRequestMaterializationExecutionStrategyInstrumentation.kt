@@ -6,10 +6,12 @@ import funcify.feature.error.ServiceError
 import funcify.feature.materializer.session.GraphQLSingleRequestSession
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import graphql.ExecutionResult
+import graphql.GraphQLContext
 import graphql.execution.ExecutionContext
 import graphql.execution.instrumentation.ExecutionStrategyInstrumentationContext
 import graphql.execution.instrumentation.Instrumentation
 import graphql.execution.instrumentation.InstrumentationState
+import graphql.execution.instrumentation.parameters.InstrumentationExecuteOperationParameters
 import graphql.execution.instrumentation.parameters.InstrumentationExecutionStrategyParameters
 import graphql.language.OperationDefinition
 import java.util.concurrent.CompletableFuture
@@ -30,16 +32,24 @@ internal class SingleRequestMaterializationExecutionStrategyInstrumentation(
     companion object {
         private val logger: Logger =
             loggerFor<SingleRequestMaterializationExecutionStrategyInstrumentation>()
-        private class MaterializationExecutionStrategyInstrumentationContext :
-            ExecutionStrategyInstrumentationContext {
+        private class MaterializationInstrumentationContext(
+            private val graphQLContext: GraphQLContext
+        ) : ExecutionStrategyInstrumentationContext {
 
             override fun onDispatched(result: CompletableFuture<ExecutionResult>?) {
                 logger.debug("on_dispatched: [ result.is_done: {} ]", result?.isDone)
+                graphQLContext
+                    .getOrEmpty<GraphQLSingleRequestSession>(
+                        GraphQLSingleRequestSession.GRAPHQL_SINGLE_REQUEST_SESSION_KEY
+                    )
+                    .ifPresent { s: GraphQLSingleRequestSession ->
+                        s.reactiveDataLoaderRegistry.dispatchAll()
+                    }
             }
 
             override fun onCompleted(result: ExecutionResult?, t: Throwable?) {
                 logger.debug(
-                    "on_completed: [ execution_result: {}, error: [ type: {}, message: {} ]",
+                    "on_completed: [ execution_result: {}, error: [ type: {}, message: {} ] ]",
                     result?.toSpecification()?.let { m: Map<String, Any?> ->
                         ObjectMapper().valueToTree<JsonNode>(m)
                     },
@@ -63,7 +73,7 @@ internal class SingleRequestMaterializationExecutionStrategyInstrumentation(
             null -> {
                 throw ServiceError.of(
                     "parameters [ type: %s ] contains null value for [ type: %s ]",
-                    InstrumentationExecutionStrategyParameters::class.qualifiedName,
+                    InstrumentationExecuteOperationParameters::class.qualifiedName,
                     ExecutionContext::class.qualifiedName
                 )
             }
@@ -71,7 +81,9 @@ internal class SingleRequestMaterializationExecutionStrategyInstrumentation(
                 updateSessionWithOperationDefinitionAndProcessedVariables(ec)
             }
         }
-        return MaterializationExecutionStrategyInstrumentationContext()
+        return MaterializationInstrumentationContext(
+            parameters.executionContext?.graphQLContext ?: GraphQLContext.getDefault()
+        )
     }
 
     private fun updateSessionWithOperationDefinitionAndProcessedVariables(

@@ -1,10 +1,12 @@
 package funcify.feature.materializer.session
 
 import arrow.core.Option
+import funcify.feature.materializer.loader.ReactiveDataLoaderRegistry
 import funcify.feature.materializer.request.RawGraphQLRequest
 import funcify.feature.materializer.response.SerializedGraphQLResponse
 import funcify.feature.materializer.schema.MaterializationMetamodel
 import funcify.feature.schema.FeatureEngineeringModel
+import funcify.feature.schema.path.SchematicPath
 import graphql.language.Document
 import graphql.language.OperationDefinition
 import graphql.schema.GraphQLSchema
@@ -41,10 +43,7 @@ interface GraphQLSingleRequestSession : MaterializationSession {
 
     val processedQueryVariables: ImmutableMap<String, Any?>
 
-    // val requestParameterMaterializationGraphPhase:
-    // Option<RequestParameterMaterializationGraphPhase>
-
-    // val requestDispatchMaterializationGraphPhase: Option<RequestDispatchMaterializationPhase>
+    val reactiveDataLoaderRegistry: ReactiveDataLoaderRegistry<SchematicPath>
 
     val serializedGraphQLResponse: Option<SerializedGraphQLResponse>
 
@@ -58,13 +57,9 @@ interface GraphQLSingleRequestSession : MaterializationSession {
 
         fun processedQueryVariables(processedQueryVariables: Map<String, Any?>): Builder
 
-        // fun requestParameterMaterializationGraphPhase(
-        //    requestParameterMaterializationGraphPhase: RequestParameterMaterializationGraphPhase
-        // ): Builder
-
-        // fun requestDispatchMaterializationPhase(
-        //    requestDispatchMaterializationPhase: RequestDispatchMaterializationPhase
-        // ): Builder
+        fun reactiveDataLoaderRegistry(
+            reactiveDataLoaderRegistry: ReactiveDataLoaderRegistry<SchematicPath>
+        ): Builder
 
         fun serializedGraphQLResponse(serializedGraphQLResponse: SerializedGraphQLResponse): Builder
 

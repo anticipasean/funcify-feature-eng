@@ -118,7 +118,10 @@ internal class DefaultGraphQLSingleRequestMaterializationQueryExecutionStrategy(
                         .extensions(
                             executionContext.graphQLContext
                                 .stream()
-                                .filter { (k: Any?, _: Any?) -> k !is ExtensionsBuilder }
+                                .filter { (k: Any?, _: Any?) ->
+                                    k is Class<*> &&
+                                        ExtensionsBuilder::class.java.isAssignableFrom(k)
+                                }
                                 .toPersistentMap()
                                 .run {
                                     // assumes the latest extension entries from the

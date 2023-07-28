@@ -54,41 +54,17 @@ internal class SingleRequestMaterializationDataFetcher<R>(
                     .isEmpty -> {
                 createSingleRequestSessionMissingErrorFuture()
             }
-            environment.graphQlContext.hasKey(
-                SingleRequestFieldMaterializationSession
-                    .SINGLE_REQUEST_FIELD_MATERIALIZATION_SESSION_KEY
-            ) -> {
-                foldResultPublisherIntoDataFetcherResult<R>(
-                    environment,
-                    singleRequestMaterializationOrchestratorService.materializeValueInSession(
-                        environment.graphQlContext
-                            .get<SingleRequestFieldMaterializationSession>(
-                                SingleRequestFieldMaterializationSession
-                                    .SINGLE_REQUEST_FIELD_MATERIALIZATION_SESSION_KEY
-                            )
-                            .update { dataFetchingEnvironment(environment) }
-                    )
-                )
-            }
             else -> {
                 foldResultPublisherIntoDataFetcherResult<R>(
                     environment,
                     singleRequestMaterializationOrchestratorService.materializeValueInSession(
                         DefaultSingleRequestFieldMaterializationSession(
-                                dataFetchingEnvironment = environment,
-                                singleRequestSession =
-                                    environment.graphQlContext.get<GraphQLSingleRequestSession>(
-                                        GraphQLSingleRequestSession
-                                            .GRAPHQL_SINGLE_REQUEST_SESSION_KEY
-                                    )
-                            )
-                            .also { session: SingleRequestFieldMaterializationSession ->
-                                environment.graphQlContext.put(
-                                    SingleRequestFieldMaterializationSession
-                                        .SINGLE_REQUEST_FIELD_MATERIALIZATION_SESSION_KEY,
-                                    session
+                            dataFetchingEnvironment = environment,
+                            singleRequestSession =
+                                environment.graphQlContext.get<GraphQLSingleRequestSession>(
+                                    GraphQLSingleRequestSession.GRAPHQL_SINGLE_REQUEST_SESSION_KEY
                                 )
-                            }
+                        )
                     )
                 )
             }

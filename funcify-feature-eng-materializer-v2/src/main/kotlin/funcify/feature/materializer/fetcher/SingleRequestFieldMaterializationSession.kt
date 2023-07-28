@@ -47,6 +47,8 @@ interface SingleRequestFieldMaterializationSession : MaterializationSession {
 
     interface Builder {
 
+        fun singleRequestSession(singleRequestSession: GraphQLSingleRequestSession): Builder
+
         fun dataFetchingEnvironment(dataFetchingEnvironment: DataFetchingEnvironment): Builder
 
         fun build(): SingleRequestFieldMaterializationSession
