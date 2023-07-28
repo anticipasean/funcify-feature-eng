@@ -24,12 +24,6 @@ internal data class DefaultGraphQLSingleRequestSession(
     override val document: Option<Document> = none(),
     override val operationDefinition: Option<OperationDefinition> = none(),
     override val processedQueryVariables: ImmutableMap<String, Any?> = persistentMapOf(),
-    // override val requestParameterMaterializationGraphPhase:
-    //    Option<RequestParameterMaterializationGraphPhase> =
-    //    none(),
-    // override val requestDispatchMaterializationGraphPhase:
-    //    Option<RequestDispatchMaterializationPhase> =
-    //    none(),
     override val serializedGraphQLResponse: Option<SerializedGraphQLResponse> = none(),
 ) : GraphQLSingleRequestSession {
 
@@ -42,12 +36,6 @@ internal data class DefaultGraphQLSingleRequestSession(
                 currentSession.operationDefinition,
             private var processedQueryVariables: ImmutableMap<String, Any?> =
                 currentSession.processedQueryVariables,
-            // private var requestParameterMaterializationGraphPhase:
-            //    Option<RequestParameterMaterializationGraphPhase> =
-            //    currentSession.requestParameterMaterializationGraphPhase,
-            // private var requestDispatchMaterializationGraphPhase:
-            //    Option<RequestDispatchMaterializationPhase> =
-            //    currentSession.requestDispatchMaterializationGraphPhase,
             private var serializedGraphQLResponse: Option<SerializedGraphQLResponse> =
                 currentSession.serializedGraphQLResponse
         ) : Builder {
@@ -69,23 +57,6 @@ internal data class DefaultGraphQLSingleRequestSession(
                 return this
             }
 
-            // override fun requestParameterMaterializationGraphPhase(
-            //    requestParameterMaterializationGraphPhase:
-            // RequestParameterMaterializationGraphPhase
-            // ): Builder {
-            //    this.requestParameterMaterializationGraphPhase =
-            //        requestParameterMaterializationGraphPhase.toOption()
-            //    return this
-            // }
-
-            // override fun requestDispatchMaterializationPhase(
-            //    requestDispatchMaterializationPhase: RequestDispatchMaterializationPhase
-            // ): Builder {
-            //    this.requestDispatchMaterializationGraphPhase =
-            //        requestDispatchMaterializationPhase.toOption()
-            //    return this
-            // }
-
             override fun serializedGraphQLResponse(
                 serializedGraphQLResponse: SerializedGraphQLResponse
             ): Builder {
@@ -98,10 +69,6 @@ internal data class DefaultGraphQLSingleRequestSession(
                     document = document,
                     operationDefinition = operationDefinition,
                     processedQueryVariables = processedQueryVariables,
-                    // requestParameterMaterializationGraphPhase =
-                    //    requestParameterMaterializationGraphPhase,
-                    // requestDispatchMaterializationGraphPhase =
-                    //    requestDispatchMaterializationGraphPhase,
                     serializedGraphQLResponse = serializedGraphQLResponse
                 )
             }

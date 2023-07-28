@@ -55,10 +55,21 @@ internal class DefaultMaterializationPreparsedDocumentProvider(
         return when {
             executionInput.query.isNotBlank() &&
                 executionInput.query in documentByRawGraphQLQueryCache -> {
-                documentByRawGraphQLQueryCache[executionInput.query].toMono().map {
-                    document: Document ->
-                    PreparsedDocumentEntry(document)
-                }
+                documentByRawGraphQLQueryCache[executionInput.query]
+                    .toMono()
+                    .map { document: Document -> PreparsedDocumentEntry(document) }
+                    .doOnNext { entry: PreparsedDocumentEntry ->
+                        executionInput.graphQLContext
+                            .getOrEmpty<GraphQLSingleRequestSession>(
+                                GraphQLSingleRequestSession.GRAPHQL_SINGLE_REQUEST_SESSION_KEY
+                            )
+                            .ifPresent { s: GraphQLSingleRequestSession ->
+                                executionInput.graphQLContext.put(
+                                    GraphQLSingleRequestSession.GRAPHQL_SINGLE_REQUEST_SESSION_KEY,
+                                    s.update { document(entry.document) }
+                                )
+                            }
+                    }
             }
             executionInput.query.isNotBlank() -> {
                 Try.attempt { parseAndValidateFunction.invoke(executionInput) }
@@ -67,6 +78,17 @@ internal class DefaultMaterializationPreparsedDocumentProvider(
                     .doOnNext { entry: PreparsedDocumentEntry ->
                         if (!entry.hasErrors()) {
                             documentByRawGraphQLQueryCache[executionInput.query] = entry.document
+                            executionInput.graphQLContext
+                                .getOrEmpty<GraphQLSingleRequestSession>(
+                                    GraphQLSingleRequestSession.GRAPHQL_SINGLE_REQUEST_SESSION_KEY
+                                )
+                                .ifPresent { s: GraphQLSingleRequestSession ->
+                                    executionInput.graphQLContext.put(
+                                        GraphQLSingleRequestSession
+                                            .GRAPHQL_SINGLE_REQUEST_SESSION_KEY,
+                                        s.update { document(entry.document) }
+                                    )
+                                }
                         }
                     }
                     .widen()

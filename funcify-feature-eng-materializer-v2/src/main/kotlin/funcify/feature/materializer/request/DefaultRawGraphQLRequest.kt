@@ -1,5 +1,8 @@
 package funcify.feature.materializer.request
 
+import arrow.core.foldLeft
+import com.fasterxml.jackson.databind.node.JsonNodeFactory
+import com.fasterxml.jackson.databind.node.ObjectNode
 import graphql.execution.ExecutionId
 import java.net.URI
 import java.security.Principal
@@ -24,4 +27,30 @@ internal data class DefaultRawGraphQLRequest(
     override val expectedOutputFieldNames: PersistentList<String> = persistentListOf(),
     override val executionInputCustomizers: PersistentList<GraphQLExecutionInputCustomizer> =
         persistentListOf(),
-) : RawGraphQLRequest {}
+) : RawGraphQLRequest {
+
+    private val stringForm: String by lazy {
+        mapOf<String, Any?>(
+                "requestId" to requestId,
+                "executionId" to executionId,
+                "uri" to uri,
+                "headers" to headers,
+                "principalPublisher" to principalPublisher,
+                "rawGraphQLQueryText" to rawGraphQLQueryText,
+                "operationName" to operationName,
+                "variables" to variables,
+                "locale" to locale,
+                "expectedOutputFieldNames" to expectedOutputFieldNames,
+                "executionInputCustomizers" to executionInputCustomizers,
+            )
+            .foldLeft(JsonNodeFactory.instance.objectNode()) { on: ObjectNode, (k: String, v: Any?)
+                ->
+                on.put(k, Objects.toString(v, "<NA>"))
+            }
+            .toString()
+    }
+
+    override fun toString(): String {
+        return stringForm
+    }
+}

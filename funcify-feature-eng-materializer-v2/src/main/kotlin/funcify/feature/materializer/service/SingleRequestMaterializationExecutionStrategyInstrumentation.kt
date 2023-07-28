@@ -3,6 +3,7 @@ package funcify.feature.materializer.service
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import funcify.feature.error.ServiceError
+import funcify.feature.materializer.session.GraphQLSingleRequestSession
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import graphql.ExecutionResult
 import graphql.execution.ExecutionContext
@@ -10,7 +11,10 @@ import graphql.execution.instrumentation.ExecutionStrategyInstrumentationContext
 import graphql.execution.instrumentation.Instrumentation
 import graphql.execution.instrumentation.InstrumentationState
 import graphql.execution.instrumentation.parameters.InstrumentationExecutionStrategyParameters
+import graphql.language.OperationDefinition
 import java.util.concurrent.CompletableFuture
+import kotlinx.collections.immutable.PersistentMap
+import kotlinx.collections.immutable.toPersistentMap
 import org.slf4j.Logger
 
 /**
@@ -63,8 +67,38 @@ internal class SingleRequestMaterializationExecutionStrategyInstrumentation(
                     ExecutionContext::class.qualifiedName
                 )
             }
-            else -> {}
+            else -> {
+                updateSessionWithOperationDefinitionAndProcessedVariables(ec)
+            }
         }
         return MaterializationExecutionStrategyInstrumentationContext()
+    }
+
+    private fun updateSessionWithOperationDefinitionAndProcessedVariables(
+        executionContext: ExecutionContext
+    ): ExecutionContext {
+        return when (val od: OperationDefinition? = executionContext.operationDefinition) {
+            null -> {
+                executionContext
+            }
+            else -> {
+                val processedVariables: PersistentMap<String, Any?> =
+                    (executionContext.coercedVariables?.toMap() ?: emptyMap()).toPersistentMap()
+                executionContext.graphQLContext
+                    .getOrEmpty<GraphQLSingleRequestSession>(
+                        GraphQLSingleRequestSession.GRAPHQL_SINGLE_REQUEST_SESSION_KEY
+                    )
+                    .ifPresent { s: GraphQLSingleRequestSession ->
+                        executionContext.graphQLContext.put(
+                            GraphQLSingleRequestSession.GRAPHQL_SINGLE_REQUEST_SESSION_KEY,
+                            s.update {
+                                operationDefinition(od)
+                                processedQueryVariables(processedVariables)
+                            }
+                        )
+                    }
+                executionContext
+            }
+        }
     }
 }
