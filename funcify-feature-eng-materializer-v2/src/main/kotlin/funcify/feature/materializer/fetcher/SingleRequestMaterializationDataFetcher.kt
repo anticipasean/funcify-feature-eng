@@ -20,14 +20,13 @@ import java.util.concurrent.CompletionStage
 import org.slf4j.Logger
 import reactor.core.publisher.Mono
 
-internal class DefaultSingleRequestContextDecoratingFieldMaterializationDataFetcher<R>(
+internal class SingleRequestMaterializationDataFetcher<R>(
     private val singleRequestMaterializationOrchestratorService:
         SingleRequestMaterializationOrchestratorService
-) : SingleRequestContextDecoratingFieldMaterializationDataFetcher<R> {
+) : AsyncResultDataFetcher<R> {
 
     companion object {
-        private val logger: Logger =
-            loggerFor<DefaultSingleRequestContextDecoratingFieldMaterializationDataFetcher<*>>()
+        private val logger: Logger = loggerFor<SingleRequestMaterializationDataFetcher<*>>()
     }
 
     override fun get(
@@ -35,6 +34,7 @@ internal class DefaultSingleRequestContextDecoratingFieldMaterializationDataFetc
     ): CompletionStage<out DataFetcherResult<R>> {
         logger.debug(
             """get: [ 
+               |fetcher_id_hash: ${System.identityHashCode(this)}, 
                |environment.parent.type.name: ${environment?.parentType?.run { GraphQLTypeUtil.simplePrint(this) }}, 
                |environment.field.name: ${environment?.field?.name} 
                |]"""

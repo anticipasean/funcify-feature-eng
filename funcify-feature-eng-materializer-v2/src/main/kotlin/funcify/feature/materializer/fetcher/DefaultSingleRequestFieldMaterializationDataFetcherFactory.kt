@@ -31,7 +31,7 @@ internal class DefaultSingleRequestFieldMaterializationDataFetcherFactory(
             |} ] ]"""
                 .flatten()
         )
-        return DefaultSingleRequestContextDecoratingFieldMaterializationDataFetcher<Any?>(
+        return SingleRequestMaterializationDataFetcher<Any?>(
             singleRequestMaterializationOrchestratorService
         )
     }

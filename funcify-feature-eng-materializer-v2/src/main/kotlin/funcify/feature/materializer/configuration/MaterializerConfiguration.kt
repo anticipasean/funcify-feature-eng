@@ -17,13 +17,7 @@ import funcify.feature.materializer.schema.DefaultMaterializationMetamodel
 import funcify.feature.materializer.schema.DefaultMaterializationMetamodelBroker
 import funcify.feature.materializer.schema.MaterializationGraphQLSchemaFactory
 import funcify.feature.materializer.schema.MaterializationMetamodelBroker
-import funcify.feature.materializer.service.DefaultGraphQLSingleRequestMaterializationQueryExecutionStrategy
-import funcify.feature.materializer.service.DefaultSingleRequestMaterializationExecutionResultPostprocessingService
-import funcify.feature.materializer.service.DefaultSingleRequestMaterializationOrchestratorService
-import funcify.feature.materializer.service.GraphQLSingleRequestExecutor
-import funcify.feature.materializer.service.SingleRequestMaterializationExecutionResultPostprocessingService
-import funcify.feature.materializer.service.SingleRequestMaterializationOrchestratorService
-import funcify.feature.materializer.service.SpringGraphQLSingleRequestExecutor
+import funcify.feature.materializer.service.*
 import funcify.feature.materializer.session.DefaultGraphQLSingleRequestSessionCoordinator
 import funcify.feature.materializer.session.DefaultGraphQLSingleRequestSessionFactory
 import funcify.feature.materializer.session.GraphQLSingleRequestSessionCoordinator
@@ -37,14 +31,15 @@ import funcify.feature.schema.FeatureEngineeringModel
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.json.JsonMapper
-import graphql.execution.AsyncExecutionStrategy
 import graphql.execution.DataFetcherResult
+import graphql.execution.instrumentation.Instrumentation
 import graphql.schema.DataFetcherFactory
 import graphql.schema.GraphQLSchema
 import graphql.schema.idl.SchemaPrinter
 import java.util.concurrent.CompletionStage
 import org.slf4j.Logger
 import org.springframework.beans.factory.ObjectProvider
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -78,6 +73,18 @@ class MaterializerConfiguration {
         jsonMapper: JsonMapper
     ): SingleRequestMaterializationOrchestratorService {
         return DefaultSingleRequestMaterializationOrchestratorService(jsonMapper = jsonMapper)
+    }
+
+    @ConditionalOnMissingBean(value = [SingleRequestMaterializationGraphService::class])
+    @Bean
+    fun singleRequestMaterializationGraphService(): SingleRequestMaterializationGraphService {
+        return DefaultSingleRequestMaterializationGraphService()
+    }
+
+    @ConditionalOnMissingBean(value = [SingleRequestMaterializationDispatchService::class])
+    @Bean
+    fun singleRequestMaterializationDispatchService(): SingleRequestMaterializationDispatchService {
+        return DefaultSingleRequestMaterializationDispatchService()
     }
 
     @ConditionalOnMissingBean(value = [DataFetcherFactory::class])
@@ -238,17 +245,39 @@ class MaterializerConfiguration {
         )
     }
 
-    @ConditionalOnMissingBean(value = [AsyncExecutionStrategy::class])
+    @ConditionalOnMissingBean(
+        value = [GraphQLSingleRequestMaterializationQueryExecutionStrategy::class]
+    )
     @Bean
-    fun queryAsyncExecutionStrategy(): AsyncExecutionStrategy {
+    fun queryAsyncExecutionStrategy(): GraphQLSingleRequestMaterializationQueryExecutionStrategy {
         return DefaultGraphQLSingleRequestMaterializationQueryExecutionStrategy()
+    }
+
+    @ConditionalOnBean(
+        value =
+            [
+                SingleRequestMaterializationDispatchService::class,
+                SingleRequestMaterializationGraphService::class
+            ]
+    )
+    @Bean
+    fun singleRequestMaterializationExecutionStrategyInstrumentation(
+        singleRequestMaterializationGraphService: SingleRequestMaterializationGraphService,
+        singleRequestMaterializationDispatchService: SingleRequestMaterializationDispatchService
+    ): Instrumentation {
+        return SingleRequestMaterializationExecutionStrategyInstrumentation(
+            singleRequestMaterializationGraphService = singleRequestMaterializationGraphService,
+            singleRequestMaterializationDispatchService =
+                singleRequestMaterializationDispatchService
+        )
     }
 
     @ConditionalOnMissingBean(value = [GraphQLSingleRequestSessionCoordinator::class])
     @Bean
     fun graphQLSingleRequestSessionCoordinator(
         materializationPreparsedDocumentProvider: MaterializationPreparsedDocumentProvider,
-        queryAsyncExecutionStrategy: AsyncExecutionStrategy,
+        instrumentation: Instrumentation,
+        queryAsyncExecutionStrategy: GraphQLSingleRequestMaterializationQueryExecutionStrategy,
         singleRequestMaterializationExecutionResultPostprocessingService:
             SingleRequestMaterializationExecutionResultPostprocessingService,
         serializedGraphQLResponseFactory: SerializedGraphQLResponseFactory,
@@ -256,6 +285,7 @@ class MaterializerConfiguration {
         return DefaultGraphQLSingleRequestSessionCoordinator(
             materializationPreparsedDocumentProvider = materializationPreparsedDocumentProvider,
             queryAsyncExecutionStrategy = queryAsyncExecutionStrategy,
+            instrumentation = instrumentation,
             singleRequestMaterializationExecutionResultPostprocessingService =
                 singleRequestMaterializationExecutionResultPostprocessingService,
             serializedGraphQLResponseFactory = serializedGraphQLResponseFactory

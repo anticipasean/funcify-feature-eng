@@ -6,6 +6,7 @@ import funcify.feature.error.ServiceError
 import funcify.feature.materializer.document.MaterializationPreparsedDocumentProvider
 import funcify.feature.materializer.request.GraphQLExecutionInputCustomizer
 import funcify.feature.materializer.response.SerializedGraphQLResponseFactory
+import funcify.feature.materializer.service.GraphQLSingleRequestMaterializationQueryExecutionStrategy
 import funcify.feature.materializer.service.SingleRequestMaterializationExecutionResultPostprocessingService
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flatten
@@ -13,9 +14,9 @@ import graphql.ExecutionInput
 import graphql.ExecutionResult
 import graphql.GraphQL
 import graphql.GraphQLContext
-import graphql.execution.AsyncExecutionStrategy
 import graphql.execution.ExecutionId
 import graphql.execution.ExecutionIdProvider
+import graphql.execution.instrumentation.Instrumentation
 import kotlin.reflect.KClass
 import org.slf4j.Logger
 import reactor.core.publisher.Mono
@@ -26,10 +27,12 @@ import reactor.core.publisher.Mono
  */
 internal class DefaultGraphQLSingleRequestSessionCoordinator(
     private val materializationPreparsedDocumentProvider: MaterializationPreparsedDocumentProvider,
-    private val queryAsyncExecutionStrategy: AsyncExecutionStrategy,
+    private val instrumentation: Instrumentation,
+    private val queryAsyncExecutionStrategy:
+        GraphQLSingleRequestMaterializationQueryExecutionStrategy,
     private val singleRequestMaterializationExecutionResultPostprocessingService:
         SingleRequestMaterializationExecutionResultPostprocessingService,
-    private val serializedGraphQLResponseFactory: SerializedGraphQLResponseFactory
+    private val serializedGraphQLResponseFactory: SerializedGraphQLResponseFactory,
 ) : GraphQLSingleRequestSessionCoordinator {
 
     companion object {
@@ -97,6 +100,7 @@ internal class DefaultGraphQLSingleRequestSessionCoordinator(
                     .preparsedDocumentProvider(materializationPreparsedDocumentProvider)
                     .queryExecutionStrategy(queryAsyncExecutionStrategy)
                     .executionIdProvider(SessionExecutionIdProvider)
+                    .instrumentation(instrumentation)
                     .build()
                     .executeAsync(executionInputBuilderUpdater(session))
             )

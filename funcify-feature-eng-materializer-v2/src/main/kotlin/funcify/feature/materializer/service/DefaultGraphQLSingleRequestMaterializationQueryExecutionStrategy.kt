@@ -18,6 +18,7 @@ import graphql.execution.DataFetcherExceptionHandlerParameters
 import graphql.execution.DataFetcherExceptionHandlerResult
 import graphql.execution.ExecutionContext
 import graphql.execution.ResultPath
+import graphql.extensions.ExtensionsBuilder
 import graphql.language.SourceLocation
 import java.util.concurrent.CompletableFuture
 import java.util.function.BiConsumer
@@ -115,16 +116,22 @@ internal class DefaultGraphQLSingleRequestMaterializationQueryExecutionStrategy(
                         .data(resolvedValuesByField)
                         .addErrors(executionContext.errors)
                         .extensions(
-                            executionContext.graphQLContext.stream().toPersistentMap().run {
-                                // assumes the latest extension entries from the execution_results
-                                // should take precedence i.e. replace any existing entries in the
-                                // graphql_context
-                                if (extensions == null) {
-                                    this
-                                } else {
-                                    this.putAll(extensions)
+                            executionContext.graphQLContext
+                                .stream()
+                                .filter { (k: Any?, _: Any?) -> k !is ExtensionsBuilder }
+                                .toPersistentMap()
+                                .run {
+                                    // assumes the latest extension entries from the
+                                    // execution_results
+                                    // should take precedence i.e. replace any existing entries in
+                                    // the
+                                    // graphql_context
+                                    if (extensions == null) {
+                                        this
+                                    } else {
+                                        this.putAll(extensions)
+                                    }
                                 }
-                            }
                         )
                         .build()
                 )
