@@ -15,9 +15,12 @@ import funcify.feature.transformer.jq.JqTransformerTypeDefinitionFactory
 import funcify.feature.transformer.jq.env.DefaultJacksonJqTypeDefinitionEnvironment
 import funcify.feature.transformer.jq.metadata.reader.JqTransformerReader
 import funcify.feature.transformer.jq.source.DefaultJqTransformerSource
+import graphql.language.SDLDefinition
+import graphql.language.ScalarTypeDefinition
 import graphql.schema.idl.TypeDefinitionRegistry
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.persistentMapOf
+import kotlinx.collections.immutable.toPersistentSet
 import org.slf4j.Logger
 import org.springframework.core.io.ClassPathResource
 import reactor.core.publisher.Mono
@@ -69,7 +72,10 @@ internal class YamlResourceJqTransformerSourceProvider(
                     .map { tdr: TypeDefinitionRegistry ->
                         DefaultJqTransformerSource(
                             name = name,
-                            sourceSDLDefinitions = SDLDefinitionsSetExtractor(tdr),
+                            sourceSDLDefinitions =
+                                SDLDefinitionsSetExtractor(tdr)
+                                    .filter { sd: SDLDefinition<*> -> sd !is ScalarTypeDefinition }
+                                    .toPersistentSet(),
                             jqTransformersByName = jtsByName,
                         )
                     }

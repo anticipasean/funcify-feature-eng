@@ -3,6 +3,7 @@ package funcify.feature.transformer.jq.yml
 import arrow.core.filterIsInstance
 import arrow.core.orElse
 import arrow.core.some
+import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.module.kotlin.readValue
 import funcify.feature.error.ServiceError
@@ -51,7 +52,7 @@ class JqTransformerYamlReader(
                 { c: ClassPathResource ->
                     ServiceError.of(
                         """resource.path likely is not a yaml file: 
-                        |[ expected: %s, actual: %s ]"""
+                        |[ expected: path.ends_with(%s), actual: %s ]"""
                             .flatten(),
                         sequenceOf(".yaml", ".yml").joinToString(","),
                         c.path
@@ -61,8 +62,7 @@ class JqTransformerYamlReader(
             .flatMap { c: ClassPathResource ->
                 try {
                     Try.success(
-                        jsonMapper.jacksonObjectMapper
-                            .copyWith(YAMLFactory.builder().build())
+                        ObjectMapper(YAMLFactory.builder().build())
                             .readValue<List<JqTransformerDefinition>?>(c.inputStream)
                             ?: throw ServiceError.of(
                                 """null value interpreted for yaml resource: 

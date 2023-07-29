@@ -10,6 +10,8 @@ import funcify.feature.materializer.request.RawGraphQLRequestFactory
 import funcify.feature.materializer.response.SerializedGraphQLResponse
 import funcify.feature.materializer.service.GraphQLSingleRequestExecutor
 import funcify.feature.schema.path.SchematicPath
+import funcify.feature.transformer.jq.JqTransformerSourceProvider
+import funcify.feature.transformer.jq.JqTransformerSourceProviderFactory
 import graphql.ExecutionInput
 import graphql.ExecutionResult
 import graphql.GraphQL
@@ -65,6 +67,11 @@ class StreamFunctions {
                 |            dateAdded
                 |        }
                 |    }
+                |    transformer {
+                |        jq {
+                |            negative_to_null(input: -1)
+                |        }
+                |    }
                 |}
             """
                 .trimMargin()
@@ -78,6 +85,24 @@ class StreamFunctions {
     @Bean(name = ["graphQLSchemaFile"])
     fun graphQLSchemaFile(): ClassPathResource {
         return ClassPathResource("netflix_movies_and_tv_shows.graphqls")
+    }
+
+    @Bean(name = ["jqTransformersFile"])
+    fun jqTransformersFile(): ClassPathResource {
+        return ClassPathResource("jq-transformers.yml")
+    }
+
+    @Bean(name = ["jqTransformersSourceProvider"])
+    fun jqTransformersSourceProvider(
+        jqTransformersFile: ClassPathResource,
+        jqTransformerSourceProviderFactory: JqTransformerSourceProviderFactory
+    ): JqTransformerSourceProvider {
+        return jqTransformerSourceProviderFactory
+            .builder()
+            .name("jq")
+            .transformerYamlFile(jqTransformersFile)
+            .build()
+            .orElseThrow()
     }
 
     @Bean(name = ["netflixShowsGraphQLDataElementSourceProvider"])
