@@ -37,6 +37,8 @@ interface RawGraphQLRequest {
 
     val executionInputCustomizers: ImmutableList<GraphQLExecutionInputCustomizer>
 
+    fun update(transformer: Builder.() -> Builder): RawGraphQLRequest
+
     interface Builder {
 
         fun requestId(requestId: UUID): Builder
@@ -56,6 +58,12 @@ interface RawGraphQLRequest {
         fun variables(variables: Map<String, Any?>): Builder
 
         fun variable(key: String, value: Any?): Builder
+
+        fun removeVariable(key: String): Builder
+
+        fun removeVariableIf(condition: (Map.Entry<String, Any?>) -> Boolean): Builder
+
+        fun clearVariables(): Builder
 
         fun locale(locale: Locale): Builder
 

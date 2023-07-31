@@ -4,7 +4,7 @@ import arrow.core.continuations.eagerEffect
 import arrow.core.identity
 import com.fasterxml.jackson.databind.JsonNode
 import funcify.feature.error.ServiceError
-import funcify.feature.tools.extensions.PersistentMapExtensions.toPersistentMap
+import kotlinx.collections.immutable.toPersistentMap
 
 /**
  * @author smccarron
@@ -15,7 +15,7 @@ internal class DefaultRawInputContextFactory : RawInputContextFactory {
     companion object {
         internal class DefaultBuilder(
             private var json: JsonNode? = null,
-            private var csvRecord: Map<String, String>? = null,
+            private var csvRecord: Map<String, String?>? = null,
         ) : RawInputContext.Builder {
 
             override fun json(jsonNode: JsonNode): RawInputContext.Builder {
@@ -23,7 +23,7 @@ internal class DefaultRawInputContextFactory : RawInputContextFactory {
                 return this
             }
 
-            override fun csvRecord(csvRecord: Map<String, String>): RawInputContext.Builder {
+            override fun csvRecord(csvRecord: Map<String, String?>): RawInputContext.Builder {
                 this.csvRecord = csvRecord
                 return this
             }
@@ -36,7 +36,7 @@ internal class DefaultRawInputContextFactory : RawInputContextFactory {
                         when {
                             csvRecord != null -> {
                                 DefaultCommaSeparatedValuesInputContext(
-                                    csvRecord!!.asSequence().toPersistentMap()
+                                    csvRecord!!.toPersistentMap()
                                 )
                             }
                             else -> {

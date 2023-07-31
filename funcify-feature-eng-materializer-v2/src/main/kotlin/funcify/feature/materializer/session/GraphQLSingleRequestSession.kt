@@ -1,6 +1,7 @@
 package funcify.feature.materializer.session
 
 import arrow.core.Option
+import funcify.feature.materializer.input.RawInputContext
 import funcify.feature.materializer.loader.ReactiveDataLoaderRegistry
 import funcify.feature.materializer.request.RawGraphQLRequest
 import funcify.feature.materializer.response.SerializedGraphQLResponse
@@ -37,6 +38,8 @@ interface GraphQLSingleRequestSession : MaterializationSession {
 
     val rawGraphQLRequest: RawGraphQLRequest
 
+    val rawInputContext: Option<RawInputContext>
+
     val document: Option<Document>
 
     val operationDefinition: Option<OperationDefinition>
@@ -50,6 +53,10 @@ interface GraphQLSingleRequestSession : MaterializationSession {
     fun update(transformer: Builder.() -> Builder): GraphQLSingleRequestSession
 
     interface Builder {
+
+        fun rawGraphQLRequest(rawGraphQLRequest: RawGraphQLRequest): Builder
+
+        fun rawInputContext(rawInputContext: RawInputContext): Builder
 
         fun document(document: Document): Builder
 

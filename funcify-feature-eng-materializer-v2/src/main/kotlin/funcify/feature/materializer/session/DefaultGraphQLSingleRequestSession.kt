@@ -4,6 +4,7 @@ import arrow.core.Option
 import arrow.core.none
 import arrow.core.some
 import arrow.core.toOption
+import funcify.feature.materializer.input.RawInputContext
 import funcify.feature.materializer.loader.DefaultReactiveDataLoaderRegistry
 import funcify.feature.materializer.loader.ReactiveDataLoaderRegistry
 import funcify.feature.materializer.request.RawGraphQLRequest
@@ -24,6 +25,7 @@ import kotlinx.collections.immutable.toPersistentMap
 internal data class DefaultGraphQLSingleRequestSession(
     override val materializationMetamodel: MaterializationMetamodel,
     override val rawGraphQLRequest: RawGraphQLRequest,
+    override val rawInputContext: Option<RawInputContext> = none(),
     override val document: Option<Document> = none(),
     override val operationDefinition: Option<OperationDefinition> = none(),
     override val processedQueryVariables: ImmutableMap<String, Any?> = persistentMapOf(),
@@ -36,6 +38,8 @@ internal data class DefaultGraphQLSingleRequestSession(
 
         internal data class DefaultBuilder(
             private val currentSession: DefaultGraphQLSingleRequestSession,
+            private var rawGraphQLRequest: RawGraphQLRequest = currentSession.rawGraphQLRequest,
+            private var rawInputContext: Option<RawInputContext> = currentSession.rawInputContext,
             private var document: Option<Document> = currentSession.document,
             private var operationDefinition: Option<OperationDefinition> =
                 currentSession.operationDefinition,
@@ -46,6 +50,16 @@ internal data class DefaultGraphQLSingleRequestSession(
             private var serializedGraphQLResponse: Option<SerializedGraphQLResponse> =
                 currentSession.serializedGraphQLResponse
         ) : Builder {
+
+            override fun rawGraphQLRequest(rawGraphQLRequest: RawGraphQLRequest): Builder {
+                this.rawGraphQLRequest = rawGraphQLRequest
+                return this
+            }
+
+            override fun rawInputContext(rawInputContext: RawInputContext): Builder {
+                this.rawInputContext = rawInputContext.toOption()
+                return this
+            }
 
             override fun document(document: Document): Builder {
                 this.document = document.toOption()
@@ -80,6 +94,8 @@ internal data class DefaultGraphQLSingleRequestSession(
 
             override fun build(): GraphQLSingleRequestSession {
                 return currentSession.copy(
+                    rawGraphQLRequest = rawGraphQLRequest,
+                    rawInputContext = rawInputContext,
                     document = document,
                     operationDefinition = operationDefinition,
                     processedQueryVariables = processedQueryVariables,

@@ -1,19 +1,22 @@
 package funcify.feature.materializer.request
 
 import funcify.feature.error.ServiceError
+import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
+import funcify.feature.tools.extensions.PersistentMapExtensions.toPersistentMap
 import graphql.execution.ExecutionId
 import java.net.URI
 import java.security.Principal
 import java.util.*
 import kotlinx.collections.immutable.toPersistentList
 import kotlinx.collections.immutable.toPersistentMap
+import org.slf4j.Logger
 import org.springframework.messaging.MessageHeaders
 import reactor.core.publisher.Mono
 
 internal class DefaultRawGraphQLRequestFactory : RawGraphQLRequestFactory {
 
     companion object {
-
+        private val logger: Logger = loggerFor<DefaultRawGraphQLRequestFactory>()
         private val UNSET_REQUEST_ID: UUID = UUID(0, 0)
         private val UNSET_EXECUTION_ID: ExecutionId = ExecutionId.from(UNSET_REQUEST_ID.toString())
         private val UNSET_URI: URI = URI.create("http://localhost")
@@ -75,12 +78,32 @@ internal class DefaultRawGraphQLRequestFactory : RawGraphQLRequestFactory {
             }
 
             override fun variables(variables: Map<String, Any?>): RawGraphQLRequest.Builder {
-                this.variables = variables.toMutableMap()
+                this.variables.putAll(variables)
                 return this
             }
 
             override fun variable(key: String, value: Any?): RawGraphQLRequest.Builder {
                 this.variables[key] = value
+                return this
+            }
+
+            override fun removeVariable(key: String): RawGraphQLRequest.Builder {
+                if (this.variables.containsKey(key)) {
+                    this.variables.remove(key)
+                }
+                return this
+            }
+
+            override fun removeVariableIf(
+                condition: (Map.Entry<String, Any?>) -> Boolean
+            ): RawGraphQLRequest.Builder {
+                this.variables =
+                    this.variables.asSequence().filterNot(condition).toPersistentMap().builder()
+                return this
+            }
+
+            override fun clearVariables(): RawGraphQLRequest.Builder {
+                this.variables.clear()
                 return this
             }
 

@@ -2,6 +2,7 @@ package funcify.feature.materializer.input
 
 import arrow.core.Option
 import arrow.core.getOrNone
+import arrow.core.toOption
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.node.JsonNodeFactory
 import com.fasterxml.jackson.databind.node.ObjectNode
@@ -14,7 +15,7 @@ import kotlinx.collections.immutable.persistentMapOf
  * @created 2023-07-30
  */
 internal data class DefaultCommaSeparatedValuesInputContext(
-    private val csvRecord: PersistentMap<String, String>
+    private val csvRecord: PersistentMap<String, String?>
 ) : RawInputContext.CommaSeparatedValues {
 
     private val fieldNameByIndex: ImmutableMap<Int, String> by lazy {
@@ -28,7 +29,7 @@ internal data class DefaultCommaSeparatedValuesInputContext(
     private val jsonForm: JsonNode by lazy {
         csvRecord.asSequence().fold(JsonNodeFactory.instance.objectNode()) {
             on: ObjectNode,
-            (k: String, v: String) ->
+            (k: String, v: String?) ->
             on.put(k, v)
         }
     }
@@ -38,12 +39,12 @@ internal data class DefaultCommaSeparatedValuesInputContext(
     }
 
     override fun get(fieldName: String): Option<String> {
-        return csvRecord.getOrNone(fieldName)
+        return csvRecord[fieldName].toOption()
     }
 
     override fun get(fieldIndex: Int): Option<String> {
         return fieldNameByIndex.getOrNone(fieldIndex).flatMap { k: String ->
-            csvRecord.getOrNone(k)
+            csvRecord[k].toOption()
         }
     }
 

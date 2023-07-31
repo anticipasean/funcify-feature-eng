@@ -8,6 +8,8 @@ import funcify.feature.materializer.document.MaterializationPreparsedDocumentPro
 import funcify.feature.materializer.document.SingleRequestMaterializationColumnarDocumentPreprocessingService
 import funcify.feature.materializer.document.SingleRequestMaterializationColumnarResponsePostprocessingService
 import funcify.feature.materializer.fetcher.DefaultSingleRequestFieldMaterializationDataFetcherFactory
+import funcify.feature.materializer.input.DefaultSingleRequestRawInputContextExtractor
+import funcify.feature.materializer.input.SingleRequestRawInputContextExtractor
 import funcify.feature.materializer.request.DefaultRawGraphQLRequestFactory
 import funcify.feature.materializer.request.RawGraphQLRequestFactory
 import funcify.feature.materializer.response.DefaultSerializedGraphQLResponseFactory
@@ -178,13 +180,21 @@ class MaterializerConfiguration {
         return broker
     }
 
+    @ConditionalOnMissingBean(value = [SingleRequestRawInputContextExtractor::class])
+    @Bean
+    fun singleRequestRawInputContextExtractor(): SingleRequestRawInputContextExtractor {
+        return DefaultSingleRequestRawInputContextExtractor()
+    }
+
     @ConditionalOnMissingBean(value = [GraphQLSingleRequestSessionFactory::class])
     @Bean
     fun graphQLSingleRequestSessionFactory(
-        materializationMetamodelBroker: MaterializationMetamodelBroker
+        materializationMetamodelBroker: MaterializationMetamodelBroker,
+        singleRequestRawInputContextExtractor: SingleRequestRawInputContextExtractor
     ): GraphQLSingleRequestSessionFactory {
         return DefaultGraphQLSingleRequestSessionFactory(
-            materializationMetamodelBroker = materializationMetamodelBroker
+            materializationMetamodelBroker = materializationMetamodelBroker,
+            singleRequestRawInputContextExtractor = singleRequestRawInputContextExtractor,
         )
     }
 

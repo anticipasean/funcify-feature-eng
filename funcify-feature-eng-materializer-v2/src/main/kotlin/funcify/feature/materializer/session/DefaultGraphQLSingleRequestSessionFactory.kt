@@ -1,5 +1,6 @@
 package funcify.feature.materializer.session
 
+import funcify.feature.materializer.input.SingleRequestRawInputContextExtractor
 import funcify.feature.materializer.request.RawGraphQLRequest
 import funcify.feature.materializer.schema.MaterializationMetamodel
 import funcify.feature.materializer.schema.MaterializationMetamodelBroker
@@ -13,7 +14,8 @@ import reactor.core.publisher.Mono
  * @created 2/20/22
  */
 internal class DefaultGraphQLSingleRequestSessionFactory(
-    private val materializationMetamodelBroker: MaterializationMetamodelBroker
+    private val materializationMetamodelBroker: MaterializationMetamodelBroker,
+    private val singleRequestRawInputContextExtractor: SingleRequestRawInputContextExtractor
 ) : GraphQLSingleRequestSessionFactory {
 
     companion object {
@@ -29,12 +31,16 @@ internal class DefaultGraphQLSingleRequestSessionFactory(
                 |"""
                 .flatten()
         )
-        return materializationMetamodelBroker.fetchLatestMaterializationMetamodel().map {
-            materializationMetamodel: MaterializationMetamodel ->
-            DefaultGraphQLSingleRequestSession(
-                materializationMetamodel = materializationMetamodel,
-                rawGraphQLRequest = rawGraphQLRequest
-            )
-        }
+        return materializationMetamodelBroker
+            .fetchLatestMaterializationMetamodel()
+            .map { mm: MaterializationMetamodel ->
+                DefaultGraphQLSingleRequestSession(
+                    materializationMetamodel = mm,
+                    rawGraphQLRequest = rawGraphQLRequest
+                )
+            }
+            .flatMap { s: GraphQLSingleRequestSession ->
+                singleRequestRawInputContextExtractor.extractRawInputContextIfProvided(s)
+            }
     }
 }

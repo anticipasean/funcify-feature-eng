@@ -46,7 +46,7 @@ sealed interface RawInputContext {
 
         fun json(jsonNode: JsonNode): Builder
 
-        fun csvRecord(csvRecord: Map<String, String>): Builder
+        fun csvRecord(csvRecord: Map<String, String?>): Builder
 
         fun build(): RawInputContext
     }

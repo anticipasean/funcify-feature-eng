@@ -53,4 +53,25 @@ internal data class DefaultRawGraphQLRequest(
     override fun toString(): String {
         return stringForm
     }
+
+    override fun update(
+        transformer: RawGraphQLRequest.Builder.() -> RawGraphQLRequest.Builder
+    ): RawGraphQLRequest {
+        return transformer(
+                DefaultRawGraphQLRequestFactory.Companion.DefaultRawGraphQLRequestBuilder(
+                    requestId = this.requestId,
+                    executionId = this.executionId,
+                    uri = this.uri,
+                    headers = this.headers,
+                    principalPublisher = this.principalPublisher,
+                    rawGraphQLQueryText = this.rawGraphQLQueryText,
+                    operationName = this.operationName,
+                    variables = this.variables.builder(),
+                    locale = this.locale,
+                    expectedOutputFieldNames = this.expectedOutputFieldNames.builder(),
+                    executionInputCustomizers = this.executionInputCustomizers.builder(),
+                )
+            )
+            .build()
+    }
 }
