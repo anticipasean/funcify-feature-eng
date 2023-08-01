@@ -1,24 +1,23 @@
 package funcify.feature.materializer.input
 
 import com.fasterxml.jackson.databind.JsonNode
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.module.kotlin.convertValue
 import funcify.feature.error.ServiceError
 import funcify.feature.materializer.request.RawGraphQLRequest
 import funcify.feature.materializer.session.GraphQLSingleRequestSession
-import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.MonoExtensions.widen
 import funcify.feature.tools.extensions.StringExtensions.flatten
+import funcify.feature.tools.json.JsonMapper
+import funcify.feature.tools.json.MappingTarget.Companion.toKotlinObject
+import kotlin.reflect.typeOf
 import org.slf4j.Logger
 import reactor.core.publisher.Mono
-import kotlin.reflect.typeOf
 
 /**
  * @author smccarron
  * @created 2023-07-31
  */
-internal class DefaultSingleRequestRawInputContextExtractor :
+internal class DefaultSingleRequestRawInputContextExtractor(private val jsonMapper: JsonMapper) :
     SingleRequestRawInputContextExtractor {
 
     companion object {
@@ -65,7 +64,9 @@ internal class DefaultSingleRequestRawInputContextExtractor :
                 rawGraphQLRequest.variables[RawInputContext.RAW_INPUT_CONTEXT_VARIABLE_KEY]
         ) {
             is Map<*, *> -> {
-                Try.attempt { ObjectMapper().convertValue<Map<String, String?>>(rawInput) }
+                jsonMapper
+                    .fromKotlinObject(rawInput)
+                    .toKotlinObject<Map<String, String?>>()
                     .peekIfFailure { t: Throwable ->
                         logger.warn(
                             """build: [ failed to extract [ type: {} ] 

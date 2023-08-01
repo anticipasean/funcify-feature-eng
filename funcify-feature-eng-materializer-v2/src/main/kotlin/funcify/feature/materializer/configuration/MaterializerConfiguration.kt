@@ -182,8 +182,8 @@ class MaterializerConfiguration {
 
     @ConditionalOnMissingBean(value = [SingleRequestRawInputContextExtractor::class])
     @Bean
-    fun singleRequestRawInputContextExtractor(): SingleRequestRawInputContextExtractor {
-        return DefaultSingleRequestRawInputContextExtractor()
+    fun singleRequestRawInputContextExtractor(jsonMapper: JsonMapper): SingleRequestRawInputContextExtractor {
+        return DefaultSingleRequestRawInputContextExtractor(jsonMapper)
     }
 
     @ConditionalOnMissingBean(value = [GraphQLSingleRequestSessionFactory::class])
