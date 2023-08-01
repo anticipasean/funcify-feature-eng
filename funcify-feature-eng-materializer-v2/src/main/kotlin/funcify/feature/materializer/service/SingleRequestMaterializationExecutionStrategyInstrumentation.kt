@@ -6,13 +6,12 @@ import funcify.feature.error.ServiceError
 import funcify.feature.materializer.session.GraphQLSingleRequestSession
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import graphql.ExecutionResult
-import graphql.GraphQLContext
 import graphql.execution.ExecutionContext
 import graphql.execution.instrumentation.ExecutionStrategyInstrumentationContext
 import graphql.execution.instrumentation.Instrumentation
+import graphql.execution.instrumentation.InstrumentationContext
 import graphql.execution.instrumentation.InstrumentationState
 import graphql.execution.instrumentation.parameters.InstrumentationExecuteOperationParameters
-import graphql.execution.instrumentation.parameters.InstrumentationExecutionStrategyParameters
 import graphql.language.OperationDefinition
 import java.util.concurrent.CompletableFuture
 import kotlinx.collections.immutable.PersistentMap
@@ -32,19 +31,11 @@ internal class SingleRequestMaterializationExecutionStrategyInstrumentation(
     companion object {
         private val logger: Logger =
             loggerFor<SingleRequestMaterializationExecutionStrategyInstrumentation>()
-        private class MaterializationInstrumentationContext(
-            private val graphQLContext: GraphQLContext
-        ) : ExecutionStrategyInstrumentationContext {
+        private class MaterializationInstrumentationContext() :
+            ExecutionStrategyInstrumentationContext {
 
             override fun onDispatched(result: CompletableFuture<ExecutionResult>?) {
                 logger.debug("on_dispatched: [ result.is_done: {} ]", result?.isDone)
-                graphQLContext
-                    .getOrEmpty<GraphQLSingleRequestSession>(
-                        GraphQLSingleRequestSession.GRAPHQL_SINGLE_REQUEST_SESSION_KEY
-                    )
-                    .ifPresent { s: GraphQLSingleRequestSession ->
-                        s.reactiveDataLoaderRegistry.dispatchAll()
-                    }
             }
 
             override fun onCompleted(result: ExecutionResult?, t: Throwable?) {
@@ -60,12 +51,12 @@ internal class SingleRequestMaterializationExecutionStrategyInstrumentation(
         }
     }
 
-    override fun beginExecutionStrategy(
-        parameters: InstrumentationExecutionStrategyParameters?,
+    override fun beginExecuteOperation(
+        parameters: InstrumentationExecuteOperationParameters?,
         state: InstrumentationState?,
-    ): ExecutionStrategyInstrumentationContext {
+    ): InstrumentationContext<ExecutionResult> {
         logger.debug(
-            "begin_execution_strategy: [ parameters.execution_context.execution_id: {}, state.type: {} ]",
+            "begin_execute_operation: [ parameters.execution_context.execution_id: {}, state.type: {} ]",
             parameters?.executionContext?.executionId,
             state?.run { this::class }?.qualifiedName
         )
@@ -81,9 +72,7 @@ internal class SingleRequestMaterializationExecutionStrategyInstrumentation(
                 updateSessionWithOperationDefinitionAndProcessedVariables(ec)
             }
         }
-        return MaterializationInstrumentationContext(
-            parameters.executionContext?.graphQLContext ?: GraphQLContext.getDefault()
-        )
+        return MaterializationInstrumentationContext()
     }
 
     private fun updateSessionWithOperationDefinitionAndProcessedVariables(
