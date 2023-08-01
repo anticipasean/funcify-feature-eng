@@ -2,9 +2,9 @@ package funcify.feature.schema.path
 
 import arrow.core.Option
 
-internal object SchematicPathComparator : Comparator<SchematicPath> {
+internal object GQLOperationPathComparator : Comparator<GQLOperationPath> {
 
-    override fun compare(sp1: SchematicPath?, sp2: SchematicPath?): Int {
+    override fun compare(sp1: GQLOperationPath?, sp2: GQLOperationPath?): Int {
         return when (sp1) {
             null -> {
                 when (sp2) {
@@ -22,18 +22,18 @@ internal object SchematicPathComparator : Comparator<SchematicPath> {
                         1
                     }
                     else -> {
-                        schematicPathComparator.compare(sp1, sp2)
+                        gqlOperationPathComparator.compare(sp1, sp2)
                     }
                 }
             }
         }
     }
 
-    private val schematicPathComparator: Comparator<SchematicPath> by lazy {
-        Comparator.comparing(SchematicPath::scheme, String::compareTo)
-            .thenComparing(SchematicPath::pathSegments, stringListComparator)
-            .thenComparing(SchematicPath::argument, namedPathPairComparator)
-            .thenComparing(SchematicPath::directive, namedPathPairComparator)
+    private val gqlOperationPathComparator: Comparator<GQLOperationPath> by lazy {
+        Comparator.comparing(GQLOperationPath::scheme, String::compareTo)
+            .thenComparing(GQLOperationPath::pathSegments, stringListComparator)
+            .thenComparing(GQLOperationPath::argument, namedPathPairComparator)
+            .thenComparing(GQLOperationPath::directive, namedPathPairComparator)
     }
 
     private val stringListComparator: Comparator<List<String>> by lazy {

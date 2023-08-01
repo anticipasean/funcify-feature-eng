@@ -5,7 +5,6 @@ import arrow.core.orElse
 import funcify.feature.error.ServiceError
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.SequenceExtensions.flatMapOptions
-import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.PersistentList
 import kotlinx.collections.immutable.PersistentMap
@@ -19,6 +18,7 @@ import reactor.core.publisher.Mono
 import reactor.core.publisher.Sinks
 import reactor.core.publisher.Sinks.EmitResult
 import reactor.util.concurrent.Queues
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * @author smccarron

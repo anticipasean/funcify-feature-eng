@@ -4,7 +4,6 @@ import funcify.feature.materializer.session.MaterializationSession
 import reactor.core.publisher.Mono
 
 /**
- *
  * @author smccarron
  * @created 2/9/22
  */

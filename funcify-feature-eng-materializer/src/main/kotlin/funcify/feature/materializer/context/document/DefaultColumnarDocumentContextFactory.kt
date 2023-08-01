@@ -4,7 +4,7 @@ import arrow.core.Option
 import arrow.core.none
 import com.fasterxml.jackson.databind.JsonNode
 import funcify.feature.materializer.context.document.ColumnarDocumentContext.Builder
-import funcify.feature.schema.path.SchematicPath
+import funcify.feature.schema.path.GQLOperationPath
 import graphql.language.Document
 import graphql.language.OperationDefinition
 import kotlinx.collections.immutable.ImmutableMap
@@ -26,12 +26,12 @@ internal class DefaultColumnarDocumentContextFactory : ColumnarDocumentContextFa
         internal class DefaultColumnarDocumentContextBuilder(
             private var expectedFieldNames: PersistentList.Builder<String> =
                 persistentListOf<String>().builder(),
-            private var parameterValuesByPath: PersistentMap.Builder<SchematicPath, JsonNode> =
-                persistentMapOf<SchematicPath, JsonNode>().builder(),
-            private var sourceIndexPathsByFieldName: PersistentMap.Builder<String, SchematicPath> =
-                persistentMapOf<String, SchematicPath>().builder(),
+            private var parameterValuesByPath: PersistentMap.Builder<GQLOperationPath, JsonNode> =
+                persistentMapOf<GQLOperationPath, JsonNode>().builder(),
+            private var sourceIndexPathsByFieldName: PersistentMap.Builder<String, GQLOperationPath> =
+                persistentMapOf<String, GQLOperationPath>().builder(),
             private var queryComposerFunction:
-                Option<(ImmutableMap<SchematicPath, JsonNode>) -> OperationDefinition> =
+                Option<(ImmutableMap<GQLOperationPath, JsonNode>) -> OperationDefinition> =
                 none(),
             private var operationDefinition: Option<OperationDefinition> = none(),
             private var document: Option<Document> = none()
@@ -50,27 +50,27 @@ internal class DefaultColumnarDocumentContextFactory : ColumnarDocumentContextFa
             }
 
             override fun parameterValuesByPath(
-                parameterValuesByPath: PersistentMap<SchematicPath, JsonNode>
+                parameterValuesByPath: PersistentMap<GQLOperationPath, JsonNode>
             ): Builder {
                 this.parameterValuesByPath = parameterValuesByPath.builder()
                 return this
             }
 
             override fun addParameterValueForPath(
-                path: SchematicPath,
+                path: GQLOperationPath,
                 jsonValue: JsonNode
             ): Builder {
                 this.parameterValuesByPath[path] = jsonValue
                 return this
             }
 
-            override fun removeParameterValueWithPath(path: SchematicPath): Builder {
+            override fun removeParameterValueWithPath(path: GQLOperationPath): Builder {
                 this.parameterValuesByPath.remove(path)
                 return this
             }
 
             override fun sourceIndexPathsByFieldName(
-                sourceIndexPathsByFieldName: PersistentMap<String, SchematicPath>
+                sourceIndexPathsByFieldName: PersistentMap<String, GQLOperationPath>
             ): Builder {
                 this.sourceIndexPathsByFieldName = sourceIndexPathsByFieldName.builder()
                 return this
@@ -78,14 +78,14 @@ internal class DefaultColumnarDocumentContextFactory : ColumnarDocumentContextFa
 
             override fun addSourceIndexPathForFieldName(
                 fieldName: String,
-                path: SchematicPath
+                path: GQLOperationPath
             ): Builder {
                 this.sourceIndexPathsByFieldName[fieldName] = path
                 return this
             }
 
             override fun queryComposerFunction(
-                function: (ImmutableMap<SchematicPath, JsonNode>) -> OperationDefinition
+                function: (ImmutableMap<GQLOperationPath, JsonNode>) -> OperationDefinition
             ): Builder {
                 this.queryComposerFunction = Option(function)
                 return this
@@ -115,12 +115,12 @@ internal class DefaultColumnarDocumentContextFactory : ColumnarDocumentContextFa
 
         internal class DefaultColumnarDocumentContext(
             override val expectedFieldNames: PersistentList<String> = persistentListOf(),
-            override val parameterValuesByPath: PersistentMap<SchematicPath, JsonNode> =
+            override val parameterValuesByPath: PersistentMap<GQLOperationPath, JsonNode> =
                 persistentMapOf(),
-            override val sourceIndexPathsByFieldName: PersistentMap<String, SchematicPath> =
+            override val sourceIndexPathsByFieldName: PersistentMap<String, GQLOperationPath> =
                 persistentMapOf(),
             override val queryComposerFunction:
-                Option<(ImmutableMap<SchematicPath, JsonNode>) -> OperationDefinition> =
+                Option<(ImmutableMap<GQLOperationPath, JsonNode>) -> OperationDefinition> =
                 none(),
             override val operationDefinition: Option<OperationDefinition> = none(),
             override val document: Option<Document> = none()

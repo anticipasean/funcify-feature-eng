@@ -4,15 +4,15 @@ import arrow.core.foldLeft
 import com.fasterxml.jackson.databind.node.JsonNodeFactory
 import com.fasterxml.jackson.databind.node.ObjectNode
 import graphql.execution.ExecutionId
-import java.net.URI
-import java.security.Principal
-import java.util.*
 import kotlinx.collections.immutable.PersistentList
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentMapOf
 import org.springframework.messaging.MessageHeaders
 import reactor.core.publisher.Mono
+import java.net.URI
+import java.security.Principal
+import java.util.*
 
 internal data class DefaultRawGraphQLRequest(
     override val requestId: UUID,

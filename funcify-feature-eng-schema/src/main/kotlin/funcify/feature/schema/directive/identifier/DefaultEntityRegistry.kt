@@ -8,41 +8,44 @@ import arrow.core.orElse
 import arrow.core.right
 import arrow.core.some
 import arrow.core.toOption
-import funcify.feature.schema.path.SchematicPath
+import funcify.feature.schema.path.GQLOperationPath
 import funcify.feature.tools.extensions.OptionExtensions.recurse
 import funcify.feature.tools.extensions.SequenceExtensions.flatMapOptions
-import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.ConcurrentMap
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.PersistentSet
 import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.persistentSetOf
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ConcurrentMap
 
 /**
- *
  * @author smccarron
  * @created 2022-09-15
  */
 internal class DefaultEntityRegistry(
-    private val entityIdentifierAttributePathsSet: PersistentSet<SchematicPath> = persistentSetOf()
+    private val entityIdentifierAttributePathsSet: PersistentSet<GQLOperationPath> =
+        persistentSetOf()
 ) : EntityRegistry {
 
     private val entityIdentifierAttributePathsByParentPath:
-        PersistentMap<SchematicPath, PersistentSet<SchematicPath>> by lazy {
+        PersistentMap<GQLOperationPath, PersistentSet<GQLOperationPath>> by lazy {
         entityIdentifierAttributePathsSet
             .asSequence()
             .map { sp -> sp.getParentPath().map { pp -> pp to sp } }
             .flatMapOptions()
-            .fold(persistentMapOf<SchematicPath, PersistentSet<SchematicPath>>()) { pm, (pp, cp) ->
+            .fold(persistentMapOf<GQLOperationPath, PersistentSet<GQLOperationPath>>()) {
+                pm,
+                (pp, cp) ->
                 pm.put(pp, pm.getOrElse(pp) { persistentSetOf() }.add(cp))
             }
     }
 
     private val nearestEntityIdentifierAttributeRelativesMemoizer:
-        (SchematicPath) -> PersistentSet<SchematicPath> by lazy {
-        val cache: ConcurrentMap<SchematicPath, PersistentSet<SchematicPath>> = ConcurrentHashMap()
-        ({ path: SchematicPath ->
+        (GQLOperationPath) -> PersistentSet<GQLOperationPath> by lazy {
+        val cache: ConcurrentMap<GQLOperationPath, PersistentSet<GQLOperationPath>> =
+            ConcurrentHashMap()
+        ({ path: GQLOperationPath ->
             cache
                 .computeIfAbsent(path, nearestEntityIdentifierAttributeRelativesCalculator())
                 .toOption()
@@ -51,9 +54,9 @@ internal class DefaultEntityRegistry(
     }
 
     private val nearestEntitySourceContainerTypeVertexAncestorMemoizer:
-        (SchematicPath) -> Option<SchematicPath> by lazy {
-        val cache: ConcurrentMap<SchematicPath, SchematicPath> = ConcurrentHashMap()
-        ({ path: SchematicPath ->
+        (GQLOperationPath) -> Option<GQLOperationPath> by lazy {
+        val cache: ConcurrentMap<GQLOperationPath, GQLOperationPath> = ConcurrentHashMap()
+        ({ path: GQLOperationPath ->
             cache
                 .computeIfAbsent(path, nearestEntitySourceContainerTypeVertexAncestorCalculator())
                 .toOption()
@@ -61,7 +64,7 @@ internal class DefaultEntityRegistry(
     }
 
     override fun registerSchematicPathAsMappingToEntityIdentifierAttributeVertex(
-        path: SchematicPath
+        path: GQLOperationPath
     ): EntityRegistry {
         return when {
             // Path cannot represent a parameter vertex, as even parameter containers are not
@@ -77,34 +80,34 @@ internal class DefaultEntityRegistry(
         }
     }
 
-    override fun pathBelongsToEntityIdentifierAttributeVertex(path: SchematicPath): Boolean {
+    override fun pathBelongsToEntityIdentifierAttributeVertex(path: GQLOperationPath): Boolean {
         return entityIdentifierAttributePathsSet.contains(path)
     }
 
     override fun getAllPathsBelongingToEntityIdentifierAttributeVertices():
-        ImmutableSet<SchematicPath> {
+        ImmutableSet<GQLOperationPath> {
         return entityIdentifierAttributePathsSet
     }
 
-    override fun pathBelongsToEntitySourceContainerTypeVertex(path: SchematicPath): Boolean {
+    override fun pathBelongsToEntitySourceContainerTypeVertex(path: GQLOperationPath): Boolean {
         return entityIdentifierAttributePathsByParentPath.containsKey(path)
     }
 
     override fun getEntityIdentifierAttributeVerticesBelongingToSourceContainerIndexPath(
-        path: SchematicPath
-    ): ImmutableSet<SchematicPath> {
+        path: GQLOperationPath
+    ): ImmutableSet<GQLOperationPath> {
         return entityIdentifierAttributePathsByParentPath[path] ?: persistentSetOf()
     }
 
     override fun findNearestEntityIdentifierPathRelatives(
-        path: SchematicPath
-    ): ImmutableSet<SchematicPath> {
+        path: GQLOperationPath
+    ): ImmutableSet<GQLOperationPath> {
         return nearestEntityIdentifierAttributeRelativesMemoizer(path)
     }
 
     private fun nearestEntityIdentifierAttributeRelativesCalculator():
-        (SchematicPath) -> PersistentSet<SchematicPath>? {
-        return { path: SchematicPath ->
+        (GQLOperationPath) -> PersistentSet<GQLOperationPath>? {
+        return { path: GQLOperationPath ->
             when {
                 path.isRoot() -> {
                     none()
@@ -138,14 +141,14 @@ internal class DefaultEntityRegistry(
     }
 
     override fun findNearestEntitySourceContainerTypeVertexAncestor(
-        path: SchematicPath
-    ): Option<SchematicPath> {
+        path: GQLOperationPath
+    ): Option<GQLOperationPath> {
         return nearestEntitySourceContainerTypeVertexAncestorMemoizer(path)
     }
 
     private fun nearestEntitySourceContainerTypeVertexAncestorCalculator():
-        (SchematicPath) -> SchematicPath? {
-        return { path: SchematicPath ->
+        (GQLOperationPath) -> GQLOperationPath? {
+        return { path: GQLOperationPath ->
             when {
                 path.isRoot() -> {
                     none()

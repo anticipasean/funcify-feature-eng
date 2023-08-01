@@ -17,7 +17,7 @@ import funcify.feature.materializer.service.DefaultMaterializationGraphConnector
 import funcify.feature.materializer.spec.DefaultRetrievalFunctionSpec
 import funcify.feature.materializer.spec.RetrievalFunctionSpec
 import funcify.feature.schema.dataelement.DataElementSource
-import funcify.feature.schema.path.SchematicPath
+import funcify.feature.schema.path.GQLOperationPath
 import funcify.feature.schema.vertex.ParameterAttributeVertex
 import funcify.feature.schema.vertex.ParameterJunctionVertex
 import funcify.feature.schema.vertex.ParameterLeafVertex
@@ -83,7 +83,7 @@ internal class DefaultMaterializationGraphConnector(
         if (sourceJunctionOrLeafVertexAlreadyConnected(vertex, context)) {
             return context
         }
-        val currentOrAncestorPathWithSameDataSource: SchematicPath =
+        val currentOrAncestorPathWithSameDataSource: GQLOperationPath =
             SourceAttributeDataSourceAncestorPathFinder(
                 context.materializationMetamodel,
                 vertex.path
@@ -178,7 +178,7 @@ internal class DefaultMaterializationGraphConnector(
     }
 
     private fun moreThanOneDataSourceFoundExceptionSupplier(
-        vertexPath: SchematicPath
+        vertexPath: GQLOperationPath
     ): () -> MaterializerException {
         return { ->
             MaterializerException(
@@ -256,10 +256,10 @@ internal class DefaultMaterializationGraphConnector(
     }
 
     private fun specAlreadyDefinedForDifferentDataSourceExceptionSupplier(
-        path: SchematicPath,
+        path: GQLOperationPath,
         selectedDatasourceKey: DataElementSource.Key<*>,
         retrievalFunctionSpecByTopSourceIndexPath:
-            PersistentMap<SchematicPath, RetrievalFunctionSpec>
+            PersistentMap<GQLOperationPath, RetrievalFunctionSpec>
     ): () -> MaterializerException {
         return { ->
             MaterializerException(
@@ -285,7 +285,7 @@ internal class DefaultMaterializationGraphConnector(
 
     private fun <V : SourceAttributeVertex> addSourceAttributeVertexUnderAncestorSpecInContext(
         vertex: V,
-        ancestorPath: SchematicPath,
+        ancestorPath: GQLOperationPath,
         context: MaterializationGraphContext,
     ): MaterializationGraphContext {
         return context.metamodelGraph.pathBasedGraph
@@ -404,7 +404,7 @@ internal class DefaultMaterializationGraphConnector(
     }
 
     private fun vertexNotFoundAtPathExceptionSupplier(
-        path: SchematicPath
+        path: GQLOperationPath
     ): () -> MaterializerException {
         return { ->
             MaterializerException(
@@ -420,7 +420,7 @@ internal class DefaultMaterializationGraphConnector(
     private fun <V : SourceAttributeVertex> getVertexPathWithListIndexingIfDescendentOfListNode(
         vertex: V,
         context: MaterializationGraphContext
-    ): SchematicPath {
+    ): GQLOperationPath {
         return ListIndexedSchematicPathGraphQLSchemaBasedCalculator(
                 vertex.path,
                 context.graphQLSchema
@@ -504,7 +504,7 @@ internal class DefaultMaterializationGraphConnector(
             )
             .zip(deriveParameterJunctionLeafVertexEither(vertex))
             .flatMap { (updatedContext, parameterJunctionOrLeafVertex) ->
-                val sourceIndexPath: SchematicPath = vertex.path.transform { clearArguments() }
+                val sourceIndexPath: GQLOperationPath = vertex.path.transform { clearArguments() }
                 val topLevelSourceIndexPath =
                     SourceAttributeDataSourceAncestorPathFinder(
                         updatedContext.materializationMetamodel,
@@ -615,7 +615,7 @@ internal class DefaultMaterializationGraphConnector(
     }
 
     private fun retrievalFunctionSpecMissingExceptionSupplier(
-        sourceIndexPath: SchematicPath
+        sourceIndexPath: GQLOperationPath
     ): () -> MaterializerException {
         return {
             MaterializerException(
@@ -629,7 +629,7 @@ internal class DefaultMaterializationGraphConnector(
     }
 
     private fun argumentValueNotResolvedIntoJsonExceptionSupplier(
-        vertexPath: SchematicPath,
+        vertexPath: GQLOperationPath,
         argument: Argument
     ): () -> MaterializerException {
         return { ->
@@ -649,8 +649,8 @@ internal class DefaultMaterializationGraphConnector(
         vertex: V,
         context: MaterializationGraphContext
     ): Try<MaterializationGraphContext> {
-        val sourceIndexPath: SchematicPath = vertex.path.transform { clearArguments() }
-        val topLevelSourceIndexPath: SchematicPath =
+        val sourceIndexPath: GQLOperationPath = vertex.path.transform { clearArguments() }
+        val topLevelSourceIndexPath: GQLOperationPath =
             SourceAttributeDataSourceAncestorPathFinder(
                 context.materializationMetamodel,
                 sourceIndexPath
@@ -706,7 +706,7 @@ internal class DefaultMaterializationGraphConnector(
                                     sjvOrSlv.fold(::identity, ::identity)
                                 )
                             if (topLevelSourceIndexPath != sourceIndexPath) {
-                                val listIndexedPath: SchematicPath =
+                                val listIndexedPath: GQLOperationPath =
                                     getVertexPathWithListIndexingIfDescendentOfListNode(
                                         sjvOrSlv.fold(::identity, ::identity),
                                         context
@@ -744,7 +744,7 @@ internal class DefaultMaterializationGraphConnector(
             )
             .zip(deriveParameterJunctionLeafVertexEither(vertex))
             .flatMap { (updatedContext, parameterJunctionOrLeafVertex) ->
-                val sourceIndexPath: SchematicPath = vertex.path.transform { clearArguments() }
+                val sourceIndexPath: GQLOperationPath = vertex.path.transform { clearArguments() }
                 val topLevelSourceIndexPath =
                     SourceAttributeDataSourceAncestorPathFinder(
                         updatedContext.materializationMetamodel,
@@ -794,7 +794,7 @@ internal class DefaultMaterializationGraphConnector(
                             .map { spec -> Triple(matchedSrcAttrVertex, spec, latestContext) }
                     }
                     .map { (matchedSrcAttrVertex, spec, latestContext) ->
-                        val listIndexedPath: SchematicPath =
+                        val listIndexedPath: GQLOperationPath =
                             getVertexPathWithListIndexingIfDescendentOfListNode(
                                 matchedSrcAttrVertex,
                                 latestContext
@@ -844,7 +844,7 @@ internal class DefaultMaterializationGraphConnector(
     }
 
     private fun correspondingSourceAttributeVertexNotAddedExceptionSupplier(
-        path: SchematicPath
+        path: GQLOperationPath
     ): () -> MaterializerException {
         return { ->
             MaterializerException(
@@ -876,7 +876,7 @@ internal class DefaultMaterializationGraphConnector(
                 deriveParameterJunctionLeafVertexEither(vertex)
             )
             .flatMap { (updatedContext, defaultJsonValue, parameterJunctionOrLeafVertex) ->
-                val sourceIndexPath: SchematicPath = vertex.path.transform { clearArguments() }
+                val sourceIndexPath: GQLOperationPath = vertex.path.transform { clearArguments() }
                 val topLevelSourceIndexPath =
                     SourceAttributeDataSourceAncestorPathFinder(
                         updatedContext.materializationMetamodel,
@@ -922,7 +922,7 @@ internal class DefaultMaterializationGraphConnector(
     }
 
     private fun defaultArgumentValueNotResolvedIntoJsonExceptionSupplier(
-        vertexPath: SchematicPath
+        vertexPath: GQLOperationPath
     ): () -> MaterializerException {
         return { ->
             MaterializerException(

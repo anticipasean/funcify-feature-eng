@@ -9,7 +9,7 @@ import funcify.feature.materializer.dispatch.SourceIndexRequestDispatch.Trackabl
 import funcify.feature.materializer.error.MaterializerErrorResponse
 import funcify.feature.materializer.error.MaterializerException
 import funcify.feature.materializer.session.GraphQLSingleRequestSession
-import funcify.feature.schema.path.SchematicPath
+import funcify.feature.schema.path.GQLOperationPath
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import java.time.Instant
 import kotlinx.collections.immutable.ImmutableMap
@@ -32,11 +32,11 @@ internal class DefaultTrackableValuePublishingContextFactory :
             private var dispatchedRequest: TrackableSingleJsonValueDispatch? = null,
             private var publisher: FeatureJsonValuePublisher? = null,
             private var calculatedValue: TrackableValue.CalculatedValue<JsonNode>? = null,
-            private var lastUpdatedInstantsByPath: PersistentMap.Builder<SchematicPath, Instant> =
-                persistentMapOf<SchematicPath, Instant>().builder(),
+            private var lastUpdatedInstantsByPath: PersistentMap.Builder<GQLOperationPath, Instant> =
+                persistentMapOf<GQLOperationPath, Instant>().builder(),
             private var entityIdentifierValuesByPath:
-                PersistentMap.Builder<SchematicPath, JsonNode> =
-                persistentMapOf<SchematicPath, JsonNode>().builder(),
+                PersistentMap.Builder<GQLOperationPath, JsonNode> =
+                persistentMapOf<GQLOperationPath, JsonNode>().builder(),
         ) : Builder {
 
             override fun graphQLSingleRequestSession(
@@ -68,7 +68,7 @@ internal class DefaultTrackableValuePublishingContextFactory :
             }
 
             override fun putLastUpdatedInstantForPath(
-                path: SchematicPath,
+                path: GQLOperationPath,
                 lastUpdatedInstant: Instant
             ): Builder {
                 this.lastUpdatedInstantsByPath[path] = lastUpdatedInstant
@@ -76,13 +76,13 @@ internal class DefaultTrackableValuePublishingContextFactory :
             }
 
             override fun putAllLastUpdatedInstantsForPaths(
-                lastUpdatedInstantsByPath: Map<SchematicPath, Instant>
+                lastUpdatedInstantsByPath: Map<GQLOperationPath, Instant>
             ): Builder {
                 this.lastUpdatedInstantsByPath.putAll(lastUpdatedInstantsByPath)
                 return this
             }
 
-            override fun removeLastUpdatedInstantForPath(path: SchematicPath): Builder {
+            override fun removeLastUpdatedInstantForPath(path: GQLOperationPath): Builder {
                 this.lastUpdatedInstantsByPath.remove(path)
                 return this
             }
@@ -93,7 +93,7 @@ internal class DefaultTrackableValuePublishingContextFactory :
             }
 
             override fun putEntityIdentifierValueForPath(
-                path: SchematicPath,
+                path: GQLOperationPath,
                 entityIdentifierValue: JsonNode
             ): Builder {
                 this.entityIdentifierValuesByPath[path] = entityIdentifierValue
@@ -101,13 +101,13 @@ internal class DefaultTrackableValuePublishingContextFactory :
             }
 
             override fun putAllEntityIdentifierValuesForPaths(
-                entityIdentifiersByPath: Map<SchematicPath, JsonNode>
+                entityIdentifiersByPath: Map<GQLOperationPath, JsonNode>
             ): Builder {
                 this.entityIdentifierValuesByPath.putAll(entityIdentifiersByPath)
                 return this
             }
 
-            override fun removeEntityIdentifierValueForPath(path: SchematicPath): Builder {
+            override fun removeEntityIdentifierValueForPath(path: GQLOperationPath): Builder {
                 this.entityIdentifierValuesByPath.remove(path)
                 return this
             }
@@ -155,8 +155,8 @@ internal class DefaultTrackableValuePublishingContextFactory :
             override val dispatchedRequest: TrackableSingleJsonValueDispatch,
             override val publisher: FeatureJsonValuePublisher,
             override val calculatedValue: TrackableValue.CalculatedValue<JsonNode>,
-            override val lastUpdatedInstantsByPath: ImmutableMap<SchematicPath, Instant>,
-            override val entityIdentifierValuesByPath: ImmutableMap<SchematicPath, JsonNode>,
+            override val lastUpdatedInstantsByPath: ImmutableMap<GQLOperationPath, Instant>,
+            override val entityIdentifierValuesByPath: ImmutableMap<GQLOperationPath, JsonNode>,
         ) : TrackableValuePublishingContext {
 
             override fun update(

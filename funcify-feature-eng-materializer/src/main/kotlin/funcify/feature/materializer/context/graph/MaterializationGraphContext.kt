@@ -6,7 +6,7 @@ import funcify.feature.materializer.schema.MaterializationMetamodel
 import funcify.feature.materializer.schema.edge.RequestParameterEdge
 import funcify.feature.materializer.spec.RetrievalFunctionSpec
 import funcify.feature.schema.MetamodelGraph
-import funcify.feature.schema.path.SchematicPath
+import funcify.feature.schema.path.GQLOperationPath
 import funcify.feature.tools.container.graph.PathBasedGraph
 import graphql.language.OperationDefinition
 import graphql.schema.GraphQLSchema
@@ -40,15 +40,15 @@ interface MaterializationGraphContext {
 
     val queryVariables: ImmutableMap<String, Any?>
 
-    val requestParameterGraph: PathBasedGraph<SchematicPath, SchematicVertex, RequestParameterEdge>
+    val requestParameterGraph: PathBasedGraph<GQLOperationPath, SchematicVertex, RequestParameterEdge>
 
-    val materializedParameterValuesByPath: ImmutableMap<SchematicPath, JsonNode>
+    val materializedParameterValuesByPath: ImmutableMap<GQLOperationPath, JsonNode>
 
     val parameterIndexPathsBySourceIndexPath:
-        PersistentMap<SchematicPath, PersistentSet<SchematicPath>>
+        PersistentMap<GQLOperationPath, PersistentSet<GQLOperationPath>>
 
     val retrievalFunctionSpecByTopSourceIndexPath:
-        PersistentMap<SchematicPath, RetrievalFunctionSpec>
+        PersistentMap<GQLOperationPath, RetrievalFunctionSpec>
 
     fun update(transformer: Builder.() -> Builder): MaterializationGraphContext
 
@@ -62,40 +62,40 @@ interface MaterializationGraphContext {
 
         fun requestParameterGraph(
             requestParameterGraph:
-                PathBasedGraph<SchematicPath, SchematicVertex, RequestParameterEdge>
+                PathBasedGraph<GQLOperationPath, SchematicVertex, RequestParameterEdge>
         ): Builder
 
         fun addVertexToRequestParameterGraph(vertex: SchematicVertex): Builder
 
         fun addEdgeToRequestParameterGraph(edge: RequestParameterEdge): Builder
 
-        fun removeEdgesFromRequestParameterGraph(edgeId: Pair<SchematicPath, SchematicPath>): Builder
+        fun removeEdgesFromRequestParameterGraph(edgeId: Pair<GQLOperationPath, GQLOperationPath>): Builder
 
-        fun removeEdgesFromRequestParameterGraph(path1: SchematicPath, path2: SchematicPath): Builder
+        fun removeEdgesFromRequestParameterGraph(path1: GQLOperationPath, path2: GQLOperationPath): Builder
 
         fun materializedParameterValuesByPath(
-            materializedParameterValuesByPath: PersistentMap<SchematicPath, JsonNode>
+            materializedParameterValuesByPath: PersistentMap<GQLOperationPath, JsonNode>
         ): Builder
 
-        fun addMaterializedParameterValueForPath(path: SchematicPath, value: JsonNode): Builder
+        fun addMaterializedParameterValueForPath(path: GQLOperationPath, value: JsonNode): Builder
 
         fun parameterIndexPathsBySourceIndexPath(
             parameterIndexPathsBySourceIndexPath:
-                PersistentMap<SchematicPath, PersistentSet<SchematicPath>>
+                PersistentMap<GQLOperationPath, PersistentSet<GQLOperationPath>>
         ): Builder
 
         fun addParameterIndexPathForSourceIndexPath(
-            path: SchematicPath,
-            parameterIndexPath: SchematicPath
+            path: GQLOperationPath,
+            parameterIndexPath: GQLOperationPath
         ): Builder
 
         fun retrievalFunctionSpecsByTopSourceIndexPath(
             retrievalFunctionSpecsByTopSourceIndexPath:
-                PersistentMap<SchematicPath, RetrievalFunctionSpec>
+                PersistentMap<GQLOperationPath, RetrievalFunctionSpec>
         ): Builder
 
         fun addRetrievalFunctionSpecForTopSourceIndexPath(
-            path: SchematicPath,
+            path: GQLOperationPath,
             spec: RetrievalFunctionSpec
         ): Builder
 

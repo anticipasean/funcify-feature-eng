@@ -7,7 +7,6 @@ import graphql.schema.DataFetcherFactoryEnvironment
 import java.util.concurrent.CompletionStage
 
 /**
- *
  * @author smccarron
  * @created 2022-08-03
  */

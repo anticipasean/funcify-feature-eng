@@ -20,13 +20,13 @@ import graphql.language.Definition
 import graphql.language.Document
 import graphql.language.NamedNode
 import graphql.language.OperationDefinition
+import org.slf4j.Logger
+import reactor.core.publisher.Mono
+import reactor.kotlin.core.publisher.toMono
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentMap
 import java.util.stream.Collectors
-import org.slf4j.Logger
-import reactor.core.publisher.Mono
-import reactor.kotlin.core.publisher.toMono
 
 /**
  * @author smccarron

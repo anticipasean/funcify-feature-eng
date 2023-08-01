@@ -6,7 +6,7 @@ import arrow.core.right
 import funcify.feature.materializer.error.MaterializerErrorResponse
 import funcify.feature.materializer.error.MaterializerException
 import funcify.feature.schema.dataelement.DataElementSource
-import funcify.feature.schema.path.SchematicPath
+import funcify.feature.schema.path.GQLOperationPath
 import funcify.feature.schema.vertex.ParameterJunctionVertex
 import funcify.feature.schema.vertex.ParameterLeafVertex
 import funcify.feature.schema.vertex.SourceJunctionVertex
@@ -18,10 +18,10 @@ import kotlinx.collections.immutable.persistentMapOf
 internal data class DefaultRetrievalFunctionSpec(
     override val dataSource: DataElementSource<*>,
     override val sourceVerticesByPath:
-        PersistentMap<SchematicPath, Either<SourceJunctionVertex, SourceLeafVertex>> =
+        PersistentMap<GQLOperationPath, Either<SourceJunctionVertex, SourceLeafVertex>> =
         persistentMapOf(),
     override val parameterVerticesByPath:
-        PersistentMap<SchematicPath, Either<ParameterJunctionVertex, ParameterLeafVertex>> =
+        PersistentMap<GQLOperationPath, Either<ParameterJunctionVertex, ParameterLeafVertex>> =
         persistentMapOf(),
 ) : RetrievalFunctionSpec {
 
@@ -30,10 +30,10 @@ internal data class DefaultRetrievalFunctionSpec(
             private var dataSource: DataElementSource<*>,
             private val sourceVerticesByPathBuilder:
                 PersistentMap.Builder<
-                    SchematicPath, Either<SourceJunctionVertex, SourceLeafVertex>>,
+                    GQLOperationPath, Either<SourceJunctionVertex, SourceLeafVertex>>,
             private val parameterVerticesByPathBuilder:
                 PersistentMap.Builder<
-                    SchematicPath, Either<ParameterJunctionVertex, ParameterLeafVertex>>
+                    GQLOperationPath, Either<ParameterJunctionVertex, ParameterLeafVertex>>
         ) : RetrievalFunctionSpec.SpecBuilder {
 
             override fun dataSource(dataSource: DataElementSource<*>): RetrievalFunctionSpec.SpecBuilder {

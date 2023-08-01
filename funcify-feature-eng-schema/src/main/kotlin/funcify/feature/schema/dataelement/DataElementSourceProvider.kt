@@ -10,6 +10,6 @@ import reactor.core.publisher.Mono
 interface DataElementSourceProvider<out DES : DataElementSource> : SourceProvider<DES> {
 
     override val name: String
-    
+
     override fun getLatestSource(): Mono<out DES>
 }

@@ -5,7 +5,7 @@ import com.fasterxml.jackson.databind.JsonNode
 import funcify.feature.materializer.schema.edge.RequestParameterEdge.Builder
 import funcify.feature.materializer.schema.edge.RequestParameterEdge.DependentValueRequestParameterEdge
 import funcify.feature.materializer.schema.edge.RequestParameterEdge.MaterializedValueRequestParameterEdge
-import funcify.feature.schema.path.SchematicPath
+import funcify.feature.schema.path.GQLOperationPath
 import kotlinx.collections.immutable.ImmutableMap
 
 /**
@@ -18,29 +18,29 @@ internal class DefaultRequestParameterEdgeFactory : RequestParameterEdgeFactory 
     companion object {
 
         internal data class DefaultMaterializedValueRequestParameterEdge(
-            override val id: Pair<SchematicPath, SchematicPath>,
+            override val id: Pair<GQLOperationPath, GQLOperationPath>,
             override val materializedJsonValue: JsonNode
         ) : MaterializedValueRequestParameterEdge {}
 
         internal data class DefaultDependentValueRequestParameterEdge(
-            override val id: Pair<SchematicPath, SchematicPath>,
+            override val id: Pair<GQLOperationPath, GQLOperationPath>,
             override val extractionFunction:
-                (ImmutableMap<SchematicPath, JsonNode>) -> Option<JsonNode>
+                (ImmutableMap<GQLOperationPath, JsonNode>) -> Option<JsonNode>
         ) : DependentValueRequestParameterEdge {}
 
         internal data class DefaultBuilder(
-            private var pathPair: Pair<SchematicPath, SchematicPath>? = null,
+            private var pathPair: Pair<GQLOperationPath, GQLOperationPath>? = null,
             private var materializedJsonNode: JsonNode? = null,
-            private var extractor: ((ImmutableMap<SchematicPath, JsonNode>) -> Option<JsonNode>)? =
+            private var extractor: ((ImmutableMap<GQLOperationPath, JsonNode>) -> Option<JsonNode>)? =
                 null
         ) : Builder {
 
-            override fun fromPathToPath(path1: SchematicPath, path2: SchematicPath): Builder {
+            override fun fromPathToPath(path1: GQLOperationPath, path2: GQLOperationPath): Builder {
                 this.pathPair = path1 to path2
                 return this
             }
 
-            override fun fromPathToPath(edgeKey: Pair<SchematicPath, SchematicPath>): Builder {
+            override fun fromPathToPath(edgeKey: Pair<GQLOperationPath, GQLOperationPath>): Builder {
                 this.pathPair = edgeKey
                 return this
             }
@@ -51,7 +51,7 @@ internal class DefaultRequestParameterEdgeFactory : RequestParameterEdgeFactory 
             }
 
             override fun dependentExtractionFunction(
-                extractor: (ImmutableMap<SchematicPath, JsonNode>) -> Option<JsonNode>
+                extractor: (ImmutableMap<GQLOperationPath, JsonNode>) -> Option<JsonNode>
             ): Builder {
                 this.extractor = extractor
                 return this

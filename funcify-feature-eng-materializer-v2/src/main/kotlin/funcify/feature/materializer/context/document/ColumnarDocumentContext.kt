@@ -2,7 +2,7 @@ package funcify.feature.materializer.context.document
 
 import arrow.core.Option
 import com.fasterxml.jackson.databind.JsonNode
-import funcify.feature.schema.path.SchematicPath
+import funcify.feature.schema.path.GQLOperationPath
 import graphql.language.Document
 import graphql.language.OperationDefinition
 import kotlinx.collections.immutable.ImmutableList
@@ -23,12 +23,12 @@ interface ColumnarDocumentContext {
 
     val expectedFieldNames: ImmutableList<String>
 
-    val parameterValuesByPath: ImmutableMap<SchematicPath, JsonNode>
+    val parameterValuesByPath: ImmutableMap<GQLOperationPath, JsonNode>
 
-    val sourceIndexPathsByFieldName: ImmutableMap<String, SchematicPath>
+    val sourceIndexPathsByFieldName: ImmutableMap<String, GQLOperationPath>
 
     val queryComposerFunction:
-        Option<(ImmutableMap<SchematicPath, JsonNode>) -> OperationDefinition>
+        Option<(ImmutableMap<GQLOperationPath, JsonNode>) -> OperationDefinition>
 
     val operationDefinition: Option<OperationDefinition>
 
@@ -41,21 +41,21 @@ interface ColumnarDocumentContext {
         fun expectedFieldNames(expectedFieldNames: List<String>): Builder
 
         fun parameterValuesByPath(
-            parameterValuesByPath: PersistentMap<SchematicPath, JsonNode>
+            parameterValuesByPath: PersistentMap<GQLOperationPath, JsonNode>
         ): Builder
 
-        fun addParameterValueForPath(path: SchematicPath, jsonValue: JsonNode): Builder
+        fun addParameterValueForPath(path: GQLOperationPath, jsonValue: JsonNode): Builder
 
-        fun removeParameterValueWithPath(path: SchematicPath): Builder
+        fun removeParameterValueWithPath(path: GQLOperationPath): Builder
 
         fun sourceIndexPathsByFieldName(
-            sourceIndexPathsByFieldName: PersistentMap<String, SchematicPath>
+            sourceIndexPathsByFieldName: PersistentMap<String, GQLOperationPath>
         ): Builder
 
-        fun addSourceIndexPathForFieldName(fieldName: String, path: SchematicPath): Builder
+        fun addSourceIndexPathForFieldName(fieldName: String, path: GQLOperationPath): Builder
 
         fun queryComposerFunction(
-            function: (ImmutableMap<SchematicPath, JsonNode>) -> OperationDefinition
+            function: (ImmutableMap<GQLOperationPath, JsonNode>) -> OperationDefinition
         ): Builder
 
         fun operationDefinition(operationDefinition: OperationDefinition): Builder

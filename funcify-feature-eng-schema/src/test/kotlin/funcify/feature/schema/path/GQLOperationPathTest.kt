@@ -6,12 +6,12 @@ import kotlinx.collections.immutable.persistentListOf
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
 
-internal class SchematicPathTest {
+internal class GQLOperationPathTest {
 
     @Test
     fun pathSegmentsOnlyTest() {
-        val p1: SchematicPath = SchematicPath.getRootPath()
-        val p2: SchematicPath = p1.transform { appendPathSegment("pets") }
+        val p1: GQLOperationPath = GQLOperationPath.getRootPath()
+        val p2: GQLOperationPath = p1.transform { appendPathSegment("pets") }
         Assertions.assertNotEquals(0, p2.pathSegments.compareTo(p1.pathSegments))
         Assertions.assertEquals(1, p2.pathSegments.size)
         Assertions.assertEquals(0, p2.getParentPath().orNull()?.pathSegments?.size)
@@ -19,8 +19,8 @@ internal class SchematicPathTest {
 
     @Test
     fun pathSegmentsAndArgumentsTest() {
-        val p1: SchematicPath = SchematicPath.getRootPath()
-        val p2: SchematicPath =
+        val p1: GQLOperationPath = GQLOperationPath.getRootPath()
+        val p2: GQLOperationPath =
             p1.transform {
                 appendPathSegment("pets")
                 argument("breed")
@@ -33,8 +33,8 @@ internal class SchematicPathTest {
 
     @Test
     fun pathSegmentsArgumentsAndDirectivesTest() {
-        val p1: SchematicPath = SchematicPath.getRootPath()
-        val p2: SchematicPath =
+        val p1: GQLOperationPath = GQLOperationPath.getRootPath()
+        val p2: GQLOperationPath =
             p1.transform {
                 appendPathSegment("pets")
                 argument("breed")
@@ -54,8 +54,8 @@ internal class SchematicPathTest {
 
     @Test
     fun argumentsOnlyTest() {
-        val p1: SchematicPath = SchematicPath.getRootPath()
-        val p2: SchematicPath =
+        val p1: GQLOperationPath = GQLOperationPath.getRootPath()
+        val p2: GQLOperationPath =
             p1.transform {
                 appendPathSegment("pets")
                 argument("breed", "name")
@@ -82,8 +82,8 @@ internal class SchematicPathTest {
 
     @Test
     fun directivesOnlyTest() {
-        val p1: SchematicPath = SchematicPath.getRootPath()
-        val p2: SchematicPath =
+        val p1: GQLOperationPath = GQLOperationPath.getRootPath()
+        val p2: GQLOperationPath =
             p1.transform {
                 appendPathSegment("pets")
                 directive("format", "uppercase")
@@ -110,9 +110,9 @@ internal class SchematicPathTest {
 
     @Test
     fun parseTest() {
-        val sp: SchematicPath =
-            Assertions.assertDoesNotThrow<SchematicPath> {
-                SchematicPath.parseOrThrow("mlfs:/pets/dogs?breed=/size/small#format=/camelCase")
+        val sp: GQLOperationPath =
+            Assertions.assertDoesNotThrow<GQLOperationPath> {
+                GQLOperationPath.parseOrThrow("mlfs:/pets/dogs?breed=/size/small#format=/camelCase")
             }
         Assertions.assertEquals(2, sp.pathSegments.size)
         Assertions.assertEquals(persistentListOf("pets", "dogs"), sp.pathSegments)
@@ -120,9 +120,9 @@ internal class SchematicPathTest {
         Assertions.assertEquals(persistentListOf("size", "small"), sp.argument.orNull()?.second)
         Assertions.assertEquals("format", sp.directive.orNull()?.first)
         Assertions.assertEquals(persistentListOf("camelCase"), sp.directive.orNull()?.second)
-        val expectedParentPath: SchematicPath =
-            Assertions.assertDoesNotThrow<SchematicPath> {
-                SchematicPath.parseOrThrow("mlfs:/pets/dogs?breed=/size/small#format")
+        val expectedParentPath: GQLOperationPath =
+            Assertions.assertDoesNotThrow<GQLOperationPath> {
+                GQLOperationPath.parseOrThrow("mlfs:/pets/dogs?breed=/size/small#format")
             }
         Assertions.assertEquals(expectedParentPath, sp.getParentPath().orNull())
     }

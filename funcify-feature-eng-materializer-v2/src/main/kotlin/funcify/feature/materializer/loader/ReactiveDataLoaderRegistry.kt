@@ -2,9 +2,7 @@ package funcify.feature.materializer.loader
 
 import arrow.core.Option
 import kotlinx.collections.immutable.ImmutableList
-import kotlinx.collections.immutable.ImmutableMap
 import reactor.core.Disposable
-import reactor.core.publisher.Mono
 
 /**
  * @author smccarron
@@ -26,5 +24,4 @@ interface ReactiveDataLoaderRegistry<K> {
     fun getReactiveDataLoaders(): ImmutableList<ReactiveDataLoader<*, *>>
 
     fun dispatchAll(): Disposable
-
 }

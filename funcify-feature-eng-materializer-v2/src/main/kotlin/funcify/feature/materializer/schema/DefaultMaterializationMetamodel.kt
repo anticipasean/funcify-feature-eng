@@ -8,4 +8,4 @@ internal data class DefaultMaterializationMetamodel(
     override val created: Instant = Instant.now(),
     override val featureEngineeringModel: FeatureEngineeringModel,
     override val materializationGraphQLSchema: GraphQLSchema
-) : MaterializationMetamodel {}
+) : MaterializationMetamodel

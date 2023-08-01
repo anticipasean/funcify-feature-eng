@@ -12,7 +12,7 @@ import com.fasterxml.jackson.databind.node.ArrayNode
 import com.fasterxml.jackson.databind.node.JsonNodeFactory
 import com.fasterxml.jackson.databind.node.JsonNodeType
 import com.fasterxml.jackson.databind.node.ObjectNode
-import funcify.feature.schema.path.SchematicPath
+import funcify.feature.schema.path.GQLOperationPath
 import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentMap
 import funcify.feature.tools.extensions.SequenceExtensions.recurse
 import kotlinx.collections.immutable.ImmutableMap
@@ -20,9 +20,9 @@ import kotlinx.collections.immutable.PersistentList
 import kotlinx.collections.immutable.persistentListOf
 
 object JsonNodeSchematicPathToValueMappingExtractor :
-    (JsonNode) -> ImmutableMap<SchematicPath, JsonNode> {
+    (JsonNode) -> ImmutableMap<GQLOperationPath, JsonNode> {
 
-    override fun invoke(dataJsonObject: JsonNode): ImmutableMap<SchematicPath, JsonNode> {
+    override fun invoke(dataJsonObject: JsonNode): ImmutableMap<GQLOperationPath, JsonNode> {
         return sequenceOf(JsonNodePathTraversalContext(persistentListOf(), dataJsonObject))
             .recurse { ctx -> traverseJsonNodeContextCreatingPathsForEachNonObjectValue(ctx) }
             .sortedBy { (sp, _) -> sp }
@@ -36,12 +36,12 @@ object JsonNodeSchematicPathToValueMappingExtractor :
 
     private fun traverseJsonNodeContextCreatingPathsForEachNonObjectValue(
         context: JsonNodePathTraversalContext
-    ): Sequence<Either<JsonNodePathTraversalContext, Pair<SchematicPath, JsonNode>>> {
+    ): Sequence<Either<JsonNodePathTraversalContext, Pair<GQLOperationPath, JsonNode>>> {
         return when (context.value.nodeType) {
             JsonNodeType.NULL,
             JsonNodeType.MISSING -> {
                 sequenceOf(
-                    (SchematicPath.of { pathSegments(context.pathSegments) } to
+                    (GQLOperationPath.of { pathSegments(context.pathSegments) } to
                             JsonNodeFactory.instance.nullNode())
                         .right()
                 )
@@ -51,7 +51,7 @@ object JsonNodeSchematicPathToValueMappingExtractor :
             JsonNodeType.BINARY,
             JsonNodeType.STRING -> {
                 sequenceOf(
-                    (SchematicPath.of { pathSegments(context.pathSegments) } to context.value)
+                    (GQLOperationPath.of { pathSegments(context.pathSegments) } to context.value)
                         .right()
                 )
             }
@@ -60,7 +60,9 @@ object JsonNodeSchematicPathToValueMappingExtractor :
                 context.pathSegments
                     .toOption()
                     .filter { ps -> ps.isNotEmpty() }
-                    .map { ps -> (SchematicPath.of { pathSegments(ps) } to context.value).right() }
+                    .map { ps ->
+                        (GQLOperationPath.of { pathSegments(ps) } to context.value).right()
+                    }
                     .fold(::emptySequence, ::sequenceOf)
                     .plus(
                         context.pathSegments
@@ -96,7 +98,9 @@ object JsonNodeSchematicPathToValueMappingExtractor :
             JsonNodeType.OBJECT -> {
                 context.pathSegments
                     .toOption()
-                    .map { ps -> (SchematicPath.of { pathSegments(ps) } to context.value).right() }
+                    .map { ps ->
+                        (GQLOperationPath.of { pathSegments(ps) } to context.value).right()
+                    }
                     .fold(::emptySequence, ::sequenceOf)
                     .plus(
                         context.value

@@ -1,7 +1,7 @@
 package funcify.feature.schema.directive.alias
 
 import funcify.feature.schema.dataelement.DataElementSource
-import funcify.feature.schema.path.SchematicPath
+import funcify.feature.schema.path.GQLOperationPath
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.ImmutableSet
 import reactor.core.publisher.Mono
@@ -17,5 +17,5 @@ fun interface DataSourceAttributeAliasProvider {
 
     fun provideAnyAliasesForAttributePathsInDataSource(
         dataElementSource: DataElementSource
-    ): Mono<ImmutableMap<SchematicPath, ImmutableSet<String>>>
+    ): Mono<ImmutableMap<GQLOperationPath, ImmutableSet<String>>>
 }

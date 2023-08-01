@@ -19,7 +19,7 @@ import funcify.feature.materializer.schema.edge.RequestParameterEdge.*
 import funcify.feature.materializer.session.GraphQLSingleRequestSession
 import funcify.feature.materializer.spec.RetrievalFunctionSpec
 import funcify.feature.naming.StandardNamingConventions
-import funcify.feature.schema.path.SchematicPath
+import funcify.feature.schema.path.GQLOperationPath
 import funcify.feature.schema.vertex.SourceContainerTypeVertex
 import funcify.feature.schema.vertex.SourceJunctionVertex
 import funcify.feature.schema.vertex.SourceLeafVertex
@@ -69,25 +69,25 @@ internal class DefaultSingleRequestMaterializationDispatchService(
             Duration.ofSeconds(DEFAULT_EXTERNAL_CALL_TIMEOUT_SECONDS.toLong())
         private data class RequestCreationContext(
             val processedRetrievalFunctionSpecsBySourceIndexPath:
-                PersistentMap<SchematicPath, RetrievalFunctionSpec> =
+                PersistentMap<GQLOperationPath, RetrievalFunctionSpec> =
                 persistentMapOf(),
             val remainingRetrievalFunctionSpecsBySourceIndexPath:
-                PersistentMap<SchematicPath, RetrievalFunctionSpec> =
+                PersistentMap<GQLOperationPath, RetrievalFunctionSpec> =
                 persistentMapOf(),
             val multiSrcIndexFunctionBySourceIndexPath:
-                PersistentMap<SchematicPath, DataElementJsonValueSource> =
+                PersistentMap<GQLOperationPath, DataElementJsonValueSource> =
                 persistentMapOf(),
             val singleSrcIndexCacheFunctionBySourceIndexPath:
-                PersistentMap<SchematicPath, FeatureJsonValueStore> =
+                PersistentMap<GQLOperationPath, FeatureJsonValueStore> =
                 persistentMapOf(),
             val singleSrcIndexBackupFunctionBySourceIndexPath:
-                PersistentMap<SchematicPath, BackupExternalDataSourceCalculatedJsonValueRetriever> =
+                PersistentMap<GQLOperationPath, BackupExternalDataSourceCalculatedJsonValueRetriever> =
                 persistentMapOf(),
             val dispatchedMultiValueResponsesBySourceIndexPath:
-                PersistentMap<SchematicPath, Mono<ImmutableMap<SchematicPath, JsonNode>>> =
+                PersistentMap<GQLOperationPath, Mono<ImmutableMap<GQLOperationPath, JsonNode>>> =
                 persistentMapOf(),
             val dispatchedTrackableValueResponsesBySourceIndexPath:
-                PersistentMap<SchematicPath, Mono<TrackableValue<JsonNode>>> =
+                PersistentMap<GQLOperationPath, Mono<TrackableValue<JsonNode>>> =
                 persistentMapOf()
         )
     }
@@ -249,7 +249,7 @@ internal class DefaultSingleRequestMaterializationDispatchService(
         session: GraphQLSingleRequestSession,
         graphPhase: RequestParameterMaterializationGraphPhase,
         requestCreationContext: RequestCreationContext,
-        sourceIndexPath: SchematicPath,
+        sourceIndexPath: GQLOperationPath,
         retrievalFunctionSpec: RetrievalFunctionSpec,
     ): Try<RequestCreationContext> {
         logger.debug(
@@ -384,7 +384,7 @@ internal class DefaultSingleRequestMaterializationDispatchService(
     }
 
     private fun createPlannedValueForSourceIndexPath(
-        sourceIndexPath: SchematicPath,
+        sourceIndexPath: GQLOperationPath,
         retrievalFunctionSpec: RetrievalFunctionSpec,
         graphPhase: RequestParameterMaterializationGraphPhase,
         session: GraphQLSingleRequestSession
@@ -474,11 +474,11 @@ internal class DefaultSingleRequestMaterializationDispatchService(
     }
 
     private fun filterMaterializedParameterValuesByPathRelatedToTargetSourceIndexPath(
-        sourceIndexPath: SchematicPath,
+        sourceIndexPath: GQLOperationPath,
         retrievalFunctionSpec: RetrievalFunctionSpec,
         graphPhase: RequestParameterMaterializationGraphPhase,
         session: GraphQLSingleRequestSession
-    ): Mono<ImmutableMap<SchematicPath, JsonNode>> {
+    ): Mono<ImmutableMap<GQLOperationPath, JsonNode>> {
         return Mono.fromSupplier {
             retrievalFunctionSpec.parameterVerticesByPath.keys
                 .parallelStream()
@@ -505,7 +505,7 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                     }
                 }
                 .flatMapOptions()
-                .sorted(Comparator.comparing(Pair<SchematicPath, JsonNode>::first))
+                .sorted(Comparator.comparing(Pair<GQLOperationPath, JsonNode>::first))
                 .reducePairsToPersistentMap()
         }
     }
@@ -530,22 +530,22 @@ internal class DefaultSingleRequestMaterializationDispatchService(
     }
 
     private fun createBackupSingleSourceIndexJsonOptionRetrievalFunctionFor(
-        sourceIndexPath: SchematicPath,
+        sourceIndexPath: GQLOperationPath,
         retrievalSpec: RetrievalFunctionSpec,
         multiSrcIndJsonRetrFunc: DataElementJsonValueSource,
-        materializedParameterValuesByPath: PersistentMap<SchematicPath, JsonNode>,
+        materializedParameterValuesByPath: PersistentMap<GQLOperationPath, JsonNode>,
         session: GraphQLSingleRequestSession
     ): BackupExternalDataSourceCalculatedJsonValueRetriever {
         return BackupExternalDataSourceCalculatedJsonValueRetriever {
                 trackableValue: TrackableValue<JsonNode>,
-                dispatchedParams: ImmutableMap<SchematicPath, Mono<JsonNode>> ->
+                dispatchedParams: ImmutableMap<GQLOperationPath, Mono<JsonNode>> ->
             Flux.merge(
                     dispatchedParams
                         .asSequence()
                         .map { (p, m) -> m.map { jn -> p to jn } }
                         .asIterable()
                 )
-                .reduce(persistentMapOf<SchematicPath, JsonNode>()) { pm, (k, v) -> pm.put(k, v) }
+                .reduce(persistentMapOf<GQLOperationPath, JsonNode>()) { pm, (k, v) -> pm.put(k, v) }
                 .flatMap { inputMap ->
                     multiSrcIndJsonRetrFunc(inputMap)
                         .cache()
@@ -627,7 +627,7 @@ internal class DefaultSingleRequestMaterializationDispatchService(
         session: GraphQLSingleRequestSession,
         phase: RequestParameterMaterializationGraphPhase,
         requestCreationContext: RequestCreationContext,
-        sourceIndexPath: SchematicPath,
+        sourceIndexPath: GQLOperationPath,
         retrievalFunctionSpec: RetrievalFunctionSpec,
     ): Try<RequestCreationContext> {
         logger.debug(
@@ -649,7 +649,7 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                     .map { multiSrcIndJsonRetrievalFunction ->
                         phase.parameterIndexPathsBySourceIndexPath
                             .getOrNone(sourceIndexPath)
-                            .map(PersistentSet<SchematicPath>::stream)
+                            .map(PersistentSet<GQLOperationPath>::stream)
                             .fold(::empty, ::identity)
                             .flatMap { paramPath ->
                                 phase.requestGraph
@@ -692,7 +692,7 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                                 Flux.fromStream(entryPublisherStream)
                                     .collectList()
                                     .flatMapMany { entryPublishers -> Flux.merge(entryPublishers) }
-                                    .reduce(persistentMapOf<SchematicPath, JsonNode>()) { pm, pair
+                                    .reduce(persistentMapOf<GQLOperationPath, JsonNode>()) { pm, pair
                                         ->
                                         pm.put(pair.first, pair.second)
                                     }
@@ -736,7 +736,7 @@ internal class DefaultSingleRequestMaterializationDispatchService(
     }
 
     private fun createGraphStr(
-        graph: PathBasedGraph<SchematicPath, SchematicVertex, RequestParameterEdge>
+        graph: PathBasedGraph<GQLOperationPath, SchematicVertex, RequestParameterEdge>
     ): String {
         val edgeToString: (RequestParameterEdge) -> String = { e ->
             StandardNamingConventions.SNAKE_CASE.deriveName(e::class.simpleName!!).qualifiedForm +
@@ -826,7 +826,7 @@ internal class DefaultSingleRequestMaterializationDispatchService(
     private fun dependentFunctionsResolvedLastComparator(
         requestParameterMaterializationGraphPhase: RequestParameterMaterializationGraphPhase,
         requestCreationContext: RequestCreationContext
-    ): Comparator<Map.Entry<SchematicPath, FeatureJsonValueStore>> {
+    ): Comparator<Map.Entry<GQLOperationPath, FeatureJsonValueStore>> {
         return Comparator { e1, e2 ->
             requestCreationContext.multiSrcIndexFunctionBySourceIndexPath[e1.key]
                 .toOption()
@@ -880,7 +880,7 @@ internal class DefaultSingleRequestMaterializationDispatchService(
         dataElementJsonValueSource: DataElementJsonValueSource,
         backupExternalDataSourceCalculatedJsonValueRetriever: BackupExternalDataSourceCalculatedJsonValueRetriever
     ): Mono<TrackableValue<JsonNode>> {
-        val deferredParameterValuesByParamPath: ImmutableMap<SchematicPath, Mono<JsonNode>> =
+        val deferredParameterValuesByParamPath: ImmutableMap<GQLOperationPath, Mono<JsonNode>> =
             dataElementJsonValueSource.parameterPaths
                 .stream()
                 // TODO: handle other edge types that could be mapped to params: materialized value

@@ -3,21 +3,21 @@ package funcify.feature.schema.path
 import funcify.feature.tools.container.attempt.Try
 import java.net.URI
 
-internal object SchematicPathParser : (String) -> Try<SchematicPath> {
+internal object GQLOperationPathParser : (String) -> Try<GQLOperationPath> {
 
-    fun fromURI(inputUri: URI): Try<SchematicPath> {
-        return Try.attempt { SchematicPath.of(extractSchematicPathComponentsFromUri(inputUri)) }
+    fun fromURI(inputUri: URI): Try<GQLOperationPath> {
+        return Try.attempt { GQLOperationPath.of(extractPathComponentsFromUri(inputUri)) }
     }
 
-    override fun invoke(input: String): Try<SchematicPath> {
+    override fun invoke(input: String): Try<GQLOperationPath> {
         return Try.attempt { URI.create(input) }
-            .map { uri: URI -> SchematicPath.of(extractSchematicPathComponentsFromUri(uri)) }
+            .map { uri: URI -> GQLOperationPath.of(extractPathComponentsFromUri(uri)) }
     }
 
-    fun extractSchematicPathComponentsFromUri(
+    private fun extractPathComponentsFromUri(
         uri: URI
-    ): (SchematicPath.Builder) -> SchematicPath.Builder {
-        return { builder: SchematicPath.Builder ->
+    ): (GQLOperationPath.Builder) -> GQLOperationPath.Builder {
+        return { builder: GQLOperationPath.Builder ->
             builder.scheme(uri.scheme)
             builder.pathSegments(uri.path.split('/'))
             if (uri.query?.isNotEmpty() == true) {

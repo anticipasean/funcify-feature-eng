@@ -13,7 +13,7 @@ import com.fasterxml.jackson.core.JsonParser
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.node.JsonNodeType
 import com.fasterxml.jackson.databind.node.NumericNode
-import funcify.feature.schema.path.SchematicPath
+import funcify.feature.schema.path.GQLOperationPath
 import funcify.feature.tools.extensions.FunctionExtensions.compose
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.OptionExtensions.recurse
@@ -33,13 +33,13 @@ object GraphQLQueryPathBasedComposer {
     private val logger: Logger = loggerFor<GraphQLQueryPathBasedComposer>()
 
     private val queryOperationDefinitionComposerMemoizer:
-        (ImmutableSet<SchematicPath>) -> ((
-                ImmutableMap<SchematicPath, JsonNode>
-            ) -> OperationDefinition) by lazy {
+                (ImmutableSet<GQLOperationPath>) -> ((
+                ImmutableMap<GQLOperationPath, JsonNode>
+                                                     ) -> OperationDefinition) by lazy {
         val cache:
             ConcurrentMap<
-                ImmutableSet<SchematicPath>,
-                (ImmutableMap<SchematicPath, JsonNode>) -> OperationDefinition
+                ImmutableSet<GQLOperationPath>,
+                        (ImmutableMap<GQLOperationPath, JsonNode>) -> OperationDefinition
             > =
             ConcurrentHashMap();
         { graphQLSourcePathsSet ->
@@ -48,17 +48,17 @@ object GraphQLQueryPathBasedComposer {
     }
 
     fun createQueryOperationDefinitionComposerForParameterAttributePathsAndValuesForTheseSourceAttributes(
-        graphQLSourcePaths: ImmutableSet<SchematicPath>
-    ): (ImmutableMap<SchematicPath, JsonNode>) -> OperationDefinition {
+        graphQLSourcePaths: ImmutableSet<GQLOperationPath>
+    ): (ImmutableMap<GQLOperationPath, JsonNode>) -> OperationDefinition {
         return queryOperationDefinitionComposerMemoizer(graphQLSourcePaths)
     }
 
     private fun graphQLQueryComposerCalculator():
-        (ImmutableSet<SchematicPath>) -> ((
-                ImmutableMap<SchematicPath, JsonNode>
-            ) -> OperationDefinition) {
-        return { graphQLSourcePaths: ImmutableSet<SchematicPath> ->
-            val sourceAttributePathsSet: PersistentSet<SchematicPath> =
+                (ImmutableSet<GQLOperationPath>) -> ((
+                ImmutableMap<GQLOperationPath, JsonNode>
+                                                     ) -> OperationDefinition) {
+        return { graphQLSourcePaths: ImmutableSet<GQLOperationPath> ->
+            val sourceAttributePathsSet: PersistentSet<GQLOperationPath> =
                 extractAllSourceAttributePathsFromInputPathSet(graphQLSourcePaths)
             val sourceAttributesOnlyOperationDefinition: OperationDefinition =
                 createSourceAttributesOnlyOperationDefinition(sourceAttributePathsSet)
@@ -70,8 +70,8 @@ object GraphQLQueryPathBasedComposer {
     }
 
     private fun extractAllSourceAttributePathsFromInputPathSet(
-        graphQLSourcePaths: ImmutableSet<SchematicPath>
-    ): PersistentSet<SchematicPath> {
+        graphQLSourcePaths: ImmutableSet<GQLOperationPath>
+    ): PersistentSet<GQLOperationPath> {
         return graphQLSourcePaths
             .asSequence()
             .filter { sp ->
@@ -81,8 +81,8 @@ object GraphQLQueryPathBasedComposer {
                 if (sourceIndexPath in sourceAttributePathSet) {
                     sourceAttributePathSet
                 } else {
-                    var currentPath: SchematicPath = sourceIndexPath
-                    val setBuilder: PersistentSet.Builder<SchematicPath> =
+                    var currentPath: GQLOperationPath = sourceIndexPath
+                    val setBuilder: PersistentSet.Builder<GQLOperationPath> =
                         sourceAttributePathSet.builder()
                     while (!currentPath.isRoot() && currentPath !in sourceAttributePathSet) {
                         setBuilder.add(currentPath)
@@ -94,7 +94,7 @@ object GraphQLQueryPathBasedComposer {
     }
 
     private fun createSourceAttributesOnlyOperationDefinition(
-        graphQLSourcePaths: ImmutableSet<SchematicPath>
+        graphQLSourcePaths: ImmutableSet<GQLOperationPath>
     ): OperationDefinition {
         return graphQLSourcePaths.asSequence().sorted().fold(
             OperationDefinition.newOperationDefinition()
@@ -112,10 +112,10 @@ object GraphQLQueryPathBasedComposer {
     }
 
     private fun createQueryComposerFunction(
-        sourceAttributePathsSet: PersistentSet<SchematicPath>,
+        sourceAttributePathsSet: PersistentSet<GQLOperationPath>,
         sourceAttributesOnlyOperationDefinition: OperationDefinition,
-    ): (ImmutableMap<SchematicPath, JsonNode>) -> OperationDefinition {
-        return { parameterValuesByVertexPath: ImmutableMap<SchematicPath, JsonNode> ->
+    ): (ImmutableMap<GQLOperationPath, JsonNode>) -> OperationDefinition {
+        return { parameterValuesByVertexPath: ImmutableMap<GQLOperationPath, JsonNode> ->
             parameterValuesByVertexPath
                 .asSequence()
                 .filter { (p, _) ->
@@ -141,7 +141,7 @@ object GraphQLQueryPathBasedComposer {
                 .sortedBy { (sp, _) -> sp }
                 .fold(sourceAttributesOnlyOperationDefinition) {
                     opDef: OperationDefinition,
-                    (parameterAttributePath: SchematicPath, parameterAttributeValue: JsonNode) ->
+                    (parameterAttributePath: GQLOperationPath, parameterAttributeValue: JsonNode) ->
                     parameterAttributePath.argument
                         .map { (argName: String, _: ImmutableList<String>) ->
                             argName to parameterAttributeValue

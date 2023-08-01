@@ -10,7 +10,7 @@ import funcify.feature.materializer.schema.MaterializationMetamodel
 import funcify.feature.schema.MetamodelGraph
 import funcify.feature.schema.dataelement.DataElementSource
 import funcify.feature.schema.index.CompositeSourceAttribute
-import funcify.feature.schema.path.SchematicPath
+import funcify.feature.schema.path.GQLOperationPath
 import funcify.feature.schema.vertex.SourceAttributeVertex
 import funcify.feature.tools.extensions.OptionExtensions.recurse
 import funcify.feature.tools.extensions.SequenceExtensions.firstOrNone
@@ -19,27 +19,27 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentMap
 
 internal object SourceAttributeDataSourceAncestorPathFinder :
-    (MaterializationMetamodel, SchematicPath) -> SchematicPath {
+        (MaterializationMetamodel, GQLOperationPath) -> GQLOperationPath {
 
     private val dataSourceAncestorPathMemoizer:
-        (MaterializationMetamodel, SchematicPath) -> SchematicPath by lazy {
-        val cache: ConcurrentMap<Pair<Instant, SchematicPath>, SchematicPath> = ConcurrentHashMap();
-        { mm: MaterializationMetamodel, path: SchematicPath ->
+                (MaterializationMetamodel, GQLOperationPath) -> GQLOperationPath by lazy {
+        val cache: ConcurrentMap<Pair<Instant, GQLOperationPath>, GQLOperationPath> = ConcurrentHashMap();
+        { mm: MaterializationMetamodel, path: GQLOperationPath ->
             cache.computeIfAbsent(mm.created to path, dataSourceAncestorPathCalculator(mm))
         }
     }
 
     override fun invoke(
         materializationMetamodel: MaterializationMetamodel,
-        path: SchematicPath
-    ): SchematicPath {
+        path: GQLOperationPath
+    ): GQLOperationPath {
         return dataSourceAncestorPathMemoizer(materializationMetamodel, path)
     }
 
     private fun dataSourceAncestorPathCalculator(
         materializationMetamodel: MaterializationMetamodel
-    ): (Pair<Instant, SchematicPath>) -> SchematicPath {
-        return { (materializationMetamodelCreated: Instant, path: SchematicPath) ->
+    ): (Pair<Instant, GQLOperationPath>) -> GQLOperationPath {
+        return { (materializationMetamodelCreated: Instant, path: GQLOperationPath) ->
             materializationMetamodel.metamodelGraph.pathBasedGraph
                 .getVertex(path)
                 .filterIsInstance<SourceAttributeVertex>()
@@ -60,10 +60,10 @@ internal object SourceAttributeDataSourceAncestorPathFinder :
     }
 
     private fun findAncestorOrKeepCurrentWithSameDataSource(
-        currentPath: SchematicPath,
+        currentPath: GQLOperationPath,
         dataSourceKey: DataElementSource.Key<*>,
         metamodelGraph: MetamodelGraph
-    ): SchematicPath {
+    ): GQLOperationPath {
         return currentPath
             .some()
             .recurse { p ->

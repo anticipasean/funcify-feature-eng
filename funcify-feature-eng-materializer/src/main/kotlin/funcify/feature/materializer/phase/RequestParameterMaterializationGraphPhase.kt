@@ -3,7 +3,7 @@ package funcify.feature.materializer.phase
 import com.fasterxml.jackson.databind.JsonNode
 import funcify.feature.materializer.schema.edge.RequestParameterEdge
 import funcify.feature.materializer.spec.RetrievalFunctionSpec
-import funcify.feature.schema.path.SchematicPath
+import funcify.feature.schema.path.GQLOperationPath
 import funcify.feature.tools.container.graph.PathBasedGraph
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.PersistentSet
@@ -15,13 +15,13 @@ import kotlinx.collections.immutable.PersistentSet
  */
 interface RequestParameterMaterializationGraphPhase {
 
-    val requestGraph: PathBasedGraph<SchematicPath, SchematicVertex, RequestParameterEdge>
+    val requestGraph: PathBasedGraph<GQLOperationPath, SchematicVertex, RequestParameterEdge>
 
-    val materializedParameterValuesByPath: PersistentMap<SchematicPath, JsonNode>
+    val materializedParameterValuesByPath: PersistentMap<GQLOperationPath, JsonNode>
 
     val parameterIndexPathsBySourceIndexPath:
-        PersistentMap<SchematicPath, PersistentSet<SchematicPath>>
+        PersistentMap<GQLOperationPath, PersistentSet<GQLOperationPath>>
 
     val retrievalFunctionSpecByTopSourceIndexPath:
-        PersistentMap<SchematicPath, RetrievalFunctionSpec>
+        PersistentMap<GQLOperationPath, RetrievalFunctionSpec>
 }

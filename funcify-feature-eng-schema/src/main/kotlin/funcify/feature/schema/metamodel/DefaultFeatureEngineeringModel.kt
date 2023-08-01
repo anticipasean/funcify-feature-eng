@@ -35,4 +35,4 @@ internal data class DefaultFeatureEngineeringModel(
     override val attributeAliasRegistry: AttributeAliasRegistry,
     override val entityRegistry: EntityRegistry,
     override val lastUpdatedTemporalAttributeRegistry: LastUpdatedTemporalAttributeRegistry,
-) : FeatureEngineeringModel {}
+) : FeatureEngineeringModel

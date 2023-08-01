@@ -14,7 +14,7 @@ import funcify.feature.materializer.error.MaterializerErrorResponse
 import funcify.feature.materializer.error.MaterializerException
 import funcify.feature.materializer.fetcher.SingleRequestFieldMaterializationSession
 import funcify.feature.schema.json.JsonNodeToStandardValueConverter
-import funcify.feature.schema.path.SchematicPath
+import funcify.feature.schema.path.GQLOperationPath
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.OptionExtensions.toMono
 import funcify.feature.tools.extensions.StringExtensions.flatten
@@ -33,9 +33,9 @@ internal class DefaultSingleRequestMaterializationOrchestratorService(
         private val logger: Logger =
             loggerFor<DefaultSingleRequestMaterializationOrchestratorService>()
 
-        private val resultPathToSchematicPathsMemoizer:
-            (ResultPath) -> Pair<SchematicPath, SchematicPath> by lazy {
-            val cache: ConcurrentMap<ResultPath, Pair<SchematicPath, SchematicPath>> =
+        private val resultPathToGQLOperationPathsMemoizer:
+            (ResultPath) -> Pair<GQLOperationPath, GQLOperationPath> by lazy {
+            val cache: ConcurrentMap<ResultPath, Pair<GQLOperationPath, GQLOperationPath>> =
                 ConcurrentHashMap();
             { rp: ResultPath ->
                 cache.computeIfAbsent(
@@ -46,9 +46,9 @@ internal class DefaultSingleRequestMaterializationOrchestratorService(
         }
 
         private fun resultPathToFieldSchematicPathWithAndWithoutListIndexingCalculator():
-            (ResultPath) -> Pair<SchematicPath, SchematicPath> {
+            (ResultPath) -> Pair<GQLOperationPath, GQLOperationPath> {
             return { resultPath: ResultPath ->
-                SchematicPath.of { pathSegments(resultPath.keysOnly) }
+                GQLOperationPath.of { pathSegments(resultPath.keysOnly) }
                     .let { pathWithoutListIndexing ->
                         resultPath
                             .toOption()
@@ -57,7 +57,7 @@ internal class DefaultSingleRequestMaterializationOrchestratorService(
                                 rpStr.split("/").asSequence().filter { s -> s.isNotEmpty() }
                             }
                             .map { sSeq: Sequence<String> ->
-                                SchematicPath.of { pathSegments(sSeq.toList()) }
+                                GQLOperationPath.of { pathSegments(sSeq.toList()) }
                             }
                             .getOrElse { pathWithoutListIndexing } to pathWithoutListIndexing
                     }
@@ -125,10 +125,10 @@ internal class DefaultSingleRequestMaterializationOrchestratorService(
 
     private fun getFieldSchematicPathWithAndWithoutListIndexing(
         session: SingleRequestFieldMaterializationSession
-    ): Pair<SchematicPath, SchematicPath> {
-        return resultPathToSchematicPathsMemoizer(
+    ): Pair<GQLOperationPath, GQLOperationPath> {
+        return resultPathToGQLOperationPathsMemoizer(
             session.dataFetchingEnvironment.executionStepInfo.path
-        )
+                                                    )
     }
 
     private fun <T> createMaterializationPhasesSkippedErrorPublisher(): Mono<T> {
@@ -157,7 +157,7 @@ internal class DefaultSingleRequestMaterializationOrchestratorService(
     }
 
     private fun pathBelongsToTrackableSingleValueRequestDispatch(
-        currentFieldPathWithoutListIndexing: SchematicPath,
+        currentFieldPathWithoutListIndexing: GQLOperationPath,
         session: SingleRequestFieldMaterializationSession,
     ): Boolean {
         return currentFieldPathWithoutListIndexing in
@@ -167,7 +167,7 @@ internal class DefaultSingleRequestMaterializationOrchestratorService(
     }
 
     private fun pathBelongsToTopLevelSourceIndexOfExternalDataSourceValuesRequestDispatch(
-        currentFieldPathWithoutListIndexing: SchematicPath,
+        currentFieldPathWithoutListIndexing: GQLOperationPath,
         session: SingleRequestFieldMaterializationSession,
     ): Boolean {
         return currentFieldPathWithoutListIndexing in
@@ -178,7 +178,7 @@ internal class DefaultSingleRequestMaterializationOrchestratorService(
 
     private fun handleKeyValueJsonMapSourceValue(
         session: SingleRequestFieldMaterializationSession,
-        currentFieldPath: SchematicPath,
+        currentFieldPath: GQLOperationPath,
     ): Mono<Any> {
         return session.dataFetchingEnvironment
             .getSource<Map<String, JsonNode>>()
@@ -207,8 +207,8 @@ internal class DefaultSingleRequestMaterializationOrchestratorService(
 
     private fun handleTopSourceIndexOfExternalDataSourceValuesRequestDispatch(
         session: SingleRequestFieldMaterializationSession,
-        currentFieldPathWithoutListIndexing: SchematicPath,
-        currentFieldPath: SchematicPath,
+        currentFieldPathWithoutListIndexing: GQLOperationPath,
+        currentFieldPath: GQLOperationPath,
     ): Mono<Any> {
         return session.singleRequestSession.requestDispatchMaterializationGraphPhase
             .flatMap { phase ->
@@ -248,8 +248,8 @@ internal class DefaultSingleRequestMaterializationOrchestratorService(
 
     private fun handleTrackableSingleValueRequestDispatch(
         session: SingleRequestFieldMaterializationSession,
-        currentFieldPathWithoutListIndexing: SchematicPath,
-        currentFieldPath: SchematicPath,
+        currentFieldPathWithoutListIndexing: GQLOperationPath,
+        currentFieldPath: GQLOperationPath,
     ): Mono<Any> {
         return session.singleRequestSession.requestDispatchMaterializationGraphPhase
             .flatMap { phase ->
@@ -295,7 +295,7 @@ internal class DefaultSingleRequestMaterializationOrchestratorService(
 
     private fun handleJsonListSourceValue(
         session: SingleRequestFieldMaterializationSession,
-        currentFieldPath: SchematicPath,
+        currentFieldPath: GQLOperationPath,
     ): Mono<Any> {
         return session.dataFetchingEnvironment
             .getSource<List<JsonNode>>()
@@ -335,7 +335,7 @@ internal class DefaultSingleRequestMaterializationOrchestratorService(
     }
 
     private fun graphQLOutputTypeUndeterminedExceptionSupplier(
-        currentFieldPath: SchematicPath
+        currentFieldPath: GQLOperationPath
     ): () -> MaterializerException {
         return {
             MaterializerException(
@@ -350,7 +350,7 @@ internal class DefaultSingleRequestMaterializationOrchestratorService(
 
     private fun handleJsonNodeValue(
         session: SingleRequestFieldMaterializationSession,
-        currentFieldPath: SchematicPath,
+        currentFieldPath: GQLOperationPath,
     ): Mono<Any> {
         return session.dataFetchingEnvironment
             .getSource<JsonNode>()
@@ -378,7 +378,7 @@ internal class DefaultSingleRequestMaterializationOrchestratorService(
     }
 
     private fun createUnhandledFieldValueErrorPublisher(
-        currentFieldPath: SchematicPath
+        currentFieldPath: GQLOperationPath
     ): Mono<Any> {
         return Mono.error(
             MaterializerException(

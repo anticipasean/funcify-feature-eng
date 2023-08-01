@@ -12,7 +12,7 @@ import funcify.feature.materializer.response.SerializedGraphQLResponse
 import funcify.feature.materializer.response.SerializedGraphQLResponseFactory
 import funcify.feature.materializer.session.GraphQLSingleRequestSession
 import funcify.feature.schema.json.JsonNodeSchematicPathToValueMappingExtractor
-import funcify.feature.schema.path.SchematicPath
+import funcify.feature.schema.path.GQLOperationPath
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.OptionExtensions.toMono
 import funcify.feature.tools.extensions.StringExtensions.flatten
@@ -47,7 +47,7 @@ internal class DefaultSingleRequestMaterializationColumnarResponsePostprocessing
         logger.info(
             "postprocess_columnar_execution_result: [ columnar_document_context.expected_field_names.size: {} ]",
             columnarDocumentContext.expectedFieldNames.size
-                   )
+        )
         if (!executionResult.isDataPresent) {
             return Mono.fromSupplier {
                 session.update {
@@ -80,16 +80,16 @@ internal class DefaultSingleRequestMaterializationColumnarResponsePostprocessing
                         )
                     }
                     .toMono()
-                    .flatMap { jsonValuesByPath: ImmutableMap<SchematicPath, JsonNode> ->
+                    .flatMap { jsonValuesByPath: ImmutableMap<GQLOperationPath, JsonNode> ->
                         Flux.fromIterable(
                                 columnarDocumentContext.sourceIndexPathsByFieldName.entries
                             )
-                            .flatMapSequential { (fieldName: String, path: SchematicPath) ->
+                            .flatMapSequential { (fieldName: String, path: GQLOperationPath) ->
                                 ListIndexedSchematicPathGraphQLSchemaBasedCalculator(
                                         path,
                                         session.materializationSchema
                                     )
-                                    .flatMap { listIndexedPath: SchematicPath ->
+                                    .flatMap { listIndexedPath: GQLOperationPath ->
                                         jsonValuesByPath.getOrNone(listIndexedPath).map { jn ->
                                             fieldName to jn
                                         }

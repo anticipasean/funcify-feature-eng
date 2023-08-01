@@ -12,5 +12,5 @@ interface SingleRequestRawInputContextExtractor :
 
     override fun extractRawInputContextIfProvided(
         session: GraphQLSingleRequestSession
-                                                 ): Mono<GraphQLSingleRequestSession>
+    ): Mono<GraphQLSingleRequestSession>
 }

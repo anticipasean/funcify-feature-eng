@@ -9,4 +9,4 @@ import graphql.execution.DataFetcherExceptionHandler
  */
 abstract class GraphQLSingleRequestMaterializationQueryExecutionStrategy(
     private val dataFetcherExceptionHandler: DataFetcherExceptionHandler
-) : AsyncExecutionStrategy(dataFetcherExceptionHandler) {}
+) : AsyncExecutionStrategy(dataFetcherExceptionHandler)

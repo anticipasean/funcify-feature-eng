@@ -30,11 +30,11 @@ import graphql.schema.GraphQLNonNull
 import graphql.schema.GraphQLOutputType
 import graphql.schema.GraphQLScalarType
 import graphql.schema.GraphQLType
-import java.math.BigDecimal
-import java.util.*
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toPersistentList
 import org.slf4j.Logger
+import java.math.BigDecimal
+import java.util.*
 
 /**
  * Converter to mimic what GraphQL does after something is returned as a DataFetcherResult<R> (R
@@ -53,7 +53,7 @@ object JsonNodeToStandardValueConverter : (JsonNode, GraphQLOutputType) -> Optio
      */
     private const val UUID_LENGTH: Int = 36
 
-    // TODO: Create scalar_transformation_environment input parameter 
+    // TODO: Create scalar_transformation_environment input parameter
     override fun invoke(
         resultJson: JsonNode,
         expectedGraphQLOutputType: GraphQLOutputType

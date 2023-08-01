@@ -6,25 +6,25 @@ import arrow.core.left
 import arrow.core.right
 import arrow.core.toOption
 import funcify.feature.datasource.graphql.type.GraphQLOutputFieldsContainerTypeExtractor
-import funcify.feature.schema.path.SchematicPath
+import funcify.feature.schema.path.GQLOperationPath
 import funcify.feature.tools.extensions.SequenceExtensions.recurse
 import graphql.schema.GraphQLFieldDefinition
 import graphql.schema.GraphQLList
 import graphql.schema.GraphQLNonNull
 import graphql.schema.GraphQLSchema
 import kotlinx.collections.immutable.PersistentList
+import kotlinx.collections.immutable.toPersistentList
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentMap
-import kotlinx.collections.immutable.toPersistentList
 
 internal object ListIndexedSchematicPathGraphQLSchemaBasedCalculator :
-    (SchematicPath, GraphQLSchema) -> Option<SchematicPath> {
+    (GQLOperationPath, GraphQLSchema) -> Option<GQLOperationPath> {
 
-    private val listIndexedSchematicPathUsingGraphQLSchemaMemoizer:
-        (SchematicPath, GraphQLSchema) -> Option<SchematicPath> by lazy {
-        val cache: ConcurrentMap<Pair<SchematicPath, GraphQLSchema>, SchematicPath> =
+    private val listIndexedGQLOperationPathUsingGraphQLSchemaMemoizer:
+        (GQLOperationPath, GraphQLSchema) -> Option<GQLOperationPath> by lazy {
+        val cache: ConcurrentMap<Pair<GQLOperationPath, GraphQLSchema>, GQLOperationPath> =
             ConcurrentHashMap()
-        ({ unindexedPath: SchematicPath, graphQLSchema: GraphQLSchema ->
+        ({ unindexedPath: GQLOperationPath, graphQLSchema: GraphQLSchema ->
             cache
                 .computeIfAbsent(
                     unindexedPath to graphQLSchema,
@@ -35,18 +35,18 @@ internal object ListIndexedSchematicPathGraphQLSchemaBasedCalculator :
     }
 
     override fun invoke(
-        unindexedPath: SchematicPath,
+        unindexedPath: GQLOperationPath,
         correspondingSchema: GraphQLSchema
-    ): Option<SchematicPath> {
-        return listIndexedSchematicPathUsingGraphQLSchemaMemoizer(
+    ): Option<GQLOperationPath> {
+        return listIndexedGQLOperationPathUsingGraphQLSchemaMemoizer(
             unindexedPath,
             correspondingSchema
         )
     }
 
     private fun listIndexedSchematicPathUsingGraphQLSchemaCalculator():
-        (Pair<SchematicPath, GraphQLSchema>) -> SchematicPath? {
-        return { (unindexedPath: SchematicPath, correspondingSchema: GraphQLSchema) ->
+        (Pair<GQLOperationPath, GraphQLSchema>) -> GQLOperationPath? {
+        return { (unindexedPath: GQLOperationPath, correspondingSchema: GraphQLSchema) ->
             unindexedPath
                 .toOption()
                 .flatMap { sp ->
@@ -95,7 +95,7 @@ internal object ListIndexedSchematicPathGraphQLSchemaBasedCalculator :
                     )
                 }
                 .let { sSeq ->
-                    val listIndexedPath = SchematicPath.of { pathSegments(sSeq.toList()) }
+                    val listIndexedPath = GQLOperationPath.of { pathSegments(sSeq.toList()) }
                     when (listIndexedPath.level()) {
                         unindexedPath.level() -> listIndexedPath
                         else -> null

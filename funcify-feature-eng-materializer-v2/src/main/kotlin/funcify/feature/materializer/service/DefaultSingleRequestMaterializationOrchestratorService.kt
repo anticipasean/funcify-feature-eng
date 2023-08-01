@@ -11,7 +11,7 @@ import funcify.feature.materializer.loader.ReactiveBatchDataLoader
 import funcify.feature.materializer.loader.ReactiveDataLoader
 import funcify.feature.materializer.loader.ReactiveDataLoaderRegistry
 import funcify.feature.materializer.session.GraphQLSingleRequestSession
-import funcify.feature.schema.path.SchematicPath
+import funcify.feature.schema.path.GQLOperationPath
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.MonoExtensions.widen
 import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentMap
@@ -19,13 +19,13 @@ import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.extensions.TryExtensions.successIfDefined
 import funcify.feature.tools.json.JsonMapper
 import graphql.execution.ResultPath
-import java.time.Duration
-import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.ConcurrentMap
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.ImmutableSet
 import org.slf4j.Logger
 import reactor.core.publisher.Mono
+import java.time.Duration
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ConcurrentMap
 
 internal class DefaultSingleRequestMaterializationOrchestratorService(
     private val jsonMapper: JsonMapper,
@@ -35,9 +35,9 @@ internal class DefaultSingleRequestMaterializationOrchestratorService(
         private val logger: Logger =
             loggerFor<DefaultSingleRequestMaterializationOrchestratorService>()
 
-        private val resultPathToSchematicPathsMemoizer:
-            (ResultPath) -> Pair<SchematicPath, SchematicPath> by lazy {
-            val cache: ConcurrentMap<ResultPath, Pair<SchematicPath, SchematicPath>> =
+        private val resultPathToGQLOperationPathsMemoizer:
+            (ResultPath) -> Pair<GQLOperationPath, GQLOperationPath> by lazy {
+            val cache: ConcurrentMap<ResultPath, Pair<GQLOperationPath, GQLOperationPath>> =
                 ConcurrentHashMap();
             { rp: ResultPath ->
                 cache.computeIfAbsent(
@@ -48,9 +48,9 @@ internal class DefaultSingleRequestMaterializationOrchestratorService(
         }
 
         private fun resultPathToFieldSchematicPathWithAndWithoutListIndexingCalculator():
-            (ResultPath) -> Pair<SchematicPath, SchematicPath> {
+            (ResultPath) -> Pair<GQLOperationPath, GQLOperationPath> {
             return { resultPath: ResultPath ->
-                SchematicPath.of { pathSegments(resultPath.keysOnly) }
+                GQLOperationPath.of { pathSegments(resultPath.keysOnly) }
                     .let { pathWithoutListIndexing ->
                         resultPath
                             .toOption()
@@ -59,7 +59,7 @@ internal class DefaultSingleRequestMaterializationOrchestratorService(
                                 rpStr.split("/").asSequence().filter { s -> s.isNotEmpty() }
                             }
                             .map { sSeq: Sequence<String> ->
-                                SchematicPath.of { pathSegments(sSeq.toList()) }
+                                GQLOperationPath.of { pathSegments(sSeq.toList()) }
                             }
                             .getOrElse { pathWithoutListIndexing } to pathWithoutListIndexing
                     }
@@ -92,10 +92,10 @@ internal class DefaultSingleRequestMaterializationOrchestratorService(
                 Mono.just(JsonNodeFactory.instance.objectNode())
             }
             currentFieldPath.level() == 2 -> {
-                val loader: ReactiveDataLoader<SchematicPath, JsonNode> =
+                val loader: ReactiveDataLoader<GQLOperationPath, JsonNode> =
                     ReactiveDataLoader.newLoader(createReactiveBatchDataLoader(currentFieldPath))
                 val (updatedLoader, fieldValuePublisher) = loader.loadDataForKey(currentFieldPath)
-                val updatedRegistry: ReactiveDataLoaderRegistry<SchematicPath> =
+                val updatedRegistry: ReactiveDataLoaderRegistry<GQLOperationPath> =
                     session.singleRequestSession.reactiveDataLoaderRegistry.register(
                         currentFieldPath,
                         updatedLoader
@@ -109,14 +109,14 @@ internal class DefaultSingleRequestMaterializationOrchestratorService(
                 fieldValuePublisher.widen()
             }
             else -> {
-                val domainPath: SchematicPath =
-                    SchematicPath.of {
+                val domainPath: GQLOperationPath =
+                    GQLOperationPath.of {
                         pathSegments(currentFieldPath.pathSegments.asSequence().take(2).toList())
                     }
-                val loader: ReactiveDataLoader<SchematicPath, JsonNode> =
+                val loader: ReactiveDataLoader<GQLOperationPath, JsonNode> =
                     session.singleRequestSession.reactiveDataLoaderRegistry
                         .getOrNone(domainPath)
-                        .filterIsInstance<ReactiveDataLoader<SchematicPath, JsonNode>>()
+                        .filterIsInstance<ReactiveDataLoader<GQLOperationPath, JsonNode>>()
                         .successIfDefined {
                             ServiceError.of(
                                 "reactive_data_loader not registered for domain path [ %s ]",
@@ -125,7 +125,7 @@ internal class DefaultSingleRequestMaterializationOrchestratorService(
                         }
                         .orElseThrow()
                 val (updatedLoader, fieldValuePublisher) = loader.loadDataForKey(currentFieldPath)
-                val updatedRegistry: ReactiveDataLoaderRegistry<SchematicPath> =
+                val updatedRegistry: ReactiveDataLoaderRegistry<GQLOperationPath> =
                     session.singleRequestSession.reactiveDataLoaderRegistry.register(
                         currentFieldPath,
                         updatedLoader
@@ -142,18 +142,18 @@ internal class DefaultSingleRequestMaterializationOrchestratorService(
     }
 
     private fun createReactiveBatchDataLoader(
-        path: SchematicPath
-    ): ReactiveBatchDataLoader<SchematicPath, JsonNode> {
-        return ReactiveBatchDataLoader<SchematicPath, JsonNode> {
-            arguments: ImmutableMap<SchematicPath, JsonNode>,
-            outputKeys: ImmutableSet<SchematicPath> ->
+        path: GQLOperationPath
+    ): ReactiveBatchDataLoader<GQLOperationPath, JsonNode> {
+        return ReactiveBatchDataLoader<GQLOperationPath, JsonNode> {
+            arguments: ImmutableMap<GQLOperationPath, JsonNode>,
+            outputKeys: ImmutableSet<GQLOperationPath> ->
             logger.info("load: [ path: {} ]", path)
             Mono.delay(Duration.ofMillis(500))
                 .then(
                     Mono.just(
                         outputKeys
                             .stream()
-                            .map { p: SchematicPath ->
+                            .map { p: GQLOperationPath ->
                                 p to JsonNodeFactory.instance.textNode(p.toString())
                             }
                             .reducePairsToPersistentMap()
@@ -164,8 +164,8 @@ internal class DefaultSingleRequestMaterializationOrchestratorService(
 
     private fun getFieldSchematicPathWithAndWithoutListIndexing(
         session: SingleRequestFieldMaterializationSession
-    ): Pair<SchematicPath, SchematicPath> {
-        return resultPathToSchematicPathsMemoizer(
+    ): Pair<GQLOperationPath, GQLOperationPath> {
+        return resultPathToGQLOperationPathsMemoizer(
             session.dataFetchingEnvironment.executionStepInfo.path
         )
     }

@@ -8,7 +8,7 @@ import funcify.feature.materializer.error.MaterializerException
 import funcify.feature.materializer.schema.MaterializationMetamodel
 import funcify.feature.materializer.schema.edge.RequestParameterEdge
 import funcify.feature.materializer.spec.RetrievalFunctionSpec
-import funcify.feature.schema.path.SchematicPath
+import funcify.feature.schema.path.GQLOperationPath
 import funcify.feature.tools.container.graph.PathBasedGraph
 import graphql.language.OperationDefinition
 import kotlinx.collections.immutable.PersistentMap
@@ -29,15 +29,15 @@ internal class DefaultMaterializationGraphContextFactory : MaterializationGraphC
             private var operationDefinition: OperationDefinition? = null,
             private var queryVariables: PersistentMap<String, Any?> = persistentMapOf(),
             private var requestParameterGraph:
-                PathBasedGraph<SchematicPath, SchematicVertex, RequestParameterEdge> =
+                PathBasedGraph<GQLOperationPath, SchematicVertex, RequestParameterEdge> =
                 PathBasedGraph.emptyTwoToOnePathsToEdgeGraph(),
-            private var materializedParameterValuesByPath: PersistentMap<SchematicPath, JsonNode> =
+            private var materializedParameterValuesByPath: PersistentMap<GQLOperationPath, JsonNode> =
                 persistentMapOf(),
             private var parameterIndexPathsBySourceIndexPath:
-                PersistentMap<SchematicPath, PersistentSet<SchematicPath>> =
+                PersistentMap<GQLOperationPath, PersistentSet<GQLOperationPath>> =
                 persistentMapOf(),
             private var retrievalFunctionSpecByTopSourceIndexPath:
-                PersistentMap<SchematicPath, RetrievalFunctionSpec> =
+                PersistentMap<GQLOperationPath, RetrievalFunctionSpec> =
                 persistentMapOf()
         ) : Builder {
 
@@ -60,7 +60,7 @@ internal class DefaultMaterializationGraphContextFactory : MaterializationGraphC
 
             override fun requestParameterGraph(
                 requestParameterGraph:
-                    PathBasedGraph<SchematicPath, SchematicVertex, RequestParameterEdge>
+                    PathBasedGraph<GQLOperationPath, SchematicVertex, RequestParameterEdge>
             ): Builder {
                 this.requestParameterGraph = requestParameterGraph
                 return this
@@ -98,9 +98,9 @@ internal class DefaultMaterializationGraphContextFactory : MaterializationGraphC
             }
 
             override fun removeEdgesFromRequestParameterGraph(
-                edgeId: Pair<SchematicPath, SchematicPath>
+                edgeId: Pair<GQLOperationPath, GQLOperationPath>
             ): Builder {
-                eagerEffect<String, Pair<SchematicPath, SchematicPath>> {
+                eagerEffect<String, Pair<GQLOperationPath, GQLOperationPath>> {
                         ensure(edgeId.first in requestParameterGraph.verticesByPath) {
                             "first path in edge.id does not have corresponding vertex in request_parameter_graph"
                         }
@@ -130,21 +130,21 @@ internal class DefaultMaterializationGraphContextFactory : MaterializationGraphC
             }
 
             override fun removeEdgesFromRequestParameterGraph(
-                path1: SchematicPath,
-                path2: SchematicPath
+                path1: GQLOperationPath,
+                path2: GQLOperationPath
             ): Builder {
                 return removeEdgesFromRequestParameterGraph(path1 to path2)
             }
 
             override fun materializedParameterValuesByPath(
-                materializedParameterValuesByPath: PersistentMap<SchematicPath, JsonNode>
+                materializedParameterValuesByPath: PersistentMap<GQLOperationPath, JsonNode>
             ): Builder {
                 this.materializedParameterValuesByPath = materializedParameterValuesByPath
                 return this
             }
 
             override fun addMaterializedParameterValueForPath(
-                path: SchematicPath,
+                path: GQLOperationPath,
                 value: JsonNode
             ): Builder {
                 this.materializedParameterValuesByPath =
@@ -154,15 +154,15 @@ internal class DefaultMaterializationGraphContextFactory : MaterializationGraphC
 
             override fun parameterIndexPathsBySourceIndexPath(
                 parameterIndexPathsBySourceIndexPath:
-                    PersistentMap<SchematicPath, PersistentSet<SchematicPath>>
+                    PersistentMap<GQLOperationPath, PersistentSet<GQLOperationPath>>
             ): Builder {
                 this.parameterIndexPathsBySourceIndexPath = parameterIndexPathsBySourceIndexPath
                 return this
             }
 
             override fun addParameterIndexPathForSourceIndexPath(
-                path: SchematicPath,
-                parameterIndexPath: SchematicPath
+                path: GQLOperationPath,
+                parameterIndexPath: GQLOperationPath
             ): Builder {
                 this.parameterIndexPathsBySourceIndexPath =
                     parameterIndexPathsBySourceIndexPath.put(
@@ -176,7 +176,7 @@ internal class DefaultMaterializationGraphContextFactory : MaterializationGraphC
 
             override fun retrievalFunctionSpecsByTopSourceIndexPath(
                 retrievalFunctionSpecsByTopSourceIndexPath:
-                    PersistentMap<SchematicPath, RetrievalFunctionSpec>
+                    PersistentMap<GQLOperationPath, RetrievalFunctionSpec>
             ): Builder {
                 this.retrievalFunctionSpecByTopSourceIndexPath =
                     retrievalFunctionSpecsByTopSourceIndexPath
@@ -184,7 +184,7 @@ internal class DefaultMaterializationGraphContextFactory : MaterializationGraphC
             }
 
             override fun addRetrievalFunctionSpecForTopSourceIndexPath(
-                path: SchematicPath,
+                path: GQLOperationPath,
                 spec: RetrievalFunctionSpec
             ): Builder {
                 this.retrievalFunctionSpecByTopSourceIndexPath =
@@ -229,12 +229,12 @@ internal class DefaultMaterializationGraphContextFactory : MaterializationGraphC
             override val operationDefinition: OperationDefinition,
             override val queryVariables: PersistentMap<String, Any?>,
             override val requestParameterGraph:
-                PathBasedGraph<SchematicPath, SchematicVertex, RequestParameterEdge>,
-            override val materializedParameterValuesByPath: PersistentMap<SchematicPath, JsonNode>,
+                PathBasedGraph<GQLOperationPath, SchematicVertex, RequestParameterEdge>,
+            override val materializedParameterValuesByPath: PersistentMap<GQLOperationPath, JsonNode>,
             override val parameterIndexPathsBySourceIndexPath:
-                PersistentMap<SchematicPath, PersistentSet<SchematicPath>>,
+                PersistentMap<GQLOperationPath, PersistentSet<GQLOperationPath>>,
             override val retrievalFunctionSpecByTopSourceIndexPath:
-                PersistentMap<SchematicPath, RetrievalFunctionSpec>
+                PersistentMap<GQLOperationPath, RetrievalFunctionSpec>
         ) : MaterializationGraphContext {
 
             override fun update(transformer: Builder.() -> Builder): MaterializationGraphContext {

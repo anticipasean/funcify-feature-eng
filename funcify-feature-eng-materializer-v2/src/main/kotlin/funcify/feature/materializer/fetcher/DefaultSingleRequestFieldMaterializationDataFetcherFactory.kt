@@ -7,8 +7,8 @@ import graphql.execution.DataFetcherResult
 import graphql.schema.DataFetcher
 import graphql.schema.DataFetcherFactoryEnvironment
 import graphql.schema.GraphQLTypeUtil
-import java.util.concurrent.CompletionStage
 import org.slf4j.Logger
+import java.util.concurrent.CompletionStage
 
 internal class DefaultSingleRequestFieldMaterializationDataFetcherFactory(
     private val singleRequestMaterializationOrchestratorService:

@@ -7,7 +7,7 @@ import funcify.feature.tools.extensions.StringExtensions.flatten
 import org.slf4j.Logger
 import reactor.core.publisher.Mono
 
-internal class DefaultMaterializationMetamodelBroker() : MaterializationMetamodelBroker {
+internal class DefaultMaterializationMetamodelBroker : MaterializationMetamodelBroker {
 
     companion object {
         private val logger: Logger = loggerFor<DefaultMaterializationMetamodelBroker>()

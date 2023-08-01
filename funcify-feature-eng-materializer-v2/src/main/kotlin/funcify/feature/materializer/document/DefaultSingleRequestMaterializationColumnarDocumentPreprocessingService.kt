@@ -8,7 +8,7 @@ import funcify.feature.materializer.context.document.ColumnarDocumentContext
 import funcify.feature.materializer.context.document.ColumnarDocumentContextFactory
 import funcify.feature.materializer.session.GraphQLSingleRequestSession
 import funcify.feature.naming.StandardNamingConventions
-import funcify.feature.schema.path.SchematicPath
+import funcify.feature.schema.path.GQLOperationPath
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.OptionExtensions.toMono
 import funcify.feature.tools.extensions.PersistentSetExtensions.reduceToPersistentSet
@@ -123,14 +123,16 @@ internal class DefaultSingleRequestMaterializationColumnarDocumentPreprocessingS
                     .builder()
                     .expectedFieldNames(expectedOutputFieldNames)
                     .build()
-            ) { context, (paramPath: SchematicPath, paramJsonValue: JsonNode) ->
+            ) { context, (paramPath: GQLOperationPath, paramJsonValue: JsonNode) ->
                 context.update { addParameterValueForPath(paramPath, paramJsonValue) }
             }
             .flatMap { context: ColumnarDocumentContext ->
-                val topLevelSrcIndexPathsSet: PersistentSet<SchematicPath> =
+                val topLevelSrcIndexPathsSet: PersistentSet<GQLOperationPath> =
                     context.parameterValuesByPath
                         .asSequence()
-                        .map { (path, _) -> SchematicPath.of { pathSegments(path.pathSegments) } }
+                        .map { (path, _) ->
+                            GQLOperationPath.of { pathSegments(path.pathSegments) }
+                        }
                         .toPersistentSet()
                 Flux.fromIterable(expectedOutputFieldNames)
                     .flatMap(
@@ -139,7 +141,7 @@ internal class DefaultSingleRequestMaterializationColumnarDocumentPreprocessingS
                             session
                         )
                     )
-                    .reduce(context) { ctx, (fieldName: String, path: SchematicPath) ->
+                    .reduce(context) { ctx, (fieldName: String, path: GQLOperationPath) ->
                         ctx.update { addSourceIndexPathForFieldName(fieldName, path) }
                     }
             }
@@ -150,12 +152,12 @@ internal class DefaultSingleRequestMaterializationColumnarDocumentPreprocessingS
                         session
                     )
                     .concatWith(Flux.fromIterable(context.sourceIndexPathsByFieldName.values))
-                    .reduce(persistentSetOf<SchematicPath>()) {
-                        ps: PersistentSet<SchematicPath>,
-                        srcAttrPath: SchematicPath ->
+                    .reduce(persistentSetOf<GQLOperationPath>()) {
+                        ps: PersistentSet<GQLOperationPath>,
+                        srcAttrPath: GQLOperationPath ->
                         ps.add(srcAttrPath)
                     }
-                    .map { sourceIndexPathsSet: PersistentSet<SchematicPath> ->
+                    .map { sourceIndexPathsSet: PersistentSet<GQLOperationPath> ->
                         GraphQLQueryPathBasedComposer
                             .createQueryOperationDefinitionComposerForParameterAttributePathsAndValuesForTheseSourceAttributes(
                                 sourceIndexPathsSet
@@ -163,7 +165,7 @@ internal class DefaultSingleRequestMaterializationColumnarDocumentPreprocessingS
                     }
                     .map {
                         queryComposerFunction:
-                            (ImmutableMap<SchematicPath, JsonNode>) -> OperationDefinition ->
+                            (ImmutableMap<GQLOperationPath, JsonNode>) -> OperationDefinition ->
                         context.update { queryComposerFunction(queryComposerFunction) }
                     }
             }
@@ -203,7 +205,7 @@ internal class DefaultSingleRequestMaterializationColumnarDocumentPreprocessingS
 
     private fun determineMatchingParameterPathForVariableEntry(
         session: GraphQLSingleRequestSession
-    ): (Map.Entry<String, Any?>) -> Flux<Pair<SchematicPath, Any?>> {
+    ): (Map.Entry<String, Any?>) -> Flux<Pair<GQLOperationPath, Any?>> {
         return { (name, value) ->
             //            when {
             //                session.metamodelGraph.parameterAttributeVerticesByQualifiedName
@@ -251,8 +253,8 @@ internal class DefaultSingleRequestMaterializationColumnarDocumentPreprocessingS
     }
 
     private fun convertVariableValuesIntoJsonNodeValues():
-        (Pair<SchematicPath, Any?>) -> Mono<Pair<SchematicPath, JsonNode>> {
-        return { (path: SchematicPath, paramValue: Any?) ->
+        (Pair<GQLOperationPath, Any?>) -> Mono<Pair<GQLOperationPath, JsonNode>> {
+        return { (path: GQLOperationPath, paramValue: Any?) ->
             jsonMapper
                 .fromKotlinObject<Any?>(paramValue)
                 .toJsonNode()
@@ -273,9 +275,9 @@ internal class DefaultSingleRequestMaterializationColumnarDocumentPreprocessingS
     }
 
     private fun determineMatchingSourceAttributeVertexForFieldNameGivenParameters(
-        topLevelSrcIndexPathsSet: PersistentSet<SchematicPath>,
+        topLevelSrcIndexPathsSet: PersistentSet<GQLOperationPath>,
         session: GraphQLSingleRequestSession
-    ): (String) -> Mono<Pair<String, SchematicPath>> {
+    ): (String) -> Mono<Pair<String, GQLOperationPath>> {
         return { fieldName ->
             val camelCaseFieldName: String =
                 StandardNamingConventions.CAMEL_CASE.deriveName(fieldName).qualifiedForm
@@ -406,7 +408,7 @@ internal class DefaultSingleRequestMaterializationColumnarDocumentPreprocessingS
             val domainPathSegmentSet: PersistentSet<String> =
                 context.sourceIndexPathsByFieldName.values
                     .parallelStream()
-                    .map { sp: SchematicPath -> sp.pathSegments.firstOrNone() }
+                    .map { sp: GQLOperationPath -> sp.pathSegments.firstOrNone() }
                     .flatMapOptions()
                     .reduceToPersistentSet()
             context.parameterValuesByPath.keys
@@ -424,14 +426,14 @@ internal class DefaultSingleRequestMaterializationColumnarDocumentPreprocessingS
     }
 
     private fun gatherSourceAttributeVerticesMatchingGivenParameters(
-        parameterMap: ImmutableMap<SchematicPath, JsonNode>,
+        parameterMap: ImmutableMap<GQLOperationPath, JsonNode>,
         session: GraphQLSingleRequestSession
-    ): Flux<SchematicPath> {
+    ): Flux<GQLOperationPath> {
         return Flux.fromIterable(parameterMap.keys).flatMap { parameterPath ->
             // ParameterToSourceAttributeVertexMatcher(session.materializationMetamodel,
             // parameterPath)
             //    .toMono()
-            Mono.error<SchematicPath> {
+            Mono.error<GQLOperationPath> {
                 TODO("logic for calculating source_attribute_vertices matching given parameters")
             }
         }

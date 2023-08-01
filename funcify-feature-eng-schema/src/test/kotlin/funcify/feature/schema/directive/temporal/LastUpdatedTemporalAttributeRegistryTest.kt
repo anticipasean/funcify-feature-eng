@@ -9,7 +9,7 @@ import funcify.feature.directive.AliasDirective
 import funcify.feature.directive.LastUpdatedDirective
 import funcify.feature.directive.MaterializationDirective
 import funcify.feature.error.ServiceError
-import funcify.feature.schema.path.SchematicPath
+import funcify.feature.schema.path.GQLOperationPath
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.OptionExtensions.toOption
 import graphql.GraphQLError
@@ -135,22 +135,22 @@ class LastUpdatedTemporalAttributeRegistryTest {
             lastUpdatedRegistryOpt.orNull()!!
         Assertions.assertTrue(
             lastUpdatedRegistry.pathBelongsToLastUpdatedTemporalAttributeVertex(
-                SchematicPath.parseOrThrow("mlfs:/shows/reviews/submittedDate")
+                GQLOperationPath.parseOrThrow("mlfs:/shows/reviews/submittedDate")
             )
         )
         Assertions.assertTrue(
             lastUpdatedRegistry.pathBelongsToLastUpdatedTemporalAttributeParentVertex(
-                SchematicPath.parseOrThrow("mlfs:/shows/reviews")
+                GQLOperationPath.parseOrThrow("mlfs:/shows/reviews")
             )
         )
         Assertions.assertTrue(
             lastUpdatedRegistry.pathBelongsToLastUpdatedTemporalAttributeVertex(
-                SchematicPath.parseOrThrow("mlfs:/shows/added")
+                GQLOperationPath.parseOrThrow("mlfs:/shows/added")
             )
         )
         Assertions.assertTrue(
             lastUpdatedRegistry.pathBelongsToLastUpdatedTemporalAttributeParentVertex(
-                SchematicPath.parseOrThrow("mlfs:/shows")
+                GQLOperationPath.parseOrThrow("mlfs:/shows")
             )
         )
     }

@@ -3,9 +3,9 @@ package funcify.feature.materializer.document
 import graphql.ExecutionInput
 import graphql.execution.preparsed.PreparsedDocumentEntry
 import graphql.execution.preparsed.PreparsedDocumentProvider
+import reactor.core.publisher.Mono
 import java.util.concurrent.CompletableFuture
 import java.util.function.Function
-import reactor.core.publisher.Mono
 
 /**
  * @author smccarron

@@ -9,7 +9,7 @@ import funcify.feature.materializer.request.RawGraphQLRequest
 import funcify.feature.materializer.request.RawGraphQLRequestFactory
 import funcify.feature.materializer.response.SerializedGraphQLResponse
 import funcify.feature.materializer.service.GraphQLSingleRequestExecutor
-import funcify.feature.schema.path.SchematicPath
+import funcify.feature.schema.path.GQLOperationPath
 import funcify.feature.transformer.jq.JqTransformerSourceProvider
 import funcify.feature.transformer.jq.JqTransformerSourceProviderFactory
 import graphql.ExecutionInput
@@ -306,11 +306,11 @@ class StreamFunctions {
             }
     }
 
-    private fun createShowDataLoader(): DataLoader<SchematicPath, JsonNode> {
-        val mappedBatchLoaderWithContext: MappedBatchLoaderWithContext<SchematicPath, JsonNode> =
+    private fun createShowDataLoader(): DataLoader<GQLOperationPath, JsonNode> {
+        val mappedBatchLoaderWithContext: MappedBatchLoaderWithContext<GQLOperationPath, JsonNode> =
             MappedBatchLoaderWithContext {
-                keys: MutableSet<SchematicPath>,
-                environment: BatchLoaderEnvironment ->
+                    keys: MutableSet<GQLOperationPath>,
+                    environment: BatchLoaderEnvironment ->
                 logger.info(
                     "mapped_batch_loader_with_context: [ status: loading ]\n[ keys: {}, \nenvironment.context: {}, \nenvironment.key_context[:]: {}\n ]",
                     keys.asSequence().joinToString(",\n "),
@@ -324,7 +324,7 @@ class StreamFunctions {
                     logger.info("mapped_batch_loader_with_context: [ status: dispatched ]")
                     keys
                         .asSequence()
-                        .map { k: SchematicPath ->
+                        .map { k: GQLOperationPath ->
                             k to JsonNodeFactory.instance.textNode(k.toString())
                         }
                         .toMap()

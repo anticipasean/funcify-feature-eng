@@ -5,7 +5,7 @@ import funcify.feature.schema.feature.FeatureJsonValuePublisher
 import funcify.feature.schema.tracking.TrackableValue
 import funcify.feature.materializer.dispatch.SourceIndexRequestDispatch
 import funcify.feature.materializer.session.GraphQLSingleRequestSession
-import funcify.feature.schema.path.SchematicPath
+import funcify.feature.schema.path.GQLOperationPath
 import java.time.Instant
 import kotlinx.collections.immutable.ImmutableMap
 
@@ -24,9 +24,9 @@ interface TrackableValuePublishingContext {
 
     val calculatedValue: TrackableValue.CalculatedValue<JsonNode>
 
-    val lastUpdatedInstantsByPath: ImmutableMap<SchematicPath, Instant>
+    val lastUpdatedInstantsByPath: ImmutableMap<GQLOperationPath, Instant>
 
-    val entityIdentifierValuesByPath: ImmutableMap<SchematicPath, JsonNode>
+    val entityIdentifierValuesByPath: ImmutableMap<GQLOperationPath, JsonNode>
 
     fun update(transformer: Builder.() -> Builder): TrackableValuePublishingContext
 
@@ -42,26 +42,26 @@ interface TrackableValuePublishingContext {
 
         fun calculatedValue(calculatedValue: TrackableValue.CalculatedValue<JsonNode>): Builder
 
-        fun putLastUpdatedInstantForPath(path: SchematicPath, lastUpdatedInstant: Instant): Builder
+        fun putLastUpdatedInstantForPath(path: GQLOperationPath, lastUpdatedInstant: Instant): Builder
 
         fun putAllLastUpdatedInstantsForPaths(
-            lastUpdatedInstantsByPath: Map<SchematicPath, Instant>
+            lastUpdatedInstantsByPath: Map<GQLOperationPath, Instant>
         ): Builder
 
-        fun removeLastUpdatedInstantForPath(path: SchematicPath): Builder
+        fun removeLastUpdatedInstantForPath(path: GQLOperationPath): Builder
 
         fun clearLastUpdatedInstantsByPath(): Builder
 
         fun putEntityIdentifierValueForPath(
-            path: SchematicPath,
+            path: GQLOperationPath,
             entityIdentifierValue: JsonNode
         ): Builder
 
         fun putAllEntityIdentifierValuesForPaths(
-            entityIdentifiersByPath: Map<SchematicPath, JsonNode>
+            entityIdentifiersByPath: Map<GQLOperationPath, JsonNode>
         ): Builder
 
-        fun removeEntityIdentifierValueForPath(path: SchematicPath): Builder
+        fun removeEntityIdentifierValueForPath(path: GQLOperationPath): Builder
 
         fun clearEntityIdentifierValuesForPaths(): Builder
 

@@ -14,7 +14,7 @@ import funcify.feature.materializer.error.MaterializerErrorResponse
 import funcify.feature.materializer.error.MaterializerException
 import funcify.feature.materializer.phase.DefaultRequestParameterMaterializationGraphPhase
 import funcify.feature.materializer.session.GraphQLSingleRequestSession
-import funcify.feature.schema.path.SchematicPath
+import funcify.feature.schema.path.GQLOperationPath
 import funcify.feature.schema.vertex.ParameterJunctionVertex
 import funcify.feature.schema.vertex.ParameterLeafVertex
 import funcify.feature.schema.vertex.SourceJunctionVertex
@@ -47,20 +47,20 @@ internal class DefaultSingleRequestMaterializationGraphService(
         private val logger: Logger = loggerFor<DefaultSingleRequestMaterializationGraphService>()
 
         private data class FieldOrArgumentGraphContext(
-            val parentPath: SchematicPath,
+            val parentPath: GQLOperationPath,
             val fieldOrArgument: Either<Field, Argument>
         )
 
         private sealed interface ResolvedVertexContext
 
         private data class ResolvedSourceVertexContext(
-            val vertexPath: SchematicPath,
+            val vertexPath: GQLOperationPath,
             val sourceJunctionOrLeafVertex: Either<SourceJunctionVertex, SourceLeafVertex>,
             val field: Field
         ) : ResolvedVertexContext
 
         private data class ResolvedParameterVertexContext(
-            val vertexPath: SchematicPath,
+            val vertexPath: GQLOperationPath,
             val parameterJunctionOrLeafVertex: Either<ParameterJunctionVertex, ParameterLeafVertex>,
             val argument: Argument
         ) : ResolvedVertexContext
@@ -113,9 +113,9 @@ internal class DefaultSingleRequestMaterializationGraphService(
             session.sessionId
         )
         return session.metamodelGraph.pathBasedGraph
-            .getVertex(SchematicPath.getRootPath())
+            .getVertex(GQLOperationPath.getRootPath())
             .filterIsInstance<SourceRootVertex>()
-            .successIfDefined(sourceVertexNotFoundExceptionSupplier(SchematicPath.getRootPath()))
+            .successIfDefined(sourceVertexNotFoundExceptionSupplier(GQLOperationPath.getRootPath()))
             .map { sourceRootVertex: SourceRootVertex ->
                 session.operationDefinition
                     .mapNotNull { opDef: OperationDefinition -> opDef.selectionSet }
@@ -124,7 +124,7 @@ internal class DefaultSingleRequestMaterializationGraphService(
                     .fold(::emptySequence, ::identity)
                     .filterIsInstance<Field>()
                     .map { f: Field ->
-                        FieldOrArgumentGraphContext(SchematicPath.getRootPath(), f.left())
+                        FieldOrArgumentGraphContext(GQLOperationPath.getRootPath(), f.left())
                     }
                     .recurse { fieldOrArgCtx ->
                         when (fieldOrArgCtx.fieldOrArgument) {
@@ -189,8 +189,8 @@ internal class DefaultSingleRequestMaterializationGraphService(
         session: GraphQLSingleRequestSession,
     ): Sequence<Either<FieldOrArgumentGraphContext, ResolvedSourceVertexContext>> {
         logger.debug("resolve_source_vertex_for_field: [ field.name: ${field.name} ]")
-        val vertexPath: SchematicPath =
-            SchematicPath.of {
+        val vertexPath: GQLOperationPath =
+            GQLOperationPath.of {
                 pathSegments(
                     fieldOrArgCtx.parentPath.pathSegments.asSequence().plus(field.name).toList()
                 )
@@ -241,8 +241,8 @@ internal class DefaultSingleRequestMaterializationGraphService(
         session: GraphQLSingleRequestSession,
     ): Sequence<Either<FieldOrArgumentGraphContext, ResolvedParameterVertexContext>> {
         logger.debug("resolve_parameter_vertex_for_argument: [ argument.name: ${argument.name} ]")
-        val vertexPath: SchematicPath =
-            SchematicPath.of {
+        val vertexPath: GQLOperationPath =
+            GQLOperationPath.of {
                 pathSegments(fieldOrArgCtx.parentPath.pathSegments).argument(argument.name)
             }
         val parameterJunctionOrLeafVertex =
@@ -276,7 +276,7 @@ internal class DefaultSingleRequestMaterializationGraphService(
     }
 
     private fun sourceVertexNotFoundExceptionSupplier(
-        vertexPath: SchematicPath
+        vertexPath: GQLOperationPath
     ): () -> MaterializerException {
         return { ->
             MaterializerException(
@@ -290,7 +290,7 @@ internal class DefaultSingleRequestMaterializationGraphService(
     }
 
     private fun parameterVertexNotFoundExceptionSupplier(
-        vertexPath: SchematicPath
+        vertexPath: GQLOperationPath
     ): () -> MaterializerException {
         return { ->
             MaterializerException(
@@ -305,7 +305,7 @@ internal class DefaultSingleRequestMaterializationGraphService(
     }
 
     private fun sourceJunctionOrLeafVertexUnresolvedExceptionSupplier(
-        vertexPath: SchematicPath
+        vertexPath: GQLOperationPath
     ): () -> MaterializerException {
         return { ->
             MaterializerException(
@@ -319,7 +319,7 @@ internal class DefaultSingleRequestMaterializationGraphService(
     }
 
     private fun parameterJunctionOrLeafVertexUnresolvedExceptionSupplier(
-        vertexPath: SchematicPath
+        vertexPath: GQLOperationPath
     ): () -> MaterializerException {
         return { ->
             MaterializerException(

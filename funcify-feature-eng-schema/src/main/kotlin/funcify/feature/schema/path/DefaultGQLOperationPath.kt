@@ -5,28 +5,28 @@ import arrow.core.getOrElse
 import arrow.core.none
 import arrow.core.some
 import arrow.core.toOption
-import java.net.URI
-import java.net.URLEncoder
-import java.nio.charset.StandardCharsets
 import kotlinx.collections.immutable.PersistentList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toPersistentList
+import java.net.URI
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
 
 /**
  * @author smccarron
  * @created 2/20/22
  */
-internal data class DefaultSchematicPath(
-    override val scheme: String = SchematicPath.GRAPHQL_SCHEMATIC_PATH_SCHEME,
+internal data class DefaultGQLOperationPath(
+    override val scheme: String = GQLOperationPath.GRAPHQL_SCHEMATIC_PATH_SCHEME,
     override val pathSegments: PersistentList<String> = persistentListOf(),
     override val argument: Option<Pair<String, PersistentList<String>>> = none(),
     override val directive: Option<Pair<String, PersistentList<String>>> = none()
-) : SchematicPath {
+) : GQLOperationPath {
 
     companion object {
 
-        internal data class DefaultBuilder(private val schematicPath: DefaultSchematicPath) :
-            SchematicPath.Builder {
+        internal data class DefaultBuilder(private val schematicPath: DefaultGQLOperationPath) :
+            GQLOperationPath.Builder {
 
             private var inputScheme: String = schematicPath.scheme
             private val pathBuilder: PersistentList.Builder<String> =
@@ -40,7 +40,7 @@ internal data class DefaultSchematicPath(
                 schematicPath.directive.orNull()?.second?.builder()
                     ?: persistentListOf<String>().builder()
 
-            override fun scheme(scheme: String): SchematicPath.Builder {
+            override fun scheme(scheme: String): GQLOperationPath.Builder {
                 inputScheme =
                     scheme
                         .toOption()
@@ -50,7 +50,7 @@ internal data class DefaultSchematicPath(
                 return this
             }
 
-            override fun prependPathSegment(vararg pathSegment: String): SchematicPath.Builder {
+            override fun prependPathSegment(vararg pathSegment: String): GQLOperationPath.Builder {
                 pathSegment
                     .asSequence()
                     .map { s -> s.trim() }
@@ -62,7 +62,7 @@ internal data class DefaultSchematicPath(
                 return this
             }
 
-            override fun prependPathSegments(pathSegments: List<String>): SchematicPath.Builder {
+            override fun prependPathSegments(pathSegments: List<String>): GQLOperationPath.Builder {
                 pathSegments
                     .asSequence()
                     .map { s -> s.trim() }
@@ -74,14 +74,14 @@ internal data class DefaultSchematicPath(
                 return this
             }
 
-            override fun dropPathSegment(): SchematicPath.Builder {
+            override fun dropPathSegment(): GQLOperationPath.Builder {
                 if (pathBuilder.isNotEmpty()) {
                     pathBuilder.removeLast()
                 }
                 return this
             }
 
-            override fun pathSegment(vararg pathSegment: String): SchematicPath.Builder {
+            override fun pathSegment(vararg pathSegment: String): GQLOperationPath.Builder {
                 pathSegment
                     .asSequence()
                     .map { s -> s.trim() }
@@ -93,7 +93,7 @@ internal data class DefaultSchematicPath(
                 return this
             }
 
-            override fun pathSegments(pathSegments: List<String>): SchematicPath.Builder {
+            override fun pathSegments(pathSegments: List<String>): GQLOperationPath.Builder {
                 pathSegments
                     .asSequence()
                     .map { s -> s.trim() }
@@ -105,12 +105,15 @@ internal data class DefaultSchematicPath(
                 return this
             }
 
-            override fun clearPathSegments(): SchematicPath.Builder {
+            override fun clearPathSegments(): GQLOperationPath.Builder {
                 pathBuilder.clear()
                 return this
             }
 
-            override fun argument(name: String, pathSegments: List<String>): SchematicPath.Builder {
+            override fun argument(
+                name: String,
+                pathSegments: List<String>
+            ): GQLOperationPath.Builder {
                 return when (val trimmedName: String = name.trim()) {
                     "" -> {
                         this
@@ -129,7 +132,10 @@ internal data class DefaultSchematicPath(
                 }
             }
 
-            override fun argument(name: String, vararg pathSegment: String): SchematicPath.Builder {
+            override fun argument(
+                name: String,
+                vararg pathSegment: String
+            ): GQLOperationPath.Builder {
                 return when (val trimmedName: String = name.trim()) {
                     "" -> {
                         this
@@ -150,7 +156,7 @@ internal data class DefaultSchematicPath(
 
             override fun prependArgumentPathSegment(
                 vararg pathSegment: String
-            ): SchematicPath.Builder {
+            ): GQLOperationPath.Builder {
                 if (this.argumentName != null && pathSegment.isNotEmpty()) {
                     (pathSegment.size - 1)
                         .downTo(0)
@@ -168,7 +174,7 @@ internal data class DefaultSchematicPath(
 
             override fun prependArgumentPathSegments(
                 pathSegments: List<String>
-            ): SchematicPath.Builder {
+            ): GQLOperationPath.Builder {
                 if (this.argumentName != null && pathSegments.isNotEmpty()) {
                     this.argumentPathBuilder.addAll(
                         0,
@@ -184,7 +190,7 @@ internal data class DefaultSchematicPath(
 
             override fun appendArgumentPathSegment(
                 vararg pathSegment: String
-            ): SchematicPath.Builder {
+            ): GQLOperationPath.Builder {
                 if (this.argumentName != null) {
                     pathSegment
                         .asSequence()
@@ -200,7 +206,7 @@ internal data class DefaultSchematicPath(
 
             override fun appendArgumentPathSegments(
                 pathSegments: List<String>
-            ): SchematicPath.Builder {
+            ): GQLOperationPath.Builder {
                 if (this.argumentName != null) {
                     pathSegments
                         .asSequence()
@@ -214,14 +220,14 @@ internal data class DefaultSchematicPath(
                 return this
             }
 
-            override fun dropArgumentPathSegment(): SchematicPath.Builder {
+            override fun dropArgumentPathSegment(): GQLOperationPath.Builder {
                 if (this.argumentName != null && this.argumentPathBuilder.isNotEmpty()) {
                     this.argumentPathBuilder.removeLast()
                 }
                 return this
             }
 
-            override fun clearArgument(): SchematicPath.Builder {
+            override fun clearArgument(): GQLOperationPath.Builder {
                 this.argumentName = null
                 this.argumentPathBuilder.clear()
                 return this
@@ -230,7 +236,7 @@ internal data class DefaultSchematicPath(
             override fun directive(
                 name: String,
                 pathSegments: List<String>
-            ): SchematicPath.Builder {
+            ): GQLOperationPath.Builder {
                 return when (val trimmedName: String = name.trim()) {
                     "" -> {
                         this
@@ -252,7 +258,7 @@ internal data class DefaultSchematicPath(
             override fun directive(
                 name: String,
                 vararg pathSegment: String
-            ): SchematicPath.Builder {
+            ): GQLOperationPath.Builder {
                 return when (val trimmedName: String = name.trim()) {
                     "" -> {
                         this
@@ -273,7 +279,7 @@ internal data class DefaultSchematicPath(
 
             override fun prependDirectivePathSegment(
                 vararg pathSegment: String
-            ): SchematicPath.Builder {
+            ): GQLOperationPath.Builder {
                 if (this.directiveName != null && pathSegment.isNotEmpty()) {
                     (pathSegment.size - 1)
                         .downTo(0)
@@ -291,7 +297,7 @@ internal data class DefaultSchematicPath(
 
             override fun prependDirectivePathSegments(
                 pathSegments: List<String>
-            ): SchematicPath.Builder {
+            ): GQLOperationPath.Builder {
                 if (this.directiveName != null && pathSegments.isNotEmpty()) {
                     this.directivePathBuilder.addAll(
                         0,
@@ -307,7 +313,7 @@ internal data class DefaultSchematicPath(
 
             override fun appendDirectivePathSegment(
                 vararg pathSegment: String
-            ): SchematicPath.Builder {
+            ): GQLOperationPath.Builder {
                 if (this.directiveName != null) {
                     pathSegment
                         .asSequence()
@@ -323,7 +329,7 @@ internal data class DefaultSchematicPath(
 
             override fun appendDirectivePathSegments(
                 pathSegments: List<String>
-            ): SchematicPath.Builder {
+            ): GQLOperationPath.Builder {
                 if (this.directiveName != null) {
                     pathSegments
                         .asSequence()
@@ -337,21 +343,21 @@ internal data class DefaultSchematicPath(
                 return this
             }
 
-            override fun dropDirectivePathSegment(): SchematicPath.Builder {
+            override fun dropDirectivePathSegment(): GQLOperationPath.Builder {
                 if (directiveName != null && directivePathBuilder.isNotEmpty()) {
                     directivePathBuilder.removeLast()
                 }
                 return this
             }
 
-            override fun clearDirective(): SchematicPath.Builder {
+            override fun clearDirective(): GQLOperationPath.Builder {
                 this.directiveName = null
                 this.directivePathBuilder.clear()
                 return this
             }
 
-            override fun build(): SchematicPath {
-                return DefaultSchematicPath(
+            override fun build(): GQLOperationPath {
+                return DefaultGQLOperationPath(
                     scheme = inputScheme,
                     pathSegments = pathBuilder.build(),
                     argument =
@@ -416,19 +422,19 @@ internal data class DefaultSchematicPath(
         )
     }
 
-    private val internedParentPath: Option<SchematicPath> by lazy { super.getParentPath() }
+    private val internedParentPath: Option<GQLOperationPath> by lazy { super.getParentPath() }
 
     override fun toURI(): URI {
         return internedURI
     }
 
-    override fun getParentPath(): Option<SchematicPath> {
+    override fun getParentPath(): Option<GQLOperationPath> {
         return internedParentPath
     }
 
     override fun transform(
-        mapper: SchematicPath.Builder.() -> SchematicPath.Builder
-    ): SchematicPath {
+        mapper: GQLOperationPath.Builder.() -> GQLOperationPath.Builder
+    ): GQLOperationPath {
         return mapper.invoke(DefaultBuilder(this)).build()
     }
 

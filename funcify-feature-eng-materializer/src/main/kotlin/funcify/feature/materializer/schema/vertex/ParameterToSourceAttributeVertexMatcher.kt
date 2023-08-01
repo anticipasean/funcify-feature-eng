@@ -8,7 +8,7 @@ import arrow.core.orElse
 import arrow.core.toOption
 import funcify.feature.materializer.schema.MaterializationMetamodel
 import funcify.feature.schema.MetamodelGraph
-import funcify.feature.schema.path.SchematicPath
+import funcify.feature.schema.path.GQLOperationPath
 import funcify.feature.schema.vertex.ParameterAttributeVertex
 import funcify.feature.schema.vertex.SourceAttributeVertex
 import funcify.feature.schema.vertex.SourceContainerTypeVertex
@@ -19,11 +19,11 @@ import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentSetOf
 
 internal object ParameterToSourceAttributeVertexMatcher :
-    (MaterializationMetamodel, SchematicPath) -> Option<SourceAttributeVertex> {
+        (MaterializationMetamodel, GQLOperationPath) -> Option<SourceAttributeVertex> {
 
     private val parameterToSourceVertexMemoizer:
-        (MaterializationMetamodel, SchematicPath) -> Option<SourceAttributeVertex> by lazy {
-        val cache: ConcurrentMap<Pair<Instant, SchematicPath>, SourceAttributeVertex> =
+                (MaterializationMetamodel, GQLOperationPath) -> Option<SourceAttributeVertex> by lazy {
+        val cache: ConcurrentMap<Pair<Instant, GQLOperationPath>, SourceAttributeVertex> =
             ConcurrentHashMap()
         ({ mmg, paramPath ->
             cache
@@ -37,15 +37,15 @@ internal object ParameterToSourceAttributeVertexMatcher :
 
     override fun invoke(
         materializationMetamodel: MaterializationMetamodel,
-        parameterVertexPath: SchematicPath
+        parameterVertexPath: GQLOperationPath
     ): Option<SourceAttributeVertex> {
         return parameterToSourceVertexMemoizer(materializationMetamodel, parameterVertexPath)
     }
 
     private fun sourceAttributeVertexWithSameNameCalculator(
         materializationMetamodel: MaterializationMetamodel
-    ): (Pair<Instant, SchematicPath>) -> SourceAttributeVertex? {
-        return { (materializationMetamodelCreated: Instant, parameterPath: SchematicPath) ->
+    ): (Pair<Instant, GQLOperationPath>) -> SourceAttributeVertex? {
+        return { (materializationMetamodelCreated: Instant, parameterPath: GQLOperationPath) ->
             val metamodelGraph: MetamodelGraph = materializationMetamodel.metamodelGraph
             parameterPath
                 .toOption()
@@ -166,7 +166,7 @@ internal object ParameterToSourceAttributeVertexMatcher :
     }
 
     private fun getSourceAttributeVerticesWithSameParentTypeAndAttributeNameForPath(
-        sourceAttributePath: SchematicPath,
+        sourceAttributePath: GQLOperationPath,
         metamodelGraph: MetamodelGraph,
     ): ImmutableSet<SourceAttributeVertex> {
         return sourceAttributePath

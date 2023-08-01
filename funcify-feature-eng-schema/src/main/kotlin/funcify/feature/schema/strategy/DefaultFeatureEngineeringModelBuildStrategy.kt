@@ -35,9 +35,6 @@ import graphql.language.*
 import graphql.schema.FieldCoordinates
 import graphql.schema.idl.TypeDefinitionRegistry
 import graphql.schema.idl.TypeUtil
-import kotlin.reflect.KClass
-import kotlin.reflect.KType
-import kotlin.reflect.full.isSubclassOf
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.PersistentSet
 import kotlinx.collections.immutable.persistentSetOf
@@ -45,6 +42,9 @@ import kotlinx.collections.immutable.toPersistentMap
 import org.slf4j.Logger
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
+import kotlin.reflect.KClass
+import kotlin.reflect.KType
+import kotlin.reflect.full.isSubclassOf
 
 internal class DefaultFeatureEngineeringModelBuildStrategy(
     private val scalarTypeRegistry: ScalarTypeRegistry,

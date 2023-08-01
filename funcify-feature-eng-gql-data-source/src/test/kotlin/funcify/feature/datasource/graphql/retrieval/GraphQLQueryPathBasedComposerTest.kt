@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.node.JsonNodeFactory
 import funcify.feature.json.JsonObjectMappingConfiguration
-import funcify.feature.schema.path.SchematicPath
+import funcify.feature.schema.path.GQLOperationPath
 import graphql.language.AstPrinter
 import graphql.language.OperationDefinition
 import kotlinx.collections.immutable.ImmutableMap
@@ -21,20 +21,20 @@ internal class GraphQLQueryPathBasedComposerTest {
     fun createQueryTemplateTest() {
         val pathsSet =
             sequenceOf(
-                    SchematicPath.of { pathSegment("shows", "title") },
-                    SchematicPath.of { pathSegment("shows", "releaseYear") },
-                    SchematicPath.of { pathSegment("shows", "reviews", "username") },
-                    SchematicPath.of { pathSegment("shows", "reviews", "starScore") },
-                    SchematicPath.of { pathSegment("shows", "reviews", "submittedDate") },
-                    SchematicPath.of { pathSegment("shows", "artwork", "url") },
-                    SchematicPath.of { pathSegment("shows", "title").argument("format") },
-                    SchematicPath.of { pathSegment("shows").argument("titleFilter") }
+                GQLOperationPath.of { pathSegment("shows", "title") },
+                GQLOperationPath.of { pathSegment("shows", "releaseYear") },
+                GQLOperationPath.of { pathSegment("shows", "reviews", "username") },
+                GQLOperationPath.of { pathSegment("shows", "reviews", "starScore") },
+                GQLOperationPath.of { pathSegment("shows", "reviews", "submittedDate") },
+                GQLOperationPath.of { pathSegment("shows", "artwork", "url") },
+                GQLOperationPath.of { pathSegment("shows", "title").argument("format") },
+                GQLOperationPath.of { pathSegment("shows").argument("titleFilter") }
                 )
                 .toPersistentSet()
         /*loggerFor<GraphQLQueryPathBasedComposerTest>()
         .debug("path_set: {}", pathsSet.joinToString(",\n", "{ ", " }"))*/
         val queryOperationComposerFunction:
-            (ImmutableMap<SchematicPath, JsonNode>) -> OperationDefinition =
+                    (ImmutableMap<GQLOperationPath, JsonNode>) -> OperationDefinition =
             GraphQLQueryPathBasedComposer
                 .createQueryOperationDefinitionComposerForParameterAttributePathsAndValuesForTheseSourceAttributes(
                     pathsSet
@@ -55,7 +55,8 @@ internal class GraphQLQueryPathBasedComposerTest {
             |    title
             |  }
             |}
-        """.trimMargin()
+        """
+                .trimMargin()
         Assertions.assertEquals(
             expectedQuery,
             AstPrinter.printAst(queryOperationComposerFunction.invoke(persistentMapOf()))
@@ -64,7 +65,7 @@ internal class GraphQLQueryPathBasedComposerTest {
             AstPrinter.printAst(
                     queryOperationComposerFunction.invoke(
                         persistentMapOf(
-                            SchematicPath.of { pathSegment("shows", "title").argument("format") } to
+                            GQLOperationPath.of { pathSegment("shows", "title").argument("format") } to
                                 JsonNodeFactory.instance.textNode("<name>: <year>")
                         )
                     )
@@ -77,9 +78,9 @@ internal class GraphQLQueryPathBasedComposerTest {
             AstPrinter.printAst(
                     queryOperationComposerFunction.invoke(
                         persistentMapOf(
-                            SchematicPath.of { pathSegment("shows", "title").argument("format") } to
+                            GQLOperationPath.of { pathSegment("shows", "title").argument("format") } to
                                 JsonNodeFactory.instance.textNode("<name>: <year>"),
-                            SchematicPath.of {
+                            GQLOperationPath.of {
                                 pathSegment("shows", "title", "abbreviated_version")
                                     .argument("format")
                             } to JsonNodeFactory.instance.textNode("<name>")
@@ -93,7 +94,7 @@ internal class GraphQLQueryPathBasedComposerTest {
             AstPrinter.printAst(
                     queryOperationComposerFunction.invoke(
                         persistentMapOf(
-                            SchematicPath.of {
+                            GQLOperationPath.of {
                                 pathSegment("shows", "releaseYear").argument("between")
                             } to JsonNodeFactory.instance.arrayNode().add(1999).add(2005)
                         )

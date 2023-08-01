@@ -2,7 +2,7 @@ package funcify.feature.materializer.spec
 
 import arrow.core.Either
 import funcify.feature.schema.dataelement.DataElementSource
-import funcify.feature.schema.path.SchematicPath
+import funcify.feature.schema.path.GQLOperationPath
 import funcify.feature.schema.vertex.ParameterJunctionVertex
 import funcify.feature.schema.vertex.ParameterLeafVertex
 import funcify.feature.schema.vertex.SourceJunctionVertex
@@ -13,9 +13,9 @@ interface RetrievalFunctionSpec {
 
     val dataSource: DataElementSource<*>
 
-    val sourceVerticesByPath: PersistentMap<SchematicPath, Either<SourceJunctionVertex, SourceLeafVertex>>
+    val sourceVerticesByPath: PersistentMap<GQLOperationPath, Either<SourceJunctionVertex, SourceLeafVertex>>
 
-    val parameterVerticesByPath: PersistentMap<SchematicPath, Either<ParameterJunctionVertex, ParameterLeafVertex>>
+    val parameterVerticesByPath: PersistentMap<GQLOperationPath, Either<ParameterJunctionVertex, ParameterLeafVertex>>
 
     fun updateSpec(transformer: SpecBuilder.() -> SpecBuilder): RetrievalFunctionSpec
 

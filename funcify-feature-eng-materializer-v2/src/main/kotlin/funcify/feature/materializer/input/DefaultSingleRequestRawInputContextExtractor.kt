@@ -10,9 +10,9 @@ import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.MonoExtensions.widen
 import funcify.feature.tools.extensions.StringExtensions.flatten
-import kotlin.reflect.typeOf
 import org.slf4j.Logger
 import reactor.core.publisher.Mono
+import kotlin.reflect.typeOf
 
 /**
  * @author smccarron

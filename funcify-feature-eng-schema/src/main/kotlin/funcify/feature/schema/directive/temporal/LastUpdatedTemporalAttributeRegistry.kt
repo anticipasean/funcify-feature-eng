@@ -1,11 +1,10 @@
 package funcify.feature.schema.directive.temporal
 
 import arrow.core.Option
-import funcify.feature.schema.path.SchematicPath
+import funcify.feature.schema.path.GQLOperationPath
 import kotlinx.collections.immutable.ImmutableSet
 
 /**
- *
  * @author smccarron
  * @created 2022-07-25
  */
@@ -20,16 +19,20 @@ interface LastUpdatedTemporalAttributeRegistry {
     }
 
     fun registerSchematicPathAsMappingToLastUpdatedTemporalAttributeVertex(
-        path: SchematicPath
+        path: GQLOperationPath
     ): LastUpdatedTemporalAttributeRegistry
 
-    fun pathBelongsToLastUpdatedTemporalAttributeVertex(path: SchematicPath): Boolean
+    fun pathBelongsToLastUpdatedTemporalAttributeVertex(path: GQLOperationPath): Boolean
 
-    fun getAllPathsBelongingToLastUpdatedTemporalAttributeVertices(): ImmutableSet<SchematicPath>
+    fun getAllPathsBelongingToLastUpdatedTemporalAttributeVertices(): ImmutableSet<GQLOperationPath>
 
-    fun pathBelongsToLastUpdatedTemporalAttributeParentVertex(path: SchematicPath): Boolean
+    fun pathBelongsToLastUpdatedTemporalAttributeParentVertex(path: GQLOperationPath): Boolean
 
-    fun getLastUpdatedTemporalAttributeChildPathOfParentPath(path: SchematicPath): Option<SchematicPath>
+    fun getLastUpdatedTemporalAttributeChildPathOfParentPath(
+        path: GQLOperationPath
+    ): Option<GQLOperationPath>
 
-    fun findNearestLastUpdatedTemporalAttributePathRelative(path: SchematicPath): Option<SchematicPath>
+    fun findNearestLastUpdatedTemporalAttributePathRelative(
+        path: GQLOperationPath
+    ): Option<GQLOperationPath>
 }

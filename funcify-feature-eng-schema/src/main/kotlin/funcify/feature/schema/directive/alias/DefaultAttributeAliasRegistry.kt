@@ -9,21 +9,21 @@ import com.fasterxml.jackson.databind.node.JsonNodeFactory
 import com.fasterxml.jackson.databind.node.ObjectNode
 import funcify.feature.naming.ConventionalName
 import funcify.feature.naming.StandardNamingConventions
-import funcify.feature.schema.path.SchematicPath
-import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.ConcurrentMap
+import funcify.feature.schema.path.GQLOperationPath
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.PersistentSet
 import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.persistentSetOf
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ConcurrentMap
 
 internal data class DefaultAttributeAliasRegistry(
     private val sourceAttributeVerticesByStandardAndAliasQualifiedNames:
-        PersistentMap<String, SchematicPath> =
+        PersistentMap<String, GQLOperationPath> =
         persistentMapOf(),
     private val parameterAttributeVerticesByStandardAndAliasQualifiedNames:
-        PersistentMap<String, PersistentSet<SchematicPath>> =
+        PersistentMap<String, PersistentSet<GQLOperationPath>> =
         persistentMapOf(),
     private val memoizingSourceAttributeVertexAliasMapper: MemoizingAliasMapperFunction =
         MemoizingAliasMapperFunction(),
@@ -51,14 +51,14 @@ internal data class DefaultAttributeAliasRegistry(
         }
 
         internal data class MemoizingAliasMapperFunction(
-            private val schematicVerticesByNormalizedName: ConcurrentMap<String, SchematicPath> =
+            private val schematicVerticesByNormalizedName: ConcurrentMap<String, GQLOperationPath> =
                 ConcurrentHashMap(),
             private val verticesByStandardAndAliasQualifiedNames:
-                PersistentMap<String, SchematicPath> =
+                PersistentMap<String, GQLOperationPath> =
                 persistentMapOf()
-        ) : (String) -> Option<SchematicPath> {
+        ) : (String) -> Option<GQLOperationPath> {
 
-            override fun invoke(unnormalizedName: String): Option<SchematicPath> {
+            override fun invoke(unnormalizedName: String): Option<GQLOperationPath> {
                 return schematicVerticesByNormalizedName
                     .computeIfAbsent(unnormalizedName, ::normalizeNameAndAttemptToMapToVertex)
                     .toOption()
@@ -66,7 +66,7 @@ internal data class DefaultAttributeAliasRegistry(
 
             private fun normalizeNameAndAttemptToMapToVertex(
                 unnormalizedName: String
-            ): SchematicPath? {
+            ): GQLOperationPath? {
                 if (unnormalizedName.length < 3) {
                     return null
                 }
@@ -77,14 +77,14 @@ internal data class DefaultAttributeAliasRegistry(
 
         internal data class MemoizingAliasSetMapperFunction(
             private val schematicVerticesByNormalizedName:
-                ConcurrentMap<String, PersistentSet<SchematicPath>> =
+                ConcurrentMap<String, PersistentSet<GQLOperationPath>> =
                 ConcurrentHashMap(),
             private val verticesByStandardAndAliasQualifiedNames:
-                PersistentMap<String, PersistentSet<SchematicPath>> =
+                PersistentMap<String, PersistentSet<GQLOperationPath>> =
                 persistentMapOf()
-        ) : (String) -> ImmutableSet<SchematicPath> {
+        ) : (String) -> ImmutableSet<GQLOperationPath> {
 
-            override fun invoke(unnormalizedName: String): ImmutableSet<SchematicPath> {
+            override fun invoke(unnormalizedName: String): ImmutableSet<GQLOperationPath> {
                 return schematicVerticesByNormalizedName.computeIfAbsent(
                     unnormalizedName,
                     ::normalizeNameAndAttemptToMapToVertex
@@ -93,7 +93,7 @@ internal data class DefaultAttributeAliasRegistry(
 
             private fun normalizeNameAndAttemptToMapToVertex(
                 unnormalizedName: String
-            ): PersistentSet<SchematicPath> {
+            ): PersistentSet<GQLOperationPath> {
                 if (unnormalizedName.length < 3) {
                     return persistentSetOf()
                 }
@@ -107,7 +107,7 @@ internal data class DefaultAttributeAliasRegistry(
     }
 
     override fun registerSourceVertexPathWithAlias(
-        sourceVertexPath: SchematicPath,
+        sourceVertexPath: GQLOperationPath,
         alias: String
     ): AttributeAliasRegistry {
         if (sourceVertexPath.directive.isDefined()) {
@@ -118,7 +118,8 @@ internal data class DefaultAttributeAliasRegistry(
         }
         val aliasQualifiedName: String =
             StandardNamingConventions.SNAKE_CASE.deriveName(alias).qualifiedForm
-        val updatedSourceAttributeVerticesByQualifiedNames: PersistentMap<String, SchematicPath> =
+        val updatedSourceAttributeVerticesByQualifiedNames:
+            PersistentMap<String, GQLOperationPath> =
             sequenceOf(aliasQualifiedName).fold(
                 sourceAttributeVerticesByStandardAndAliasQualifiedNames
             ) { pm, name ->
@@ -150,7 +151,7 @@ internal data class DefaultAttributeAliasRegistry(
     }
 
     override fun registerParameterVertexPathWithAlias(
-        parameterVertexPath: SchematicPath,
+        parameterVertexPath: GQLOperationPath,
         alias: String,
     ): AttributeAliasRegistry {
         if (parameterVertexPath.directive.isDefined()) {
@@ -162,7 +163,7 @@ internal data class DefaultAttributeAliasRegistry(
         val aliasQualifiedName: String =
             StandardNamingConventions.SNAKE_CASE.deriveName(alias).qualifiedForm
         val updatedParameterAttributeVerticesByQualifiedNames:
-            PersistentMap<String, PersistentSet<SchematicPath>> =
+            PersistentMap<String, PersistentSet<GQLOperationPath>> =
             sequenceOf(aliasQualifiedName).fold(
                 parameterAttributeVerticesByStandardAndAliasQualifiedNames
             ) { pm, name ->
@@ -182,13 +183,13 @@ internal data class DefaultAttributeAliasRegistry(
         )
     }
 
-    override fun getSourceVertexPathWithSimilarNameOrAlias(name: String): Option<SchematicPath> {
+    override fun getSourceVertexPathWithSimilarNameOrAlias(name: String): Option<GQLOperationPath> {
         return memoizingSourceAttributeVertexAliasMapper.invoke(name)
     }
 
     override fun getSourceVertexPathWithSimilarNameOrAlias(
         conventionalName: ConventionalName
-    ): Option<SchematicPath> {
+    ): Option<GQLOperationPath> {
         return if (
             conventionalName.namingConventionKey ==
                 StandardNamingConventions.SNAKE_CASE.conventionKey
@@ -203,13 +204,13 @@ internal data class DefaultAttributeAliasRegistry(
 
     override fun getParameterVertexPathsWithSimilarNameOrAlias(
         name: String
-    ): ImmutableSet<SchematicPath> {
+    ): ImmutableSet<GQLOperationPath> {
         return memoizingParameterAttributeVertexAliasMapper.invoke(name)
     }
 
     override fun getParameterVertexPathsWithSimilarNameOrAlias(
         conventionalName: ConventionalName
-    ): ImmutableSet<SchematicPath> {
+    ): ImmutableSet<GQLOperationPath> {
         return if (
             conventionalName.namingConventionKey ==
                 StandardNamingConventions.SNAKE_CASE.conventionKey
@@ -227,12 +228,12 @@ internal data class DefaultAttributeAliasRegistry(
                 "names_for_parameter_fields" to
                     parameterAttributeVerticesByStandardAndAliasQualifiedNames.asSequence().fold(
                         JsonNodeFactory.instance.objectNode()
-                    ) { on: ObjectNode, (name: String, paths: PersistentSet<SchematicPath>) ->
+                    ) { on: ObjectNode, (name: String, paths: PersistentSet<GQLOperationPath>) ->
                         on.set<ObjectNode>(
                             name,
                             paths.asSequence().fold(JsonNodeFactory.instance.arrayNode()) {
                                 an: ArrayNode,
-                                p: SchematicPath ->
+                                p: GQLOperationPath ->
                                 an.add(p.toString())
                             }
                         )
@@ -240,7 +241,7 @@ internal data class DefaultAttributeAliasRegistry(
                 "names_for_source_fields" to
                     sourceAttributeVerticesByStandardAndAliasQualifiedNames.asSequence().fold(
                         JsonNodeFactory.instance.objectNode()
-                    ) { on: ObjectNode, (name: String, path: SchematicPath) ->
+                    ) { on: ObjectNode, (name: String, path: GQLOperationPath) ->
                         on.put(name, path.toString())
                     }
             )

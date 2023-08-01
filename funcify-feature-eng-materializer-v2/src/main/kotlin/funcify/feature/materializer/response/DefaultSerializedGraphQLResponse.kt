@@ -8,4 +8,4 @@ import graphql.ExecutionResult
 internal class DefaultSerializedGraphQLResponse(
     override val executionResult: ExecutionResult,
     override val resultAsColumnarJsonObject: Option<JsonNode> = none()
-) : SerializedGraphQLResponse {}
+) : SerializedGraphQLResponse

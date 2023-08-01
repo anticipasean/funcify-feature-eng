@@ -15,8 +15,9 @@ import reactor.core.publisher.Mono
  * @author smccarron
  * @created 2023-07-09
  */
-internal class DefaultFeatureEngineeringModelFactory(private val featureEngineeringModelBuildStrategy: FeatureEngineeringModelBuildStrategy) :
-    FeatureEngineeringModelFactory {
+internal class DefaultFeatureEngineeringModelFactory(
+    private val featureEngineeringModelBuildStrategy: FeatureEngineeringModelBuildStrategy
+) : FeatureEngineeringModelFactory {
 
     companion object {
 
@@ -78,7 +79,7 @@ internal class DefaultFeatureEngineeringModelFactory(private val featureEngineer
                         addAllFeatureJsonValueStores(featureJsonValueStores)
                         addAllFeatureJsonValuePublishers(featureJsonValuePublishers)
                     }
-                                                                                        )
+                )
             }
         }
     }

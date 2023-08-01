@@ -2,7 +2,7 @@ package funcify.feature.schema.directive.alias
 
 import arrow.core.*
 import funcify.feature.directive.AliasDirective
-import funcify.feature.schema.path.SchematicPath
+import funcify.feature.schema.path.GQLOperationPath
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.OptionExtensions.recurse
 import funcify.feature.tools.extensions.OptionExtensions.toOption
@@ -75,10 +75,10 @@ internal class AliasRegistryComposer {
                 // )
                 val aliasRegistry: AttributeAliasRegistry =
                     context.getNewAccumulate<AttributeAliasRegistry>()
-                val sp: SchematicPath =
+                val sp: GQLOperationPath =
                     when (val parentNode: Node<*> = context.parentNode) {
                         is FieldDefinition -> {
-                            SchematicPath.of {
+                            GQLOperationPath.of {
                                 pathSegments(
                                     context.breadcrumbs
                                         .asReversed()
@@ -91,7 +91,7 @@ internal class AliasRegistryComposer {
                             }
                         }
                         is InputValueDefinition -> {
-                            SchematicPath.of {
+                            GQLOperationPath.of {
                                 pathSegments(
                                     context.breadcrumbs
                                         .asReversed()
@@ -144,7 +144,7 @@ internal class AliasRegistryComposer {
                             }
                         }
                         else -> {
-                            SchematicPath.getRootPath()
+                            GQLOperationPath.getRootPath()
                         }
                     }
                 if (logger.isDebugEnabled) {

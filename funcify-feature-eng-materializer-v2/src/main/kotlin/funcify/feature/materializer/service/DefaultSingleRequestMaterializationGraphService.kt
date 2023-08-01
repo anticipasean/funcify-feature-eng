@@ -9,7 +9,7 @@ import reactor.core.publisher.Mono
  * @author smccarron
  * @created 2022-08-08
  */
-internal class DefaultSingleRequestMaterializationGraphService() :
+internal class DefaultSingleRequestMaterializationGraphService :
     SingleRequestMaterializationGraphService {
 
     companion object {

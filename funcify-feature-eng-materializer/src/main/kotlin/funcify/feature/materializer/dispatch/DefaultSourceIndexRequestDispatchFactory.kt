@@ -7,7 +7,7 @@ import funcify.feature.materializer.error.MaterializerErrorResponse
 import funcify.feature.materializer.error.MaterializerException
 import funcify.feature.materializer.spec.RetrievalFunctionSpec
 import funcify.feature.naming.StandardNamingConventions
-import funcify.feature.schema.path.SchematicPath
+import funcify.feature.schema.path.GQLOperationPath
 import kotlinx.collections.immutable.ImmutableMap
 import reactor.core.publisher.Mono
 
@@ -16,11 +16,11 @@ internal class DefaultSourceIndexRequestDispatchFactory : SourceIndexRequestDisp
     companion object {
 
         internal class DefaultBuilder(
-            private var sourceIndexPath: SchematicPath? = null,
+            private var sourceIndexPath: GQLOperationPath? = null,
             private var retrievalFunctionSpec: RetrievalFunctionSpec? = null
         ) : SourceIndexRequestDispatch.Builder {
 
-            override fun sourceIndexPath(path: SchematicPath): SourceIndexRequestDispatch.Builder {
+            override fun sourceIndexPath(path: GQLOperationPath): SourceIndexRequestDispatch.Builder {
                 this.sourceIndexPath = path
                 return this
             }
@@ -54,7 +54,7 @@ internal class DefaultSourceIndexRequestDispatchFactory : SourceIndexRequestDisp
         }
 
         internal class DefaultTrackableValueSourceIndexRetrievalSpec(
-            private val sourceIndexPath: SchematicPath?,
+            private val sourceIndexPath: GQLOperationPath?,
             private val retrievalFunctionSpec: RetrievalFunctionSpec?,
             private val featureJsonValueStore: FeatureJsonValueStore,
             private var dispatchedSingleIndexCacheRequest: Mono<TrackableValue<JsonNode>>? = null,
@@ -121,16 +121,16 @@ internal class DefaultSourceIndexRequestDispatchFactory : SourceIndexRequestDisp
         }
 
         internal class DefaultMultipleSourceIndexRetrievalSpec(
-            private val sourceIndexPath: SchematicPath?,
+            private val sourceIndexPath: GQLOperationPath?,
             private val retrievalFunctionSpec: RetrievalFunctionSpec?,
             private val dataElementJsonValueSource: DataElementJsonValueSource,
             private var dispatchedMultipleIndexRequest:
-                Mono<ImmutableMap<SchematicPath, JsonNode>>? =
+                Mono<ImmutableMap<GQLOperationPath, JsonNode>>? =
                 null
         ) : SourceIndexRequestDispatch.MultipleSourceIndexRetrievalSpec {
 
             override fun dispatchedMultipleIndexRequest(
-                dispatch: Mono<ImmutableMap<SchematicPath, JsonNode>>
+                dispatch: Mono<ImmutableMap<GQLOperationPath, JsonNode>>
             ): SourceIndexRequestDispatch.MultipleSourceIndexRetrievalSpec {
                 this.dispatchedMultipleIndexRequest = dispatch
                 return this
@@ -167,7 +167,7 @@ internal class DefaultSourceIndexRequestDispatchFactory : SourceIndexRequestDisp
         }
 
         internal data class DefaultTrackableSingleJsonValueDispatch(
-            override val sourceIndexPath: SchematicPath,
+            override val sourceIndexPath: GQLOperationPath,
             override val retrievalFunctionSpec: RetrievalFunctionSpec,
             override val featureJsonValueStore: FeatureJsonValueStore,
             override val dispatchedTrackableValueRequest: Mono<TrackableValue<JsonNode>>,
@@ -176,10 +176,10 @@ internal class DefaultSourceIndexRequestDispatchFactory : SourceIndexRequestDisp
         ) : SourceIndexRequestDispatch.TrackableSingleJsonValueDispatch {}
 
         internal data class DefaultExternalDataSourceValuesDispatch(
-            override val sourceIndexPath: SchematicPath,
+            override val sourceIndexPath: GQLOperationPath,
             override val retrievalFunctionSpec: RetrievalFunctionSpec,
             override val dataElementJsonValueSource: DataElementJsonValueSource,
-            override val dispatchedMultipleIndexRequest: Mono<ImmutableMap<SchematicPath, JsonNode>>
+            override val dispatchedMultipleIndexRequest: Mono<ImmutableMap<GQLOperationPath, JsonNode>>
         ) : SourceIndexRequestDispatch.ExternalDataSourceValuesDispatch {}
     }
 

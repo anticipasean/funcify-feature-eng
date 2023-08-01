@@ -1,11 +1,10 @@
 package funcify.feature.schema.directive.identifier
 
 import arrow.core.Option
-import funcify.feature.schema.path.SchematicPath
+import funcify.feature.schema.path.GQLOperationPath
 import kotlinx.collections.immutable.ImmutableSet
 
 /**
- *
  * @author smccarron
  * @created 2022-09-15
  */
@@ -20,26 +19,28 @@ interface EntityRegistry {
     }
 
     fun registerSchematicPathAsMappingToEntityIdentifierAttributeVertex(
-        path: SchematicPath
+        path: GQLOperationPath
     ): EntityRegistry
 
-    fun pathBelongsToEntityIdentifierAttributeVertex(path: SchematicPath): Boolean
+    fun pathBelongsToEntityIdentifierAttributeVertex(path: GQLOperationPath): Boolean
 
-    fun getAllPathsBelongingToEntityIdentifierAttributeVertices(): ImmutableSet<SchematicPath>
+    fun getAllPathsBelongingToEntityIdentifierAttributeVertices(): ImmutableSet<GQLOperationPath>
 
-    fun pathBelongsToEntitySourceContainerTypeVertex(path: SchematicPath): Boolean
+    fun pathBelongsToEntitySourceContainerTypeVertex(path: GQLOperationPath): Boolean
 
     fun getEntityIdentifierAttributeVerticesBelongingToSourceContainerIndexPath(
-        path: SchematicPath
-    ): ImmutableSet<SchematicPath>
+        path: GQLOperationPath
+    ): ImmutableSet<GQLOperationPath>
 
     /**
      * Assumes entities could have _composite_ identifiers (=> more than one attribute is necessary
      * for identification of a specific instance)
      */
-    fun findNearestEntityIdentifierPathRelatives(path: SchematicPath): ImmutableSet<SchematicPath>
+    fun findNearestEntityIdentifierPathRelatives(
+        path: GQLOperationPath
+    ): ImmutableSet<GQLOperationPath>
 
     fun findNearestEntitySourceContainerTypeVertexAncestor(
-        path: SchematicPath
-    ): Option<SchematicPath>
+        path: GQLOperationPath
+    ): Option<GQLOperationPath>
 }

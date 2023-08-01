@@ -42,7 +42,8 @@ internal object JsonObjectHierarchyAssessor {
         // }
         val traversalFunction:
             (JsonObjTraversalContext) -> Sequence<
-                    Either<JsonObjTraversalContext, JsonObjTraversalContext>> =
+                    Either<JsonObjTraversalContext, JsonObjTraversalContext>
+                > =
             { context: JsonObjTraversalContext ->
                 // val contextPrintStatement = contextPrintStatementFunction.invoke(context)
                 // println("context: ${contextPrintStatement}")

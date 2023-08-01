@@ -11,7 +11,7 @@ import funcify.feature.materializer.request.RawGraphQLRequest
 import funcify.feature.materializer.response.SerializedGraphQLResponse
 import funcify.feature.materializer.schema.MaterializationMetamodel
 import funcify.feature.materializer.session.GraphQLSingleRequestSession.Builder
-import funcify.feature.schema.path.SchematicPath
+import funcify.feature.schema.path.GQLOperationPath
 import graphql.language.Document
 import graphql.language.OperationDefinition
 import kotlinx.collections.immutable.ImmutableMap
@@ -29,8 +29,8 @@ internal data class DefaultGraphQLSingleRequestSession(
     override val document: Option<Document> = none(),
     override val operationDefinition: Option<OperationDefinition> = none(),
     override val processedQueryVariables: ImmutableMap<String, Any?> = persistentMapOf(),
-    override val reactiveDataLoaderRegistry: ReactiveDataLoaderRegistry<SchematicPath> =
-        DefaultReactiveDataLoaderRegistry<SchematicPath>(),
+    override val reactiveDataLoaderRegistry: ReactiveDataLoaderRegistry<GQLOperationPath> =
+        DefaultReactiveDataLoaderRegistry<GQLOperationPath>(),
     override val serializedGraphQLResponse: Option<SerializedGraphQLResponse> = none(),
 ) : GraphQLSingleRequestSession {
 
@@ -45,7 +45,7 @@ internal data class DefaultGraphQLSingleRequestSession(
                 currentSession.operationDefinition,
             private var processedQueryVariables: ImmutableMap<String, Any?> =
                 currentSession.processedQueryVariables,
-            private var reactiveDataLoaderRegistry: ReactiveDataLoaderRegistry<SchematicPath> =
+            private var reactiveDataLoaderRegistry: ReactiveDataLoaderRegistry<GQLOperationPath> =
                 currentSession.reactiveDataLoaderRegistry,
             private var serializedGraphQLResponse: Option<SerializedGraphQLResponse> =
                 currentSession.serializedGraphQLResponse
@@ -79,7 +79,7 @@ internal data class DefaultGraphQLSingleRequestSession(
             }
 
             override fun reactiveDataLoaderRegistry(
-                reactiveDataLoaderRegistry: ReactiveDataLoaderRegistry<SchematicPath>
+                reactiveDataLoaderRegistry: ReactiveDataLoaderRegistry<GQLOperationPath>
             ): Builder {
                 this.reactiveDataLoaderRegistry = reactiveDataLoaderRegistry
                 return this

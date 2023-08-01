@@ -7,7 +7,7 @@ import arrow.core.some
 import arrow.core.toOption
 import funcify.feature.materializer.schema.MaterializationMetamodel
 import funcify.feature.schema.MetamodelGraph
-import funcify.feature.schema.path.SchematicPath
+import funcify.feature.schema.path.GQLOperationPath
 import funcify.feature.schema.vertex.SourceAttributeVertex
 import funcify.feature.schema.vertex.SourceContainerTypeVertex
 import graphql.schema.FieldCoordinates
@@ -16,13 +16,13 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentMap
 
 internal object SchematicPathFieldCoordinatesMatcher :
-    (MaterializationMetamodel, SchematicPath) -> Option<FieldCoordinates> {
+        (MaterializationMetamodel, GQLOperationPath) -> Option<FieldCoordinates> {
 
     private val schematicPathFieldCoordinatesMemoizer:
-        (MaterializationMetamodel, SchematicPath) -> Option<FieldCoordinates> by lazy {
-        val cache: ConcurrentMap<Pair<Instant, SchematicPath>, FieldCoordinates> =
+                (MaterializationMetamodel, GQLOperationPath) -> Option<FieldCoordinates> by lazy {
+        val cache: ConcurrentMap<Pair<Instant, GQLOperationPath>, FieldCoordinates> =
             ConcurrentHashMap()
-        ({ mm: MaterializationMetamodel, path: SchematicPath ->
+        ({ mm: MaterializationMetamodel, path: GQLOperationPath ->
             cache
                 .computeIfAbsent(mm.created to path, schematicPathFieldCoordinatesCalculator(mm))
                 .toOption()
@@ -31,15 +31,15 @@ internal object SchematicPathFieldCoordinatesMatcher :
 
     override fun invoke(
         materializationMetamodel: MaterializationMetamodel,
-        schematicPath: SchematicPath
+        gqlOperationPath: GQLOperationPath
     ): Option<FieldCoordinates> {
-        return schematicPathFieldCoordinatesMemoizer(materializationMetamodel, schematicPath)
+        return schematicPathFieldCoordinatesMemoizer(materializationMetamodel, gqlOperationPath)
     }
 
     private fun schematicPathFieldCoordinatesCalculator(
         materializationMetamodel: MaterializationMetamodel
-    ): (Pair<Instant, SchematicPath>) -> FieldCoordinates? {
-        return { (materializationMetamodelCreated: Instant, path: SchematicPath) ->
+    ): (Pair<Instant, GQLOperationPath>) -> FieldCoordinates? {
+        return { (materializationMetamodelCreated: Instant, path: GQLOperationPath) ->
             val mmg: MetamodelGraph = materializationMetamodel.metamodelGraph
             path
                 .toOption()

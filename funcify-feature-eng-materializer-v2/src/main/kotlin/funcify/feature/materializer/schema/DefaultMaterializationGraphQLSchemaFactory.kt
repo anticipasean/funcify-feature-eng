@@ -23,7 +23,9 @@ internal class DefaultMaterializationGraphQLSchemaFactory(
         private const val QUERY_OBJECT_TYPE_NAME: String = "Query"
     }
 
-    override fun createGraphQLSchemaFromMetamodel(featureEngineeringModel: FeatureEngineeringModel): Try<GraphQLSchema> {
+    override fun createGraphQLSchemaFromMetamodel(
+        featureEngineeringModel: FeatureEngineeringModel
+    ): Try<GraphQLSchema> {
         logger.info(
             """create_graphql_schema_from_metamodel: [ Query.field_definitions.name: {} ]""".flatten(),
             featureEngineeringModel.typeDefinitionRegistry

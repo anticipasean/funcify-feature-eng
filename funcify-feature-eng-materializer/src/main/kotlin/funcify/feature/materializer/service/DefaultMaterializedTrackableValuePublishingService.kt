@@ -14,7 +14,7 @@ import funcify.feature.materializer.phase.RequestDispatchMaterializationPhase
 import funcify.feature.materializer.schema.path.ListIndexedSchematicPathGraphQLSchemaBasedCalculator
 import funcify.feature.materializer.schema.path.SchematicPathFieldCoordinatesMatcher
 import funcify.feature.materializer.session.GraphQLSingleRequestSession
-import funcify.feature.schema.path.SchematicPath
+import funcify.feature.schema.path.GQLOperationPath
 import funcify.feature.schema.vertex.SourceAttributeVertex
 import funcify.feature.schema.vertex.SourceContainerTypeVertex
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
@@ -202,7 +202,7 @@ internal class DefaultMaterializedTrackableValuePublishingService(
                         .sourceAttributeVerticesWithParentTypeAttributeQualifiedNamePair
                         .getOrNone(parentTypeName to childAttributeName)
                         .fold(::emptySet, ::identity)
-                val canonicalPath: SchematicPath =
+                val canonicalPath: GQLOperationPath =
                     canonicalAndReferenceVertices
                         .asSequence()
                         .map { sav -> sav.path }
@@ -226,9 +226,9 @@ internal class DefaultMaterializedTrackableValuePublishingService(
                             )
                         }
                         .orElseThrow()
-                val canonicalPathWithoutContext: SchematicPath =
+                val canonicalPathWithoutContext: GQLOperationPath =
                     canonicalPath.transform { clearArguments() }
-                val referencePaths: PersistentSet<SchematicPath> =
+                val referencePaths: PersistentSet<GQLOperationPath> =
                     canonicalAndReferenceVertices
                         .asSequence()
                         .filter { sav -> sav.path != canonicalPathWithoutContext }
@@ -359,12 +359,12 @@ internal class DefaultMaterializedTrackableValuePublishingService(
     }
 
     private fun decorateCanonicalPathWithRelevantContextualEntityIdentifiers(
-        canonicalPath: SchematicPath,
-        relevantIdsByPath: ImmutableMap<SchematicPath, JsonNode>,
+        canonicalPath: GQLOperationPath,
+        relevantIdsByPath: ImmutableMap<GQLOperationPath, JsonNode>,
         calculatedValue: TrackableValue.CalculatedValue<JsonNode>,
         dispatchedRequest: SourceIndexRequestDispatch.TrackableSingleJsonValueDispatch,
         session: GraphQLSingleRequestSession
-    ): SchematicPath {
+    ): GQLOperationPath {
         return when {
             // current relevant contextual parameters have already been determined for the
             // current path
@@ -387,8 +387,8 @@ internal class DefaultMaterializedTrackableValuePublishingService(
                 }
             }
             else -> {
-                val canonicalDomainPath: SchematicPath =
-                    SchematicPath.of {
+                val canonicalDomainPath: GQLOperationPath =
+                    GQLOperationPath.of {
                         pathSegments(canonicalPath.pathSegments.firstOrNone().toList())
                     }
                 // canonical_context = those used to retrieve some ref_path (i.e. the
@@ -423,13 +423,13 @@ internal class DefaultMaterializedTrackableValuePublishingService(
     }
 
     private fun decorateReferencePathWithRelevantContextualEntityIdentifiers(
-        referencePath: SchematicPath,
-        canonicalPathWithoutContext: SchematicPath,
-        relevantIdsByPath: ImmutableMap<SchematicPath, JsonNode>,
+        referencePath: GQLOperationPath,
+        canonicalPathWithoutContext: GQLOperationPath,
+        relevantIdsByPath: ImmutableMap<GQLOperationPath, JsonNode>,
         calculatedValue: TrackableValue.CalculatedValue<JsonNode>,
         dispatchedRequest: SourceIndexRequestDispatch.TrackableSingleJsonValueDispatch,
         session: GraphQLSingleRequestSession,
-    ): SchematicPath {
+    ): GQLOperationPath {
         return when {
             // current relevant contextual parameters have already been determined for the
             // current path
@@ -452,8 +452,8 @@ internal class DefaultMaterializedTrackableValuePublishingService(
                 }
             }
             else -> {
-                val canonicalDomainPath: SchematicPath =
-                    SchematicPath.of {
+                val canonicalDomainPath: GQLOperationPath =
+                    GQLOperationPath.of {
                         pathSegments(
                             canonicalPathWithoutContext.pathSegments.firstOrNone().toList()
                         )
@@ -627,7 +627,7 @@ internal class DefaultMaterializedTrackableValuePublishingService(
                 Flux.merge(entityIdPathToValueMonos)
                     .reduce(publishingContext) {
                         ctx: TrackableValuePublishingContext,
-                        (k: SchematicPath, v: JsonNode) ->
+                        (k: GQLOperationPath, v: JsonNode) ->
                         ctx.update { putEntityIdentifierValueForPath(k, v) }
                     }
                     .widen()
@@ -700,7 +700,7 @@ internal class DefaultMaterializedTrackableValuePublishingService(
                     .flatMapMany { valueAtTimestampEntryPublishers ->
                         Flux.merge(valueAtTimestampEntryPublishers)
                     }
-                    .reduce(persistentMapOf<SchematicPath, Instant>()) { pm, (k, v) ->
+                    .reduce(persistentMapOf<GQLOperationPath, Instant>()) { pm, (k, v) ->
                         pm.put(k, v)
                     }
                     .doOnNext { valueAtTimestampsByDependentTrackedValuePath ->
@@ -788,7 +788,7 @@ internal class DefaultMaterializedTrackableValuePublishingService(
                     }
                     .reduce(publishingContext) {
                         ctx: TrackableValuePublishingContext,
-                        (p: SchematicPath, i: Instant) ->
+                        (p: GQLOperationPath, i: Instant) ->
                         ctx.update { putLastUpdatedInstantForPath(p, i) }
                     }
             }
@@ -796,9 +796,9 @@ internal class DefaultMaterializedTrackableValuePublishingService(
     }
 
     private fun getVertexPathWithListIndexingIfDescendentOfListNode(
-        sourceIndexPath: SchematicPath,
+        sourceIndexPath: GQLOperationPath,
         graphQLSchema: GraphQLSchema
-    ): Option<SchematicPath> {
+    ): Option<GQLOperationPath> {
         return ListIndexedSchematicPathGraphQLSchemaBasedCalculator(sourceIndexPath, graphQLSchema)
     }
 }

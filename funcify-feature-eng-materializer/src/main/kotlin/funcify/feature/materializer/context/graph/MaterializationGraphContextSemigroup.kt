@@ -4,7 +4,7 @@ import arrow.typeclasses.Semigroup
 import funcify.feature.materializer.schema.MaterializationMetamodel
 import funcify.feature.materializer.schema.edge.RequestParameterEdge
 import funcify.feature.materializer.spec.RetrievalFunctionSpec
-import funcify.feature.schema.path.SchematicPath
+import funcify.feature.schema.path.GQLOperationPath
 import funcify.feature.tools.container.graph.PathBasedGraph
 import funcify.feature.tools.extensions.PersistentMapExtensions.combineWithPersistentSetValueMap
 import kotlinx.collections.immutable.PersistentMap
@@ -20,10 +20,10 @@ internal object MaterializationGraphContextSemigroup : Semigroup<Materialization
             materializationMetamodel(chooseLatestMaterializationMetamodel(a, b))
                 .operationDefinition(a.operationDefinition)
                 .requestParameterGraph(
-                    PathBasedGraph.monoid<SchematicPath, SchematicVertex, RequestParameterEdge>()(
+                    PathBasedGraph.monoid<GQLOperationPath, SchematicVertex, RequestParameterEdge>()(
                         a.requestParameterGraph,
                         b.requestParameterGraph
-                    )
+                                                                                                    )
                 )
                 .queryVariables(a.queryVariables.toPersistentMap().putAll(b.queryVariables))
                 .materializedParameterValuesByPath(
@@ -60,9 +60,9 @@ internal object MaterializationGraphContextSemigroup : Semigroup<Materialization
     }
 
     private fun combineRetrievalSpecs(
-        a: PersistentMap<SchematicPath, RetrievalFunctionSpec>,
-        b: PersistentMap<SchematicPath, RetrievalFunctionSpec>,
-    ): PersistentMap<SchematicPath, RetrievalFunctionSpec> {
+        a: PersistentMap<GQLOperationPath, RetrievalFunctionSpec>,
+        b: PersistentMap<GQLOperationPath, RetrievalFunctionSpec>,
+    ): PersistentMap<GQLOperationPath, RetrievalFunctionSpec> {
         return a.asSequence().fold(b) { pm, (k, v) ->
             if (pm.containsKey(k)) {
                 val specBuilderUpdater:

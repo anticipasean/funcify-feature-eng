@@ -3,55 +3,55 @@ package funcify.feature.schema.path
 import arrow.core.Option
 import arrow.core.none
 import arrow.core.some
-import java.net.URI
 import kotlinx.collections.immutable.ImmutableList
+import java.net.URI
 
 /**
- * Represents a data element, derived or raw, within the schema, its arguments / parameters, and any
- * directives specifying additional contextual information or processing steps
+ * Represents a specific component of a GraphQL query: field, argument, input value on an argument,
+ * directive on a field or argument, directive on an argument value, etc.
  *
  * @author smccarron
  * @created 1/30/22
  */
-interface SchematicPath : Comparable<SchematicPath> {
+interface GQLOperationPath : Comparable<GQLOperationPath> {
 
     companion object {
 
         const val GRAPHQL_SCHEMATIC_PATH_SCHEME: String = "mlfs"
 
-        private val rootPath: SchematicPath = DefaultSchematicPath()
+        private val rootPath: GQLOperationPath = DefaultGQLOperationPath()
 
         @JvmStatic
-        fun getRootPath(): SchematicPath {
+        fun getRootPath(): GQLOperationPath {
             return rootPath
         }
 
         @JvmStatic
-        fun of(builderFunction: Builder.() -> Builder): SchematicPath {
+        fun of(builderFunction: Builder.() -> Builder): GQLOperationPath {
             return rootPath.transform(builderFunction)
         }
 
         @JvmStatic
-        fun comparator(): Comparator<SchematicPath> {
-            return SchematicPathComparator
+        fun comparator(): Comparator<GQLOperationPath> {
+            return GQLOperationPathComparator
         }
 
         /** @param input in the form of a URI string */
         @JvmStatic
-        fun parseOrThrow(input: String): SchematicPath {
-            return SchematicPathParser(input).orElseThrow()
+        fun parseOrThrow(input: String): GQLOperationPath {
+            return GQLOperationPathParser(input).orElseThrow()
         }
 
         /** @param input in the form of a URI string */
         @JvmStatic
-        fun parseOrNull(input: String): SchematicPath? {
-            return SchematicPathParser(input).orNull()
+        fun parseOrNull(input: String): GQLOperationPath? {
+            return GQLOperationPathParser(input).orNull()
         }
 
         /** @param input in the form of a URI */
         @JvmStatic
-        fun fromURIOrThrow(input: URI): SchematicPath {
-            return SchematicPathParser.fromURI(input).orElseThrow()
+        fun fromURIOrThrow(input: URI): GQLOperationPath {
+            return GQLOperationPathParser.fromURI(input).orElseThrow()
         }
     }
 
@@ -131,7 +131,7 @@ interface SchematicPath : Comparable<SchematicPath> {
 
     fun level(): Int = pathSegments.size
 
-    fun getParentPath(): Option<SchematicPath> {
+    fun getParentPath(): Option<GQLOperationPath> {
         return when (
             val directiveNamePathPair: Pair<String, ImmutableList<String>>? = directive.orNull()
         ) {
@@ -181,11 +181,11 @@ interface SchematicPath : Comparable<SchematicPath> {
 
     fun toDecodedURIString(): String
 
-    override fun compareTo(other: SchematicPath): Int {
+    override fun compareTo(other: GQLOperationPath): Int {
         return comparator().compare(this, other)
     }
 
-    fun transform(mapper: Builder.() -> Builder): SchematicPath
+    fun transform(mapper: Builder.() -> Builder): GQLOperationPath
 
     interface Builder {
 
@@ -243,6 +243,6 @@ interface SchematicPath : Comparable<SchematicPath> {
 
         fun clearDirective(): Builder
 
-        fun build(): SchematicPath
+        fun build(): GQLOperationPath
     }
 }

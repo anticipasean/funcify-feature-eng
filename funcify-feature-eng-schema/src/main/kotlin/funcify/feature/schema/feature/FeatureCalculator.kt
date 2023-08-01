@@ -2,7 +2,6 @@ package funcify.feature.schema.feature
 
 import funcify.feature.schema.Source
 import graphql.language.SDLDefinition
-import graphql.schema.idl.TypeDefinitionRegistry
 import kotlinx.collections.immutable.ImmutableSet
 
 /**
@@ -25,5 +24,4 @@ interface FeatureCalculator : Source {
         get() = FEATURE_PUBLISHER_NOT_PROVIDED
 
     override val sourceSDLDefinitions: ImmutableSet<SDLDefinition<*>>
-
 }

@@ -15,10 +15,10 @@ import graphql.GraphqlErrorBuilder
 import graphql.execution.DataFetcherResult
 import graphql.schema.DataFetchingEnvironment
 import graphql.schema.GraphQLTypeUtil
-import java.util.concurrent.CompletableFuture
-import java.util.concurrent.CompletionStage
 import org.slf4j.Logger
 import reactor.core.publisher.Mono
+import java.util.concurrent.CompletableFuture
+import java.util.concurrent.CompletionStage
 
 internal class SingleRequestMaterializationDataFetcher<R>(
     private val singleRequestMaterializationOrchestratorService:

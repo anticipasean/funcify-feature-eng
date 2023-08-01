@@ -17,9 +17,9 @@ import graphql.GraphQLContext
 import graphql.execution.ExecutionId
 import graphql.execution.ExecutionIdProvider
 import graphql.execution.instrumentation.Instrumentation
-import kotlin.reflect.KClass
 import org.slf4j.Logger
 import reactor.core.publisher.Mono
+import kotlin.reflect.KClass
 
 /**
  * @author smccarron

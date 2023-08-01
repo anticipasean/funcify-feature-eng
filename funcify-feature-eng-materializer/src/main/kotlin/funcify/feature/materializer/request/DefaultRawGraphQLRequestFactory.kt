@@ -1,7 +1,7 @@
 package funcify.feature.materializer.request
 
 import funcify.feature.error.ServiceError
-import funcify.feature.schema.path.SchematicPath
+import funcify.feature.schema.path.GQLOperationPath
 import graphql.execution.ExecutionId
 import java.net.URI
 import java.security.Principal
@@ -21,7 +21,7 @@ internal class DefaultRawGraphQLRequestFactory : RawGraphQLRequestFactory {
 
         private val UNSET_REQUEST_ID: UUID = UUID(0, 0)
         private val UNSET_EXECUTION_ID: ExecutionId = ExecutionId.from(UNSET_REQUEST_ID.toString())
-        private val UNSET_URI: URI = SchematicPath.getRootPath().toURI()
+        private val UNSET_URI: URI = GQLOperationPath.getRootPath().toURI()
         private const val UNSET_RAW_GRAPHQL_QUERY_TEXT: String = ""
         private const val UNSET_OPERATION_NAME: String = "DEFAULT_OPERATION"
 

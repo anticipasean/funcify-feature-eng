@@ -1,7 +1,6 @@
 package funcify.feature.schema.tracking
 
 /**
- *
  * @author smccarron
  * @created 2022-09-05
  */

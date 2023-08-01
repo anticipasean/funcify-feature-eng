@@ -13,28 +13,28 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.node.ArrayNode
 import com.fasterxml.jackson.databind.node.JsonNodeFactory
 import com.fasterxml.jackson.databind.node.ObjectNode
-import funcify.feature.schema.path.SchematicPath
+import funcify.feature.schema.path.GQLOperationPath
 import funcify.feature.tools.extensions.OptionExtensions.recurse
 import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentMap
 import funcify.feature.tools.extensions.SequenceExtensions.flatMapOptions
-import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.ConcurrentMap
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.PersistentSet
 import kotlinx.collections.immutable.persistentSetOf
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ConcurrentMap
 
 /**
  * @author smccarron
  * @created 2022-07-25
  */
 internal data class DefaultLastUpdatedTemporalAttributeRegistry(
-    private val lastUpdatedTemporalAttributePathsSet: PersistentSet<SchematicPath> =
+    private val lastUpdatedTemporalAttributePathsSet: PersistentSet<GQLOperationPath> =
         persistentSetOf()
-                                                               ) : LastUpdatedTemporalAttributeRegistry {
+) : LastUpdatedTemporalAttributeRegistry {
 
     private val lastUpdatedTemporalAttributePathByParentPath:
-        PersistentMap<SchematicPath, SchematicPath> by lazy {
+        PersistentMap<GQLOperationPath, GQLOperationPath> by lazy {
         lastUpdatedTemporalAttributePathsSet
             .asSequence()
             .map { attrPath -> attrPath.getParentPath().map { pp -> pp to attrPath } }
@@ -43,9 +43,9 @@ internal data class DefaultLastUpdatedTemporalAttributeRegistry(
     }
 
     private val nearestLastUpdatedTemporalAttributeRelativeMemoizer:
-        (SchematicPath) -> Option<SchematicPath> by lazy {
-        val cache: ConcurrentMap<SchematicPath, SchematicPath> = ConcurrentHashMap()
-        ({ path: SchematicPath ->
+        (GQLOperationPath) -> Option<GQLOperationPath> by lazy {
+        val cache: ConcurrentMap<GQLOperationPath, GQLOperationPath> = ConcurrentHashMap()
+        ({ path: GQLOperationPath ->
             cache
                 .computeIfAbsent(path, nearestLastUpdatedTemporalAttributeRelativeCalculator())
                 .toOption()
@@ -59,13 +59,13 @@ internal data class DefaultLastUpdatedTemporalAttributeRegistry(
                         JsonNodeFactory.instance.arrayNode(
                             lastUpdatedTemporalAttributePathsSet.size
                         )
-                    ) { an: ArrayNode, sp: SchematicPath ->
+                    ) { an: ArrayNode, sp: GQLOperationPath ->
                         an.add(sp.toString())
                     },
                 "last_updated_temporal_attribute_path_by_parent_path" to
                     lastUpdatedTemporalAttributePathByParentPath.asSequence().fold(
                         JsonNodeFactory.instance.objectNode()
-                    ) { on: ObjectNode, (pp: SchematicPath, cp: SchematicPath) ->
+                    ) { on: ObjectNode, (pp: GQLOperationPath, cp: GQLOperationPath) ->
                         on.put(pp.toString(), cp.toString())
                     }
             )
@@ -84,43 +84,43 @@ internal data class DefaultLastUpdatedTemporalAttributeRegistry(
     }
 
     override fun registerSchematicPathAsMappingToLastUpdatedTemporalAttributeVertex(
-        path: SchematicPath
+        path: GQLOperationPath
     ): LastUpdatedTemporalAttributeRegistry {
         return DefaultLastUpdatedTemporalAttributeRegistry(
             lastUpdatedTemporalAttributePathsSet = lastUpdatedTemporalAttributePathsSet.add(path)
-                                                          )
+        )
     }
 
-    override fun pathBelongsToLastUpdatedTemporalAttributeVertex(path: SchematicPath): Boolean {
+    override fun pathBelongsToLastUpdatedTemporalAttributeVertex(path: GQLOperationPath): Boolean {
         return path in lastUpdatedTemporalAttributePathsSet
     }
 
     override fun getAllPathsBelongingToLastUpdatedTemporalAttributeVertices():
-        ImmutableSet<SchematicPath> {
+        ImmutableSet<GQLOperationPath> {
         return lastUpdatedTemporalAttributePathsSet
     }
 
     override fun pathBelongsToLastUpdatedTemporalAttributeParentVertex(
-        path: SchematicPath
+        path: GQLOperationPath
     ): Boolean {
         return path in lastUpdatedTemporalAttributePathByParentPath
     }
 
     override fun getLastUpdatedTemporalAttributeChildPathOfParentPath(
-        path: SchematicPath
-    ): Option<SchematicPath> {
+        path: GQLOperationPath
+    ): Option<GQLOperationPath> {
         return lastUpdatedTemporalAttributePathByParentPath.getOrNone(path)
     }
 
     override fun findNearestLastUpdatedTemporalAttributePathRelative(
-        path: SchematicPath
-    ): Option<SchematicPath> {
+        path: GQLOperationPath
+    ): Option<GQLOperationPath> {
         return nearestLastUpdatedTemporalAttributeRelativeMemoizer(path)
     }
 
     private fun nearestLastUpdatedTemporalAttributeRelativeCalculator():
-        (SchematicPath) -> SchematicPath? {
-        return { path: SchematicPath ->
+        (GQLOperationPath) -> GQLOperationPath? {
+        return { path: GQLOperationPath ->
             when {
                 path.isRoot() -> {
                     none()

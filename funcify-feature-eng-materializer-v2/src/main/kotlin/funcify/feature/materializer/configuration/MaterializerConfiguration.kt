@@ -38,13 +38,13 @@ import graphql.execution.instrumentation.Instrumentation
 import graphql.schema.DataFetcherFactory
 import graphql.schema.GraphQLSchema
 import graphql.schema.idl.SchemaPrinter
-import java.util.concurrent.CompletionStage
 import org.slf4j.Logger
 import org.springframework.beans.factory.ObjectProvider
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import java.util.concurrent.CompletionStage
 
 /**
  * @author smccarron

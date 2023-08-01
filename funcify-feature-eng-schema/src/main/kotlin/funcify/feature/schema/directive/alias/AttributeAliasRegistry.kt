@@ -2,11 +2,10 @@ package funcify.feature.schema.directive.alias
 
 import arrow.core.Option
 import funcify.feature.naming.ConventionalName
-import funcify.feature.schema.path.SchematicPath
+import funcify.feature.schema.path.GQLOperationPath
 import kotlinx.collections.immutable.ImmutableSet
 
 /**
- *
  * @author smccarron
  * @created 2022-07-21
  */
@@ -21,12 +20,12 @@ interface AttributeAliasRegistry {
     }
 
     fun registerSourceVertexPathWithAlias(
-        sourceVertexPath: SchematicPath,
+        sourceVertexPath: GQLOperationPath,
         alias: String
     ): AttributeAliasRegistry
 
     fun registerParameterVertexPathWithAlias(
-        parameterVertexPath: SchematicPath,
+        parameterVertexPath: GQLOperationPath,
         alias: String
     ): AttributeAliasRegistry
 
@@ -46,15 +45,15 @@ interface AttributeAliasRegistry {
         return getParameterVertexPathsWithSimilarNameOrAlias(conventionalName).isNotEmpty()
     }
 
-    fun getSourceVertexPathWithSimilarNameOrAlias(name: String): Option<SchematicPath>
+    fun getSourceVertexPathWithSimilarNameOrAlias(name: String): Option<GQLOperationPath>
 
     fun getSourceVertexPathWithSimilarNameOrAlias(
         conventionalName: ConventionalName
-    ): Option<SchematicPath>
+    ): Option<GQLOperationPath>
 
-    fun getParameterVertexPathsWithSimilarNameOrAlias(name: String): ImmutableSet<SchematicPath>
+    fun getParameterVertexPathsWithSimilarNameOrAlias(name: String): ImmutableSet<GQLOperationPath>
 
     fun getParameterVertexPathsWithSimilarNameOrAlias(
         conventionalName: ConventionalName
-    ): ImmutableSet<SchematicPath>
+    ): ImmutableSet<GQLOperationPath>
 }

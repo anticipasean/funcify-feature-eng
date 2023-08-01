@@ -6,6 +6,7 @@ import graphql.schema.GraphQLSchema
 
 interface MaterializationGraphQLSchemaFactory {
 
-    fun createGraphQLSchemaFromMetamodel(featureEngineeringModel: FeatureEngineeringModel): Try<GraphQLSchema>
-
+    fun createGraphQLSchemaFromMetamodel(
+        featureEngineeringModel: FeatureEngineeringModel
+    ): Try<GraphQLSchema>
 }

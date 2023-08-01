@@ -2,11 +2,11 @@ package funcify.feature.materializer.service
 
 import funcify.feature.materializer.session.GraphQLSingleRequestSession
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
-import java.time.Duration
 import org.slf4j.Logger
 import reactor.core.publisher.Mono
+import java.time.Duration
 
-internal class DefaultSingleRequestMaterializationDispatchService() :
+internal class DefaultSingleRequestMaterializationDispatchService :
     SingleRequestMaterializationDispatchService {
 
     companion object {

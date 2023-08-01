@@ -14,7 +14,7 @@ import funcify.feature.materializer.response.SerializedGraphQLResponse
 import funcify.feature.materializer.response.SerializedGraphQLResponseFactory
 import funcify.feature.materializer.schema.path.ListIndexedSchematicPathGraphQLSchemaBasedCalculator
 import funcify.feature.materializer.session.GraphQLSingleRequestSession
-import funcify.feature.schema.path.SchematicPath
+import funcify.feature.schema.path.GQLOperationPath
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.OptionExtensions.toMono
 import funcify.feature.tools.extensions.StringExtensions.flatten
@@ -82,7 +82,7 @@ internal class DefaultSingleRequestMaterializationColumnarResponsePostprocessing
                         )
                     }
                     .toMono()
-                    .flatMap { jsonValuesByPath: ImmutableMap<SchematicPath, JsonNode> ->
+                    .flatMap { jsonValuesByPath: ImmutableMap<GQLOperationPath, JsonNode> ->
                         Flux.fromIterable(
                                 columnarDocumentContext.sourceIndexPathsByFieldName.entries
                             )

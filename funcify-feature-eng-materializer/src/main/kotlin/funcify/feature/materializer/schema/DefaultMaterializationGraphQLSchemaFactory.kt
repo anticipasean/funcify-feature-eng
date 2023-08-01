@@ -13,7 +13,7 @@ import funcify.feature.materializer.service.MaterializationGraphQLWiringFactory
 import funcify.feature.naming.StandardNamingConventions
 import funcify.feature.scalar.registry.ScalarTypeRegistry
 import funcify.feature.schema.MetamodelGraph
-import funcify.feature.schema.path.SchematicPath
+import funcify.feature.schema.path.GQLOperationPath
 import funcify.feature.schema.vertex.ParameterJunctionVertex
 import funcify.feature.schema.vertex.ParameterLeafVertex
 import funcify.feature.schema.vertex.SourceJunctionVertex
@@ -75,7 +75,7 @@ internal class DefaultMaterializationGraphQLSchemaFactory(
     override fun createGraphQLSchemaFromMetamodelGraph(
         metamodelGraph: MetamodelGraph
     ): Try<GraphQLSchema> {
-        val firstVertexPathSupplier: () -> SchematicPath? = { ->
+        val firstVertexPathSupplier: () -> GQLOperationPath? = { ->
             metamodelGraph.pathBasedGraph.vertices
                 .toOption()
                 .filter { v -> v.size > 0 }
@@ -130,7 +130,7 @@ internal class DefaultMaterializationGraphQLSchemaFactory(
         metamodelGraph: MetamodelGraph
     ) {
         var counter: Int = 0
-        val vertexSuperTypeNameExtractor: (Pair<SchematicPath, SchematicVertex>) -> String =
+        val vertexSuperTypeNameExtractor: (Pair<GQLOperationPath, SchematicVertex>) -> String =
             { (_, v) ->
                 v::class
                     .supertypes
@@ -141,7 +141,7 @@ internal class DefaultMaterializationGraphQLSchemaFactory(
                     .mapNotNull { kcls -> kcls.simpleName }
                     .getOrElse { v::class.simpleName ?: "<NA>" }
             }
-        val vertexNameExtractor: (Pair<SchematicPath, SchematicVertex>) -> String = { (_, v) ->
+        val vertexNameExtractor: (Pair<GQLOperationPath, SchematicVertex>) -> String = { (_, v) ->
             when (v) {
                 is SourceRootVertex -> v.compositeContainerType.conventionalName.toString()
                 is SourceJunctionVertex -> v.compositeAttribute.conventionalName.toString()
@@ -155,7 +155,7 @@ internal class DefaultMaterializationGraphQLSchemaFactory(
         metamodelGraph.pathBasedGraph.verticesByPath
             .streamPairs()
             .sorted { p1, p2 -> p1.first.compareTo(p2.first) }
-            .forEach { pair: Pair<SchematicPath, SchematicVertex> ->
+            .forEach { pair: Pair<GQLOperationPath, SchematicVertex> ->
                 val vertexName = vertexNameExtractor.invoke(pair)
                 val vertexSuperTypeName = vertexSuperTypeNameExtractor.invoke(pair)
                 logger.debug(
@@ -252,7 +252,7 @@ internal class DefaultMaterializationGraphQLSchemaFactory(
     ): OperationTypeDefinition {
         return when (
             val sourceRootVertex: SourceRootVertex? =
-                metamodelGraph.pathBasedGraph.verticesByPath[SchematicPath.getRootPath()]
+                metamodelGraph.pathBasedGraph.verticesByPath[GQLOperationPath.getRootPath()]
                     as? SourceRootVertex
         ) {
             null -> {

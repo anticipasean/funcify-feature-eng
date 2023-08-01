@@ -121,7 +121,9 @@ object JsonSchemaToNullableSDLTypeComposer : (JsonSchema) -> Type<*> {
                                 .asArraySchema()
                                 .items
                                 .toOption()
-                                .mapNotNull { i: ArraySchema.Items -> i.asArrayItems()?.jsonSchemas }
+                                .mapNotNull { i: ArraySchema.Items ->
+                                    i.asArrayItems()?.jsonSchemas
+                                }
                                 .filter { js: Array<JsonSchema> -> js.size == 1 }
                                 .map { js: Array<JsonSchema> ->
                                     context
@@ -147,7 +149,9 @@ object JsonSchemaToNullableSDLTypeComposer : (JsonSchema) -> Type<*> {
                                 .asArraySchema()
                                 .items
                                 .toOption()
-                                .mapNotNull { i: ArraySchema.Items -> i.asArrayItems()?.jsonSchemas }
+                                .mapNotNull { i: ArraySchema.Items ->
+                                    i.asArrayItems()?.jsonSchemas
+                                }
                                 .filter { js: Array<JsonSchema> -> js.size > 1 }
                                 .map { _: Array<JsonSchema> ->
                                     // The array schema has an items schema that spans more than one

@@ -13,10 +13,10 @@ import graphql.execution.instrumentation.InstrumentationContext
 import graphql.execution.instrumentation.InstrumentationState
 import graphql.execution.instrumentation.parameters.InstrumentationExecuteOperationParameters
 import graphql.language.OperationDefinition
-import java.util.concurrent.CompletableFuture
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.toPersistentMap
 import org.slf4j.Logger
+import java.util.concurrent.CompletableFuture
 
 /**
  * @author smccarron
@@ -31,7 +31,7 @@ internal class SingleRequestMaterializationExecutionStrategyInstrumentation(
     companion object {
         private val logger: Logger =
             loggerFor<SingleRequestMaterializationExecutionStrategyInstrumentation>()
-        private class MaterializationInstrumentationContext() :
+        private class MaterializationInstrumentationContext :
             ExecutionStrategyInstrumentationContext {
 
             override fun onDispatched(result: CompletableFuture<ExecutionResult>?) {

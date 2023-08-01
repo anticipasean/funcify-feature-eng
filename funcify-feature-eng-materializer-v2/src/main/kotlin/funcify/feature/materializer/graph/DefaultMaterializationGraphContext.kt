@@ -14,4 +14,4 @@ internal data class DefaultMaterializationGraphContext(
     val nonNullableFieldValidator: NonNullableFieldValidator,
     val executableNormalizedOperation: ExecutableNormalizedOperation,
     val executableNormalizedField: ExecutableNormalizedField,
-) : MaterializationGraphContext {}
+) : MaterializationGraphContext

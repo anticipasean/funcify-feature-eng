@@ -8,7 +8,7 @@ import ch.qos.logback.classic.Level
 import funcify.feature.directive.AliasDirective
 import funcify.feature.directive.MaterializationDirective
 import funcify.feature.error.ServiceError
-import funcify.feature.schema.path.SchematicPath
+import funcify.feature.schema.path.GQLOperationPath
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.OptionExtensions.toOption
 import graphql.GraphQLError
@@ -138,11 +138,11 @@ class AliasRegistryTest {
         )
         Assertions.assertTrue(aliasRegistry.containsSimilarParameterAttributeNameOrAlias("upper"))
         Assertions.assertEquals(
-            setOf(SchematicPath.parseOrThrow("mlfs:/shows/reviews?minStarScore")),
+            setOf(GQLOperationPath.parseOrThrow("mlfs:/shows/reviews?minStarScore")),
             aliasRegistry.getParameterVertexPathsWithSimilarNameOrAlias("minimumStarScore")
         )
         Assertions.assertEquals(
-            setOf(SchematicPath.parseOrThrow("mlfs:/shows/artwork?limits=/fileLimits/maxSize")),
+            setOf(GQLOperationPath.parseOrThrow("mlfs:/shows/artwork?limits=/fileLimits/maxSize")),
             aliasRegistry.getParameterVertexPathsWithSimilarNameOrAlias("maximumSize"),
         )
     }

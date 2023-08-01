@@ -7,12 +7,12 @@ import funcify.feature.materializer.request.RawGraphQLRequest
 import funcify.feature.materializer.response.SerializedGraphQLResponse
 import funcify.feature.materializer.schema.MaterializationMetamodel
 import funcify.feature.schema.FeatureEngineeringModel
-import funcify.feature.schema.path.SchematicPath
+import funcify.feature.schema.path.GQLOperationPath
 import graphql.language.Document
 import graphql.language.OperationDefinition
 import graphql.schema.GraphQLSchema
-import java.util.*
 import kotlinx.collections.immutable.ImmutableMap
+import java.util.*
 
 /**
  * @author smccarron
@@ -46,7 +46,7 @@ interface GraphQLSingleRequestSession : MaterializationSession {
 
     val processedQueryVariables: ImmutableMap<String, Any?>
 
-    val reactiveDataLoaderRegistry: ReactiveDataLoaderRegistry<SchematicPath>
+    val reactiveDataLoaderRegistry: ReactiveDataLoaderRegistry<GQLOperationPath>
 
     val serializedGraphQLResponse: Option<SerializedGraphQLResponse>
 
@@ -65,7 +65,7 @@ interface GraphQLSingleRequestSession : MaterializationSession {
         fun processedQueryVariables(processedQueryVariables: Map<String, Any?>): Builder
 
         fun reactiveDataLoaderRegistry(
-            reactiveDataLoaderRegistry: ReactiveDataLoaderRegistry<SchematicPath>
+            reactiveDataLoaderRegistry: ReactiveDataLoaderRegistry<GQLOperationPath>
         ): Builder
 
         fun serializedGraphQLResponse(serializedGraphQLResponse: SerializedGraphQLResponse): Builder

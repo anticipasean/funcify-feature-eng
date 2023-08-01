@@ -2,7 +2,7 @@ package funcify.feature.schema.directive.temporal
 
 import arrow.core.*
 import funcify.feature.directive.LastUpdatedDirective
-import funcify.feature.schema.path.SchematicPath
+import funcify.feature.schema.path.GQLOperationPath
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.OptionExtensions.recurse
 import funcify.feature.tools.extensions.OptionExtensions.toOption
@@ -69,10 +69,10 @@ internal class LastUpdatedTemporalAttributeRegistryComposer {
                 }
                 val lastUpdatedTemporalAttributeRegistry: LastUpdatedTemporalAttributeRegistry =
                     context.getNewAccumulate<LastUpdatedTemporalAttributeRegistry>()
-                val sp: SchematicPath =
+                val sp: GQLOperationPath =
                     when (context.parentNode) {
                         is FieldDefinition -> {
-                            SchematicPath.of {
+                            GQLOperationPath.of {
                                 pathSegments(
                                     context.breadcrumbs
                                         .asReversed()
@@ -85,7 +85,7 @@ internal class LastUpdatedTemporalAttributeRegistryComposer {
                             }
                         }
                         is InputValueDefinition -> {
-                            SchematicPath.of {
+                            GQLOperationPath.of {
                                 pathSegments(
                                     context.breadcrumbs
                                         .asReversed()
@@ -138,7 +138,7 @@ internal class LastUpdatedTemporalAttributeRegistryComposer {
                             }
                         }
                         else -> {
-                            SchematicPath.getRootPath()
+                            GQLOperationPath.getRootPath()
                         }
                     }
                 if (logger.isDebugEnabled) {
@@ -222,9 +222,9 @@ internal class LastUpdatedTemporalAttributeRegistryComposer {
             .toOption()
             .flatMap { otd: ObjectTypeDefinition ->
                 Traverser.breadthFirst<Node<*>>(
-                    nodeTraversalFunction(typeDefinitionRegistry),
-                    null,
-                    LastUpdatedTemporalAttributeRegistry.newRegistry()
+                        nodeTraversalFunction(typeDefinitionRegistry),
+                        null,
+                        LastUpdatedTemporalAttributeRegistry.newRegistry()
                     )
                     .traverse(otd, GraphQLNodeTraversalVisitor(LastUpdatedDirectiveVisitor()))
                     .toOption()

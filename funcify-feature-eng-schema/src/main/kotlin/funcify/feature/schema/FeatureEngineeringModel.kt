@@ -28,9 +28,7 @@ interface FeatureEngineeringModel {
 
     val featureFieldCoordinates: FieldCoordinates
 
-    /**
-     * Dangerous because this object is mutable
-     */
+    /** Dangerous because this object is mutable */
     val typeDefinitionRegistry: TypeDefinitionRegistry
 
     val attributeAliasRegistry: AttributeAliasRegistry

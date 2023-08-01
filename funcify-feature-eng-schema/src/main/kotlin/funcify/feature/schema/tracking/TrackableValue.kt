@@ -2,23 +2,22 @@ package funcify.feature.schema.tracking
 
 import arrow.core.Option
 import com.fasterxml.jackson.databind.JsonNode
-import funcify.feature.schema.path.SchematicPath
+import funcify.feature.schema.path.GQLOperationPath
 import funcify.feature.tools.container.attempt.Try
 import graphql.schema.GraphQLOutputType
-import java.time.Instant
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.ImmutableSet
+import java.time.Instant
 
 /**
- *
  * @author smccarron
  * @created 2022-09-01
  */
 sealed interface TrackableValue<out V> {
 
-    val targetSourceIndexPath: SchematicPath
+    val targetSourceIndexPath: GQLOperationPath
 
-    val contextualParameters: ImmutableMap<SchematicPath, JsonNode>
+    val contextualParameters: ImmutableMap<GQLOperationPath, JsonNode>
 
     val graphQLOutputType: GraphQLOutputType
 
@@ -49,21 +48,21 @@ sealed interface TrackableValue<out V> {
      */
     interface Builder<B : Builder<B>> {
 
-        fun targetSourceIndexPath(targetSourceIndexPath: SchematicPath): B
+        fun targetSourceIndexPath(targetSourceIndexPath: GQLOperationPath): B
 
         /** Replaces all current contextual_parameters with this map */
-        fun contextualParameters(contextualParameters: ImmutableMap<SchematicPath, JsonNode>): B
+        fun contextualParameters(contextualParameters: ImmutableMap<GQLOperationPath, JsonNode>): B
 
-        fun addContextualParameter(parameterPath: SchematicPath, parameterValue: JsonNode): B
+        fun addContextualParameter(parameterPath: GQLOperationPath, parameterValue: JsonNode): B
 
-        fun addContextualParameter(parameterPathValuePair: Pair<SchematicPath, JsonNode>): B
+        fun addContextualParameter(parameterPathValuePair: Pair<GQLOperationPath, JsonNode>): B
 
-        fun removeContextualParameter(parameterPath: SchematicPath): B
+        fun removeContextualParameter(parameterPath: GQLOperationPath): B
 
         fun clearContextualParameters(): B
 
         /** Adds all contextual_parameters to the existing map */
-        fun addContextualParameters(contextualParameters: Map<SchematicPath, JsonNode>): B
+        fun addContextualParameters(contextualParameters: Map<GQLOperationPath, JsonNode>): B
 
         fun graphQLOutputType(graphQLOutputType: GraphQLOutputType): B
     }
@@ -72,15 +71,15 @@ sealed interface TrackableValue<out V> {
 
         /**
          * @return a new [PlannedValue] instance with the updates if the changes made are valid else
-         * the current instance
+         *   the current instance
          */
-        fun <B1, B2> update(
-            transformer: Builder<B1>.() -> Builder<B2>
-        ): PlannedValue<V> where B1 : Builder<B1>, B2 : Builder<B2>
+        fun <B1, B2> update(transformer: Builder<B1>.() -> Builder<B2>): PlannedValue<V> where
+        B1 : Builder<B1>,
+        B2 : Builder<B2>
 
         /**
          * @return [CalculatedValue] if both required parameters provided else the current
-         * [PlannedValue]
+         *   [PlannedValue]
          */
         fun <B1, B2> transitionToCalculated(
             mapper: CalculatedValue.Builder<B1, V>.() -> CalculatedValue.Builder<B2, V>
@@ -90,7 +89,7 @@ sealed interface TrackableValue<out V> {
 
         /**
          * @return [TrackedValue] if both required parameters provided else the current
-         * [PlannedValue]
+         *   [PlannedValue]
          */
         fun <B1, B2> transitionToTracked(
             mapper: TrackedValue.Builder<B1, V>.() -> TrackedValue.Builder<B2, V>
@@ -120,17 +119,15 @@ sealed interface TrackableValue<out V> {
 
         /**
          * @return a new [CalculatedValue] instance with the updates if the changes made are valid
-         * else the current instance
+         *   else the current instance
          */
         fun <B1, B2> update(
             transformer: Builder<B1, V>.() -> Builder<B2, V>
-        ): CalculatedValue<V> where
-        B1 : Builder<B1, V>,
-        B2 : Builder<B2, V>
+        ): CalculatedValue<V> where B1 : Builder<B1, V>, B2 : Builder<B2, V>
 
         /**
          * @return [TrackedValue] if both required parameters provided else the current
-         * [CalculatedValue]
+         *   [CalculatedValue]
          */
         fun <B1, B2> transitionToTracked(
             mapper: TrackedValue.Builder<B1, V>.() -> TrackedValue.Builder<B2, V>
@@ -158,9 +155,9 @@ sealed interface TrackableValue<out V> {
 
     interface TrackedValue<V> : TrackableValue<V> {
 
-        val canonicalPath: Option<SchematicPath>
+        val canonicalPath: Option<GQLOperationPath>
 
-        val referencePaths: ImmutableSet<SchematicPath>
+        val referencePaths: ImmutableSet<GQLOperationPath>
 
         val trackedValue: V
 
@@ -168,7 +165,7 @@ sealed interface TrackableValue<out V> {
 
         /**
          * @return a new [TrackedValue] instance with the updates if the changes made are valid else
-         * the current instance
+         *   the current instance
          */
         fun <B1, B2> update(
             transformer: Builder<B1, V>.() -> Builder<B2, V>
@@ -184,19 +181,19 @@ sealed interface TrackableValue<out V> {
 
         interface Builder<B : Builder<B, V>, V> : TrackableValue.Builder<B> {
 
-            fun canonicalPath(canonicalPath: SchematicPath): B
+            fun canonicalPath(canonicalPath: GQLOperationPath): B
 
             /** Replaces all current reference_paths with this set */
-            fun referencePaths(referencePaths: ImmutableSet<SchematicPath>): B
+            fun referencePaths(referencePaths: ImmutableSet<GQLOperationPath>): B
 
-            fun addReferencePath(referencePath: SchematicPath): B
+            fun addReferencePath(referencePath: GQLOperationPath): B
 
-            fun removeReferencePath(referencePath: SchematicPath): B
+            fun removeReferencePath(referencePath: GQLOperationPath): B
 
             fun clearReferencePaths(): B
 
             /** Adds all reference_paths to the existing set */
-            fun addReferencePaths(referencePaths: Iterable<SchematicPath>): B
+            fun addReferencePaths(referencePaths: Iterable<GQLOperationPath>): B
 
             fun trackedValue(trackedValue: V): B
 
