@@ -191,9 +191,9 @@ internal class DefaultSingleRequestMaterializationGraphService(
         logger.debug("resolve_source_vertex_for_field: [ field.name: ${field.name} ]")
         val vertexPath: GQLOperationPath =
             GQLOperationPath.of {
-                pathSegments(
-                    fieldOrArgCtx.parentPath.pathSegments.asSequence().plus(field.name).toList()
-                )
+                fields(
+                    fieldOrArgCtx.parentPath.selection.asSequence().plus(field.name).toList()
+                      )
             }
         val sourceJunctionOrLeafVertex =
             when (
@@ -243,7 +243,7 @@ internal class DefaultSingleRequestMaterializationGraphService(
         logger.debug("resolve_parameter_vertex_for_argument: [ argument.name: ${argument.name} ]")
         val vertexPath: GQLOperationPath =
             GQLOperationPath.of {
-                pathSegments(fieldOrArgCtx.parentPath.pathSegments).argument(argument.name)
+                fields(fieldOrArgCtx.parentPath.selection).argument(argument.name)
             }
         val parameterJunctionOrLeafVertex =
             when (

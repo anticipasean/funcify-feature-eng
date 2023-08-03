@@ -31,46 +31,45 @@ internal object GQLOperationPathComparator : Comparator<GQLOperationPath> {
 
     private val gqlOperationPathComparator: Comparator<GQLOperationPath> by lazy {
         Comparator.comparing(GQLOperationPath::scheme, String::compareTo)
-            .thenComparing(GQLOperationPath::pathSegments, stringListComparator)
-            .thenComparing(GQLOperationPath::argument, namedPathPairComparator)
-            .thenComparing(GQLOperationPath::directive, namedPathPairComparator)
+            .thenComparing(GQLOperationPath::selection, ::compareLists)
+            .thenComparing(GQLOperationPath::argument, ::compareNamePathPairOptions)
+            .thenComparing(GQLOperationPath::directive, ::compareNamePathPairOptions)
     }
 
-    private val stringListComparator: Comparator<List<String>> by lazy {
-        Comparator<List<String>> { l1, l2 -> //
-            l1.asSequence()
-                .zip(l2.asSequence()) { s1: String, s2: String -> s1.compareTo(s2) }
-                .firstOrNull { comparison: Int -> comparison != 0 }
-                ?: l1.size.compareTo(l2.size)
-        }
+    private fun <T : Comparable<T>> compareLists(l1: List<T>, l2: List<T>): Int {
+        return l1.asSequence()
+            .zip(l2.asSequence()) { t1: T, t2: T -> t1.compareTo(t2) }
+            .firstOrNull { comparison: Int -> comparison != 0 }
+            ?: l1.size.compareTo(l2.size)
     }
 
-    private val namedPathPairComparator: Comparator<Option<Pair<String, List<String>>>> by lazy {
-        Comparator<Option<Pair<String, List<String>>>> { pairOpt1, pairOpt2 -> //
-            when (val p1: Pair<String, List<String>>? = pairOpt1.orNull()) {
-                null -> {
-                    when (pairOpt2.orNull()) {
-                        null -> {
-                            0
-                        }
-                        else -> {
-                            -1
-                        }
+    private fun <T : Comparable<T>> compareNamePathPairOptions(
+        op1: Option<Pair<T, List<T>>>,
+        op2: Option<Pair<T, List<T>>>
+    ): Int {
+        return when (val p1: Pair<T, List<T>>? = op1.orNull()) {
+            null -> {
+                when (op2.orNull()) {
+                    null -> {
+                        0
+                    }
+                    else -> {
+                        -1
                     }
                 }
-                else -> {
-                    when (val p2: Pair<String, List<String>>? = pairOpt2.orNull()) {
-                        null -> {
-                            1
-                        }
-                        else -> {
-                            when (val keyComparison: Int = p1.first.compareTo(p2.first)) {
-                                0 -> {
-                                    stringListComparator.compare(p1.second, p2.second)
-                                }
-                                else -> {
-                                    keyComparison
-                                }
+            }
+            else -> {
+                when (val p2: Pair<T, List<T>>? = op2.orNull()) {
+                    null -> {
+                        1
+                    }
+                    else -> {
+                        when (val keyComparison: Int = p1.first.compareTo(p2.first)) {
+                            0 -> {
+                                compareLists(p1.second, p2.second)
+                            }
+                            else -> {
+                                keyComparison
                             }
                         }
                     }

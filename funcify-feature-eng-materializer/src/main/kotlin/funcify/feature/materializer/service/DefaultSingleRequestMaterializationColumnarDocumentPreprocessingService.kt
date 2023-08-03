@@ -142,7 +142,7 @@ internal class DefaultSingleRequestMaterializationColumnarDocumentPreprocessingS
                 val topLevelSrcIndexPathsSet: PersistentSet<GQLOperationPath> =
                     context.parameterValuesByPath
                         .asSequence()
-                        .map { (path, _) -> GQLOperationPath.of { pathSegments(path.pathSegments) } }
+                        .map { (path, _) -> GQLOperationPath.of { fields(path.selection) } }
                         .toPersistentSet()
                 Flux.fromIterable(expectedOutputFieldNames)
                     .flatMap(
@@ -408,13 +408,13 @@ internal class DefaultSingleRequestMaterializationColumnarDocumentPreprocessingS
             val domainPathSegmentSet: PersistentSet<String> =
                 context.sourceIndexPathsByFieldName.values
                     .parallelStream()
-                    .map { sp: GQLOperationPath -> sp.pathSegments.firstOrNone() }
+                    .map { sp: GQLOperationPath -> sp.selection.firstOrNone() }
                     .flatMapOptions()
                     .reduceToPersistentSet()
             context.parameterValuesByPath.keys
                 .asSequence()
                 .filterNot { paramPath ->
-                    paramPath.pathSegments
+                    paramPath.selection
                         .firstOrNone()
                         .filter { domainPathSegment -> domainPathSegment in domainPathSegmentSet }
                         .isDefined()

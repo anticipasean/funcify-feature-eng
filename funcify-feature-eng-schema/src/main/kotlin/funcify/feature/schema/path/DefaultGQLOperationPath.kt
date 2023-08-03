@@ -5,20 +5,20 @@ import arrow.core.getOrElse
 import arrow.core.none
 import arrow.core.some
 import arrow.core.toOption
-import kotlinx.collections.immutable.PersistentList
-import kotlinx.collections.immutable.persistentListOf
-import kotlinx.collections.immutable.toPersistentList
 import java.net.URI
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
+import kotlinx.collections.immutable.PersistentList
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toPersistentList
 
 /**
  * @author smccarron
  * @created 2/20/22
  */
 internal data class DefaultGQLOperationPath(
-    override val scheme: String = GQLOperationPath.GRAPHQL_SCHEMATIC_PATH_SCHEME,
-    override val pathSegments: PersistentList<String> = persistentListOf(),
+    override val scheme: String = GQLOperationPath.GRAPHQL_OPERATION_PATH_SCHEME,
+    override val selection: PersistentList<SelectionSegment> = persistentListOf(),
     override val argument: Option<Pair<String, PersistentList<String>>> = none(),
     override val directive: Option<Pair<String, PersistentList<String>>> = none()
 ) : GQLOperationPath {
@@ -29,8 +29,8 @@ internal data class DefaultGQLOperationPath(
             GQLOperationPath.Builder {
 
             private var inputScheme: String = schematicPath.scheme
-            private val pathBuilder: PersistentList.Builder<String> =
-                schematicPath.pathSegments.builder()
+            private val selectionBuilder: PersistentList.Builder<SelectionSegment> =
+                schematicPath.selection.builder()
             private var argumentName: String? = schematicPath.argument.orNull()?.first
             private var argumentPathBuilder: PersistentList.Builder<String> =
                 schematicPath.argument.orNull()?.second?.builder()
@@ -42,71 +42,136 @@ internal data class DefaultGQLOperationPath(
 
             override fun scheme(scheme: String): GQLOperationPath.Builder {
                 inputScheme =
-                    scheme
-                        .toOption()
-                        .map { s -> s.trim() }
-                        .filter { s -> s.isNotEmpty() }
-                        .getOrElse { inputScheme }
-                return this
-            }
-
-            override fun prependPathSegment(vararg pathSegment: String): GQLOperationPath.Builder {
-                pathSegment
-                    .asSequence()
-                    .map { s -> s.trim() }
-                    .filter { s -> s.isNotEmpty() }
-                    .fold(pathBuilder) { pb, ps ->
-                        pb.add(0, ps)
-                        pb
+                    scheme.toOption().map(String::trim).filter(String::isNotEmpty).getOrElse {
+                        inputScheme
                     }
                 return this
             }
 
-            override fun prependPathSegments(pathSegments: List<String>): GQLOperationPath.Builder {
-                pathSegments
+            override fun prependSelection(
+                vararg selectionSegment: SelectionSegment
+            ): GQLOperationPath.Builder {
+                selectionBuilder.addAll(
+                    0,
+                    selectionSegment
+                        .asSequence()
+                        .filter { ss: SelectionSegment ->
+                            when (ss) {
+                                is Field -> {
+                                    ss.fieldName.isNotBlank()
+                                }
+                                is InlineFragment -> {
+                                    ss.typeName.isNotBlank() && ss.fieldName.isNotBlank()
+                                }
+                                is FragmentSpread -> {
+                                    ss.typeName.isNotBlank() &&
+                                        ss.fragmentName.isNotBlank() &&
+                                        ss.fieldName.isNotBlank()
+                                }
+                            }
+                        }
+                        .toList()
+                )
+                return this
+            }
+
+            override fun prependSelections(
+                selectionSegments: List<SelectionSegment>
+            ): GQLOperationPath.Builder {
+                selectionBuilder.addAll(
+                    0,
+                    selectionSegments
+                        .asSequence()
+                        .filter { ss: SelectionSegment ->
+                            when (ss) {
+                                is Field -> {
+                                    ss.fieldName.isNotBlank()
+                                }
+                                is InlineFragment -> {
+                                    ss.typeName.isNotBlank() && ss.fieldName.isNotBlank()
+                                }
+                                is FragmentSpread -> {
+                                    ss.typeName.isNotBlank() &&
+                                        ss.fragmentName.isNotBlank() &&
+                                        ss.fieldName.isNotBlank()
+                                }
+                            }
+                        }
+                        .toList()
+                )
+                return this
+            }
+
+            override fun appendSelection(
+                vararg selectionSegment: SelectionSegment
+            ): GQLOperationPath.Builder {
+                selectionSegment
                     .asSequence()
-                    .map { s -> s.trim() }
-                    .filter { s -> s.isNotEmpty() }
-                    .fold(pathBuilder) { pb, ps ->
-                        pb.add(0, ps)
-                        pb
+                    .filter { ss: SelectionSegment ->
+                        when (ss) {
+                            is Field -> {
+                                ss.fieldName.isNotBlank()
+                            }
+                            is InlineFragment -> {
+                                ss.typeName.isNotBlank() && ss.fieldName.isNotBlank()
+                            }
+                            is FragmentSpread -> {
+                                ss.typeName.isNotBlank() &&
+                                    ss.fragmentName.isNotBlank() &&
+                                    ss.fieldName.isNotBlank()
+                            }
+                        }
+                    }
+                    .fold(selectionBuilder) { sb, ss ->
+                        sb.add(ss)
+                        sb
                     }
                 return this
             }
 
-            override fun dropPathSegment(): GQLOperationPath.Builder {
-                if (pathBuilder.isNotEmpty()) {
-                    pathBuilder.removeLast()
+            override fun appendSelections(
+                selectionSegments: List<SelectionSegment>
+            ): GQLOperationPath.Builder {
+                selectionSegments
+                    .asSequence()
+                    .filter { ss: SelectionSegment ->
+                        when (ss) {
+                            is Field -> {
+                                ss.fieldName.isNotBlank()
+                            }
+                            is InlineFragment -> {
+                                ss.typeName.isNotBlank() && ss.fieldName.isNotBlank()
+                            }
+                            is FragmentSpread -> {
+                                ss.typeName.isNotBlank() &&
+                                    ss.fragmentName.isNotBlank() &&
+                                    ss.fieldName.isNotBlank()
+                            }
+                        }
+                    }
+                    .fold(selectionBuilder) { sb, ss ->
+                        sb.add(ss)
+                        sb
+                    }
+                return this
+            }
+
+            override fun dropHeadSelectionSegment(): GQLOperationPath.Builder {
+                if (selectionBuilder.isNotEmpty()) {
+                    selectionBuilder.removeFirst()
                 }
                 return this
             }
 
-            override fun pathSegment(vararg pathSegment: String): GQLOperationPath.Builder {
-                pathSegment
-                    .asSequence()
-                    .map { s -> s.trim() }
-                    .filter { s -> s.isNotEmpty() }
-                    .fold(pathBuilder) { pb, ps ->
-                        pb.add(ps)
-                        pb
-                    }
+            override fun dropTailSelectionSegment(): GQLOperationPath.Builder {
+                if (selectionBuilder.isNotEmpty()) {
+                    selectionBuilder.removeLast()
+                }
                 return this
             }
 
-            override fun pathSegments(pathSegments: List<String>): GQLOperationPath.Builder {
-                pathSegments
-                    .asSequence()
-                    .map { s -> s.trim() }
-                    .filter { s -> s.isNotEmpty() }
-                    .fold(pathBuilder) { pb, ps ->
-                        pb.add(ps)
-                        pb
-                    }
-                return this
-            }
-
-            override fun clearPathSegments(): GQLOperationPath.Builder {
-                pathBuilder.clear()
+            override fun clearSelection(): GQLOperationPath.Builder {
+                selectionBuilder.clear()
                 return this
             }
 
@@ -123,8 +188,8 @@ internal data class DefaultGQLOperationPath(
                         this.argumentPathBuilder =
                             pathSegments
                                 .asSequence()
-                                .map { s -> s.trim() }
-                                .filter { s -> s.isNotEmpty() }
+                                .map(String::trim)
+                                .filter(String::isNotEmpty)
                                 .toPersistentList()
                                 .builder()
                         this
@@ -145,8 +210,8 @@ internal data class DefaultGQLOperationPath(
                         this.argumentPathBuilder =
                             pathSegment
                                 .asSequence()
-                                .map { s -> s.trim() }
-                                .filter { s -> s.isNotEmpty() }
+                                .map(String::trim)
+                                .filter(String::isNotEmpty)
                                 .toPersistentList()
                                 .builder()
                         this
@@ -162,8 +227,8 @@ internal data class DefaultGQLOperationPath(
                         .downTo(0)
                         .asSequence()
                         .map { i: Int -> pathSegment[i] }
-                        .map { s -> s.trim() }
-                        .filter { s -> s.isNotEmpty() }
+                        .map(String::trim)
+                        .filter(String::isNotEmpty)
                         .fold(this.argumentPathBuilder) { apb, s ->
                             apb.add(0, s)
                             apb
@@ -180,8 +245,8 @@ internal data class DefaultGQLOperationPath(
                         0,
                         pathSegments
                             .asSequence()
-                            .map { s -> s.trim() }
-                            .filter { s -> s.isNotEmpty() }
+                            .map(String::trim)
+                            .filter(String::isNotEmpty)
                             .toList()
                     )
                 }
@@ -192,14 +257,12 @@ internal data class DefaultGQLOperationPath(
                 vararg pathSegment: String
             ): GQLOperationPath.Builder {
                 if (this.argumentName != null) {
-                    pathSegment
-                        .asSequence()
-                        .map { s -> s.trim() }
-                        .filter { s -> s.isNotEmpty() }
-                        .fold(argumentPathBuilder) { apb, s ->
-                            apb.add(s)
-                            apb
-                        }
+                    pathSegment.asSequence().map(String::trim).filter(String::isNotEmpty).fold(
+                        argumentPathBuilder
+                    ) { apb, s ->
+                        apb.add(s)
+                        apb
+                    }
                 }
                 return this
             }
@@ -208,19 +271,24 @@ internal data class DefaultGQLOperationPath(
                 pathSegments: List<String>
             ): GQLOperationPath.Builder {
                 if (this.argumentName != null) {
-                    pathSegments
-                        .asSequence()
-                        .map { s -> s.trim() }
-                        .filter { s -> s.isNotEmpty() }
-                        .fold(argumentPathBuilder) { apb, s ->
-                            apb.add(s)
-                            apb
-                        }
+                    pathSegments.asSequence().map(String::trim).filter(String::isNotEmpty).fold(
+                        argumentPathBuilder
+                    ) { apb, s ->
+                        apb.add(s)
+                        apb
+                    }
                 }
                 return this
             }
 
-            override fun dropArgumentPathSegment(): GQLOperationPath.Builder {
+            override fun dropHeadArgumentPathSegment(): GQLOperationPath.Builder {
+                if (argumentName != null && argumentPathBuilder.isNotEmpty()) {
+                    argumentPathBuilder.removeFirst()
+                }
+                return this
+            }
+
+            override fun dropTailArgumentPathSegment(): GQLOperationPath.Builder {
                 if (this.argumentName != null && this.argumentPathBuilder.isNotEmpty()) {
                     this.argumentPathBuilder.removeLast()
                 }
@@ -246,8 +314,8 @@ internal data class DefaultGQLOperationPath(
                         this.directivePathBuilder =
                             pathSegments
                                 .asSequence()
-                                .map { s -> s.trim() }
-                                .filter { s -> s.isNotEmpty() }
+                                .map(String::trim)
+                                .filter(String::isNotEmpty)
                                 .toPersistentList()
                                 .builder()
                         this
@@ -268,8 +336,8 @@ internal data class DefaultGQLOperationPath(
                         this.directivePathBuilder =
                             pathSegment
                                 .asSequence()
-                                .map { s -> s.trim() }
-                                .filter { s -> s.isNotEmpty() }
+                                .map(String::trim)
+                                .filter(String::isNotEmpty)
                                 .toPersistentList()
                                 .builder()
                         this
@@ -285,8 +353,8 @@ internal data class DefaultGQLOperationPath(
                         .downTo(0)
                         .asSequence()
                         .map { i: Int -> pathSegment[i] }
-                        .map { s -> s.trim() }
-                        .filter { s -> s.isNotEmpty() }
+                        .map(String::trim)
+                        .filter(String::isNotEmpty)
                         .fold(directivePathBuilder) { dpb, s ->
                             dpb.add(0, s)
                             dpb
@@ -303,8 +371,8 @@ internal data class DefaultGQLOperationPath(
                         0,
                         pathSegments
                             .asSequence()
-                            .map { s -> s.trim() }
-                            .filter { s -> s.isNotEmpty() }
+                            .map(String::trim)
+                            .filter(String::isNotEmpty)
                             .toList()
                     )
                 }
@@ -315,14 +383,12 @@ internal data class DefaultGQLOperationPath(
                 vararg pathSegment: String
             ): GQLOperationPath.Builder {
                 if (this.directiveName != null) {
-                    pathSegment
-                        .asSequence()
-                        .map { s -> s.trim() }
-                        .filter { s -> s.isNotEmpty() }
-                        .fold(directivePathBuilder) { dpb, s ->
-                            dpb.add(s)
-                            dpb
-                        }
+                    pathSegment.asSequence().map(String::trim).filter(String::isNotEmpty).fold(
+                        directivePathBuilder
+                    ) { dpb, s ->
+                        dpb.add(s)
+                        dpb
+                    }
                 }
                 return this
             }
@@ -331,19 +397,24 @@ internal data class DefaultGQLOperationPath(
                 pathSegments: List<String>
             ): GQLOperationPath.Builder {
                 if (this.directiveName != null) {
-                    pathSegments
-                        .asSequence()
-                        .map { s -> s.trim() }
-                        .filter { s -> s.isNotEmpty() }
-                        .fold(directivePathBuilder) { dpb, s ->
-                            dpb.add(s)
-                            dpb
-                        }
+                    pathSegments.asSequence().map(String::trim).filter(String::isNotEmpty).fold(
+                        directivePathBuilder
+                    ) { dpb, s ->
+                        dpb.add(s)
+                        dpb
+                    }
                 }
                 return this
             }
 
-            override fun dropDirectivePathSegment(): GQLOperationPath.Builder {
+            override fun dropHeadDirectivePathSegment(): GQLOperationPath.Builder {
+                if (directiveName != null && directivePathBuilder.isNotEmpty()) {
+                    directivePathBuilder.removeFirst()
+                }
+                return this
+            }
+
+            override fun dropTailDirectivePathSegment(): GQLOperationPath.Builder {
                 if (directiveName != null && directivePathBuilder.isNotEmpty()) {
                     directivePathBuilder.removeLast()
                 }
@@ -359,7 +430,7 @@ internal data class DefaultGQLOperationPath(
             override fun build(): GQLOperationPath {
                 return DefaultGQLOperationPath(
                     scheme = inputScheme,
-                    pathSegments = pathBuilder.build(),
+                    selection = selectionBuilder.build(),
                     argument =
                         when (argumentName) {
                             null -> {
@@ -389,9 +460,10 @@ internal data class DefaultGQLOperationPath(
                 append(scheme)
                 append(':')
                 append(
-                    pathSegments
+                    selection
                         .asSequence()
-                        .map { ps: String -> URLEncoder.encode(ps, StandardCharsets.UTF_8) }
+                        .map(SelectionSegment::toString)
+                        .map { s: String -> URLEncoder.encode(s, StandardCharsets.UTF_8) }
                         .joinToString("/", "/")
                 )
                 if (argument.isDefined()) {
@@ -446,7 +518,7 @@ internal data class DefaultGQLOperationPath(
         return buildString {
             append(scheme)
             append(':')
-            append(pathSegments.asSequence().joinToString("/", "/"))
+            append(selection.asSequence().joinToString("/", "/"))
             if (argument.isDefined()) {
                 append("?")
                 append(argument.orNull()?.first)

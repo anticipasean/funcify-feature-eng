@@ -75,7 +75,7 @@ object GraphQLQueryPathBasedComposer {
         return graphQLSourcePaths
             .asSequence()
             .filter { sp ->
-                sp.pathSegments.size >= 1 && sp.argument.isEmpty() && sp.directive.isEmpty()
+                sp.selection.size >= 1 && sp.argument.isEmpty() && sp.directive.isEmpty()
             }
             .fold(persistentSetOf()) { sourceAttributePathSet, sourceIndexPath ->
                 if (sourceIndexPath in sourceAttributePathSet) {
@@ -86,7 +86,7 @@ object GraphQLQueryPathBasedComposer {
                         sourceAttributePathSet.builder()
                     while (!currentPath.isRoot() && currentPath !in sourceAttributePathSet) {
                         setBuilder.add(currentPath)
-                        currentPath = currentPath.transform { dropPathSegment() }
+                        currentPath = currentPath.transform { dropTailSelectionSegment() }
                     }
                     setBuilder.build()
                 }
@@ -103,7 +103,7 @@ object GraphQLQueryPathBasedComposer {
         ) { opDef, sourceAttributePath ->
             SourceAttributesQueryCompositionContext(
                     operationDefinition = opDef,
-                    pathSegments = LinkedList(sourceAttributePath.pathSegments)
+                    pathSegments = LinkedList(sourceAttributePath.selection)
                 )
                 .some()
                 .recurse { ctx -> createFieldsInContextForSourceAttributePathSegments(ctx) }
@@ -149,7 +149,7 @@ object GraphQLQueryPathBasedComposer {
                         .map { keyValuePair: Pair<String, JsonNode> ->
                             ParameterAttributeQueryCompositionContext(
                                 opDef,
-                                LinkedList(parameterAttributePath.pathSegments),
+                                LinkedList(parameterAttributePath.selection),
                                 keyValuePair
                             )
                         }

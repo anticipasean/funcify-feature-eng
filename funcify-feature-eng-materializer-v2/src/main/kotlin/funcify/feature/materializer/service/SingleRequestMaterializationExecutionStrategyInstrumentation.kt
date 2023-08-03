@@ -3,6 +3,7 @@ package funcify.feature.materializer.service
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import funcify.feature.error.ServiceError
+import funcify.feature.materializer.graph.SingleRequestMaterializationGraphService
 import funcify.feature.materializer.session.GraphQLSingleRequestSession
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import graphql.ExecutionResult

@@ -48,7 +48,7 @@ internal class DefaultSingleRequestMaterializationOrchestratorService(
         private fun resultPathToFieldSchematicPathWithAndWithoutListIndexingCalculator():
             (ResultPath) -> Pair<GQLOperationPath, GQLOperationPath> {
             return { resultPath: ResultPath ->
-                GQLOperationPath.of { pathSegments(resultPath.keysOnly) }
+                GQLOperationPath.of { fields(resultPath.keysOnly) }
                     .let { pathWithoutListIndexing ->
                         resultPath
                             .toOption()
@@ -57,7 +57,7 @@ internal class DefaultSingleRequestMaterializationOrchestratorService(
                                 rpStr.split("/").asSequence().filter { s -> s.isNotEmpty() }
                             }
                             .map { sSeq: Sequence<String> ->
-                                GQLOperationPath.of { pathSegments(sSeq.toList()) }
+                                GQLOperationPath.of { fields(sSeq.toList()) }
                             }
                             .getOrElse { pathWithoutListIndexing } to pathWithoutListIndexing
                     }

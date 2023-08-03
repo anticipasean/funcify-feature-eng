@@ -389,7 +389,7 @@ internal class DefaultMaterializedTrackableValuePublishingService(
             else -> {
                 val canonicalDomainPath: GQLOperationPath =
                     GQLOperationPath.of {
-                        pathSegments(canonicalPath.pathSegments.firstOrNone().toList())
+                        fields(canonicalPath.selection.firstOrNone().toList())
                     }
                 // canonical_context = those used to retrieve some ref_path (i.e. the
                 // calculated_value.contextual_parameters) + the domain contextual path values
@@ -410,7 +410,7 @@ internal class DefaultMaterializedTrackableValuePublishingService(
                                     .asSequence()
                                     .filter { (sp, _) -> canonicalDomainPath.isAncestorOf(sp) }
                                     .map { (sp, jn) ->
-                                        sp.pathSegments.lastOrNone().map { ps -> ps to jn }
+                                        sp.selection.lastOrNone().map { ps -> ps to jn }
                                     }
                                     .flatMapOptions()
                             )
@@ -454,9 +454,9 @@ internal class DefaultMaterializedTrackableValuePublishingService(
             else -> {
                 val canonicalDomainPath: GQLOperationPath =
                     GQLOperationPath.of {
-                        pathSegments(
-                            canonicalPathWithoutContext.pathSegments.firstOrNone().toList()
-                        )
+                        fields(
+                            canonicalPathWithoutContext.selection.firstOrNone().toList()
+                              )
                     }
                 // reference_context = those used to retrieve the canonical_path (i.e. the
                 // calculated_value.contextual_parameters) - the domain contextual path values

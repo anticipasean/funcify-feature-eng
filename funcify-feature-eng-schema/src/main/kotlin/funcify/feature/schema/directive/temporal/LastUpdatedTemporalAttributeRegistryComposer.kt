@@ -73,7 +73,7 @@ internal class LastUpdatedTemporalAttributeRegistryComposer {
                     when (context.parentNode) {
                         is FieldDefinition -> {
                             GQLOperationPath.of {
-                                pathSegments(
+                                fields(
                                     context.breadcrumbs
                                         .asReversed()
                                         .asSequence()
@@ -81,12 +81,12 @@ internal class LastUpdatedTemporalAttributeRegistryComposer {
                                         .filterIsInstance<FieldDefinition>()
                                         .map(FieldDefinition::getName)
                                         .toList()
-                                )
+                                      )
                             }
                         }
                         is InputValueDefinition -> {
                             GQLOperationPath.of {
-                                pathSegments(
+                                fields(
                                     context.breadcrumbs
                                         .asReversed()
                                         .asSequence()
@@ -94,7 +94,7 @@ internal class LastUpdatedTemporalAttributeRegistryComposer {
                                         .filterIsInstance<FieldDefinition>()
                                         .map(FieldDefinition::getName)
                                         .toList()
-                                )
+                                      )
                                 argument(
                                     context.breadcrumbs
                                         .asSequence()

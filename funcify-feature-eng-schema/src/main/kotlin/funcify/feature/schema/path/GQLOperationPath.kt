@@ -3,8 +3,8 @@ package funcify.feature.schema.path
 import arrow.core.Option
 import arrow.core.none
 import arrow.core.some
-import kotlinx.collections.immutable.ImmutableList
 import java.net.URI
+import kotlinx.collections.immutable.ImmutableList
 
 /**
  * Represents a specific component of a GraphQL query: field, argument, input value on an argument,
@@ -17,7 +17,7 @@ interface GQLOperationPath : Comparable<GQLOperationPath> {
 
     companion object {
 
-        const val GRAPHQL_SCHEMATIC_PATH_SCHEME: String = "mlfs"
+        const val GRAPHQL_OPERATION_PATH_SCHEME: String = "gqlo"
 
         private val rootPath: GQLOperationPath = DefaultGQLOperationPath()
 
@@ -74,7 +74,7 @@ interface GQLOperationPath : Comparable<GQLOperationPath> {
      * in GraphQL query form where the referent is the `messageBody` field =>
      * `/user/transactions/messageBody`
      */
-    val pathSegments: ImmutableList<String>
+    val selection: ImmutableList<SelectionSegment>
 
     /**
      * Represented by URI query parameters `?filter=/correlation_id/eq` in URI form and a
@@ -126,10 +126,10 @@ interface GQLOperationPath : Comparable<GQLOperationPath> {
      * represents a parameter to some source container or attribute type
      */
     fun isRoot(): Boolean {
-        return pathSegments.isEmpty() && argument.isEmpty() && directive.isEmpty()
+        return selection.isEmpty() && argument.isEmpty() && directive.isEmpty()
     }
 
-    fun level(): Int = pathSegments.size
+    fun level(): Int = selection.size
 
     fun getParentPath(): Option<GQLOperationPath> {
         return when (
@@ -141,10 +141,10 @@ interface GQLOperationPath : Comparable<GQLOperationPath> {
                         argument.orNull()
                 ) {
                     null -> {
-                        if (pathSegments.isNotEmpty()) {
+                        if (selection.isNotEmpty()) {
                             // Case 1: Reference to a field, not an argument or directive
                             // => Parent is another field or root itself
-                            transform { dropPathSegment() }.some()
+                            transform { dropTailSelectionSegment() }.some()
                         } else {
                             // Case 2: Reference to root: Query object type
                             // => No parent to root
@@ -156,7 +156,7 @@ interface GQLOperationPath : Comparable<GQLOperationPath> {
                             // Case 3: Reference to a field within an argument value
                             // => Parent is another field within the argument value or the argument
                             // itself
-                            transform { dropArgumentPathSegment() }.some()
+                            transform { dropTailArgumentPathSegment() }.some()
                         } else {
                             // Case 4: Reference to an argument
                             // => Parent is the field on which the argument is found
@@ -169,7 +169,7 @@ interface GQLOperationPath : Comparable<GQLOperationPath> {
                 if (directiveNamePathPair.second.isNotEmpty()) {
                     // Case 5: Reference to a field within a directive value
                     // => Parent is another field within the directive value or the directive itself
-                    transform { dropDirectivePathSegment() }.some()
+                    transform { dropTailDirectivePathSegment() }.some()
                 } else {
                     // Case 6: Reference to a directive
                     // => Parent is the argument or field on which this is a directive
@@ -191,25 +191,105 @@ interface GQLOperationPath : Comparable<GQLOperationPath> {
 
         fun scheme(scheme: String): Builder
 
-        fun prependPathSegment(vararg pathSegment: String): Builder
-
-        fun prependPathSegments(pathSegments: List<String>): Builder
-
-        fun appendPathSegment(vararg pathSegment: String): Builder {
-            return pathSegment(*pathSegment)
+        fun prependField(vararg fieldName: String): Builder {
+            return prependSelections(fieldName.asSequence().map(String::trim).map(::Field).toList())
         }
 
-        fun appendPathSegments(pathSegments: List<String>): Builder {
-            return pathSegments(pathSegments)
+        fun prependFields(fieldNames: List<String>): Builder {
+            return prependSelections(
+                fieldNames.asSequence().map(String::trim).map(::Field).toList()
+            )
         }
 
-        fun dropPathSegment(): Builder
+        fun appendField(vararg fieldName: String): Builder {
+            return appendSelections(fieldName.asSequence().map(String::trim).map(::Field).toList())
+        }
 
-        fun pathSegment(vararg pathSegment: String): Builder
+        fun appendFields(fieldNames: List<String>): Builder {
+            return appendSelections(fieldNames.asSequence().map(String::trim).map(::Field).toList())
+        }
 
-        fun pathSegments(pathSegments: List<String>): Builder
+        fun field(vararg fieldName: String): Builder {
+            return appendField(*fieldName)
+        }
 
-        fun clearPathSegments(): Builder
+        fun fields(fieldNames: List<String>): Builder {
+            return appendFields(fieldNames)
+        }
+
+        fun prependInlineFragment(typeName: String, fieldName: String): Builder {
+            return prependSelection(
+                InlineFragment(typeName = typeName.trim(), fieldName = fieldName.trim())
+            )
+        }
+
+        fun prependFragmentSpread(
+            fragmentName: String,
+            typeName: String,
+            fieldName: String
+        ): Builder {
+            return prependSelection(
+                FragmentSpread(
+                    fragmentName = fragmentName.trim(),
+                    typeName = typeName.trim(),
+                    fieldName = fieldName.trim()
+                )
+            )
+        }
+
+        fun appendInlineFragment(typeName: String, fieldName: String): Builder {
+            return appendSelection(
+                InlineFragment(typeName = typeName.trim(), fieldName = fieldName.trim())
+            )
+        }
+
+        fun appendFragmentSpread(
+            fragmentName: String,
+            typeName: String,
+            fieldName: String
+        ): Builder {
+            return appendSelection(
+                FragmentSpread(
+                    fragmentName = fragmentName.trim(),
+                    typeName = typeName.trim(),
+                    fieldName = fieldName.trim()
+                )
+            )
+        }
+
+        fun inlineFragment(typeName: String, fieldName: String): Builder {
+            return appendInlineFragment(typeName = typeName.trim(), fieldName = fieldName.trim())
+        }
+
+        fun fragmentSpread(fragmentName: String, typeName: String,  fieldName: String): Builder {
+            return appendFragmentSpread(
+                fragmentName = fragmentName.trim(),
+                typeName = typeName.trim(),
+                fieldName = fieldName.trim()
+            )
+        }
+
+        fun prependSelection(vararg selectionSegment: SelectionSegment): Builder
+
+        fun prependSelections(selectionSegments: List<SelectionSegment>): Builder
+
+        fun appendSelection(vararg selectionSegment: SelectionSegment): Builder
+
+        fun appendSelections(selectionSegments: List<SelectionSegment>): Builder
+
+        fun selection(vararg selectionSegment: SelectionSegment): Builder {
+            return appendSelection(*selectionSegment)
+        }
+
+        fun selections(selectionSegments: List<SelectionSegment>): Builder {
+            return appendSelections(selectionSegments)
+        }
+
+        fun dropHeadSelectionSegment(): Builder
+
+        fun dropTailSelectionSegment(): Builder
+
+        fun clearSelection(): Builder
 
         fun argument(name: String, pathSegments: List<String>): Builder
 
@@ -223,7 +303,9 @@ interface GQLOperationPath : Comparable<GQLOperationPath> {
 
         fun appendArgumentPathSegments(pathSegments: List<String>): Builder
 
-        fun dropArgumentPathSegment(): Builder
+        fun dropHeadArgumentPathSegment(): Builder
+
+        fun dropTailArgumentPathSegment(): Builder
 
         fun clearArgument(): Builder
 
@@ -239,7 +321,9 @@ interface GQLOperationPath : Comparable<GQLOperationPath> {
 
         fun appendDirectivePathSegments(pathSegments: List<String>): Builder
 
-        fun dropDirectivePathSegment(): Builder
+        fun dropHeadDirectivePathSegment(): Builder
+
+        fun dropTailDirectivePathSegment(): Builder
 
         fun clearDirective(): Builder
 

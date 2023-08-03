@@ -48,9 +48,9 @@ internal object ListIndexedSchematicPathGraphQLSchemaBasedCalculator :
             unindexedPath
                 .toOption()
                 .flatMap { sp ->
-                    sp.pathSegments.firstOrNone().flatMap { n ->
+                    sp.selection.firstOrNone().flatMap { n ->
                         correspondingSchema.queryType.getFieldDefinition(n).toOption().map { gfd ->
-                            sp.pathSegments.toPersistentList().removeAt(0) to gfd
+                            sp.selection.toPersistentList().removeAt(0) to gfd
                         }
                     }
                 }
@@ -93,7 +93,7 @@ internal object ListIndexedSchematicPathGraphQLSchemaBasedCalculator :
                     )
                 }
                 .let { sSeq ->
-                    val listIndexedPath = GQLOperationPath.of { pathSegments(sSeq.toList()) }
+                    val listIndexedPath = GQLOperationPath.of { fields(sSeq.toList()) }
                     when (listIndexedPath.level()) {
                         unindexedPath.level() -> listIndexedPath
                         else -> null

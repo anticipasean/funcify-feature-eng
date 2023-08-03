@@ -3,6 +3,7 @@ package funcify.feature.schema.path
 import arrow.core.compareTo
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toPersistentList
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
 
@@ -11,10 +12,47 @@ internal class GQLOperationPathTest {
     @Test
     fun pathSegmentsOnlyTest() {
         val p1: GQLOperationPath = GQLOperationPath.getRootPath()
-        val p2: GQLOperationPath = p1.transform { appendPathSegment("pets") }
-        Assertions.assertNotEquals(0, p2.pathSegments.compareTo(p1.pathSegments))
-        Assertions.assertEquals(1, p2.pathSegments.size)
-        Assertions.assertEquals(0, p2.getParentPath().orNull()?.pathSegments?.size)
+        val p2: GQLOperationPath = p1.transform { appendField("pets") }
+        Assertions.assertNotEquals(0, p2.selection.compareTo(p1.selection))
+        Assertions.assertEquals(1, p2.selection.size)
+        Assertions.assertEquals(0, p2.getParentPath().orNull()?.selection?.size)
+    }
+
+    @Test
+    fun fieldsAndInlineFragmentsTest() {
+        val p1: GQLOperationPath = GQLOperationPath.getRootPath()
+        val p2: GQLOperationPath =
+            p1.transform {
+                appendField("pets")
+                appendInlineFragment("Dog", "breed")
+            }
+        val p3: GQLOperationPath =
+            p1.transform {
+                appendField("pets")
+                appendField("name")
+            }
+        Assertions.assertNotEquals(0, p2.selection.compareTo(p1.selection))
+        Assertions.assertEquals(2, p2.selection.size)
+        Assertions.assertTrue(p1.compareTo(p2) < 0)
+        Assertions.assertTrue(p3.compareTo(p2) < 0)
+        Assertions.assertEquals(1, p2.getParentPath().orNull()?.selection?.size)
+    }
+
+    @Test
+    fun bogusFieldsInlineFragmentsAndFragmentSpreadsTest() {
+        val p1: GQLOperationPath = GQLOperationPath.getRootPath()
+        val p2: GQLOperationPath =
+            p1.transform {
+                appendField("pets")
+                appendField("")
+                appendInlineFragment("", "breed")
+            }
+        val p3: GQLOperationPath = p1.transform { appendField("pets") }
+        Assertions.assertNotEquals(0, p2.selection.compareTo(p1.selection))
+        Assertions.assertEquals(1, p2.selection.size)
+        Assertions.assertTrue(p2.compareTo(p3) == 0)
+        Assertions.assertEquals(p1, p2.getParentPath().orNull())
+        Assertions.assertEquals(0, p2.getParentPath().orNull()?.selection?.size)
     }
 
     @Test
@@ -22,13 +60,13 @@ internal class GQLOperationPathTest {
         val p1: GQLOperationPath = GQLOperationPath.getRootPath()
         val p2: GQLOperationPath =
             p1.transform {
-                appendPathSegment("pets")
+                appendField("pets")
                 argument("breed")
             }
-        Assertions.assertNotEquals(0, p2.pathSegments.compareTo(p1.pathSegments))
-        Assertions.assertEquals(1, p2.pathSegments.size)
-        Assertions.assertEquals(1, p2.getParentPath().orNull()?.pathSegments?.size)
-        Assertions.assertEquals(p1.transform { pathSegment("pets") }, p2.getParentPath().orNull())
+        Assertions.assertNotEquals(0, p2.selection.compareTo(p1.selection))
+        Assertions.assertEquals(1, p2.selection.size)
+        Assertions.assertEquals(1, p2.getParentPath().orNull()?.selection?.size)
+        Assertions.assertEquals(p1.transform { field("pets") }, p2.getParentPath().orNull())
     }
 
     @Test
@@ -36,16 +74,16 @@ internal class GQLOperationPathTest {
         val p1: GQLOperationPath = GQLOperationPath.getRootPath()
         val p2: GQLOperationPath =
             p1.transform {
-                appendPathSegment("pets")
+                appendField("pets")
                 argument("breed")
                 directive("alias")
             }
-        Assertions.assertNotEquals(0, p2.pathSegments.compareTo(p1.pathSegments))
-        Assertions.assertEquals(1, p2.pathSegments.size)
-        Assertions.assertEquals(1, p2.getParentPath().orNull()?.pathSegments?.size)
+        Assertions.assertNotEquals(0, p2.selection.compareTo(p1.selection))
+        Assertions.assertEquals(1, p2.selection.size)
+        Assertions.assertEquals(1, p2.getParentPath().orNull()?.selection?.size)
         Assertions.assertEquals(
             p1.transform {
-                pathSegment("pets")
+                field("pets")
                 argument("breed")
             },
             p2.getParentPath().orNull()
@@ -57,12 +95,12 @@ internal class GQLOperationPathTest {
         val p1: GQLOperationPath = GQLOperationPath.getRootPath()
         val p2: GQLOperationPath =
             p1.transform {
-                appendPathSegment("pets")
+                appendField("pets")
                 argument("breed", "name")
             }
-        Assertions.assertNotEquals(0, p2.pathSegments.compareTo(p1.pathSegments))
-        Assertions.assertEquals(1, p2.pathSegments.size)
-        Assertions.assertEquals(1, p2.getParentPath().orNull()?.pathSegments?.size)
+        Assertions.assertNotEquals(0, p2.selection.compareTo(p1.selection))
+        Assertions.assertEquals(1, p2.selection.size)
+        Assertions.assertEquals(1, p2.getParentPath().orNull()?.selection?.size)
         Assertions.assertTrue(
             p2.argument.isDefined() &&
                 p2.argument
@@ -73,7 +111,7 @@ internal class GQLOperationPathTest {
         )
         Assertions.assertEquals(
             p1.transform {
-                pathSegment("pets")
+                field("pets")
                 argument("breed")
             },
             p2.getParentPath().orNull()
@@ -85,12 +123,12 @@ internal class GQLOperationPathTest {
         val p1: GQLOperationPath = GQLOperationPath.getRootPath()
         val p2: GQLOperationPath =
             p1.transform {
-                appendPathSegment("pets")
+                appendField("pets")
                 directive("format", "uppercase")
             }
-        Assertions.assertNotEquals(0, p2.pathSegments.compareTo(p1.pathSegments))
-        Assertions.assertEquals(1, p2.pathSegments.size)
-        Assertions.assertEquals(1, p2.getParentPath().orNull()?.pathSegments?.size)
+        Assertions.assertNotEquals(0, p2.selection.compareTo(p1.selection))
+        Assertions.assertEquals(1, p2.selection.size)
+        Assertions.assertEquals(1, p2.getParentPath().orNull()?.selection?.size)
         Assertions.assertTrue(
             p2.argument.isEmpty() &&
                 p2.directive
@@ -101,7 +139,7 @@ internal class GQLOperationPathTest {
         )
         Assertions.assertEquals(
             p1.transform {
-                pathSegment("pets")
+                field("pets")
                 directive("format")
             },
             p2.getParentPath().orNull()
@@ -109,22 +147,96 @@ internal class GQLOperationPathTest {
     }
 
     @Test
-    fun parseTest() {
+    fun parseFieldsArgumentsAndDirectivesTest() {
         val sp: GQLOperationPath =
             Assertions.assertDoesNotThrow<GQLOperationPath> {
-                GQLOperationPath.parseOrThrow("mlfs:/pets/dogs?breed=/size/small#format=/camelCase")
+                GQLOperationPath.parseOrThrow("gqlo:/pets/dogs?breed=/size/small#format=/camelCase")
             }
-        Assertions.assertEquals(2, sp.pathSegments.size)
-        Assertions.assertEquals(persistentListOf("pets", "dogs"), sp.pathSegments)
+        Assertions.assertEquals(2, sp.selection.size)
+        Assertions.assertEquals(
+            persistentListOf("pets", "dogs").asSequence().map(::Field).toPersistentList(),
+            sp.selection
+        )
         Assertions.assertEquals("breed", sp.argument.orNull()?.first)
         Assertions.assertEquals(persistentListOf("size", "small"), sp.argument.orNull()?.second)
         Assertions.assertEquals("format", sp.directive.orNull()?.first)
         Assertions.assertEquals(persistentListOf("camelCase"), sp.directive.orNull()?.second)
         val expectedParentPath: GQLOperationPath =
             Assertions.assertDoesNotThrow<GQLOperationPath> {
-                GQLOperationPath.parseOrThrow("mlfs:/pets/dogs?breed=/size/small#format")
+                GQLOperationPath.parseOrThrow("gqlo:/pets/dogs?breed=/size/small#format")
             }
         Assertions.assertEquals(expectedParentPath, sp.getParentPath().orNull())
+    }
+
+    @Test
+    fun parseFieldsInlineFragmentsArgumentsAndDirectivesTest() {
+        val sp: GQLOperationPath =
+            Assertions.assertDoesNotThrow<GQLOperationPath> {
+                GQLOperationPath.parseOrThrow(
+                    "gqlo:/pets/%5BDogFragment%3ADog%5Dbreed/origin?format=/initials"
+                )
+            }
+        Assertions.assertEquals(3, sp.selection.size)
+        Assertions.assertEquals(
+            persistentListOf(
+                Field("pets"),
+                FragmentSpread("DogFragment", "Dog", "breed"),
+                Field("origin")
+            ),
+            sp.selection
+        )
+        Assertions.assertEquals("format", sp.argument.orNull()?.first)
+        Assertions.assertEquals(persistentListOf("initials"), sp.argument.orNull()?.second)
+        val expectedParentPath: GQLOperationPath =
+            Assertions.assertDoesNotThrow<GQLOperationPath> {
+                GQLOperationPath.parseOrThrow(
+                    "gqlo:/pets/%5BDogFragment%3ADog%5Dbreed/origin?format"
+                )
+            }
+        Assertions.assertEquals(expectedParentPath, sp.getParentPath().orNull())
+    }
+
+    @Test
+    fun parseBogusFieldsInlineFragmentsArgumentsAndDirectivesTest() {
+        Assertions.assertThrows(IllegalArgumentException::class.java) {
+            GQLOperationPath.parseOrThrow("gqlo:/pets/%5BDogFragment%3ADog/origin?format=/initials")
+        }
+        // contains empty field name for FragmentSpread.fieldName position
+        val sp: GQLOperationPath =
+            Assertions.assertDoesNotThrow<GQLOperationPath> {
+                GQLOperationPath.parseOrThrow("gqlo:/pets/%5BDogFragment%3ADog%5D/origin?format")
+            }
+        Assertions.assertEquals(2, sp.selection.size)
+        Assertions.assertEquals(persistentListOf(Field("pets"), Field("origin")), sp.selection)
+        Assertions.assertEquals("format", sp.argument.orNull()?.first)
+        Assertions.assertEquals(persistentListOf<String>(), sp.argument.orNull()?.second)
+        val expectedParentPath: GQLOperationPath =
+            Assertions.assertDoesNotThrow<GQLOperationPath> {
+                GQLOperationPath.parseOrThrow("gqlo:/pets/origin")
+            }
+        Assertions.assertEquals(expectedParentPath, sp.getParentPath().orNull())
+    }
+
+    @Test
+    fun selectionSegmentComparisonTest() {
+        Assertions.assertTrue(Field("pets") < InlineFragment("Dog", "breed"))
+        Assertions.assertTrue(
+            FragmentSpread("DogFragment", "Dog", "breed") > InlineFragment("Dog", "breed")
+        )
+        Assertions.assertTrue(Field("pets") > Field("dog"))
+        Assertions.assertTrue(InlineFragment("Dog", "breed") < InlineFragment("Dog", "name"))
+        Assertions.assertTrue(
+            FragmentSpread("DogFragment", "Dog", "breed") <
+                FragmentSpread("DogFragment", "Dog", "name")
+        )
+        Assertions.assertTrue(
+            FragmentSpread("CatFragment", "Cat", "litterboxLocation") <
+                FragmentSpread("DogFragment", "Dog", "name")
+        )
+        Assertions.assertTrue(
+            FragmentSpread("CatFragment", "Cat", "litterboxLocation") <
+                FragmentSpread("OtherCatFragment", "Cat", "litterboxLocation")
+        )
     }
 
     /*

@@ -131,7 +131,7 @@ internal class DefaultSingleRequestMaterializationColumnarDocumentPreprocessingS
                     context.parameterValuesByPath
                         .asSequence()
                         .map { (path, _) ->
-                            GQLOperationPath.of { pathSegments(path.pathSegments) }
+                            GQLOperationPath.of { fields(path.selection) }
                         }
                         .toPersistentSet()
                 Flux.fromIterable(expectedOutputFieldNames)
@@ -256,7 +256,7 @@ internal class DefaultSingleRequestMaterializationColumnarDocumentPreprocessingS
         (Pair<GQLOperationPath, Any?>) -> Mono<Pair<GQLOperationPath, JsonNode>> {
         return { (path: GQLOperationPath, paramValue: Any?) ->
             jsonMapper
-                .fromKotlinObject<Any?>(paramValue)
+                .fromKotlinObject<Any>(paramValue)
                 .toJsonNode()
                 .toMono()
                 .map { jn: JsonNode -> path to jn }
@@ -408,13 +408,13 @@ internal class DefaultSingleRequestMaterializationColumnarDocumentPreprocessingS
             val domainPathSegmentSet: PersistentSet<String> =
                 context.sourceIndexPathsByFieldName.values
                     .parallelStream()
-                    .map { sp: GQLOperationPath -> sp.pathSegments.firstOrNone() }
+                    .map { sp: GQLOperationPath -> sp.selection.firstOrNone() }
                     .flatMapOptions()
                     .reduceToPersistentSet()
             context.parameterValuesByPath.keys
                 .asSequence()
                 .filterNot { paramPath ->
-                    paramPath.pathSegments
+                    paramPath.selection
                         .firstOrNone()
                         .filter { domainPathSegment -> domainPathSegment in domainPathSegmentSet }
                         .isDefined()

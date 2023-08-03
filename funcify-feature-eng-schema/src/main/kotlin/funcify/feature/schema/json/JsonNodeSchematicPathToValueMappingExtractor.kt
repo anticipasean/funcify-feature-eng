@@ -41,7 +41,7 @@ object JsonNodeSchematicPathToValueMappingExtractor :
             JsonNodeType.NULL,
             JsonNodeType.MISSING -> {
                 sequenceOf(
-                    (GQLOperationPath.of { pathSegments(context.pathSegments) } to
+                    (GQLOperationPath.of { fields(context.pathSegments) } to
                             JsonNodeFactory.instance.nullNode())
                         .right()
                 )
@@ -51,7 +51,7 @@ object JsonNodeSchematicPathToValueMappingExtractor :
             JsonNodeType.BINARY,
             JsonNodeType.STRING -> {
                 sequenceOf(
-                    (GQLOperationPath.of { pathSegments(context.pathSegments) } to context.value)
+                    (GQLOperationPath.of { fields(context.pathSegments) } to context.value)
                         .right()
                 )
             }
@@ -61,7 +61,7 @@ object JsonNodeSchematicPathToValueMappingExtractor :
                     .toOption()
                     .filter { ps -> ps.isNotEmpty() }
                     .map { ps ->
-                        (GQLOperationPath.of { pathSegments(ps) } to context.value).right()
+                        (GQLOperationPath.of { fields(ps) } to context.value).right()
                     }
                     .fold(::emptySequence, ::sequenceOf)
                     .plus(
@@ -99,7 +99,7 @@ object JsonNodeSchematicPathToValueMappingExtractor :
                 context.pathSegments
                     .toOption()
                     .map { ps ->
-                        (GQLOperationPath.of { pathSegments(ps) } to context.value).right()
+                        (GQLOperationPath.of { fields(ps) } to context.value).right()
                     }
                     .fold(::emptySequence, ::sequenceOf)
                     .plus(

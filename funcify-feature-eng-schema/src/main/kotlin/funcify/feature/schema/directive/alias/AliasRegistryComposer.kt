@@ -79,7 +79,7 @@ internal class AliasRegistryComposer {
                     when (val parentNode: Node<*> = context.parentNode) {
                         is FieldDefinition -> {
                             GQLOperationPath.of {
-                                pathSegments(
+                                fields(
                                     context.breadcrumbs
                                         .asReversed()
                                         .asSequence()
@@ -87,12 +87,12 @@ internal class AliasRegistryComposer {
                                         .filterIsInstance<FieldDefinition>()
                                         .map(FieldDefinition::getName)
                                         .toList()
-                                )
+                                      )
                             }
                         }
                         is InputValueDefinition -> {
                             GQLOperationPath.of {
-                                pathSegments(
+                                fields(
                                     context.breadcrumbs
                                         .asReversed()
                                         .asSequence()
@@ -100,7 +100,7 @@ internal class AliasRegistryComposer {
                                         .filterIsInstance<FieldDefinition>()
                                         .map(FieldDefinition::getName)
                                         .toList()
-                                )
+                                      )
                                 argument(
                                     context.breadcrumbs
                                         .asSequence()
