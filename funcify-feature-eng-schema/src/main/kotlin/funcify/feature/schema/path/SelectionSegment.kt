@@ -13,8 +13,6 @@ sealed interface SelectionSegment : Comparable<SelectionSegment> {
         }
     }
 
-    val fieldName: String
-
     override fun compareTo(other: SelectionSegment): Int {
         return comparator().compare(this, other)
     }

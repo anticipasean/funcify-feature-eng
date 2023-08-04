@@ -48,29 +48,39 @@ internal data class DefaultGQLOperationPath(
                 return this
             }
 
+            private fun noBlanksInSelectionSegment(ss: SelectionSegment): Boolean {
+                return when (ss) {
+                    is SelectedField -> {
+                        noBlanksInSelectedField(ss)
+                    }
+                    is InlineFragment -> {
+                        ss.typeName.isNotBlank() && noBlanksInSelectedField(ss.selectedField)
+                    }
+                    is FragmentSpread -> {
+                        ss.typeName.isNotBlank() &&
+                            ss.fragmentName.isNotBlank() &&
+                            noBlanksInSelectedField(ss.selectedField)
+                    }
+                }
+            }
+
+            private fun noBlanksInSelectedField(sf: SelectedField): Boolean {
+                return when (sf) {
+                    is Field -> {
+                        sf.fieldName.isNotBlank()
+                    }
+                    is AliasedField -> {
+                        sf.alias.isNotBlank() && sf.fieldName.isNotBlank()
+                    }
+                }
+            }
+
             override fun prependSelection(
                 vararg selectionSegment: SelectionSegment
             ): GQLOperationPath.Builder {
                 selectionBuilder.addAll(
                     0,
-                    selectionSegment
-                        .asSequence()
-                        .filter { ss: SelectionSegment ->
-                            when (ss) {
-                                is Field -> {
-                                    ss.fieldName.isNotBlank()
-                                }
-                                is InlineFragment -> {
-                                    ss.typeName.isNotBlank() && ss.fieldName.isNotBlank()
-                                }
-                                is FragmentSpread -> {
-                                    ss.typeName.isNotBlank() &&
-                                        ss.fragmentName.isNotBlank() &&
-                                        ss.fieldName.isNotBlank()
-                                }
-                            }
-                        }
-                        .toList()
+                    selectionSegment.asSequence().filter(::noBlanksInSelectionSegment).toList()
                 )
                 return this
             }
@@ -80,24 +90,7 @@ internal data class DefaultGQLOperationPath(
             ): GQLOperationPath.Builder {
                 selectionBuilder.addAll(
                     0,
-                    selectionSegments
-                        .asSequence()
-                        .filter { ss: SelectionSegment ->
-                            when (ss) {
-                                is Field -> {
-                                    ss.fieldName.isNotBlank()
-                                }
-                                is InlineFragment -> {
-                                    ss.typeName.isNotBlank() && ss.fieldName.isNotBlank()
-                                }
-                                is FragmentSpread -> {
-                                    ss.typeName.isNotBlank() &&
-                                        ss.fragmentName.isNotBlank() &&
-                                        ss.fieldName.isNotBlank()
-                                }
-                            }
-                        }
-                        .toList()
+                    selectionSegments.asSequence().filter(::noBlanksInSelectionSegment).toList()
                 )
                 return this
             }
@@ -105,54 +98,24 @@ internal data class DefaultGQLOperationPath(
             override fun appendSelection(
                 vararg selectionSegment: SelectionSegment
             ): GQLOperationPath.Builder {
-                selectionSegment
-                    .asSequence()
-                    .filter { ss: SelectionSegment ->
-                        when (ss) {
-                            is Field -> {
-                                ss.fieldName.isNotBlank()
-                            }
-                            is InlineFragment -> {
-                                ss.typeName.isNotBlank() && ss.fieldName.isNotBlank()
-                            }
-                            is FragmentSpread -> {
-                                ss.typeName.isNotBlank() &&
-                                    ss.fragmentName.isNotBlank() &&
-                                    ss.fieldName.isNotBlank()
-                            }
-                        }
-                    }
-                    .fold(selectionBuilder) { sb, ss ->
-                        sb.add(ss)
-                        sb
-                    }
+                selectionSegment.asSequence().filter(::noBlanksInSelectionSegment).fold(
+                    selectionBuilder
+                ) { sb, ss ->
+                    sb.add(ss)
+                    sb
+                }
                 return this
             }
 
             override fun appendSelections(
                 selectionSegments: List<SelectionSegment>
             ): GQLOperationPath.Builder {
-                selectionSegments
-                    .asSequence()
-                    .filter { ss: SelectionSegment ->
-                        when (ss) {
-                            is Field -> {
-                                ss.fieldName.isNotBlank()
-                            }
-                            is InlineFragment -> {
-                                ss.typeName.isNotBlank() && ss.fieldName.isNotBlank()
-                            }
-                            is FragmentSpread -> {
-                                ss.typeName.isNotBlank() &&
-                                    ss.fragmentName.isNotBlank() &&
-                                    ss.fieldName.isNotBlank()
-                            }
-                        }
-                    }
-                    .fold(selectionBuilder) { sb, ss ->
-                        sb.add(ss)
-                        sb
-                    }
+                selectionSegments.asSequence().filter(::noBlanksInSelectionSegment).fold(
+                    selectionBuilder
+                ) { sb, ss ->
+                    sb.add(ss)
+                    sb
+                }
                 return this
             }
 

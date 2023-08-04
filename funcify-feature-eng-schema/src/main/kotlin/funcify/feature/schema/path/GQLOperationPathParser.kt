@@ -25,49 +25,7 @@ internal object GQLOperationPathParser : (String) -> Try<GQLOperationPath> {
                     .splitToSequence('/')
                     .map(String::trim)
                     .filter(String::isNotBlank)
-                    .map { s: String ->
-                        when {
-                            s.indexOf('[') == 0 -> {
-                                val fragmentDelimiter: Int = s.indexOf(']')
-                                val typeNameDelimiter: Int = s.indexOf(':')
-                                when {
-                                    fragmentDelimiter < 0 -> {
-                                        throw IllegalArgumentException(
-                                            """fragment start '[' within path segment [ %s ] 
-                                                |but no fragment end ']'"""
-                                                .flatten()
-                                                .format(s)
-                                        )
-                                    }
-                                    typeNameDelimiter < 0 -> {
-                                        InlineFragment(
-                                            typeName = s.substring(1, fragmentDelimiter).trim(),
-                                            fieldName =
-                                                s.substring(fragmentDelimiter + 1, s.length)
-                                                    .trimStart()
-                                        )
-                                    }
-                                    else -> {
-                                        FragmentSpread(
-                                            fragmentName = s.substring(1, typeNameDelimiter).trim(),
-                                            typeName =
-                                                s.substring(
-                                                        typeNameDelimiter + 1,
-                                                        fragmentDelimiter
-                                                    )
-                                                    .trim(),
-                                            fieldName =
-                                                s.substring(fragmentDelimiter + 1, s.length)
-                                                    .trimStart()
-                                        )
-                                    }
-                                }
-                            }
-                            else -> {
-                                Field(fieldName = s)
-                            }
-                        }
-                    }
+                    .map(createSelectionSegmentForPathSegment())
                     .toList()
             )
             if (uri.query?.isNotEmpty() == true) {
@@ -103,6 +61,127 @@ internal object GQLOperationPathParser : (String) -> Try<GQLOperationPath> {
                 }
             }
             builder
+        }
+    }
+
+    private fun createSelectionSegmentForPathSegment(): (String) -> SelectionSegment {
+        return { s: String ->
+            when {
+                s.indexOf('[') == 0 -> {
+                    val firstEndBracket: Int = s.indexOf(']')
+                    val firstColon: Int = s.indexOf(':')
+                    when {
+                        firstEndBracket < 0 -> {
+                            throw IllegalArgumentException(
+                                """fragment start '[' within path segment [ %s ] 
+                                |but no fragment end ']'"""
+                                    .flatten()
+                                    .format(s)
+                            )
+                        }
+                        firstColon < 0 && firstEndBracket == s.length - 1 -> {
+                            InlineFragment(
+                                typeName = s.substring(1, firstEndBracket).trim(),
+                                selectedField = Field(fieldName = "")
+                            )
+                        }
+                        firstColon < 0 -> {
+                            InlineFragment(
+                                typeName = s.substring(1, firstEndBracket).trim(),
+                                selectedField =
+                                    Field(
+                                        fieldName =
+                                            s.substring(firstEndBracket + 1, s.length).trimStart()
+                                    )
+                            )
+                        }
+                        firstColon < firstEndBracket && firstEndBracket == s.length - 1 -> {
+                            FragmentSpread(
+                                fragmentName = s.substring(1, firstColon).trim(),
+                                typeName = s.substring(firstColon + 1, firstEndBracket).trim(),
+                                selectedField = Field(fieldName = "")
+                            )
+                        }
+                        firstColon < firstEndBracket -> {
+                            val selectedFieldComponent: String =
+                                s.substring(firstEndBracket + 1, s.length).trimStart()
+                            val secondColon: Int = selectedFieldComponent.indexOf(':')
+                            when {
+                                secondColon < 0 -> {
+                                    FragmentSpread(
+                                        fragmentName = s.substring(1, firstColon).trim(),
+                                        typeName =
+                                            s.substring(firstColon + 1, firstEndBracket).trim(),
+                                        selectedField = Field(fieldName = selectedFieldComponent)
+                                    )
+                                }
+                                else -> {
+                                    FragmentSpread(
+                                        fragmentName = s.substring(1, firstColon).trim(),
+                                        typeName =
+                                            s.substring(firstColon + 1, firstEndBracket).trim(),
+                                        selectedField =
+                                            AliasedField(
+                                                alias =
+                                                    selectedFieldComponent.substring(
+                                                        0,
+                                                        secondColon
+                                                    ),
+                                                fieldName =
+                                                    selectedFieldComponent.substring(
+                                                        secondColon + 1,
+                                                        selectedFieldComponent.length
+                                                    )
+                                            )
+                                    )
+                                }
+                            }
+                        }
+                        firstColon > firstEndBracket && firstColon == s.length - 1 -> {
+                            InlineFragment(
+                                typeName = s.substring(1, firstEndBracket).trim(),
+                                selectedField =
+                                    AliasedField(
+                                        alias =
+                                            s.substring(firstEndBracket + 1, firstColon).trimEnd(),
+                                        fieldName = ""
+                                    )
+                            )
+                        }
+                        else -> {
+                            InlineFragment(
+                                typeName = s.substring(1, firstEndBracket).trim(),
+                                selectedField =
+                                    AliasedField(
+                                        alias =
+                                            s.substring(firstEndBracket + 1, firstColon).trimEnd(),
+                                        fieldName =
+                                            s.substring(firstColon + 1, s.length).trimStart()
+                                    )
+                            )
+                        }
+                    }
+                }
+                s.indexOf(':') >= 0 -> {
+                    when (val firstColon: Int = s.indexOf(':')) {
+                        s.length - 1 -> {
+                            AliasedField(
+                                alias = s.substring(0, firstColon).trimEnd(),
+                                fieldName = ""
+                            )
+                        }
+                        else -> {
+                            AliasedField(
+                                alias = s.substring(0, firstColon).trimEnd(),
+                                fieldName = s.substring(firstColon + 1, s.length).trimStart()
+                            )
+                        }
+                    }
+                }
+                else -> {
+                    Field(fieldName = s)
+                }
+            }
         }
     }
 }

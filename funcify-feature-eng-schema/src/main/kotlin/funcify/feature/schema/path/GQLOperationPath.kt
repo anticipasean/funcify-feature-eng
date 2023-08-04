@@ -217,10 +217,62 @@ interface GQLOperationPath : Comparable<GQLOperationPath> {
             return appendFields(fieldNames)
         }
 
+        fun prependAliasedField(alias: String, fieldName: String): Builder {
+            return prependSelection(
+                AliasedField(alias = alias.trim(), fieldName = fieldName.trim())
+            )
+        }
+
+        fun appendAliasedField(alias: String, fieldName: String): Builder {
+            return appendSelection(AliasedField(alias = alias.trim(), fieldName = fieldName.trim()))
+        }
+
+        fun aliasedField(alias: String, fieldName: String): Builder {
+            return appendAliasedField(alias = alias.trim(), fieldName = fieldName.trim())
+        }
+
         fun prependInlineFragment(typeName: String, fieldName: String): Builder {
             return prependSelection(
-                InlineFragment(typeName = typeName.trim(), fieldName = fieldName.trim())
+                InlineFragment(
+                    typeName = typeName.trim(),
+                    selectedField = Field(fieldName = fieldName.trim())
+                )
             )
+        }
+
+        fun prependInlineFragment(typeName: String, alias: String, fieldName: String): Builder {
+            return prependSelection(
+                InlineFragment(
+                    typeName = typeName.trim(),
+                    selectedField = AliasedField(alias = alias.trim(), fieldName = fieldName.trim())
+                )
+            )
+        }
+
+        fun appendInlineFragment(typeName: String, fieldName: String): Builder {
+            return appendSelection(
+                InlineFragment(
+                    typeName = typeName.trim(),
+                    selectedField = Field(fieldName = fieldName.trim())
+                )
+            )
+        }
+
+        fun appendInlineFragment(typeName: String, alias: String, fieldName: String): Builder {
+            return appendSelection(
+                InlineFragment(
+                    typeName = typeName.trim(),
+                    selectedField = AliasedField(alias = alias.trim(), fieldName = fieldName.trim())
+                )
+            )
+        }
+
+        fun inlineFragment(typeName: String, fieldName: String): Builder {
+            return appendInlineFragment(typeName = typeName, fieldName = fieldName)
+        }
+
+        fun inlineFragment(typeName: String, alias: String, fieldName: String): Builder {
+            return appendInlineFragment(typeName = typeName, alias = alias, fieldName = fieldName)
         }
 
         fun prependFragmentSpread(
@@ -232,14 +284,23 @@ interface GQLOperationPath : Comparable<GQLOperationPath> {
                 FragmentSpread(
                     fragmentName = fragmentName.trim(),
                     typeName = typeName.trim(),
-                    fieldName = fieldName.trim()
+                    selectedField = Field(fieldName = fieldName.trim())
                 )
             )
         }
 
-        fun appendInlineFragment(typeName: String, fieldName: String): Builder {
-            return appendSelection(
-                InlineFragment(typeName = typeName.trim(), fieldName = fieldName.trim())
+        fun prependFragmentSpread(
+            fragmentName: String,
+            typeName: String,
+            alias: String,
+            fieldName: String
+        ): Builder {
+            return prependSelection(
+                FragmentSpread(
+                    fragmentName = fragmentName.trim(),
+                    typeName = typeName.trim(),
+                    selectedField = AliasedField(alias = alias.trim(), fieldName = fieldName.trim())
+                )
             )
         }
 
@@ -252,20 +313,45 @@ interface GQLOperationPath : Comparable<GQLOperationPath> {
                 FragmentSpread(
                     fragmentName = fragmentName.trim(),
                     typeName = typeName.trim(),
-                    fieldName = fieldName.trim()
+                    selectedField = Field(fieldName = fieldName.trim())
                 )
             )
         }
 
-        fun inlineFragment(typeName: String, fieldName: String): Builder {
-            return appendInlineFragment(typeName = typeName.trim(), fieldName = fieldName.trim())
+        fun appendFragmentSpread(
+            fragmentName: String,
+            typeName: String,
+            alias: String,
+            fieldName: String
+        ): Builder {
+            return appendSelection(
+                FragmentSpread(
+                    fragmentName = fragmentName.trim(),
+                    typeName = typeName.trim(),
+                    selectedField = AliasedField(alias = alias.trim(), fieldName = fieldName.trim())
+                )
+            )
         }
 
-        fun fragmentSpread(fragmentName: String, typeName: String,  fieldName: String): Builder {
+        fun fragmentSpread(fragmentName: String, typeName: String, fieldName: String): Builder {
             return appendFragmentSpread(
                 fragmentName = fragmentName.trim(),
                 typeName = typeName.trim(),
                 fieldName = fieldName.trim()
+            )
+        }
+
+        fun fragmentSpread(
+            fragmentName: String,
+            typeName: String,
+            alias: String,
+            fieldName: String
+        ): Builder {
+            return appendFragmentSpread(
+                fragmentName = fragmentName,
+                typeName = typeName,
+                alias = alias,
+                fieldName = fieldName
             )
         }
 
