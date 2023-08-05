@@ -18,6 +18,6 @@ sealed interface RawInputContextShape {
 
         val treePathSet: ImmutableSet<TreePath>
 
-        val passthruColumnSet: ImmutableSet<String>
+        val fieldNames: ImmutableSet<String>
     }
 }

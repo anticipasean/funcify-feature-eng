@@ -1,6 +1,7 @@
 package funcify.feature.materializer.graph
 
 import funcify.feature.graph.DirectedPersistentGraph
+import funcify.feature.materializer.schema.MaterializationMetamodel
 import funcify.feature.schema.path.GQLOperationPath
 import graphql.language.Document
 import graphql.language.Node
@@ -12,31 +13,35 @@ import kotlinx.collections.immutable.ImmutableSet
  */
 interface RequestMaterializationGraphContext {
 
+    val materializationMetamodel: MaterializationMetamodel
+
     val variableKeys: ImmutableSet<String>
 
     val requestGraph: DirectedPersistentGraph<GQLOperationPath, Node<*>, MaterializationEdge>
 
-    interface RawInputBasedStandardQuery : RequestMaterializationGraphContext {
+    interface RawInputProvidedStandardQuery :
+        RequestMaterializationGraphContext, StandardQueryTarget, RawInputProvided {
 
-        val document: Document
+        override val document: Document
 
-        val rawInputContextShape: RawInputContextShape
+        override val rawInputContextShape: RawInputContextShape
     }
 
-    interface StandardQuery : RequestMaterializationGraphContext {
+    interface StandardQuery : RequestMaterializationGraphContext, StandardQueryTarget {
 
-        val document: Document
+        override val document: Document
     }
 
-    interface RawInputBasedTabularQuery : RequestMaterializationGraphContext {
+    interface RawInputProvidedTabularQuery :
+        RequestMaterializationGraphContext, RawInputProvided, TabularQueryTarget {
 
-        val rawInputContextShape: RawInputContextShape
+        override val rawInputContextShape: RawInputContextShape
 
-        val outputColumnNames: ImmutableSet<String>
+        override val outputColumnNames: ImmutableSet<String>
     }
 
-    interface TabularQuery : RequestMaterializationGraphContext {
+    interface TabularQuery : RequestMaterializationGraphContext, TabularQueryTarget {
 
-        val outputColumnNames: ImmutableSet<String>
+        override val outputColumnNames: ImmutableSet<String>
     }
 }
