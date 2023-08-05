@@ -1,7 +1,10 @@
 package funcify.feature.materializer.graph
 
 import funcify.feature.graph.DirectedPersistentGraph
-import funcify.feature.materializer.session.GraphQLSingleRequestSession
+import funcify.feature.schema.path.GQLOperationPath
+import graphql.language.Document
+import graphql.language.Node
+import kotlinx.collections.immutable.ImmutableSet
 
 /**
  * @author smccarron
@@ -9,9 +12,31 @@ import funcify.feature.materializer.session.GraphQLSingleRequestSession
  */
 interface RequestMaterializationGraphContext {
 
-    val session: GraphQLSingleRequestSession
+    val variableKeys: ImmutableSet<String>
 
-    val request: DirectedPersistentGraph<>
+    val requestGraph: DirectedPersistentGraph<GQLOperationPath, Node<*>, MaterializationEdge>
 
+    interface RawInputBasedStandardQuery : RequestMaterializationGraphContext {
 
+        val document: Document
+
+        val rawInputContextShape: RawInputContextShape
+    }
+
+    interface StandardQuery : RequestMaterializationGraphContext {
+
+        val document: Document
+    }
+
+    interface RawInputBasedTabularQuery : RequestMaterializationGraphContext {
+
+        val rawInputContextShape: RawInputContextShape
+
+        val outputColumnNames: ImmutableSet<String>
+    }
+
+    interface TabularQuery : RequestMaterializationGraphContext {
+
+        val outputColumnNames: ImmutableSet<String>
+    }
 }

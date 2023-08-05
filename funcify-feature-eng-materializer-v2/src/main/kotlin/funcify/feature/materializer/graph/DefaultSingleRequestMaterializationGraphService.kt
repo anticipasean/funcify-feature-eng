@@ -21,7 +21,7 @@ internal class DefaultSingleRequestMaterializationGraphService :
         private val logger: Logger = loggerFor<DefaultSingleRequestMaterializationGraphService>()
         private sealed interface RequestGraphCacheKey
         private data class RawInputContextCompatibleKey(
-            private val rawInputContextKeysSet: PersistentSet<String>,
+            private val rawInputFieldNamesSet: PersistentSet<String>,
             private val document: Document
         ) : RequestGraphCacheKey
         private data class StandardKey(private val document: Document) : RequestGraphCacheKey

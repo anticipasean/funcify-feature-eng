@@ -5,16 +5,16 @@ package funcify.feature.materializer.graph
  * @author smccarron
  * @created 2023-08-02
  */
-interface RequestMaterializationGraphConnector {
+interface RequestMaterializationGraphConnector<C> {
 
-    fun connectOperationDefinitionToFieldArgument()
+    fun connectOperationDefinitionToFieldArgument(context: C): C
 
-    fun connectOperationDefinitionToField()
+    fun connectOperationDefinitionToField(context: C): C
 
-    fun connectFieldToFieldArgument()
+    fun connectFieldToFieldArgument(context: C): C
 
-    fun connectFieldArgumentToField()
+    fun connectFieldArgumentToField(context: C): C
 
-    fun connectFieldToField()
+    fun connectFieldToField(context: C): C
 
 }

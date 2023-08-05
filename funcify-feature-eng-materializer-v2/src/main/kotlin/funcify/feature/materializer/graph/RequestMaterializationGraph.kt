@@ -13,7 +13,9 @@ interface RequestMaterializationGraph {
 
     val featureStoreCallablesByPath: ImmutableMap<GQLOperationPath, FeatureStoreCallable>
 
-    val featureCalculatorCallablesPath: ImmutableMap<GQLOperationPath, FeatureCalculatorCallable>
+    val featureCalculatorCallablesByPath: ImmutableMap<GQLOperationPath, FeatureCalculatorCallable>
+
+    val featurePublisherCallablesByPath: ImmutableMap<GQLOperationPath, FeaturePublisherCallable>
 
     val transformerCallablesByPath: ImmutableMap<GQLOperationPath, TransformerCallable>
 }
