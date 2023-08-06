@@ -1,6 +1,11 @@
-package funcify.feature.materializer.graph
+package funcify.feature.materializer.graph.context
 
 import funcify.feature.graph.DirectedPersistentGraph
+import funcify.feature.materializer.graph.MaterializationEdge
+import funcify.feature.materializer.graph.input.RawInputContextShape
+import funcify.feature.materializer.graph.input.RawInputProvided
+import funcify.feature.materializer.graph.target.StandardQueryTarget
+import funcify.feature.materializer.graph.target.TabularQueryTarget
 import funcify.feature.materializer.schema.MaterializationMetamodel
 import funcify.feature.schema.path.GQLOperationPath
 import graphql.language.Document

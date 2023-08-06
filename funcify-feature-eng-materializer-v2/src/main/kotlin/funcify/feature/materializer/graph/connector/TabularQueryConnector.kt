@@ -5,46 +5,46 @@ import funcify.feature.materializer.graph.QueryComponentContext.FieldComponentCo
 import funcify.feature.materializer.graph.QueryComponentContext.FragmentSpreadFieldComponentContext
 import funcify.feature.materializer.graph.QueryComponentContext.InlineFragmentFieldComponentContext
 import funcify.feature.materializer.graph.QueryComponentContext.OperationDefinitionComponentContext
-import funcify.feature.materializer.graph.context.RequestMaterializationGraphContext.RawInputProvidedStandardQuery
+import funcify.feature.materializer.graph.context.RequestMaterializationGraphContext.TabularQuery
 
 /**
  * @author smccarron
  * @created 2023-08-05
  */
-object RawInputBasedStandardQueryConnector :
-    RawInputProvidedGraphConnector<RawInputProvidedStandardQuery> {
+object TabularQueryConnector : TabularQueryTargetGraphConnector<TabularQuery> {
+
     override fun connectOperationDefinition(
-        connectorContext: RawInputProvidedStandardQuery,
+        connectorContext: TabularQuery,
         operationDefinitionComponentContext: OperationDefinitionComponentContext,
-    ): RawInputProvidedStandardQuery {
+    ): TabularQuery {
         TODO("Not yet implemented")
     }
 
     override fun connectFieldArgument(
-        connectorContext: RawInputProvidedStandardQuery,
+        connectorContext: TabularQuery,
         fieldArgumentComponentContext: FieldArgumentComponentContext,
-    ): RawInputProvidedStandardQuery {
+    ): TabularQuery {
         TODO("Not yet implemented")
     }
 
     override fun connectField(
-        connectorContext: RawInputProvidedStandardQuery,
-        fieldComponentContext: FieldComponentContext,
-    ): RawInputProvidedStandardQuery {
+        connectorContext: TabularQuery,
+        fieldComponentContext: FieldComponentContext
+    ): TabularQuery {
         TODO("Not yet implemented")
     }
 
     override fun connectInlineFragmentField(
-        connectorContext: RawInputProvidedStandardQuery,
+        connectorContext: TabularQuery,
         inlineFragmentFieldComponentContext: InlineFragmentFieldComponentContext,
-    ): RawInputProvidedStandardQuery {
+    ): TabularQuery {
         TODO("Not yet implemented")
     }
 
     override fun connectFragmentSpreadField(
-        connectorContext: RawInputProvidedStandardQuery,
+        connectorContext: TabularQuery,
         fragmentSpreadFieldComponentContext: FragmentSpreadFieldComponentContext,
-    ): RawInputProvidedStandardQuery {
+    ): TabularQuery {
         TODO("Not yet implemented")
     }
 }

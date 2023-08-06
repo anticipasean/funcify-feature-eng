@@ -1,4 +1,4 @@
-package funcify.feature.materializer.graph
+package funcify.feature.materializer.graph.target
 
 import graphql.language.Document
 

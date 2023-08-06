@@ -1,4 +1,4 @@
-package funcify.feature.materializer.graph
+package funcify.feature.materializer.graph.input
 
 import funcify.feature.tree.path.TreePath
 import kotlinx.collections.immutable.ImmutableSet

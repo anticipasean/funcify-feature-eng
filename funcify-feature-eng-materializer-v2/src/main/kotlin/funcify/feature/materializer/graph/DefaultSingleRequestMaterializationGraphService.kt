@@ -1,12 +1,31 @@
 package funcify.feature.materializer.graph
 
+import arrow.core.Either
 import arrow.core.Option
+import arrow.core.left
+import arrow.core.none
+import arrow.core.right
+import arrow.core.some
+import com.fasterxml.jackson.databind.JsonNode
+import com.fasterxml.jackson.databind.node.ArrayNode
+import com.fasterxml.jackson.databind.node.ObjectNode
+import com.google.common.cache.CacheBuilder
+import funcify.feature.error.ServiceError
+import funcify.feature.materializer.graph.input.DefaultRawInputContextShapeFactory
+import funcify.feature.materializer.graph.input.RawInputContextShape
 import funcify.feature.materializer.input.RawInputContext
 import funcify.feature.materializer.session.GraphQLSingleRequestSession
+import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
+import funcify.feature.tools.extensions.MonoExtensions.widen
+import funcify.feature.tools.extensions.StringExtensions.flatten
+import funcify.feature.tree.PersistentTree
+import funcify.feature.tree.path.TreePath
 import graphql.language.Document
-import kotlinx.collections.immutable.ImmutableMap
-import kotlinx.collections.immutable.PersistentSet
+import java.time.Duration
+import java.util.concurrent.ConcurrentMap
+import kotlinx.collections.immutable.ImmutableSet
+import kotlinx.collections.immutable.toPersistentSet
 import org.slf4j.Logger
 import reactor.core.publisher.Mono
 
@@ -19,24 +38,15 @@ internal class DefaultSingleRequestMaterializationGraphService :
 
     companion object {
         private val logger: Logger = loggerFor<DefaultSingleRequestMaterializationGraphService>()
-        private sealed interface RequestGraphCacheKey
-        private data class RawInputContextCompatibleKey(
-            private val rawInputFieldNamesSet: PersistentSet<String>,
-            private val document: Document
-        ) : RequestGraphCacheKey
-        private data class StandardKey(private val document: Document) : RequestGraphCacheKey
-
-        private fun interface RequestMaterializationGraphFunction {
-
-            fun getRequestMaterializationGraph(
-                rawInputContext: Option<RawInputContext>,
-                processedVariables: ImmutableMap<String, Any?>,
-                document: Document
-            ): RequestMaterializationGraph
-        }
     }
 
-    //    private val requestMaterializationGraphCache: ConcurrentMap<>
+    private val requestMaterializationGraphCache:
+        ConcurrentMap<RequestMaterializationGraphCacheKey, RequestMaterializationGraph> by lazy {
+        CacheBuilder.newBuilder()
+            .expireAfterWrite(Duration.ofHours(24))
+            .build<RequestMaterializationGraphCacheKey, RequestMaterializationGraph>()
+            .asMap()
+    }
 
     override fun createRequestMaterializationGraphForSession(
         session: GraphQLSingleRequestSession
@@ -44,6 +54,139 @@ internal class DefaultSingleRequestMaterializationGraphService :
         logger.debug(
             "create_request_materialization_graph_for_session: [ session.session_id: ${session.sessionId} ]"
         )
-        return Mono.just(session)
+        return when {
+            session.requestMaterializationGraph.isDefined() -> {
+                Mono.just(session)
+            }
+            else -> {
+                Mono.defer { createRequestMaterializationGraphCacheKeyForSession(session) }
+                    .flatMap { rmgck: RequestMaterializationGraphCacheKey ->
+                        when (
+                            val rmg: RequestMaterializationGraph? =
+                                requestMaterializationGraphCache[rmgck]
+                        ) {
+                            null -> {
+                                calculateRequestMaterializationGraphForSession(session).map {
+                                    calculatedGraph: RequestMaterializationGraph ->
+                                    requestMaterializationGraphCache[rmgck] = calculatedGraph
+                                    session.update { requestMaterializationGraph(calculatedGraph) }
+                                }
+                            }
+                            else -> {
+                                Mono.just(session.update { requestMaterializationGraph(rmg) })
+                            }
+                        }
+                    }
+            }
+        }
+    }
+
+    private fun createRequestMaterializationGraphCacheKeyForSession(
+        session: GraphQLSingleRequestSession
+    ): Mono<RequestMaterializationGraphCacheKey> {
+        logger.info(
+            "create_request_materialization_graph_cache_key_for_session: [ session.session_id: ${session.sessionId} ]"
+        )
+        return when {
+                session.document.isDefined() -> {
+                    Try.success(session.document.orNull()!!.left())
+                }
+                session.rawGraphQLRequest.expectedOutputFieldNames.isNotEmpty() -> {
+                    Try.success(session.rawGraphQLRequest.expectedOutputFieldNames.right())
+                }
+                else -> {
+                    Try.failure<Either<Document, List<String>>>(
+                        ServiceError.invalidRequestErrorBuilder()
+                            .message(
+                                """session must contain either parsed GraphQL Document 
+                                |i.e. a Query 
+                                |or list of expected column names in the output 
+                                |for a tabular query"""
+                                    .flatten()
+                            )
+                            .build()
+                    )
+                }
+            }
+            .zip(extractRawInputContextShapeFromRawInputContextIfPresent(session))
+            .map { (dOrC: Either<Document, List<String>>, rics: Option<RawInputContextShape>) ->
+                when (dOrC) {
+                    is Either.Left<Document> -> {
+                        RequestMaterializationGraphCacheKey(
+                            variableKeys =
+                                session.rawGraphQLRequest.variables.keys.toPersistentSet(),
+                            standardQueryDocument = dOrC.value.some(),
+                            tabularQueryOutputColumns = none(),
+                            rawInputContextShape = rics,
+                        )
+                    }
+                    is Either.Right<List<String>> -> {
+                        RequestMaterializationGraphCacheKey(
+                            variableKeys =
+                                session.rawGraphQLRequest.variables.keys.toPersistentSet(),
+                            standardQueryDocument = none(),
+                            tabularQueryOutputColumns = dOrC.value.toPersistentSet().some(),
+                            rawInputContextShape = rics
+                        )
+                    }
+                }
+            }
+            .toMono()
+            .widen()
+    }
+
+    private fun extractRawInputContextShapeFromRawInputContextIfPresent(
+        session: GraphQLSingleRequestSession
+    ): Try<Option<RawInputContextShape>> {
+        return Try.success(
+            session.rawInputContext.map { ric: RawInputContext ->
+                when (ric) {
+                    is RawInputContext.CommaSeparatedValues -> {
+                        DefaultRawInputContextShapeFactory.createTabularShape(
+                            ric.fieldNames().toPersistentSet()
+                        )
+                    }
+                    is RawInputContext.TabularJson -> {
+                        DefaultRawInputContextShapeFactory.createTabularShape(
+                            ric.fieldNames().toPersistentSet()
+                        )
+                    }
+                    is RawInputContext.StandardJson -> {
+                        val treePathSet: ImmutableSet<TreePath> =
+                            PersistentTree.fromSequenceTraversal(ric.asJsonNode()) { jn: JsonNode ->
+                                    when (jn) {
+                                        is ArrayNode -> {
+                                            jn.asSequence().map { j -> j.left() }
+                                        }
+                                        is ObjectNode -> {
+                                            jn.fields().asSequence().map { e ->
+                                                (e.key to e.value).right()
+                                            }
+                                        }
+                                        else -> {
+                                            emptySequence()
+                                        }
+                                    }
+                                }
+                                .asSequence()
+                                .filter { (_: TreePath, jn: JsonNode) -> !jn.isContainerNode }
+                                .map { (tp: TreePath, _: JsonNode) -> tp }
+                                .toPersistentSet()
+                        DefaultRawInputContextShapeFactory.createTreeShape(
+                            treePathSet = treePathSet
+                        )
+                    }
+                }
+            }
+        )
+    }
+
+    private fun calculateRequestMaterializationGraphForSession(
+        session: GraphQLSingleRequestSession
+    ): Mono<RequestMaterializationGraph> {
+        logger.info(
+            "calculate_request_materialization_graph_for_session: [ session.session_id: ${session.sessionId} ]"
+        )
+        TODO("Not yet implemented")
     }
 }

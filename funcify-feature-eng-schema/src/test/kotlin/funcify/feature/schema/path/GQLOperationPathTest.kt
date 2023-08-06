@@ -154,7 +154,7 @@ internal class GQLOperationPathTest {
             }
         Assertions.assertEquals(2, sp.selection.size)
         Assertions.assertEquals(
-            persistentListOf("pets", "dogs").asSequence().map(::Field).toPersistentList(),
+            persistentListOf("pets", "dogs").asSequence().map(::FieldSegment).toPersistentList(),
             sp.selection
         )
         Assertions.assertEquals("breed", sp.argument.orNull()?.first)
@@ -179,9 +179,9 @@ internal class GQLOperationPathTest {
         Assertions.assertEquals(3, sp.selection.size)
         Assertions.assertEquals(
             persistentListOf(
-                Field("pets"),
-                FragmentSpread("DogFragment", "Dog",Field( "breed")),
-                Field("origin")
+                FieldSegment("pets"),
+                FragmentSpreadSegment("DogFragment", "Dog", FieldSegment("breed")),
+                FieldSegment("origin")
             ),
             sp.selection
         )
@@ -207,7 +207,7 @@ internal class GQLOperationPathTest {
                 GQLOperationPath.parseOrThrow("gqlo:/pets/%5BDogFragment%3ADog%5D/origin?format")
             }
         Assertions.assertEquals(2, sp.selection.size)
-        Assertions.assertEquals(persistentListOf(Field("pets"), Field("origin")), sp.selection)
+        Assertions.assertEquals(persistentListOf(FieldSegment("pets"), FieldSegment("origin")), sp.selection)
         Assertions.assertEquals("format", sp.argument.orNull()?.first)
         Assertions.assertEquals(persistentListOf<String>(), sp.argument.orNull()?.second)
         val expectedParentPath: GQLOperationPath =
@@ -219,23 +219,23 @@ internal class GQLOperationPathTest {
 
     @Test
     fun selectionSegmentComparisonTest() {
-        Assertions.assertTrue(Field("pets") < InlineFragment("Dog",Field( "breed")))
+        Assertions.assertTrue(FieldSegment("pets") < InlineFragmentSegment("Dog", FieldSegment("breed")))
         Assertions.assertTrue(
-            FragmentSpread("DogFragment", "Dog",Field( "breed")) > InlineFragment("Dog",Field( "breed"))
+            FragmentSpreadSegment("DogFragment", "Dog", FieldSegment("breed")) > InlineFragmentSegment("Dog", FieldSegment("breed"))
         )
-        Assertions.assertTrue(Field("pets") > Field("dog"))
-        Assertions.assertTrue(InlineFragment("Dog",Field( "breed")) < InlineFragment("Dog",Field( "name")))
+        Assertions.assertTrue(FieldSegment("pets") > FieldSegment("dog"))
+        Assertions.assertTrue(InlineFragmentSegment("Dog", FieldSegment("breed")) < InlineFragmentSegment("Dog", FieldSegment("name")))
         Assertions.assertTrue(
-            FragmentSpread("DogFragment", "Dog",Field( "breed")) <
-                FragmentSpread("DogFragment", "Dog",Field( "name"))
-        )
-        Assertions.assertTrue(
-            FragmentSpread("CatFragment", "Cat",Field( "litterboxLocation")) <
-                FragmentSpread("DogFragment", "Dog",Field( "name"))
+            FragmentSpreadSegment("DogFragment", "Dog", FieldSegment("breed")) <
+                FragmentSpreadSegment("DogFragment", "Dog", FieldSegment("name"))
         )
         Assertions.assertTrue(
-            FragmentSpread("CatFragment", "Cat",Field( "litterboxLocation")) <
-                FragmentSpread("OtherCatFragment", "Cat",Field( "litterboxLocation"))
+            FragmentSpreadSegment("CatFragment", "Cat", FieldSegment("litterboxLocation")) <
+                FragmentSpreadSegment("DogFragment", "Dog", FieldSegment("name"))
+        )
+        Assertions.assertTrue(
+            FragmentSpreadSegment("CatFragment", "Cat", FieldSegment("litterboxLocation")) <
+                FragmentSpreadSegment("OtherCatFragment", "Cat", FieldSegment("litterboxLocation"))
         )
     }
 

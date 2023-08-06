@@ -5,12 +5,12 @@ import arrow.core.getOrElse
 import arrow.core.none
 import arrow.core.some
 import arrow.core.toOption
-import java.net.URI
-import java.net.URLEncoder
-import java.nio.charset.StandardCharsets
 import kotlinx.collections.immutable.PersistentList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toPersistentList
+import java.net.URI
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
 
 /**
  * @author smccarron
@@ -53,10 +53,10 @@ internal data class DefaultGQLOperationPath(
                     is SelectedField -> {
                         noBlanksInSelectedField(ss)
                     }
-                    is InlineFragment -> {
+                    is InlineFragmentSegment -> {
                         ss.typeName.isNotBlank() && noBlanksInSelectedField(ss.selectedField)
                     }
-                    is FragmentSpread -> {
+                    is FragmentSpreadSegment -> {
                         ss.typeName.isNotBlank() &&
                             ss.fragmentName.isNotBlank() &&
                             noBlanksInSelectedField(ss.selectedField)
@@ -66,10 +66,10 @@ internal data class DefaultGQLOperationPath(
 
             private fun noBlanksInSelectedField(sf: SelectedField): Boolean {
                 return when (sf) {
-                    is Field -> {
+                    is FieldSegment -> {
                         sf.fieldName.isNotBlank()
                     }
-                    is AliasedField -> {
+                    is AliasedFieldSegment -> {
                         sf.alias.isNotBlank() && sf.fieldName.isNotBlank()
                     }
                 }

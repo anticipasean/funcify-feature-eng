@@ -7,5 +7,4 @@ package funcify.feature.schema.path
 sealed interface SelectedField {
 
     val fieldName: String
-
 }

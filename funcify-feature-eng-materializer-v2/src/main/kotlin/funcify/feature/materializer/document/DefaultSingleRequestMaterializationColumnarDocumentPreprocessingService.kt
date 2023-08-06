@@ -1,6 +1,5 @@
 package funcify.feature.materializer.document
 
-import arrow.core.firstOrNone
 import com.fasterxml.jackson.databind.JsonNode
 import funcify.feature.datasource.graphql.retrieval.GraphQLQueryPathBasedComposer
 import funcify.feature.error.ServiceError
@@ -8,11 +7,14 @@ import funcify.feature.materializer.context.document.ColumnarDocumentContext
 import funcify.feature.materializer.context.document.ColumnarDocumentContextFactory
 import funcify.feature.materializer.session.GraphQLSingleRequestSession
 import funcify.feature.naming.StandardNamingConventions
+import funcify.feature.schema.path.AliasedFieldSegment
+import funcify.feature.schema.path.FieldSegment
+import funcify.feature.schema.path.FragmentSpreadSegment
 import funcify.feature.schema.path.GQLOperationPath
+import funcify.feature.schema.path.InlineFragmentSegment
+import funcify.feature.schema.path.SelectionSegment
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.OptionExtensions.toMono
-import funcify.feature.tools.extensions.PersistentSetExtensions.reduceToPersistentSet
-import funcify.feature.tools.extensions.StreamExtensions.flatMapOptions
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.json.JsonMapper
 import graphql.ExecutionInput
@@ -131,7 +133,24 @@ internal class DefaultSingleRequestMaterializationColumnarDocumentPreprocessingS
                     context.parameterValuesByPath
                         .asSequence()
                         .map { (path, _) ->
-                            GQLOperationPath.of { fields(path.selection) }
+                            GQLOperationPath.of {
+                                fields(
+                                    path.selection
+                                        .asSequence()
+                                        .take(2)
+                                        .map { ss: SelectionSegment ->
+                                            when (ss) {
+                                                is AliasedFieldSegment -> ss.fieldName
+                                                is FieldSegment -> ss.fieldName
+                                                is FragmentSpreadSegment ->
+                                                    ss.selectedField.fieldName
+                                                is InlineFragmentSegment ->
+                                                    ss.selectedField.fieldName
+                                            }
+                                        }
+                                        .toList()
+                                )
+                            }
                         }
                         .toPersistentSet()
                 Flux.fromIterable(expectedOutputFieldNames)
@@ -405,23 +424,24 @@ internal class DefaultSingleRequestMaterializationColumnarDocumentPreprocessingS
     private fun pruneParametersNotNecessaryForFetchingMatchedSourceAttributeVertices():
         (ColumnarDocumentContext) -> ColumnarDocumentContext {
         return { context: ColumnarDocumentContext ->
-            val domainPathSegmentSet: PersistentSet<String> =
-                context.sourceIndexPathsByFieldName.values
-                    .parallelStream()
-                    .map { sp: GQLOperationPath -> sp.selection.firstOrNone() }
-                    .flatMapOptions()
-                    .reduceToPersistentSet()
-            context.parameterValuesByPath.keys
-                .asSequence()
-                .filterNot { paramPath ->
-                    paramPath.selection
-                        .firstOrNone()
-                        .filter { domainPathSegment -> domainPathSegment in domainPathSegmentSet }
-                        .isDefined()
-                }
-                .fold(context) { ctx, paramPath ->
-                    ctx.update { removeParameterValueWithPath(paramPath) }
-                }
+            // val domainPathSegmentSet: PersistentSet<String> =
+            //    context.sourceIndexPathsByFieldName.values
+            //        .parallelStream()
+            //        .map { sp: GQLOperationPath -> sp.selection.firstOrNone() }
+            //        .flatMapOptions()
+            //        .reduceToPersistentSet()
+            // context.parameterValuesByPath.keys
+            //    .asSequence()
+            //    .filterNot { paramPath ->
+            //        paramPath.selection
+            //            .firstOrNone()
+            //            .filter { domainPathSegment -> domainPathSegment in domainPathSegmentSet }
+            //            .isDefined()
+            //    }
+            //    .fold(context) { ctx, paramPath ->
+            //        ctx.update { removeParameterValueWithPath(paramPath) }
+            //    }
+            TODO("logic for pruning parameters")
         }
     }
 

@@ -80,26 +80,26 @@ internal object GQLOperationPathParser : (String) -> Try<GQLOperationPath> {
                             )
                         }
                         firstColon < 0 && firstEndBracket == s.length - 1 -> {
-                            InlineFragment(
+                            InlineFragmentSegment(
                                 typeName = s.substring(1, firstEndBracket).trim(),
-                                selectedField = Field(fieldName = "")
+                                selectedField = FieldSegment(fieldName = "")
                             )
                         }
                         firstColon < 0 -> {
-                            InlineFragment(
+                            InlineFragmentSegment(
                                 typeName = s.substring(1, firstEndBracket).trim(),
                                 selectedField =
-                                    Field(
+                                    FieldSegment(
                                         fieldName =
                                             s.substring(firstEndBracket + 1, s.length).trimStart()
                                     )
                             )
                         }
                         firstColon < firstEndBracket && firstEndBracket == s.length - 1 -> {
-                            FragmentSpread(
+                            FragmentSpreadSegment(
                                 fragmentName = s.substring(1, firstColon).trim(),
                                 typeName = s.substring(firstColon + 1, firstEndBracket).trim(),
-                                selectedField = Field(fieldName = "")
+                                selectedField = FieldSegment(fieldName = "")
                             )
                         }
                         firstColon < firstEndBracket -> {
@@ -108,20 +108,21 @@ internal object GQLOperationPathParser : (String) -> Try<GQLOperationPath> {
                             val secondColon: Int = selectedFieldComponent.indexOf(':')
                             when {
                                 secondColon < 0 -> {
-                                    FragmentSpread(
-                                        fragmentName = s.substring(1, firstColon).trim(),
-                                        typeName =
-                                            s.substring(firstColon + 1, firstEndBracket).trim(),
-                                        selectedField = Field(fieldName = selectedFieldComponent)
-                                    )
-                                }
-                                else -> {
-                                    FragmentSpread(
+                                    FragmentSpreadSegment(
                                         fragmentName = s.substring(1, firstColon).trim(),
                                         typeName =
                                             s.substring(firstColon + 1, firstEndBracket).trim(),
                                         selectedField =
-                                            AliasedField(
+                                            FieldSegment(fieldName = selectedFieldComponent)
+                                    )
+                                }
+                                else -> {
+                                    FragmentSpreadSegment(
+                                        fragmentName = s.substring(1, firstColon).trim(),
+                                        typeName =
+                                            s.substring(firstColon + 1, firstEndBracket).trim(),
+                                        selectedField =
+                                            AliasedFieldSegment(
                                                 alias =
                                                     selectedFieldComponent.substring(
                                                         0,
@@ -138,10 +139,10 @@ internal object GQLOperationPathParser : (String) -> Try<GQLOperationPath> {
                             }
                         }
                         firstColon > firstEndBracket && firstColon == s.length - 1 -> {
-                            InlineFragment(
+                            InlineFragmentSegment(
                                 typeName = s.substring(1, firstEndBracket).trim(),
                                 selectedField =
-                                    AliasedField(
+                                    AliasedFieldSegment(
                                         alias =
                                             s.substring(firstEndBracket + 1, firstColon).trimEnd(),
                                         fieldName = ""
@@ -149,10 +150,10 @@ internal object GQLOperationPathParser : (String) -> Try<GQLOperationPath> {
                             )
                         }
                         else -> {
-                            InlineFragment(
+                            InlineFragmentSegment(
                                 typeName = s.substring(1, firstEndBracket).trim(),
                                 selectedField =
-                                    AliasedField(
+                                    AliasedFieldSegment(
                                         alias =
                                             s.substring(firstEndBracket + 1, firstColon).trimEnd(),
                                         fieldName =
@@ -165,13 +166,13 @@ internal object GQLOperationPathParser : (String) -> Try<GQLOperationPath> {
                 s.indexOf(':') >= 0 -> {
                     when (val firstColon: Int = s.indexOf(':')) {
                         s.length - 1 -> {
-                            AliasedField(
+                            AliasedFieldSegment(
                                 alias = s.substring(0, firstColon).trimEnd(),
                                 fieldName = ""
                             )
                         }
                         else -> {
-                            AliasedField(
+                            AliasedFieldSegment(
                                 alias = s.substring(0, firstColon).trimEnd(),
                                 fieldName = s.substring(firstColon + 1, s.length).trimStart()
                             )
@@ -179,7 +180,7 @@ internal object GQLOperationPathParser : (String) -> Try<GQLOperationPath> {
                     }
                 }
                 else -> {
-                    Field(fieldName = s)
+                    FieldSegment(fieldName = s)
                 }
             }
         }

@@ -5,46 +5,46 @@ import funcify.feature.materializer.graph.QueryComponentContext.FieldComponentCo
 import funcify.feature.materializer.graph.QueryComponentContext.FragmentSpreadFieldComponentContext
 import funcify.feature.materializer.graph.QueryComponentContext.InlineFragmentFieldComponentContext
 import funcify.feature.materializer.graph.QueryComponentContext.OperationDefinitionComponentContext
-import funcify.feature.materializer.graph.context.RequestMaterializationGraphContext.RawInputProvidedStandardQuery
+import funcify.feature.materializer.graph.context.RequestMaterializationGraphContext.StandardQuery
 
 /**
  * @author smccarron
  * @created 2023-08-05
  */
-object RawInputBasedStandardQueryConnector :
-    RawInputProvidedGraphConnector<RawInputProvidedStandardQuery> {
+object StandardQueryConnector : RequestMaterializationGraphConnector<StandardQuery> {
+
     override fun connectOperationDefinition(
-        connectorContext: RawInputProvidedStandardQuery,
+        connectorContext: StandardQuery,
         operationDefinitionComponentContext: OperationDefinitionComponentContext,
-    ): RawInputProvidedStandardQuery {
+    ): StandardQuery {
         TODO("Not yet implemented")
     }
 
     override fun connectFieldArgument(
-        connectorContext: RawInputProvidedStandardQuery,
+        connectorContext: StandardQuery,
         fieldArgumentComponentContext: FieldArgumentComponentContext,
-    ): RawInputProvidedStandardQuery {
+    ): StandardQuery {
         TODO("Not yet implemented")
     }
 
     override fun connectField(
-        connectorContext: RawInputProvidedStandardQuery,
-        fieldComponentContext: FieldComponentContext,
-    ): RawInputProvidedStandardQuery {
+        connectorContext: StandardQuery,
+        fieldComponentContext: FieldComponentContext
+    ): StandardQuery {
         TODO("Not yet implemented")
     }
 
     override fun connectInlineFragmentField(
-        connectorContext: RawInputProvidedStandardQuery,
+        connectorContext: StandardQuery,
         inlineFragmentFieldComponentContext: InlineFragmentFieldComponentContext,
-    ): RawInputProvidedStandardQuery {
+    ): StandardQuery {
         TODO("Not yet implemented")
     }
 
     override fun connectFragmentSpreadField(
-        connectorContext: RawInputProvidedStandardQuery,
+        connectorContext: StandardQuery,
         fragmentSpreadFieldComponentContext: FragmentSpreadFieldComponentContext,
-    ): RawInputProvidedStandardQuery {
+    ): StandardQuery {
         TODO("Not yet implemented")
     }
 }

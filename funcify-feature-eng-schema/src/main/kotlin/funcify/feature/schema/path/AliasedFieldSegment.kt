@@ -1,6 +1,6 @@
 package funcify.feature.schema.path
 
-data class AliasedField(val alias: String, override val fieldName: String) :
+data class AliasedFieldSegment(val alias: String, override val fieldName: String) :
     SelectionSegment, SelectedField {
 
     private val stringForm: String by lazy { "$alias:$fieldName" }

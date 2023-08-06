@@ -1,6 +1,6 @@
 package funcify.feature.schema.path
 
-data class FragmentSpread(
+data class FragmentSpreadSegment(
     val fragmentName: String,
     val typeName: String,
     val selectedField: SelectedField

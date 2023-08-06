@@ -1,18 +1,17 @@
 package funcify.feature.materializer.session
 
 import arrow.core.Option
+import funcify.feature.materializer.graph.RequestMaterializationGraph
 import funcify.feature.materializer.input.RawInputContext
-import funcify.feature.materializer.loader.ReactiveDataLoaderRegistry
 import funcify.feature.materializer.request.RawGraphQLRequest
 import funcify.feature.materializer.response.SerializedGraphQLResponse
 import funcify.feature.materializer.schema.MaterializationMetamodel
 import funcify.feature.schema.FeatureEngineeringModel
-import funcify.feature.schema.path.GQLOperationPath
 import graphql.language.Document
 import graphql.language.OperationDefinition
 import graphql.schema.GraphQLSchema
-import kotlinx.collections.immutable.ImmutableMap
 import java.util.*
+import kotlinx.collections.immutable.ImmutableMap
 
 /**
  * @author smccarron
@@ -46,7 +45,7 @@ interface GraphQLSingleRequestSession : MaterializationSession {
 
     val processedQueryVariables: ImmutableMap<String, Any?>
 
-    val reactiveDataLoaderRegistry: ReactiveDataLoaderRegistry<GQLOperationPath>
+    val requestMaterializationGraph: Option<RequestMaterializationGraph>
 
     val serializedGraphQLResponse: Option<SerializedGraphQLResponse>
 
@@ -64,8 +63,8 @@ interface GraphQLSingleRequestSession : MaterializationSession {
 
         fun processedQueryVariables(processedQueryVariables: Map<String, Any?>): Builder
 
-        fun reactiveDataLoaderRegistry(
-            reactiveDataLoaderRegistry: ReactiveDataLoaderRegistry<GQLOperationPath>
+        fun requestMaterializationGraph(
+            requestMaterializationGraph: RequestMaterializationGraph
         ): Builder
 
         fun serializedGraphQLResponse(serializedGraphQLResponse: SerializedGraphQLResponse): Builder

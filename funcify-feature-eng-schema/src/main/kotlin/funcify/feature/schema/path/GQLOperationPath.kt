@@ -3,8 +3,8 @@ package funcify.feature.schema.path
 import arrow.core.Option
 import arrow.core.none
 import arrow.core.some
-import java.net.URI
 import kotlinx.collections.immutable.ImmutableList
+import java.net.URI
 
 /**
  * Represents a specific component of a GraphQL query: field, argument, input value on an argument,
@@ -192,21 +192,27 @@ interface GQLOperationPath : Comparable<GQLOperationPath> {
         fun scheme(scheme: String): Builder
 
         fun prependField(vararg fieldName: String): Builder {
-            return prependSelections(fieldName.asSequence().map(String::trim).map(::Field).toList())
+            return prependSelections(
+                fieldName.asSequence().map(String::trim).map(::FieldSegment).toList()
+            )
         }
 
         fun prependFields(fieldNames: List<String>): Builder {
             return prependSelections(
-                fieldNames.asSequence().map(String::trim).map(::Field).toList()
+                fieldNames.asSequence().map(String::trim).map(::FieldSegment).toList()
             )
         }
 
         fun appendField(vararg fieldName: String): Builder {
-            return appendSelections(fieldName.asSequence().map(String::trim).map(::Field).toList())
+            return appendSelections(
+                fieldName.asSequence().map(String::trim).map(::FieldSegment).toList()
+            )
         }
 
         fun appendFields(fieldNames: List<String>): Builder {
-            return appendSelections(fieldNames.asSequence().map(String::trim).map(::Field).toList())
+            return appendSelections(
+                fieldNames.asSequence().map(String::trim).map(::FieldSegment).toList()
+            )
         }
 
         fun field(vararg fieldName: String): Builder {
@@ -219,12 +225,14 @@ interface GQLOperationPath : Comparable<GQLOperationPath> {
 
         fun prependAliasedField(alias: String, fieldName: String): Builder {
             return prependSelection(
-                AliasedField(alias = alias.trim(), fieldName = fieldName.trim())
+                AliasedFieldSegment(alias = alias.trim(), fieldName = fieldName.trim())
             )
         }
 
         fun appendAliasedField(alias: String, fieldName: String): Builder {
-            return appendSelection(AliasedField(alias = alias.trim(), fieldName = fieldName.trim()))
+            return appendSelection(
+                AliasedFieldSegment(alias = alias.trim(), fieldName = fieldName.trim())
+            )
         }
 
         fun aliasedField(alias: String, fieldName: String): Builder {
@@ -233,36 +241,38 @@ interface GQLOperationPath : Comparable<GQLOperationPath> {
 
         fun prependInlineFragment(typeName: String, fieldName: String): Builder {
             return prependSelection(
-                InlineFragment(
+                InlineFragmentSegment(
                     typeName = typeName.trim(),
-                    selectedField = Field(fieldName = fieldName.trim())
+                    selectedField = FieldSegment(fieldName = fieldName.trim())
                 )
             )
         }
 
         fun prependInlineFragment(typeName: String, alias: String, fieldName: String): Builder {
             return prependSelection(
-                InlineFragment(
+                InlineFragmentSegment(
                     typeName = typeName.trim(),
-                    selectedField = AliasedField(alias = alias.trim(), fieldName = fieldName.trim())
+                    selectedField =
+                        AliasedFieldSegment(alias = alias.trim(), fieldName = fieldName.trim())
                 )
             )
         }
 
         fun appendInlineFragment(typeName: String, fieldName: String): Builder {
             return appendSelection(
-                InlineFragment(
+                InlineFragmentSegment(
                     typeName = typeName.trim(),
-                    selectedField = Field(fieldName = fieldName.trim())
+                    selectedField = FieldSegment(fieldName = fieldName.trim())
                 )
             )
         }
 
         fun appendInlineFragment(typeName: String, alias: String, fieldName: String): Builder {
             return appendSelection(
-                InlineFragment(
+                InlineFragmentSegment(
                     typeName = typeName.trim(),
-                    selectedField = AliasedField(alias = alias.trim(), fieldName = fieldName.trim())
+                    selectedField =
+                        AliasedFieldSegment(alias = alias.trim(), fieldName = fieldName.trim())
                 )
             )
         }
@@ -281,10 +291,10 @@ interface GQLOperationPath : Comparable<GQLOperationPath> {
             fieldName: String
         ): Builder {
             return prependSelection(
-                FragmentSpread(
+                FragmentSpreadSegment(
                     fragmentName = fragmentName.trim(),
                     typeName = typeName.trim(),
-                    selectedField = Field(fieldName = fieldName.trim())
+                    selectedField = FieldSegment(fieldName = fieldName.trim())
                 )
             )
         }
@@ -296,10 +306,11 @@ interface GQLOperationPath : Comparable<GQLOperationPath> {
             fieldName: String
         ): Builder {
             return prependSelection(
-                FragmentSpread(
+                FragmentSpreadSegment(
                     fragmentName = fragmentName.trim(),
                     typeName = typeName.trim(),
-                    selectedField = AliasedField(alias = alias.trim(), fieldName = fieldName.trim())
+                    selectedField =
+                        AliasedFieldSegment(alias = alias.trim(), fieldName = fieldName.trim())
                 )
             )
         }
@@ -310,10 +321,10 @@ interface GQLOperationPath : Comparable<GQLOperationPath> {
             fieldName: String
         ): Builder {
             return appendSelection(
-                FragmentSpread(
+                FragmentSpreadSegment(
                     fragmentName = fragmentName.trim(),
                     typeName = typeName.trim(),
-                    selectedField = Field(fieldName = fieldName.trim())
+                    selectedField = FieldSegment(fieldName = fieldName.trim())
                 )
             )
         }
@@ -325,10 +336,11 @@ interface GQLOperationPath : Comparable<GQLOperationPath> {
             fieldName: String
         ): Builder {
             return appendSelection(
-                FragmentSpread(
+                FragmentSpreadSegment(
                     fragmentName = fragmentName.trim(),
                     typeName = typeName.trim(),
-                    selectedField = AliasedField(alias = alias.trim(), fieldName = fieldName.trim())
+                    selectedField =
+                        AliasedFieldSegment(alias = alias.trim(), fieldName = fieldName.trim())
                 )
             )
         }
