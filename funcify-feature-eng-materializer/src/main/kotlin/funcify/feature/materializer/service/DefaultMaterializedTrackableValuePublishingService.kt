@@ -14,7 +14,7 @@ import funcify.feature.materializer.phase.RequestDispatchMaterializationPhase
 import funcify.feature.materializer.schema.path.ListIndexedSchematicPathGraphQLSchemaBasedCalculator
 import funcify.feature.materializer.schema.path.SchematicPathFieldCoordinatesMatcher
 import funcify.feature.materializer.session.GraphQLSingleRequestSession
-import funcify.feature.schema.path.GQLOperationPath
+import funcify.feature.schema.path.operation.GQLOperationPath
 import funcify.feature.schema.vertex.SourceAttributeVertex
 import funcify.feature.schema.vertex.SourceContainerTypeVertex
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor

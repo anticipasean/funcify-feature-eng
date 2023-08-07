@@ -5,8 +5,8 @@ import arrow.core.lastOrNone
 import funcify.feature.materializer.graph.input.RawInputContextShape
 import funcify.feature.materializer.graph.input.RawInputProvided
 import funcify.feature.materializer.graph.context.RequestMaterializationGraphContext
-import funcify.feature.schema.path.FieldSegment
-import funcify.feature.schema.path.GQLOperationPath
+import funcify.feature.schema.path.operation.FieldSegment
+import funcify.feature.schema.path.operation.GQLOperationPath
 
 /**
  * @author smccarron

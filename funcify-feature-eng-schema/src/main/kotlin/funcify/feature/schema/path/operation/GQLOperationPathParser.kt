@@ -1,4 +1,4 @@
-package funcify.feature.schema.path
+package funcify.feature.schema.path.operation
 
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.StringExtensions.flatten

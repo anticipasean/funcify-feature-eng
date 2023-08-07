@@ -4,7 +4,7 @@ import arrow.core.Option
 import arrow.core.none
 import com.fasterxml.jackson.databind.JsonNode
 import funcify.feature.materializer.context.document.ColumnarDocumentContext.Builder
-import funcify.feature.schema.path.GQLOperationPath
+import funcify.feature.schema.path.operation.GQLOperationPath
 import graphql.language.Document
 import graphql.language.OperationDefinition
 import kotlinx.collections.immutable.ImmutableMap

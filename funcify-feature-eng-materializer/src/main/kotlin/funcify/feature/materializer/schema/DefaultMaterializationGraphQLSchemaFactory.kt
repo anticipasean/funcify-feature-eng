@@ -13,7 +13,7 @@ import funcify.feature.materializer.service.MaterializationGraphQLWiringFactory
 import funcify.feature.naming.StandardNamingConventions
 import funcify.feature.scalar.registry.ScalarTypeRegistry
 import funcify.feature.schema.MetamodelGraph
-import funcify.feature.schema.path.GQLOperationPath
+import funcify.feature.schema.path.operation.GQLOperationPath
 import funcify.feature.schema.vertex.ParameterJunctionVertex
 import funcify.feature.schema.vertex.ParameterLeafVertex
 import funcify.feature.schema.vertex.SourceJunctionVertex

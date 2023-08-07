@@ -1,7 +1,7 @@
 package funcify.feature.schema.directive.identifier
 
 import arrow.core.Option
-import funcify.feature.schema.path.GQLOperationPath
+import funcify.feature.schema.path.operation.GQLOperationPath
 import kotlinx.collections.immutable.ImmutableSet
 
 /**

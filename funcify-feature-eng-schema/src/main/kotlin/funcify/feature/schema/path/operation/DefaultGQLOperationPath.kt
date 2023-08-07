@@ -1,4 +1,4 @@
-package funcify.feature.schema.path
+package funcify.feature.schema.path.operation
 
 import arrow.core.Option
 import arrow.core.getOrElse
@@ -25,8 +25,7 @@ internal data class DefaultGQLOperationPath(
 
     companion object {
 
-        internal data class DefaultBuilder(private val schematicPath: DefaultGQLOperationPath) :
-            GQLOperationPath.Builder {
+        internal data class DefaultBuilder(private val schematicPath: DefaultGQLOperationPath) : GQLOperationPath.Builder {
 
             private var inputScheme: String = schematicPath.scheme
             private val selectionBuilder: PersistentList.Builder<SelectionSegment> =

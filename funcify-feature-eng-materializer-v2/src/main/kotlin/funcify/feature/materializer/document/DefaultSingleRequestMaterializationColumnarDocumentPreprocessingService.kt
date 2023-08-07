@@ -7,12 +7,12 @@ import funcify.feature.materializer.context.document.ColumnarDocumentContext
 import funcify.feature.materializer.context.document.ColumnarDocumentContextFactory
 import funcify.feature.materializer.session.GraphQLSingleRequestSession
 import funcify.feature.naming.StandardNamingConventions
-import funcify.feature.schema.path.AliasedFieldSegment
-import funcify.feature.schema.path.FieldSegment
-import funcify.feature.schema.path.FragmentSpreadSegment
-import funcify.feature.schema.path.GQLOperationPath
-import funcify.feature.schema.path.InlineFragmentSegment
-import funcify.feature.schema.path.SelectionSegment
+import funcify.feature.schema.path.operation.AliasedFieldSegment
+import funcify.feature.schema.path.operation.FieldSegment
+import funcify.feature.schema.path.operation.FragmentSpreadSegment
+import funcify.feature.schema.path.operation.GQLOperationPath
+import funcify.feature.schema.path.operation.InlineFragmentSegment
+import funcify.feature.schema.path.operation.SelectionSegment
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.OptionExtensions.toMono
 import funcify.feature.tools.extensions.StringExtensions.flatten
@@ -172,8 +172,9 @@ internal class DefaultSingleRequestMaterializationColumnarDocumentPreprocessingS
                     )
                     .concatWith(Flux.fromIterable(context.sourceIndexPathsByFieldName.values))
                     .reduce(persistentSetOf<GQLOperationPath>()) {
-                        ps: PersistentSet<GQLOperationPath>,
-                        srcAttrPath: GQLOperationPath ->
+                            ps: PersistentSet<GQLOperationPath>,
+                            srcAttrPath: GQLOperationPath
+                        ->
                         ps.add(srcAttrPath)
                     }
                     .map { sourceIndexPathsSet: PersistentSet<GQLOperationPath> ->
@@ -272,7 +273,7 @@ internal class DefaultSingleRequestMaterializationColumnarDocumentPreprocessingS
     }
 
     private fun convertVariableValuesIntoJsonNodeValues():
-        (Pair<GQLOperationPath, Any?>) -> Mono<Pair<GQLOperationPath, JsonNode>> {
+                (Pair<GQLOperationPath, Any?>) -> Mono<Pair<GQLOperationPath, JsonNode>> {
         return { (path: GQLOperationPath, paramValue: Any?) ->
             jsonMapper
                 .fromKotlinObject<Any>(paramValue)

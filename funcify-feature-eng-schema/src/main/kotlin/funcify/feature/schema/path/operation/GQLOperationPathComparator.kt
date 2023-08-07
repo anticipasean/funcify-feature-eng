@@ -1,4 +1,4 @@
-package funcify.feature.schema.path
+package funcify.feature.schema.path.operation
 
 import arrow.core.Option
 
@@ -31,9 +31,9 @@ internal object GQLOperationPathComparator : Comparator<GQLOperationPath> {
 
     private val gqlOperationPathComparator: Comparator<GQLOperationPath> by lazy {
         Comparator.comparing(GQLOperationPath::scheme, String::compareTo)
-            .thenComparing(GQLOperationPath::selection, ::compareLists)
-            .thenComparing(GQLOperationPath::argument, ::compareNamePathPairOptions)
-            .thenComparing(GQLOperationPath::directive, ::compareNamePathPairOptions)
+            .thenComparing(GQLOperationPath::selection, GQLOperationPathComparator::compareLists)
+            .thenComparing(GQLOperationPath::argument, GQLOperationPathComparator::compareNamePathPairOptions)
+            .thenComparing(GQLOperationPath::directive, GQLOperationPathComparator::compareNamePathPairOptions)
     }
 
     private fun <T : Comparable<T>> compareLists(l1: List<T>, l2: List<T>): Int {

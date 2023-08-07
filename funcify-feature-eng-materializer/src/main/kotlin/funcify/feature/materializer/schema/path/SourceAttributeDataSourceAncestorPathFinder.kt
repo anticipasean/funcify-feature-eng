@@ -10,7 +10,7 @@ import funcify.feature.materializer.schema.MaterializationMetamodel
 import funcify.feature.schema.MetamodelGraph
 import funcify.feature.schema.dataelement.DataElementSource
 import funcify.feature.schema.index.CompositeSourceAttribute
-import funcify.feature.schema.path.GQLOperationPath
+import funcify.feature.schema.path.operation.GQLOperationPath
 import funcify.feature.schema.vertex.SourceAttributeVertex
 import funcify.feature.tools.extensions.OptionExtensions.recurse
 import funcify.feature.tools.extensions.SequenceExtensions.firstOrNone

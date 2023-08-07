@@ -16,7 +16,7 @@ import funcify.feature.materializer.error.MaterializerException
 import funcify.feature.materializer.schema.vertex.ParameterToSourceAttributeVertexMatcher
 import funcify.feature.materializer.session.GraphQLSingleRequestSession
 import funcify.feature.naming.StandardNamingConventions
-import funcify.feature.schema.path.GQLOperationPath
+import funcify.feature.schema.path.operation.GQLOperationPath
 import funcify.feature.schema.vertex.ParameterAttributeVertex
 import funcify.feature.schema.vertex.SourceAttributeVertex
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor

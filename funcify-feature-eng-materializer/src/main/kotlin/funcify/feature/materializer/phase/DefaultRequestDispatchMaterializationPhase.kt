@@ -2,7 +2,7 @@ package funcify.feature.materializer.phase
 
 import funcify.feature.materializer.dispatch.SourceIndexRequestDispatch.TrackableSingleJsonValueDispatch
 import funcify.feature.materializer.dispatch.SourceIndexRequestDispatch.ExternalDataSourceValuesDispatch
-import funcify.feature.schema.path.GQLOperationPath
+import funcify.feature.schema.path.operation.GQLOperationPath
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.persistentMapOf
 

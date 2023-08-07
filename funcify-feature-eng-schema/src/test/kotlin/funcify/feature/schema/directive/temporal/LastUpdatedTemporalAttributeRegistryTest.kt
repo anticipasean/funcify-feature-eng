@@ -9,7 +9,7 @@ import funcify.feature.directive.AliasDirective
 import funcify.feature.directive.LastUpdatedDirective
 import funcify.feature.directive.MaterializationDirective
 import funcify.feature.error.ServiceError
-import funcify.feature.schema.path.GQLOperationPath
+import funcify.feature.schema.path.operation.GQLOperationPath
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.OptionExtensions.toOption
 import graphql.GraphQLError

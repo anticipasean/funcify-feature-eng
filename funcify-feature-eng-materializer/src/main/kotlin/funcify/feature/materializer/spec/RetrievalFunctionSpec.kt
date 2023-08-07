@@ -2,7 +2,7 @@ package funcify.feature.materializer.spec
 
 import arrow.core.Either
 import funcify.feature.schema.dataelement.DataElementSource
-import funcify.feature.schema.path.GQLOperationPath
+import funcify.feature.schema.path.operation.GQLOperationPath
 import funcify.feature.schema.vertex.ParameterJunctionVertex
 import funcify.feature.schema.vertex.ParameterLeafVertex
 import funcify.feature.schema.vertex.SourceJunctionVertex

@@ -6,7 +6,7 @@ import arrow.core.left
 import arrow.core.right
 import arrow.core.toOption
 import funcify.feature.datasource.graphql.type.GraphQLOutputFieldsContainerTypeExtractor
-import funcify.feature.schema.path.GQLOperationPath
+import funcify.feature.schema.path.operation.GQLOperationPath
 import funcify.feature.tools.extensions.SequenceExtensions.recurse
 import graphql.schema.GraphQLFieldDefinition
 import graphql.schema.GraphQLList
@@ -18,10 +18,10 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentMap
 
 internal object ListIndexedSchematicPathGraphQLSchemaBasedCalculator :
-    (GQLOperationPath, GraphQLSchema) -> Option<GQLOperationPath> {
+        (GQLOperationPath, GraphQLSchema) -> Option<GQLOperationPath> {
 
     private val listIndexedGQLOperationPathUsingGraphQLSchemaMemoizer:
-        (GQLOperationPath, GraphQLSchema) -> Option<GQLOperationPath> by lazy {
+                (GQLOperationPath, GraphQLSchema) -> Option<GQLOperationPath> by lazy {
         val cache: ConcurrentMap<Pair<GQLOperationPath, GraphQLSchema>, GQLOperationPath> =
             ConcurrentHashMap()
         ({ unindexedPath: GQLOperationPath, graphQLSchema: GraphQLSchema ->
@@ -45,7 +45,7 @@ internal object ListIndexedSchematicPathGraphQLSchemaBasedCalculator :
     }
 
     private fun listIndexedSchematicPathUsingGraphQLSchemaCalculator():
-        (Pair<GQLOperationPath, GraphQLSchema>) -> GQLOperationPath? {
+                (Pair<GQLOperationPath, GraphQLSchema>) -> GQLOperationPath? {
         return { (unindexedPath: GQLOperationPath, correspondingSchema: GraphQLSchema) ->
             unindexedPath
                 .toOption()

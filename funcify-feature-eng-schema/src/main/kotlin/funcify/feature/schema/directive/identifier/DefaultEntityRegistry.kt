@@ -8,7 +8,7 @@ import arrow.core.orElse
 import arrow.core.right
 import arrow.core.some
 import arrow.core.toOption
-import funcify.feature.schema.path.GQLOperationPath
+import funcify.feature.schema.path.operation.GQLOperationPath
 import funcify.feature.tools.extensions.OptionExtensions.recurse
 import funcify.feature.tools.extensions.SequenceExtensions.flatMapOptions
 import kotlinx.collections.immutable.ImmutableSet

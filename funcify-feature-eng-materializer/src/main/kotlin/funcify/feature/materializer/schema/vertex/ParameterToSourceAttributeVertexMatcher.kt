@@ -8,7 +8,7 @@ import arrow.core.orElse
 import arrow.core.toOption
 import funcify.feature.materializer.schema.MaterializationMetamodel
 import funcify.feature.schema.MetamodelGraph
-import funcify.feature.schema.path.GQLOperationPath
+import funcify.feature.schema.path.operation.GQLOperationPath
 import funcify.feature.schema.vertex.ParameterAttributeVertex
 import funcify.feature.schema.vertex.SourceAttributeVertex
 import funcify.feature.schema.vertex.SourceContainerTypeVertex

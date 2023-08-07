@@ -5,7 +5,7 @@ import funcify.feature.schema.feature.FeatureJsonValuePublisher
 import funcify.feature.schema.tracking.TrackableValue
 import funcify.feature.materializer.dispatch.SourceIndexRequestDispatch
 import funcify.feature.materializer.session.GraphQLSingleRequestSession
-import funcify.feature.schema.path.GQLOperationPath
+import funcify.feature.schema.path.operation.GQLOperationPath
 import java.time.Instant
 import kotlinx.collections.immutable.ImmutableMap
 

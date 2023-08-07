@@ -5,7 +5,7 @@ import com.fasterxml.jackson.databind.JsonNode
 import funcify.feature.materializer.schema.edge.RequestParameterEdge.Builder
 import funcify.feature.materializer.schema.edge.RequestParameterEdge.DependentValueRequestParameterEdge
 import funcify.feature.materializer.schema.edge.RequestParameterEdge.MaterializedValueRequestParameterEdge
-import funcify.feature.schema.path.GQLOperationPath
+import funcify.feature.schema.path.operation.GQLOperationPath
 import kotlinx.collections.immutable.ImmutableMap
 
 /**

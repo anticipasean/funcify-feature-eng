@@ -1,4 +1,4 @@
-package funcify.feature.schema.path
+package funcify.feature.schema.path.operation
 
 data class FieldSegment(override val fieldName: String) : SelectionSegment, SelectedField {
 

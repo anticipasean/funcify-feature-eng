@@ -6,7 +6,7 @@ import arrow.core.left
 import arrow.core.right
 import arrow.core.toOption
 import funcify.feature.datasource.graphql.type.GraphQLOutputFieldsContainerTypeExtractor
-import funcify.feature.schema.path.GQLOperationPath
+import funcify.feature.schema.path.operation.GQLOperationPath
 import funcify.feature.tools.extensions.SequenceExtensions.recurse
 import graphql.schema.GraphQLList
 import graphql.schema.GraphQLNonNull

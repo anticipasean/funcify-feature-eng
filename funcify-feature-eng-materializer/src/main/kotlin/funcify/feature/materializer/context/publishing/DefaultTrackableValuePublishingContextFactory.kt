@@ -9,7 +9,7 @@ import funcify.feature.materializer.dispatch.SourceIndexRequestDispatch.Trackabl
 import funcify.feature.materializer.error.MaterializerErrorResponse
 import funcify.feature.materializer.error.MaterializerException
 import funcify.feature.materializer.session.GraphQLSingleRequestSession
-import funcify.feature.schema.path.GQLOperationPath
+import funcify.feature.schema.path.operation.GQLOperationPath
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import java.time.Instant
 import kotlinx.collections.immutable.ImmutableMap

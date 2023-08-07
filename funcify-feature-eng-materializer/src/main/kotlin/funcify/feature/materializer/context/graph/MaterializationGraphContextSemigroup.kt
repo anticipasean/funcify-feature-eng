@@ -4,7 +4,7 @@ import arrow.typeclasses.Semigroup
 import funcify.feature.materializer.schema.MaterializationMetamodel
 import funcify.feature.materializer.schema.edge.RequestParameterEdge
 import funcify.feature.materializer.spec.RetrievalFunctionSpec
-import funcify.feature.schema.path.GQLOperationPath
+import funcify.feature.schema.path.operation.GQLOperationPath
 import funcify.feature.tools.container.graph.PathBasedGraph
 import funcify.feature.tools.extensions.PersistentMapExtensions.combineWithPersistentSetValueMap
 import kotlinx.collections.immutable.PersistentMap

@@ -1,4 +1,4 @@
-package funcify.feature.schema.path
+package funcify.feature.schema.path.operation
 
 import arrow.core.Option
 import arrow.core.none

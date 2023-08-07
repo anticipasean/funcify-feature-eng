@@ -13,7 +13,7 @@ import com.fasterxml.jackson.core.JsonParser
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.node.JsonNodeType
 import com.fasterxml.jackson.databind.node.NumericNode
-import funcify.feature.schema.path.GQLOperationPath
+import funcify.feature.schema.path.operation.GQLOperationPath
 import funcify.feature.tools.extensions.FunctionExtensions.compose
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.OptionExtensions.recurse
@@ -31,15 +31,15 @@ import org.slf4j.Logger
 object GraphQLQueryPathBasedComposer {
 
     private val logger: Logger = loggerFor<GraphQLQueryPathBasedComposer>()
-
+/*
     private val queryOperationDefinitionComposerMemoizer:
-                (ImmutableSet<GQLOperationPath>) -> ((
+        (ImmutableSet<GQLOperationPath>) -> ((
                 ImmutableMap<GQLOperationPath, JsonNode>
-                                                     ) -> OperationDefinition) by lazy {
+            ) -> OperationDefinition) by lazy {
         val cache:
             ConcurrentMap<
                 ImmutableSet<GQLOperationPath>,
-                        (ImmutableMap<GQLOperationPath, JsonNode>) -> OperationDefinition
+                (ImmutableMap<GQLOperationPath, JsonNode>) -> OperationDefinition
             > =
             ConcurrentHashMap();
         { graphQLSourcePathsSet ->
@@ -54,9 +54,9 @@ object GraphQLQueryPathBasedComposer {
     }
 
     private fun graphQLQueryComposerCalculator():
-                (ImmutableSet<GQLOperationPath>) -> ((
+        (ImmutableSet<GQLOperationPath>) -> ((
                 ImmutableMap<GQLOperationPath, JsonNode>
-                                                     ) -> OperationDefinition) {
+            ) -> OperationDefinition) {
         return { graphQLSourcePaths: ImmutableSet<GQLOperationPath> ->
             val sourceAttributePathsSet: PersistentSet<GQLOperationPath> =
                 extractAllSourceAttributePathsFromInputPathSet(graphQLSourcePaths)
@@ -120,10 +120,10 @@ object GraphQLQueryPathBasedComposer {
                 .asSequence()
                 .filter { (p, _) ->
                     p.argument.isDefined() &&
-                        /*
+                        *//*
                          * Check that parameter_path does not introduce new query branches
                          * but remains on the path of one of the source_attribute paths
-                         */
+                         *//*
                         p.getParentPath()
                             .recurse { pp ->
                                 when {
@@ -522,5 +522,5 @@ object GraphQLQueryPathBasedComposer {
             }
             else -> NullValue.of()
         }
-    }
+    }*/
 }

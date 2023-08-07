@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.node.JsonNodeFactory
 import funcify.feature.json.JsonObjectMappingConfiguration
-import funcify.feature.schema.path.GQLOperationPath
+import funcify.feature.schema.path.operation.GQLOperationPath
 import graphql.language.AstPrinter
 import graphql.language.OperationDefinition
 import kotlinx.collections.immutable.ImmutableMap

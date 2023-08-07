@@ -1,4 +1,4 @@
-package funcify.feature.schema.path
+package funcify.feature.schema.path.operation
 
 data class AliasedFieldSegment(val alias: String, override val fieldName: String) :
     SelectionSegment, SelectedField {

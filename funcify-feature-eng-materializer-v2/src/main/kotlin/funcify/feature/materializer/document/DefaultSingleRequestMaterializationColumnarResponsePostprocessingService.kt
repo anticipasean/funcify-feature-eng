@@ -12,7 +12,7 @@ import funcify.feature.materializer.response.SerializedGraphQLResponse
 import funcify.feature.materializer.response.SerializedGraphQLResponseFactory
 import funcify.feature.materializer.session.GraphQLSingleRequestSession
 import funcify.feature.schema.json.JsonNodeSchematicPathToValueMappingExtractor
-import funcify.feature.schema.path.GQLOperationPath
+import funcify.feature.schema.path.operation.GQLOperationPath
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.OptionExtensions.toMono
 import funcify.feature.tools.extensions.StringExtensions.flatten

@@ -1,4 +1,4 @@
-package funcify.feature.schema.path
+package funcify.feature.schema.path.operation
 
 internal object SelectionSegmentComparator : Comparator<SelectionSegment> {
 
@@ -33,9 +33,9 @@ internal object SelectionSegmentComparator : Comparator<SelectionSegment> {
 
     private fun nonNullSelectionSegmentsComparator(): Comparator<SelectionSegment> {
         return Comparator.comparing<SelectionSegment, Boolean>(
-                FragmentSpreadSegment::class::isInstance,
-                Boolean::compareTo
-            )
+            FragmentSpreadSegment::class::isInstance,
+            Boolean::compareTo
+                                                              )
             .thenComparing(InlineFragmentSegment::class::isInstance, Boolean::compareTo)
             .thenComparing(AliasedFieldSegment::class::isInstance, Boolean::compareTo)
             .thenComparing(FieldSegment::class::isInstance, Boolean::compareTo)
@@ -109,9 +109,9 @@ internal object SelectionSegmentComparator : Comparator<SelectionSegment> {
             aliasedFieldComparator()
         val fieldSegmentComparator: Comparator<FieldSegment> = fieldComparator()
         return Comparator.comparing<SelectedField, Boolean>(
-                AliasedFieldSegment::class::isInstance,
-                Boolean::compareTo
-            )
+            AliasedFieldSegment::class::isInstance,
+            Boolean::compareTo
+                                                           )
             .thenComparing(FieldSegment::class::isInstance, Boolean::compareTo)
             .thenComparing { o1, o2 ->
                 when (o1) {

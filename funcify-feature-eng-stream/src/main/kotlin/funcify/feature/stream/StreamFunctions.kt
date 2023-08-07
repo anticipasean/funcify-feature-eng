@@ -9,7 +9,7 @@ import funcify.feature.materializer.request.RawGraphQLRequest
 import funcify.feature.materializer.request.RawGraphQLRequestFactory
 import funcify.feature.materializer.response.SerializedGraphQLResponse
 import funcify.feature.materializer.service.GraphQLSingleRequestExecutor
-import funcify.feature.schema.path.GQLOperationPath
+import funcify.feature.schema.path.operation.GQLOperationPath
 import funcify.feature.transformer.jq.JqTransformerSourceProvider
 import funcify.feature.transformer.jq.JqTransformerSourceProviderFactory
 import graphql.ExecutionInput

@@ -2,7 +2,7 @@ package funcify.feature.materializer.schema.edge
 
 import arrow.core.Option
 import com.fasterxml.jackson.databind.JsonNode
-import funcify.feature.schema.path.GQLOperationPath
+import funcify.feature.schema.path.operation.GQLOperationPath
 import kotlinx.collections.immutable.ImmutableMap
 
 /**

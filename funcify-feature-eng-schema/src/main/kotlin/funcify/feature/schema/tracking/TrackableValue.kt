@@ -2,7 +2,7 @@ package funcify.feature.schema.tracking
 
 import arrow.core.Option
 import com.fasterxml.jackson.databind.JsonNode
-import funcify.feature.schema.path.GQLOperationPath
+import funcify.feature.schema.path.operation.GQLOperationPath
 import funcify.feature.tools.container.attempt.Try
 import graphql.schema.GraphQLOutputType
 import kotlinx.collections.immutable.ImmutableMap

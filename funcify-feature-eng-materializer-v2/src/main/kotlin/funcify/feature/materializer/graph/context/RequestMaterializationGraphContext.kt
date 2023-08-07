@@ -7,7 +7,7 @@ import funcify.feature.materializer.graph.input.RawInputProvided
 import funcify.feature.materializer.graph.target.StandardQueryTarget
 import funcify.feature.materializer.graph.target.TabularQueryTarget
 import funcify.feature.materializer.schema.MaterializationMetamodel
-import funcify.feature.schema.path.GQLOperationPath
+import funcify.feature.schema.path.operation.GQLOperationPath
 import graphql.language.Document
 import graphql.language.Node
 import kotlinx.collections.immutable.ImmutableSet

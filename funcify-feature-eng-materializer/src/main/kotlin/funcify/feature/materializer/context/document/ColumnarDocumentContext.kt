@@ -3,7 +3,7 @@ package funcify.feature.materializer.context.document
 import arrow.core.Option
 import com.fasterxml.jackson.databind.JsonNode
 import funcify.feature.materializer.threadlocal.ThreadLocalContextKey
-import funcify.feature.schema.path.GQLOperationPath
+import funcify.feature.schema.path.operation.GQLOperationPath
 import graphql.language.Document
 import graphql.language.OperationDefinition
 import kotlinx.collections.immutable.ImmutableList

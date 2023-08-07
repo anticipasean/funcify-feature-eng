@@ -2,7 +2,7 @@ package funcify.feature.schema.directive.temporal
 
 import arrow.core.*
 import funcify.feature.directive.LastUpdatedDirective
-import funcify.feature.schema.path.GQLOperationPath
+import funcify.feature.schema.path.operation.GQLOperationPath
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.OptionExtensions.recurse
 import funcify.feature.tools.extensions.OptionExtensions.toOption
@@ -81,7 +81,7 @@ internal class LastUpdatedTemporalAttributeRegistryComposer {
                                         .filterIsInstance<FieldDefinition>()
                                         .map(FieldDefinition::getName)
                                         .toList()
-                                      )
+                                )
                             }
                         }
                         is InputValueDefinition -> {
@@ -94,7 +94,7 @@ internal class LastUpdatedTemporalAttributeRegistryComposer {
                                         .filterIsInstance<FieldDefinition>()
                                         .map(FieldDefinition::getName)
                                         .toList()
-                                      )
+                                )
                                 argument(
                                     context.breadcrumbs
                                         .asSequence()

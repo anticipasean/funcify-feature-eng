@@ -2,7 +2,7 @@ package funcify.feature.schema.directive.alias
 
 import arrow.core.*
 import funcify.feature.directive.AliasDirective
-import funcify.feature.schema.path.GQLOperationPath
+import funcify.feature.schema.path.operation.GQLOperationPath
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.OptionExtensions.recurse
 import funcify.feature.tools.extensions.OptionExtensions.toOption
@@ -87,7 +87,7 @@ internal class AliasRegistryComposer {
                                         .filterIsInstance<FieldDefinition>()
                                         .map(FieldDefinition::getName)
                                         .toList()
-                                      )
+                                )
                             }
                         }
                         is InputValueDefinition -> {
@@ -100,7 +100,7 @@ internal class AliasRegistryComposer {
                                         .filterIsInstance<FieldDefinition>()
                                         .map(FieldDefinition::getName)
                                         .toList()
-                                      )
+                                )
                                 argument(
                                     context.breadcrumbs
                                         .asSequence()

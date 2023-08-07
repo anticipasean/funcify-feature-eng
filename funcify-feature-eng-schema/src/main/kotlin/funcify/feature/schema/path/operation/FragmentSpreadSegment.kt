@@ -1,4 +1,4 @@
-package funcify.feature.schema.path
+package funcify.feature.schema.path.operation
 
 data class FragmentSpreadSegment(
     val fragmentName: String,

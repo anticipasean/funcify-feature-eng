@@ -5,7 +5,7 @@ import arrow.core.orElse
 import arrow.core.toOption
 import com.fasterxml.jackson.databind.JsonNode
 import funcify.feature.error.ServiceError
-import funcify.feature.schema.path.GQLOperationPath
+import funcify.feature.schema.path.operation.GQLOperationPath
 import funcify.feature.schema.tracking.TrackableValue.CalculatedValue
 import funcify.feature.schema.tracking.TrackableValue.PlannedValue
 import funcify.feature.schema.tracking.TrackableValue.TrackedValue

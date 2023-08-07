@@ -1,7 +1,7 @@
 package funcify.feature.materializer.request
 
 import funcify.feature.error.ServiceError
-import funcify.feature.schema.path.GQLOperationPath
+import funcify.feature.schema.path.operation.GQLOperationPath
 import graphql.execution.ExecutionId
 import java.net.URI
 import java.security.Principal

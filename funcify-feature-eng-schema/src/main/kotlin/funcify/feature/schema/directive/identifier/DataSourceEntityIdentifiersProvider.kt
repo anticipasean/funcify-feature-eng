@@ -1,7 +1,7 @@
 package funcify.feature.schema.directive.identifier
 
 import funcify.feature.schema.dataelement.DataElementSource
-import funcify.feature.schema.path.GQLOperationPath
+import funcify.feature.schema.path.operation.GQLOperationPath
 import kotlinx.collections.immutable.ImmutableSet
 import reactor.core.publisher.Mono
 

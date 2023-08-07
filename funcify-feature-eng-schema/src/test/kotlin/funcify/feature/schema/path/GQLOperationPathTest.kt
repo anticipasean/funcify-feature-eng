@@ -1,6 +1,10 @@
 package funcify.feature.schema.path
 
 import arrow.core.compareTo
+import funcify.feature.schema.path.operation.FieldSegment
+import funcify.feature.schema.path.operation.FragmentSpreadSegment
+import funcify.feature.schema.path.operation.GQLOperationPath
+import funcify.feature.schema.path.operation.InlineFragmentSegment
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toPersistentList
@@ -24,7 +28,7 @@ internal class GQLOperationPathTest {
         val p2: GQLOperationPath =
             p1.transform {
                 appendField("pets")
-                appendInlineFragment("Dog",  "breed")
+                appendInlineFragment("Dog", "breed")
             }
         val p3: GQLOperationPath =
             p1.transform {
@@ -207,7 +211,10 @@ internal class GQLOperationPathTest {
                 GQLOperationPath.parseOrThrow("gqlo:/pets/%5BDogFragment%3ADog%5D/origin?format")
             }
         Assertions.assertEquals(2, sp.selection.size)
-        Assertions.assertEquals(persistentListOf(FieldSegment("pets"), FieldSegment("origin")), sp.selection)
+        Assertions.assertEquals(
+            persistentListOf(FieldSegment("pets"), FieldSegment("origin")),
+            sp.selection
+        )
         Assertions.assertEquals("format", sp.argument.orNull()?.first)
         Assertions.assertEquals(persistentListOf<String>(), sp.argument.orNull()?.second)
         val expectedParentPath: GQLOperationPath =
@@ -219,12 +226,18 @@ internal class GQLOperationPathTest {
 
     @Test
     fun selectionSegmentComparisonTest() {
-        Assertions.assertTrue(FieldSegment("pets") < InlineFragmentSegment("Dog", FieldSegment("breed")))
         Assertions.assertTrue(
-            FragmentSpreadSegment("DogFragment", "Dog", FieldSegment("breed")) > InlineFragmentSegment("Dog", FieldSegment("breed"))
+            FieldSegment("pets") < InlineFragmentSegment("Dog", FieldSegment("breed"))
+        )
+        Assertions.assertTrue(
+            FragmentSpreadSegment("DogFragment", "Dog", FieldSegment("breed")) >
+                InlineFragmentSegment("Dog", FieldSegment("breed"))
         )
         Assertions.assertTrue(FieldSegment("pets") > FieldSegment("dog"))
-        Assertions.assertTrue(InlineFragmentSegment("Dog", FieldSegment("breed")) < InlineFragmentSegment("Dog", FieldSegment("name")))
+        Assertions.assertTrue(
+            InlineFragmentSegment("Dog", FieldSegment("breed")) <
+                InlineFragmentSegment("Dog", FieldSegment("name"))
+        )
         Assertions.assertTrue(
             FragmentSpreadSegment("DogFragment", "Dog", FieldSegment("breed")) <
                 FragmentSpreadSegment("DogFragment", "Dog", FieldSegment("name"))

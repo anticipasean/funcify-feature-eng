@@ -11,7 +11,7 @@ import funcify.feature.materializer.loader.ReactiveBatchDataLoader
 import funcify.feature.materializer.loader.ReactiveDataLoader
 import funcify.feature.materializer.loader.ReactiveDataLoaderRegistry
 import funcify.feature.materializer.session.GraphQLSingleRequestSession
-import funcify.feature.schema.path.GQLOperationPath
+import funcify.feature.schema.path.operation.GQLOperationPath
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.MonoExtensions.widen
 import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentMap
@@ -145,8 +145,8 @@ internal class DefaultSingleRequestMaterializationOrchestratorService(
         path: GQLOperationPath
     ): ReactiveBatchDataLoader<GQLOperationPath, JsonNode> {
         return ReactiveBatchDataLoader<GQLOperationPath, JsonNode> {
-            arguments: ImmutableMap<GQLOperationPath, JsonNode>,
-            outputKeys: ImmutableSet<GQLOperationPath> ->
+                arguments: ImmutableMap<GQLOperationPath, JsonNode>,
+                outputKeys: ImmutableSet<GQLOperationPath> ->
             logger.info("load: [ path: {} ]", path)
             Mono.delay(Duration.ofMillis(500))
                 .then(

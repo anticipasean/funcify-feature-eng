@@ -6,7 +6,7 @@ import arrow.core.right
 import funcify.feature.materializer.error.MaterializerErrorResponse
 import funcify.feature.materializer.error.MaterializerException
 import funcify.feature.schema.dataelement.DataElementSource
-import funcify.feature.schema.path.GQLOperationPath
+import funcify.feature.schema.path.operation.GQLOperationPath
 import funcify.feature.schema.vertex.ParameterJunctionVertex
 import funcify.feature.schema.vertex.ParameterLeafVertex
 import funcify.feature.schema.vertex.SourceJunctionVertex
@@ -29,11 +29,9 @@ internal data class DefaultRetrievalFunctionSpec(
         private class DefaultSpecBuilder(
             private var dataSource: DataElementSource<*>,
             private val sourceVerticesByPathBuilder:
-                PersistentMap.Builder<
-                    GQLOperationPath, Either<SourceJunctionVertex, SourceLeafVertex>>,
+                PersistentMap.Builder<GQLOperationPath, Either<SourceJunctionVertex, SourceLeafVertex>>,
             private val parameterVerticesByPathBuilder:
-                PersistentMap.Builder<
-                    GQLOperationPath, Either<ParameterJunctionVertex, ParameterLeafVertex>>
+                PersistentMap.Builder<GQLOperationPath, Either<ParameterJunctionVertex, ParameterLeafVertex>>
         ) : RetrievalFunctionSpec.SpecBuilder {
 
             override fun dataSource(dataSource: DataElementSource<*>): RetrievalFunctionSpec.SpecBuilder {

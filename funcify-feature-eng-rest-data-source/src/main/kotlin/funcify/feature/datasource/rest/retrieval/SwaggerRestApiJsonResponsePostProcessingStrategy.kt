@@ -1,7 +1,7 @@
 package funcify.feature.datasource.rest.retrieval
 
 import com.fasterxml.jackson.databind.JsonNode
-import funcify.feature.schema.path.GQLOperationPath
+import funcify.feature.schema.path.operation.GQLOperationPath
 import kotlinx.collections.immutable.ImmutableMap
 import reactor.core.publisher.Mono
 
