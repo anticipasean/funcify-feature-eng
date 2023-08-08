@@ -2,15 +2,18 @@ package funcify.feature.schema.path.operation
 
 import arrow.core.Option
 import arrow.core.getOrElse
+import arrow.core.getOrNone
 import arrow.core.none
 import arrow.core.some
 import arrow.core.toOption
-import kotlinx.collections.immutable.PersistentList
-import kotlinx.collections.immutable.persistentListOf
-import kotlinx.collections.immutable.toPersistentList
 import java.net.URI
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
+import java.util.*
+import kotlin.reflect.KClass
+import kotlinx.collections.immutable.PersistentList
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toPersistentList
 
 /**
  * @author smccarron
@@ -25,7 +28,8 @@ internal data class DefaultGQLOperationPath(
 
     companion object {
 
-        internal data class DefaultBuilder(private val schematicPath: DefaultGQLOperationPath) : GQLOperationPath.Builder {
+        internal data class DefaultBuilder(private val schematicPath: DefaultGQLOperationPath) :
+            GQLOperationPath.Builder {
 
             private var inputScheme: String = schematicPath.scheme
             private val selectionBuilder: PersistentList.Builder<SelectionSegment> =
@@ -414,6 +418,12 @@ internal data class DefaultGQLOperationPath(
                 )
             }
         }
+
+        private enum class SelectionType {
+            CONTAINS_FRAGMENT_SPREAD_REFERENCE,
+            CONTAINS_INLINE_FRAGMENT_REFERENCE,
+            CONTAINS_ALIASED_FIELD
+        }
     }
 
     private val internedURI: URI by lazy {
@@ -458,6 +468,122 @@ internal data class DefaultGQLOperationPath(
 
     private val internedParentPath: Option<GQLOperationPath> by lazy { super.getParentPath() }
 
+    private val internedStringRep: String by lazy { internedURI.toASCIIString() }
+
+    private val internedSelectionTypes: Set<SelectionType> by lazy {
+        when {
+            selection.isEmpty() -> {
+                EnumSet.noneOf(SelectionType::class.java)
+            }
+            else -> {
+                val selectionSegmentGroupCounts: Map<KClass<out SelectionSegment>, Int> =
+                    selection.fold(mutableMapOf<KClass<out SelectionSegment>, Int>()) {
+                        mm: MutableMap<KClass<out SelectionSegment>, Int>,
+                        ss: SelectionSegment ->
+                        when (ss) {
+                            is FieldSegment -> {}
+                            is AliasedFieldSegment -> {
+                                mm[AliasedFieldSegment::class] =
+                                    (mm[AliasedFieldSegment::class] ?: 0) + 1
+                            }
+                            is FragmentSpreadSegment -> {
+                                when (ss.selectedField) {
+                                    is AliasedFieldSegment -> {
+                                        mm[AliasedFieldSegment::class] =
+                                            (mm[AliasedFieldSegment::class] ?: 0) + 1
+                                        mm[FragmentSpreadSegment::class] =
+                                            (mm[FragmentSpreadSegment::class] ?: 0) + 1
+                                    }
+                                    is FieldSegment -> {
+                                        mm[FragmentSpreadSegment::class] =
+                                            (mm[FragmentSpreadSegment::class] ?: 0) + 1
+                                    }
+                                }
+                            }
+                            is InlineFragmentSegment -> {
+                                when (ss.selectedField) {
+                                    is AliasedFieldSegment -> {
+                                        mm[AliasedFieldSegment::class] =
+                                            (mm[AliasedFieldSegment::class] ?: 0) + 1
+                                        mm[InlineFragmentSegment::class] =
+                                            (mm[InlineFragmentSegment::class] ?: 0) + 1
+                                    }
+                                    is FieldSegment -> {
+                                        mm[InlineFragmentSegment::class] =
+                                            (mm[InlineFragmentSegment::class] ?: 0) + 1
+                                    }
+                                }
+                            }
+                        }
+                        mm
+                    }
+
+                when {
+                    selectionSegmentGroupCounts
+                        .getOrNone(InlineFragmentSegment::class)
+                        .filter { it > 0 }
+                        .zip(
+                            selectionSegmentGroupCounts
+                                .getOrNone(FragmentSpreadSegment::class)
+                                .filter { it > 0 }
+                        )
+                        .isDefined() -> {
+                        EnumSet.of(
+                            SelectionType.CONTAINS_FRAGMENT_SPREAD_REFERENCE,
+                            SelectionType.CONTAINS_INLINE_FRAGMENT_REFERENCE
+                        )
+                    }
+                    selectionSegmentGroupCounts
+                        .getOrNone(InlineFragmentSegment::class)
+                        .filter { it > 0 }
+                        .isDefined() -> {
+                        EnumSet.of(SelectionType.CONTAINS_INLINE_FRAGMENT_REFERENCE)
+                    }
+                    selectionSegmentGroupCounts
+                        .getOrNone(FragmentSpreadSegment::class)
+                        .filter { it > 0 }
+                        .isDefined() -> {
+                        EnumSet.of(SelectionType.CONTAINS_FRAGMENT_SPREAD_REFERENCE)
+                    }
+                    else -> {
+                        EnumSet.noneOf(SelectionType::class.java)
+                    }
+                }.let { fragmentSelectionType: EnumSet<SelectionType> ->
+                    when {
+                        selectionSegmentGroupCounts
+                            .getOrNone(AliasedFieldSegment::class)
+                            .filter { it > 0 }
+                            .isDefined() -> {
+                            fragmentSelectionType.apply {
+                                add(SelectionType.CONTAINS_ALIASED_FIELD)
+                            }
+                        }
+                        else -> {
+                            fragmentSelectionType
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    override fun referentOnFragment(): Boolean {
+        return SelectionType.CONTAINS_FRAGMENT_SPREAD_REFERENCE in internedSelectionTypes ||
+            SelectionType.CONTAINS_INLINE_FRAGMENT_REFERENCE in internedSelectionTypes
+    }
+
+    override fun referentOnInlineFragment(): Boolean {
+        return SelectionType.CONTAINS_INLINE_FRAGMENT_REFERENCE in internedSelectionTypes
+    }
+
+    override fun referentOnFragmentSpread(): Boolean {
+        return SelectionType.CONTAINS_FRAGMENT_SPREAD_REFERENCE in internedSelectionTypes
+    }
+
+    override fun referentAliased(): Boolean {
+        return SelectionType.CONTAINS_ALIASED_FIELD in internedSelectionTypes
+    }
+
     override fun toURI(): URI {
         return internedURI
     }
@@ -473,7 +599,7 @@ internal data class DefaultGQLOperationPath(
     }
 
     override fun toString(): String {
-        return internedURI.toASCIIString()
+        return internedStringRep
     }
 
     override fun toDecodedURIString(): String {

@@ -3,12 +3,13 @@ package funcify.feature.schema.path.operation
 import arrow.core.Option
 import arrow.core.none
 import arrow.core.some
-import kotlinx.collections.immutable.ImmutableList
 import java.net.URI
+import kotlinx.collections.immutable.ImmutableList
 
 /**
- * Represents a specific component of a GraphQL query: field, argument, input value on an argument,
- * directive on a field or argument, directive on an argument value, etc.
+ * Refers a specific component of / location within a GraphQL query: field, field on an inline
+ * fragment, field on a fragment spread, argument on a field, input value on an argument, directive
+ * on a field or argument, directive on an argument value, etc.
  *
  * @author smccarron
  * @created 1/30/22
@@ -73,6 +74,26 @@ interface GQLOperationPath : Comparable<GQLOperationPath> {
      *
      * in GraphQL query form where the referent is the `messageBody` field =>
      * `/user/transactions/messageBody`
+     *
+     * Represented by URI path segments `/user/transactions/[HttpResponseMessage]responseCode` in
+     * URI form and a query/mutation/subscription graph structure:
+     * ```
+     * user(id: 123) {
+     *     transactions(
+     *       filter: {
+     *         correlation_id: { eq: "82b1d1cd-8020-41f1-9536-dc143c320ff1" } @alias(name: "traceId")
+     *       }
+     *     ) {
+     *         ... on HttpResponseMessage {
+     *             responseCode
+     *         }
+     *         messageBody
+     *     }
+     * }
+     * ```
+     *
+     * in GraphQL query form where the referent is the `responseCode` field on an inline fragment =>
+     * `/user/transactions/[HttpResponseMessage]responseCode`
      */
     val selection: ImmutableList<SelectionSegment>
 
@@ -178,6 +199,14 @@ interface GQLOperationPath : Comparable<GQLOperationPath> {
             }
         }
     }
+
+    fun referentOnFragment(): Boolean
+
+    fun referentOnInlineFragment(): Boolean
+
+    fun referentOnFragmentSpread(): Boolean
+
+    fun referentAliased(): Boolean
 
     fun toDecodedURIString(): String
 
