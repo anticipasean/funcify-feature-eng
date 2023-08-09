@@ -1,11 +1,12 @@
 package funcify.feature.materializer.graph
 
-import funcify.feature.materializer.graph.callable.DataElementCallable
-import funcify.feature.materializer.graph.callable.FeatureCalculatorCallable
-import funcify.feature.materializer.graph.callable.FeaturePublisherCallable
-import funcify.feature.materializer.graph.callable.FeatureStoreCallable
-import funcify.feature.materializer.graph.callable.TransformerCallable
+import funcify.feature.schema.dataelement.DataElementCallable
+import funcify.feature.schema.feature.FeatureCalculatorCallable
+import funcify.feature.schema.feature.FeaturePublisherCallable
+import funcify.feature.schema.feature.FeatureStoreCallable
 import funcify.feature.schema.path.operation.GQLOperationPath
+import funcify.feature.schema.transformer.TransformerCallable
+import graphql.language.Document
 import kotlinx.collections.immutable.ImmutableMap
 
 /**
@@ -13,6 +14,10 @@ import kotlinx.collections.immutable.ImmutableMap
  * @created 2023-08-01
  */
 interface RequestMaterializationGraph {
+
+    val document: Document
+
+    val transformerCallablesByPath: ImmutableMap<GQLOperationPath, TransformerCallable>
 
     val dataElementCallablesByPath: ImmutableMap<GQLOperationPath, DataElementCallable>
 
@@ -22,5 +27,37 @@ interface RequestMaterializationGraph {
 
     val featurePublisherCallablesByPath: ImmutableMap<GQLOperationPath, FeaturePublisherCallable>
 
-    val transformerCallablesByPath: ImmutableMap<GQLOperationPath, TransformerCallable>
+    fun update(transformer: Builder.() -> Builder): RequestMaterializationGraph
+
+    interface Builder {
+
+        fun document(document: Document): Builder
+
+        fun addTransformerCallable(
+            path: GQLOperationPath,
+            transformerCallable: TransformerCallable
+        ): Builder
+
+        fun addDataElementCallable(
+            path: GQLOperationPath,
+            dataElementCallable: DataElementCallable
+        ): Builder
+
+        fun addFeatureStoreCallable(
+            path: GQLOperationPath,
+            featureStoreCallable: FeatureStoreCallable
+        ): Builder
+
+        fun addFeatureCalculatorCallable(
+            path: GQLOperationPath,
+            featureCalculatorCallable: FeatureCalculatorCallable
+        ): Builder
+
+        fun addFeaturePublisherCallable(
+            path: GQLOperationPath,
+            featurePublisherCallable: FeaturePublisherCallable
+        ): Builder
+
+        fun build(): RequestMaterializationGraph
+    }
 }

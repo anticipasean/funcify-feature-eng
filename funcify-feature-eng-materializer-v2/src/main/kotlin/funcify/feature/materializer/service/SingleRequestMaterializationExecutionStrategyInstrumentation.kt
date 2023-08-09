@@ -3,7 +3,6 @@ package funcify.feature.materializer.service
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import funcify.feature.error.ServiceError
-import funcify.feature.materializer.graph.SingleRequestMaterializationGraphService
 import funcify.feature.materializer.session.GraphQLSingleRequestSession
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import graphql.ExecutionResult
@@ -14,20 +13,16 @@ import graphql.execution.instrumentation.InstrumentationContext
 import graphql.execution.instrumentation.InstrumentationState
 import graphql.execution.instrumentation.parameters.InstrumentationExecuteOperationParameters
 import graphql.language.OperationDefinition
+import java.util.concurrent.CompletableFuture
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.toPersistentMap
 import org.slf4j.Logger
-import java.util.concurrent.CompletableFuture
 
 /**
  * @author smccarron
  * @created 2023-07-27
  */
-internal class SingleRequestMaterializationExecutionStrategyInstrumentation(
-    private val singleRequestMaterializationGraphService: SingleRequestMaterializationGraphService,
-    private val singleRequestMaterializationDispatchService:
-        SingleRequestMaterializationDispatchService
-) : Instrumentation {
+internal class SingleRequestMaterializationExecutionStrategyInstrumentation() : Instrumentation {
 
     companion object {
         private val logger: Logger =
@@ -70,7 +65,7 @@ internal class SingleRequestMaterializationExecutionStrategyInstrumentation(
                 )
             }
             else -> {
-                updateSessionWithOperationDefinitionAndProcessedVariables(ec)
+                //updateSessionWithOperationDefinitionAndProcessedVariables(ec)
             }
         }
         return MaterializationInstrumentationContext()

@@ -10,6 +10,7 @@ import funcify.feature.materializer.request.RawGraphQLRequest
 import funcify.feature.materializer.response.SerializedGraphQLResponse
 import funcify.feature.materializer.schema.MaterializationMetamodel
 import funcify.feature.materializer.session.GraphQLSingleRequestSession.Builder
+import graphql.execution.preparsed.PreparsedDocumentEntry
 import graphql.language.Document
 import graphql.language.OperationDefinition
 import kotlinx.collections.immutable.ImmutableMap
@@ -24,6 +25,7 @@ internal data class DefaultGraphQLSingleRequestSession(
     override val materializationMetamodel: MaterializationMetamodel,
     override val rawGraphQLRequest: RawGraphQLRequest,
     override val rawInputContext: Option<RawInputContext> = none(),
+    override val preparsedDocumentEntry: Option<PreparsedDocumentEntry> = none(),
     override val document: Option<Document> = none(),
     override val operationDefinition: Option<OperationDefinition> = none(),
     override val processedQueryVariables: ImmutableMap<String, Any?> = persistentMapOf(),
@@ -37,6 +39,8 @@ internal data class DefaultGraphQLSingleRequestSession(
             private val currentSession: DefaultGraphQLSingleRequestSession,
             private var rawGraphQLRequest: RawGraphQLRequest = currentSession.rawGraphQLRequest,
             private var rawInputContext: Option<RawInputContext> = currentSession.rawInputContext,
+            private var preparsedDocumentEntry: Option<PreparsedDocumentEntry> =
+                currentSession.preparsedDocumentEntry,
             private var document: Option<Document> = currentSession.document,
             private var operationDefinition: Option<OperationDefinition> =
                 currentSession.operationDefinition,
@@ -55,6 +59,13 @@ internal data class DefaultGraphQLSingleRequestSession(
 
             override fun rawInputContext(rawInputContext: RawInputContext): Builder {
                 this.rawInputContext = rawInputContext.toOption()
+                return this
+            }
+
+            override fun preparsedDocumentEntry(
+                preparsedDocumentEntry: PreparsedDocumentEntry
+            ): Builder {
+                this.preparsedDocumentEntry = preparsedDocumentEntry.toOption()
                 return this
             }
 
@@ -93,6 +104,7 @@ internal data class DefaultGraphQLSingleRequestSession(
                 return currentSession.copy(
                     rawGraphQLRequest = rawGraphQLRequest,
                     rawInputContext = rawInputContext,
+                    preparsedDocumentEntry = preparsedDocumentEntry,
                     document = document,
                     operationDefinition = operationDefinition,
                     processedQueryVariables = processedQueryVariables,

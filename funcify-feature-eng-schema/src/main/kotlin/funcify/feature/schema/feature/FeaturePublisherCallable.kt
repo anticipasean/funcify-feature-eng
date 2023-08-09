@@ -1,4 +1,4 @@
-package funcify.feature.materializer.graph.callable
+package funcify.feature.schema.feature
 
 import com.fasterxml.jackson.databind.JsonNode
 import funcify.feature.schema.tracking.TrackableValue

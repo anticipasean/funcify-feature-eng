@@ -1,4 +1,4 @@
-package funcify.feature.materializer.service
+package funcify.feature.materializer.dispatch
 
 import funcify.feature.materializer.session.MaterializationSession
 import reactor.core.publisher.Mono

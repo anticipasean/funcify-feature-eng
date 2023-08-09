@@ -1,11 +1,10 @@
 package funcify.feature.materializer.graph
 
-import arrow.core.Either
 import arrow.core.Option
 import arrow.core.left
 import arrow.core.none
 import arrow.core.right
-import arrow.core.some
+import arrow.core.toOption
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.node.ArrayNode
 import com.fasterxml.jackson.databind.node.ObjectNode
@@ -19,9 +18,10 @@ import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.MonoExtensions.widen
 import funcify.feature.tools.extensions.StringExtensions.flatten
+import funcify.feature.tools.extensions.TryExtensions.failure
+import funcify.feature.tools.extensions.TryExtensions.successIfNonNull
 import funcify.feature.tree.PersistentTree
 import funcify.feature.tree.path.TreePath
-import graphql.language.Document
 import java.time.Duration
 import java.util.concurrent.ConcurrentMap
 import kotlinx.collections.immutable.ImmutableSet
@@ -87,47 +87,47 @@ internal class DefaultSingleRequestMaterializationGraphService :
         logger.info(
             "create_request_materialization_graph_cache_key_for_session: [ session.session_id: ${session.sessionId} ]"
         )
-        return when {
-                session.document.isDefined() -> {
-                    Try.success(session.document.orNull()!!.left())
-                }
-                session.rawGraphQLRequest.expectedOutputFieldNames.isNotEmpty() -> {
-                    Try.success(session.rawGraphQLRequest.expectedOutputFieldNames.right())
-                }
-                else -> {
-                    Try.failure<Either<Document, List<String>>>(
+        return extractRawInputContextShapeFromRawInputContextIfPresent(session)
+            .flatMap { rics: Option<RawInputContextShape> ->
+                when {
+                    session.document.isDefined() -> {
+                        RequestMaterializationGraphCacheKey(
+                                materializationMetamodelCreated =
+                                    session.materializationMetamodel.created,
+                                variableKeys =
+                                    session.rawGraphQLRequest.variables.keys.toPersistentSet(),
+                                standardQueryDocument = session.document,
+                                tabularQueryOutputColumns = none(),
+                                rawInputContextShape = rics,
+                            )
+                            .successIfNonNull()
+                    }
+                    session.rawGraphQLRequest.expectedOutputFieldNames.isNotEmpty() -> {
+                        RequestMaterializationGraphCacheKey(
+                                materializationMetamodelCreated =
+                                    session.materializationMetamodel.created,
+                                variableKeys =
+                                    session.rawGraphQLRequest.variables.keys.toPersistentSet(),
+                                standardQueryDocument = none(),
+                                tabularQueryOutputColumns =
+                                    session.rawGraphQLRequest.expectedOutputFieldNames
+                                        .toPersistentSet()
+                                        .toOption(),
+                                rawInputContextShape = rics
+                            )
+                            .successIfNonNull()
+                    }
+                    else -> {
                         ServiceError.invalidRequestErrorBuilder()
                             .message(
                                 """session must contain either parsed GraphQL Document 
-                                |i.e. a Query 
-                                |or list of expected column names in the output 
-                                |for a tabular query"""
+                                    |i.e. a Query 
+                                    |or list of expected column names in the output 
+                                    |for a tabular query"""
                                     .flatten()
                             )
                             .build()
-                    )
-                }
-            }
-            .zip(extractRawInputContextShapeFromRawInputContextIfPresent(session))
-            .map { (dOrC: Either<Document, List<String>>, rics: Option<RawInputContextShape>) ->
-                when (dOrC) {
-                    is Either.Left<Document> -> {
-                        RequestMaterializationGraphCacheKey(
-                            variableKeys =
-                                session.rawGraphQLRequest.variables.keys.toPersistentSet(),
-                            standardQueryDocument = dOrC.value.some(),
-                            tabularQueryOutputColumns = none(),
-                            rawInputContextShape = rics,
-                        )
-                    }
-                    is Either.Right<List<String>> -> {
-                        RequestMaterializationGraphCacheKey(
-                            variableKeys =
-                                session.rawGraphQLRequest.variables.keys.toPersistentSet(),
-                            standardQueryDocument = none(),
-                            tabularQueryOutputColumns = dOrC.value.toPersistentSet().some(),
-                            rawInputContextShape = rics
-                        )
+                            .failure()
                     }
                 }
             }
@@ -152,6 +152,7 @@ internal class DefaultSingleRequestMaterializationGraphService :
                         )
                     }
                     is RawInputContext.StandardJson -> {
+                        // TODO: Reduce to just domain nodes
                         val treePathSet: ImmutableSet<TreePath> =
                             PersistentTree.fromSequenceTraversal(ric.asJsonNode()) { jn: JsonNode ->
                                     when (jn) {

@@ -7,6 +7,7 @@ import funcify.feature.materializer.request.RawGraphQLRequest
 import funcify.feature.materializer.response.SerializedGraphQLResponse
 import funcify.feature.materializer.schema.MaterializationMetamodel
 import funcify.feature.schema.FeatureEngineeringModel
+import graphql.execution.preparsed.PreparsedDocumentEntry
 import graphql.language.Document
 import graphql.language.OperationDefinition
 import graphql.schema.GraphQLSchema
@@ -39,6 +40,8 @@ interface GraphQLSingleRequestSession : MaterializationSession {
 
     val rawInputContext: Option<RawInputContext>
 
+    val preparsedDocumentEntry: Option<PreparsedDocumentEntry>
+
     val document: Option<Document>
 
     val operationDefinition: Option<OperationDefinition>
@@ -56,6 +59,8 @@ interface GraphQLSingleRequestSession : MaterializationSession {
         fun rawGraphQLRequest(rawGraphQLRequest: RawGraphQLRequest): Builder
 
         fun rawInputContext(rawInputContext: RawInputContext): Builder
+
+        fun preparsedDocumentEntry(preparsedDocumentEntry: PreparsedDocumentEntry): Builder
 
         fun document(document: Document): Builder
 

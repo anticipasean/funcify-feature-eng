@@ -5,10 +5,11 @@ import arrow.core.getOrElse
 import arrow.core.identity
 import arrow.core.toOption
 import funcify.feature.error.ServiceError
+import funcify.feature.materializer.dispatch.SingleRequestMaterializationDispatchService
+import funcify.feature.materializer.graph.SingleRequestMaterializationGraphService
 import funcify.feature.materializer.session.GraphQLSingleRequestSession
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
-import funcify.feature.tools.extensions.MonoExtensions.widen
 import funcify.feature.tools.extensions.SequenceExtensions.firstOrNone
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.json.JsonMapper
@@ -20,13 +21,12 @@ import graphql.language.Definition
 import graphql.language.Document
 import graphql.language.NamedNode
 import graphql.language.OperationDefinition
-import org.slf4j.Logger
-import reactor.core.publisher.Mono
-import reactor.kotlin.core.publisher.toMono
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentMap
 import java.util.stream.Collectors
+import org.slf4j.Logger
+import reactor.core.publisher.Mono
 
 /**
  * @author smccarron
@@ -34,15 +34,16 @@ import java.util.stream.Collectors
  */
 internal class DefaultMaterializationPreparsedDocumentProvider(
     private val jsonMapper: JsonMapper,
-    private val singleRequestMaterializationColumnarDocumentPreprocessingService:
-        SingleRequestMaterializationColumnarDocumentPreprocessingService
+    private val singleRequestMaterializationGraphService: SingleRequestMaterializationGraphService,
+    private val singleRequestMaterializationDispatchService:
+        SingleRequestMaterializationDispatchService
 ) : MaterializationPreparsedDocumentProvider() {
 
     companion object {
         private val logger: Logger = loggerFor<DefaultMaterializationPreparsedDocumentProvider>()
     }
 
-    private val documentByRawGraphQLQueryCache: ConcurrentMap<String, Document> =
+    private val cache: ConcurrentMap<PreparsedDocumentEntryCacheKey, PreparsedDocumentEntry> =
         ConcurrentHashMap()
 
     override fun getPreparsedDocumentEntry(
@@ -53,72 +54,22 @@ internal class DefaultMaterializationPreparsedDocumentProvider(
             "get_preparsed_document_entry: [ execution_input.execution_id: ${executionInput.executionId} ]"
         )
         return when {
-            executionInput.query.isNotBlank() &&
-                executionInput.query in documentByRawGraphQLQueryCache -> {
-                documentByRawGraphQLQueryCache[executionInput.query]
-                    .toMono()
-                    .map { document: Document -> PreparsedDocumentEntry(document) }
-                    .doOnNext { entry: PreparsedDocumentEntry ->
-                        executionInput.graphQLContext
-                            .getOrEmpty<GraphQLSingleRequestSession>(
-                                GraphQLSingleRequestSession.GRAPHQL_SINGLE_REQUEST_SESSION_KEY
-                            )
-                            .ifPresent { s: GraphQLSingleRequestSession ->
-                                executionInput.graphQLContext.put(
-                                    GraphQLSingleRequestSession.GRAPHQL_SINGLE_REQUEST_SESSION_KEY,
-                                    s.update { document(entry.document) }
-                                )
-                            }
-                    }
-            }
-            executionInput.query.isNotBlank() -> {
-                Try.attempt { parseAndValidateFunction.invoke(executionInput) }
-                    .peekIfSuccess(logPreparsedDocumentEntryCreationSuccess())
-                    .toMono()
-                    .doOnNext { entry: PreparsedDocumentEntry ->
-                        if (!entry.hasErrors()) {
-                            documentByRawGraphQLQueryCache[executionInput.query] = entry.document
-                            executionInput.graphQLContext
-                                .getOrEmpty<GraphQLSingleRequestSession>(
-                                    GraphQLSingleRequestSession.GRAPHQL_SINGLE_REQUEST_SESSION_KEY
-                                )
-                                .ifPresent { s: GraphQLSingleRequestSession ->
-                                    executionInput.graphQLContext.put(
-                                        GraphQLSingleRequestSession
-                                            .GRAPHQL_SINGLE_REQUEST_SESSION_KEY,
-                                        s.update { document(entry.document) }
-                                    )
-                                }
-                        }
-                    }
-                    .widen()
-            }
-            executionInput.query.isBlank() &&
-                !executionInput.graphQLContext.hasKey(
-                    GraphQLSingleRequestSession.GRAPHQL_SINGLE_REQUEST_SESSION_KEY
-                ) -> {
+            !executionInput.graphQLContext.hasKey(
+                GraphQLSingleRequestSession.GRAPHQL_SINGLE_REQUEST_SESSION_KEY
+            ) -> {
                 missingGraphQLSingleRequestSessionInContextErrorPublisher(executionInput)
             }
+            executionInput.query.isNotBlank() -> {
+                extractSessionFromGraphQLContext(executionInput)
+                    .flatMap(
+                        determinePreparsedDocumentEntryForSessionWithQueryText(
+                            executionInput,
+                            parseAndValidateFunction
+                        )
+                    )
+            }
             else -> {
-                Mono.fromCallable {
-                        executionInput.graphQLContext.get<GraphQLSingleRequestSession>(
-                            GraphQLSingleRequestSession.GRAPHQL_SINGLE_REQUEST_SESSION_KEY
-                        )!!
-                    }
-                    .onErrorMap(NullPointerException::class.java) { npe: NullPointerException ->
-                        ServiceError.builder()
-                            .message(
-                                "graphql_context contains null value for [ key: %s ]",
-                                GraphQLSingleRequestSession.GRAPHQL_SINGLE_REQUEST_SESSION_KEY
-                            )
-                            .cause(npe)
-                            .build()
-                    }
-                    .flatMap { session: GraphQLSingleRequestSession ->
-                        singleRequestMaterializationColumnarDocumentPreprocessingService
-                            .preprocessColumnarDocumentForExecutionInput(executionInput, session)
-                    }
-                    .cache()
+                TODO()
             }
         }
     }
@@ -145,6 +96,126 @@ internal class DefaultMaterializationPreparsedDocumentProvider(
             )
         }
     }
+
+    private fun extractSessionFromGraphQLContext(
+        executionInput: ExecutionInput
+    ): Mono<GraphQLSingleRequestSession> {
+        return Mono.fromCallable {
+                requireNotNull(
+                    executionInput.graphQLContext.get<GraphQLSingleRequestSession>(
+                        GraphQLSingleRequestSession.GRAPHQL_SINGLE_REQUEST_SESSION_KEY
+                    )
+                ) {
+                    GraphQLSingleRequestSession.GRAPHQL_SINGLE_REQUEST_SESSION_KEY
+                }
+            }
+            .onErrorMap(IllegalArgumentException::class.java) { iae: IllegalArgumentException ->
+                ServiceError.builder()
+                    .message(
+                        "graphql_context contains null value for [ key: %s ]",
+                        GraphQLSingleRequestSession.GRAPHQL_SINGLE_REQUEST_SESSION_KEY
+                    )
+                    .cause(iae)
+                    .build()
+            }
+    }
+
+    private fun determinePreparsedDocumentEntryForSessionWithQueryText(
+        executionInput: ExecutionInput,
+        parseAndValidateFunction: (ExecutionInput) -> PreparsedDocumentEntry
+    ): (GraphQLSingleRequestSession) -> Mono<PreparsedDocumentEntry> {
+        // Assumes query text should be parsed_and_validated as document before graph service called
+        return { session: GraphQLSingleRequestSession ->
+            val cacheKey: PreparsedDocumentEntryCacheKey =
+                PreparsedDocumentEntryCacheKey(
+                    materializationMetamodelCreated = session.materializationMetamodel.created,
+                    rawGraphQLQueryText = session.rawGraphQLRequest.rawGraphQLQueryText
+                )
+            when (val pde: PreparsedDocumentEntry? = cache[cacheKey]) {
+                // Case 1: Query text has not been preparsed
+                null -> {
+                    Mono.fromCallable {
+                            requireNotNull(parseAndValidateFunction.invoke(executionInput)) {
+                                "null preparsed_document_entry returned by graphql.parse_and_validate_function"
+                            }
+                        }
+                        .onErrorMap { t: Throwable ->
+                            ServiceError.builder()
+                                .message("parse_and_validate_function error")
+                                .cause(t)
+                                .build()
+                        }
+                        .doOnNext { pde1: PreparsedDocumentEntry -> cache[cacheKey] = pde1 }
+                        .flatMap { pde1: PreparsedDocumentEntry ->
+                            when {
+                                pde1.hasErrors() -> {
+                                    executionInput.graphQLContext.put(
+                                        GraphQLSingleRequestSession
+                                            .GRAPHQL_SINGLE_REQUEST_SESSION_KEY,
+                                        session.update { preparsedDocumentEntry(pde1) }
+                                    )
+                                    Mono.just(pde1)
+                                }
+                                else -> {
+                                    singleRequestMaterializationGraphService
+                                        .createRequestMaterializationGraphForSession(
+                                            session.update {
+                                                preparsedDocumentEntry(pde1)
+                                                document(pde1.document!!)
+                                            }
+                                        )
+                                        .flatMap { s: GraphQLSingleRequestSession ->
+                                            singleRequestMaterializationDispatchService
+                                                .dispatchRequestsInMaterializationGraphInSession(s)
+                                        }
+                                        .doOnNext { s: GraphQLSingleRequestSession ->
+                                            executionInput.graphQLContext.put(
+                                                GraphQLSingleRequestSession
+                                                    .GRAPHQL_SINGLE_REQUEST_SESSION_KEY,
+                                                s
+                                            )
+                                        }
+                                        .then(Mono.just(pde1))
+                                }
+                            }
+                        }
+                }
+                // Case 2: Query text has been preparsed
+                else -> {
+                    // Case 2-1: Query text had validation errors
+                    if (pde.hasErrors()) {
+                        executionInput.graphQLContext.put(
+                            GraphQLSingleRequestSession.GRAPHQL_SINGLE_REQUEST_SESSION_KEY,
+                            session.update { preparsedDocumentEntry(pde) }
+                        )
+                        Mono.just(pde)
+                    } else {
+                        // Case 2-2: Query text did not have any validation errors
+                        singleRequestMaterializationGraphService
+                            .createRequestMaterializationGraphForSession(
+                                session.update {
+                                    preparsedDocumentEntry(pde)
+                                    document(pde.document!!)
+                                }
+                            )
+                            .flatMap { s: GraphQLSingleRequestSession ->
+                                singleRequestMaterializationDispatchService
+                                    .dispatchRequestsInMaterializationGraphInSession(s)
+                            }
+                            .doOnNext { s: GraphQLSingleRequestSession ->
+                                executionInput.graphQLContext.put(
+                                    GraphQLSingleRequestSession.GRAPHQL_SINGLE_REQUEST_SESSION_KEY,
+                                    s
+                                )
+                            }
+                            .then(Mono.just(pde))
+                    }
+                }
+            }
+        }
+    }
+
+
 
     private fun logPreparsedDocumentEntryCreationSuccess(): (PreparsedDocumentEntry) -> Unit {
         return { preparsedDocumentEntry: PreparsedDocumentEntry ->

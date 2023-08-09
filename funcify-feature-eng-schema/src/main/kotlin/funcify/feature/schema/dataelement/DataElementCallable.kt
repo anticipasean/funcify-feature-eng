@@ -1,4 +1,4 @@
-package funcify.feature.materializer.graph.callable
+package funcify.feature.schema.dataelement
 
 import com.fasterxml.jackson.databind.JsonNode
 import funcify.feature.schema.path.operation.GQLOperationPath
@@ -14,5 +14,5 @@ interface DataElementCallable : (ImmutableMap<GQLOperationPath, JsonNode>) -> Mo
 
     val domainPath: GQLOperationPath
 
-    val expectedArgumentPaths: ImmutableSet<GQLOperationPath>
+    val argumentPaths: ImmutableSet<GQLOperationPath>
 }

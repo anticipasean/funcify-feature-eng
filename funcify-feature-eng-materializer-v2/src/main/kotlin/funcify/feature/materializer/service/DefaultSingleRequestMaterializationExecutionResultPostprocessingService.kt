@@ -6,7 +6,6 @@ import arrow.core.getOrNone
 import arrow.core.toOption
 import funcify.feature.error.ServiceError
 import funcify.feature.materializer.context.document.ColumnarDocumentContext
-import funcify.feature.materializer.document.SingleRequestMaterializationColumnarResponsePostprocessingService
 import funcify.feature.materializer.response.SerializedGraphQLResponseFactory
 import funcify.feature.materializer.session.GraphQLSingleRequestSession
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
