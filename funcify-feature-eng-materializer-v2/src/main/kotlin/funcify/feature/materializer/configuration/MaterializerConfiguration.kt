@@ -1,6 +1,5 @@
 package funcify.feature.materializer.configuration
 
-import funcify.feature.materializer.context.document.DefaultColumnarDocumentContextFactory
 import funcify.feature.materializer.dispatch.DefaultSingleRequestMaterializationDispatchService
 import funcify.feature.materializer.dispatch.SingleRequestMaterializationDispatchService
 import funcify.feature.materializer.document.DefaultMaterializationPreparsedDocumentProvider
@@ -13,13 +12,23 @@ import funcify.feature.materializer.input.SingleRequestRawInputContextExtractor
 import funcify.feature.materializer.request.DefaultRawGraphQLRequestFactory
 import funcify.feature.materializer.request.RawGraphQLRequestFactory
 import funcify.feature.materializer.response.DefaultSerializedGraphQLResponseFactory
+import funcify.feature.materializer.response.DefaultSingleRequestMaterializationTabularResponsePostprocessingService
 import funcify.feature.materializer.response.SerializedGraphQLResponseFactory
+import funcify.feature.materializer.response.SingleRequestMaterializationTabularResponsePostprocessingService
 import funcify.feature.materializer.schema.DefaultMaterializationGraphQLSchemaFactory
 import funcify.feature.materializer.schema.DefaultMaterializationMetamodel
 import funcify.feature.materializer.schema.DefaultMaterializationMetamodelBroker
 import funcify.feature.materializer.schema.MaterializationGraphQLSchemaFactory
 import funcify.feature.materializer.schema.MaterializationMetamodelBroker
-import funcify.feature.materializer.service.*
+import funcify.feature.materializer.service.DefaultGraphQLSingleRequestMaterializationQueryExecutionStrategy
+import funcify.feature.materializer.service.DefaultSingleRequestMaterializationExecutionResultPostprocessingService
+import funcify.feature.materializer.service.DefaultSingleRequestMaterializationOrchestratorService
+import funcify.feature.materializer.service.GraphQLSingleRequestExecutor
+import funcify.feature.materializer.service.GraphQLSingleRequestMaterializationQueryExecutionStrategy
+import funcify.feature.materializer.service.SingleRequestMaterializationExecutionResultPostprocessingService
+import funcify.feature.materializer.service.SingleRequestMaterializationExecutionStrategyInstrumentation
+import funcify.feature.materializer.service.SingleRequestMaterializationOrchestratorService
+import funcify.feature.materializer.service.SpringGraphQLSingleRequestExecutor
 import funcify.feature.materializer.session.DefaultGraphQLSingleRequestSessionCoordinator
 import funcify.feature.materializer.session.DefaultGraphQLSingleRequestSessionFactory
 import funcify.feature.materializer.session.GraphQLSingleRequestSessionCoordinator
@@ -38,13 +47,12 @@ import graphql.execution.instrumentation.Instrumentation
 import graphql.schema.DataFetcherFactory
 import graphql.schema.GraphQLSchema
 import graphql.schema.idl.SchemaPrinter
+import java.util.concurrent.CompletionStage
 import org.slf4j.Logger
 import org.springframework.beans.factory.ObjectProvider
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
-import java.util.concurrent.CompletionStage
 
 /**
  * @author smccarron
@@ -182,7 +190,9 @@ class MaterializerConfiguration {
 
     @ConditionalOnMissingBean(value = [SingleRequestRawInputContextExtractor::class])
     @Bean
-    fun singleRequestRawInputContextExtractor(jsonMapper: JsonMapper): SingleRequestRawInputContextExtractor {
+    fun singleRequestRawInputContextExtractor(
+        jsonMapper: JsonMapper
+    ): SingleRequestRawInputContextExtractor {
         return DefaultSingleRequestRawInputContextExtractor(jsonMapper)
     }
 
@@ -198,42 +208,30 @@ class MaterializerConfiguration {
         )
     }
 
-    @ConditionalOnMissingBean(
-        value = [SingleRequestMaterializationColumnarDocumentPreprocessingService::class]
-    )
-    @Bean
-    fun singleRequestMaterializationColumnarDocumentPreprocessingService(
-        jsonMapper: JsonMapper
-    ): SingleRequestMaterializationColumnarDocumentPreprocessingService {
-        return DefaultSingleRequestMaterializationColumnarDocumentPreprocessingService(
-            jsonMapper = jsonMapper,
-            columnarDocumentContextFactory = DefaultColumnarDocumentContextFactory()
-        )
-    }
-
     @ConditionalOnMissingBean(value = [MaterializationPreparsedDocumentProvider::class])
     @Bean
     fun materializationPreparsedDocumentProvider(
         jsonMapper: JsonMapper,
-        singleRequestMaterializationColumnarDocumentPreprocessingService:
-            SingleRequestMaterializationColumnarDocumentPreprocessingService
+        singleRequestMaterializationGraphService: SingleRequestMaterializationGraphService,
+        singleRequestMaterializationDispatchService: SingleRequestMaterializationDispatchService
     ): MaterializationPreparsedDocumentProvider {
         return DefaultMaterializationPreparsedDocumentProvider(
             jsonMapper = jsonMapper,
-            singleRequestMaterializationColumnarDocumentPreprocessingService =
-                singleRequestMaterializationColumnarDocumentPreprocessingService
+            singleRequestMaterializationGraphService = singleRequestMaterializationGraphService,
+            singleRequestMaterializationDispatchService =
+                singleRequestMaterializationDispatchService
         )
     }
 
     @ConditionalOnMissingBean(
-        value = [SingleRequestMaterializationColumnarResponsePostprocessingService::class]
+        value = [SingleRequestMaterializationTabularResponsePostprocessingService::class]
     )
     @Bean
-    fun singleRequestMaterializationColumnarResponsePostprocessingService(
+    fun singleRequestMaterializationTabularResponsePostprocessingService(
         jsonMapper: JsonMapper,
         serializedGraphQLResponseFactory: SerializedGraphQLResponseFactory
-    ): SingleRequestMaterializationColumnarResponsePostprocessingService {
-        return DefaultSingleRequestMaterializationColumnarResponsePostprocessingService(
+    ): SingleRequestMaterializationTabularResponsePostprocessingService {
+        return DefaultSingleRequestMaterializationTabularResponsePostprocessingService(
             jsonMapper = jsonMapper,
             serializedGraphQLResponseFactory = serializedGraphQLResponseFactory
         )
@@ -245,13 +243,13 @@ class MaterializerConfiguration {
     @Bean
     fun singleRequestMaterializationExecutionResultPostprocessingService(
         serializedGraphQLResponseFactory: SerializedGraphQLResponseFactory,
-        singleRequestMaterializationColumnarResponsePostprocessingService:
-            SingleRequestMaterializationColumnarResponsePostprocessingService
+        singleRequestMaterializationTabularResponsePostprocessingService:
+            SingleRequestMaterializationTabularResponsePostprocessingService
     ): SingleRequestMaterializationExecutionResultPostprocessingService {
         return DefaultSingleRequestMaterializationExecutionResultPostprocessingService(
             serializedGraphQLResponseFactory = serializedGraphQLResponseFactory,
-            singleRequestMaterializationColumnarResponsePostprocessingService =
-                singleRequestMaterializationColumnarResponsePostprocessingService
+            singleRequestMaterializationTabularResponsePostprocessingService =
+                singleRequestMaterializationTabularResponsePostprocessingService
         )
     }
 
@@ -263,23 +261,9 @@ class MaterializerConfiguration {
         return DefaultGraphQLSingleRequestMaterializationQueryExecutionStrategy()
     }
 
-    @ConditionalOnBean(
-        value =
-            [
-                SingleRequestMaterializationDispatchService::class,
-                SingleRequestMaterializationGraphService::class
-            ]
-    )
     @Bean
-    fun singleRequestMaterializationExecutionStrategyInstrumentation(
-        singleRequestMaterializationGraphService: SingleRequestMaterializationGraphService,
-        singleRequestMaterializationDispatchService: SingleRequestMaterializationDispatchService
-    ): Instrumentation {
-        return SingleRequestMaterializationExecutionStrategyInstrumentation(
-            singleRequestMaterializationGraphService = singleRequestMaterializationGraphService,
-            singleRequestMaterializationDispatchService =
-                singleRequestMaterializationDispatchService
-        )
+    fun singleRequestMaterializationExecutionStrategyInstrumentation(): Instrumentation {
+        return SingleRequestMaterializationExecutionStrategyInstrumentation()
     }
 
     @ConditionalOnMissingBean(value = [GraphQLSingleRequestSessionCoordinator::class])

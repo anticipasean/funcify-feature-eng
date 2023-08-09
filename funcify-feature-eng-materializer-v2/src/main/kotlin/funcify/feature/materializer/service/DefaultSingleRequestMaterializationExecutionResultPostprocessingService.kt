@@ -7,6 +7,7 @@ import arrow.core.toOption
 import funcify.feature.error.ServiceError
 import funcify.feature.materializer.context.document.ColumnarDocumentContext
 import funcify.feature.materializer.response.SerializedGraphQLResponseFactory
+import funcify.feature.materializer.response.SingleRequestMaterializationTabularResponsePostprocessingService
 import funcify.feature.materializer.session.GraphQLSingleRequestSession
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.MonoExtensions.widen
@@ -22,8 +23,8 @@ import reactor.core.publisher.Mono
  */
 internal class DefaultSingleRequestMaterializationExecutionResultPostprocessingService(
     private val serializedGraphQLResponseFactory: SerializedGraphQLResponseFactory,
-    private val singleRequestMaterializationColumnarResponsePostprocessingService:
-        SingleRequestMaterializationColumnarResponsePostprocessingService
+    private val singleRequestMaterializationTabularResponsePostprocessingService:
+        SingleRequestMaterializationTabularResponsePostprocessingService
 ) : SingleRequestMaterializationExecutionResultPostprocessingService {
 
     companion object {
@@ -65,8 +66,8 @@ internal class DefaultSingleRequestMaterializationExecutionResultPostprocessingS
                     )
                     .toMono()
                     .flatMap { (s: GraphQLSingleRequestSession, cdc: ColumnarDocumentContext) ->
-                        singleRequestMaterializationColumnarResponsePostprocessingService
-                            .postprocessColumnarExecutionResult(
+                        singleRequestMaterializationTabularResponsePostprocessingService
+                            .postprocessTabularExecutionResult(
                                 createExecutionResultWithoutExtensions(executionResult),
                                 cdc,
                                 s

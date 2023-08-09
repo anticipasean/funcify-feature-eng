@@ -1,6 +1,7 @@
 package funcify.feature.materializer.graph
 
 import arrow.core.Option
+import arrow.core.getOrElse
 import arrow.core.left
 import arrow.core.none
 import arrow.core.right
@@ -22,6 +23,8 @@ import funcify.feature.tools.extensions.TryExtensions.failure
 import funcify.feature.tools.extensions.TryExtensions.successIfNonNull
 import funcify.feature.tree.PersistentTree
 import funcify.feature.tree.path.TreePath
+import graphql.GraphQLError
+import graphql.execution.preparsed.PreparsedDocumentEntry
 import java.time.Duration
 import java.util.concurrent.ConcurrentMap
 import kotlinx.collections.immutable.ImmutableSet
@@ -67,13 +70,23 @@ internal class DefaultSingleRequestMaterializationGraphService :
                         ) {
                             null -> {
                                 calculateRequestMaterializationGraphForSession(session).map {
-                                    calculatedGraph: RequestMaterializationGraph ->
-                                    requestMaterializationGraphCache[rmgck] = calculatedGraph
-                                    session.update { requestMaterializationGraph(calculatedGraph) }
+                                    rmg1: RequestMaterializationGraph ->
+                                    requestMaterializationGraphCache[rmgck] = rmg1
+                                    session.update {
+                                        preparsedDocumentEntry(
+                                            PreparsedDocumentEntry(rmg1.document)
+                                        )
+                                        requestMaterializationGraph(rmg1)
+                                    }
                                 }
                             }
                             else -> {
-                                Mono.just(session.update { requestMaterializationGraph(rmg) })
+                                Mono.just(
+                                    session.update {
+                                        preparsedDocumentEntry(PreparsedDocumentEntry(rmg.document))
+                                        requestMaterializationGraph(rmg)
+                                    }
+                                )
                             }
                         }
                     }
@@ -90,17 +103,44 @@ internal class DefaultSingleRequestMaterializationGraphService :
         return extractRawInputContextShapeFromRawInputContextIfPresent(session)
             .flatMap { rics: Option<RawInputContextShape> ->
                 when {
-                    session.document.isDefined() -> {
+                    session.preparsedDocumentEntry
+                        .filterNot(PreparsedDocumentEntry::hasErrors)
+                        .mapNotNull(PreparsedDocumentEntry::getDocument)
+                        .isDefined() -> {
                         RequestMaterializationGraphCacheKey(
                                 materializationMetamodelCreated =
                                     session.materializationMetamodel.created,
                                 variableKeys =
                                     session.rawGraphQLRequest.variables.keys.toPersistentSet(),
-                                standardQueryDocument = session.document,
+                                standardQueryDocument =
+                                    session.preparsedDocumentEntry.mapNotNull(
+                                        PreparsedDocumentEntry::getDocument
+                                    ),
                                 tabularQueryOutputColumns = none(),
                                 rawInputContextShape = rics,
                             )
                             .successIfNonNull()
+                    }
+                    session.preparsedDocumentEntry
+                        .filter(PreparsedDocumentEntry::hasErrors)
+                        .isDefined() -> {
+                        ServiceError.invalidRequestErrorBuilder()
+                            .message(
+                                """preparsed_document_entry in session [ session_id: %s ] 
+                                |contains validation errors [ %s ]"""
+                                    .flatten(),
+                                session.sessionId,
+                                session.preparsedDocumentEntry
+                                    .mapNotNull(PreparsedDocumentEntry::getErrors)
+                                    .getOrElse(::emptyList)
+                                    .asSequence()
+                                    .withIndex()
+                                    .joinToString(", ") { (idx: Int, ge: GraphQLError) ->
+                                        "[$idx]:$ge"
+                                    }
+                            )
+                            .build()
+                            .failure()
                     }
                     session.rawGraphQLRequest.expectedOutputFieldNames.isNotEmpty() -> {
                         RequestMaterializationGraphCacheKey(
@@ -120,9 +160,9 @@ internal class DefaultSingleRequestMaterializationGraphService :
                     else -> {
                         ServiceError.invalidRequestErrorBuilder()
                             .message(
-                                """session must contain either parsed GraphQL Document 
-                                    |i.e. a Query 
-                                    |or list of expected column names in the output 
+                                """session must contain either PreparsedDocumentEntry 
+                                    |with a valid Document  
+                                    |or a list of expected column names in the output 
                                     |for a tabular query"""
                                     .flatten()
                             )

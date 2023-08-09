@@ -20,9 +20,9 @@ import graphql.execution.ExecutionContext
 import graphql.execution.ResultPath
 import graphql.extensions.ExtensionsBuilder
 import graphql.language.SourceLocation
-import org.slf4j.Logger
 import java.util.concurrent.CompletableFuture
 import java.util.function.BiConsumer
+import org.slf4j.Logger
 
 /**
  * @author smccarron
@@ -119,8 +119,8 @@ internal class DefaultGraphQLSingleRequestMaterializationQueryExecutionStrategy(
                             executionContext.graphQLContext
                                 .stream()
                                 .filter { (k: Any?, _: Any?) ->
-                                    k is Class<*> &&
-                                        ExtensionsBuilder::class.java.isAssignableFrom(k)
+                                    !(k is Class<*> &&
+                                        ExtensionsBuilder::class.java.isAssignableFrom(k))
                                 }
                                 .toPersistentMap()
                                 .run {

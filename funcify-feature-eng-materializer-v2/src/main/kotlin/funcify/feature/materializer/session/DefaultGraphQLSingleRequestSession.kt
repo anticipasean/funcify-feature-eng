@@ -26,8 +26,6 @@ internal data class DefaultGraphQLSingleRequestSession(
     override val rawGraphQLRequest: RawGraphQLRequest,
     override val rawInputContext: Option<RawInputContext> = none(),
     override val preparsedDocumentEntry: Option<PreparsedDocumentEntry> = none(),
-    override val document: Option<Document> = none(),
-    override val operationDefinition: Option<OperationDefinition> = none(),
     override val processedQueryVariables: ImmutableMap<String, Any?> = persistentMapOf(),
     override val requestMaterializationGraph: Option<RequestMaterializationGraph> = none(),
     override val serializedGraphQLResponse: Option<SerializedGraphQLResponse> = none(),
@@ -41,9 +39,6 @@ internal data class DefaultGraphQLSingleRequestSession(
             private var rawInputContext: Option<RawInputContext> = currentSession.rawInputContext,
             private var preparsedDocumentEntry: Option<PreparsedDocumentEntry> =
                 currentSession.preparsedDocumentEntry,
-            private var document: Option<Document> = currentSession.document,
-            private var operationDefinition: Option<OperationDefinition> =
-                currentSession.operationDefinition,
             private var processedQueryVariables: ImmutableMap<String, Any?> =
                 currentSession.processedQueryVariables,
             private var requestMaterializationGraph: Option<RequestMaterializationGraph> =
@@ -66,16 +61,6 @@ internal data class DefaultGraphQLSingleRequestSession(
                 preparsedDocumentEntry: PreparsedDocumentEntry
             ): Builder {
                 this.preparsedDocumentEntry = preparsedDocumentEntry.toOption()
-                return this
-            }
-
-            override fun document(document: Document): Builder {
-                this.document = document.toOption()
-                return this
-            }
-
-            override fun operationDefinition(operationDefinition: OperationDefinition): Builder {
-                this.operationDefinition = operationDefinition.toOption()
                 return this
             }
 
@@ -105,8 +90,6 @@ internal data class DefaultGraphQLSingleRequestSession(
                     rawGraphQLRequest = rawGraphQLRequest,
                     rawInputContext = rawInputContext,
                     preparsedDocumentEntry = preparsedDocumentEntry,
-                    document = document,
-                    operationDefinition = operationDefinition,
                     processedQueryVariables = processedQueryVariables,
                     requestMaterializationGraph = requestMaterializationGraph,
                     serializedGraphQLResponse = serializedGraphQLResponse
