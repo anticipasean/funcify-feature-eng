@@ -5,46 +5,46 @@ import funcify.feature.materializer.graph.QueryComponentContext.FieldComponentCo
 import funcify.feature.materializer.graph.QueryComponentContext.FragmentSpreadFieldComponentContext
 import funcify.feature.materializer.graph.QueryComponentContext.InlineFragmentFieldComponentContext
 import funcify.feature.materializer.graph.QueryComponentContext.OperationDefinitionComponentContext
-import funcify.feature.materializer.graph.context.RequestMaterializationGraphContext.RawInputProvidedStandardQuery
+import funcify.feature.materializer.graph.context.RequestMaterializationGraphContext.ExpectedStandardJsonInputStandardQuery
 
 /**
  * @author smccarron
  * @created 2023-08-05
  */
-object RawInputBasedStandardQueryConnector :
-    RawInputProvidedGraphConnector<RawInputProvidedStandardQuery> {
+object ExpectedStandardJsonInputBasedStandardQueryConnector :
+    ExpectedRawInputBasedGraphConnector<ExpectedStandardJsonInputStandardQuery> {
     override fun connectOperationDefinition(
-        connectorContext: RawInputProvidedStandardQuery,
+        connectorContext: ExpectedStandardJsonInputStandardQuery,
         operationDefinitionComponentContext: OperationDefinitionComponentContext,
-    ): RawInputProvidedStandardQuery {
+    ): ExpectedStandardJsonInputStandardQuery {
         TODO("Not yet implemented")
     }
 
     override fun connectFieldArgument(
-        connectorContext: RawInputProvidedStandardQuery,
+        connectorContext: ExpectedStandardJsonInputStandardQuery,
         fieldArgumentComponentContext: FieldArgumentComponentContext,
-    ): RawInputProvidedStandardQuery {
+    ): ExpectedStandardJsonInputStandardQuery {
         TODO("Not yet implemented")
     }
 
     override fun connectField(
-        connectorContext: RawInputProvidedStandardQuery,
+        connectorContext: ExpectedStandardJsonInputStandardQuery,
         fieldComponentContext: FieldComponentContext,
-    ): RawInputProvidedStandardQuery {
+    ): ExpectedStandardJsonInputStandardQuery {
         TODO("Not yet implemented")
     }
 
     override fun connectInlineFragmentField(
-        connectorContext: RawInputProvidedStandardQuery,
+        connectorContext: ExpectedStandardJsonInputStandardQuery,
         inlineFragmentFieldComponentContext: InlineFragmentFieldComponentContext,
-    ): RawInputProvidedStandardQuery {
+    ): ExpectedStandardJsonInputStandardQuery {
         TODO("Not yet implemented")
     }
 
     override fun connectFragmentSpreadField(
-        connectorContext: RawInputProvidedStandardQuery,
+        connectorContext: ExpectedStandardJsonInputStandardQuery,
         fragmentSpreadFieldComponentContext: FragmentSpreadFieldComponentContext,
-    ): RawInputProvidedStandardQuery {
+    ): ExpectedStandardJsonInputStandardQuery {
         TODO("Not yet implemented")
     }
 }

@@ -1,5 +1,6 @@
 package funcify.feature.materializer.graph
 
+import funcify.feature.graph.DirectedPersistentGraph
 import funcify.feature.schema.dataelement.DataElementCallable
 import funcify.feature.schema.feature.FeatureCalculatorCallable
 import funcify.feature.schema.feature.FeaturePublisherCallable
@@ -7,6 +8,7 @@ import funcify.feature.schema.feature.FeatureStoreCallable
 import funcify.feature.schema.path.operation.GQLOperationPath
 import funcify.feature.schema.transformer.TransformerCallable
 import graphql.language.Document
+import graphql.language.Node
 import kotlinx.collections.immutable.ImmutableMap
 
 /**
@@ -16,6 +18,8 @@ import kotlinx.collections.immutable.ImmutableMap
 interface RequestMaterializationGraph {
 
     val document: Document
+
+    val requestGraph: DirectedPersistentGraph<GQLOperationPath, Node<*>, MaterializationEdge>
 
     val transformerCallablesByPath: ImmutableMap<GQLOperationPath, TransformerCallable>
 
@@ -32,6 +36,10 @@ interface RequestMaterializationGraph {
     interface Builder {
 
         fun document(document: Document): Builder
+
+        fun requestGraph(
+            requestGraph: DirectedPersistentGraph<GQLOperationPath, Node<*>, MaterializationEdge>
+        ): Builder
 
         fun addTransformerCallable(
             path: GQLOperationPath,

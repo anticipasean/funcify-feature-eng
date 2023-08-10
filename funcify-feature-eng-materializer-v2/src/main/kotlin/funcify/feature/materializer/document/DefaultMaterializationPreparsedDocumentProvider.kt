@@ -83,7 +83,7 @@ internal class DefaultMaterializationPreparsedDocumentProvider(
                         )
                     )
             }
-        }
+        }.doOnNext(logPreparsedDocumentEntryCreationSuccess())
     }
 
     private fun <T> missingGraphQLSingleRequestSessionInContextErrorPublisher(

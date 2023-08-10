@@ -7,6 +7,7 @@ import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.node.JsonNodeFactory
 import com.fasterxml.jackson.databind.node.ObjectNode
 import kotlinx.collections.immutable.ImmutableMap
+import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.persistentMapOf
 
@@ -34,7 +35,7 @@ internal data class DefaultCommaSeparatedValuesInputContext(
         }
     }
 
-    override fun fieldNames(): Set<String> {
+    override fun fieldNames(): ImmutableSet<String> {
         return csvRecord.keys
     }
 

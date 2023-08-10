@@ -3,8 +3,9 @@ package funcify.feature.materializer.graph.connector
 import arrow.core.filterIsInstance
 import arrow.core.lastOrNone
 import funcify.feature.materializer.graph.input.RawInputContextShape
-import funcify.feature.materializer.graph.input.RawInputProvided
+import funcify.feature.materializer.graph.input.ExpectedRawInputShape
 import funcify.feature.materializer.graph.context.RequestMaterializationGraphContext
+import funcify.feature.materializer.input.RawInputContext
 import funcify.feature.schema.path.operation.FieldSegment
 import funcify.feature.schema.path.operation.GQLOperationPath
 
@@ -12,8 +13,8 @@ import funcify.feature.schema.path.operation.GQLOperationPath
  * @author smccarron
  * @created 2023-08-05
  */
-interface RawInputProvidedGraphConnector<C> : RequestMaterializationGraphConnector<C> where
-C : RawInputProvided,
+interface ExpectedRawInputBasedGraphConnector<C> : RequestMaterializationGraphConnector<C> where
+C : ExpectedRawInputShape,
 C : RequestMaterializationGraphContext {
 
     fun containsRawInputKeyForFieldWithName(context: C, name: String): Boolean {

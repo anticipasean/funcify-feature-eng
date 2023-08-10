@@ -2,6 +2,7 @@ package funcify.feature.materializer.input
 
 import arrow.core.Option
 import com.fasterxml.jackson.databind.JsonNode
+import kotlinx.collections.immutable.ImmutableSet
 
 /**
  * @author smccarron
@@ -19,7 +20,7 @@ sealed interface RawInputContext {
 
     interface CommaSeparatedValues : RawInputContext {
 
-        fun fieldNames(): Set<String>
+        fun fieldNames(): ImmutableSet<String>
 
         fun get(fieldName: String): Option<String>
 
@@ -30,7 +31,7 @@ sealed interface RawInputContext {
 
     interface TabularJson : RawInputContext {
 
-        fun fieldNames(): Set<String>
+        fun fieldNames(): ImmutableSet<String>
 
         fun get(fieldName: String): Option<JsonNode>
 

@@ -17,7 +17,7 @@ internal data class DefaultTabularJsonInputContext(private val jsonNode: JsonNod
         jsonNode.fieldNames().asSequence().toPersistentSet()
     }
 
-    override fun fieldNames(): Set<String> {
+    override fun fieldNames(): ImmutableSet<String> {
         return fieldNamesSet
     }
 
