@@ -9,8 +9,8 @@ import org.slf4j.Logger
 import reactor.core.publisher.Mono
 
 internal class DefaultSingleRequestMaterializationDispatchService(
-    private val dispatchedRequestMaterializationGraphFactory:
-        DispatchedRequestMaterializationGraphFactory
+// private val dispatchedRequestMaterializationGraphFactory:
+//    DispatchedRequestMaterializationGraphFactory
 ) : SingleRequestMaterializationDispatchService {
 
     companion object {

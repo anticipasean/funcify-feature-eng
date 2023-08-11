@@ -20,6 +20,7 @@ import funcify.feature.materializer.schema.DefaultMaterializationMetamodel
 import funcify.feature.materializer.schema.DefaultMaterializationMetamodelBroker
 import funcify.feature.materializer.schema.MaterializationGraphQLSchemaFactory
 import funcify.feature.materializer.schema.MaterializationMetamodelBroker
+import funcify.feature.materializer.schema.MaterializationMetamodelFactGatherer
 import funcify.feature.materializer.service.DefaultGraphQLSingleRequestMaterializationQueryExecutionStrategy
 import funcify.feature.materializer.service.DefaultSingleRequestMaterializationExecutionResultPostprocessingService
 import funcify.feature.materializer.service.DefaultSingleRequestMaterializationOrchestratorService
@@ -182,7 +183,12 @@ class MaterializerConfiguration {
         broker.pushNewMaterializationMetamodel(
             DefaultMaterializationMetamodel(
                 featureEngineeringModel = featureEngineeringModel,
-                materializationGraphQLSchema = materializationGraphQLSchema
+                materializationGraphQLSchema = materializationGraphQLSchema,
+                materializationMetamodelFacts =
+                    MaterializationMetamodelFactGatherer(
+                        featureEngineeringModel,
+                        materializationGraphQLSchema
+                    )
             )
         )
         return broker

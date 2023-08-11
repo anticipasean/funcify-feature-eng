@@ -89,7 +89,6 @@ internal class SingleRequestMaterializationExecutionStrategyInstrumentation() : 
                         executionContext.graphQLContext.put(
                             GraphQLSingleRequestSession.GRAPHQL_SINGLE_REQUEST_SESSION_KEY,
                             s.update {
-                                operationDefinition(od)
                                 processedQueryVariables(processedVariables)
                             }
                         )

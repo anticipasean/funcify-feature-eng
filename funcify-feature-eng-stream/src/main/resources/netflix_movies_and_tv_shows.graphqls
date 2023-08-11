@@ -58,6 +58,8 @@ schema {
 
 type Query {
     show(showId: ID): Show
+    director(name: String!): Director
+    actor(name: String!): Actor
 }
 
 interface Show @subtyping(strategy: SUBTYPE_FIELD_VALUE, discriminatorFieldName: "type"){
@@ -102,9 +104,20 @@ type TVShow implements Show @discriminator(fieldValue: "TV Show"){
 }
 
 type Director {
-    name: String!
+    name(format: NameFormat): String!
+    filmography: [Show!]!
+}
+
+input NameFormat {
+    nameComponents: [NameComponent!]! = [LAST_NAME]
+}
+
+enum NameComponent {
+    FIRST_NAME
+    LAST_NAME
 }
 
 type Actor {
     name: String!
+    filmography: [Show!]!
 }

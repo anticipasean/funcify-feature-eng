@@ -1,11 +1,14 @@
 package funcify.feature.datasource.graphql.metadata.filter
 
+import arrow.core.getOrElse
 import funcify.feature.error.ServiceError
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
+import funcify.feature.tools.extensions.OptionExtensions.toOption
 import graphql.GraphQLError
 import graphql.language.FieldDefinition
 import graphql.language.ObjectTypeDefinition
 import graphql.schema.idl.TypeDefinitionRegistry
+import graphql.schema.idl.TypeUtil
 import org.slf4j.Logger
 
 /**
@@ -27,10 +30,14 @@ class InternalQueryExcludingTypeDefinitionRegistryFilter() : TypeDefinitionRegis
                 "filter: [ type_definition_registry.get_type({}, {}): {} ]",
                 QUERY_OBJECT_TYPE_NAME,
                 ObjectTypeDefinition::class.java.name,
-                typeDefinitionRegistry.getType(
-                    QUERY_OBJECT_TYPE_NAME,
-                    ObjectTypeDefinition::class.java
-                )
+                typeDefinitionRegistry
+                    .getType(QUERY_OBJECT_TYPE_NAME, ObjectTypeDefinition::class.java)
+                    .toOption()
+                    .map(ObjectTypeDefinition::getFieldDefinitions)
+                    .map(List<FieldDefinition>::asSequence)
+                    .getOrElse(::emptySequence)
+                    .map { fd: FieldDefinition -> fd.name + ":" + TypeUtil.simplePrint(fd.type) }
+                    .joinToString(", ", "[ ", " ]")
             )
         }
         return typeDefinitionRegistry

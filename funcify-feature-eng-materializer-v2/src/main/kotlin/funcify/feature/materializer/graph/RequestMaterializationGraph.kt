@@ -3,8 +3,8 @@ package funcify.feature.materializer.graph
 import funcify.feature.graph.DirectedPersistentGraph
 import funcify.feature.schema.dataelement.DataElementCallable
 import funcify.feature.schema.feature.FeatureCalculatorCallable
-import funcify.feature.schema.feature.FeaturePublisherCallable
-import funcify.feature.schema.feature.FeatureStoreCallable
+import funcify.feature.schema.feature.FeatureJsonValuePublisher
+import funcify.feature.schema.feature.FeatureJsonValueStore
 import funcify.feature.schema.path.operation.GQLOperationPath
 import funcify.feature.schema.transformer.TransformerCallable
 import graphql.language.Document
@@ -25,11 +25,11 @@ interface RequestMaterializationGraph {
 
     val dataElementCallablesByPath: ImmutableMap<GQLOperationPath, DataElementCallable>
 
-    val featureStoreCallablesByPath: ImmutableMap<GQLOperationPath, FeatureStoreCallable>
+    val featureJsonValueStoreByPath: ImmutableMap<GQLOperationPath, FeatureJsonValueStore>
 
     val featureCalculatorCallablesByPath: ImmutableMap<GQLOperationPath, FeatureCalculatorCallable>
 
-    val featurePublisherCallablesByPath: ImmutableMap<GQLOperationPath, FeaturePublisherCallable>
+    val featureJsonValuePublisherByPath: ImmutableMap<GQLOperationPath, FeatureJsonValuePublisher>
 
     fun update(transformer: Builder.() -> Builder): RequestMaterializationGraph
 
@@ -51,9 +51,9 @@ interface RequestMaterializationGraph {
             dataElementCallable: DataElementCallable
         ): Builder
 
-        fun addFeatureStoreCallable(
+        fun addFeatureJsonStore(
             path: GQLOperationPath,
-            featureStoreCallable: FeatureStoreCallable
+            featureJsonValueStore: FeatureJsonValueStore
         ): Builder
 
         fun addFeatureCalculatorCallable(
@@ -61,9 +61,9 @@ interface RequestMaterializationGraph {
             featureCalculatorCallable: FeatureCalculatorCallable
         ): Builder
 
-        fun addFeaturePublisherCallable(
+        fun addFeatureJsonValuePublisher(
             path: GQLOperationPath,
-            featurePublisherCallable: FeaturePublisherCallable
+            featureJsonValuePublisher: FeatureJsonValuePublisher
         ): Builder
 
         fun build(): RequestMaterializationGraph

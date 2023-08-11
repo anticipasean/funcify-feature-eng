@@ -92,51 +92,10 @@ internal class DefaultSingleRequestMaterializationOrchestratorService(
                 Mono.just(JsonNodeFactory.instance.objectNode())
             }
             currentFieldPath.level() == 2 -> {
-                val loader: ReactiveDataLoader<GQLOperationPath, JsonNode> =
-                    ReactiveDataLoader.newLoader(createReactiveBatchDataLoader(currentFieldPath))
-                val (updatedLoader, fieldValuePublisher) = loader.loadDataForKey(currentFieldPath)
-                val updatedRegistry: ReactiveDataLoaderRegistry<GQLOperationPath> =
-                    session.singleRequestSession.reactiveDataLoaderRegistry.register(
-                        currentFieldPath,
-                        updatedLoader
-                    )
-                session.graphQLContext.put(
-                    GraphQLSingleRequestSession.GRAPHQL_SINGLE_REQUEST_SESSION_KEY,
-                    session.singleRequestSession.update {
-                        reactiveDataLoaderRegistry(updatedRegistry)
-                    }
-                )
-                fieldValuePublisher.widen()
+                Mono.error { ServiceError.of("not yet implemented materialization logic") }
             }
             else -> {
-                val domainPath: GQLOperationPath =
-                    GQLOperationPath.of {
-                        fields(currentFieldPath.selection.asSequence().take(2).toList())
-                    }
-                val loader: ReactiveDataLoader<GQLOperationPath, JsonNode> =
-                    session.singleRequestSession.reactiveDataLoaderRegistry
-                        .getOrNone(domainPath)
-                        .filterIsInstance<ReactiveDataLoader<GQLOperationPath, JsonNode>>()
-                        .successIfDefined {
-                            ServiceError.of(
-                                "reactive_data_loader not registered for domain path [ %s ]",
-                                domainPath
-                            )
-                        }
-                        .orElseThrow()
-                val (updatedLoader, fieldValuePublisher) = loader.loadDataForKey(currentFieldPath)
-                val updatedRegistry: ReactiveDataLoaderRegistry<GQLOperationPath> =
-                    session.singleRequestSession.reactiveDataLoaderRegistry.register(
-                        currentFieldPath,
-                        updatedLoader
-                    )
-                session.graphQLContext.put(
-                    GraphQLSingleRequestSession.GRAPHQL_SINGLE_REQUEST_SESSION_KEY,
-                    session.singleRequestSession.update {
-                        reactiveDataLoaderRegistry(updatedRegistry)
-                    }
-                )
-                fieldValuePublisher.widen()
+                Mono.error { ServiceError.of("not yet implemented materialization logic") }
             }
         }
     }

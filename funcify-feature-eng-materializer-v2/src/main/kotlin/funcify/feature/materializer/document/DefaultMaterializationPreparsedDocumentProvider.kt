@@ -66,13 +66,14 @@ internal class DefaultMaterializationPreparsedDocumentProvider(
                 missingGraphQLSingleRequestSessionInContextErrorPublisher(executionInput)
             }
             executionInput.query.isNotBlank() -> {
-                extractSessionFromGraphQLContext(executionInput)
-                    .flatMap(
-                        determinePreparsedDocumentEntryForSessionWithQueryText(
-                            executionInput,
-                            parseAndValidateFunction
-                        )
-                    )
+                Mono.fromCallable { parseAndValidateFunction.invoke(executionInput) }
+                //extractSessionFromGraphQLContext(executionInput)
+                //    .flatMap(
+                //        determinePreparsedDocumentEntryForSessionWithQueryText(
+                //            executionInput,
+                //            parseAndValidateFunction
+                //        )
+                //    )
             }
             else -> {
                 extractSessionFromGraphQLContext(executionInput)

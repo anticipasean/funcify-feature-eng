@@ -27,7 +27,7 @@ interface FeatureCalculator : Source {
 
     override val sourceSDLDefinitions: ImmutableSet<SDLDefinition<*>>
 
-    fun builder(): Builder
+    //fun builder(): Builder
 
     interface Builder {
 

@@ -1,18 +1,15 @@
 package funcify.feature.materializer.response
 
-import arrow.core.getOrNone
 import arrow.core.toOption
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.node.JsonNodeFactory
 import com.fasterxml.jackson.databind.node.ObjectNode
 import funcify.feature.error.ServiceError
 import funcify.feature.materializer.context.document.ColumnarDocumentContext
-import funcify.feature.materializer.path.ListIndexedSchematicPathGraphQLSchemaBasedCalculator
 import funcify.feature.materializer.session.GraphQLSingleRequestSession
 import funcify.feature.schema.json.JsonNodeSchematicPathToValueMappingExtractor
 import funcify.feature.schema.path.operation.GQLOperationPath
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
-import funcify.feature.tools.extensions.OptionExtensions.toMono
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.extensions.TryExtensions.successIfDefined
 import funcify.feature.tools.json.JsonMapper
@@ -21,7 +18,6 @@ import kotlinx.collections.immutable.ImmutableMap
 import org.slf4j.Logger
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
-import reactor.kotlin.core.publisher.switchIfEmpty
 
 /**
  * @author smccarron
@@ -83,19 +79,20 @@ internal class DefaultSingleRequestMaterializationTabularResponsePostprocessingS
                                 columnarDocumentContext.sourceIndexPathsByFieldName.entries
                             )
                             .flatMapSequential { (fieldName, path) ->
-                                ListIndexedSchematicPathGraphQLSchemaBasedCalculator(
-                                        path,
-                                        session.materializationSchema
-                                    )
-                                    .flatMap { listIndexedPath ->
-                                        jsonValuesByPath.getOrNone(listIndexedPath).map { jn ->
-                                            fieldName to jn
-                                        }
+                                Mono.error<Pair<String, JsonNode>> { ServiceError.of("not yet implemented tabular response processing") }
+                                /*ListIndexedSchematicPathGraphQLSchemaBasedCalculator(
+                                    path,
+                                    session.materializationSchema
+                                )
+                                .flatMap { listIndexedPath ->
+                                    jsonValuesByPath.getOrNone(listIndexedPath).map { jn ->
+                                        fieldName to jn
                                     }
-                                    .toMono()
-                                    .switchIfEmpty {
-                                        Mono.just(fieldName to JsonNodeFactory.instance.nullNode())
-                                    }
+                                }
+                                .toMono()
+                                .switchIfEmpty {
+                                    Mono.just(fieldName to JsonNodeFactory.instance.nullNode())
+                                }*/
                             }
                             .reduce(JsonNodeFactory.instance.objectNode()) { on, (k, v) ->
                                 on.set<ObjectNode>(k, v)
