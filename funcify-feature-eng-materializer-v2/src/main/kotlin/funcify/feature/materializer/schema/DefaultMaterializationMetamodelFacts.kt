@@ -1,7 +1,6 @@
 package funcify.feature.materializer.schema
 
 import funcify.feature.materializer.schema.MaterializationMetamodelFacts.Builder
-import funcify.feature.schema.dataelement.DataElementSource
 import funcify.feature.schema.path.operation.GQLOperationPath
 import graphql.schema.FieldCoordinates
 import graphql.schema.GraphQLSchemaElement
@@ -18,7 +17,8 @@ internal data class DefaultMaterializationMetamodelFacts(
     override val fieldCoordinatesByCanonicalPath: PersistentMap<GQLOperationPath, FieldCoordinates>,
     override val canonicalPathsByFieldCoordinates:
         PersistentMap<FieldCoordinates, GQLOperationPath>,
-    override val dataElementSourceByDomainPath: PersistentMap<GQLOperationPath, DataElementSource>
+    override val domainSpecifiedDataElementSourceByPath:
+        PersistentMap<GQLOperationPath, DomainSpecifiedDataElementSource>
 ) : MaterializationMetamodelFacts {
 
     companion object {
@@ -29,7 +29,7 @@ internal data class DefaultMaterializationMetamodelFacts(
                 querySchemaElementsByCanonicalPath = persistentMapOf(),
                 fieldCoordinatesByCanonicalPath = persistentMapOf(),
                 canonicalPathsByFieldCoordinates = persistentMapOf(),
-                dataElementSourceByDomainPath = persistentMapOf(),
+                domainSpecifiedDataElementSourceByPath = persistentMapOf(),
             )
         }
 
@@ -47,9 +47,9 @@ internal data class DefaultMaterializationMetamodelFacts(
             private val pathsByFieldCoordinates:
                 PersistentMap.Builder<FieldCoordinates, GQLOperationPath> =
                 existingFacts.canonicalPathsByFieldCoordinates.builder(),
-            private val dataElementSourceByDomainPath:
-                PersistentMap.Builder<GQLOperationPath, DataElementSource> =
-                existingFacts.dataElementSourceByDomainPath.builder(),
+            private val domainSpecifiedDataElementSourceByPath:
+                PersistentMap.Builder<GQLOperationPath, DomainSpecifiedDataElementSource> =
+                existingFacts.domainSpecifiedDataElementSourceByPath.builder(),
         ) : Builder {
 
             override fun addChildPathForParentPath(
@@ -80,10 +80,16 @@ internal data class DefaultMaterializationMetamodelFacts(
                 path: GQLOperationPath
             ): Builder = this.apply { pathsByFieldCoordinates.put(fieldCoordinates, path) }
 
-            override fun putDataElementSourceForDomainPath(
+            override fun putDomainSpecifiedDataElementSourceForPath(
                 path: GQLOperationPath,
-                dataElementSource: DataElementSource
-            ): Builder = this.apply { dataElementSourceByDomainPath.put(path, dataElementSource) }
+                domainSpecifiedDataElementSource: DomainSpecifiedDataElementSource,
+            ): Builder =
+                this.apply {
+                    this.domainSpecifiedDataElementSourceByPath.put(
+                        path,
+                        domainSpecifiedDataElementSource
+                    )
+                }
 
             override fun build(): MaterializationMetamodelFacts {
                 return DefaultMaterializationMetamodelFacts(
@@ -91,7 +97,8 @@ internal data class DefaultMaterializationMetamodelFacts(
                     querySchemaElementsByCanonicalPath = querySchemaElementsByPath.build(),
                     fieldCoordinatesByCanonicalPath = fieldCoordinatesByPath.build(),
                     canonicalPathsByFieldCoordinates = pathsByFieldCoordinates.build(),
-                    dataElementSourceByDomainPath = dataElementSourceByDomainPath.build()
+                    domainSpecifiedDataElementSourceByPath =
+                        domainSpecifiedDataElementSourceByPath.build()
                 )
             }
         }

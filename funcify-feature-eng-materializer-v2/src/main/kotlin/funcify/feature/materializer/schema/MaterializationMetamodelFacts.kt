@@ -1,7 +1,6 @@
 package funcify.feature.materializer.schema
 
 import arrow.core.foldLeft
-import funcify.feature.schema.dataelement.DataElementSource
 import funcify.feature.schema.path.operation.GQLOperationPath
 import graphql.schema.FieldCoordinates
 import graphql.schema.GraphQLSchemaElement
@@ -23,7 +22,8 @@ internal interface MaterializationMetamodelFacts {
 
     val canonicalPathsByFieldCoordinates: ImmutableMap<FieldCoordinates, GQLOperationPath>
 
-    val dataElementSourceByDomainPath: ImmutableMap<GQLOperationPath, DataElementSource>
+    val domainSpecifiedDataElementSourceByPath:
+        ImmutableMap<GQLOperationPath, DomainSpecifiedDataElementSource>
 
     fun update(transformer: Builder.() -> Builder): MaterializationMetamodelFacts
 
@@ -131,28 +131,29 @@ internal interface MaterializationMetamodelFacts {
             }
         }
 
-        fun putDataElementSourceForDomainPath(
+        fun putDomainSpecifiedDataElementSourceForPath(
             path: GQLOperationPath,
-            dataElementSource: DataElementSource
+            domainSpecifiedDataElementSource: DomainSpecifiedDataElementSource
         ): Builder
 
-        fun putAllDataElementSources(
-            pathDataElementSourcePairs: Iterable<Pair<GQLOperationPath, DataElementSource>>
+        fun putAllDomainSpecifiedDataElementSources(
+            pathDataElementSourcePairs:
+                Iterable<Pair<GQLOperationPath, DomainSpecifiedDataElementSource>>
         ): Builder {
             return pathDataElementSourcePairs.fold(this) {
                 b: Builder,
-                (p: GQLOperationPath, des: DataElementSource) ->
-                b.putDataElementSourceForDomainPath(p, des)
+                (p: GQLOperationPath, dsdes: DomainSpecifiedDataElementSource) ->
+                b.putDomainSpecifiedDataElementSourceForPath(p, dsdes)
             }
         }
 
-        fun putAllDataElementSources(
-            pathDataElementSourcePairs: Map<GQLOperationPath, DataElementSource>
+        fun putAllDomainSpecifiedDataElementSources(
+            pathDataElementSourcePairs: Map<GQLOperationPath, DomainSpecifiedDataElementSource>
         ): Builder {
             return pathDataElementSourcePairs.foldLeft(this) {
                 b: Builder,
-                (p: GQLOperationPath, des: DataElementSource) ->
-                b.putDataElementSourceForDomainPath(p, des)
+                (p: GQLOperationPath, dsdes: DomainSpecifiedDataElementSource) ->
+                b.putDomainSpecifiedDataElementSourceForPath(p, dsdes)
             }
         }
 

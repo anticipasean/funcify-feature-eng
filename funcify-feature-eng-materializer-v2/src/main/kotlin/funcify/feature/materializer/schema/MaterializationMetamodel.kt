@@ -28,6 +28,6 @@ interface MaterializationMetamodel {
 
     val canonicalPathsByFieldCoordinates: ImmutableMap<FieldCoordinates, GQLOperationPath>
 
-    val dataElementSourcesByDomainPath: ImmutableMap<GQLOperationPath, DataElementSource>
+    val domainSpecifiedDataElementSourceByPath: ImmutableMap<GQLOperationPath, DomainSpecifiedDataElementSource>
 
 }

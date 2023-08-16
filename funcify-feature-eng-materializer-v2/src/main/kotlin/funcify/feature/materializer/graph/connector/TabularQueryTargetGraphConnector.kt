@@ -12,7 +12,5 @@ interface TabularQueryTargetGraphConnector<C> : RequestMaterializationGraphConne
 C : RequestMaterializationGraphContext,
 C : TabularQueryTarget {
 
-    fun createOperationDefinition(context: C): OperationDefinition {
-        TODO()
-    }
+
 }

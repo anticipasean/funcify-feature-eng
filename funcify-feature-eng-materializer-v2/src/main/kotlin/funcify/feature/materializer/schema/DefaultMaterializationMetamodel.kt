@@ -1,7 +1,6 @@
 package funcify.feature.materializer.schema
 
 import funcify.feature.schema.FeatureEngineeringModel
-import funcify.feature.schema.dataelement.DataElementSource
 import funcify.feature.schema.path.operation.GQLOperationPath
 import graphql.schema.FieldCoordinates
 import graphql.schema.GraphQLSchema
@@ -27,6 +26,7 @@ internal data class DefaultMaterializationMetamodel(
         ImmutableMap<FieldCoordinates, GQLOperationPath> =
         materializationMetamodelFacts.canonicalPathsByFieldCoordinates
 
-    override val dataElementSourcesByDomainPath: ImmutableMap<GQLOperationPath, DataElementSource> =
-        materializationMetamodelFacts.dataElementSourceByDomainPath
+    override val domainSpecifiedDataElementSourceByPath:
+        ImmutableMap<GQLOperationPath, DomainSpecifiedDataElementSource> =
+        materializationMetamodelFacts.domainSpecifiedDataElementSourceByPath
 }

@@ -15,6 +15,7 @@ object TabularQueryConnector : TabularQueryTargetGraphConnector<TabularQuery> {
     private val logger: Logger = loggerFor<TabularQueryConnector>()
 
     override fun connectOperationDefinition(connectorContext: TabularQuery): TabularQuery {
+        logger.info("connect_operation_definition: [ ]")
         TODO("Not yet implemented")
     }
 

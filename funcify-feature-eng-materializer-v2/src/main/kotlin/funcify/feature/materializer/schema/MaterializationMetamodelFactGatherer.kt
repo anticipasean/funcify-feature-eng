@@ -3,19 +3,13 @@ package funcify.feature.materializer.schema
 import arrow.core.*
 import funcify.feature.error.ServiceError
 import funcify.feature.schema.FeatureEngineeringModel
-import funcify.feature.schema.dataelement.DataElementSource
-import funcify.feature.schema.path.operation.FieldSegment
 import funcify.feature.schema.path.operation.GQLOperationPath
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.OptionExtensions.toOption
 import funcify.feature.tools.extensions.SequenceExtensions.firstOrNone
-import funcify.feature.tools.extensions.SequenceExtensions.flatMapOptions
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.extensions.TryExtensions.successIfDefined
-import graphql.language.FieldDefinition
-import graphql.language.ObjectTypeDefinition
-import graphql.language.SDLDefinition
 import graphql.language.TypeDefinition
 import graphql.schema.*
 import graphql.util.Breadcrumb
@@ -25,7 +19,6 @@ import graphql.util.TraverserContext
 import graphql.util.TraverserResult
 import graphql.util.TraverserVisitor
 import java.util.*
-import kotlinx.collections.immutable.ImmutableSet
 import org.slf4j.Logger
 
 internal object MaterializationMetamodelFactGatherer :
@@ -53,7 +46,7 @@ internal object MaterializationMetamodelFactGatherer :
         return graphQLSchema.queryType
             .toOption()
             .flatMap(calculateCanonicalPathsOffQueryObjectType(graphQLSchema))
-            .map(calculateDataElementDomainPaths(featureEngineeringModel))
+            .map(calculateDomainSpecifiedDataElementSources(featureEngineeringModel, graphQLSchema))
             .getOrElse { DefaultMaterializationMetamodelFacts.empty() }
             .also { mmf: MaterializationMetamodelFacts ->
                 logger.debug(
@@ -522,51 +515,21 @@ internal object MaterializationMetamodelFactGatherer :
         }
     }
 
-    private fun calculateDataElementDomainPaths(
-        featureEngineeringModel: FeatureEngineeringModel
+    private fun calculateDomainSpecifiedDataElementSources(
+        featureEngineeringModel: FeatureEngineeringModel,
+        graphQLSchema: GraphQLSchema
     ): (MaterializationMetamodelFacts) -> MaterializationMetamodelFacts {
         return { mmf: MaterializationMetamodelFacts ->
             mmf.update {
-                putAllDataElementSources(
-                    featureEngineeringModel.dataElementFieldCoordinates
-                        .toOption()
-                        .flatMap { fc: FieldCoordinates ->
-                            mmf.canonicalPathsByFieldCoordinates.getOrNone(fc)
-                        }
-                        .flatMap { dataElementParentPath: GQLOperationPath ->
-                            mmf.childCanonicalPathsByParentPath.getOrNone(dataElementParentPath)
-                        }
-                        .map(ImmutableSet<GQLOperationPath>::asSequence)
-                        .getOrElse(::emptySequence)
-                        .filter { p: GQLOperationPath -> p.selectionReferent() }
-                        .map { p: GQLOperationPath ->
-                            p.selection
-                                .lastOrNone()
-                                .filterIsInstance<FieldSegment>()
-                                .map { fs: FieldSegment -> fs.fieldName }
-                                .map { fn: String -> p to fn }
-                        }
-                        .flatMapOptions()
-                        .map { (p: GQLOperationPath, fn: String) ->
-                            featureEngineeringModel.dataElementSourcesByName
-                                .asSequence()
-                                .firstOrNone { (_: String, des: DataElementSource) ->
-                                    des.sourceSDLDefinitions
-                                        .asSequence()
-                                        .firstOrNone { sd: SDLDefinition<*> ->
-                                            sd is ObjectTypeDefinition &&
-                                                QUERY_OBJECT_TYPE_NAME == sd.name &&
-                                                sd.fieldDefinitions.any { fd: FieldDefinition ->
-                                                    fd.name == fn
-                                                }
-                                        }
-                                        .isDefined()
-                                }
-                                .map { (_: String, des: DataElementSource) -> p to des }
-                        }
-                        .flatMapOptions()
-                        .asIterable()
-                )
+                DomainSpecifiedDataElementSourceCreator.invoke(
+                        featureEngineeringModel,
+                        graphQLSchema
+                    )
+                    .fold(this) {
+                        b: MaterializationMetamodelFacts.Builder,
+                        dsdes: DomainSpecifiedDataElementSource ->
+                        b.putDomainSpecifiedDataElementSourceForPath(dsdes.domainPath, dsdes)
+                    }
             }
         }
     }
