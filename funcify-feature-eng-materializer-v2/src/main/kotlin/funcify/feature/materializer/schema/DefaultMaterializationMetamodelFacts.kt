@@ -1,6 +1,7 @@
 package funcify.feature.materializer.schema
 
 import funcify.feature.materializer.schema.MaterializationMetamodelFacts.Builder
+import funcify.feature.schema.dataelement.DataElementSource
 import funcify.feature.schema.path.operation.GQLOperationPath
 import graphql.schema.FieldCoordinates
 import graphql.schema.GraphQLSchemaElement
@@ -10,72 +11,87 @@ import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.persistentSetOf
 
 internal data class DefaultMaterializationMetamodelFacts(
-    override val querySchemaElementsByPath: PersistentMap<GQLOperationPath, GraphQLSchemaElement>,
-    override val fieldCoordinatesByPath:
-        PersistentMap<GQLOperationPath, PersistentSet<FieldCoordinates>>,
-    override val pathsByFieldCoordinates:
-        PersistentMap<FieldCoordinates, PersistentSet<GQLOperationPath>>
+    override val childCanonicalPathsByParentPath:
+        PersistentMap<GQLOperationPath, PersistentSet<GQLOperationPath>>,
+    override val querySchemaElementsByCanonicalPath:
+        PersistentMap<GQLOperationPath, GraphQLSchemaElement>,
+    override val fieldCoordinatesByCanonicalPath: PersistentMap<GQLOperationPath, FieldCoordinates>,
+    override val canonicalPathsByFieldCoordinates:
+        PersistentMap<FieldCoordinates, GQLOperationPath>,
+    override val dataElementSourceByDomainPath: PersistentMap<GQLOperationPath, DataElementSource>
 ) : MaterializationMetamodelFacts {
 
     companion object {
 
         fun empty(): MaterializationMetamodelFacts {
             return DefaultMaterializationMetamodelFacts(
-                querySchemaElementsByPath = persistentMapOf(),
-                fieldCoordinatesByPath = persistentMapOf(),
-                pathsByFieldCoordinates = persistentMapOf()
+                childCanonicalPathsByParentPath = persistentMapOf(),
+                querySchemaElementsByCanonicalPath = persistentMapOf(),
+                fieldCoordinatesByCanonicalPath = persistentMapOf(),
+                canonicalPathsByFieldCoordinates = persistentMapOf(),
+                dataElementSourceByDomainPath = persistentMapOf(),
             )
         }
 
         internal class DefaultBuilder(
             private val existingFacts: DefaultMaterializationMetamodelFacts,
+            private val childCanonicalPathsByParentPath:
+                PersistentMap.Builder<GQLOperationPath, PersistentSet<GQLOperationPath>> =
+                existingFacts.childCanonicalPathsByParentPath.builder(),
             private val querySchemaElementsByPath:
                 PersistentMap.Builder<GQLOperationPath, GraphQLSchemaElement> =
-                existingFacts.querySchemaElementsByPath.builder(),
+                existingFacts.querySchemaElementsByCanonicalPath.builder(),
             private val fieldCoordinatesByPath:
-                PersistentMap.Builder<GQLOperationPath, PersistentSet<FieldCoordinates>> =
-                existingFacts.fieldCoordinatesByPath.builder(),
+                PersistentMap.Builder<GQLOperationPath, FieldCoordinates> =
+                existingFacts.fieldCoordinatesByCanonicalPath.builder(),
             private val pathsByFieldCoordinates:
-                PersistentMap.Builder<FieldCoordinates, PersistentSet<GQLOperationPath>> =
-                existingFacts.pathsByFieldCoordinates.builder()
+                PersistentMap.Builder<FieldCoordinates, GQLOperationPath> =
+                existingFacts.canonicalPathsByFieldCoordinates.builder(),
+            private val dataElementSourceByDomainPath:
+                PersistentMap.Builder<GQLOperationPath, DataElementSource> =
+                existingFacts.dataElementSourceByDomainPath.builder(),
         ) : Builder {
 
-            override fun putGraphQLSchemaElement(
+            override fun addChildPathForParentPath(
+                parentPath: GQLOperationPath,
+                childPath: GQLOperationPath
+            ): Builder =
+                this.apply {
+                    childCanonicalPathsByParentPath.put(
+                        parentPath,
+                        childCanonicalPathsByParentPath
+                            .getOrElse(parentPath, ::persistentSetOf)
+                            .add(childPath)
+                    )
+                }
+
+            override fun putGraphQLSchemaElementForPath(
                 path: GQLOperationPath,
                 element: GraphQLSchemaElement,
             ): Builder = this.apply { querySchemaElementsByPath.put(path, element) }
 
-            override fun putFieldCoordinates(
+            override fun putFieldCoordinatesForPath(
                 path: GQLOperationPath,
                 fieldCoordinates: FieldCoordinates
-            ): Builder =
-                this.apply {
-                    fieldCoordinatesByPath.put(
-                        path,
-                        fieldCoordinatesByPath
-                            .getOrElse(path, ::persistentSetOf)
-                            .add(fieldCoordinates)
-                    )
-                }
+            ): Builder = this.apply { fieldCoordinatesByPath.put(path, fieldCoordinates) }
 
-            override fun putPath(
+            override fun putPathForFieldCoordinates(
                 fieldCoordinates: FieldCoordinates,
                 path: GQLOperationPath
-            ): Builder =
-                this.apply {
-                    pathsByFieldCoordinates.put(
-                        fieldCoordinates,
-                        pathsByFieldCoordinates
-                            .getOrElse(fieldCoordinates, ::persistentSetOf)
-                            .add(path)
-                    )
-                }
+            ): Builder = this.apply { pathsByFieldCoordinates.put(fieldCoordinates, path) }
+
+            override fun putDataElementSourceForDomainPath(
+                path: GQLOperationPath,
+                dataElementSource: DataElementSource
+            ): Builder = this.apply { dataElementSourceByDomainPath.put(path, dataElementSource) }
 
             override fun build(): MaterializationMetamodelFacts {
                 return DefaultMaterializationMetamodelFacts(
-                    querySchemaElementsByPath = querySchemaElementsByPath.build(),
-                    fieldCoordinatesByPath = fieldCoordinatesByPath.build(),
-                    pathsByFieldCoordinates = pathsByFieldCoordinates.build()
+                    childCanonicalPathsByParentPath = childCanonicalPathsByParentPath.build(),
+                    querySchemaElementsByCanonicalPath = querySchemaElementsByPath.build(),
+                    fieldCoordinatesByCanonicalPath = fieldCoordinatesByPath.build(),
+                    canonicalPathsByFieldCoordinates = pathsByFieldCoordinates.build(),
+                    dataElementSourceByDomainPath = dataElementSourceByDomainPath.build()
                 )
             }
         }

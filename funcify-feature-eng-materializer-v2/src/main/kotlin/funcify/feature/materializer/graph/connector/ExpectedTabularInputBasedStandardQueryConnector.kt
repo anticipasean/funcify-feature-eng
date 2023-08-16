@@ -2,7 +2,7 @@ package funcify.feature.materializer.graph.connector
 
 import funcify.feature.materializer.graph.component.QueryComponentContext.FieldArgumentComponentContext
 import funcify.feature.materializer.graph.component.QueryComponentContext.SelectedFieldComponentContext
-import funcify.feature.materializer.graph.context.ExpectedStandardJsonInputStandardQuery
+import funcify.feature.materializer.graph.context.ExpectedTabularInputStandardQuery
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import org.slf4j.Logger
 
@@ -10,28 +10,28 @@ import org.slf4j.Logger
  * @author smccarron
  * @created 2023-08-05
  */
-object ExpectedStandardJsonInputBasedStandardQueryConnector :
-    ExpectedRawInputBasedGraphConnector<ExpectedStandardJsonInputStandardQuery> {
+object ExpectedTabularInputBasedStandardQueryConnector :
+    ExpectedRawInputBasedGraphConnector<ExpectedTabularInputStandardQuery> {
 
-    private val logger: Logger = loggerFor<ExpectedStandardJsonInputBasedStandardQueryConnector>()
+    private val logger: Logger = loggerFor<ExpectedTabularInputBasedStandardQueryConnector>()
 
     override fun connectOperationDefinition(
-        connectorContext: ExpectedStandardJsonInputStandardQuery
-    ): ExpectedStandardJsonInputStandardQuery {
+        connectorContext: ExpectedTabularInputStandardQuery
+    ): ExpectedTabularInputStandardQuery {
         TODO("Not yet implemented")
     }
 
     override fun connectFieldArgument(
-        connectorContext: ExpectedStandardJsonInputStandardQuery,
+        connectorContext: ExpectedTabularInputStandardQuery,
         fieldArgumentComponentContext: FieldArgumentComponentContext,
-    ): ExpectedStandardJsonInputStandardQuery {
+    ): ExpectedTabularInputStandardQuery {
         TODO("Not yet implemented")
     }
 
     override fun connectSelectedField(
-        connectorContext: ExpectedStandardJsonInputStandardQuery,
+        connectorContext: ExpectedTabularInputStandardQuery,
         selectedFieldComponentContext: SelectedFieldComponentContext,
-    ): ExpectedStandardJsonInputStandardQuery {
+    ): ExpectedTabularInputStandardQuery {
         TODO("Not yet implemented")
     }
 }

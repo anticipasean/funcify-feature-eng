@@ -200,6 +200,18 @@ interface GQLOperationPath : Comparable<GQLOperationPath> {
         }
     }
 
+    fun selectionReferent(): Boolean {
+        return argument.isEmpty() && directive.isEmpty()
+    }
+
+    fun argumentReferent(): Boolean {
+        return argument.isNotEmpty() && directive.isEmpty()
+    }
+
+    fun directiveReferent(): Boolean {
+        return directive.isNotEmpty()
+    }
+
     fun referentOnFragment(): Boolean
 
     fun referentOnInlineFragment(): Boolean
@@ -207,6 +219,14 @@ interface GQLOperationPath : Comparable<GQLOperationPath> {
     fun referentOnFragmentSpread(): Boolean
 
     fun referentAliased(): Boolean
+
+    fun referentOnArgument(): Boolean {
+        return argument.isNotEmpty()
+    }
+
+    fun referentOnDirective(): Boolean {
+        return directive.isNotEmpty()
+    }
 
     fun toDecodedURIString(): String
 

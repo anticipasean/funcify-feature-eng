@@ -1,7 +1,9 @@
 package funcify.feature.materializer.graph.connector
 
-import funcify.feature.materializer.graph.QueryComponentContext
-import funcify.feature.materializer.graph.context.RequestMaterializationGraphContext.ExpectedTabularInputTabularQuery
+import funcify.feature.materializer.graph.component.QueryComponentContext
+import funcify.feature.materializer.graph.context.ExpectedTabularInputTabularQuery
+import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
+import org.slf4j.Logger
 
 /**
  * @author smccarron
@@ -10,10 +12,11 @@ import funcify.feature.materializer.graph.context.RequestMaterializationGraphCon
 object ExpectedTabularInputBasedTabularQueryConnector :
     ExpectedRawInputBasedGraphConnector<ExpectedTabularInputTabularQuery>,
     TabularQueryTargetGraphConnector<ExpectedTabularInputTabularQuery> {
+
+    private val logger: Logger = loggerFor<ExpectedTabularInputBasedTabularQueryConnector>()
+
     override fun connectOperationDefinition(
-        connectorContext: ExpectedTabularInputTabularQuery,
-        operationDefinitionComponentContext:
-            QueryComponentContext.OperationDefinitionComponentContext,
+        connectorContext: ExpectedTabularInputTabularQuery
     ): ExpectedTabularInputTabularQuery {
         TODO("Not yet implemented")
     }
@@ -25,25 +28,9 @@ object ExpectedTabularInputBasedTabularQueryConnector :
         TODO("Not yet implemented")
     }
 
-    override fun connectField(
+    override fun connectSelectedField(
         connectorContext: ExpectedTabularInputTabularQuery,
-        fieldComponentContext: QueryComponentContext.FieldComponentContext,
-    ): ExpectedTabularInputTabularQuery {
-        TODO("Not yet implemented")
-    }
-
-    override fun connectInlineFragmentField(
-        connectorContext: ExpectedTabularInputTabularQuery,
-        inlineFragmentFieldComponentContext:
-            QueryComponentContext.InlineFragmentFieldComponentContext,
-    ): ExpectedTabularInputTabularQuery {
-        TODO("Not yet implemented")
-    }
-
-    override fun connectFragmentSpreadField(
-        connectorContext: ExpectedTabularInputTabularQuery,
-        fragmentSpreadFieldComponentContext:
-            QueryComponentContext.FragmentSpreadFieldComponentContext,
+        selectedFieldComponentContext: QueryComponentContext.SelectedFieldComponentContext,
     ): ExpectedTabularInputTabularQuery {
         TODO("Not yet implemented")
     }

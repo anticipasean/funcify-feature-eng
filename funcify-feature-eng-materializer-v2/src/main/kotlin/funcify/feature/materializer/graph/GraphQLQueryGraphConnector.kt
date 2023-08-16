@@ -1,10 +1,7 @@
 package funcify.feature.materializer.graph
 
-import funcify.feature.materializer.graph.QueryComponentContext.FieldArgumentComponentContext
-import funcify.feature.materializer.graph.QueryComponentContext.FieldComponentContext
-import funcify.feature.materializer.graph.QueryComponentContext.FragmentSpreadFieldComponentContext
-import funcify.feature.materializer.graph.QueryComponentContext.InlineFragmentFieldComponentContext
-import funcify.feature.materializer.graph.QueryComponentContext.OperationDefinitionComponentContext
+import funcify.feature.materializer.graph.component.QueryComponentContext.FieldArgumentComponentContext
+import funcify.feature.materializer.graph.component.QueryComponentContext.SelectedFieldComponentContext
 
 /**
  * @author smccarron
@@ -12,25 +9,15 @@ import funcify.feature.materializer.graph.QueryComponentContext.OperationDefinit
  */
 interface GraphQLQueryGraphConnector<C> {
 
-    fun connectOperationDefinition(
-        connectorContext: C,
-        operationDefinitionComponentContext: OperationDefinitionComponentContext
-    ): C
+    fun connectOperationDefinition(connectorContext: C): C
 
     fun connectFieldArgument(
         connectorContext: C,
         fieldArgumentComponentContext: FieldArgumentComponentContext
     ): C
 
-    fun connectField(connectorContext: C, fieldComponentContext: FieldComponentContext): C
-
-    fun connectInlineFragmentField(
+    fun connectSelectedField(
         connectorContext: C,
-        inlineFragmentFieldComponentContext: InlineFragmentFieldComponentContext
-    ): C
-
-    fun connectFragmentSpreadField(
-        connectorContext: C,
-        fragmentSpreadFieldComponentContext: FragmentSpreadFieldComponentContext
+        selectedFieldComponentContext: SelectedFieldComponentContext
     ): C
 }

@@ -9,6 +9,7 @@ import java.time.Instant
 data class RequestMaterializationGraphCacheKey(
     val materializationMetamodelCreated: Instant,
     val variableKeys: ImmutableSet<String>,
+    val operationName: Option<String>,
     val standardQueryDocument: Option<Document>,
     val tabularQueryOutputColumns: Option<ImmutableSet<String>>,
     val rawInputContextShape: Option<RawInputContextShape>

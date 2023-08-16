@@ -1,11 +1,10 @@
 package funcify.feature.materializer.graph.connector
 
-import funcify.feature.materializer.graph.QueryComponentContext.FieldArgumentComponentContext
-import funcify.feature.materializer.graph.QueryComponentContext.FieldComponentContext
-import funcify.feature.materializer.graph.QueryComponentContext.FragmentSpreadFieldComponentContext
-import funcify.feature.materializer.graph.QueryComponentContext.InlineFragmentFieldComponentContext
-import funcify.feature.materializer.graph.QueryComponentContext.OperationDefinitionComponentContext
-import funcify.feature.materializer.graph.context.RequestMaterializationGraphContext.StandardQuery
+import funcify.feature.materializer.graph.component.QueryComponentContext.FieldArgumentComponentContext
+import funcify.feature.materializer.graph.component.QueryComponentContext.SelectedFieldComponentContext
+import funcify.feature.materializer.graph.context.StandardQuery
+import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
+import org.slf4j.Logger
 
 /**
  * @author smccarron
@@ -13,10 +12,9 @@ import funcify.feature.materializer.graph.context.RequestMaterializationGraphCon
  */
 object StandardQueryConnector : RequestMaterializationGraphConnector<StandardQuery> {
 
-    override fun connectOperationDefinition(
-        connectorContext: StandardQuery,
-        operationDefinitionComponentContext: OperationDefinitionComponentContext,
-    ): StandardQuery {
+    private val logger: Logger = loggerFor<StandardQueryConnector>()
+
+    override fun connectOperationDefinition(connectorContext: StandardQuery): StandardQuery {
         TODO("Not yet implemented")
     }
 
@@ -27,23 +25,9 @@ object StandardQueryConnector : RequestMaterializationGraphConnector<StandardQue
         TODO("Not yet implemented")
     }
 
-    override fun connectField(
+    override fun connectSelectedField(
         connectorContext: StandardQuery,
-        fieldComponentContext: FieldComponentContext
-    ): StandardQuery {
-        TODO("Not yet implemented")
-    }
-
-    override fun connectInlineFragmentField(
-        connectorContext: StandardQuery,
-        inlineFragmentFieldComponentContext: InlineFragmentFieldComponentContext,
-    ): StandardQuery {
-        TODO("Not yet implemented")
-    }
-
-    override fun connectFragmentSpreadField(
-        connectorContext: StandardQuery,
-        fragmentSpreadFieldComponentContext: FragmentSpreadFieldComponentContext,
+        selectedFieldComponentContext: SelectedFieldComponentContext
     ): StandardQuery {
         TODO("Not yet implemented")
     }

@@ -1,6 +1,7 @@
 package funcify.feature.materializer.graph
 
 import arrow.core.Option
+import arrow.core.filterIsInstance
 import arrow.core.getOrElse
 import arrow.core.left
 import arrow.core.none
@@ -11,13 +12,32 @@ import com.fasterxml.jackson.databind.node.ArrayNode
 import com.fasterxml.jackson.databind.node.ObjectNode
 import com.google.common.cache.CacheBuilder
 import funcify.feature.error.ServiceError
+import funcify.feature.materializer.graph.component.QueryComponentContext
+import funcify.feature.materializer.graph.component.QueryComponentContextFactory
+import funcify.feature.materializer.graph.connector.ExpectedStandardJsonInputBasedStandardQueryConnector
+import funcify.feature.materializer.graph.connector.ExpectedStandardJsonInputBasedTabularQueryConnector
+import funcify.feature.materializer.graph.connector.ExpectedTabularInputBasedStandardQueryConnector
+import funcify.feature.materializer.graph.connector.ExpectedTabularInputBasedTabularQueryConnector
+import funcify.feature.materializer.graph.connector.RequestMaterializationGraphConnector
+import funcify.feature.materializer.graph.connector.StandardQueryConnector
+import funcify.feature.materializer.graph.connector.TabularQueryConnector
+import funcify.feature.materializer.graph.context.ExpectedStandardJsonInputStandardQuery
+import funcify.feature.materializer.graph.context.ExpectedStandardJsonInputTabularQuery
+import funcify.feature.materializer.graph.context.ExpectedTabularInputStandardQuery
+import funcify.feature.materializer.graph.context.ExpectedTabularInputTabularQuery
+import funcify.feature.materializer.graph.context.RequestMaterializationGraphContext
+import funcify.feature.materializer.graph.context.RequestMaterializationGraphContextFactory
+import funcify.feature.materializer.graph.context.StandardQuery
+import funcify.feature.materializer.graph.context.TabularQuery
 import funcify.feature.materializer.graph.input.DefaultRawInputContextShapeFactory
 import funcify.feature.materializer.graph.input.RawInputContextShape
 import funcify.feature.materializer.input.RawInputContext
 import funcify.feature.materializer.session.GraphQLSingleRequestSession
+import funcify.feature.schema.path.operation.GQLOperationPath
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.MonoExtensions.widen
+import funcify.feature.tools.extensions.SequenceExtensions.firstOrNone
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.extensions.TryExtensions.failure
 import funcify.feature.tools.extensions.TryExtensions.successIfNonNull
@@ -25,6 +45,9 @@ import funcify.feature.tree.PersistentTree
 import funcify.feature.tree.path.TreePath
 import graphql.GraphQLError
 import graphql.execution.preparsed.PreparsedDocumentEntry
+import graphql.language.Argument
+import graphql.language.Field
+import graphql.language.Node
 import java.time.Duration
 import java.util.concurrent.ConcurrentMap
 import kotlinx.collections.immutable.ImmutableSet
@@ -36,8 +59,11 @@ import reactor.core.publisher.Mono
  * @author smccarron
  * @created 2022-08-08
  */
-internal class DefaultSingleRequestMaterializationGraphService :
-    SingleRequestMaterializationGraphService {
+internal class DefaultSingleRequestMaterializationGraphService(
+    private val requestMaterializationGraphContextFactory:
+        RequestMaterializationGraphContextFactory,
+    private val queryComponentContextFactory: QueryComponentContextFactory
+) : SingleRequestMaterializationGraphService {
 
     companion object {
         private val logger: Logger = loggerFor<DefaultSingleRequestMaterializationGraphService>()
@@ -69,16 +95,16 @@ internal class DefaultSingleRequestMaterializationGraphService :
                                 requestMaterializationGraphCache[rmgck]
                         ) {
                             null -> {
-                                calculateRequestMaterializationGraphForSession(session).map {
-                                    rmg1: RequestMaterializationGraph ->
-                                    requestMaterializationGraphCache[rmgck] = rmg1
-                                    session.update {
-                                        preparsedDocumentEntry(
-                                            PreparsedDocumentEntry(rmg1.document)
-                                        )
-                                        requestMaterializationGraph(rmg1)
+                                calculateRequestMaterializationGraphForSession(rmgck, session)
+                                    .map { rmg1: RequestMaterializationGraph ->
+                                        requestMaterializationGraphCache[rmgck] = rmg1
+                                        session.update {
+                                            preparsedDocumentEntry(
+                                                PreparsedDocumentEntry(rmg1.document)
+                                            )
+                                            requestMaterializationGraph(rmg1)
+                                        }
                                     }
-                                }
                             }
                             else -> {
                                 Mono.just(
@@ -112,6 +138,7 @@ internal class DefaultSingleRequestMaterializationGraphService :
                                     session.materializationMetamodel.created,
                                 variableKeys =
                                     session.rawGraphQLRequest.variables.keys.toPersistentSet(),
+                                operationName = session.rawGraphQLRequest.operationName.toOption(),
                                 standardQueryDocument =
                                     session.preparsedDocumentEntry.mapNotNull(
                                         PreparsedDocumentEntry::getDocument
@@ -148,6 +175,7 @@ internal class DefaultSingleRequestMaterializationGraphService :
                                     session.materializationMetamodel.created,
                                 variableKeys =
                                     session.rawGraphQLRequest.variables.keys.toPersistentSet(),
+                                operationName = none(),
                                 standardQueryDocument = none(),
                                 tabularQueryOutputColumns =
                                     session.rawGraphQLRequest.expectedOutputFieldNames
@@ -223,11 +251,238 @@ internal class DefaultSingleRequestMaterializationGraphService :
     }
 
     private fun calculateRequestMaterializationGraphForSession(
+        cacheKey: RequestMaterializationGraphCacheKey,
         session: GraphQLSingleRequestSession
     ): Mono<RequestMaterializationGraph> {
         logger.info(
             "calculate_request_materialization_graph_for_session: [ session.session_id: ${session.sessionId} ]"
         )
-        TODO("Not yet implemented")
+        return Mono.fromCallable {
+                when {
+                    cacheKey.standardQueryDocument.isDefined() &&
+                        cacheKey.rawInputContextShape
+                            .filterIsInstance<RawInputContextShape.Tree>()
+                            .isDefined() -> {
+                        requestMaterializationGraphContextFactory
+                            .expectedStandardJsonInputStandardQueryBuilder()
+                            .materializationMetamodel(session.materializationMetamodel)
+                            .variableKeys(cacheKey.variableKeys)
+                            .document(cacheKey.standardQueryDocument.orNull()!!)
+                            .standardJsonShape(
+                                cacheKey.rawInputContextShape.orNull() as RawInputContextShape.Tree
+                            )
+                            .build()
+                    }
+                    cacheKey.standardQueryDocument.isDefined() &&
+                        cacheKey.rawInputContextShape
+                            .filterIsInstance<RawInputContextShape.Tabular>()
+                            .isDefined() -> {
+                        requestMaterializationGraphContextFactory
+                            .expectedTabularInputStandardQueryBuilder()
+                            .materializationMetamodel(session.materializationMetamodel)
+                            .variableKeys(cacheKey.variableKeys)
+                            .outputColumnNames(cacheKey.tabularQueryOutputColumns.orNull()!!)
+                            .tabularShape(
+                                cacheKey.rawInputContextShape.orNull()
+                                    as RawInputContextShape.Tabular
+                            )
+                            .build()
+                    }
+                    cacheKey.tabularQueryOutputColumns.isDefined() &&
+                        cacheKey.rawInputContextShape
+                            .filterIsInstance<RawInputContextShape.Tabular>()
+                            .isDefined() -> {
+                        requestMaterializationGraphContextFactory
+                            .expectedTabularInputTabularQueryBuilder()
+                            .materializationMetamodel(session.materializationMetamodel)
+                            .variableKeys(cacheKey.variableKeys)
+                            .outputColumnNames(cacheKey.tabularQueryOutputColumns.orNull()!!)
+                            .tabularShape(
+                                cacheKey.rawInputContextShape.orNull()
+                                    as RawInputContextShape.Tabular
+                            )
+                            .build()
+                    }
+                    cacheKey.tabularQueryOutputColumns.isDefined() &&
+                        cacheKey.rawInputContextShape
+                            .filterIsInstance<RawInputContextShape.Tree>()
+                            .isDefined() -> {
+                        requestMaterializationGraphContextFactory
+                            .expectedStandardJsonInputTabularQueryBuilder()
+                            .materializationMetamodel(session.materializationMetamodel)
+                            .variableKeys(cacheKey.variableKeys)
+                            .outputColumnNames(cacheKey.tabularQueryOutputColumns.orNull()!!)
+                            .standardJsonShape(
+                                cacheKey.rawInputContextShape.orNull() as RawInputContextShape.Tree
+                            )
+                            .build()
+                    }
+                    cacheKey.standardQueryDocument.isDefined() -> {
+                        requestMaterializationGraphContextFactory
+                            .standardQueryBuilder()
+                            .materializationMetamodel(session.materializationMetamodel)
+                            .variableKeys(cacheKey.variableKeys)
+                            .document(cacheKey.standardQueryDocument.orNull()!!)
+                            .build()
+                    }
+                    cacheKey.tabularQueryOutputColumns.isDefined() -> {
+                        requestMaterializationGraphContextFactory
+                            .tabularQueryBuilder()
+                            .materializationMetamodel(session.materializationMetamodel)
+                            .variableKeys(cacheKey.variableKeys)
+                            .outputColumnNames(cacheKey.tabularQueryOutputColumns.orNull()!!)
+                            .build()
+                    }
+                    else -> {
+                        throw ServiceError.of(
+                            """unable to create a request_materialization_graph_context 
+                            |instance for [ cache_key: %s ]"""
+                                .flatten(),
+                            cacheKey
+                        )
+                    }
+                }
+            }
+            .flatMap { c: RequestMaterializationGraphContext ->
+                deriveRequestMaterializationGraphFromContext(c)
+            }
+    }
+
+    private fun deriveRequestMaterializationGraphFromContext(
+        context: RequestMaterializationGraphContext
+    ): Mono<RequestMaterializationGraph> {
+        Mono.fromCallable {
+            when (context) {
+                is ExpectedStandardJsonInputStandardQuery -> {
+                    val connector = ExpectedStandardJsonInputBasedStandardQueryConnector
+                    connectOperationDefinitionAndEachAddedVertex(connector, context) {
+                        c: ExpectedStandardJsonInputStandardQuery ->
+                        c.addedVertices
+                            .asSequence()
+                            .map(Map.Entry<GQLOperationPath, Node<*>>::toPair)
+                            .firstOrNone() to c.update { dropFirstAddedVertex() }
+                    }
+                }
+                is ExpectedStandardJsonInputTabularQuery -> {
+                    val connector = ExpectedStandardJsonInputBasedTabularQueryConnector
+                    connectOperationDefinitionAndEachAddedVertex(connector, context) {
+                        c: ExpectedStandardJsonInputTabularQuery ->
+                        c.addedVertices
+                            .asSequence()
+                            .map(Map.Entry<GQLOperationPath, Node<*>>::toPair)
+                            .firstOrNone() to c.update { dropFirstAddedVertex() }
+                    }
+                }
+                is ExpectedTabularInputStandardQuery -> {
+                    val connector = ExpectedTabularInputBasedStandardQueryConnector
+                    connectOperationDefinitionAndEachAddedVertex(connector, context) {
+                        c: ExpectedTabularInputStandardQuery ->
+                        c.addedVertices
+                            .asSequence()
+                            .map(Map.Entry<GQLOperationPath, Node<*>>::toPair)
+                            .firstOrNone() to c.update { dropFirstAddedVertex() }
+                    }
+                }
+                is ExpectedTabularInputTabularQuery -> {
+                    val connector = ExpectedTabularInputBasedTabularQueryConnector
+                    connectOperationDefinitionAndEachAddedVertex(connector, context) {
+                        c: ExpectedTabularInputTabularQuery ->
+                        c.addedVertices
+                            .asSequence()
+                            .map(Map.Entry<GQLOperationPath, Node<*>>::toPair)
+                            .firstOrNone() to c.update { dropFirstAddedVertex() }
+                    }
+                }
+                is StandardQuery -> {
+                    val connector = StandardQueryConnector
+                    connectOperationDefinitionAndEachAddedVertex(connector, context) {
+                        c: StandardQuery ->
+                        c.addedVertices
+                            .asSequence()
+                            .map(Map.Entry<GQLOperationPath, Node<*>>::toPair)
+                            .firstOrNone() to c.update { dropFirstAddedVertex() }
+                    }
+                }
+                is TabularQuery -> {
+                    val connector = TabularQueryConnector
+                    connectOperationDefinitionAndEachAddedVertex(connector, context) {
+                        c: TabularQuery ->
+                        c.addedVertices
+                            .asSequence()
+                            .map(Map.Entry<GQLOperationPath, Node<*>>::toPair)
+                            .firstOrNone() to c.update { dropFirstAddedVertex() }
+                    }
+                }
+                else -> {
+                    throw ServiceError.of(
+                        "unsupported request_materialization_graph_context.type: [ type: %s ]",
+                        context::class.qualifiedName
+                    )
+                }
+            }
+        }
+        return Mono.empty()
+    }
+
+    private fun <C> connectOperationDefinitionAndEachAddedVertex(
+        connector: RequestMaterializationGraphConnector<C>,
+        context: C,
+        pollFirstFunction: (C) -> Pair<Option<Pair<GQLOperationPath, Node<*>>>, C>,
+    ): C where C : RequestMaterializationGraphContext {
+        var pollResult: Pair<Option<Pair<GQLOperationPath, Node<*>>>, C> =
+            pollFirstFunction.invoke(connector.connectOperationDefinition(context))
+        var pOpt: Option<Pair<GQLOperationPath, Node<*>>> = pollResult.first
+        var c: C = pollResult.second
+        while (pOpt.isDefined()) {
+            val nextVertex: Pair<GQLOperationPath, Node<*>> = pOpt.orNull()!!
+            val componentContext: QueryComponentContext =
+                if (nextVertex.first.argumentReferent()) {
+                    nextVertex.second
+                        .toOption()
+                        .filterIsInstance<Argument>()
+                        .map { a: Argument ->
+                            queryComponentContextFactory
+                                .fieldArgumentComponentContextBuilder()
+                                .path(nextVertex.first)
+                                .argument(a)
+                                .build()
+                        }
+                        .getOrElse {
+                            queryComponentContextFactory
+                                .fieldArgumentComponentContextBuilder()
+                                .path(nextVertex.first)
+                                .build()
+                        }
+                } else {
+                    nextVertex.second
+                        .toOption()
+                        .filterIsInstance<Field>()
+                        .map { f: Field ->
+                            queryComponentContextFactory
+                                .selectedFieldComponentContextBuilder()
+                                .path(nextVertex.first)
+                                .field(f)
+                                .build()
+                        }
+                        .getOrElse {
+                            queryComponentContextFactory
+                                .selectedFieldComponentContextBuilder()
+                                .path(nextVertex.first)
+                                .build()
+                        }
+                }
+            when (componentContext) {
+                is QueryComponentContext.FieldArgumentComponentContext -> {
+                    c = connector.connectFieldArgument(c, componentContext)
+                }
+                is QueryComponentContext.SelectedFieldComponentContext -> {
+                    c = connector.connectSelectedField(c, componentContext)
+                }
+            }
+            pollResult = pollFirstFunction.invoke(c)
+            pOpt = pollResult.first
+            c = pollResult.second
+        }
+        return c
     }
 }

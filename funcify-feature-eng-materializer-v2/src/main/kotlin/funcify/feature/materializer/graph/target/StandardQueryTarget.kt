@@ -9,6 +9,8 @@ import graphql.language.Document
  */
 interface StandardQueryTarget {
 
+    val operationName: String
+
     val document: Document
 
 }

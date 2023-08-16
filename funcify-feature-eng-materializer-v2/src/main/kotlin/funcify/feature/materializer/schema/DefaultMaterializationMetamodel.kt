@@ -1,13 +1,13 @@
 package funcify.feature.materializer.schema
 
 import funcify.feature.schema.FeatureEngineeringModel
+import funcify.feature.schema.dataelement.DataElementSource
 import funcify.feature.schema.path.operation.GQLOperationPath
 import graphql.schema.FieldCoordinates
 import graphql.schema.GraphQLSchema
 import graphql.schema.GraphQLSchemaElement
 import java.time.Instant
 import kotlinx.collections.immutable.ImmutableMap
-import kotlinx.collections.immutable.ImmutableSet
 
 internal data class DefaultMaterializationMetamodel(
     override val created: Instant = Instant.now(),
@@ -16,14 +16,17 @@ internal data class DefaultMaterializationMetamodel(
     private val materializationMetamodelFacts: MaterializationMetamodelFacts,
 ) : MaterializationMetamodel {
 
-    override val querySchemaElementsByPath: ImmutableMap<GQLOperationPath, GraphQLSchemaElement> =
-        materializationMetamodelFacts.querySchemaElementsByPath
+    override val querySchemaElementsByCanonicalPath:
+        ImmutableMap<GQLOperationPath, GraphQLSchemaElement> =
+        materializationMetamodelFacts.querySchemaElementsByCanonicalPath
 
-    override val fieldCoordinatesByPath:
-        ImmutableMap<GQLOperationPath, ImmutableSet<FieldCoordinates>> =
-        materializationMetamodelFacts.fieldCoordinatesByPath
+    override val fieldCoordinatesByCanonicalPath: ImmutableMap<GQLOperationPath, FieldCoordinates> =
+        materializationMetamodelFacts.fieldCoordinatesByCanonicalPath
 
-    override val pathsByFieldCoordinates:
-        ImmutableMap<FieldCoordinates, ImmutableSet<GQLOperationPath>> =
-        materializationMetamodelFacts.pathsByFieldCoordinates
+    override val canonicalPathsByFieldCoordinates:
+        ImmutableMap<FieldCoordinates, GQLOperationPath> =
+        materializationMetamodelFacts.canonicalPathsByFieldCoordinates
+
+    override val dataElementSourcesByDomainPath: ImmutableMap<GQLOperationPath, DataElementSource> =
+        materializationMetamodelFacts.dataElementSourceByDomainPath
 }

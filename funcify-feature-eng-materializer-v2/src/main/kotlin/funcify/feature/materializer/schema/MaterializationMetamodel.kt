@@ -1,6 +1,7 @@
 package funcify.feature.materializer.schema
 
 import funcify.feature.schema.FeatureEngineeringModel
+import funcify.feature.schema.dataelement.DataElementSource
 import funcify.feature.schema.path.operation.GQLOperationPath
 import graphql.schema.FieldCoordinates
 import graphql.schema.GraphQLSchema
@@ -21,10 +22,12 @@ interface MaterializationMetamodel {
 
     val materializationGraphQLSchema: GraphQLSchema
 
-    val querySchemaElementsByPath: ImmutableMap<GQLOperationPath, GraphQLSchemaElement>
+    val querySchemaElementsByCanonicalPath: ImmutableMap<GQLOperationPath, GraphQLSchemaElement>
 
-    val fieldCoordinatesByPath: ImmutableMap<GQLOperationPath, ImmutableSet<FieldCoordinates>>
+    val fieldCoordinatesByCanonicalPath: ImmutableMap<GQLOperationPath, FieldCoordinates>
 
-    val pathsByFieldCoordinates: ImmutableMap<FieldCoordinates, ImmutableSet<GQLOperationPath>>
+    val canonicalPathsByFieldCoordinates: ImmutableMap<FieldCoordinates, GQLOperationPath>
+
+    val dataElementSourcesByDomainPath: ImmutableMap<GQLOperationPath, DataElementSource>
 
 }

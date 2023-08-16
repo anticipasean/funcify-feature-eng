@@ -2,17 +2,13 @@ package funcify.feature.materializer.graph.context
 
 import funcify.feature.graph.DirectedPersistentGraph
 import funcify.feature.materializer.graph.MaterializationEdge
-import funcify.feature.materializer.graph.input.ExpectedRawInputShape
-import funcify.feature.materializer.graph.input.RawInputContextShape
-import funcify.feature.materializer.graph.target.StandardQueryTarget
-import funcify.feature.materializer.graph.target.TabularQueryTarget
 import funcify.feature.materializer.schema.MaterializationMetamodel
 import funcify.feature.schema.dataelement.DataElementSource
 import funcify.feature.schema.feature.FeatureCalculator
 import funcify.feature.schema.path.operation.GQLOperationPath
 import funcify.feature.schema.transformer.TransformerSource
-import graphql.language.Document
 import graphql.language.Node
+import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.ImmutableSet
 
@@ -35,53 +31,40 @@ interface RequestMaterializationGraphContext {
     val featureCalculatorCallableBuildersByPath:
         ImmutableMap<GQLOperationPath, FeatureCalculator.Builder>
 
-    interface ExpectedStandardJsonInputStandardQuery :
-        RequestMaterializationGraphContext,
-        StandardQueryTarget,
-        ExpectedRawInputShape.StandardJsonInputShape {
+    val addedVertices: ImmutableMap<GQLOperationPath, Node<*>>
 
-        override val document: Document
+    interface Builder<B : Builder<B>> {
 
-        override val standardJsonShape: RawInputContextShape.Tree
-    }
+        fun materializationMetamodel(materializationMetamodel: MaterializationMetamodel): B
 
-    interface ExpectedTabularInputStandardQuery :
-        RequestMaterializationGraphContext,
-        StandardQueryTarget,
-        ExpectedRawInputShape.TabularInputShape {
+        fun variableKeys(variableKeys: ImmutableSet<String>): B
 
-        override val document: Document
+        fun requestGraph(
+            requestGraph: DirectedPersistentGraph<GQLOperationPath, Node<*>, MaterializationEdge>
+        ): B
 
-        override val tabularShape: RawInputContextShape.Tabular
-    }
+        fun putTransformerCallableBuildersForPath(
+            path: GQLOperationPath,
+            transformerCallableBuilder: TransformerSource.Builder
+        ): B
 
-    interface StandardQuery : RequestMaterializationGraphContext, StandardQueryTarget {
+        fun putDataElementCallableBuildersForPath(
+            path: GQLOperationPath,
+            dataElementCallableBuilder: DataElementSource.Builder
+        ): B
 
-        override val document: Document
-    }
+        fun putFeatureCalculatorCallableBuildersForPath(
+            path: GQLOperationPath,
+            featureCalculatorCallableBuilder: FeatureCalculator.Builder
+        ): B
 
-    interface ExpectedStandardJsonInputTabularQuery :
-        RequestMaterializationGraphContext,
-        ExpectedRawInputShape.StandardJsonInputShape,
-        TabularQueryTarget {
+        fun addVertex(nextVertex: Pair<GQLOperationPath, Node<*>>): B
 
-        override val outputColumnNames: ImmutableSet<String>
+        fun addVertex(path: GQLOperationPath, node: Node<*>): B
 
-        override val standardJsonShape: RawInputContextShape.Tree
-    }
+        fun addedVertices(addedVertices: Iterable<Pair<GQLOperationPath, Node<*>>>): B
 
-    interface ExpectedTabularInputTabularQuery :
-        RequestMaterializationGraphContext,
-        ExpectedRawInputShape.TabularInputShape,
-        TabularQueryTarget {
+        fun dropFirstAddedVertex(): B
 
-        override val outputColumnNames: ImmutableSet<String>
-
-        override val tabularShape: RawInputContextShape.Tabular
-    }
-
-    interface TabularQuery : RequestMaterializationGraphContext, TabularQueryTarget {
-
-        override val outputColumnNames: ImmutableSet<String>
     }
 }

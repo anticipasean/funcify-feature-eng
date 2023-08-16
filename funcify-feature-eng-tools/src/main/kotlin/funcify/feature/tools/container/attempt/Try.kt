@@ -798,6 +798,22 @@ sealed interface Try<out S> : Iterable<S> {
         return fold({ result: S -> result }, { throwable: Throwable -> throw throwable })
     }
 
+    fun orElseTry(otherAttempt: () -> Try<@UnsafeVariance S>): Try<S> {
+        return fold({ result: S -> Try.success(result) }, { _: Throwable -> otherAttempt.invoke() })
+    }
+
+    fun orElseTry(
+        otherAttempt: () -> Try<@UnsafeVariance S>,
+        failureCombiner: (Throwable, Throwable) -> Throwable
+    ): Try<S> {
+        return fold(
+            { result: S -> Try.success(result) },
+            { t1: Throwable ->
+                otherAttempt.invoke().mapFailure { t2: Throwable -> failureCombiner.invoke(t1, t2) }
+            }
+        )
+    }
+
     fun ifFailed(errorHandler: (Throwable) -> Unit) {
         getFailure().fold({}) { throwable: Throwable -> errorHandler.invoke(throwable) }
     }
