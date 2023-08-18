@@ -35,6 +35,9 @@ import graphql.language.*
 import graphql.schema.FieldCoordinates
 import graphql.schema.idl.TypeDefinitionRegistry
 import graphql.schema.idl.TypeUtil
+import kotlin.reflect.KClass
+import kotlin.reflect.KType
+import kotlin.reflect.full.isSubclassOf
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.PersistentSet
 import kotlinx.collections.immutable.persistentSetOf
@@ -42,9 +45,6 @@ import kotlinx.collections.immutable.toPersistentMap
 import org.slf4j.Logger
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
-import kotlin.reflect.KClass
-import kotlin.reflect.KType
-import kotlin.reflect.full.isSubclassOf
 
 internal class DefaultFeatureEngineeringModelBuildStrategy(
     private val scalarTypeRegistry: ScalarTypeRegistry,
@@ -113,6 +113,7 @@ internal class DefaultFeatureEngineeringModelBuildStrategy(
                     dataElementSourcesByName = ctx.dataElementSourcesByName.toPersistentMap(),
                     featureCalculatorsByName = ctx.featureCalculatorsByName.toPersistentMap(),
                     typeDefinitionRegistry = ctx.typeDefinitionRegistry,
+                    scalarTypeRegistry = scalarTypeRegistry,
                     attributeAliasRegistry = ctx.attributeAliasRegistry,
                     entityRegistry = ctx.entityRegistry,
                     lastUpdatedTemporalAttributeRegistry = ctx.lastUpdatedTemporalAttributeRegistry
@@ -499,9 +500,20 @@ internal class DefaultFeatureEngineeringModelBuildStrategy(
         (FeatureEngineeringModelBuildContext) -> Mono<FeatureEngineeringModelBuildContext> {
         return { context: FeatureEngineeringModelBuildContext ->
             createTypeDefinitionRegistriesForEachSourceType(context)
-                .reduce(addDirectiveDefinitionsToContextTypeDefinitionRegistry(context)) {
-                    ctxResult: Try<FeatureEngineeringModelBuildContext>,
-                    tdr: TypeDefinitionRegistry ->
+                .map { tdr: TypeDefinitionRegistry ->
+                    tdr.scalars().asSequence().fold(tdr) {
+                        t: TypeDefinitionRegistry,
+                        (name: String, std: ScalarTypeDefinition) ->
+                        t.apply { remove(name, std) }
+                    }
+                }
+                .reduce(
+                    addScalarTypeDefinitionsToContextTypeDefinitionRegistry(context).flatMap {
+                        c: FeatureEngineeringModelBuildContext ->
+                        addDirectiveDefinitionsToContextTypeDefinitionRegistry(c)
+                    }
+                ) { ctxResult: Try<FeatureEngineeringModelBuildContext>, tdr: TypeDefinitionRegistry
+                    ->
                     ctxResult.flatMap { c: FeatureEngineeringModelBuildContext ->
                         when (
                             val mergeAttempt: Try<TypeDefinitionRegistry> =

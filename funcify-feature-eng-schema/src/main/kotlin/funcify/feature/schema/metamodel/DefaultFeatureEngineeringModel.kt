@@ -1,5 +1,6 @@
 package funcify.feature.schema.metamodel
 
+import funcify.feature.scalar.registry.ScalarTypeRegistry
 import funcify.feature.schema.FeatureEngineeringModel
 import funcify.feature.schema.dataelement.DataElementSource
 import funcify.feature.schema.dataelement.DataElementSourceProvider
@@ -31,6 +32,7 @@ internal data class DefaultFeatureEngineeringModel(
     override val dataElementSourcesByName: PersistentMap<String, DataElementSource>,
     override val transformerSourcesByName: PersistentMap<String, TransformerSource>,
     override val featureCalculatorsByName: PersistentMap<String, FeatureCalculator>,
+    override val scalarTypeRegistry: ScalarTypeRegistry,
     override val typeDefinitionRegistry: TypeDefinitionRegistry,
     override val attributeAliasRegistry: AttributeAliasRegistry,
     override val entityRegistry: EntityRegistry,

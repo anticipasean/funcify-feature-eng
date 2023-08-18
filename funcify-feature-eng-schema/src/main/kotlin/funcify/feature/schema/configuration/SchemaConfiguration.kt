@@ -10,6 +10,7 @@ import funcify.feature.schema.factory.DefaultFeatureEngineeringModelFactory
 import funcify.feature.schema.feature.FeatureCalculatorProvider
 import funcify.feature.schema.feature.FeatureJsonValuePublisher
 import funcify.feature.schema.feature.FeatureJsonValueStore
+import funcify.feature.schema.sdl.UnsupportedDirectivesTypeDefinitionRegistryFilter
 import funcify.feature.schema.strategy.DefaultFeatureEngineeringModelBuildStrategy
 import funcify.feature.schema.transformer.TransformerSourceProvider
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
@@ -38,6 +39,18 @@ class SchemaConfiguration {
     @Bean
     fun materializationDirectiveRegistry(): MaterializationDirectiveRegistry {
         return MaterializationDirectiveRegistry.standardRegistry()
+    }
+
+    @Bean
+    fun unsupportedDirectivesTypeDefinitionRegistryFilter(
+        materializationDirectiveRegistryProvider: ObjectProvider<MaterializationDirectiveRegistry>,
+    ): UnsupportedDirectivesTypeDefinitionRegistryFilter {
+        return UnsupportedDirectivesTypeDefinitionRegistryFilter(
+            materializationDirectiveRegistry =
+                materializationDirectiveRegistryProvider.getIfAvailable {
+                    MaterializationDirectiveRegistry.standardRegistry()
+                }
+        )
     }
 
     @ConditionalOnMissingBean(value = [FeatureEngineeringModelBuildStrategy::class])

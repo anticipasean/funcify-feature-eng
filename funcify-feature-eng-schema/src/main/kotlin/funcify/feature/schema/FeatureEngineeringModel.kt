@@ -1,5 +1,6 @@
 package funcify.feature.schema
 
+import funcify.feature.scalar.registry.ScalarTypeRegistry
 import funcify.feature.schema.dataelement.DataElementSource
 import funcify.feature.schema.dataelement.DataElementSourceProvider
 import funcify.feature.schema.directive.alias.AttributeAliasRegistry
@@ -30,6 +31,8 @@ interface FeatureEngineeringModel {
 
     /** Dangerous because this object is mutable */
     val typeDefinitionRegistry: TypeDefinitionRegistry
+
+    val scalarTypeRegistry: ScalarTypeRegistry
 
     val attributeAliasRegistry: AttributeAliasRegistry
 

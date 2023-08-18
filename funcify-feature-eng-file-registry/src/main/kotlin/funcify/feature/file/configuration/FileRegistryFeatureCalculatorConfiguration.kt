@@ -6,6 +6,8 @@ import funcify.feature.file.metadata.FeatureGraphQLSchemaClasspathResourceMetada
 import funcify.feature.file.metadata.FileRegistryMetadataProvider
 import funcify.feature.file.metadata.filter.TransformAnnotatedFeatureDefinitionsFilter
 import funcify.feature.schema.sdl.CompositeTypeDefinitionRegistryFilter
+import funcify.feature.schema.sdl.TypeDefinitionRegistryFilter
+import org.springframework.beans.factory.ObjectProvider
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -28,7 +30,8 @@ class FileRegistryFeatureCalculatorConfiguration {
     @Bean
     fun fileRegistryFeatureCalculatorProviderFactory(
         classpathResourceFileRegistryMetadataProvider:
-            FileRegistryMetadataProvider<ClassPathResource>
+            FileRegistryMetadataProvider<ClassPathResource>,
+        typeDefinitionRegistryFilterProvider: ObjectProvider<TypeDefinitionRegistryFilter>
     ): FileRegistryFeatureCalculatorProviderFactory {
         return DefaultFileRegistryFeatureCalculatorProviderFactory(
             classpathResourceRegistryMetadataProvider =
@@ -36,7 +39,10 @@ class FileRegistryFeatureCalculatorConfiguration {
             typeDefinitionRegistryFilter =
                 CompositeTypeDefinitionRegistryFilter(
                     typeDefinitionRegistryFilters =
-                        listOf(TransformAnnotatedFeatureDefinitionsFilter())
+                        typeDefinitionRegistryFilterProvider
+                            .asSequence()
+                            .plus(TransformAnnotatedFeatureDefinitionsFilter())
+                            .toList()
                 )
         )
     }

@@ -7,9 +7,11 @@ import graphql.Scalars
 import graphql.language.ScalarTypeDefinition
 import graphql.scalars.ExtendedScalars
 import graphql.schema.GraphQLScalarType
+import java.util.*
 
 /**
  * Registry of the [GraphQLScalarType]s to be used throughout a given service or GraphQL setup
+ *
  * @author smccarron
  * @created 2022-08-03
  */
@@ -24,9 +26,9 @@ interface ScalarTypeRegistry {
         fun customRegistry(graphQLScalarTypes: Iterable<GraphQLScalarType>): ScalarTypeRegistry {
             return DefaultScalarTypeRegistry(
                 graphQLScalarTypes.fold(sortedMapOf(Comparator.naturalOrder())) {
-                    mm,
-                    graphQLScalarType ->
-                    mm.apply { put(graphQLScalarType.name, graphQLScalarType) }
+                    mm: SortedMap<String, GraphQLScalarType>,
+                    gst: GraphQLScalarType ->
+                    mm.apply { put(gst.name, gst) }
                 }
             )
         }
@@ -66,9 +68,9 @@ interface ScalarTypeRegistry {
                         ExtendedScalars.Url
                     )
                     .fold(sortedMapOf<String, GraphQLScalarType>(Comparator.naturalOrder())) {
-                        mm,
-                        gqlScalarType ->
-                        mm.apply { put(gqlScalarType.name, gqlScalarType) }
+                        mm: SortedMap<String, GraphQLScalarType>,
+                        gst: GraphQLScalarType ->
+                        mm.apply { put(gst.name, gst) }
                     }
             )
         }
@@ -87,4 +89,12 @@ interface ScalarTypeRegistry {
     fun getScalarTypeDefinitionWithName(name: String): ScalarTypeDefinition?
 
     fun getGraphQLScalarTypeWithName(name: String): GraphQLScalarType?
+
+    fun getBasicGraphQLScalarTypesByName(): Map<String, GraphQLScalarType>
+
+    fun getExtendedGraphQLScalarTypesByName(): Map<String, GraphQLScalarType>
+
+    fun getBasicScalarTypeDefinitionsByName(): Map<String, ScalarTypeDefinition>
+
+    fun getExtendedScalarTypeDefinitionsByName(): Map<String, ScalarTypeDefinition>
 }

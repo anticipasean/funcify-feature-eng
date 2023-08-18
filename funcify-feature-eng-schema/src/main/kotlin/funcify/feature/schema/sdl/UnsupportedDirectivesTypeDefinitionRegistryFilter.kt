@@ -1,8 +1,7 @@
-package funcify.feature.datasource.graphql.metadata.filter
+package funcify.feature.schema.sdl
 
 import funcify.feature.directive.MaterializationDirectiveRegistry
 import funcify.feature.error.ServiceError
-import funcify.feature.schema.sdl.TypeDefinitionRegistryFilter
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flatten

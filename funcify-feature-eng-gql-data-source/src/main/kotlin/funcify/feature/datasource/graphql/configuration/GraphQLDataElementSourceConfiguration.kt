@@ -5,7 +5,7 @@ import funcify.feature.datasource.graphql.GraphQLApiServiceFactory
 import funcify.feature.datasource.graphql.factory.DefaultGraphQLApiDataElementSourceProviderFactory
 import funcify.feature.datasource.graphql.factory.DefaultGraphQLApiServiceFactory
 import funcify.feature.datasource.graphql.metadata.filter.InternalQueryExcludingTypeDefinitionRegistryFilter
-import funcify.feature.datasource.graphql.metadata.filter.UnsupportedDirectivesTypeDefinitionRegistryFilter
+import funcify.feature.schema.sdl.UnsupportedDirectivesTypeDefinitionRegistryFilter
 import funcify.feature.directive.MaterializationDirectiveRegistry
 import funcify.feature.schema.sdl.TypeDefinitionRegistryFilter
 import funcify.feature.tools.json.JsonMapper
@@ -41,18 +41,6 @@ class GraphQLDataElementSourceConfiguration {
     fun internalQueryExcludingTypeDefinitionRegistryFilter():
         InternalQueryExcludingTypeDefinitionRegistryFilter {
         return InternalQueryExcludingTypeDefinitionRegistryFilter()
-    }
-
-    @Bean
-    fun unsupportedDirectivesTypeDefinitionRegistryFilter(
-        materializationDirectiveRegistryProvider: ObjectProvider<MaterializationDirectiveRegistry>
-    ): UnsupportedDirectivesTypeDefinitionRegistryFilter {
-        return UnsupportedDirectivesTypeDefinitionRegistryFilter(
-            materializationDirectiveRegistry =
-                materializationDirectiveRegistryProvider.getIfAvailable {
-                    MaterializationDirectiveRegistry.standardRegistry()
-                }
-        )
     }
 
     @ConditionalOnMissingBean(value = [GraphQLApiDataElementSourceProviderFactory::class])
