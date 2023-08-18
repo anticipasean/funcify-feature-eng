@@ -2,6 +2,7 @@ package funcify.feature.datasource.graphql.metadata.filter
 
 import arrow.core.getOrElse
 import funcify.feature.error.ServiceError
+import funcify.feature.schema.sdl.TypeDefinitionRegistryFilter
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.OptionExtensions.toOption
 import graphql.GraphQLError

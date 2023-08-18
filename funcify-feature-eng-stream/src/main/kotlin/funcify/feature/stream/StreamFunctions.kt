@@ -5,6 +5,8 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.node.JsonNodeFactory
 import funcify.feature.datasource.graphql.GraphQLApiDataElementSourceProvider
 import funcify.feature.datasource.graphql.GraphQLApiDataElementSourceProviderFactory
+import funcify.feature.file.FileRegistryFeatureCalculatorProvider
+import funcify.feature.file.FileRegistryFeatureCalculatorProviderFactory
 import funcify.feature.materializer.request.RawGraphQLRequest
 import funcify.feature.materializer.request.RawGraphQLRequestFactory
 import funcify.feature.materializer.response.SerializedGraphQLResponse
@@ -133,12 +135,23 @@ class StreamFunctions {
             .orElseThrow()
     }
 
-    /*@Bean(name = ["netflixShowsGraphQLSchema"])
-    fun netflixShowsGraphQLSchema(
-        @Qualifier("graphQLSchemaFile") graphQLSchemaFile: ClassPathResource
-    ): GraphQLSchema {
-        return NetflixShowsGraphQL.createGraphQLSchemaFromFile(graphQLSchemaFile.file)
-    }*/
+    @Bean(name = ["movieAndTvShowFeaturesFile"])
+    fun movieAndTvShowFeaturesFile(): ClassPathResource {
+        return ClassPathResource("movie_and_tv_show_features.graphqls")
+    }
+
+    @Bean(name = ["movieAndTvShowFeaturesFileRegistryFeatureCalculatorProvider"])
+    fun movieAndTvShowFeaturesFileRegistryFeatureCalculatorProvider(
+        movieAndTvShowFeaturesFile: ClassPathResource,
+        fileRegistryFeatureCalculatorProviderFactory: FileRegistryFeatureCalculatorProviderFactory,
+    ): FileRegistryFeatureCalculatorProvider {
+        return fileRegistryFeatureCalculatorProviderFactory
+            .builder()
+            .name("movieAndTvShowFeatures")
+            .graphQLSchemaClasspathResource(movieAndTvShowFeaturesFile)
+            .build()
+            .orElseThrow()
+    }
 
     @Bean
     fun materializeFeatures(
@@ -309,8 +322,8 @@ class StreamFunctions {
     private fun createShowDataLoader(): DataLoader<GQLOperationPath, JsonNode> {
         val mappedBatchLoaderWithContext: MappedBatchLoaderWithContext<GQLOperationPath, JsonNode> =
             MappedBatchLoaderWithContext {
-                    keys: MutableSet<GQLOperationPath>,
-                    environment: BatchLoaderEnvironment ->
+                keys: MutableSet<GQLOperationPath>,
+                environment: BatchLoaderEnvironment ->
                 logger.info(
                     "mapped_batch_loader_with_context: [ status: loading ]\n[ keys: {}, \nenvironment.context: {}, \nenvironment.key_context[:]: {}\n ]",
                     keys.asSequence().joinToString(",\n "),

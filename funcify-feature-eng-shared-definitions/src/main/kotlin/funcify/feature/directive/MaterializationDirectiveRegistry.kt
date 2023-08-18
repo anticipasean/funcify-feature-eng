@@ -35,11 +35,11 @@ interface MaterializationDirectiveRegistry {
         fun standardRegistry(): MaterializationDirectiveRegistry {
             return DefaultMaterializationDirectiveRegistry(
                 sequenceOf(
-                        AliasDirective,
-                        LastUpdatedDirective,
-                        SubtypingDirective,
-                        DiscriminatorDirective,
-                        RegisteredDirective
+                    AliasDirective,
+                    LastUpdatedDirective,
+                    SubtypingDirective,
+                    DiscriminatorDirective,
+                    TransformDirective
                     )
                     .fold(sortedMapOf(Comparator.naturalOrder())) {
                         mdByName: SortedMap<String, MaterializationDirective>,

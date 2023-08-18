@@ -5,4 +5,18 @@
   output_schema:
     type: number
   expression: "numbers | if . >= 0.0 then . else null end"
+- name: list_size
+  input_schema:
+    type: array
+    items:
+      type: any
+  output_schema:
+    type: integer
+  expression: "arrays | length"
+- name: extract_decade
+  input_schema:
+    type: integer
+  output_schema:
+    type: integer
+  expression: "numbers | if . >= 1900 then . % 100 else null end"
 ...

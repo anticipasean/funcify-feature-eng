@@ -9,7 +9,6 @@ import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.OptionExtensions.toOption
 import funcify.feature.tools.extensions.SequenceExtensions.firstOrNone
 import funcify.feature.tools.extensions.StringExtensions.flatten
-import funcify.feature.tools.extensions.TryExtensions.successIfDefined
 import graphql.language.TypeDefinition
 import graphql.schema.*
 import graphql.util.Breadcrumb
@@ -382,17 +381,14 @@ internal object MaterializationMetamodelFactGatherer :
             return Try.attemptNullable {
                     context.getVarFromParents<GQLOperationPath>(GQLOperationPath::class.java)
                 }
+                .flatMap(Try.Companion::fromOption)
                 .orElseTry {
                     Try.attemptNullable { context.getSharedContextData<GQLOperationPath>() }
+                        .flatMap(Try.Companion::fromOption)
                 }
-                .flatMap { pOpt: Option<GQLOperationPath> ->
-                    pOpt.successIfDefined {
-                        ServiceError.of(
-                            "parent_path has not been set as variable in traverser_context"
-                        )
-                    }
+                .orElseThrow { _: Throwable ->
+                    ServiceError.of("parent_path has not been set as variable in traverser_context")
                 }
-                .orElseThrow()
         }
 
         override fun visitGraphQLArgument(

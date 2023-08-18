@@ -7,12 +7,12 @@ import funcify.feature.datasource.graphql.GraphQLApiDataElementSourceProviderFac
 import funcify.feature.datasource.graphql.GraphQLApiService
 import funcify.feature.datasource.graphql.SchemaOnlyDataElementSource
 import funcify.feature.datasource.graphql.ServiceBackedDataElementSource
-import funcify.feature.datasource.graphql.metadata.filter.CompositeTypeDefinitionRegistryFilter
-import funcify.feature.datasource.graphql.metadata.filter.TypeDefinitionRegistryFilter
 import funcify.feature.datasource.graphql.metadata.provider.GraphQLApiSchemaFileMetadataProvider
 import funcify.feature.datasource.graphql.metadata.provider.GraphQLApiServiceMetadataProvider
 import funcify.feature.error.ServiceError
+import funcify.feature.schema.sdl.CompositeTypeDefinitionRegistryFilter
 import funcify.feature.schema.sdl.SDLDefinitionsSetExtractor
+import funcify.feature.schema.sdl.TypeDefinitionRegistryFilter
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.ResultExtensions.toMono

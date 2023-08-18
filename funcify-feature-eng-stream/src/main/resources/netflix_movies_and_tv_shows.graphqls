@@ -22,22 +22,6 @@ the latest timestamp
 """
 directive @last_updated on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
 
-"""
-Indicates a field has a corresponding entry in the
-feature registry
-
-Provides information regarding what implementation status
-the feature definition has and whether a default value should
-be provided
-
-"""
-directive @registered(
-    status: String!,
-    "names of data_elements to be passed in as arguments"
-    dataElementInputs: [String]! = [],
-    defaultValue: JSON = null
-) on FIELD_DEFINITION
-
 "Indicates how an interface type may be resolved into an object type"
 directive @subtyping(
     strategy: SubtypingStrategy! = SUBTYPE_FIELD_NAME,
@@ -62,7 +46,7 @@ type Query {
     actor(name: String!): Actor
 }
 
-interface Show @subtyping(strategy: SUBTYPE_FIELD_VALUE, discriminatorFieldName: "type"){
+interface Show @subtyping(strategy: SUBTYPE_FIELD_VALUE, discriminatorFieldName: "type") {
     showId: ID!
     type: String!
     title: String!
@@ -89,7 +73,7 @@ type Movie implements Show @discriminator(fieldValue: "Movie") {
     duration: Int
 }
 
-type TVShow implements Show @discriminator(fieldValue: "TV Show"){
+type TVShow implements Show @discriminator(fieldValue: "TV Show") {
     showId: ID!
     type: String!
     title: String!

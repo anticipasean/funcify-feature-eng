@@ -61,8 +61,42 @@ import reactor.core.publisher.Mono
  */
 internal class DefaultSingleRequestMaterializationGraphService(
     private val requestMaterializationGraphContextFactory:
-        RequestMaterializationGraphContextFactory,
-    private val queryComponentContextFactory: QueryComponentContextFactory
+        RequestMaterializationGraphContextFactory = object : RequestMaterializationGraphContextFactory {
+        override fun expectedStandardJsonInputStandardQueryBuilder(): ExpectedStandardJsonInputStandardQuery.Builder {
+            TODO("Not yet implemented")
+        }
+
+        override fun expectedStandardJsonInputTabularQueryBuilder(): ExpectedStandardJsonInputTabularQuery.Builder {
+            TODO("Not yet implemented")
+        }
+
+        override fun expectedTabularInputStandardQueryBuilder(): ExpectedTabularInputStandardQuery.Builder {
+            TODO("Not yet implemented")
+        }
+
+        override fun expectedTabularInputTabularQueryBuilder(): ExpectedTabularInputTabularQuery.Builder {
+            TODO("Not yet implemented")
+        }
+
+        override fun standardQueryBuilder(): StandardQuery.Builder {
+            TODO("Not yet implemented")
+        }
+
+        override fun tabularQueryBuilder(): TabularQuery.Builder {
+            TODO("Not yet implemented")
+        }
+
+    },
+    private val queryComponentContextFactory: QueryComponentContextFactory = object : QueryComponentContextFactory {
+        override fun selectedFieldComponentContextBuilder(): QueryComponentContext.SelectedFieldComponentContext.Builder {
+            TODO("Not yet implemented")
+        }
+
+        override fun fieldArgumentComponentContextBuilder(): QueryComponentContext.FieldArgumentComponentContext.Builder {
+            TODO("Not yet implemented")
+        }
+
+    }
 ) : SingleRequestMaterializationGraphService {
 
     companion object {

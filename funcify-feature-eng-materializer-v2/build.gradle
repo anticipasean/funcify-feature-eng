@@ -1,5 +1,6 @@
 dependencies {
     implementation(project(":funcify-feature-eng-common"))
+    implementation(project(":funcify-feature-eng-file-registry"))
     implementation(project(":funcify-feature-eng-gql-data-source"))
     implementation(project(":funcify-feature-eng-graph"))
     implementation(project(":funcify-feature-eng-jq"))

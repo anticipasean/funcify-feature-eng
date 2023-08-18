@@ -1,6 +1,5 @@
 package funcify.feature.materializer.schema
 
-import arrow.core.Option
 import arrow.core.filterIsInstance
 import arrow.core.getOrElse
 import arrow.core.getOrNone
@@ -16,7 +15,6 @@ import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentMap
 import funcify.feature.tools.extensions.SequenceExtensions.firstOrNone
 import funcify.feature.tools.extensions.SequenceExtensions.flatMapOptions
-import funcify.feature.tools.extensions.TryExtensions.successIfDefined
 import graphql.language.FieldDefinition
 import graphql.language.ObjectTypeDefinition
 import graphql.language.SDLDefinition
@@ -194,6 +192,7 @@ internal object DomainSpecifiedDataElementSourceCreator :
             val b: DomainSpecifiedDataElementSource.Builder =
                 context.getCurrentAccumulate<DomainSpecifiedDataElementSource.Builder>()
             context.setAccumulate(b.domainPath(p).domainFieldDefinition(node))
+            context.setVar(GQLOperationPath::class.java, p)
             return TraversalControl.CONTINUE
         }
 
@@ -203,17 +202,14 @@ internal object DomainSpecifiedDataElementSourceCreator :
             return Try.attemptNullable {
                     context.getVarFromParents<GQLOperationPath>(GQLOperationPath::class.java)
                 }
+                .flatMap(Try.Companion::fromOption)
                 .orElseTry {
                     Try.attemptNullable { context.getSharedContextData<GQLOperationPath>() }
+                        .flatMap(Try.Companion::fromOption)
                 }
-                .flatMap { pOpt: Option<GQLOperationPath> ->
-                    pOpt.successIfDefined {
-                        ServiceError.of(
-                            "parent_path has not been set as variable in traverser_context"
-                        )
-                    }
+                .orElseThrow { _: Throwable ->
+                    ServiceError.of("parent_path has not been set as variable in traverser_context")
                 }
-                .orElseThrow()
         }
 
         override fun visitGraphQLArgument(

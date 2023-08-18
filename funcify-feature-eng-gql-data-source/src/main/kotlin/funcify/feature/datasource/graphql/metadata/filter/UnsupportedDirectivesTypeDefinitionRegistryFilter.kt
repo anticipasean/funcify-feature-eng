@@ -2,6 +2,7 @@ package funcify.feature.datasource.graphql.metadata.filter
 
 import funcify.feature.directive.MaterializationDirectiveRegistry
 import funcify.feature.error.ServiceError
+import funcify.feature.schema.sdl.TypeDefinitionRegistryFilter
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flatten
@@ -45,7 +46,7 @@ class UnsupportedDirectivesTypeDefinitionRegistryFilter(
             } -> {
                 Result.failure<TypeDefinitionRegistry>(
                     ServiceError.of(
-                        "unsupported directive_definitions found in type_definition_registry: [ names: {} ]",
+                        "unsupported directive_definitions found in type_definition_registry: [ names: %s ]",
                         typeDefinitionRegistry.directiveDefinitions.keys
                             .asSequence()
                             .filterNot { n: String -> n !in supportedDirectiveDefinitionNamesSet }
@@ -89,9 +90,9 @@ class UnsupportedDirectivesTypeDefinitionRegistryFilter(
                                     ServiceError.builder()
                                         .message(
                                             """error occurred when removing sdl_definition related to a 
-                                                |materialization_directive
-                                                |[ name: %s ] 
-                                                |from type_definition_registry"""
+                                            |materialization_directive
+                                            |[ name: %s ] 
+                                            |from type_definition_registry"""
                                                 .flatten()
                                                 .format(sd.name)
                                         )

@@ -5,9 +5,9 @@ import funcify.feature.datasource.graphql.GraphQLApiServiceFactory
 import funcify.feature.datasource.graphql.factory.DefaultGraphQLApiDataElementSourceProviderFactory
 import funcify.feature.datasource.graphql.factory.DefaultGraphQLApiServiceFactory
 import funcify.feature.datasource.graphql.metadata.filter.InternalQueryExcludingTypeDefinitionRegistryFilter
-import funcify.feature.datasource.graphql.metadata.filter.TypeDefinitionRegistryFilter
 import funcify.feature.datasource.graphql.metadata.filter.UnsupportedDirectivesTypeDefinitionRegistryFilter
 import funcify.feature.directive.MaterializationDirectiveRegistry
+import funcify.feature.schema.sdl.TypeDefinitionRegistryFilter
 import funcify.feature.tools.json.JsonMapper
 import org.springframework.beans.factory.ObjectProvider
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean

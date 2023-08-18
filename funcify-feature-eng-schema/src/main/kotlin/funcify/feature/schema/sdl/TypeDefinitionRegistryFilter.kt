@@ -1,4 +1,4 @@
-package funcify.feature.datasource.graphql.metadata.filter
+package funcify.feature.schema.sdl
 
 import graphql.schema.idl.TypeDefinitionRegistry
 
