@@ -74,6 +74,12 @@ class StreamFunctions {
                 |            negative_to_null(input: -1)
                 |        }
                 |    }
+                |    features {
+                |        showFeatures {
+                |            castCount
+                |            releaseDecade
+                |        }
+                |    }
                 |}
             """
                 .trimMargin()

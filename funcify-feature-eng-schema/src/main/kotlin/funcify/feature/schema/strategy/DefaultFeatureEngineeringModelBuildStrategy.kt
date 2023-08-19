@@ -501,6 +501,7 @@ internal class DefaultFeatureEngineeringModelBuildStrategy(
         return { context: FeatureEngineeringModelBuildContext ->
             createTypeDefinitionRegistriesForEachSourceType(context)
                 .map { tdr: TypeDefinitionRegistry ->
+                    // Remove any scalars declared elsewhere
                     tdr.scalars().asSequence().fold(tdr) {
                         t: TypeDefinitionRegistry,
                         (name: String, std: ScalarTypeDefinition) ->
@@ -508,10 +509,8 @@ internal class DefaultFeatureEngineeringModelBuildStrategy(
                     }
                 }
                 .reduce(
-                    addScalarTypeDefinitionsToContextTypeDefinitionRegistry(context).flatMap {
-                        c: FeatureEngineeringModelBuildContext ->
-                        addDirectiveDefinitionsToContextTypeDefinitionRegistry(c)
-                    }
+                    addScalarTypeDefinitionsToContextTypeDefinitionRegistry(context)
+                        .flatMap(::addDirectiveDefinitionsToContextTypeDefinitionRegistry)
                 ) { ctxResult: Try<FeatureEngineeringModelBuildContext>, tdr: TypeDefinitionRegistry
                     ->
                     ctxResult.flatMap { c: FeatureEngineeringModelBuildContext ->

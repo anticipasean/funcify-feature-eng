@@ -40,11 +40,20 @@ object TransformDirective : MaterializationDirective {
                     TypeName.newTypeName().name(Scalars.GraphQLString.name).build()
                 )
                 .build()
+        val coordinatesDescription: String =
+            "Specifies location of field definition within GraphQL schema"
         val typeNameDescription: String = "object type name to which field definition belongs"
         val fieldNameDescription: String = "name of the field definition found on object type"
         sequenceOf(
                 InputObjectTypeDefinition.newInputObjectDefinition()
                     .name(FIELD_COORDINATES_INPUT_OBJECT_TYPE_NAME)
+                    .description(
+                        Description(
+                            coordinatesDescription,
+                            SourceLocation.EMPTY,
+                            coordinatesDescription.contains(System.lineSeparator())
+                        )
+                    )
                     .inputValueDefinitions(
                         sequenceOf(
                                 InputValueDefinition.newInputValueDefinition()

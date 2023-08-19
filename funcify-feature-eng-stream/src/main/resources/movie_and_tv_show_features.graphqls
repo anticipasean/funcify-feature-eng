@@ -22,10 +22,10 @@ type Query {
 }
 
 type ShowFeatures {
-    releaseDecade(releaseYear: Int): Int @transform(coordinates: { typeName: "Jq", fieldName: "extract_decade" })
-    castCount(cast: [JSON!]!): Int @transform(coordinates: { typeName: "Jq" , fieldName: "list_size" })
+    releaseDecade(releaseYear: Int = null): Int @transform(coordinates: { typeName: "Jq", fieldName: "extract_decade" })
+    castCount(cast: [JSON!]! = []): Int @transform(coordinates: { typeName: "Jq" , fieldName: "list_size" })
 }
 
 type ActorFeatures {
-    showCount(filmography: [JSON!]!): Int @transform(coordinates: { typeName: "Jq" , fieldName: "list_size" })
+    showCount(filmography: [JSON!]! = []): Int @transform(coordinates: { typeName: "Jq" , fieldName: "list_size" })
 }
