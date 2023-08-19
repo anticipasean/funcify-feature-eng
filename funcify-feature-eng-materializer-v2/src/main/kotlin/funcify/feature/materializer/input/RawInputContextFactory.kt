@@ -6,11 +6,6 @@ package funcify.feature.materializer.input
  */
 interface RawInputContextFactory {
 
-    companion object {
-        fun defaultFactory(): RawInputContextFactory {
-            return DefaultRawInputContextFactory()
-        }
-    }
-
     fun builder(): RawInputContext.Builder
+
 }

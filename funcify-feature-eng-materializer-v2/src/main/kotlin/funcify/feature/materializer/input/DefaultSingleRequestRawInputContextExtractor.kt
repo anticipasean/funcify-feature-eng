@@ -5,11 +5,7 @@ import funcify.feature.error.ServiceError
 import funcify.feature.materializer.request.RawGraphQLRequest
 import funcify.feature.materializer.session.GraphQLSingleRequestSession
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
-import funcify.feature.tools.extensions.MonoExtensions.widen
-import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.json.JsonMapper
-import funcify.feature.tools.json.MappingTarget.Companion.toKotlinObject
-import kotlin.reflect.typeOf
 import org.slf4j.Logger
 import reactor.core.publisher.Mono
 
@@ -23,6 +19,9 @@ internal class DefaultSingleRequestRawInputContextExtractor(private val jsonMapp
     companion object {
         private val logger: Logger = loggerFor<DefaultSingleRequestRawInputContextExtractor>()
     }
+
+    private val rawInputContextFactory: RawInputContextFactory =
+        DefaultRawInputContextFactory(jsonMapper)
 
     override fun extractRawInputContextIfProvided(
         session: GraphQLSingleRequestSession
@@ -64,31 +63,10 @@ internal class DefaultSingleRequestRawInputContextExtractor(private val jsonMapp
                 rawGraphQLRequest.variables[RawInputContext.RAW_INPUT_CONTEXT_VARIABLE_KEY]
         ) {
             is Map<*, *> -> {
-                jsonMapper
-                    .fromKotlinObject(rawInput)
-                    .toKotlinObject<Map<String, String?>>()
-                    .peekIfFailure { t: Throwable ->
-                        logger.warn(
-                            """build: [ failed to extract [ type: {} ] 
-                            |from [ variable_name: {} ] ]
-                            |[ type: {}, message: {} ]"""
-                                .flatten(),
-                            typeOf<Map<String, String?>>().toString(),
-                            RawInputContext.RAW_INPUT_CONTEXT_VARIABLE_KEY,
-                            t::class.simpleName,
-                            t.message
-                        )
-                    }
-                    .map { m: Map<String, String?> ->
-                        RawInputContextFactory.defaultFactory().builder().csvRecord(m).build()
-                    }
-                    .toMono()
-                    .widen()
+                Mono.fromCallable { rawInputContextFactory.builder().mapRecord(rawInput).build() }
             }
             is JsonNode -> {
-                Mono.fromCallable {
-                    RawInputContextFactory.defaultFactory().builder().json(rawInput).build()
-                }
+                Mono.fromCallable { rawInputContextFactory.builder().json(rawInput).build() }
             }
             else -> {
                 Mono.error<RawInputContext> {

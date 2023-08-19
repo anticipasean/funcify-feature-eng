@@ -10,8 +10,7 @@ import kotlinx.collections.immutable.toPersistentSet
  * @author smccarron
  * @created 2023-07-30
  */
-internal data class DefaultTabularJsonInputContext(private val jsonNode: JsonNode) :
-    RawInputContext.TabularJson {
+internal data class DefaultJsonNodeInputContext(private val jsonNode: JsonNode) : RawInputContext {
 
     private val fieldNamesSet: ImmutableSet<String> by lazy {
         jsonNode.fieldNames().asSequence().toPersistentSet()

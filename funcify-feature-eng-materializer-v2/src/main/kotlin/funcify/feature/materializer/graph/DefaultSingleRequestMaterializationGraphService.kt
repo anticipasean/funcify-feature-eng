@@ -3,46 +3,28 @@ package funcify.feature.materializer.graph
 import arrow.core.Option
 import arrow.core.filterIsInstance
 import arrow.core.getOrElse
-import arrow.core.left
 import arrow.core.none
-import arrow.core.right
 import arrow.core.toOption
-import com.fasterxml.jackson.databind.JsonNode
-import com.fasterxml.jackson.databind.node.ArrayNode
-import com.fasterxml.jackson.databind.node.ObjectNode
 import com.google.common.cache.CacheBuilder
 import funcify.feature.error.ServiceError
 import funcify.feature.materializer.graph.component.QueryComponentContext
 import funcify.feature.materializer.graph.component.QueryComponentContextFactory
-import funcify.feature.materializer.graph.connector.ExpectedStandardJsonInputBasedStandardQueryConnector
-import funcify.feature.materializer.graph.connector.ExpectedStandardJsonInputBasedTabularQueryConnector
-import funcify.feature.materializer.graph.connector.ExpectedTabularInputBasedStandardQueryConnector
-import funcify.feature.materializer.graph.connector.ExpectedTabularInputBasedTabularQueryConnector
 import funcify.feature.materializer.graph.connector.RequestMaterializationGraphConnector
 import funcify.feature.materializer.graph.connector.StandardQueryConnector
 import funcify.feature.materializer.graph.connector.TabularQueryConnector
-import funcify.feature.materializer.graph.context.ExpectedStandardJsonInputStandardQuery
-import funcify.feature.materializer.graph.context.ExpectedStandardJsonInputTabularQuery
-import funcify.feature.materializer.graph.context.ExpectedTabularInputStandardQuery
-import funcify.feature.materializer.graph.context.ExpectedTabularInputTabularQuery
 import funcify.feature.materializer.graph.context.RequestMaterializationGraphContext
 import funcify.feature.materializer.graph.context.RequestMaterializationGraphContextFactory
 import funcify.feature.materializer.graph.context.StandardQuery
 import funcify.feature.materializer.graph.context.TabularQuery
-import funcify.feature.materializer.graph.input.DefaultRawInputContextShapeFactory
-import funcify.feature.materializer.graph.input.RawInputContextShape
 import funcify.feature.materializer.input.RawInputContext
 import funcify.feature.materializer.session.GraphQLSingleRequestSession
 import funcify.feature.schema.path.operation.GQLOperationPath
-import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.MonoExtensions.widen
 import funcify.feature.tools.extensions.SequenceExtensions.firstOrNone
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.extensions.TryExtensions.failure
 import funcify.feature.tools.extensions.TryExtensions.successIfNonNull
-import funcify.feature.tree.PersistentTree
-import funcify.feature.tree.path.TreePath
 import graphql.GraphQLError
 import graphql.execution.preparsed.PreparsedDocumentEntry
 import graphql.language.Argument
@@ -50,7 +32,7 @@ import graphql.language.Field
 import graphql.language.Node
 import java.time.Duration
 import java.util.concurrent.ConcurrentMap
-import kotlinx.collections.immutable.ImmutableSet
+import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toPersistentSet
 import org.slf4j.Logger
 import reactor.core.publisher.Mono
@@ -61,42 +43,29 @@ import reactor.core.publisher.Mono
  */
 internal class DefaultSingleRequestMaterializationGraphService(
     private val requestMaterializationGraphContextFactory:
-        RequestMaterializationGraphContextFactory = object : RequestMaterializationGraphContextFactory {
-        override fun expectedStandardJsonInputStandardQueryBuilder(): ExpectedStandardJsonInputStandardQuery.Builder {
-            TODO("Not yet implemented")
-        }
+        RequestMaterializationGraphContextFactory =
+        object : RequestMaterializationGraphContextFactory {
 
-        override fun expectedStandardJsonInputTabularQueryBuilder(): ExpectedStandardJsonInputTabularQuery.Builder {
-            TODO("Not yet implemented")
-        }
+            override fun standardQueryBuilder(): StandardQuery.Builder {
+                TODO("Not yet implemented")
+            }
 
-        override fun expectedTabularInputStandardQueryBuilder(): ExpectedTabularInputStandardQuery.Builder {
-            TODO("Not yet implemented")
-        }
+            override fun tabularQueryBuilder(): TabularQuery.Builder {
+                TODO("Not yet implemented")
+            }
+        },
+    private val queryComponentContextFactory: QueryComponentContextFactory =
+        object : QueryComponentContextFactory {
+            override fun selectedFieldComponentContextBuilder():
+                QueryComponentContext.SelectedFieldComponentContext.Builder {
+                TODO("Not yet implemented")
+            }
 
-        override fun expectedTabularInputTabularQueryBuilder(): ExpectedTabularInputTabularQuery.Builder {
-            TODO("Not yet implemented")
+            override fun fieldArgumentComponentContextBuilder():
+                QueryComponentContext.FieldArgumentComponentContext.Builder {
+                TODO("Not yet implemented")
+            }
         }
-
-        override fun standardQueryBuilder(): StandardQuery.Builder {
-            TODO("Not yet implemented")
-        }
-
-        override fun tabularQueryBuilder(): TabularQuery.Builder {
-            TODO("Not yet implemented")
-        }
-
-    },
-    private val queryComponentContextFactory: QueryComponentContextFactory = object : QueryComponentContextFactory {
-        override fun selectedFieldComponentContextBuilder(): QueryComponentContext.SelectedFieldComponentContext.Builder {
-            TODO("Not yet implemented")
-        }
-
-        override fun fieldArgumentComponentContextBuilder(): QueryComponentContext.FieldArgumentComponentContext.Builder {
-            TODO("Not yet implemented")
-        }
-
-    }
 ) : SingleRequestMaterializationGraphService {
 
     companion object {
@@ -160,128 +129,84 @@ internal class DefaultSingleRequestMaterializationGraphService(
         logger.info(
             "create_request_materialization_graph_cache_key_for_session: [ session.session_id: ${session.sessionId} ]"
         )
-        return extractRawInputContextShapeFromRawInputContextIfPresent(session)
-            .flatMap { rics: Option<RawInputContextShape> ->
-                when {
-                    session.preparsedDocumentEntry
-                        .filterNot(PreparsedDocumentEntry::hasErrors)
-                        .mapNotNull(PreparsedDocumentEntry::getDocument)
-                        .isDefined() -> {
-                        RequestMaterializationGraphCacheKey(
-                                materializationMetamodelCreated =
-                                    session.materializationMetamodel.created,
-                                variableKeys =
-                                    session.rawGraphQLRequest.variables.keys.toPersistentSet(),
-                                operationName = session.rawGraphQLRequest.operationName.toOption(),
-                                standardQueryDocument =
-                                    session.preparsedDocumentEntry.mapNotNull(
-                                        PreparsedDocumentEntry::getDocument
-                                    ),
-                                tabularQueryOutputColumns = none(),
-                                rawInputContextShape = rics,
-                            )
-                            .successIfNonNull()
-                    }
-                    session.preparsedDocumentEntry
-                        .filter(PreparsedDocumentEntry::hasErrors)
-                        .isDefined() -> {
-                        ServiceError.invalidRequestErrorBuilder()
-                            .message(
-                                """preparsed_document_entry in session [ session_id: %s ] 
-                                |contains validation errors [ %s ]"""
-                                    .flatten(),
-                                session.sessionId,
-                                session.preparsedDocumentEntry
-                                    .mapNotNull(PreparsedDocumentEntry::getErrors)
-                                    .getOrElse(::emptyList)
-                                    .asSequence()
-                                    .withIndex()
-                                    .joinToString(", ") { (idx: Int, ge: GraphQLError) ->
-                                        "[$idx]:$ge"
-                                    }
-                            )
-                            .build()
-                            .failure()
-                    }
-                    session.rawGraphQLRequest.expectedOutputFieldNames.isNotEmpty() -> {
-                        RequestMaterializationGraphCacheKey(
-                                materializationMetamodelCreated =
-                                    session.materializationMetamodel.created,
-                                variableKeys =
-                                    session.rawGraphQLRequest.variables.keys.toPersistentSet(),
-                                operationName = none(),
-                                standardQueryDocument = none(),
-                                tabularQueryOutputColumns =
-                                    session.rawGraphQLRequest.expectedOutputFieldNames
-                                        .toPersistentSet()
-                                        .toOption(),
-                                rawInputContextShape = rics
-                            )
-                            .successIfNonNull()
-                    }
-                    else -> {
-                        ServiceError.invalidRequestErrorBuilder()
-                            .message(
-                                """session must contain either PreparsedDocumentEntry 
-                                    |with a valid Document  
-                                    |or a list of expected column names in the output 
-                                    |for a tabular query"""
-                                    .flatten()
-                            )
-                            .build()
-                            .failure()
-                    }
+        return when {
+                session.preparsedDocumentEntry
+                    .filterNot(PreparsedDocumentEntry::hasErrors)
+                    .mapNotNull(PreparsedDocumentEntry::getDocument)
+                    .isDefined() -> {
+                    RequestMaterializationGraphCacheKey(
+                            materializationMetamodelCreated =
+                                session.materializationMetamodel.created,
+                            variableKeys =
+                                session.rawGraphQLRequest.variables.keys.toPersistentSet(),
+                            rawInputContextKeys =
+                                session.rawInputContext.fold(
+                                    ::persistentSetOf,
+                                    RawInputContext::fieldNames
+                                ),
+                            operationName = session.rawGraphQLRequest.operationName.toOption(),
+                            standardQueryDocument =
+                                session.preparsedDocumentEntry.mapNotNull(
+                                    PreparsedDocumentEntry::getDocument
+                                ),
+                            tabularQueryOutputColumns = none(),
+                        )
+                        .successIfNonNull()
+                }
+                session.preparsedDocumentEntry
+                    .filter(PreparsedDocumentEntry::hasErrors)
+                    .isDefined() -> {
+                    ServiceError.invalidRequestErrorBuilder()
+                        .message(
+                            """preparsed_document_entry in session [ session_id: %s ] 
+                            |contains validation errors [ %s ]"""
+                                .flatten(),
+                            session.sessionId,
+                            session.preparsedDocumentEntry
+                                .mapNotNull(PreparsedDocumentEntry::getErrors)
+                                .getOrElse(::emptyList)
+                                .asSequence()
+                                .withIndex()
+                                .joinToString(", ") { (idx: Int, ge: GraphQLError) -> "[$idx]:$ge" }
+                        )
+                        .build()
+                        .failure()
+                }
+                session.rawGraphQLRequest.expectedOutputFieldNames.isNotEmpty() -> {
+                    RequestMaterializationGraphCacheKey(
+                            materializationMetamodelCreated =
+                                session.materializationMetamodel.created,
+                            variableKeys =
+                                session.rawGraphQLRequest.variables.keys.toPersistentSet(),
+                            rawInputContextKeys =
+                                session.rawInputContext.fold(
+                                    ::persistentSetOf,
+                                    RawInputContext::fieldNames
+                                ),
+                            operationName = none(),
+                            standardQueryDocument = none(),
+                            tabularQueryOutputColumns =
+                                session.rawGraphQLRequest.expectedOutputFieldNames
+                                    .toPersistentSet()
+                                    .toOption(),
+                        )
+                        .successIfNonNull()
+                }
+                else -> {
+                    ServiceError.invalidRequestErrorBuilder()
+                        .message(
+                            """session must contain either PreparsedDocumentEntry 
+                            |with a valid Document  
+                            |or a list of expected column names in the output 
+                            |for a tabular query"""
+                                .flatten()
+                        )
+                        .build()
+                        .failure()
                 }
             }
             .toMono()
             .widen()
-    }
-
-    private fun extractRawInputContextShapeFromRawInputContextIfPresent(
-        session: GraphQLSingleRequestSession
-    ): Try<Option<RawInputContextShape>> {
-        return Try.success(
-            session.rawInputContext.map { ric: RawInputContext ->
-                when (ric) {
-                    is RawInputContext.CommaSeparatedValues -> {
-                        DefaultRawInputContextShapeFactory.createTabularShape(
-                            ric.fieldNames().toPersistentSet()
-                        )
-                    }
-                    is RawInputContext.TabularJson -> {
-                        DefaultRawInputContextShapeFactory.createTabularShape(
-                            ric.fieldNames().toPersistentSet()
-                        )
-                    }
-                    is RawInputContext.StandardJson -> {
-                        // TODO: Reduce to just domain nodes
-                        val treePathSet: ImmutableSet<TreePath> =
-                            PersistentTree.fromSequenceTraversal(ric.asJsonNode()) { jn: JsonNode ->
-                                    when (jn) {
-                                        is ArrayNode -> {
-                                            jn.asSequence().map { j -> j.left() }
-                                        }
-                                        is ObjectNode -> {
-                                            jn.fields().asSequence().map { e ->
-                                                (e.key to e.value).right()
-                                            }
-                                        }
-                                        else -> {
-                                            emptySequence()
-                                        }
-                                    }
-                                }
-                                .asSequence()
-                                .filter { (_: TreePath, jn: JsonNode) -> !jn.isContainerNode }
-                                .map { (tp: TreePath, _: JsonNode) -> tp }
-                                .toPersistentSet()
-                        DefaultRawInputContextShapeFactory.createTreeShape(
-                            treePathSet = treePathSet
-                        )
-                    }
-                }
-            }
-        )
     }
 
     private fun calculateRequestMaterializationGraphForSession(
@@ -293,69 +218,12 @@ internal class DefaultSingleRequestMaterializationGraphService(
         )
         return Mono.fromCallable {
                 when {
-                    cacheKey.standardQueryDocument.isDefined() &&
-                        cacheKey.rawInputContextShape
-                            .filterIsInstance<RawInputContextShape.Tree>()
-                            .isDefined() -> {
-                        requestMaterializationGraphContextFactory
-                            .expectedStandardJsonInputStandardQueryBuilder()
-                            .materializationMetamodel(session.materializationMetamodel)
-                            .variableKeys(cacheKey.variableKeys)
-                            .document(cacheKey.standardQueryDocument.orNull()!!)
-                            .standardJsonShape(
-                                cacheKey.rawInputContextShape.orNull() as RawInputContextShape.Tree
-                            )
-                            .build()
-                    }
-                    cacheKey.standardQueryDocument.isDefined() &&
-                        cacheKey.rawInputContextShape
-                            .filterIsInstance<RawInputContextShape.Tabular>()
-                            .isDefined() -> {
-                        requestMaterializationGraphContextFactory
-                            .expectedTabularInputStandardQueryBuilder()
-                            .materializationMetamodel(session.materializationMetamodel)
-                            .variableKeys(cacheKey.variableKeys)
-                            .outputColumnNames(cacheKey.tabularQueryOutputColumns.orNull()!!)
-                            .tabularShape(
-                                cacheKey.rawInputContextShape.orNull()
-                                    as RawInputContextShape.Tabular
-                            )
-                            .build()
-                    }
-                    cacheKey.tabularQueryOutputColumns.isDefined() &&
-                        cacheKey.rawInputContextShape
-                            .filterIsInstance<RawInputContextShape.Tabular>()
-                            .isDefined() -> {
-                        requestMaterializationGraphContextFactory
-                            .expectedTabularInputTabularQueryBuilder()
-                            .materializationMetamodel(session.materializationMetamodel)
-                            .variableKeys(cacheKey.variableKeys)
-                            .outputColumnNames(cacheKey.tabularQueryOutputColumns.orNull()!!)
-                            .tabularShape(
-                                cacheKey.rawInputContextShape.orNull()
-                                    as RawInputContextShape.Tabular
-                            )
-                            .build()
-                    }
-                    cacheKey.tabularQueryOutputColumns.isDefined() &&
-                        cacheKey.rawInputContextShape
-                            .filterIsInstance<RawInputContextShape.Tree>()
-                            .isDefined() -> {
-                        requestMaterializationGraphContextFactory
-                            .expectedStandardJsonInputTabularQueryBuilder()
-                            .materializationMetamodel(session.materializationMetamodel)
-                            .variableKeys(cacheKey.variableKeys)
-                            .outputColumnNames(cacheKey.tabularQueryOutputColumns.orNull()!!)
-                            .standardJsonShape(
-                                cacheKey.rawInputContextShape.orNull() as RawInputContextShape.Tree
-                            )
-                            .build()
-                    }
                     cacheKey.standardQueryDocument.isDefined() -> {
                         requestMaterializationGraphContextFactory
                             .standardQueryBuilder()
                             .materializationMetamodel(session.materializationMetamodel)
                             .variableKeys(cacheKey.variableKeys)
+                            .rawInputContextKeys(cacheKey.rawInputContextKeys)
                             .document(cacheKey.standardQueryDocument.orNull()!!)
                             .build()
                     }
@@ -364,6 +232,7 @@ internal class DefaultSingleRequestMaterializationGraphService(
                             .tabularQueryBuilder()
                             .materializationMetamodel(session.materializationMetamodel)
                             .variableKeys(cacheKey.variableKeys)
+                            .rawInputContextKeys(cacheKey.rawInputContextKeys)
                             .outputColumnNames(cacheKey.tabularQueryOutputColumns.orNull()!!)
                             .build()
                     }
@@ -387,46 +256,6 @@ internal class DefaultSingleRequestMaterializationGraphService(
     ): Mono<RequestMaterializationGraph> {
         Mono.fromCallable {
             when (context) {
-                is ExpectedStandardJsonInputStandardQuery -> {
-                    val connector = ExpectedStandardJsonInputBasedStandardQueryConnector
-                    connectOperationDefinitionAndEachAddedVertex(connector, context) {
-                        c: ExpectedStandardJsonInputStandardQuery ->
-                        c.addedVertices
-                            .asSequence()
-                            .map(Map.Entry<GQLOperationPath, Node<*>>::toPair)
-                            .firstOrNone() to c.update { dropFirstAddedVertex() }
-                    }
-                }
-                is ExpectedStandardJsonInputTabularQuery -> {
-                    val connector = ExpectedStandardJsonInputBasedTabularQueryConnector
-                    connectOperationDefinitionAndEachAddedVertex(connector, context) {
-                        c: ExpectedStandardJsonInputTabularQuery ->
-                        c.addedVertices
-                            .asSequence()
-                            .map(Map.Entry<GQLOperationPath, Node<*>>::toPair)
-                            .firstOrNone() to c.update { dropFirstAddedVertex() }
-                    }
-                }
-                is ExpectedTabularInputStandardQuery -> {
-                    val connector = ExpectedTabularInputBasedStandardQueryConnector
-                    connectOperationDefinitionAndEachAddedVertex(connector, context) {
-                        c: ExpectedTabularInputStandardQuery ->
-                        c.addedVertices
-                            .asSequence()
-                            .map(Map.Entry<GQLOperationPath, Node<*>>::toPair)
-                            .firstOrNone() to c.update { dropFirstAddedVertex() }
-                    }
-                }
-                is ExpectedTabularInputTabularQuery -> {
-                    val connector = ExpectedTabularInputBasedTabularQueryConnector
-                    connectOperationDefinitionAndEachAddedVertex(connector, context) {
-                        c: ExpectedTabularInputTabularQuery ->
-                        c.addedVertices
-                            .asSequence()
-                            .map(Map.Entry<GQLOperationPath, Node<*>>::toPair)
-                            .firstOrNone() to c.update { dropFirstAddedVertex() }
-                    }
-                }
                 is StandardQuery -> {
                     val connector = StandardQueryConnector
                     connectOperationDefinitionAndEachAddedVertex(connector, context) {

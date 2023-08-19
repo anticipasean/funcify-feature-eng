@@ -4,55 +4,68 @@ import arrow.core.continuations.eagerEffect
 import arrow.core.identity
 import com.fasterxml.jackson.databind.JsonNode
 import funcify.feature.error.ServiceError
+import funcify.feature.tools.json.JsonMapper
+import funcify.feature.tools.json.MappingTarget.Companion.toKotlinObject
+import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.toPersistentMap
 
 /**
  * @author smccarron
  * @created 2023-07-30
  */
-internal class DefaultRawInputContextFactory : RawInputContextFactory {
+internal class DefaultRawInputContextFactory(private val jsonMapper: JsonMapper) :
+    RawInputContextFactory {
 
     companion object {
         internal class DefaultBuilder(
-            private var json: JsonNode? = null,
-            private var csvRecord: Map<String, String?>? = null,
+            private val jsonMapper: JsonMapper,
+            private var jsonRecord: JsonNode? = null,
+            private var mapRecord: Map<*, *>? = null
         ) : RawInputContext.Builder {
 
             override fun json(jsonNode: JsonNode): RawInputContext.Builder {
-                this.json = jsonNode
+                this.jsonRecord = jsonNode
                 return this
             }
 
-            override fun csvRecord(csvRecord: Map<String, String?>): RawInputContext.Builder {
-                this.csvRecord = csvRecord
+            override fun mapRecord(mapRecord: Map<*, *>): RawInputContext.Builder {
+                this.mapRecord = mapRecord
                 return this
             }
 
             override fun build(): RawInputContext {
                 return eagerEffect<String, RawInputContext> {
-                        ensure(json != null || csvRecord != null) {
-                            "both json and csv_record input are null; one or the other must be provided"
+                        ensure(jsonRecord != null || mapRecord != null) {
+                            "both json and map_record input are null; one or the other must be provided"
                         }
                         when {
-                            csvRecord != null -> {
-                                DefaultCommaSeparatedValuesInputContext(
-                                    csvRecord!!.toPersistentMap()
-                                )
+                            mapRecord != null -> {
+                                val jsonByFieldName: PersistentMap<String, JsonNode> =
+                                    try {
+                                        jsonMapper
+                                            .fromKotlinObject(mapRecord)
+                                            .toKotlinObject<Map<String, JsonNode>>()
+                                            .map(Map<String, JsonNode>::toPersistentMap)
+                                            .orElseThrow()
+                                    } catch (t: Throwable) {
+                                        when (val message: String? = t.message) {
+                                            null -> {
+                                                shift(
+                                                    "error without message [ type: %s ][ to_string: %s ]".format(
+                                                        t.run { this::class }.qualifiedName,
+                                                        t
+                                                    )
+                                                )
+                                            }
+                                            else -> {
+                                                shift(message)
+                                            }
+                                        }
+                                    }
+                                DefaultJsonMapInputContext(jsonByFieldName = jsonByFieldName)
                             }
                             else -> {
-                                when {
-                                    json!!.isObject &&
-                                        json!!.size() >= 1 &&
-                                        json!!.fields().asSequence().all { (_: String, v: JsonNode)
-                                            ->
-                                            !v.isContainerNode
-                                        } -> {
-                                        DefaultTabularJsonInputContext(json!!)
-                                    }
-                                    else -> {
-                                        DefaultStandardJsonInputContext(json!!)
-                                    }
-                                }
+                                DefaultJsonNodeInputContext(jsonNode = jsonRecord!!)
                             }
                         }
                     }
@@ -62,6 +75,6 @@ internal class DefaultRawInputContextFactory : RawInputContextFactory {
     }
 
     override fun builder(): RawInputContext.Builder {
-        return DefaultBuilder()
+        return DefaultBuilder(jsonMapper = jsonMapper)
     }
 }

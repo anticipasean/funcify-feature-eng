@@ -10,7 +10,7 @@ import org.slf4j.Logger
  * @author smccarron
  * @created 2023-08-05
  */
-object TabularQueryConnector : TabularQueryTargetGraphConnector<TabularQuery> {
+object TabularQueryConnector : RequestMaterializationGraphConnector<TabularQuery> {
 
     private val logger: Logger = loggerFor<TabularQueryConnector>()
 

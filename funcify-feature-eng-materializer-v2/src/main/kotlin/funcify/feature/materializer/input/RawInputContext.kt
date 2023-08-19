@@ -8,46 +8,25 @@ import kotlinx.collections.immutable.ImmutableSet
  * @author smccarron
  * @created 2023-07-29
  */
-sealed interface RawInputContext {
+interface RawInputContext {
 
     companion object {
         val RAW_INPUT_CONTEXT_VARIABLE_KEY: String = "input"
     }
 
+    fun fieldNames(): ImmutableSet<String>
+
+    fun get(fieldName: String): Option<JsonNode>
+
     // TODO: Consider whether a defensive deepCopy needs to be provided, especially if this type is
     // used outside of materializer module
     fun asJsonNode(): JsonNode
-
-    interface CommaSeparatedValues : RawInputContext {
-
-        fun fieldNames(): ImmutableSet<String>
-
-        fun get(fieldName: String): Option<String>
-
-        fun get(fieldIndex: Int): Option<String>
-
-        override fun asJsonNode(): JsonNode
-    }
-
-    interface TabularJson : RawInputContext {
-
-        fun fieldNames(): ImmutableSet<String>
-
-        fun get(fieldName: String): Option<JsonNode>
-
-        override fun asJsonNode(): JsonNode
-    }
-
-    interface StandardJson : RawInputContext {
-
-        override fun asJsonNode(): JsonNode
-    }
 
     interface Builder {
 
         fun json(jsonNode: JsonNode): Builder
 
-        fun csvRecord(csvRecord: Map<String, String?>): Builder
+        fun mapRecord(mapRecord: Map<*, *>): Builder
 
         fun build(): RawInputContext
     }

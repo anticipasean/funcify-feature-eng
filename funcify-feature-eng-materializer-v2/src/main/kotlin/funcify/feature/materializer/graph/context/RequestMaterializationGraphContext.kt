@@ -8,7 +8,6 @@ import funcify.feature.schema.feature.FeatureCalculator
 import funcify.feature.schema.path.operation.GQLOperationPath
 import funcify.feature.schema.transformer.TransformerSource
 import graphql.language.Node
-import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.ImmutableSet
 
@@ -21,6 +20,8 @@ interface RequestMaterializationGraphContext {
     val materializationMetamodel: MaterializationMetamodel
 
     val variableKeys: ImmutableSet<String>
+
+    val rawInputContextKeys: ImmutableSet<String>
 
     val requestGraph: DirectedPersistentGraph<GQLOperationPath, Node<*>, MaterializationEdge>
 
@@ -38,6 +39,8 @@ interface RequestMaterializationGraphContext {
         fun materializationMetamodel(materializationMetamodel: MaterializationMetamodel): B
 
         fun variableKeys(variableKeys: ImmutableSet<String>): B
+
+        fun rawInputContextKeys(rawInputContextKeys: ImmutableSet<String>): B
 
         fun requestGraph(
             requestGraph: DirectedPersistentGraph<GQLOperationPath, Node<*>, MaterializationEdge>
@@ -65,6 +68,5 @@ interface RequestMaterializationGraphContext {
         fun addedVertices(addedVertices: Iterable<Pair<GQLOperationPath, Node<*>>>): B
 
         fun dropFirstAddedVertex(): B
-
     }
 }
