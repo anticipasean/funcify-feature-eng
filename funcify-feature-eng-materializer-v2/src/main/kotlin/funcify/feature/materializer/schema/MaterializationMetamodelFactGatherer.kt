@@ -46,6 +46,9 @@ internal object MaterializationMetamodelFactGatherer :
             .toOption()
             .flatMap(calculateCanonicalPathsOffQueryObjectType(graphQLSchema))
             .map(calculateDomainSpecifiedDataElementSources(featureEngineeringModel, graphQLSchema))
+            .map(
+                calculateFeatureSpecifiedFeatureCalculators(featureEngineeringModel, graphQLSchema)
+            )
             .getOrElse { DefaultMaterializationMetamodelFacts.empty() }
             .also { mmf: MaterializationMetamodelFacts ->
                 logger.debug(
@@ -525,6 +528,25 @@ internal object MaterializationMetamodelFactGatherer :
                         b: MaterializationMetamodelFacts.Builder,
                         dsdes: DomainSpecifiedDataElementSource ->
                         b.putDomainSpecifiedDataElementSourceForPath(dsdes.domainPath, dsdes)
+                    }
+            }
+        }
+    }
+
+    private fun calculateFeatureSpecifiedFeatureCalculators(
+        featureEngineeringModel: FeatureEngineeringModel,
+        graphQLSchema: GraphQLSchema
+    ): (MaterializationMetamodelFacts) -> MaterializationMetamodelFacts {
+        return { mmf: MaterializationMetamodelFacts ->
+            mmf.update {
+                FeatureSpecifiedFeatureCalculatorCreator.invoke(
+                        featureEngineeringModel,
+                        graphQLSchema
+                    )
+                    .fold(this) {
+                        b: MaterializationMetamodelFacts.Builder,
+                        fsfc: FeatureSpecifiedFeatureCalculator ->
+                        b.putFeatureSpecifiedFeatureCalculatorForPath(fsfc.featurePath, fsfc)
                     }
             }
         }

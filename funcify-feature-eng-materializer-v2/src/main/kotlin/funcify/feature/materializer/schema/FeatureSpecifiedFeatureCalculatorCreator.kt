@@ -227,34 +227,7 @@ internal object FeatureSpecifiedFeatureCalculatorCreator :
                             field(node.name)
                         }
                     if (node.arguments.isNotEmpty()) {
-                        val c: FeatureSpecifiedFeatureCalculatorContext =
-                            context.getCurrentAccumulate()
-                        val fsfc: FeatureSpecifiedFeatureCalculator =
-                            DefaultFeatureSpecifiedFeatureCalculator.builder()
-                                .featureCalculator(c.featureCalculator)
-                                .featurePath(p)
-                                .featureFieldDefinition(node)
-                                .putAllNameArguments(
-                                    node.arguments
-                                        .asSequence()
-                                        .map { a: GraphQLArgument -> a.name to a }
-                                        .toMap()
-                                )
-                                .putAllPathArguments(
-                                    node.arguments
-                                        .asSequence()
-                                        .map { a: GraphQLArgument ->
-                                            p.transform { argument(a.name) } to a
-                                        }
-                                        .toMap()
-                                )
-                                .build()
-                        context.setAccumulate(
-                            c.copy(
-                                featureSpecifiedFeatureCalculators =
-                                    c.featureSpecifiedFeatureCalculators.add(fsfc)
-                            )
-                        )
+                        updateContextWithFeatureGraphQLFieldDefinition(context, p, node)
                     }
                     context.setVar(GQLOperationPath::class.java, p)
                 }
@@ -270,34 +243,7 @@ internal object FeatureSpecifiedFeatureCalculatorCreator :
                                         inlineFragment(parentNode.name, node.name)
                                     }
                                 if (node.arguments.isNotEmpty()) {
-                                    val c: FeatureSpecifiedFeatureCalculatorContext =
-                                        context.getCurrentAccumulate()
-                                    val fsfc: FeatureSpecifiedFeatureCalculator =
-                                        DefaultFeatureSpecifiedFeatureCalculator.builder()
-                                            .featureCalculator(c.featureCalculator)
-                                            .featurePath(p)
-                                            .featureFieldDefinition(node)
-                                            .putAllNameArguments(
-                                                node.arguments
-                                                    .asSequence()
-                                                    .map { a: GraphQLArgument -> a.name to a }
-                                                    .toMap()
-                                            )
-                                            .putAllPathArguments(
-                                                node.arguments
-                                                    .asSequence()
-                                                    .map { a: GraphQLArgument ->
-                                                        p.transform { argument(a.name) } to a
-                                                    }
-                                                    .toMap()
-                                            )
-                                            .build()
-                                    context.setAccumulate(
-                                        c.copy(
-                                            featureSpecifiedFeatureCalculators =
-                                                c.featureSpecifiedFeatureCalculators.add(fsfc)
-                                        )
-                                    )
+                                    updateContextWithFeatureGraphQLFieldDefinition(context, p, node)
                                 }
                                 context.setVar(GQLOperationPath::class.java, p)
                             }
@@ -308,41 +254,53 @@ internal object FeatureSpecifiedFeatureCalculatorCreator :
                                     field(node.name)
                                 }
                             if (node.arguments.isNotEmpty()) {
-                                val c: FeatureSpecifiedFeatureCalculatorContext =
-                                    context.getCurrentAccumulate()
-                                val fsfc: FeatureSpecifiedFeatureCalculator =
-                                    DefaultFeatureSpecifiedFeatureCalculator.builder()
-                                        .featureCalculator(c.featureCalculator)
-                                        .featurePath(p)
-                                        .featureFieldDefinition(node)
-                                        .putAllNameArguments(
-                                            node.arguments
-                                                .asSequence()
-                                                .map { a: GraphQLArgument -> a.name to a }
-                                                .toMap()
-                                        )
-                                        .putAllPathArguments(
-                                            node.arguments
-                                                .asSequence()
-                                                .map { a: GraphQLArgument ->
-                                                    p.transform { argument(a.name) } to a
-                                                }
-                                                .toMap()
-                                        )
-                                        .build()
-                                context.setAccumulate(
-                                    c.copy(
-                                        featureSpecifiedFeatureCalculators =
-                                            c.featureSpecifiedFeatureCalculators.add(fsfc)
-                                    )
-                                )
+                                updateContextWithFeatureGraphQLFieldDefinition(context, p, node)
                             }
                             context.setVar(GQLOperationPath::class.java, p)
                         }
                     }
                 }
+                else -> {
+                    val p: GQLOperationPath = extractParentPathContextVariableOrThrow(context)
+                    if (node.arguments.isNotEmpty()) {
+                        updateContextWithFeatureGraphQLFieldDefinition(context, p, node)
+                    }
+                    context.setVar(GQLOperationPath::class.java, p)
+                }
             }
             return TraversalControl.CONTINUE
+        }
+
+        private fun updateContextWithFeatureGraphQLFieldDefinition(
+            context: TraverserContext<GraphQLSchemaElement>,
+            path: GQLOperationPath,
+            fieldDefinition: GraphQLFieldDefinition,
+        ) {
+            val c: FeatureSpecifiedFeatureCalculatorContext = context.getCurrentAccumulate()
+            val fsfc: FeatureSpecifiedFeatureCalculator =
+                DefaultFeatureSpecifiedFeatureCalculator.builder()
+                    .featureCalculator(c.featureCalculator)
+                    .featurePath(path)
+                    .featureFieldDefinition(fieldDefinition)
+                    .putAllNameArguments(
+                        fieldDefinition.arguments
+                            .asSequence()
+                            .map { a: GraphQLArgument -> a.name to a }
+                            .toMap()
+                    )
+                    .putAllPathArguments(
+                        fieldDefinition.arguments
+                            .asSequence()
+                            .map { a: GraphQLArgument -> path.transform { argument(a.name) } to a }
+                            .toMap()
+                    )
+                    .build()
+            context.setAccumulate(
+                c.copy(
+                    featureSpecifiedFeatureCalculators =
+                        c.featureSpecifiedFeatureCalculators.add(fsfc)
+                )
+            )
         }
 
         private fun extractParentPathContextVariableOrThrow(

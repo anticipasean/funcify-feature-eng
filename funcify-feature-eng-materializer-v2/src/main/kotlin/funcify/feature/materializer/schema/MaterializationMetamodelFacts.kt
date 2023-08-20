@@ -25,6 +25,9 @@ internal interface MaterializationMetamodelFacts {
     val domainSpecifiedDataElementSourceByPath:
         ImmutableMap<GQLOperationPath, DomainSpecifiedDataElementSource>
 
+    val featureSpecifiedFeatureCalculatorsByPath:
+        ImmutableMap<GQLOperationPath, FeatureSpecifiedFeatureCalculator>
+
     fun update(transformer: Builder.() -> Builder): MaterializationMetamodelFacts
 
     interface Builder {
@@ -154,6 +157,33 @@ internal interface MaterializationMetamodelFacts {
                 b: Builder,
                 (p: GQLOperationPath, dsdes: DomainSpecifiedDataElementSource) ->
                 b.putDomainSpecifiedDataElementSourceForPath(p, dsdes)
+            }
+        }
+
+        fun putFeatureSpecifiedFeatureCalculatorForPath(
+            path: GQLOperationPath,
+            featureSpecifiedFeatureCalculator: FeatureSpecifiedFeatureCalculator
+        ): Builder
+
+        fun putAllFeatureSpecifiedFeatureCalculators(
+            pathFeatureSpecifiedFeatureCalculatorPairs:
+                Iterable<Pair<GQLOperationPath, FeatureSpecifiedFeatureCalculator>>
+        ): Builder {
+            return pathFeatureSpecifiedFeatureCalculatorPairs.fold(this) {
+                b: Builder,
+                (p: GQLOperationPath, fsfc: FeatureSpecifiedFeatureCalculator) ->
+                b.putFeatureSpecifiedFeatureCalculatorForPath(p, fsfc)
+            }
+        }
+
+        fun putAllFeatureSpecifiedFeatureCalculators(
+            pathFeatureSpecifiedFeatureCalculatorPairs:
+                Map<GQLOperationPath, FeatureSpecifiedFeatureCalculator>
+        ): Builder {
+            return pathFeatureSpecifiedFeatureCalculatorPairs.foldLeft(this) {
+                b: Builder,
+                (p: GQLOperationPath, fsfc: FeatureSpecifiedFeatureCalculator) ->
+                b.putFeatureSpecifiedFeatureCalculatorForPath(p, fsfc)
             }
         }
 
