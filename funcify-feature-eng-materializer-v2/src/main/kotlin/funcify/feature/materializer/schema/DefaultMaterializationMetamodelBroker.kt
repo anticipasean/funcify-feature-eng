@@ -2,6 +2,7 @@ package funcify.feature.materializer.schema
 
 import arrow.core.continuations.AtomicRef
 import funcify.feature.error.ServiceError
+import funcify.feature.materializer.model.MaterializationMetamodel
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import org.slf4j.Logger

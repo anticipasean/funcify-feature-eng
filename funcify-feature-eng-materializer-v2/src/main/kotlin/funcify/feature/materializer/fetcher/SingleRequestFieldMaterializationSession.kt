@@ -1,6 +1,6 @@
 package funcify.feature.materializer.fetcher
 
-import funcify.feature.materializer.schema.MaterializationMetamodel
+import funcify.feature.materializer.model.MaterializationMetamodel
 import funcify.feature.materializer.session.GraphQLSingleRequestSession
 import funcify.feature.materializer.session.MaterializationSession
 import graphql.GraphQLContext

@@ -1,4 +1,4 @@
-package funcify.feature.materializer.schema
+package funcify.feature.materializer.model
 
 import funcify.feature.schema.dataelement.DataElementSource
 import funcify.feature.schema.path.operation.GQLOperationPath

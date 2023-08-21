@@ -1,8 +1,10 @@
-package funcify.feature.materializer.schema
+package funcify.feature.materializer.model
 
 import arrow.core.foldLeft
+import funcify.feature.schema.FeatureEngineeringModel
 import funcify.feature.schema.path.operation.GQLOperationPath
 import graphql.schema.FieldCoordinates
+import graphql.schema.GraphQLSchema
 import graphql.schema.GraphQLSchemaElement
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.ImmutableSet
@@ -11,7 +13,11 @@ import kotlinx.collections.immutable.ImmutableSet
  * @author smccarron
  * @created 2023-08-10
  */
-internal interface MaterializationMetamodelFacts {
+interface MaterializationMetamodelBuildContext {
+
+    val featureEngineeringModel: FeatureEngineeringModel
+
+    val materializationGraphQLSchema: GraphQLSchema
 
     val childCanonicalPathsByParentPath:
         ImmutableMap<GQLOperationPath, ImmutableSet<GQLOperationPath>>
@@ -30,9 +36,13 @@ internal interface MaterializationMetamodelFacts {
 
     val featurePathsByName: ImmutableMap<String, GQLOperationPath>
 
-    fun update(transformer: Builder.() -> Builder): MaterializationMetamodelFacts
+    fun update(transformer: Builder.() -> Builder): MaterializationMetamodelBuildContext
 
     interface Builder {
+
+        fun featureEngineeringModel(featureEngineeringModel: FeatureEngineeringModel): Builder
+
+        fun materializationGraphQLSchema(materializationGraphQLSchema: GraphQLSchema): Builder
 
         fun addChildPathForParentPath(
             parentPath: GQLOperationPath,
@@ -203,6 +213,6 @@ internal interface MaterializationMetamodelFacts {
             }
         }
 
-        fun build(): MaterializationMetamodelFacts
+        fun build(): MaterializationMetamodelBuildContext
     }
 }

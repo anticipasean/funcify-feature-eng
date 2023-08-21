@@ -1,4 +1,4 @@
-package funcify.feature.materializer.schema
+package funcify.feature.materializer.model
 
 import arrow.core.filterIsInstance
 import arrow.core.getOrElse

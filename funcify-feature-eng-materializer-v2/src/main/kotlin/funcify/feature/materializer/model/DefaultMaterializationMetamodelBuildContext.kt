@@ -1,15 +1,19 @@
-package funcify.feature.materializer.schema
+package funcify.feature.materializer.model
 
-import funcify.feature.materializer.schema.MaterializationMetamodelFacts.Builder
+import funcify.feature.materializer.model.MaterializationMetamodelBuildContext.Builder
+import funcify.feature.schema.FeatureEngineeringModel
 import funcify.feature.schema.path.operation.GQLOperationPath
 import graphql.schema.FieldCoordinates
+import graphql.schema.GraphQLSchema
 import graphql.schema.GraphQLSchemaElement
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.PersistentSet
 import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.persistentSetOf
 
-internal data class DefaultMaterializationMetamodelFacts(
+internal data class DefaultMaterializationMetamodelBuildContext(
+    override val featureEngineeringModel: FeatureEngineeringModel,
+    override val materializationGraphQLSchema: GraphQLSchema,
     override val childCanonicalPathsByParentPath:
         PersistentMap<GQLOperationPath, PersistentSet<GQLOperationPath>>,
     override val querySchemaElementsByCanonicalPath:
@@ -22,12 +26,17 @@ internal data class DefaultMaterializationMetamodelFacts(
     override val featureSpecifiedFeatureCalculatorsByPath:
         PersistentMap<GQLOperationPath, FeatureSpecifiedFeatureCalculator>,
     override val featurePathsByName: PersistentMap<String, GQLOperationPath>
-) : MaterializationMetamodelFacts {
+) : MaterializationMetamodelBuildContext {
 
     companion object {
 
-        fun empty(): MaterializationMetamodelFacts {
-            return DefaultMaterializationMetamodelFacts(
+        fun createInitial(
+            featureEngineeringModel: FeatureEngineeringModel,
+            materializationGraphQLSchema: GraphQLSchema
+        ): MaterializationMetamodelBuildContext {
+            return DefaultMaterializationMetamodelBuildContext(
+                featureEngineeringModel = featureEngineeringModel,
+                materializationGraphQLSchema = materializationGraphQLSchema,
                 childCanonicalPathsByParentPath = persistentMapOf(),
                 querySchemaElementsByCanonicalPath = persistentMapOf(),
                 fieldCoordinatesByCanonicalPath = persistentMapOf(),
@@ -39,7 +48,9 @@ internal data class DefaultMaterializationMetamodelFacts(
         }
 
         internal class DefaultBuilder(
-            private val existingFacts: DefaultMaterializationMetamodelFacts,
+            private val existingFacts: DefaultMaterializationMetamodelBuildContext,
+            private var featureEngineeringModel: FeatureEngineeringModel? = null,
+            private var materializationGraphQLSchema: GraphQLSchema? = null,
             private val childCanonicalPathsByParentPath:
                 PersistentMap.Builder<GQLOperationPath, PersistentSet<GQLOperationPath>> =
                 existingFacts.childCanonicalPathsByParentPath.builder(),
@@ -61,6 +72,15 @@ internal data class DefaultMaterializationMetamodelFacts(
             private val featurePathsByName: PersistentMap.Builder<String, GQLOperationPath> =
                 existingFacts.featurePathsByName.builder(),
         ) : Builder {
+
+            override fun featureEngineeringModel(
+                featureEngineeringModel: FeatureEngineeringModel
+            ): Builder = this.apply { this.featureEngineeringModel = featureEngineeringModel }
+
+            override fun materializationGraphQLSchema(
+                materializationGraphQLSchema: GraphQLSchema
+            ): Builder =
+                this.apply { this.materializationGraphQLSchema = materializationGraphQLSchema }
 
             override fun addChildPathForParentPath(
                 parentPath: GQLOperationPath,
@@ -117,8 +137,14 @@ internal data class DefaultMaterializationMetamodelFacts(
                 gqlOperationPath: GQLOperationPath
             ): Builder = this.apply { this.featurePathsByName.put(name, gqlOperationPath) }
 
-            override fun build(): MaterializationMetamodelFacts {
-                return DefaultMaterializationMetamodelFacts(
+            override fun build(): MaterializationMetamodelBuildContext {
+                return DefaultMaterializationMetamodelBuildContext(
+                    featureEngineeringModel =
+                        requireNotNull(featureEngineeringModel) { "featureEngineeringModel" },
+                    materializationGraphQLSchema =
+                        requireNotNull(materializationGraphQLSchema) {
+                            "materializationGraphQLSchema"
+                        },
                     childCanonicalPathsByParentPath = childCanonicalPathsByParentPath.build(),
                     querySchemaElementsByCanonicalPath = querySchemaElementsByPath.build(),
                     fieldCoordinatesByCanonicalPath = fieldCoordinatesByPath.build(),
@@ -133,7 +159,7 @@ internal data class DefaultMaterializationMetamodelFacts(
         }
     }
 
-    override fun update(transformer: Builder.() -> Builder): MaterializationMetamodelFacts {
+    override fun update(transformer: Builder.() -> Builder): MaterializationMetamodelBuildContext {
         return transformer.invoke(DefaultBuilder(this)).build()
     }
 }

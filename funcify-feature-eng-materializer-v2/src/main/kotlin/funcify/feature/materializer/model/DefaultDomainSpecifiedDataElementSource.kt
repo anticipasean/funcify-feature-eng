@@ -1,4 +1,4 @@
-package funcify.feature.materializer.schema
+package funcify.feature.materializer.model
 
 import arrow.core.continuations.eagerEffect
 import arrow.core.continuations.ensureNotNull

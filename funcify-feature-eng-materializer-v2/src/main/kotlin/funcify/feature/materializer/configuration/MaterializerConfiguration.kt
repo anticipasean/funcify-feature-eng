@@ -9,6 +9,11 @@ import funcify.feature.materializer.graph.DefaultSingleRequestMaterializationGra
 import funcify.feature.materializer.graph.SingleRequestMaterializationGraphService
 import funcify.feature.materializer.input.DefaultSingleRequestRawInputContextExtractor
 import funcify.feature.materializer.input.SingleRequestRawInputContextExtractor
+import funcify.feature.materializer.model.DefaultMaterializationMetamodelBuildStrategy
+import funcify.feature.materializer.model.DefaultMaterializationMetamodelFactory
+import funcify.feature.materializer.model.MaterializationMetamodel
+import funcify.feature.materializer.model.MaterializationMetamodelBuildStrategy
+import funcify.feature.materializer.model.MaterializationMetamodelFactory
 import funcify.feature.materializer.request.DefaultRawGraphQLRequestFactory
 import funcify.feature.materializer.request.RawGraphQLRequestFactory
 import funcify.feature.materializer.response.DefaultSerializedGraphQLResponseFactory
@@ -16,11 +21,9 @@ import funcify.feature.materializer.response.DefaultSingleRequestMaterialization
 import funcify.feature.materializer.response.SerializedGraphQLResponseFactory
 import funcify.feature.materializer.response.SingleRequestMaterializationTabularResponsePostprocessingService
 import funcify.feature.materializer.schema.DefaultMaterializationGraphQLSchemaFactory
-import funcify.feature.materializer.schema.DefaultMaterializationMetamodel
 import funcify.feature.materializer.schema.DefaultMaterializationMetamodelBroker
 import funcify.feature.materializer.schema.MaterializationGraphQLSchemaFactory
 import funcify.feature.materializer.schema.MaterializationMetamodelBroker
-import funcify.feature.materializer.schema.MaterializationMetamodelFactGatherer
 import funcify.feature.materializer.service.DefaultGraphQLSingleRequestMaterializationQueryExecutionStrategy
 import funcify.feature.materializer.service.DefaultSingleRequestMaterializationExecutionResultPostprocessingService
 import funcify.feature.materializer.service.DefaultSingleRequestMaterializationOrchestratorService
@@ -173,24 +176,55 @@ class MaterializerConfiguration {
             .orElseThrow()
     }
 
+    @ConditionalOnMissingBean(value = [MaterializationMetamodelBuildStrategy::class])
+    @Bean
+    fun materializationMetamodelBuildStrategy(): MaterializationMetamodelBuildStrategy {
+        return DefaultMaterializationMetamodelBuildStrategy()
+    }
+
+    @ConditionalOnMissingBean(value = [MaterializationMetamodelFactory::class])
+    @Bean
+    fun materializationMetamodelFactory(
+        materializationMetamodelBuildStrategy: MaterializationMetamodelBuildStrategy
+    ): MaterializationMetamodelFactory {
+        return DefaultMaterializationMetamodelFactory(
+            materializationMetamodelBuildStrategy = materializationMetamodelBuildStrategy
+        )
+    }
+
+    @ConditionalOnMissingBean(value = [MaterializationMetamodel::class])
+    @Bean
+    fun materializationMetamodel(
+        featureEngineeringModel: FeatureEngineeringModel,
+        materializationGraphQLSchema: GraphQLSchema,
+        materializationMetamodelFactory: MaterializationMetamodelFactory
+    ): MaterializationMetamodel {
+        return materializationMetamodelFactory
+            .builder()
+            .featureEngineeringModel(featureEngineeringModel)
+            .materializationGraphQLSchema(materializationGraphQLSchema)
+            .build()
+            .doOnNext { mm: MaterializationMetamodel ->
+                logger.debug("build_materialization_metamodel: [ status: successful ]")
+            }
+            .doOnError { t: Throwable ->
+                logger.error(
+                    "build_materialization_metamodel: [ status: failed ][ type: {}, message: {} ]",
+                    t::class.simpleName,
+                    t.message
+                )
+            }
+            .toFuture()
+            .join()
+    }
+
     @ConditionalOnMissingBean(value = [MaterializationMetamodelBroker::class])
     @Bean
     fun materializationMetamodelBroker(
-        featureEngineeringModel: FeatureEngineeringModel,
-        materializationGraphQLSchema: GraphQLSchema
+        materializationMetamodel: MaterializationMetamodel
     ): MaterializationMetamodelBroker {
         val broker: MaterializationMetamodelBroker = DefaultMaterializationMetamodelBroker()
-        broker.pushNewMaterializationMetamodel(
-            DefaultMaterializationMetamodel(
-                featureEngineeringModel = featureEngineeringModel,
-                materializationGraphQLSchema = materializationGraphQLSchema,
-                materializationMetamodelFacts =
-                    MaterializationMetamodelFactGatherer(
-                        featureEngineeringModel,
-                        materializationGraphQLSchema
-                    )
-            )
-        )
+        broker.pushNewMaterializationMetamodel(materializationMetamodel)
         return broker
     }
 
@@ -199,7 +233,7 @@ class MaterializerConfiguration {
     fun singleRequestRawInputContextExtractor(
         jsonMapper: JsonMapper
     ): SingleRequestRawInputContextExtractor {
-        return DefaultSingleRequestRawInputContextExtractor(jsonMapper)
+        return DefaultSingleRequestRawInputContextExtractor(jsonMapper = jsonMapper)
     }
 
     @ConditionalOnMissingBean(value = [GraphQLSingleRequestSessionFactory::class])

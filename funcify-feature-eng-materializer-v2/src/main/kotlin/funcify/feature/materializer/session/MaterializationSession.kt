@@ -1,6 +1,6 @@
 package funcify.feature.materializer.session
 
-import funcify.feature.materializer.schema.MaterializationMetamodel
+import funcify.feature.materializer.model.MaterializationMetamodel
 import java.util.*
 
 /**

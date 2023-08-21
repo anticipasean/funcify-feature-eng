@@ -6,13 +6,11 @@ import arrow.core.some
 import arrow.core.toOption
 import funcify.feature.materializer.graph.RequestMaterializationGraph
 import funcify.feature.materializer.input.RawInputContext
+import funcify.feature.materializer.model.MaterializationMetamodel
 import funcify.feature.materializer.request.RawGraphQLRequest
 import funcify.feature.materializer.response.SerializedGraphQLResponse
-import funcify.feature.materializer.schema.MaterializationMetamodel
 import funcify.feature.materializer.session.GraphQLSingleRequestSession.Builder
 import graphql.execution.preparsed.PreparsedDocumentEntry
-import graphql.language.Document
-import graphql.language.OperationDefinition
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.toPersistentMap

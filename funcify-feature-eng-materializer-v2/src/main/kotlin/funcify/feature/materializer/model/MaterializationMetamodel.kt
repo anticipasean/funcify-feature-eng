@@ -1,13 +1,14 @@
-package funcify.feature.materializer.schema
+package funcify.feature.materializer.model
 
 import funcify.feature.schema.FeatureEngineeringModel
 import funcify.feature.schema.path.operation.GQLOperationPath
 import graphql.schema.FieldCoordinates
 import graphql.schema.GraphQLSchema
 import graphql.schema.GraphQLSchemaElement
-import java.time.Instant
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.ImmutableSet
+import reactor.core.publisher.Mono
+import java.time.Instant
 
 /**
  * @author smccarron
@@ -21,7 +22,8 @@ interface MaterializationMetamodel {
 
     val materializationGraphQLSchema: GraphQLSchema
 
-    val childCanonicalPathsByParentPath: ImmutableMap<GQLOperationPath, ImmutableSet<GQLOperationPath>>
+    val childCanonicalPathsByParentPath:
+        ImmutableMap<GQLOperationPath, ImmutableSet<GQLOperationPath>>
 
     val querySchemaElementsByCanonicalPath: ImmutableMap<GQLOperationPath, GraphQLSchemaElement>
 
@@ -36,4 +38,13 @@ interface MaterializationMetamodel {
         ImmutableMap<GQLOperationPath, FeatureSpecifiedFeatureCalculator>
 
     val featurePathsByName: ImmutableMap<String, GQLOperationPath>
+
+    interface Builder {
+
+        fun featureEngineeringModel(featureEngineeringModel: FeatureEngineeringModel): Builder
+
+        fun materializationGraphQLSchema(materializationGraphQLSchema: GraphQLSchema): Builder
+
+        fun build(): Mono<out MaterializationMetamodel>
+    }
 }

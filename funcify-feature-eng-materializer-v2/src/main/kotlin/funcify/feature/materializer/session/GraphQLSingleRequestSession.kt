@@ -3,16 +3,14 @@ package funcify.feature.materializer.session
 import arrow.core.Option
 import funcify.feature.materializer.graph.RequestMaterializationGraph
 import funcify.feature.materializer.input.RawInputContext
+import funcify.feature.materializer.model.MaterializationMetamodel
 import funcify.feature.materializer.request.RawGraphQLRequest
 import funcify.feature.materializer.response.SerializedGraphQLResponse
-import funcify.feature.materializer.schema.MaterializationMetamodel
 import funcify.feature.schema.FeatureEngineeringModel
 import graphql.execution.preparsed.PreparsedDocumentEntry
-import graphql.language.Document
-import graphql.language.OperationDefinition
 import graphql.schema.GraphQLSchema
-import java.util.*
 import kotlinx.collections.immutable.ImmutableMap
+import java.util.*
 
 /**
  * @author smccarron

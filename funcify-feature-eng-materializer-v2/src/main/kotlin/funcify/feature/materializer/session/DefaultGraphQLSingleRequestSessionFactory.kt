@@ -1,8 +1,8 @@
 package funcify.feature.materializer.session
 
 import funcify.feature.materializer.input.SingleRequestRawInputContextExtractor
+import funcify.feature.materializer.model.MaterializationMetamodel
 import funcify.feature.materializer.request.RawGraphQLRequest
-import funcify.feature.materializer.schema.MaterializationMetamodel
 import funcify.feature.materializer.schema.MaterializationMetamodelBroker
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flatten

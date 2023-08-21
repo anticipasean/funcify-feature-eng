@@ -2,7 +2,7 @@ package funcify.feature.materializer.graph.context
 
 import funcify.feature.graph.DirectedPersistentGraph
 import funcify.feature.materializer.graph.MaterializationEdge
-import funcify.feature.materializer.schema.MaterializationMetamodel
+import funcify.feature.materializer.model.MaterializationMetamodel
 import funcify.feature.schema.dataelement.DataElementSource
 import funcify.feature.schema.feature.FeatureCalculator
 import funcify.feature.schema.path.operation.GQLOperationPath
