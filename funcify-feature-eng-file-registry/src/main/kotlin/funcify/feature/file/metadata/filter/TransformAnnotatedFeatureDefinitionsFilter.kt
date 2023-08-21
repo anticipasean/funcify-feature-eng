@@ -90,6 +90,37 @@ class TransformAnnotatedFeatureDefinitionsFilter : TypeDefinitionRegistryFilter 
                     node.inputValueDefinitions.isEmpty() -> {
                         TraversalControl.CONTINUE
                     }
+                    node.inputValueDefinitions.any { ivd: InputValueDefinition ->
+                        ivd.defaultValue == null
+                    } -> {
+                        val c: TransformAnnotatedFeatureDefinitionFilterContext =
+                            context.getCurrentAccumulate()
+                        val message: String =
+                            """field_definition [ name: %s ] for [ type.name: %s ] 
+                                |takes arguments but at least one argument does not 
+                                |have a default value supplied 
+                                |[ argument.name(s): %s ]"""
+                                .format(
+                                    node.name,
+                                    context.parentNode
+                                        .toOption()
+                                        .filterIsInstance<ObjectTypeDefinition>()
+                                        .map(ObjectTypeDefinition::getName)
+                                        .getOrElse { "<NA>" },
+                                    node.inputValueDefinitions
+                                        .asSequence()
+                                        .filter { ivd: InputValueDefinition ->
+                                            ivd.defaultValue == null
+                                        }
+                                        .map(InputValueDefinition::getName)
+                                        .joinToString(", ")
+                                )
+                                .flatten()
+                        context.setAccumulate(
+                            c.copy(errors = c.errors.add(ServiceError.of(message)))
+                        )
+                        TraversalControl.CONTINUE
+                    }
                     node.hasDirective(TransformDirective.name) -> {
                         TraversalControl.CONTINUE
                     }
