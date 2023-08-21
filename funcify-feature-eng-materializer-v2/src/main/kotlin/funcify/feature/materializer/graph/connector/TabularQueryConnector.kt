@@ -1,5 +1,7 @@
 package funcify.feature.materializer.graph.connector
 
+import arrow.core.getOrNone
+import arrow.core.orElse
 import funcify.feature.error.ServiceError
 import funcify.feature.materializer.graph.component.QueryComponentContext.FieldArgumentComponentContext
 import funcify.feature.materializer.graph.component.QueryComponentContext.SelectedFieldComponentContext
@@ -30,7 +32,7 @@ object TabularQueryConnector : RequestMaterializationGraphConnector<TabularQuery
             }
             else -> {
                 connectorContext.outputColumnNames.asSequence().map { columnName: String ->
-                    connectorContext.materializationMetamodel
+                    connectorContext.materializationMetamodel.featurePathsByName.getOrNone(columnName)
                 }
                 TODO()
             }

@@ -112,8 +112,10 @@ internal data class DefaultMaterializationMetamodelFacts(
                     )
                 }
 
-            override fun putFeatureNameForPath(name: String, path: GQLOperationPath): Builder =
-                this.apply { this.featurePathsByName.put(name, path) }
+            override fun putFeatureNameForPath(
+                name: String,
+                gqlOperationPath: GQLOperationPath
+            ): Builder = this.apply { this.featurePathsByName.put(name, gqlOperationPath) }
 
             override fun build(): MaterializationMetamodelFacts {
                 return DefaultMaterializationMetamodelFacts(

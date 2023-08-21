@@ -7,6 +7,7 @@ import graphql.schema.GraphQLSchema
 import graphql.schema.GraphQLSchemaElement
 import java.time.Instant
 import kotlinx.collections.immutable.ImmutableMap
+import kotlinx.collections.immutable.ImmutableSet
 
 /**
  * @author smccarron
@@ -19,6 +20,8 @@ interface MaterializationMetamodel {
     val featureEngineeringModel: FeatureEngineeringModel
 
     val materializationGraphQLSchema: GraphQLSchema
+
+    val childCanonicalPathsByParentPath: ImmutableMap<GQLOperationPath, ImmutableSet<GQLOperationPath>>
 
     val querySchemaElementsByCanonicalPath: ImmutableMap<GQLOperationPath, GraphQLSchemaElement>
 

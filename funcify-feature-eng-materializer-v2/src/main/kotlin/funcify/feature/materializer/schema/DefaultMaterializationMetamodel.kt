@@ -7,6 +7,7 @@ import graphql.schema.GraphQLSchema
 import graphql.schema.GraphQLSchemaElement
 import java.time.Instant
 import kotlinx.collections.immutable.ImmutableMap
+import kotlinx.collections.immutable.ImmutableSet
 
 internal data class DefaultMaterializationMetamodel(
     override val created: Instant = Instant.now(),
@@ -14,6 +15,10 @@ internal data class DefaultMaterializationMetamodel(
     override val materializationGraphQLSchema: GraphQLSchema,
     private val materializationMetamodelFacts: MaterializationMetamodelFacts,
 ) : MaterializationMetamodel {
+
+    override val childCanonicalPathsByParentPath:
+        ImmutableMap<GQLOperationPath, ImmutableSet<GQLOperationPath>> =
+        materializationMetamodelFacts.childCanonicalPathsByParentPath
 
     override val querySchemaElementsByCanonicalPath:
         ImmutableMap<GQLOperationPath, GraphQLSchemaElement> =
