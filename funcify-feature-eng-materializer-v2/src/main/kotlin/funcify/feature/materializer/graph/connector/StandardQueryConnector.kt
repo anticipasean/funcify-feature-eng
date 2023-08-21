@@ -15,6 +15,7 @@ object StandardQueryConnector : RequestMaterializationGraphConnector<StandardQue
     private val logger: Logger = loggerFor<StandardQueryConnector>()
 
     override fun connectOperationDefinition(connectorContext: StandardQuery): StandardQuery {
+        logger.debug("connect_operation_definition: [ connectorContext. ]")
         TODO("Not yet implemented")
     }
 

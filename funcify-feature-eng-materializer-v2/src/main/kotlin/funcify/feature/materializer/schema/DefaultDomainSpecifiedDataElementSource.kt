@@ -6,6 +6,7 @@ import arrow.core.identity
 import funcify.feature.error.ServiceError
 import funcify.feature.schema.dataelement.DataElementSource
 import funcify.feature.schema.path.operation.GQLOperationPath
+import graphql.schema.FieldCoordinates
 import graphql.schema.GraphQLArgument
 import graphql.schema.GraphQLFieldDefinition
 import kotlinx.collections.immutable.ImmutableMap
@@ -13,6 +14,7 @@ import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.persistentMapOf
 
 internal data class DefaultDomainSpecifiedDataElementSource(
+    override val domainFieldCoordinates: FieldCoordinates,
     override val domainPath: GQLOperationPath,
     override val domainFieldDefinition: GraphQLFieldDefinition,
     override val argumentsByPath: ImmutableMap<GQLOperationPath, GraphQLArgument>,
@@ -28,6 +30,7 @@ internal data class DefaultDomainSpecifiedDataElementSource(
         }
 
         private class DefaultBuilder(
+            private var domainFieldCoordinates: FieldCoordinates? = null,
             private var domainPath: GQLOperationPath? = null,
             private var domainFieldDefinition: GraphQLFieldDefinition? = null,
             private var argumentsByPath: PersistentMap.Builder<GQLOperationPath, GraphQLArgument> =
@@ -39,6 +42,11 @@ internal data class DefaultDomainSpecifiedDataElementSource(
                 persistentMapOf<String, GraphQLArgument>().builder(),
             private var dataElementSource: DataElementSource? = null,
         ) : DomainSpecifiedDataElementSource.Builder {
+
+            override fun domainFieldCoordinates(
+                domainFieldCoordinates: FieldCoordinates
+            ): DomainSpecifiedDataElementSource.Builder =
+                this.apply { this.domainFieldCoordinates = domainFieldCoordinates }
 
             override fun domainPath(
                 domainPath: GQLOperationPath
@@ -90,10 +98,12 @@ internal data class DefaultDomainSpecifiedDataElementSource(
 
             override fun build(): DomainSpecifiedDataElementSource {
                 return eagerEffect<String, DomainSpecifiedDataElementSource> {
+                        ensureNotNull(domainFieldCoordinates) { "domainFieldCoordinates is null" }
                         ensureNotNull(domainPath) { "domainPath is null" }
                         ensureNotNull(domainFieldDefinition) { "domainFieldDefinition is null" }
                         ensureNotNull(dataElementSource) { "dataElementSource is null" }
                         DefaultDomainSpecifiedDataElementSource(
+                            domainFieldCoordinates = domainFieldCoordinates!!,
                             domainPath = domainPath!!,
                             domainFieldDefinition = domainFieldDefinition!!,
                             argumentsByPath = argumentsByPath.build(),

@@ -83,6 +83,18 @@ internal object MaterializationMetamodelFactGatherer :
                             "${fc}: ${p.toDecodedURIString()}"
                         }
                 )
+                logger.debug(
+                    "feature_specified_feature_calculators: {}",
+                    mmf.featureSpecifiedFeatureCalculatorsByPath
+                        .asSequence()
+                        .sortedBy(
+                            Map.Entry<GQLOperationPath, FeatureSpecifiedFeatureCalculator>::key
+                        )
+                        .joinToString(",\n") {
+                            (p: GQLOperationPath, fsfc: FeatureSpecifiedFeatureCalculator) ->
+                            "${p}: ${fsfc}"
+                        }
+                )
             }
     }
 
@@ -127,6 +139,7 @@ internal object MaterializationMetamodelFactGatherer :
                         b: MaterializationMetamodelFacts.Builder,
                         fsfc: FeatureSpecifiedFeatureCalculator ->
                         b.putFeatureSpecifiedFeatureCalculatorForPath(fsfc.featurePath, fsfc)
+                            .putFeatureNameForPath(fsfc.featureName, fsfc.featurePath)
                     }
             }
         }

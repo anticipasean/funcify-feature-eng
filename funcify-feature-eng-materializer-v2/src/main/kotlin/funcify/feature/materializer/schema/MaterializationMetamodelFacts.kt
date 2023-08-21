@@ -28,6 +28,8 @@ internal interface MaterializationMetamodelFacts {
     val featureSpecifiedFeatureCalculatorsByPath:
         ImmutableMap<GQLOperationPath, FeatureSpecifiedFeatureCalculator>
 
+    val featurePathsByName: ImmutableMap<String, GQLOperationPath>
+
     fun update(transformer: Builder.() -> Builder): MaterializationMetamodelFacts
 
     interface Builder {
@@ -184,6 +186,20 @@ internal interface MaterializationMetamodelFacts {
                 b: Builder,
                 (p: GQLOperationPath, fsfc: FeatureSpecifiedFeatureCalculator) ->
                 b.putFeatureSpecifiedFeatureCalculatorForPath(p, fsfc)
+            }
+        }
+
+        fun putFeatureNameForPath(name: String, gqlOperationPath: GQLOperationPath): Builder
+
+        fun putAllFeatureNames(namePathPairs: Iterable<Pair<String, GQLOperationPath>>): Builder {
+            return namePathPairs.fold(this) { b: Builder, (name: String, p: GQLOperationPath) ->
+                b.putFeatureNameForPath(name, p)
+            }
+        }
+
+        fun putAllFeatureNames(namePathPairs: Map<String, GQLOperationPath>): Builder {
+            return namePathPairs.foldLeft(this) { b: Builder, (name: String, p: GQLOperationPath) ->
+                b.putFeatureNameForPath(name, p)
             }
         }
 

@@ -18,15 +18,7 @@ import funcify.feature.tools.extensions.SequenceExtensions.flatMapOptions
 import graphql.language.FieldDefinition
 import graphql.language.ObjectTypeDefinition
 import graphql.language.SDLDefinition
-import graphql.schema.GraphQLArgument
-import graphql.schema.GraphQLFieldDefinition
-import graphql.schema.GraphQLFieldsContainer
-import graphql.schema.GraphQLObjectType
-import graphql.schema.GraphQLSchema
-import graphql.schema.GraphQLSchemaElement
-import graphql.schema.GraphQLTypeUtil
-import graphql.schema.GraphQLTypeVisitor
-import graphql.schema.GraphQLTypeVisitorStub
+import graphql.schema.*
 import graphql.util.TraversalControl
 import graphql.util.Traverser
 import graphql.util.TraverserContext
@@ -91,6 +83,9 @@ internal object DomainSpecifiedDataElementSourceCreator :
                                 fieldDefinitionTraversalFunction(),
                                 p,
                                 DefaultDomainSpecifiedDataElementSource.builder()
+                                    .domainFieldCoordinates(
+                                        FieldCoordinates.coordinates(gfc.name, fd.name)
+                                    )
                                     .dataElementSource(des)
                             )
                             .traverse(

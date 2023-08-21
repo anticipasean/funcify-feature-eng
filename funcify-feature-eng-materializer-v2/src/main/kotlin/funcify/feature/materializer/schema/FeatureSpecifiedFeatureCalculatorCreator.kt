@@ -1,6 +1,7 @@
 package funcify.feature.materializer.schema
 
 import arrow.core.filterIsInstance
+import arrow.core.getOrElse
 import arrow.core.getOrNone
 import arrow.core.identity
 import arrow.core.none
@@ -86,6 +87,7 @@ internal object FeatureSpecifiedFeatureCalculatorCreator :
                                 schemaElementTraversalFunction(graphQLSchema),
                                 p,
                                 FeatureSpecifiedFeatureCalculatorContext(
+                                    featureTypeName = gfc.name,
                                     featureCalculator = fc,
                                     featureSpecifiedFeatureCalculators = persistentListOf()
                                 )
@@ -186,6 +188,7 @@ internal object FeatureSpecifiedFeatureCalculatorCreator :
     }
 
     private data class FeatureSpecifiedFeatureCalculatorContext(
+        val featureTypeName: String,
         val featureCalculator: FeatureCalculator,
         val featureSpecifiedFeatureCalculators: PersistentList<FeatureSpecifiedFeatureCalculator>
     )
@@ -277,8 +280,17 @@ internal object FeatureSpecifiedFeatureCalculatorCreator :
             fieldDefinition: GraphQLFieldDefinition,
         ) {
             val c: FeatureSpecifiedFeatureCalculatorContext = context.getCurrentAccumulate()
+            val parentTypeName: String =
+                context.parentNode
+                    .toOption()
+                    .filterIsInstance<GraphQLImplementingType>()
+                    .map(GraphQLImplementingType::getName)
+                    .getOrElse { c.featureTypeName }
             val fsfc: FeatureSpecifiedFeatureCalculator =
                 DefaultFeatureSpecifiedFeatureCalculator.builder()
+                    .fieldCoordinates(
+                        FieldCoordinates.coordinates(parentTypeName, fieldDefinition.name)
+                    )
                     .featureCalculator(c.featureCalculator)
                     .featurePath(path)
                     .featureFieldDefinition(fieldDefinition)

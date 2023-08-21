@@ -2,6 +2,7 @@ package funcify.feature.materializer.schema
 
 import funcify.feature.schema.dataelement.DataElementSource
 import funcify.feature.schema.path.operation.GQLOperationPath
+import graphql.schema.FieldCoordinates
 import graphql.schema.GraphQLArgument
 import graphql.schema.GraphQLFieldDefinition
 import kotlinx.collections.immutable.ImmutableMap
@@ -11,6 +12,8 @@ import kotlinx.collections.immutable.ImmutableMap
  * @created 2023-08-16
  */
 interface DomainSpecifiedDataElementSource {
+
+    val domainFieldCoordinates: FieldCoordinates
 
     val domainPath: GQLOperationPath
 
@@ -26,6 +29,8 @@ interface DomainSpecifiedDataElementSource {
 
     interface Builder {
 
+        fun domainFieldCoordinates(domainFieldCoordinates: FieldCoordinates): Builder
+
         fun domainPath(domainPath: GQLOperationPath): Builder
 
         fun domainFieldDefinition(domainFieldDefinition: GraphQLFieldDefinition): Builder
@@ -40,11 +45,12 @@ interface DomainSpecifiedDataElementSource {
 
         fun putArgumentsWithDefaultValuesForName(name: String, argument: GraphQLArgument): Builder
 
-        fun putAllNameArgumentsWithDefaultValues(nameArgumentPairs: Map<String, GraphQLArgument>): Builder
+        fun putAllNameArgumentsWithDefaultValues(
+            nameArgumentPairs: Map<String, GraphQLArgument>
+        ): Builder
 
         fun dataElementSource(dataElementSource: DataElementSource): Builder
 
         fun build(): DomainSpecifiedDataElementSource
-
     }
 }

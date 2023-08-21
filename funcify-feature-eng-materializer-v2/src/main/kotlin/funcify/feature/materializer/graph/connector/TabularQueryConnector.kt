@@ -1,9 +1,11 @@
 package funcify.feature.materializer.graph.connector
 
+import funcify.feature.error.ServiceError
 import funcify.feature.materializer.graph.component.QueryComponentContext.FieldArgumentComponentContext
 import funcify.feature.materializer.graph.component.QueryComponentContext.SelectedFieldComponentContext
 import funcify.feature.materializer.graph.context.TabularQuery
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
+import funcify.feature.tools.extensions.StringExtensions.flatten
 import org.slf4j.Logger
 
 /**
@@ -15,8 +17,24 @@ object TabularQueryConnector : RequestMaterializationGraphConnector<TabularQuery
     private val logger: Logger = loggerFor<TabularQueryConnector>()
 
     override fun connectOperationDefinition(connectorContext: TabularQuery): TabularQuery {
-        logger.info("connect_operation_definition: [ ]")
-        TODO("Not yet implemented")
+        logger.info("connect_operation_definition: [ connectorContext. ]")
+        when {
+            connectorContext.outputColumnNames.isEmpty() -> {
+                throw ServiceError.of(
+                    """tabular connector applied to context without 
+                    |any output column names: 
+                    |[ expected: connector_context.output_column_names.isNotEmpty == true, 
+                    |actual: . == false ]"""
+                        .flatten()
+                )
+            }
+            else -> {
+                connectorContext.outputColumnNames.asSequence().map { columnName: String ->
+                    connectorContext.materializationMetamodel
+                }
+                TODO()
+            }
+        }
     }
 
     override fun connectFieldArgument(

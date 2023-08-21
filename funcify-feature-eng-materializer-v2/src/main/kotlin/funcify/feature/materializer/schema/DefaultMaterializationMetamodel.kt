@@ -29,4 +29,11 @@ internal data class DefaultMaterializationMetamodel(
     override val domainSpecifiedDataElementSourceByPath:
         ImmutableMap<GQLOperationPath, DomainSpecifiedDataElementSource> =
         materializationMetamodelFacts.domainSpecifiedDataElementSourceByPath
+
+    override val featureSpecifiedFeatureCalculatorsByPath:
+        ImmutableMap<GQLOperationPath, FeatureSpecifiedFeatureCalculator> =
+        materializationMetamodelFacts.featureSpecifiedFeatureCalculatorsByPath
+
+    override val featurePathsByName: ImmutableMap<String, GQLOperationPath> =
+        materializationMetamodelFacts.featurePathsByName
 }

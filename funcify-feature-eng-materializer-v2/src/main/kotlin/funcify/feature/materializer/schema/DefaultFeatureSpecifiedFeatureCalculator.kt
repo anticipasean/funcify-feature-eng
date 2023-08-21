@@ -6,6 +6,7 @@ import arrow.core.identity
 import funcify.feature.error.ServiceError
 import funcify.feature.schema.feature.FeatureCalculator
 import funcify.feature.schema.path.operation.GQLOperationPath
+import graphql.schema.FieldCoordinates
 import graphql.schema.GraphQLArgument
 import graphql.schema.GraphQLFieldDefinition
 import kotlinx.collections.immutable.PersistentMap
@@ -16,6 +17,7 @@ import kotlinx.collections.immutable.persistentMapOf
  * @created 2023-08-19
  */
 internal data class DefaultFeatureSpecifiedFeatureCalculator(
+    override val fieldCoordinates: FieldCoordinates,
     override val featureName: String,
     override val featurePath: GQLOperationPath,
     override val featureFieldDefinition: GraphQLFieldDefinition,
@@ -31,6 +33,7 @@ internal data class DefaultFeatureSpecifiedFeatureCalculator(
         }
 
         internal class DefaultBuilder(
+            private var fieldCoordinates: FieldCoordinates? = null,
             private var featureName: String? = null,
             private var featurePath: GQLOperationPath? = null,
             private var featureFieldDefinition: GraphQLFieldDefinition? = null,
@@ -40,6 +43,11 @@ internal data class DefaultFeatureSpecifiedFeatureCalculator(
                 persistentMapOf<String, GraphQLArgument>().builder(),
             private var featureCalculator: FeatureCalculator? = null,
         ) : FeatureSpecifiedFeatureCalculator.Builder {
+
+            override fun fieldCoordinates(
+                fieldCoordinates: FieldCoordinates
+            ): FeatureSpecifiedFeatureCalculator.Builder =
+                this.apply { this.fieldCoordinates = fieldCoordinates }
 
             override fun featureName(
                 featureName: String
@@ -85,10 +93,12 @@ internal data class DefaultFeatureSpecifiedFeatureCalculator(
 
             override fun build(): FeatureSpecifiedFeatureCalculator {
                 return eagerEffect<String, FeatureSpecifiedFeatureCalculator> {
+                        ensureNotNull(fieldCoordinates) { "fieldCoordinates is null" }
                         ensureNotNull(featurePath) { "featurePath is null" }
                         ensureNotNull(featureFieldDefinition) { "featureFieldDefinition is null" }
                         ensureNotNull(featureCalculator) { "featureCalculator is null" }
                         DefaultFeatureSpecifiedFeatureCalculator(
+                            fieldCoordinates = fieldCoordinates!!,
                             featureName = featureName ?: featureFieldDefinition!!.name,
                             featurePath = featurePath!!,
                             featureFieldDefinition = featureFieldDefinition!!,

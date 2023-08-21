@@ -20,7 +20,8 @@ internal data class DefaultMaterializationMetamodelFacts(
     override val domainSpecifiedDataElementSourceByPath:
         PersistentMap<GQLOperationPath, DomainSpecifiedDataElementSource>,
     override val featureSpecifiedFeatureCalculatorsByPath:
-        PersistentMap<GQLOperationPath, FeatureSpecifiedFeatureCalculator>
+        PersistentMap<GQLOperationPath, FeatureSpecifiedFeatureCalculator>,
+    override val featurePathsByName: PersistentMap<String, GQLOperationPath>
 ) : MaterializationMetamodelFacts {
 
     companion object {
@@ -32,7 +33,8 @@ internal data class DefaultMaterializationMetamodelFacts(
                 fieldCoordinatesByCanonicalPath = persistentMapOf(),
                 canonicalPathsByFieldCoordinates = persistentMapOf(),
                 domainSpecifiedDataElementSourceByPath = persistentMapOf(),
-                featureSpecifiedFeatureCalculatorsByPath = persistentMapOf()
+                featureSpecifiedFeatureCalculatorsByPath = persistentMapOf(),
+                featurePathsByName = persistentMapOf()
             )
         }
 
@@ -55,7 +57,9 @@ internal data class DefaultMaterializationMetamodelFacts(
                 existingFacts.domainSpecifiedDataElementSourceByPath.builder(),
             private val featureSpecifiedFeatureCalculatorsByPath:
                 PersistentMap.Builder<GQLOperationPath, FeatureSpecifiedFeatureCalculator> =
-                existingFacts.featureSpecifiedFeatureCalculatorsByPath.builder()
+                existingFacts.featureSpecifiedFeatureCalculatorsByPath.builder(),
+            private val featurePathsByName: PersistentMap.Builder<String, GQLOperationPath> =
+                existingFacts.featurePathsByName.builder(),
         ) : Builder {
 
             override fun addChildPathForParentPath(
@@ -108,6 +112,9 @@ internal data class DefaultMaterializationMetamodelFacts(
                     )
                 }
 
+            override fun putFeatureNameForPath(name: String, path: GQLOperationPath): Builder =
+                this.apply { this.featurePathsByName.put(name, path) }
+
             override fun build(): MaterializationMetamodelFacts {
                 return DefaultMaterializationMetamodelFacts(
                     childCanonicalPathsByParentPath = childCanonicalPathsByParentPath.build(),
@@ -117,7 +124,8 @@ internal data class DefaultMaterializationMetamodelFacts(
                     domainSpecifiedDataElementSourceByPath =
                         domainSpecifiedDataElementSourceByPath.build(),
                     featureSpecifiedFeatureCalculatorsByPath =
-                        featureSpecifiedFeatureCalculatorsByPath.build()
+                        featureSpecifiedFeatureCalculatorsByPath.build(),
+                    featurePathsByName = featurePathsByName.build()
                 )
             }
         }

@@ -2,6 +2,7 @@ package funcify.feature.materializer.schema
 
 import funcify.feature.schema.feature.FeatureCalculator
 import funcify.feature.schema.path.operation.GQLOperationPath
+import graphql.schema.FieldCoordinates
 import graphql.schema.GraphQLArgument
 import graphql.schema.GraphQLFieldDefinition
 import kotlinx.collections.immutable.ImmutableMap
@@ -11,6 +12,8 @@ import kotlinx.collections.immutable.ImmutableMap
  * @created 2023-08-19
  */
 interface FeatureSpecifiedFeatureCalculator {
+
+    val fieldCoordinates: FieldCoordinates
 
     val featureName: String
 
@@ -25,6 +28,8 @@ interface FeatureSpecifiedFeatureCalculator {
     val featureCalculator: FeatureCalculator
 
     interface Builder {
+
+        fun fieldCoordinates(fieldCoordinates: FieldCoordinates): Builder
 
         fun featureName(featureName: String): Builder
 

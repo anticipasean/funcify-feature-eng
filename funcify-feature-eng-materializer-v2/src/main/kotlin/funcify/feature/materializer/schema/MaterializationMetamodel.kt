@@ -1,14 +1,12 @@
 package funcify.feature.materializer.schema
 
 import funcify.feature.schema.FeatureEngineeringModel
-import funcify.feature.schema.dataelement.DataElementSource
 import funcify.feature.schema.path.operation.GQLOperationPath
 import graphql.schema.FieldCoordinates
 import graphql.schema.GraphQLSchema
 import graphql.schema.GraphQLSchemaElement
-import kotlinx.collections.immutable.ImmutableMap
-import kotlinx.collections.immutable.ImmutableSet
 import java.time.Instant
+import kotlinx.collections.immutable.ImmutableMap
 
 /**
  * @author smccarron
@@ -28,6 +26,11 @@ interface MaterializationMetamodel {
 
     val canonicalPathsByFieldCoordinates: ImmutableMap<FieldCoordinates, GQLOperationPath>
 
-    val domainSpecifiedDataElementSourceByPath: ImmutableMap<GQLOperationPath, DomainSpecifiedDataElementSource>
+    val domainSpecifiedDataElementSourceByPath:
+        ImmutableMap<GQLOperationPath, DomainSpecifiedDataElementSource>
 
+    val featureSpecifiedFeatureCalculatorsByPath:
+        ImmutableMap<GQLOperationPath, FeatureSpecifiedFeatureCalculator>
+
+    val featurePathsByName: ImmutableMap<String, GQLOperationPath>
 }
