@@ -4,6 +4,7 @@ import arrow.core.Option
 import arrow.core.none
 import arrow.core.some
 import arrow.core.toOption
+import funcify.feature.materializer.dispatch.DispatchedRequestMaterializationGraph
 import funcify.feature.materializer.graph.RequestMaterializationGraph
 import funcify.feature.materializer.input.RawInputContext
 import funcify.feature.materializer.model.MaterializationMetamodel
@@ -22,14 +23,33 @@ import kotlinx.collections.immutable.toPersistentMap
 internal data class DefaultGraphQLSingleRequestSession(
     override val materializationMetamodel: MaterializationMetamodel,
     override val rawGraphQLRequest: RawGraphQLRequest,
-    override val rawInputContext: Option<RawInputContext> = none(),
-    override val preparsedDocumentEntry: Option<PreparsedDocumentEntry> = none(),
-    override val processedQueryVariables: ImmutableMap<String, Any?> = persistentMapOf(),
-    override val requestMaterializationGraph: Option<RequestMaterializationGraph> = none(),
-    override val serializedGraphQLResponse: Option<SerializedGraphQLResponse> = none(),
+    override val rawInputContext: Option<RawInputContext>,
+    override val preparsedDocumentEntry: Option<PreparsedDocumentEntry>,
+    override val processedQueryVariables: ImmutableMap<String, Any?>,
+    override val requestMaterializationGraph: Option<RequestMaterializationGraph>,
+    override val dispatchedRequestMaterializationGraph:
+        Option<DispatchedRequestMaterializationGraph>,
+    override val serializedGraphQLResponse: Option<SerializedGraphQLResponse>,
 ) : GraphQLSingleRequestSession {
 
     companion object {
+
+        @JvmStatic
+        fun createInitial(
+            materializationMetamodel: MaterializationMetamodel,
+            rawGraphQLRequest: RawGraphQLRequest
+        ): GraphQLSingleRequestSession {
+            return DefaultGraphQLSingleRequestSession(
+                materializationMetamodel = materializationMetamodel,
+                rawGraphQLRequest = rawGraphQLRequest,
+                rawInputContext = none(),
+                preparsedDocumentEntry = none(),
+                processedQueryVariables = persistentMapOf(),
+                requestMaterializationGraph = none(),
+                dispatchedRequestMaterializationGraph = none(),
+                serializedGraphQLResponse = none()
+            )
+        }
 
         internal data class DefaultBuilder(
             private val currentSession: DefaultGraphQLSingleRequestSession,
@@ -41,6 +61,9 @@ internal data class DefaultGraphQLSingleRequestSession(
                 currentSession.processedQueryVariables,
             private var requestMaterializationGraph: Option<RequestMaterializationGraph> =
                 currentSession.requestMaterializationGraph,
+            private var dispatchedRequestMaterializationGraph:
+                Option<DispatchedRequestMaterializationGraph> =
+                currentSession.dispatchedRequestMaterializationGraph,
             private var serializedGraphQLResponse: Option<SerializedGraphQLResponse> =
                 currentSession.serializedGraphQLResponse
         ) : Builder {
@@ -76,6 +99,14 @@ internal data class DefaultGraphQLSingleRequestSession(
                 return this
             }
 
+            override fun dispatchedRequestMaterializationGraph(
+                dispatchedRequestMaterializationGraph: DispatchedRequestMaterializationGraph
+            ): Builder {
+                this.dispatchedRequestMaterializationGraph =
+                    dispatchedRequestMaterializationGraph.toOption()
+                return this
+            }
+
             override fun serializedGraphQLResponse(
                 serializedGraphQLResponse: SerializedGraphQLResponse
             ): Builder {
@@ -84,12 +115,14 @@ internal data class DefaultGraphQLSingleRequestSession(
             }
 
             override fun build(): GraphQLSingleRequestSession {
-                return currentSession.copy(
+                return DefaultGraphQLSingleRequestSession(
+                    materializationMetamodel = currentSession.materializationMetamodel,
                     rawGraphQLRequest = rawGraphQLRequest,
                     rawInputContext = rawInputContext,
                     preparsedDocumentEntry = preparsedDocumentEntry,
                     processedQueryVariables = processedQueryVariables,
                     requestMaterializationGraph = requestMaterializationGraph,
+                    dispatchedRequestMaterializationGraph = dispatchedRequestMaterializationGraph,
                     serializedGraphQLResponse = serializedGraphQLResponse
                 )
             }

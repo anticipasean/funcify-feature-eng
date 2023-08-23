@@ -29,7 +29,246 @@ internal class StandardQueryTraverser(
 
     companion object {
         private const val METHOD_TAG: String = "standard_query_traverser.invoke"
+
         private val logger: Logger = loggerFor<StandardQueryTraverser>()
+
+        private data class StandardQueryTraversalContext(
+            val queue: PersistentList<QueryComponentContext>
+        )
+
+        private class StandardQueryTraverserVisitor(private val nodeVisitor: NodeVisitor) :
+            TraverserVisitor<Node<*>> {
+
+            override fun enter(context: TraverserContext<Node<*>>): TraversalControl {
+                return context.thisNode().accept(context, nodeVisitor)
+            }
+
+            override fun leave(context: TraverserContext<Node<*>>): TraversalControl {
+                return TraversalControl.CONTINUE
+            }
+        }
+
+        private class StandardQueryNodeVisitor(
+            private val queryComponentContextFactory: QueryComponentContextFactory
+        ) : NodeVisitorStub() {
+
+            companion object {
+                private val logger: Logger = loggerFor<StandardQueryNodeVisitor>()
+            }
+
+            override fun visitOperationDefinition(
+                node: OperationDefinition,
+                context: TraverserContext<Node<*>>
+            ): TraversalControl {
+                logger.debug("visit_operation_definition: [ node.name: {} ]", node.name)
+                return TraversalControl.CONTINUE
+            }
+
+            override fun visitField(
+                node: Field,
+                context: TraverserContext<Node<*>>
+            ): TraversalControl {
+                logger.debug(
+                    "visit_field: [ node.name: {}, node.alias: {}, node.resultKey: {} ]",
+                    node.name,
+                    node.alias,
+                    node.resultKey
+                )
+                when (val parentNode: Node<*> = context.parentNode) {
+                    is OperationDefinition -> {
+                        val p: GQLOperationPath =
+                            extractParentPathContextVariableOrThrow(context).transform {
+                                when (node.alias) {
+                                    null -> appendField(node.name)
+                                    else -> appendAliasedField(node.alias, node.name)
+                                }
+                            }
+                        val c: StandardQueryTraversalContext = context.getCurrentAccumulate()
+                        val qcc: QueryComponentContext =
+                            queryComponentContextFactory
+                                .selectedFieldComponentContextBuilder()
+                                .field(node)
+                                .path(p)
+                                .build()
+                        context.setAccumulate(c.copy(queue = c.queue.add(qcc)))
+                        context.setVar(GQLOperationPath::class.java, p)
+                    }
+                    is Field -> {
+                        val p: GQLOperationPath =
+                            extractParentPathContextVariableOrThrow(context).transform {
+                                when (node.alias) {
+                                    null -> appendField(node.name)
+                                    else -> appendAliasedField(node.alias, node.name)
+                                }
+                            }
+                        val c: StandardQueryTraversalContext = context.getCurrentAccumulate()
+                        val qcc: QueryComponentContext =
+                            queryComponentContextFactory
+                                .selectedFieldComponentContextBuilder()
+                                .field(node)
+                                .path(p)
+                                .build()
+                        context.setAccumulate(c.copy(queue = c.queue.add(qcc)))
+                        context.setVar(GQLOperationPath::class.java, p)
+                    }
+                    is InlineFragment -> {
+                        val p: GQLOperationPath =
+                            extractParentPathContextVariableOrThrow(context).transform {
+                                when (node.alias) {
+                                    null -> {
+                                        when (parentNode.typeCondition) {
+                                            null -> {
+                                                appendField(node.name)
+                                            }
+                                            else -> {
+                                                appendInlineFragment(
+                                                    parentNode.typeCondition.name,
+                                                    node.name
+                                                )
+                                            }
+                                        }
+                                    }
+                                    else -> {
+                                        when (parentNode.typeCondition) {
+                                            null -> {
+                                                appendAliasedField(node.alias, node.name)
+                                            }
+                                            else -> {
+                                                appendInlineFragment(
+                                                    parentNode.typeCondition.name,
+                                                    node.alias,
+                                                    node.name
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        val c: StandardQueryTraversalContext = context.getCurrentAccumulate()
+                        val qcc: QueryComponentContext =
+                            queryComponentContextFactory
+                                .selectedFieldComponentContextBuilder()
+                                .field(node)
+                                .path(p)
+                                .build()
+                        context.setAccumulate(c.copy(queue = c.queue.add(qcc)))
+                        context.setVar(GQLOperationPath::class.java, p)
+                    }
+                    is FragmentDefinition -> {
+                        val p: GQLOperationPath =
+                            extractParentPathContextVariableOrThrow(context).transform {
+                                when (node.alias) {
+                                    null -> {
+                                        when (parentNode.typeCondition) {
+                                            null -> {
+                                                appendField(node.name)
+                                            }
+                                            else -> {
+                                                appendFragmentSpread(
+                                                    parentNode.name,
+                                                    parentNode.typeCondition.name,
+                                                    node.name
+                                                )
+                                            }
+                                        }
+                                    }
+                                    else -> {
+                                        when (parentNode.typeCondition) {
+                                            null -> {
+                                                appendAliasedField(node.alias, node.name)
+                                            }
+                                            else -> {
+                                                appendFragmentSpread(
+                                                    parentNode.name,
+                                                    parentNode.typeCondition.name,
+                                                    node.alias,
+                                                    node.name
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        val c: StandardQueryTraversalContext = context.getCurrentAccumulate()
+                        val qcc: QueryComponentContext =
+                            queryComponentContextFactory
+                                .selectedFieldComponentContextBuilder()
+                                .field(node)
+                                .path(p)
+                                .build()
+                        context.setAccumulate(c.copy(queue = c.queue.add(qcc)))
+                        context.setVar(GQLOperationPath::class.java, p)
+                    }
+                }
+                return TraversalControl.CONTINUE
+            }
+
+            override fun visitFragmentDefinition(
+                node: FragmentDefinition,
+                context: TraverserContext<Node<*>>
+            ): TraversalControl {
+                logger.debug("visit_fragment_definition: [ node.name: {} ]", node.name)
+                return TraversalControl.CONTINUE
+            }
+
+            override fun visitFragmentSpread(
+                node: FragmentSpread,
+                context: TraverserContext<Node<*>>
+            ): TraversalControl {
+                logger.debug("visit_fragment_spread: [ node.name: {} ]", node.name)
+                return TraversalControl.CONTINUE
+            }
+
+            override fun visitInlineFragment(
+                node: InlineFragment,
+                context: TraverserContext<Node<*>>
+            ): TraversalControl {
+                logger.debug(
+                    "visit_inline_fragment: [ node.type_condition: {} ]",
+                    node.typeCondition
+                )
+                return TraversalControl.CONTINUE
+            }
+
+            override fun visitArgument(
+                node: Argument,
+                context: TraverserContext<Node<*>>
+            ): TraversalControl {
+                logger.debug("visit_argument: [ node.name: {} ]", node.name)
+                val p: GQLOperationPath =
+                    extractParentPathContextVariableOrThrow(context).transform {
+                        argument(node.name)
+                    }
+                val c: StandardQueryTraversalContext = context.getCurrentAccumulate()
+                val qcc: QueryComponentContext =
+                    queryComponentContextFactory
+                        .fieldArgumentComponentContextBuilder()
+                        .argument(node)
+                        .path(p)
+                        .build()
+                context.setAccumulate(c.copy(queue = c.queue.add(qcc)))
+                context.setVar(GQLOperationPath::class.java, p)
+                return TraversalControl.CONTINUE
+            }
+
+            private fun extractParentPathContextVariableOrThrow(
+                context: TraverserContext<Node<*>>
+            ): GQLOperationPath {
+                return Try.attemptNullable {
+                        context.getVarFromParents<GQLOperationPath>(GQLOperationPath::class.java)
+                    }
+                    .flatMap(Try.Companion::fromOption)
+                    .orElseTry {
+                        Try.attemptNullable { context.getSharedContextData<GQLOperationPath>() }
+                            .flatMap(Try.Companion::fromOption)
+                    }
+                    .orElseThrow { _: Throwable ->
+                        ServiceError.of(
+                            "parent_path has not been set as variable in traverser_context"
+                        )
+                    }
+            }
+        }
     }
 
     override fun invoke(
@@ -121,229 +360,6 @@ internal class StandardQueryTraverser(
                     emptyList()
                 }
             }
-        }
-    }
-
-    private data class StandardQueryTraversalContext(
-        val queue: PersistentList<QueryComponentContext>
-    )
-
-    private class StandardQueryTraverserVisitor(private val nodeVisitor: NodeVisitor) :
-        TraverserVisitor<Node<*>> {
-
-        override fun enter(context: TraverserContext<Node<*>>): TraversalControl {
-            return context.thisNode().accept(context, nodeVisitor)
-        }
-
-        override fun leave(context: TraverserContext<Node<*>>): TraversalControl {
-            return TraversalControl.CONTINUE
-        }
-    }
-
-    private class StandardQueryNodeVisitor(
-        private val queryComponentContextFactory: QueryComponentContextFactory
-    ) : NodeVisitorStub() {
-
-        companion object {
-            private val logger: Logger = loggerFor<StandardQueryNodeVisitor>()
-        }
-
-        override fun visitOperationDefinition(
-            node: OperationDefinition,
-            context: TraverserContext<Node<*>>
-        ): TraversalControl {
-            logger.debug("visit_operation_definition: [ node.name: {} ]", node.name)
-            return TraversalControl.CONTINUE
-        }
-
-        override fun visitField(node: Field, context: TraverserContext<Node<*>>): TraversalControl {
-            logger.debug("visit_field: [ node.name: {} ]", node.name)
-            when (val parentNode: Node<*> = context.parentNode) {
-                is OperationDefinition -> {
-                    val p: GQLOperationPath =
-                        extractParentPathContextVariableOrThrow(context).transform {
-                            when (node.alias) {
-                                null -> appendField(node.name)
-                                else -> appendAliasedField(node.alias, node.name)
-                            }
-                        }
-                    val c: StandardQueryTraversalContext = context.getCurrentAccumulate()
-                    val qcc: QueryComponentContext =
-                        queryComponentContextFactory
-                            .selectedFieldComponentContextBuilder()
-                            .field(node)
-                            .path(p)
-                            .build()
-                    context.setAccumulate(c.copy(queue = c.queue.add(qcc)))
-                    context.setVar(GQLOperationPath::class.java, p)
-                }
-                is Field -> {
-                    val p: GQLOperationPath =
-                        extractParentPathContextVariableOrThrow(context).transform {
-                            when (node.alias) {
-                                null -> appendField(node.name)
-                                else -> appendAliasedField(node.alias, node.name)
-                            }
-                        }
-                    val c: StandardQueryTraversalContext = context.getCurrentAccumulate()
-                    val qcc: QueryComponentContext =
-                        queryComponentContextFactory
-                            .selectedFieldComponentContextBuilder()
-                            .field(node)
-                            .path(p)
-                            .build()
-                    context.setAccumulate(c.copy(queue = c.queue.add(qcc)))
-                    context.setVar(GQLOperationPath::class.java, p)
-                }
-                is InlineFragment -> {
-                    val p: GQLOperationPath =
-                        extractParentPathContextVariableOrThrow(context).transform {
-                            when (node.alias) {
-                                null -> {
-                                    when (parentNode.typeCondition) {
-                                        null -> {
-                                            appendField(node.name)
-                                        }
-                                        else -> {
-                                            appendInlineFragment(
-                                                parentNode.typeCondition.name,
-                                                node.name
-                                            )
-                                        }
-                                    }
-                                }
-                                else -> {
-                                    when (parentNode.typeCondition) {
-                                        null -> {
-                                            appendAliasedField(node.alias, node.name)
-                                        }
-                                        else -> {
-                                            appendInlineFragment(
-                                                parentNode.typeCondition.name,
-                                                node.alias,
-                                                node.name
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    val c: StandardQueryTraversalContext = context.getCurrentAccumulate()
-                    val qcc: QueryComponentContext =
-                        queryComponentContextFactory
-                            .selectedFieldComponentContextBuilder()
-                            .field(node)
-                            .path(p)
-                            .build()
-                    context.setAccumulate(c.copy(queue = c.queue.add(qcc)))
-                    context.setVar(GQLOperationPath::class.java, p)
-                }
-                is FragmentDefinition -> {
-                    val p: GQLOperationPath =
-                        extractParentPathContextVariableOrThrow(context).transform {
-                            when (node.alias) {
-                                null -> {
-                                    when (parentNode.typeCondition) {
-                                        null -> {
-                                            appendField(node.name)
-                                        }
-                                        else -> {
-                                            appendFragmentSpread(
-                                                parentNode.name,
-                                                parentNode.typeCondition.name,
-                                                node.name
-                                            )
-                                        }
-                                    }
-                                }
-                                else -> {
-                                    when (parentNode.typeCondition) {
-                                        null -> {
-                                            appendAliasedField(node.alias, node.name)
-                                        }
-                                        else -> {
-                                            appendFragmentSpread(
-                                                parentNode.name,
-                                                parentNode.typeCondition.name,
-                                                node.alias,
-                                                node.name
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    val c: StandardQueryTraversalContext = context.getCurrentAccumulate()
-                    val qcc: QueryComponentContext =
-                        queryComponentContextFactory
-                            .selectedFieldComponentContextBuilder()
-                            .field(node)
-                            .path(p)
-                            .build()
-                    context.setAccumulate(c.copy(queue = c.queue.add(qcc)))
-                    context.setVar(GQLOperationPath::class.java, p)
-                }
-            }
-            return TraversalControl.CONTINUE
-        }
-
-        override fun visitFragmentDefinition(
-            node: FragmentDefinition,
-            context: TraverserContext<Node<*>>
-        ): TraversalControl {
-            logger.debug("visit_fragment_definition: [ node.name: {} ]", node.name)
-            return TraversalControl.CONTINUE
-        }
-
-        override fun visitFragmentSpread(
-            node: FragmentSpread,
-            context: TraverserContext<Node<*>>
-        ): TraversalControl {
-            logger.debug("visit_fragment_spread: [ node.name: {} ]", node.name)
-            return TraversalControl.CONTINUE
-        }
-
-        override fun visitInlineFragment(
-            node: InlineFragment,
-            context: TraverserContext<Node<*>>
-        ): TraversalControl {
-            logger.debug("visit_inline_fragment: [ node.type_condition: {} ]", node.typeCondition)
-            return TraversalControl.CONTINUE
-        }
-
-        override fun visitArgument(
-            node: Argument,
-            context: TraverserContext<Node<*>>
-        ): TraversalControl {
-            logger.debug("visit_argument: [ node.name: {} ]", node.name)
-            val p: GQLOperationPath =
-                extractParentPathContextVariableOrThrow(context).transform { argument(node.name) }
-            val c: StandardQueryTraversalContext = context.getCurrentAccumulate()
-            val qcc: QueryComponentContext =
-                queryComponentContextFactory
-                    .fieldArgumentComponentContextBuilder()
-                    .argument(node)
-                    .path(p)
-                    .build()
-            context.setAccumulate(c.copy(queue = c.queue.add(qcc)))
-            context.setVar(GQLOperationPath::class.java, p)
-            return TraversalControl.CONTINUE
-        }
-
-        private fun extractParentPathContextVariableOrThrow(
-            context: TraverserContext<Node<*>>
-        ): GQLOperationPath {
-            return Try.attemptNullable {
-                    context.getVarFromParents<GQLOperationPath>(GQLOperationPath::class.java)
-                }
-                .flatMap(Try.Companion::fromOption)
-                .orElseTry {
-                    Try.attemptNullable { context.getSharedContextData<GQLOperationPath>() }
-                        .flatMap(Try.Companion::fromOption)
-                }
-                .orElseThrow { _: Throwable ->
-                    ServiceError.of("parent_path has not been set as variable in traverser_context")
-                }
         }
     }
 }

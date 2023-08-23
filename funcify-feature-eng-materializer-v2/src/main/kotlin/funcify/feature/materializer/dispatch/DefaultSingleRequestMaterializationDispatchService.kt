@@ -53,4 +53,11 @@ internal class DefaultSingleRequestMaterializationDispatchService(
     ): Mono<GraphQLSingleRequestSession> {
         TODO("Not yet implemented")
     }
+
+    private fun createDispatchedRequestMaterializationGraph(
+        session: GraphQLSingleRequestSession,
+        requestMaterializationGraph: RequestMaterializationGraph,
+    ): Mono<DispatchedRequestMaterializationGraph> {
+        TODO()
+    }
 }

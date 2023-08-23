@@ -3,6 +3,7 @@ package funcify.feature.materializer.graph.connector
 import arrow.core.Option
 import arrow.core.getOrNone
 import arrow.core.orElse
+import com.fasterxml.jackson.databind.ObjectMapper
 import funcify.feature.error.ServiceError
 import funcify.feature.materializer.graph.component.QueryComponentContext.FieldArgumentComponentContext
 import funcify.feature.materializer.graph.component.QueryComponentContext.SelectedFieldComponentContext
@@ -36,6 +37,9 @@ object TabularQueryConnector : RequestMaterializationGraphConnector<TabularQuery
                     |actual: . == false ]"""
                         .flatten()
                 )
+            }
+            connectorContext.rawInputContextKeys.isEmpty() -> {
+                TODO()
             }
             else -> {
                 // TODO: Can move scope of update call to outside fold, prompting only one update
@@ -77,7 +81,7 @@ object TabularQueryConnector : RequestMaterializationGraphConnector<TabularQuery
                             }
                     when {
                         featurePathAndField.isDefined() -> {
-                            c.update { addVertexContext(featurePathAndField.orNull()!!) }
+                            TODO()
                         }
                         columnName in c.rawInputContextKeys || columnName in c.variableKeys -> {
                             c.update { addPassThroughColumn(columnName) }

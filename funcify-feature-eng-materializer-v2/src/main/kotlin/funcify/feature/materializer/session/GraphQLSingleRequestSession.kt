@@ -1,6 +1,7 @@
 package funcify.feature.materializer.session
 
 import arrow.core.Option
+import funcify.feature.materializer.dispatch.DispatchedRequestMaterializationGraph
 import funcify.feature.materializer.graph.RequestMaterializationGraph
 import funcify.feature.materializer.input.RawInputContext
 import funcify.feature.materializer.model.MaterializationMetamodel
@@ -9,8 +10,8 @@ import funcify.feature.materializer.response.SerializedGraphQLResponse
 import funcify.feature.schema.FeatureEngineeringModel
 import graphql.execution.preparsed.PreparsedDocumentEntry
 import graphql.schema.GraphQLSchema
-import kotlinx.collections.immutable.ImmutableMap
 import java.util.*
+import kotlinx.collections.immutable.ImmutableMap
 
 /**
  * @author smccarron
@@ -44,6 +45,8 @@ interface GraphQLSingleRequestSession : MaterializationSession {
 
     val requestMaterializationGraph: Option<RequestMaterializationGraph>
 
+    val dispatchedRequestMaterializationGraph: Option<DispatchedRequestMaterializationGraph>
+
     val serializedGraphQLResponse: Option<SerializedGraphQLResponse>
 
     fun update(transformer: Builder.() -> Builder): GraphQLSingleRequestSession
@@ -60,6 +63,10 @@ interface GraphQLSingleRequestSession : MaterializationSession {
 
         fun requestMaterializationGraph(
             requestMaterializationGraph: RequestMaterializationGraph
+        ): Builder
+
+        fun dispatchedRequestMaterializationGraph(
+            dispatchedRequestMaterializationGraph: DispatchedRequestMaterializationGraph
         ): Builder
 
         fun serializedGraphQLResponse(serializedGraphQLResponse: SerializedGraphQLResponse): Builder

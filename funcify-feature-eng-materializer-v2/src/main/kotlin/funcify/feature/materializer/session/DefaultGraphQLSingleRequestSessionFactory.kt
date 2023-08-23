@@ -34,7 +34,7 @@ internal class DefaultGraphQLSingleRequestSessionFactory(
         return materializationMetamodelBroker
             .fetchLatestMaterializationMetamodel()
             .map { mm: MaterializationMetamodel ->
-                DefaultGraphQLSingleRequestSession(
+                DefaultGraphQLSingleRequestSession.createInitial(
                     materializationMetamodel = mm,
                     rawGraphQLRequest = rawGraphQLRequest
                 )

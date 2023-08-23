@@ -6,7 +6,6 @@ import graphql.ExecutionResult
 import reactor.core.publisher.Mono
 
 /**
- *
  * @author smccarron
  * @created 2022-10-24
  */
@@ -17,5 +16,5 @@ interface SingleRequestMaterializationTabularResponsePostprocessingService :
         executionResult: ExecutionResult,
         columnarDocumentContext: ColumnarDocumentContext,
         session: GraphQLSingleRequestSession,
-                                                  ): Mono<GraphQLSingleRequestSession>
+    ): Mono<GraphQLSingleRequestSession>
 }

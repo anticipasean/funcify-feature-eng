@@ -278,7 +278,7 @@ internal class DefaultSingleRequestMaterializationGraphService(
                 }
             }
         }
-        return Mono.empty()
+        return Mono.error { ServiceError.of("request_materialization_graph not yet implemented") }
     }
 
     private fun <C> connectOperationDefinitionAndEachAddedVertex(
@@ -288,10 +288,10 @@ internal class DefaultSingleRequestMaterializationGraphService(
     ): C where C : RequestMaterializationGraphContext {
         var pollResult: Pair<Option<QueryComponentContext>, C> =
             pollFirstFunction.invoke(connector.startOperationDefinition(context))
-        var qcOpt: Option<QueryComponentContext> = pollResult.first
+        var qccOpt: Option<QueryComponentContext> = pollResult.first
         var c: C = pollResult.second
-        while (qcOpt.isDefined()) {
-            when (val nextVertexContext: QueryComponentContext = qcOpt.orNull()!!) {
+        while (qccOpt.isDefined()) {
+            when (val nextVertexContext: QueryComponentContext = qccOpt.orNull()!!) {
                 is QueryComponentContext.FieldArgumentComponentContext -> {
                     c = connector.connectFieldArgument(c, nextVertexContext)
                 }
@@ -300,7 +300,7 @@ internal class DefaultSingleRequestMaterializationGraphService(
                 }
             }
             pollResult = pollFirstFunction.invoke(c)
-            qcOpt = pollResult.first
+            qccOpt = pollResult.first
             c = pollResult.second
         }
         return connector.completeOperationDefinition(c)

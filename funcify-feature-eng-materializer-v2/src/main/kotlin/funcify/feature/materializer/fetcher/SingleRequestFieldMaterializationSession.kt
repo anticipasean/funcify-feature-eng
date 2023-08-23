@@ -1,13 +1,21 @@
 package funcify.feature.materializer.fetcher
 
+import arrow.core.Option
+import arrow.core.filterIsInstance
+import arrow.core.some
+import arrow.core.toOption
 import funcify.feature.materializer.model.MaterializationMetamodel
 import funcify.feature.materializer.session.GraphQLSingleRequestSession
 import funcify.feature.materializer.session.MaterializationSession
 import graphql.GraphQLContext
 import graphql.language.Field
 import graphql.schema.DataFetchingEnvironment
+import graphql.schema.FieldCoordinates
 import graphql.schema.GraphQLFieldDefinition
+import graphql.schema.GraphQLFieldsContainer
 import graphql.schema.GraphQLOutputType
+import graphql.schema.GraphQLType
+import graphql.schema.GraphQLTypeUtil
 import java.util.*
 
 /**
@@ -42,6 +50,30 @@ interface SingleRequestFieldMaterializationSession : MaterializationSession {
 
     val fieldOutputType: GraphQLOutputType
         get() = dataFetchingEnvironment.fieldType
+
+    val parentGraphQLFieldsContainer: Option<GraphQLFieldsContainer>
+        get() {
+            return dataFetchingEnvironment.parentType.toOption().flatMap { gt: GraphQLType ->
+                when (gt) {
+                    is GraphQLFieldsContainer -> {
+                        gt.some()
+                    }
+                    else -> {
+                        gt.some()
+                            .mapNotNull(GraphQLTypeUtil::unwrapAll)
+                            .filterIsInstance<GraphQLFieldsContainer>()
+                    }
+                }
+            }
+        }
+
+    val fieldCoordinates: Option<FieldCoordinates>
+        get() {
+            return parentGraphQLFieldsContainer.map(GraphQLFieldsContainer::getName).map {
+                tn: String ->
+                FieldCoordinates.coordinates(tn, this.field.name)
+            }
+        }
 
     fun update(transformer: Builder.() -> Builder): SingleRequestFieldMaterializationSession
 
