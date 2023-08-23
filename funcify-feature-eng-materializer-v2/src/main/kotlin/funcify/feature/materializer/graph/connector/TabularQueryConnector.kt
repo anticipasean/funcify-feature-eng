@@ -1,13 +1,17 @@
 package funcify.feature.materializer.graph.connector
 
+import arrow.core.Option
 import arrow.core.getOrNone
 import arrow.core.orElse
 import funcify.feature.error.ServiceError
 import funcify.feature.materializer.graph.component.QueryComponentContext.FieldArgumentComponentContext
 import funcify.feature.materializer.graph.component.QueryComponentContext.SelectedFieldComponentContext
 import funcify.feature.materializer.graph.context.TabularQuery
+import funcify.feature.schema.path.operation.GQLOperationPath
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flatten
+import graphql.language.Field
+import graphql.schema.FieldCoordinates
 import org.slf4j.Logger
 
 /**
@@ -18,9 +22,12 @@ object TabularQueryConnector : RequestMaterializationGraphConnector<TabularQuery
 
     private val logger: Logger = loggerFor<TabularQueryConnector>()
 
-    override fun connectOperationDefinition(connectorContext: TabularQuery): TabularQuery {
-        logger.info("connect_operation_definition: [ connectorContext. ]")
-        when {
+    override fun startOperationDefinition(connectorContext: TabularQuery): TabularQuery {
+        logger.info(
+            "connect_operation_definition: [ connectorContext.addedVertices.size: {} ]",
+            connectorContext.addedVertexContexts.size
+        )
+        return when {
             connectorContext.outputColumnNames.isEmpty() -> {
                 throw ServiceError.of(
                     """tabular connector applied to context without 
@@ -31,10 +38,55 @@ object TabularQueryConnector : RequestMaterializationGraphConnector<TabularQuery
                 )
             }
             else -> {
-                connectorContext.outputColumnNames.asSequence().map { columnName: String ->
-                    connectorContext.materializationMetamodel.featurePathsByName.getOrNone(columnName)
+                // TODO: Can move scope of update call to outside fold, prompting only one update
+                // call per fold
+                connectorContext.outputColumnNames.asSequence().fold(connectorContext) {
+                    c: TabularQuery,
+                    columnName: String ->
+                    // Assumption: Feature names are unique within the features namespace so start
+                    // there
+                    val featurePathAndField: Option<Pair<GQLOperationPath, Field>> =
+                        connectorContext.materializationMetamodel.featurePathsByName
+                            .getOrNone(columnName)
+                            .map { p: GQLOperationPath ->
+                                p to Field.newField().name(columnName).build()
+                            }
+                            .orElse {
+                                connectorContext.materializationMetamodel.aliasCoordinatesRegistry
+                                    .getFieldWithAlias(columnName)
+                                    .flatMap { fc: FieldCoordinates ->
+                                        connectorContext.materializationMetamodel
+                                            .canonicalPathsByFieldCoordinates
+                                            .getOrNone(fc)
+                                            .filter { p: GQLOperationPath ->
+                                                connectorContext.materializationMetamodel
+                                                    .featureSpecifiedFeatureCalculatorsByPath
+                                                    .containsKey(p)
+                                            }
+                                            .map { p: GQLOperationPath ->
+                                                p.transform {
+                                                    dropTailSelectionSegment()
+                                                    appendAliasedField(columnName, fc.fieldName)
+                                                } to
+                                                    Field.newField()
+                                                        .name(fc.fieldName)
+                                                        .alias(columnName)
+                                                        .build()
+                                            }
+                                    }
+                            }
+                    when {
+                        featurePathAndField.isDefined() -> {
+                            c.update { addVertexContext(featurePathAndField.orNull()!!) }
+                        }
+                        columnName in c.rawInputContextKeys || columnName in c.variableKeys -> {
+                            c.update { addPassThroughColumn(columnName) }
+                        }
+                        else -> {
+                            c.update { addUnhandledColumnName(columnName) }
+                        }
+                    }
                 }
-                TODO()
             }
         }
     }
@@ -43,6 +95,7 @@ object TabularQueryConnector : RequestMaterializationGraphConnector<TabularQuery
         connectorContext: TabularQuery,
         fieldArgumentComponentContext: FieldArgumentComponentContext,
     ): TabularQuery {
+        logger.debug("connect_field_argument: [ path: {} ]", fieldArgumentComponentContext.path)
         TODO("Not yet implemented")
     }
 
@@ -50,6 +103,21 @@ object TabularQueryConnector : RequestMaterializationGraphConnector<TabularQuery
         connectorContext: TabularQuery,
         selectedFieldComponentContext: SelectedFieldComponentContext
     ): TabularQuery {
+        logger.debug("connect_selected_field: [ path: {} ]", selectedFieldComponentContext.path)
         TODO("Not yet implemented")
+    }
+
+    override fun completeOperationDefinition(connectorContext: TabularQuery): TabularQuery {
+        return when {
+            connectorContext.unhandledOutputColumnNames.isNotEmpty() -> {
+                throw ServiceError.of(
+                    "unhandled_output_columns still present in context: [ columns: %s ]",
+                    connectorContext.unhandledOutputColumnNames.asSequence().joinToString(", ")
+                )
+            }
+            else -> {
+                connectorContext
+            }
+        }
     }
 }

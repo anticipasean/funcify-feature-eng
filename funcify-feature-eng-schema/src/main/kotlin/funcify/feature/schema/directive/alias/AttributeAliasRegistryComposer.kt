@@ -22,13 +22,13 @@ import org.slf4j.Logger
  * @author smccarron
  * @created 2023-07-17
  */
-internal class AliasRegistryComposer {
+internal class AttributeAliasRegistryComposer {
 
     companion object {
         private const val QUERY_OBJECT_TYPE_NAME: String = "Query"
         private const val DATA_ELEMENT_OBJECT_TYPE_NAME: String = "DataElement"
         private const val DATA_ELEMENT_FIELD_NAME: String = "dataElement"
-        private val logger: Logger = loggerFor<AliasRegistryComposer>()
+        private val logger: Logger = loggerFor<AttributeAliasRegistryComposer>()
 
         private class GraphQLNodeTraversalVisitor(private val nodeVisitor: NodeVisitor) :
             TraverserVisitorStub<Node<*>>() {

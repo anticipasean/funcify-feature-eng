@@ -1,7 +1,6 @@
 package funcify.feature.materializer.graph
 
 import arrow.core.Option
-import arrow.core.filterIsInstance
 import arrow.core.getOrElse
 import arrow.core.none
 import arrow.core.toOption
@@ -18,7 +17,6 @@ import funcify.feature.materializer.graph.context.StandardQuery
 import funcify.feature.materializer.graph.context.TabularQuery
 import funcify.feature.materializer.input.RawInputContext
 import funcify.feature.materializer.session.GraphQLSingleRequestSession
-import funcify.feature.schema.path.operation.GQLOperationPath
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.MonoExtensions.widen
 import funcify.feature.tools.extensions.SequenceExtensions.firstOrNone
@@ -27,9 +25,6 @@ import funcify.feature.tools.extensions.TryExtensions.failure
 import funcify.feature.tools.extensions.TryExtensions.successIfNonNull
 import graphql.GraphQLError
 import graphql.execution.preparsed.PreparsedDocumentEntry
-import graphql.language.Argument
-import graphql.language.Field
-import graphql.language.Node
 import java.time.Duration
 import java.util.concurrent.ConcurrentMap
 import kotlinx.collections.immutable.persistentSetOf
@@ -222,8 +217,10 @@ internal class DefaultSingleRequestMaterializationGraphService(
                         requestMaterializationGraphContextFactory
                             .standardQueryBuilder()
                             .materializationMetamodel(session.materializationMetamodel)
+                            .queryComponentContextFactory(queryComponentContextFactory)
                             .variableKeys(cacheKey.variableKeys)
                             .rawInputContextKeys(cacheKey.rawInputContextKeys)
+                            .operationName(cacheKey.operationName.orNull()!!)
                             .document(cacheKey.standardQueryDocument.orNull()!!)
                             .build()
                     }
@@ -231,6 +228,7 @@ internal class DefaultSingleRequestMaterializationGraphService(
                         requestMaterializationGraphContextFactory
                             .tabularQueryBuilder()
                             .materializationMetamodel(session.materializationMetamodel)
+                            .queryComponentContextFactory(queryComponentContextFactory)
                             .variableKeys(cacheKey.variableKeys)
                             .rawInputContextKeys(cacheKey.rawInputContextKeys)
                             .outputColumnNames(cacheKey.tabularQueryOutputColumns.orNull()!!)
@@ -260,20 +258,16 @@ internal class DefaultSingleRequestMaterializationGraphService(
                     val connector = StandardQueryConnector
                     connectOperationDefinitionAndEachAddedVertex(connector, context) {
                         c: StandardQuery ->
-                        c.addedVertices
-                            .asSequence()
-                            .map(Map.Entry<GQLOperationPath, Node<*>>::toPair)
-                            .firstOrNone() to c.update { dropFirstAddedVertex() }
+                        c.addedVertexContexts.asSequence().firstOrNone() to
+                            c.update { dropFirstAddedVertex() }
                     }
                 }
                 is TabularQuery -> {
                     val connector = TabularQueryConnector
                     connectOperationDefinitionAndEachAddedVertex(connector, context) {
                         c: TabularQuery ->
-                        c.addedVertices
-                            .asSequence()
-                            .map(Map.Entry<GQLOperationPath, Node<*>>::toPair)
-                            .firstOrNone() to c.update { dropFirstAddedVertex() }
+                        c.addedVertexContexts.asSequence().firstOrNone() to
+                            c.update { dropFirstAddedVertex() }
                     }
                 }
                 else -> {
@@ -290,62 +284,25 @@ internal class DefaultSingleRequestMaterializationGraphService(
     private fun <C> connectOperationDefinitionAndEachAddedVertex(
         connector: RequestMaterializationGraphConnector<C>,
         context: C,
-        pollFirstFunction: (C) -> Pair<Option<Pair<GQLOperationPath, Node<*>>>, C>,
+        pollFirstFunction: (C) -> Pair<Option<QueryComponentContext>, C>,
     ): C where C : RequestMaterializationGraphContext {
-        var pollResult: Pair<Option<Pair<GQLOperationPath, Node<*>>>, C> =
-            pollFirstFunction.invoke(connector.connectOperationDefinition(context))
-        var pOpt: Option<Pair<GQLOperationPath, Node<*>>> = pollResult.first
+        var pollResult: Pair<Option<QueryComponentContext>, C> =
+            pollFirstFunction.invoke(connector.startOperationDefinition(context))
+        var qcOpt: Option<QueryComponentContext> = pollResult.first
         var c: C = pollResult.second
-        while (pOpt.isDefined()) {
-            val nextVertex: Pair<GQLOperationPath, Node<*>> = pOpt.orNull()!!
-            val componentContext: QueryComponentContext =
-                if (nextVertex.first.argumentReferent()) {
-                    nextVertex.second
-                        .toOption()
-                        .filterIsInstance<Argument>()
-                        .map { a: Argument ->
-                            queryComponentContextFactory
-                                .fieldArgumentComponentContextBuilder()
-                                .path(nextVertex.first)
-                                .argument(a)
-                                .build()
-                        }
-                        .getOrElse {
-                            queryComponentContextFactory
-                                .fieldArgumentComponentContextBuilder()
-                                .path(nextVertex.first)
-                                .build()
-                        }
-                } else {
-                    nextVertex.second
-                        .toOption()
-                        .filterIsInstance<Field>()
-                        .map { f: Field ->
-                            queryComponentContextFactory
-                                .selectedFieldComponentContextBuilder()
-                                .path(nextVertex.first)
-                                .field(f)
-                                .build()
-                        }
-                        .getOrElse {
-                            queryComponentContextFactory
-                                .selectedFieldComponentContextBuilder()
-                                .path(nextVertex.first)
-                                .build()
-                        }
-                }
-            when (componentContext) {
+        while (qcOpt.isDefined()) {
+            when (val nextVertexContext: QueryComponentContext = qcOpt.orNull()!!) {
                 is QueryComponentContext.FieldArgumentComponentContext -> {
-                    c = connector.connectFieldArgument(c, componentContext)
+                    c = connector.connectFieldArgument(c, nextVertexContext)
                 }
                 is QueryComponentContext.SelectedFieldComponentContext -> {
-                    c = connector.connectSelectedField(c, componentContext)
+                    c = connector.connectSelectedField(c, nextVertexContext)
                 }
             }
             pollResult = pollFirstFunction.invoke(c)
-            pOpt = pollResult.first
+            qcOpt = pollResult.first
             c = pollResult.second
         }
-        return c
+        return connector.completeOperationDefinition(c)
     }
 }

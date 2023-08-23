@@ -21,11 +21,11 @@ import graphql.util.Traverser
 import graphql.util.TraverserContext
 import graphql.util.TraverserResult
 import graphql.util.TraverserVisitor
-import org.slf4j.Logger
 import java.util.*
+import org.slf4j.Logger
 
 internal object PathCoordinatesGatherer :
-        (MaterializationMetamodelBuildContext, GraphQLSchema) -> MaterializationMetamodelBuildContext {
+    (MaterializationMetamodelBuildContext, GraphQLSchema) -> MaterializationMetamodelBuildContext {
 
     override fun invoke(
         materializationMetamodelBuildContext: MaterializationMetamodelBuildContext,
@@ -199,20 +199,13 @@ internal object PathCoordinatesGatherer :
             when (val parentNode: GraphQLSchemaElement = context.parentNode) {
                 is GraphQLInterfaceType -> {
                     val p: GQLOperationPath = parentPath.transform { appendField(node.name) }
-                    val mmf: MaterializationMetamodelBuildContext =
-                        context.getCurrentAccumulate<MaterializationMetamodelBuildContext>().update {
-                            addChildPathForParentPath(parentPath, p)
-                            putGraphQLSchemaElementForPath(p, node)
-                            putFieldCoordinatesForPath(
-                                p,
-                                FieldCoordinates.coordinates(parentNode.name, node.name)
-                            )
-                            putPathForFieldCoordinates(
-                                FieldCoordinates.coordinates(parentNode.name, node.name),
-                                p
-                            )
-                        }
-                    context.setAccumulate(mmf)
+                    updateContextWithPathAndFieldCoordinatesForGraphQLFieldDefinition(
+                        context,
+                        parentPath,
+                        p,
+                        node,
+                        parentNode
+                    )
                     context.setVar(GQLOperationPath::class.java, p)
                 }
                 is GraphQLObjectType -> {
@@ -229,80 +222,39 @@ internal object PathCoordinatesGatherer :
                                     parentPath.transform {
                                         appendInlineFragment(parentNode.name, node.name)
                                     }
-                                val mmf: MaterializationMetamodelBuildContext =
-                                    context
-                                        .getCurrentAccumulate<MaterializationMetamodelBuildContext>()
-                                        .update {
-                                            addChildPathForParentPath(parentPath, p)
-                                            putGraphQLSchemaElementForPath(p, node)
-                                            putFieldCoordinatesForPath(
-                                                p,
-                                                FieldCoordinates.coordinates(
-                                                    parentNode.name,
-                                                    node.name
-                                                )
-                                            )
-                                            putPathForFieldCoordinates(
-                                                FieldCoordinates.coordinates(
-                                                    parentNode.name,
-                                                    node.name
-                                                ),
-                                                p
-                                            )
-                                        }
-                                context.setAccumulate(mmf)
+                                updateContextWithPathAndFieldCoordinatesForGraphQLFieldDefinition(
+                                    context,
+                                    parentPath,
+                                    p,
+                                    node,
+                                    parentNode
+                                )
                                 context.setVar(GQLOperationPath::class.java, p)
                             } else {
                                 // Only add field_coordinates for object_type parent if grandparent
                                 // is interface_type
                                 val p: GQLOperationPath =
                                     parentPath.transform { appendField(node.name) }
-                                val mmf: MaterializationMetamodelBuildContext =
-                                    context
-                                        .getCurrentAccumulate<MaterializationMetamodelBuildContext>()
-                                        .update {
-                                            addChildPathForParentPath(parentPath, p)
-                                            putFieldCoordinatesForPath(
-                                                p,
-                                                FieldCoordinates.coordinates(
-                                                    parentNode.name,
-                                                    node.name
-                                                )
-                                            )
-                                            putPathForFieldCoordinates(
-                                                FieldCoordinates.coordinates(
-                                                    parentNode.name,
-                                                    node.name
-                                                ),
-                                                p
-                                            )
-                                        }
-                                context.setAccumulate(mmf)
+                                updateContextWithOnlyFieldCoordinatesForGraphQLFieldDefinition(
+                                    context,
+                                    parentPath,
+                                    p,
+                                    node,
+                                    parentNode
+                                )
                                 context.setVar(GQLOperationPath::class.java, p)
                             }
                         }
                         else -> {
                             val p: GQLOperationPath =
                                 parentPath.transform { appendField(node.name) }
-                            val mmf: MaterializationMetamodelBuildContext =
-                                context
-                                    .getCurrentAccumulate<MaterializationMetamodelBuildContext>()
-                                    .update {
-                                        addChildPathForParentPath(parentPath, p)
-                                        putGraphQLSchemaElementForPath(p, node)
-                                        putFieldCoordinatesForPath(
-                                            p,
-                                            FieldCoordinates.coordinates(parentNode.name, node.name)
-                                        )
-                                        putPathForFieldCoordinates(
-                                            FieldCoordinates.coordinates(
-                                                parentNode.name,
-                                                node.name
-                                            ),
-                                            p
-                                        )
-                                    }
-                            context.setAccumulate(mmf)
+                            updateContextWithPathAndFieldCoordinatesForGraphQLFieldDefinition(
+                                context,
+                                parentPath,
+                                p,
+                                node,
+                                parentNode
+                            )
                             context.setVar(GQLOperationPath::class.java, p)
                         }
                     }
@@ -310,6 +262,51 @@ internal object PathCoordinatesGatherer :
             }
 
             return TraversalControl.CONTINUE
+        }
+
+        private fun updateContextWithOnlyFieldCoordinatesForGraphQLFieldDefinition(
+            context: TraverserContext<GraphQLSchemaElement>,
+            parentPath: GQLOperationPath,
+            currentPath: GQLOperationPath,
+            node: GraphQLFieldDefinition,
+            parentNode: GraphQLObjectType,
+        ) {
+            val mmf: MaterializationMetamodelBuildContext =
+                context.getCurrentAccumulate<MaterializationMetamodelBuildContext>().update {
+                    addChildPathForParentPath(parentPath, currentPath)
+                    putFieldCoordinatesForPath(
+                        currentPath,
+                        FieldCoordinates.coordinates(parentNode.name, node.name)
+                    )
+                    putPathForFieldCoordinates(
+                        FieldCoordinates.coordinates(parentNode.name, node.name),
+                        currentPath
+                    )
+                }
+            context.setAccumulate(mmf)
+        }
+
+        private fun updateContextWithPathAndFieldCoordinatesForGraphQLFieldDefinition(
+            context: TraverserContext<GraphQLSchemaElement>,
+            parentPath: GQLOperationPath,
+            currentPath: GQLOperationPath,
+            node: GraphQLFieldDefinition,
+            parentNode: GraphQLImplementingType,
+        ) {
+            val mmf: MaterializationMetamodelBuildContext =
+                context.getCurrentAccumulate<MaterializationMetamodelBuildContext>().update {
+                    addChildPathForParentPath(parentPath, currentPath)
+                    putGraphQLSchemaElementForPath(currentPath, node)
+                    putFieldCoordinatesForPath(
+                        currentPath,
+                        FieldCoordinates.coordinates(parentNode.name, node.name)
+                    )
+                    putPathForFieldCoordinates(
+                        FieldCoordinates.coordinates(parentNode.name, node.name),
+                        currentPath
+                    )
+                }
+            context.setAccumulate(mmf)
         }
 
         private fun extractParentPathContextVariableOrThrow(

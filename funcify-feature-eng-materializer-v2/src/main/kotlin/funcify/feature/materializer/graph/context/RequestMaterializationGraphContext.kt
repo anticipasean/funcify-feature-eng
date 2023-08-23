@@ -2,12 +2,15 @@ package funcify.feature.materializer.graph.context
 
 import funcify.feature.graph.DirectedPersistentGraph
 import funcify.feature.materializer.graph.MaterializationEdge
+import funcify.feature.materializer.graph.component.QueryComponentContext
+import funcify.feature.materializer.graph.component.QueryComponentContextFactory
 import funcify.feature.materializer.model.MaterializationMetamodel
 import funcify.feature.schema.dataelement.DataElementSource
 import funcify.feature.schema.feature.FeatureCalculator
 import funcify.feature.schema.path.operation.GQLOperationPath
 import funcify.feature.schema.transformer.TransformerSource
 import graphql.language.Node
+import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.ImmutableSet
 
@@ -25,6 +28,8 @@ interface RequestMaterializationGraphContext {
 
     val requestGraph: DirectedPersistentGraph<GQLOperationPath, Node<*>, MaterializationEdge>
 
+    val passThroughColumns: ImmutableSet<String>
+
     val transformerCallableBuildersByPath: ImmutableMap<GQLOperationPath, TransformerSource.Builder>
 
     val dataElementCallableBuildersByPath: ImmutableMap<GQLOperationPath, DataElementSource.Builder>
@@ -32,7 +37,9 @@ interface RequestMaterializationGraphContext {
     val featureCalculatorCallableBuildersByPath:
         ImmutableMap<GQLOperationPath, FeatureCalculator.Builder>
 
-    val addedVertices: ImmutableMap<GQLOperationPath, Node<*>>
+    val queryComponentContextFactory: QueryComponentContextFactory
+
+    val addedVertexContexts: ImmutableList<QueryComponentContext>
 
     interface Builder<B : Builder<B>> {
 
@@ -41,6 +48,8 @@ interface RequestMaterializationGraphContext {
         fun variableKeys(variableKeys: ImmutableSet<String>): B
 
         fun rawInputContextKeys(rawInputContextKeys: ImmutableSet<String>): B
+
+        fun addPassThroughColumn(name: String): B
 
         fun requestGraph(
             requestGraph: DirectedPersistentGraph<GQLOperationPath, Node<*>, MaterializationEdge>
@@ -61,11 +70,13 @@ interface RequestMaterializationGraphContext {
             featureCalculatorCallableBuilder: FeatureCalculator.Builder
         ): B
 
-        fun addVertex(nextVertex: Pair<GQLOperationPath, Node<*>>): B
+        fun queryComponentContextFactory(
+            queryComponentContextFactory: QueryComponentContextFactory
+        ): B
 
-        fun addVertex(path: GQLOperationPath, node: Node<*>): B
+        fun addVertexContext(nextVertex: QueryComponentContext): B
 
-        fun addedVertices(addedVertices: Iterable<Pair<GQLOperationPath, Node<*>>>): B
+        fun addedVertexContexts(addedVertexContexts: Iterable<QueryComponentContext>): B
 
         fun dropFirstAddedVertex(): B
     }

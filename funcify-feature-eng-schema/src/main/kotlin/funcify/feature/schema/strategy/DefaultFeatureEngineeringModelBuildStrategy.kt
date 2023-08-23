@@ -12,7 +12,7 @@ import funcify.feature.schema.Source
 import funcify.feature.schema.context.FeatureEngineeringModelBuildContext
 import funcify.feature.schema.dataelement.DataElementSource
 import funcify.feature.schema.dataelement.DataElementSourceProvider
-import funcify.feature.schema.directive.alias.AliasRegistryComposer
+import funcify.feature.schema.directive.alias.AttributeAliasRegistryComposer
 import funcify.feature.schema.directive.alias.AttributeAliasRegistry
 import funcify.feature.schema.directive.temporal.LastUpdatedTemporalAttributeRegistry
 import funcify.feature.schema.directive.temporal.LastUpdatedTemporalAttributeRegistryComposer
@@ -937,7 +937,7 @@ internal class DefaultFeatureEngineeringModelBuildStrategy(
     private fun createAliasRegistryFromTypeDefinitionRegistry():
         (FeatureEngineeringModelBuildContext) -> Mono<FeatureEngineeringModelBuildContext> {
         return { context: FeatureEngineeringModelBuildContext ->
-            AliasRegistryComposer()
+            AttributeAliasRegistryComposer()
                 .createAliasRegistry(context.typeDefinitionRegistry)
                 .successIfDefined {
                     ServiceError.of(

@@ -87,7 +87,7 @@ class AliasRegistryTest {
         internal fun setUp() {
             (LoggerFactory.getILoggerFactory() as? ch.qos.logback.classic.LoggerContext)?.let {
                 lc: ch.qos.logback.classic.LoggerContext ->
-                lc.getLogger(AliasRegistryComposer::class.java.packageName)?.let {
+                lc.getLogger(AttributeAliasRegistryComposer::class.java.packageName)?.let {
                     l: ch.qos.logback.classic.Logger ->
                     l.level = Level.DEBUG
                 }
@@ -127,7 +127,7 @@ class AliasRegistryTest {
                 .orElseThrow()
         }
         val aliasRegistryOpt: Option<AttributeAliasRegistry> =
-            AliasRegistryComposer().createAliasRegistry(tdr)
+            AttributeAliasRegistryComposer().createAliasRegistry(tdr)
         Assertions.assertTrue(aliasRegistryOpt.isDefined())
         val aliasRegistry: AttributeAliasRegistry = aliasRegistryOpt.orNull()!!
         Assertions.assertTrue(
