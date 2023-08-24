@@ -1,7 +1,9 @@
 package funcify.feature.materializer.model
 
 import funcify.feature.schema.FeatureEngineeringModel
+import funcify.feature.schema.dataelement.DomainSpecifiedDataElementSource
 import funcify.feature.schema.directive.alias.AliasCoordinatesRegistry
+import funcify.feature.schema.feature.FeatureSpecifiedFeatureCalculator
 import funcify.feature.schema.path.operation.GQLOperationPath
 import graphql.schema.FieldCoordinates
 import graphql.schema.GraphQLSchema

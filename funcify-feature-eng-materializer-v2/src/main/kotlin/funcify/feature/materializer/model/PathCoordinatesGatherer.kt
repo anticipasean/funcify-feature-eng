@@ -21,8 +21,8 @@ import graphql.util.Traverser
 import graphql.util.TraverserContext
 import graphql.util.TraverserResult
 import graphql.util.TraverserVisitor
-import java.util.*
 import org.slf4j.Logger
+import java.util.*
 
 internal object PathCoordinatesGatherer :
     (MaterializationMetamodelBuildContext, GraphQLSchema) -> MaterializationMetamodelBuildContext {

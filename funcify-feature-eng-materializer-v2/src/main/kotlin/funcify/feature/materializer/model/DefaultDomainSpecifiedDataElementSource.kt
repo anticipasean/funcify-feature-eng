@@ -5,6 +5,7 @@ import arrow.core.continuations.ensureNotNull
 import arrow.core.identity
 import funcify.feature.error.ServiceError
 import funcify.feature.schema.dataelement.DataElementSource
+import funcify.feature.schema.dataelement.DomainSpecifiedDataElementSource
 import funcify.feature.schema.path.operation.GQLOperationPath
 import graphql.schema.FieldCoordinates
 import graphql.schema.GraphQLArgument

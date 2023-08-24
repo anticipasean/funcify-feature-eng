@@ -1,6 +1,5 @@
-package funcify.feature.materializer.model
+package funcify.feature.schema.feature
 
-import funcify.feature.schema.feature.FeatureCalculator
 import funcify.feature.schema.path.operation.GQLOperationPath
 import graphql.schema.FieldCoordinates
 import graphql.schema.GraphQLArgument

@@ -9,6 +9,7 @@ import arrow.core.toOption
 import funcify.feature.error.ServiceError
 import funcify.feature.schema.FeatureEngineeringModel
 import funcify.feature.schema.dataelement.DataElementSource
+import funcify.feature.schema.dataelement.DomainSpecifiedDataElementSource
 import funcify.feature.schema.path.operation.GQLOperationPath
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
