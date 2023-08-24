@@ -6,5 +6,5 @@ package funcify.feature.schema.tracking
  */
 interface TrackableValueFactory {
 
-    fun builder(): TrackableValue.PlannedValue.Builder<*>
+    fun builder(): TrackableValue.PlannedValue.Builder
 }

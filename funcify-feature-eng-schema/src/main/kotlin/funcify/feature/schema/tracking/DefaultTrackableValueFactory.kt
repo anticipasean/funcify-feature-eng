@@ -14,6 +14,7 @@ import funcify.feature.tools.container.attempt.Try.Companion.filterInstanceOf
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.extensions.TryExtensions.successIfNonNull
 import graphql.schema.GraphQLOutputType
+import java.time.Instant
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.PersistentMap
@@ -22,7 +23,6 @@ import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toPersistentMap
 import kotlinx.collections.immutable.toPersistentSet
-import java.time.Instant
 
 /**
  * @author smccarron
@@ -104,14 +104,14 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
         internal class DefaultPlannedValueBuilder<V>(
             private val existingPlannedValue: PlannedValue<V>? = null
         ) :
-            BaseBuilder<DefaultPlannedValueBuilder<V>, V>(
+            BaseBuilder<PlannedValue.Builder, V>(
                 targetSourceIndexPath = existingPlannedValue?.targetSourceIndexPath,
                 contextualParameters =
                     existingPlannedValue?.contextualParameters?.toPersistentMap()?.builder()
                         ?: persistentMapOf<GQLOperationPath, JsonNode>().builder(),
                 graphQLOutputType = existingPlannedValue?.graphQLOutputType
             ),
-            PlannedValue.Builder<DefaultPlannedValueBuilder<V>> {
+            PlannedValue.Builder {
 
             override fun <V> buildForInstanceOf(): Try<PlannedValue<V>> {
                 return when {
@@ -163,12 +163,12 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
             private var calculatedValue: V? = null,
             private var calculatedTimestamp: Instant? = null,
         ) :
-            BaseBuilder<DefaultCalculatedValueBuilder<V>, V>(
+            BaseBuilder<CalculatedValue.Builder<V>, V>(
                 targetSourceIndexPath = targetSourceIndexPath,
                 contextualParameters = contextualParameters,
                 graphQLOutputType = graphQLOutputType
             ),
-            CalculatedValue.Builder<DefaultCalculatedValueBuilder<V>, V> {
+            CalculatedValue.Builder<V> {
 
             override fun calculatedValue(calculatedValue: V): DefaultCalculatedValueBuilder<V> {
                 this.calculatedValue = calculatedValue
@@ -272,12 +272,12 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
             private var trackedValue: V? = null,
             private var valueAtTimestamp: Instant? = null,
         ) :
-            BaseBuilder<DefaultTrackedValueBuilder<V>, V>(
+            BaseBuilder<TrackedValue.Builder<V>, V>(
                 targetSourceIndexPath = targetSourceIndexPath,
                 contextualParameters = contextualParameters,
                 graphQLOutputType = graphQLOutputType
             ),
-            TrackedValue.Builder<DefaultTrackedValueBuilder<V>, V> {
+            TrackedValue.Builder<V> {
 
             override fun canonicalPath(
                 canonicalPath: GQLOperationPath
@@ -388,43 +388,29 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
             override val graphQLOutputType: GraphQLOutputType
         ) : PlannedValue<V> {
 
-            override fun <B1, B2> update(
-                transformer: PlannedValue.Builder<B1>.() -> PlannedValue.Builder<B2>
-            ): PlannedValue<V> where B1 : PlannedValue.Builder<B1>, B2 : PlannedValue.Builder<B2> {
+            override fun update(
+                transformer: PlannedValue.Builder.() -> PlannedValue.Builder
+            ): PlannedValue<V> {
                 @Suppress("UNCHECKED_CAST") //
-                return transformer(
-                        DefaultPlannedValueBuilder<V>(existingPlannedValue = this)
-                            as PlannedValue.Builder<B1>
-                    )
+                return transformer(DefaultPlannedValueBuilder<V>(existingPlannedValue = this))
                     .buildForInstanceOf<V>()
                     .orElse(this)
             }
 
-            override fun <B1, B2> transitionToCalculated(
-                mapper: CalculatedValue.Builder<B1, V>.() -> CalculatedValue.Builder<B2, V>
-            ): TrackableValue<V> where
-            B1 : CalculatedValue.Builder<B1, V>,
-            B2 : CalculatedValue.Builder<B2, V> {
+            override fun transitionToCalculated(
+                mapper: CalculatedValue.Builder<V>.() -> CalculatedValue.Builder<V>
+            ): TrackableValue<V> {
                 @Suppress("UNCHECKED_CAST") //
-                return mapper(
-                        DefaultCalculatedValueBuilder<V>(existingPlannedValue = this)
-                            as CalculatedValue.Builder<B1, V>
-                    )
+                return mapper(DefaultCalculatedValueBuilder<V>(existingPlannedValue = this))
                     .build()
                     .filterInstanceOf<TrackableValue<V>>()
                     .orElseGet { this }
             }
 
-            override fun <B1, B2> transitionToTracked(
-                mapper: TrackedValue.Builder<B1, V>.() -> TrackedValue.Builder<B2, V>
-            ): TrackableValue<V> where
-            B1 : TrackedValue.Builder<B1, V>,
-            B2 : TrackedValue.Builder<B2, V> {
-                @Suppress("UNCHECKED_CAST") //
-                return mapper(
-                        DefaultTrackedValueBuilder<V>(existingPlannedValue = this)
-                            as TrackedValue.Builder<B1, V>
-                    )
+            override fun transitionToTracked(
+                mapper: TrackedValue.Builder<V>.() -> TrackedValue.Builder<V>
+            ): TrackableValue<V> {
+                return mapper(DefaultTrackedValueBuilder<V>(existingPlannedValue = this))
                     .build()
                     .filterInstanceOf<TrackableValue<V>>()
                     .orElseGet { this }
@@ -439,12 +425,9 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
             override val calculatedTimestamp: Instant
         ) : CalculatedValue<V> {
 
-            override fun <B1, B2> update(
-                transformer: CalculatedValue.Builder<B1, V>.() -> CalculatedValue.Builder<B2, V>
-            ): CalculatedValue<V> where
-            B1 : CalculatedValue.Builder<B1, V>,
-            B2 : CalculatedValue.Builder<B2, V> {
-                @Suppress("UNCHECKED_CAST") //
+            override fun update(
+                transformer: CalculatedValue.Builder<V>.() -> CalculatedValue.Builder<V>
+            ): CalculatedValue<V> {
                 return transformer(
                         DefaultCalculatedValueBuilder<V>(
                             existingPlannedValue = null,
@@ -454,21 +437,15 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
                             calculatedValue = calculatedValue,
                             calculatedTimestamp = calculatedTimestamp
                         )
-                            as CalculatedValue.Builder<B1, V>
                     )
                     .build()
                     .orElse(this)
             }
 
-            override fun <B1, B2> transitionToTracked(
-                mapper: TrackedValue.Builder<B1, V>.() -> TrackedValue.Builder<B2, V>
-            ): TrackableValue<V> where
-            B1 : TrackedValue.Builder<B1, V>,
-            B2 : TrackedValue.Builder<B2, V> {
-                @Suppress("UNCHECKED_CAST") //
-                return mapper(
-                        DefaultTrackedValueBuilder<V>(null, this) as TrackedValue.Builder<B1, V>
-                    )
+            override fun transitionToTracked(
+                mapper: TrackedValue.Builder<V>.() -> TrackedValue.Builder<V>
+            ): TrackableValue<V> {
+                return mapper(DefaultTrackedValueBuilder<V>(null, this))
                     .build()
                     .filterInstanceOf<TrackableValue<V>>()
                     .orElse(this)
@@ -485,12 +462,10 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
             override val valueAtTimestamp: Instant
         ) : TrackedValue<V> {
 
-            override fun <B1, B2> update(
-                transformer: TrackedValue.Builder<B1, V>.() -> TrackedValue.Builder<B2, V>
-            ): TrackedValue<V> where
-            B1 : TrackedValue.Builder<B1, V>,
-            B2 : TrackedValue.Builder<B2, V> {
-                @Suppress("UNCHECKED_CAST") //
+            override fun update(
+                transformer: TrackedValue.Builder<V>.() -> TrackedValue.Builder<V>
+            ): TrackedValue<V> {
+
                 return transformer(
                         DefaultTrackedValueBuilder<V>(
                             null,
@@ -503,7 +478,6 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
                             trackedValue,
                             valueAtTimestamp
                         )
-                            as TrackedValue.Builder<B1, V>
                     )
                     .build()
                     .orElse(this)
@@ -511,7 +485,7 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
         }
     }
 
-    override fun builder(): PlannedValue.Builder<*> {
-        return DefaultPlannedValueBuilder<Any>()
+    override fun builder(): PlannedValue.Builder {
+        return DefaultPlannedValueBuilder<Any?>()
     }
 }
