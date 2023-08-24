@@ -10,7 +10,7 @@ import kotlinx.collections.immutable.ImmutableSet
  * @author smccarron
  * @created 2023-07-01
  */
-interface FeatureCalculator : Source {
+interface FeatureCalculator : Source, FeatureCalculatorCallableFactory {
 
     companion object {
         const val FEATURE_STORE_NOT_PROVIDED: String = "<NA>"
@@ -27,20 +27,6 @@ interface FeatureCalculator : Source {
 
     override val sourceSDLDefinitions: ImmutableSet<SDLDefinition<*>>
 
-    //fun builder(): Builder
+    override fun builder(): FeatureCalculatorCallable.Builder
 
-    interface Builder {
-
-        fun setFeaturePath(featurePath: GQLOperationPath): Builder
-
-        fun addDataElementArgumentPath(argumentPath: GQLOperationPath): Builder
-
-        fun addAllDataElementArgumentPaths(argumentPaths: Iterable<GQLOperationPath>): Builder
-
-        fun addTransformerCallable(transformerCallable: TransformerCallable): Builder
-
-        fun addTransformerCallables(transformerCallables: Iterable<TransformerCallable>): Builder
-
-        fun build(): FeatureCalculatorCallable
-    }
 }

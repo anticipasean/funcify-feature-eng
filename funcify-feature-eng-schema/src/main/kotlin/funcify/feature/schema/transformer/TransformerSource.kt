@@ -9,22 +9,12 @@ import kotlinx.collections.immutable.ImmutableSet
  * @author smccarron
  * @created 2023-07-01
  */
-interface TransformerSource : Source {
+interface TransformerSource : Source, TransformerCallableFactory {
 
     override val name: String
 
     override val sourceSDLDefinitions: ImmutableSet<SDLDefinition<*>>
 
-    //fun builder(): Builder
+    override fun builder(): TransformerCallable.Builder
 
-    interface Builder {
-
-        fun setTransformerPath(path: GQLOperationPath): Builder
-
-        fun addArgumentName(name: String): Builder
-
-        fun addAllArgumentNames(names: Iterable<String>): Builder
-
-        fun build(): TransformerCallable
-    }
 }
