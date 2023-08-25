@@ -34,8 +34,6 @@ interface FeatureEngineeringModel {
 
     val scalarTypeRegistry: ScalarTypeRegistry
 
-    val attributeAliasRegistry: AttributeAliasRegistry
-
     val entityRegistry: EntityRegistry
 
     val lastUpdatedTemporalAttributeRegistry: LastUpdatedTemporalAttributeRegistry

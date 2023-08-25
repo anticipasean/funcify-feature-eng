@@ -3,6 +3,7 @@ package funcify.feature.materializer.model
 import arrow.core.foldLeft
 import funcify.feature.schema.FeatureEngineeringModel
 import funcify.feature.schema.dataelement.DomainSpecifiedDataElementSource
+import funcify.feature.schema.directive.alias.AliasCoordinatesRegistry
 import funcify.feature.schema.feature.FeatureSpecifiedFeatureCalculator
 import funcify.feature.schema.path.operation.GQLOperationPath
 import graphql.schema.FieldCoordinates
@@ -37,6 +38,8 @@ interface MaterializationMetamodelBuildContext {
         ImmutableMap<GQLOperationPath, FeatureSpecifiedFeatureCalculator>
 
     val featurePathsByName: ImmutableMap<String, GQLOperationPath>
+
+    val aliasCoordinatesRegistry: AliasCoordinatesRegistry
 
     fun update(transformer: Builder.() -> Builder): MaterializationMetamodelBuildContext
 
@@ -214,6 +217,8 @@ interface MaterializationMetamodelBuildContext {
                 b.putFeatureNameForPath(name, p)
             }
         }
+
+        fun aliasCoordinatesRegistry(aliasCoordinatesRegistry: AliasCoordinatesRegistry): Builder
 
         fun build(): MaterializationMetamodelBuildContext
     }

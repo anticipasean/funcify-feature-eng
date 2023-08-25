@@ -4,7 +4,9 @@ import arrow.core.filterIsInstance
 import arrow.core.getOrElse
 import arrow.core.orElse
 import arrow.core.toOption
+import funcify.feature.error.ServiceError
 import funcify.feature.schema.dataelement.DomainSpecifiedDataElementSource
+import funcify.feature.schema.directive.alias.AliasCoordinatesRegistryCreator
 import funcify.feature.schema.feature.FeatureSpecifiedFeatureCalculator
 import funcify.feature.schema.path.operation.GQLOperationPath
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
@@ -34,6 +36,7 @@ internal class DefaultMaterializationMetamodelBuildStrategy :
             .flatMap(calculatePathsAndFieldCoordinates())
             .flatMap(calculateDomainSpecifiedDataElementSources())
             .flatMap(calculateFeatureSpecifiedFeatureCalculators())
+            .flatMap(calculateAttributeCoordinatesRegistry())
             .doOnNext { mmf: MaterializationMetamodelBuildContext ->
                 logger.debug(
                     "paths: {}",
@@ -103,6 +106,7 @@ internal class DefaultMaterializationMetamodelBuildStrategy :
                     featureSpecifiedFeatureCalculatorsByPath =
                         mmbc.featureSpecifiedFeatureCalculatorsByPath,
                     featurePathsByName = mmbc.featurePathsByName,
+                    aliasCoordinatesRegistry = mmbc.aliasCoordinatesRegistry
                 )
             }
     }
@@ -110,9 +114,23 @@ internal class DefaultMaterializationMetamodelBuildStrategy :
     private fun calculatePathsAndFieldCoordinates():
         (MaterializationMetamodelBuildContext) -> Mono<MaterializationMetamodelBuildContext> {
         return { mmbc: MaterializationMetamodelBuildContext ->
-            Mono.fromCallable {
-                PathCoordinatesGatherer.invoke(mmbc, mmbc.materializationGraphQLSchema)
-            }
+            Mono.fromCallable { PathCoordinatesGatherer.invoke(mmbc) }
+                .onErrorMap { t: Throwable ->
+                    when (t) {
+                        is ServiceError -> {
+                            t
+                        }
+                        else -> {
+                            ServiceError.builder()
+                                .message(
+                                    "calculate_paths_and_field_coordinates: [ status: failed ]"
+                                )
+                                .cause(t)
+                                .build()
+                        }
+                    }
+                }
+                .doOnError { t: Throwable -> logger.error("{}", t.message) }
         }
     }
 
@@ -120,18 +138,37 @@ internal class DefaultMaterializationMetamodelBuildStrategy :
         (MaterializationMetamodelBuildContext) -> Mono<MaterializationMetamodelBuildContext> {
         return { mmbc: MaterializationMetamodelBuildContext ->
             Mono.fromCallable {
-                mmbc.update {
-                    DomainSpecifiedDataElementSourceCreator.invoke(
-                            mmbc.featureEngineeringModel,
-                            mmbc.materializationGraphQLSchema
-                        )
-                        .fold(this) {
-                            b: MaterializationMetamodelBuildContext.Builder,
-                            dsdes: DomainSpecifiedDataElementSource ->
-                            b.putDomainSpecifiedDataElementSourceForPath(dsdes.domainPath, dsdes)
-                        }
+                    mmbc.update {
+                        DomainSpecifiedDataElementSourceCreator.invoke(
+                                mmbc.featureEngineeringModel,
+                                mmbc.materializationGraphQLSchema
+                            )
+                            .fold(this) {
+                                b: MaterializationMetamodelBuildContext.Builder,
+                                dsdes: DomainSpecifiedDataElementSource ->
+                                b.putDomainSpecifiedDataElementSourceForPath(
+                                    dsdes.domainPath,
+                                    dsdes
+                                )
+                            }
+                    }
                 }
-            }
+                .onErrorMap { t: Throwable ->
+                    when (t) {
+                        is ServiceError -> {
+                            t
+                        }
+                        else -> {
+                            ServiceError.builder()
+                                .message(
+                                    "calculate_domain_specified_data_element_sources: [ status: failed ]"
+                                )
+                                .cause(t)
+                                .build()
+                        }
+                    }
+                }
+                .doOnError { t: Throwable -> logger.error("{}", t.message) }
         }
     }
 
@@ -139,19 +176,69 @@ internal class DefaultMaterializationMetamodelBuildStrategy :
         (MaterializationMetamodelBuildContext) -> Mono<MaterializationMetamodelBuildContext> {
         return { mmbc: MaterializationMetamodelBuildContext ->
             Mono.fromCallable {
-                mmbc.update {
-                    FeatureSpecifiedFeatureCalculatorCreator.invoke(
-                            mmbc.featureEngineeringModel,
-                            mmbc.materializationGraphQLSchema
-                        )
-                        .fold(this) {
-                            b: MaterializationMetamodelBuildContext.Builder,
-                            fsfc: FeatureSpecifiedFeatureCalculator ->
-                            b.putFeatureSpecifiedFeatureCalculatorForPath(fsfc.featurePath, fsfc)
-                                .putFeatureNameForPath(fsfc.featureName, fsfc.featurePath)
-                        }
+                    mmbc.update {
+                        FeatureSpecifiedFeatureCalculatorCreator.invoke(
+                                mmbc.featureEngineeringModel,
+                                mmbc.materializationGraphQLSchema
+                            )
+                            .fold(this) {
+                                b: MaterializationMetamodelBuildContext.Builder,
+                                fsfc: FeatureSpecifiedFeatureCalculator ->
+                                b.putFeatureSpecifiedFeatureCalculatorForPath(
+                                        fsfc.featurePath,
+                                        fsfc
+                                    )
+                                    .putFeatureNameForPath(fsfc.featureName, fsfc.featurePath)
+                            }
+                    }
                 }
-            }
+                .onErrorMap { t: Throwable ->
+                    when (t) {
+                        is ServiceError -> {
+                            t
+                        }
+                        else -> {
+                            ServiceError.builder()
+                                .message(
+                                    "calculate_feature_specified_feature_calculators: [ status: failed ]"
+                                )
+                                .cause(t)
+                                .build()
+                        }
+                    }
+                }
+                .doOnError { t: Throwable -> logger.error("{}", t.message) }
+        }
+    }
+
+    private fun calculateAttributeCoordinatesRegistry():
+        (MaterializationMetamodelBuildContext) -> Mono<MaterializationMetamodelBuildContext> {
+        return { mmbc: MaterializationMetamodelBuildContext ->
+            Mono.fromCallable {
+                    mmbc.update {
+                        aliasCoordinatesRegistry(
+                            AliasCoordinatesRegistryCreator.invoke(
+                                mmbc.materializationGraphQLSchema
+                            )
+                        )
+                    }
+                }
+                .onErrorMap { t: Throwable ->
+                    when (t) {
+                        is ServiceError -> {
+                            t
+                        }
+                        else -> {
+                            ServiceError.builder()
+                                .message(
+                                    "calculate_attribute_coordinates_registry: [ status: failed ]"
+                                )
+                                .cause(t)
+                                .build()
+                        }
+                    }
+                }
+                .doOnError { t: Throwable -> logger.error("{}", t.message) }
         }
     }
 }

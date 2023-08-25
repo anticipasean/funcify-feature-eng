@@ -1,6 +1,5 @@
 package funcify.feature.schema.directive.alias
 
-import arrow.core.Option
 import graphql.schema.FieldCoordinates
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentMapOf
@@ -23,24 +22,24 @@ interface AliasCoordinatesRegistry {
     fun registerFieldWithAlias(
         fieldCoordinates: FieldCoordinates,
         alias: String
-    ): Result<AliasCoordinatesRegistry>
+    ): AliasCoordinatesRegistry
 
     fun registerFieldArgumentWithAlias(
         fieldArgumentLocation: Pair<FieldCoordinates, String>,
         alias: String
-    ): Result<AliasCoordinatesRegistry>
+    ): AliasCoordinatesRegistry
 
     fun isAliasForField(alias: String): Boolean {
-        return getFieldWithAlias(alias).isDefined()
+        return getFieldsWithAlias(alias).isNotEmpty()
     }
 
     fun isAliasForFieldArgument(alias: String): Boolean {
-        return getFieldArgumentWithAlias(alias).isNotEmpty()
+        return getFieldArgumentsWithAlias(alias).isNotEmpty()
     }
 
-    fun getFieldWithAlias(alias: String): Option<FieldCoordinates>
+    fun getFieldsWithAlias(alias: String): ImmutableSet<FieldCoordinates>
 
-    fun getFieldArgumentWithAlias(alias: String): Option<Pair<FieldCoordinates, String>>
+    fun getFieldArgumentsWithAlias(alias: String): ImmutableSet<Pair<FieldCoordinates, String>>
 
     fun getAllAliasesForField(fieldCoordinates: FieldCoordinates): ImmutableSet<String>
 

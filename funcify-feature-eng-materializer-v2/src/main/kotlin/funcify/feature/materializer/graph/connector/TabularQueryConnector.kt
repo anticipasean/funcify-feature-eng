@@ -1,9 +1,9 @@
 package funcify.feature.materializer.graph.connector
 
 import arrow.core.Option
+import arrow.core.firstOrNone
 import arrow.core.getOrNone
 import arrow.core.orElse
-import com.fasterxml.jackson.databind.ObjectMapper
 import funcify.feature.error.ServiceError
 import funcify.feature.materializer.graph.component.QueryComponentContext.FieldArgumentComponentContext
 import funcify.feature.materializer.graph.component.QueryComponentContext.SelectedFieldComponentContext
@@ -39,7 +39,13 @@ object TabularQueryConnector : RequestMaterializationGraphConnector<TabularQuery
                 )
             }
             connectorContext.rawInputContextKeys.isEmpty() -> {
-                TODO()
+                connectorContext.update {
+                    addedVertexContexts(
+                        TabularQueryVariableBasedOperationCreator.invoke(
+                            tabularQuery = connectorContext
+                        )
+                    )
+                }
             }
             else -> {
                 // TODO: Can move scope of update call to outside fold, prompting only one update
@@ -56,8 +62,10 @@ object TabularQueryConnector : RequestMaterializationGraphConnector<TabularQuery
                                 p to Field.newField().name(columnName).build()
                             }
                             .orElse {
+                                // Assumption: Features have only one set of field_coordinates
                                 connectorContext.materializationMetamodel.aliasCoordinatesRegistry
-                                    .getFieldWithAlias(columnName)
+                                    .getFieldsWithAlias(columnName)
+                                    .firstOrNone()
                                     .flatMap { fc: FieldCoordinates ->
                                         connectorContext.materializationMetamodel
                                             .canonicalPathsByFieldCoordinates

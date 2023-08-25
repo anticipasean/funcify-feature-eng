@@ -1,16 +1,14 @@
 package funcify.feature.schema.directive.alias
 
-import arrow.core.Option
 import arrow.core.getOrElse
 import arrow.core.getOrNone
+import arrow.core.identity
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.node.ArrayNode
 import com.fasterxml.jackson.databind.node.JsonNodeFactory
 import com.fasterxml.jackson.databind.node.ObjectNode
-import funcify.feature.error.ServiceError
-import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentMap
+import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentSetValueMap
 import funcify.feature.tools.extensions.PersistentMapExtensions.streamEntries
-import funcify.feature.tools.extensions.StringExtensions.flatten
 import graphql.schema.FieldCoordinates
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.PersistentMap
@@ -27,25 +25,26 @@ internal data class DefaultAliasCoordinatesRegistry(
         PersistentMap<Pair<FieldCoordinates, String>, PersistentSet<String>>,
 ) : AliasCoordinatesRegistry {
 
-    private val fieldCoordinatesByAlias: PersistentMap<String, FieldCoordinates> by lazy {
+    private val fieldCoordinatesByAlias:
+        PersistentMap<String, PersistentSet<FieldCoordinates>> by lazy {
         fieldAliasesByCoordinates
             .streamEntries()
             .parallel()
             .flatMap { (fc: FieldCoordinates, aliases: PersistentSet<String>) ->
                 aliases.stream().map { a: String -> a to fc }
             }
-            .reducePairsToPersistentMap()
+            .reducePairsToPersistentSetValueMap()
     }
 
     private val fieldArgumentLocationsByAlias:
-        PersistentMap<String, Pair<FieldCoordinates, String>> by lazy {
+        PersistentMap<String, PersistentSet<Pair<FieldCoordinates, String>>> by lazy {
         fieldArgumentAliasesByLocation
             .streamEntries()
             .parallel()
             .flatMap { (faLoc: Pair<FieldCoordinates, String>, aliases: PersistentSet<String>) ->
                 aliases.stream().map { a: String -> a to faLoc }
             }
-            .reducePairsToPersistentMap()
+            .reducePairsToPersistentSetValueMap()
     }
 
     private val internedJsonRep: JsonNode by lazy {
@@ -97,38 +96,24 @@ internal data class DefaultAliasCoordinatesRegistry(
     override fun registerFieldWithAlias(
         fieldCoordinates: FieldCoordinates,
         alias: String
-    ): Result<AliasCoordinatesRegistry> {
+    ): AliasCoordinatesRegistry {
         return when {
             fieldAliasesByCoordinates
                 .getOrNone(fieldCoordinates)
                 .filter { aliases: PersistentSet<String> -> alias in aliases }
                 .isDefined() -> {
-                Result.success(this)
-            }
-            fieldCoordinatesByAlias
-                .getOrNone(alias)
-                .filter { fc: FieldCoordinates -> fc != fieldCoordinates }
-                .isDefined() -> {
-                Result.failure(
-                    ServiceError.of(
-                        "[ alias: %s ] already defined for different [ field_coordinates: %s ]",
-                        alias,
-                        fieldCoordinatesByAlias.getOrNone(alias).orNull()
-                    )
-                )
+                this
             }
             else -> {
-                Result.success(
-                    DefaultAliasCoordinatesRegistry(
-                        fieldAliasesByCoordinates =
-                            fieldAliasesByCoordinates.put(
-                                fieldCoordinates,
-                                fieldAliasesByCoordinates
-                                    .getOrElse(fieldCoordinates, ::persistentSetOf)
-                                    .add(alias)
-                            ),
-                        fieldArgumentAliasesByLocation = fieldArgumentAliasesByLocation
-                    )
+                DefaultAliasCoordinatesRegistry(
+                    fieldAliasesByCoordinates =
+                        fieldAliasesByCoordinates.put(
+                            fieldCoordinates,
+                            fieldAliasesByCoordinates
+                                .getOrElse(fieldCoordinates, ::persistentSetOf)
+                                .add(alias)
+                        ),
+                    fieldArgumentAliasesByLocation = fieldArgumentAliasesByLocation
                 )
             }
         }
@@ -137,54 +122,37 @@ internal data class DefaultAliasCoordinatesRegistry(
     override fun registerFieldArgumentWithAlias(
         fieldArgumentLocation: Pair<FieldCoordinates, String>,
         alias: String
-    ): Result<AliasCoordinatesRegistry> {
+    ): AliasCoordinatesRegistry {
         return when {
             fieldArgumentAliasesByLocation
                 .getOrNone(fieldArgumentLocation)
                 .filter { aliases: PersistentSet<String> -> alias in aliases }
                 .isDefined() -> {
-                Result.success(this)
-            }
-            fieldArgumentLocationsByAlias
-                .getOrNone(alias)
-                .filter { fa: Pair<FieldCoordinates, String> -> fieldArgumentLocation != fa }
-                .isDefined() -> {
-                val faLoc: Option<Pair<FieldCoordinates, String>> =
-                    fieldArgumentLocationsByAlias.getOrNone(alias)
-                Result.failure(
-                    ServiceError.of(
-                        """[ alias: %s ] already defined for different 
-                        |[ field_argument_location: { coordinates: %s, argument_name: %s } ]"""
-                            .flatten(),
-                        alias,
-                        faLoc.orNull()?.first,
-                        faLoc.orNull()?.second
-                    )
-                )
+                this
             }
             else -> {
-                Result.success(
-                    DefaultAliasCoordinatesRegistry(
-                        fieldAliasesByCoordinates = fieldAliasesByCoordinates,
-                        fieldArgumentAliasesByLocation =
-                            fieldArgumentAliasesByLocation.put(
-                                fieldArgumentLocation,
-                                fieldArgumentAliasesByLocation
-                                    .getOrElse(fieldArgumentLocation, ::persistentSetOf)
-                                    .add(alias)
-                            )
-                    )
+                DefaultAliasCoordinatesRegistry(
+                    fieldAliasesByCoordinates = fieldAliasesByCoordinates,
+                    fieldArgumentAliasesByLocation =
+                        fieldArgumentAliasesByLocation.put(
+                            fieldArgumentLocation,
+                            fieldArgumentAliasesByLocation
+                                .getOrElse(fieldArgumentLocation, ::persistentSetOf)
+                                .add(alias)
+                        )
                 )
             }
         }
     }
 
-    override fun getFieldWithAlias(alias: String): Option<FieldCoordinates> {
-        return fieldCoordinatesByAlias.getOrNone(alias)
+    override fun getFieldsWithAlias(alias: String): ImmutableSet<FieldCoordinates> {
+        return fieldCoordinatesByAlias.getOrNone(alias).fold(::persistentSetOf, ::identity)
     }
 
-    override fun getFieldArgumentWithAlias(alias: String): Option<Pair<FieldCoordinates, String>> {
-        return fieldArgumentLocationsByAlias.getOrNone(alias)
+    override fun getFieldArgumentsWithAlias(
+        alias: String
+    ): ImmutableSet<Pair<FieldCoordinates, String>> {
+        return fieldArgumentLocationsByAlias.getOrNone(alias).fold(::persistentSetOf, ::identity)
     }
 
     override fun getAllAliasesForField(fieldCoordinates: FieldCoordinates): ImmutableSet<String> {

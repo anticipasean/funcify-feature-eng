@@ -5,10 +5,10 @@ import funcify.feature.materializer.graph.MaterializationEdge
 import funcify.feature.materializer.graph.component.QueryComponentContext
 import funcify.feature.materializer.graph.component.QueryComponentContextFactory
 import funcify.feature.materializer.model.MaterializationMetamodel
-import funcify.feature.schema.dataelement.DataElementSource
-import funcify.feature.schema.feature.FeatureCalculator
+import funcify.feature.schema.dataelement.DataElementCallable
+import funcify.feature.schema.feature.FeatureCalculatorCallable
 import funcify.feature.schema.path.operation.GQLOperationPath
-import funcify.feature.schema.transformer.TransformerSource
+import funcify.feature.schema.transformer.TransformerCallable
 import graphql.language.Node
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableMap
@@ -30,12 +30,14 @@ interface RequestMaterializationGraphContext {
 
     val passThroughColumns: ImmutableSet<String>
 
-    val transformerCallableBuildersByPath: ImmutableMap<GQLOperationPath, TransformerSource.Builder>
+    val transformerCallableBuildersByPath:
+        ImmutableMap<GQLOperationPath, TransformerCallable.Builder>
 
-    val dataElementCallableBuildersByPath: ImmutableMap<GQLOperationPath, DataElementSource.Builder>
+    val dataElementCallableBuildersByPath:
+        ImmutableMap<GQLOperationPath, DataElementCallable.Builder>
 
     val featureCalculatorCallableBuildersByPath:
-        ImmutableMap<GQLOperationPath, FeatureCalculator.Builder>
+        ImmutableMap<GQLOperationPath, FeatureCalculatorCallable.Builder>
 
     val queryComponentContextFactory: QueryComponentContextFactory
 
@@ -57,17 +59,17 @@ interface RequestMaterializationGraphContext {
 
         fun putTransformerCallableBuildersForPath(
             path: GQLOperationPath,
-            transformerCallableBuilder: TransformerSource.Builder
+            transformerCallableBuilder: TransformerCallable.Builder
         ): B
 
         fun putDataElementCallableBuildersForPath(
             path: GQLOperationPath,
-            dataElementCallableBuilder: DataElementSource.Builder
+            dataElementCallableBuilder: DataElementCallable.Builder
         ): B
 
         fun putFeatureCalculatorCallableBuildersForPath(
             path: GQLOperationPath,
-            featureCalculatorCallableBuilder: FeatureCalculator.Builder
+            featureCalculatorCallableBuilder: FeatureCalculatorCallable.Builder
         ): B
 
         fun queryComponentContextFactory(

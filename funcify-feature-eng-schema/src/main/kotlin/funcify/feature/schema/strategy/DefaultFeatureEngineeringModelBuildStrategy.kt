@@ -12,8 +12,6 @@ import funcify.feature.schema.Source
 import funcify.feature.schema.context.FeatureEngineeringModelBuildContext
 import funcify.feature.schema.dataelement.DataElementSource
 import funcify.feature.schema.dataelement.DataElementSourceProvider
-import funcify.feature.schema.directive.alias.AttributeAliasRegistryComposer
-import funcify.feature.schema.directive.alias.AttributeAliasRegistry
 import funcify.feature.schema.directive.temporal.LastUpdatedTemporalAttributeRegistry
 import funcify.feature.schema.directive.temporal.LastUpdatedTemporalAttributeRegistryComposer
 import funcify.feature.schema.feature.FeatureCalculator
@@ -83,7 +81,6 @@ internal class DefaultFeatureEngineeringModelBuildStrategy(
             .flatMap(validateSourceProviders())
             .flatMap(extractSourcesFromSourceProviders())
             .flatMap(createTypeDefinitionRegistryFromSources())
-            .flatMap(createAliasRegistryFromTypeDefinitionRegistry())
             .flatMap(createLastUpdatedTemporalAttributeRegistryFromTypeDefinitionRegistry())
             .map { ctx: FeatureEngineeringModelBuildContext ->
                 DefaultFeatureEngineeringModel(
@@ -114,7 +111,6 @@ internal class DefaultFeatureEngineeringModelBuildStrategy(
                     featureCalculatorsByName = ctx.featureCalculatorsByName.toPersistentMap(),
                     typeDefinitionRegistry = ctx.typeDefinitionRegistry,
                     scalarTypeRegistry = scalarTypeRegistry,
-                    attributeAliasRegistry = ctx.attributeAliasRegistry,
                     entityRegistry = ctx.entityRegistry,
                     lastUpdatedTemporalAttributeRegistry = ctx.lastUpdatedTemporalAttributeRegistry
                 )
@@ -931,26 +927,6 @@ internal class DefaultFeatureEngineeringModelBuildStrategy(
                 }
                 .toMono()
                 .widen()
-        }
-    }
-
-    private fun createAliasRegistryFromTypeDefinitionRegistry():
-        (FeatureEngineeringModelBuildContext) -> Mono<FeatureEngineeringModelBuildContext> {
-        return { context: FeatureEngineeringModelBuildContext ->
-            AttributeAliasRegistryComposer()
-                .createAliasRegistry(context.typeDefinitionRegistry)
-                .successIfDefined {
-                    ServiceError.of(
-                        """unable to create attribute_alias_registry 
-                        |from type_definition_registry; 
-                        |query_object_type_definition not found"""
-                            .flatten()
-                    )
-                }
-                .toMono()
-                .map { aar: AttributeAliasRegistry ->
-                    context.update { attributeAliasRegistry(aar) }
-                }
         }
     }
 

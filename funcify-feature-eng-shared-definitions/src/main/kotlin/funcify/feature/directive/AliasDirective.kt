@@ -13,6 +13,8 @@ import graphql.language.TypeName
 
 object AliasDirective : MaterializationDirective {
 
+    const val NAME_INPUT_VALUE_DEFINITION_NAME: String = "name"
+
     override val name: String = "alias"
 
     override val description: String =
@@ -34,7 +36,7 @@ object AliasDirective : MaterializationDirective {
     override val inputValueDefinitions: List<InputValueDefinition> by lazy {
         listOf<InputValueDefinition>(
             InputValueDefinition.newInputValueDefinition()
-                .name("name")
+                .name(NAME_INPUT_VALUE_DEFINITION_NAME)
                 .type(
                     NonNullType.newNonNullType(
                             TypeName.newTypeName().name(Scalars.GraphQLString.name).build()

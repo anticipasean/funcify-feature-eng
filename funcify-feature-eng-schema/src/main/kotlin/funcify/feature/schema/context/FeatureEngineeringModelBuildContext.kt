@@ -52,8 +52,6 @@ interface FeatureEngineeringModelBuildContext {
 
     val typeDefinitionRegistry: TypeDefinitionRegistry
 
-    val attributeAliasRegistry: AttributeAliasRegistry
-
     val entityRegistry: EntityRegistry
 
     val lastUpdatedTemporalAttributeRegistry: LastUpdatedTemporalAttributeRegistry
@@ -135,8 +133,6 @@ interface FeatureEngineeringModelBuildContext {
         fun addFeatureJsonValuePublisher(
             featureJsonValuePublisher: FeatureJsonValuePublisher
         ): Builder
-
-        fun attributeAliasRegistry(attributeAliasRegistry: AttributeAliasRegistry): Builder
 
         fun entityRegistry(entityRegistry: EntityRegistry): Builder
 

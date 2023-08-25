@@ -21,30 +21,33 @@ import graphql.util.Traverser
 import graphql.util.TraverserContext
 import graphql.util.TraverserResult
 import graphql.util.TraverserVisitor
-import org.slf4j.Logger
 import java.util.*
+import org.slf4j.Logger
 
 internal object PathCoordinatesGatherer :
-    (MaterializationMetamodelBuildContext, GraphQLSchema) -> MaterializationMetamodelBuildContext {
+    (MaterializationMetamodelBuildContext) -> MaterializationMetamodelBuildContext {
+
+    private const val METHOD_TAG: String = "path_coordinates_gatherer.invoke"
+    private val logger: Logger = loggerFor<PathCoordinatesGatherer>()
 
     override fun invoke(
-        materializationMetamodelBuildContext: MaterializationMetamodelBuildContext,
-        graphQLSchema: GraphQLSchema
+        materializationMetamodelBuildContext: MaterializationMetamodelBuildContext
     ): MaterializationMetamodelBuildContext {
+        logger.debug("{}", METHOD_TAG)
         return Some(materializationMetamodelBuildContext)
-            .flatMap(calculateCanonicalPathsAndFieldCoordinatesOffQueryObjectType(graphQLSchema))
+            .flatMap(calculateCanonicalPathsAndFieldCoordinatesOffQueryObjectType())
             .getOrElse { materializationMetamodelBuildContext }
     }
 
-    private fun calculateCanonicalPathsAndFieldCoordinatesOffQueryObjectType(
-        graphQLSchema: GraphQLSchema
-    ): (MaterializationMetamodelBuildContext) -> Option<MaterializationMetamodelBuildContext> {
+    private fun calculateCanonicalPathsAndFieldCoordinatesOffQueryObjectType():
+        (MaterializationMetamodelBuildContext) -> Option<MaterializationMetamodelBuildContext> {
         return { mmf: MaterializationMetamodelBuildContext ->
-            graphQLSchema.queryType.toOption().flatMap { got: GraphQLObjectType ->
+            mmf.materializationGraphQLSchema.queryType.toOption().flatMap { got: GraphQLObjectType
+                ->
                 val backRefQueue: Deque<Pair<GQLOperationPath, GraphQLFieldsContainer>> =
                     LinkedList()
                 Traverser.breadthFirst(
-                        factGatheringTraversalFunction(graphQLSchema),
+                        factGatheringTraversalFunction(mmf.materializationGraphQLSchema),
                         GQLOperationPath.getRootPath(),
                         mmf
                     )

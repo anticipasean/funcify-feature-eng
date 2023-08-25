@@ -34,7 +34,6 @@ internal data class DefaultFeatureEngineeringModel(
     override val featureCalculatorsByName: PersistentMap<String, FeatureCalculator>,
     override val scalarTypeRegistry: ScalarTypeRegistry,
     override val typeDefinitionRegistry: TypeDefinitionRegistry,
-    override val attributeAliasRegistry: AttributeAliasRegistry,
     override val entityRegistry: EntityRegistry,
     override val lastUpdatedTemporalAttributeRegistry: LastUpdatedTemporalAttributeRegistry,
 ) : FeatureEngineeringModel
