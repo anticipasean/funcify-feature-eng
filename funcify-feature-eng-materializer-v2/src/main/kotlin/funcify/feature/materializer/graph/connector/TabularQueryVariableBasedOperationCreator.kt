@@ -17,7 +17,9 @@ object TabularQueryVariableBasedOperationCreator :
             METHOD_TAG,
             tabularQuery.variableKeys.size
         )
-
+        tabularQuery.variableKeys.asSequence().map { vk: String ->
+            tabularQuery.materializationMetamodel
+        }
         TODO("Not yet implemented")
     }
 }

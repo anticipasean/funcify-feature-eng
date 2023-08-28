@@ -10,6 +10,7 @@ import funcify.feature.datasource.graphql.ServiceBackedDataElementSource
 import funcify.feature.datasource.graphql.metadata.provider.GraphQLApiSchemaFileMetadataProvider
 import funcify.feature.datasource.graphql.metadata.provider.GraphQLApiServiceMetadataProvider
 import funcify.feature.error.ServiceError
+import funcify.feature.schema.dataelement.DataElementCallable
 import funcify.feature.schema.sdl.CompositeTypeDefinitionRegistryFilter
 import funcify.feature.schema.sdl.SDLDefinitionsSetExtractor
 import funcify.feature.schema.sdl.TypeDefinitionRegistryFilter
@@ -208,12 +209,20 @@ internal class DefaultGraphQLApiDataElementSourceProviderFactory(
             override val name: String,
             override val sourceSDLDefinitions: PersistentSet<SDLDefinition<*>>,
             override val graphQLApiService: GraphQLApiService
-        ) : ServiceBackedDataElementSource {}
+        ) : ServiceBackedDataElementSource {
+            override fun builder(): DataElementCallable.Builder {
+                TODO("Not yet implemented")
+            }
+        }
 
         internal class DefaultSchemaOnlyDataElementSource(
             override val name: String,
             override val sourceSDLDefinitions: PersistentSet<SDLDefinition<*>>
-        ) : SchemaOnlyDataElementSource {}
+        ) : SchemaOnlyDataElementSource {
+            override fun builder(): DataElementCallable.Builder {
+                TODO("Not yet implemented")
+            }
+        }
     }
 
     override fun builder(): GraphQLApiDataElementSourceProvider.Builder {

@@ -34,7 +34,6 @@ internal data class DefaultFeatureEngineeringModelBuildContext(
     override val dataElementSourcesByName: PersistentMap<String, DataElementSource>,
     override val featureCalculatorsByName: PersistentMap<String, FeatureCalculator>,
     override val typeDefinitionRegistry: TypeDefinitionRegistry,
-    override val attributeAliasRegistry: AttributeAliasRegistry,
     override val entityRegistry: EntityRegistry,
     override val lastUpdatedTemporalAttributeRegistry: LastUpdatedTemporalAttributeRegistry,
 ) : FeatureEngineeringModelBuildContext {
@@ -55,7 +54,6 @@ internal data class DefaultFeatureEngineeringModelBuildContext(
                 dataElementSourcesByName = persistentMapOf(),
                 featureCalculatorsByName = persistentMapOf(),
                 typeDefinitionRegistry = TypeDefinitionRegistry(),
-                attributeAliasRegistry = AttributeAliasRegistry.newRegistry(),
                 entityRegistry = EntityRegistry.newRegistry(),
                 lastUpdatedTemporalAttributeRegistry =
                     LastUpdatedTemporalAttributeRegistry.newRegistry()
@@ -83,7 +81,6 @@ internal data class DefaultFeatureEngineeringModelBuildContext(
             private val dataElementSourcesByName: PersistentMap.Builder<String, DataElementSource>,
             private val featureCalculatorsByName: PersistentMap.Builder<String, FeatureCalculator>,
             private var typeDefinitionRegistry: TypeDefinitionRegistry,
-            private var attributeAliasRegistry: AttributeAliasRegistry,
             private var entityRegistry: EntityRegistry,
             private var lastUpdatedTemporalAttributeRegistry: LastUpdatedTemporalAttributeRegistry,
         ) : Builder {
@@ -163,13 +160,6 @@ internal data class DefaultFeatureEngineeringModelBuildContext(
                 return this
             }
 
-            override fun attributeAliasRegistry(
-                attributeAliasRegistry: AttributeAliasRegistry
-            ): Builder {
-                this.attributeAliasRegistry = attributeAliasRegistry
-                return this
-            }
-
             override fun entityRegistry(entityRegistry: EntityRegistry): Builder {
                 this.entityRegistry = entityRegistry
                 return this
@@ -196,7 +186,6 @@ internal data class DefaultFeatureEngineeringModelBuildContext(
                     dataElementSourcesByName = dataElementSourcesByName.build(),
                     featureCalculatorsByName = featureCalculatorsByName.build(),
                     typeDefinitionRegistry = typeDefinitionRegistry,
-                    attributeAliasRegistry = attributeAliasRegistry,
                     entityRegistry = entityRegistry,
                     lastUpdatedTemporalAttributeRegistry = lastUpdatedTemporalAttributeRegistry
                 )
@@ -224,7 +213,6 @@ internal data class DefaultFeatureEngineeringModelBuildContext(
                     dataElementSourcesByName = this.dataElementSourcesByName.builder(),
                     featureCalculatorsByName = this.featureCalculatorsByName.builder(),
                     typeDefinitionRegistry = this.typeDefinitionRegistry,
-                    attributeAliasRegistry = this.attributeAliasRegistry,
                     entityRegistry = this.entityRegistry,
                     lastUpdatedTemporalAttributeRegistry = this.lastUpdatedTemporalAttributeRegistry
                 )

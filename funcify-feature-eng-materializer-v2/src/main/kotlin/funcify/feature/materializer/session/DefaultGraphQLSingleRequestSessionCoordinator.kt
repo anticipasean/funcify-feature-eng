@@ -17,9 +17,9 @@ import graphql.GraphQLContext
 import graphql.execution.ExecutionId
 import graphql.execution.ExecutionIdProvider
 import graphql.execution.instrumentation.Instrumentation
+import kotlin.reflect.KClass
 import org.slf4j.Logger
 import reactor.core.publisher.Mono
-import kotlin.reflect.KClass
 
 /**
  * @author smccarron
@@ -138,8 +138,8 @@ internal class DefaultGraphQLSingleRequestSessionCoordinator(
                     .operationName(session.rawGraphQLRequest.operationName)
                     .query(session.rawGraphQLRequest.rawGraphQLQueryText)
                     .variables(session.rawGraphQLRequest.variables)
-                    .graphQLContext { ctxBuilder ->
-                        ctxBuilder.put(
+                    .graphQLContext { cb: GraphQLContext.Builder ->
+                        cb.put(
                             GraphQLSingleRequestSession.GRAPHQL_SINGLE_REQUEST_SESSION_KEY,
                             session
                         )

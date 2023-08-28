@@ -16,6 +16,7 @@ import funcify.feature.schema.directive.temporal.LastUpdatedTemporalAttributeReg
 import funcify.feature.schema.directive.temporal.LastUpdatedTemporalAttributeRegistryComposer
 import funcify.feature.schema.feature.FeatureCalculator
 import funcify.feature.schema.feature.FeatureCalculatorProvider
+import funcify.feature.schema.limit.ModelLimits
 import funcify.feature.schema.metamodel.DefaultFeatureEngineeringModel
 import funcify.feature.schema.transformer.TransformerSource
 import funcify.feature.schema.transformer.TransformerSourceProvider
@@ -46,7 +47,8 @@ import reactor.core.publisher.Mono
 
 internal class DefaultFeatureEngineeringModelBuildStrategy(
     private val scalarTypeRegistry: ScalarTypeRegistry,
-    private val materializationDirectiveRegistry: MaterializationDirectiveRegistry
+    private val materializationDirectiveRegistry: MaterializationDirectiveRegistry,
+    private val modelLimits: ModelLimits
 ) : FeatureEngineeringModelBuildStrategy {
 
     companion object {
@@ -112,7 +114,10 @@ internal class DefaultFeatureEngineeringModelBuildStrategy(
                     typeDefinitionRegistry = ctx.typeDefinitionRegistry,
                     scalarTypeRegistry = scalarTypeRegistry,
                     entityRegistry = ctx.entityRegistry,
-                    lastUpdatedTemporalAttributeRegistry = ctx.lastUpdatedTemporalAttributeRegistry
+                    lastUpdatedTemporalAttributeRegistry = ctx.lastUpdatedTemporalAttributeRegistry,
+                    // TODO: Incorporate scanning on added sources to limit one that would exceed
+                    // max op depth from being included
+                    modelLimits = modelLimits
                 )
             }
             .doOnSuccess(logSuccessfulStatus())

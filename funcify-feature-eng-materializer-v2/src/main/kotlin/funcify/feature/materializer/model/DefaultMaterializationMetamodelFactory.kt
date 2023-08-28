@@ -32,9 +32,9 @@ internal class DefaultMaterializationMetamodelFactory(
 
             override fun build(): Mono<out MaterializationMetamodel> {
                 return Mono.fromCallable {
-                        requireNotNull(featureEngineeringModel) { "featureEngineeringModel" }
+                        requireNotNull(featureEngineeringModel) { "featureEngineeringModel has not been provided" }
                         requireNotNull(materializationGraphQLSchema) {
-                            "materializationGraphQLSchema"
+                            "materializationGraphQLSchema has not been provided"
                         }
                         DefaultMaterializationMetamodelBuildContext.createInitial(
                             featureEngineeringModel!!,

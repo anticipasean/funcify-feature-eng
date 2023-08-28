@@ -10,6 +10,8 @@ import funcify.feature.schema.factory.DefaultFeatureEngineeringModelFactory
 import funcify.feature.schema.feature.FeatureCalculatorProvider
 import funcify.feature.schema.feature.FeatureJsonValuePublisher
 import funcify.feature.schema.feature.FeatureJsonValueStore
+import funcify.feature.schema.limit.DefaultModelLimits
+import funcify.feature.schema.limit.ModelLimits
 import funcify.feature.schema.sdl.UnsupportedDirectivesTypeDefinitionRegistryFilter
 import funcify.feature.schema.strategy.DefaultFeatureEngineeringModelBuildStrategy
 import funcify.feature.schema.transformer.TransformerSourceProvider
@@ -41,6 +43,12 @@ class SchemaConfiguration {
         return MaterializationDirectiveRegistry.standardRegistry()
     }
 
+    @ConditionalOnMissingBean(value = [ModelLimits::class])
+    @Bean
+    fun modelLimits(): ModelLimits {
+        return DefaultModelLimits()
+    }
+
     @Bean
     fun unsupportedDirectivesTypeDefinitionRegistryFilter(
         materializationDirectiveRegistryProvider: ObjectProvider<MaterializationDirectiveRegistry>,
@@ -57,7 +65,8 @@ class SchemaConfiguration {
     @Bean
     fun featureEngineeringModelBuildStrategy(
         scalarTypeRegistryProvider: ObjectProvider<ScalarTypeRegistry>,
-        materializationDirectiveRegistryProvider: ObjectProvider<MaterializationDirectiveRegistry>
+        materializationDirectiveRegistryProvider: ObjectProvider<MaterializationDirectiveRegistry>,
+        modelLimitsProvider: ObjectProvider<ModelLimits>
     ): FeatureEngineeringModelBuildStrategy {
         return DefaultFeatureEngineeringModelBuildStrategy(
             scalarTypeRegistry =
@@ -67,7 +76,8 @@ class SchemaConfiguration {
             materializationDirectiveRegistry =
                 materializationDirectiveRegistryProvider.getIfAvailable {
                     MaterializationDirectiveRegistry.standardRegistry()
-                }
+                },
+            modelLimits = modelLimitsProvider.getIfAvailable { DefaultModelLimits() }
         )
     }
 
@@ -83,7 +93,7 @@ class SchemaConfiguration {
 
     @ConditionalOnMissingBean(value = [FeatureEngineeringModel::class])
     @Bean
-    fun metamodel(
+    fun featureEngineeringModel(
         featureEngineeringModelFactory: FeatureEngineeringModelFactory,
         transformerSourceProviders: ObjectProvider<TransformerSourceProvider<*>>,
         dataElementSourceProviders: ObjectProvider<DataElementSourceProvider<*>>,

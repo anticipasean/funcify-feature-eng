@@ -10,9 +10,11 @@ import funcify.feature.materializer.graph.component.QueryComponentContext.Select
 import funcify.feature.materializer.graph.context.TabularQuery
 import funcify.feature.schema.path.operation.GQLOperationPath
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
+import funcify.feature.tools.extensions.SequenceExtensions.firstOrNone
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import graphql.language.Field
 import graphql.schema.FieldCoordinates
+import kotlinx.collections.immutable.ImmutableSet
 import org.slf4j.Logger
 
 /**
@@ -70,7 +72,11 @@ object TabularQueryConnector : RequestMaterializationGraphConnector<TabularQuery
                                         connectorContext.materializationMetamodel
                                             .canonicalPathsByFieldCoordinates
                                             .getOrNone(fc)
-                                            .filter { p: GQLOperationPath ->
+                                            .fold(
+                                                ::emptySequence,
+                                                ImmutableSet<GQLOperationPath>::asSequence
+                                            )
+                                            .firstOrNone { p: GQLOperationPath ->
                                                 connectorContext.materializationMetamodel
                                                     .featureSpecifiedFeatureCalculatorsByPath
                                                     .containsKey(p)

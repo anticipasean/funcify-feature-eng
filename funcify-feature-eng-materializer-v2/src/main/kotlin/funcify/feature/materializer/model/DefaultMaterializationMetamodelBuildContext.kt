@@ -21,15 +21,18 @@ internal data class DefaultMaterializationMetamodelBuildContext(
         PersistentMap<GQLOperationPath, PersistentSet<GQLOperationPath>>,
     override val querySchemaElementsByCanonicalPath:
         PersistentMap<GQLOperationPath, GraphQLSchemaElement>,
-    override val fieldCoordinatesByCanonicalPath: PersistentMap<GQLOperationPath, FieldCoordinates>,
+    override val fieldCoordinatesByCanonicalPath:
+        PersistentMap<GQLOperationPath, PersistentSet<FieldCoordinates>>,
     override val canonicalPathsByFieldCoordinates:
-        PersistentMap<FieldCoordinates, GQLOperationPath>,
+        PersistentMap<FieldCoordinates, PersistentSet<GQLOperationPath>>,
     override val domainSpecifiedDataElementSourceByPath:
         PersistentMap<GQLOperationPath, DomainSpecifiedDataElementSource>,
+    override val domainSpecifiedDataElementSourcesByCoordinates:
+        PersistentMap<FieldCoordinates, DomainSpecifiedDataElementSource>,
     override val featureSpecifiedFeatureCalculatorsByPath:
         PersistentMap<GQLOperationPath, FeatureSpecifiedFeatureCalculator>,
     override val featurePathsByName: PersistentMap<String, GQLOperationPath>,
-    override val aliasCoordinatesRegistry: AliasCoordinatesRegistry
+    override val aliasCoordinatesRegistry: AliasCoordinatesRegistry,
 ) : MaterializationMetamodelBuildContext {
 
     companion object {
@@ -46,6 +49,7 @@ internal data class DefaultMaterializationMetamodelBuildContext(
                 fieldCoordinatesByCanonicalPath = persistentMapOf(),
                 canonicalPathsByFieldCoordinates = persistentMapOf(),
                 domainSpecifiedDataElementSourceByPath = persistentMapOf(),
+                domainSpecifiedDataElementSourcesByCoordinates = persistentMapOf(),
                 featureSpecifiedFeatureCalculatorsByPath = persistentMapOf(),
                 featurePathsByName = persistentMapOf(),
                 aliasCoordinatesRegistry = AliasCoordinatesRegistry.empty(),
@@ -54,8 +58,10 @@ internal data class DefaultMaterializationMetamodelBuildContext(
 
         internal class DefaultBuilder(
             private val existingFacts: DefaultMaterializationMetamodelBuildContext,
-            private var featureEngineeringModel: FeatureEngineeringModel? = null,
-            private var materializationGraphQLSchema: GraphQLSchema? = null,
+            private var featureEngineeringModel: FeatureEngineeringModel =
+                existingFacts.featureEngineeringModel,
+            private var materializationGraphQLSchema: GraphQLSchema =
+                existingFacts.materializationGraphQLSchema,
             private val childCanonicalPathsByParentPath:
                 PersistentMap.Builder<GQLOperationPath, PersistentSet<GQLOperationPath>> =
                 existingFacts.childCanonicalPathsByParentPath.builder(),
@@ -63,14 +69,17 @@ internal data class DefaultMaterializationMetamodelBuildContext(
                 PersistentMap.Builder<GQLOperationPath, GraphQLSchemaElement> =
                 existingFacts.querySchemaElementsByCanonicalPath.builder(),
             private val fieldCoordinatesByPath:
-                PersistentMap.Builder<GQLOperationPath, FieldCoordinates> =
+                PersistentMap.Builder<GQLOperationPath, PersistentSet<FieldCoordinates>> =
                 existingFacts.fieldCoordinatesByCanonicalPath.builder(),
             private val pathsByFieldCoordinates:
-                PersistentMap.Builder<FieldCoordinates, GQLOperationPath> =
+                PersistentMap.Builder<FieldCoordinates, PersistentSet<GQLOperationPath>> =
                 existingFacts.canonicalPathsByFieldCoordinates.builder(),
             private val domainSpecifiedDataElementSourceByPath:
                 PersistentMap.Builder<GQLOperationPath, DomainSpecifiedDataElementSource> =
                 existingFacts.domainSpecifiedDataElementSourceByPath.builder(),
+            private val domainSpecifiedDataElementSourcesByCoordinates:
+                PersistentMap.Builder<FieldCoordinates, DomainSpecifiedDataElementSource> =
+                existingFacts.domainSpecifiedDataElementSourcesByCoordinates.builder(),
             private val featureSpecifiedFeatureCalculatorsByPath:
                 PersistentMap.Builder<GQLOperationPath, FeatureSpecifiedFeatureCalculator> =
                 existingFacts.featureSpecifiedFeatureCalculatorsByPath.builder(),
@@ -110,12 +119,28 @@ internal data class DefaultMaterializationMetamodelBuildContext(
             override fun putFieldCoordinatesForPath(
                 path: GQLOperationPath,
                 fieldCoordinates: FieldCoordinates
-            ): Builder = this.apply { this.fieldCoordinatesByPath.put(path, fieldCoordinates) }
+            ): Builder =
+                this.apply {
+                    this.fieldCoordinatesByPath.put(
+                        path,
+                        this.fieldCoordinatesByPath
+                            .getOrElse(path, ::persistentSetOf)
+                            .add(fieldCoordinates)
+                    )
+                }
 
             override fun putPathForFieldCoordinates(
                 fieldCoordinates: FieldCoordinates,
                 path: GQLOperationPath
-            ): Builder = this.apply { this.pathsByFieldCoordinates.put(fieldCoordinates, path) }
+            ): Builder =
+                this.apply {
+                    this.pathsByFieldCoordinates.put(
+                        fieldCoordinates,
+                        this.pathsByFieldCoordinates
+                            .getOrElse(fieldCoordinates, ::persistentSetOf)
+                            .add(path)
+                    )
+                }
 
             override fun putDomainSpecifiedDataElementSourceForPath(
                 path: GQLOperationPath,
@@ -124,6 +149,17 @@ internal data class DefaultMaterializationMetamodelBuildContext(
                 this.apply {
                     this.domainSpecifiedDataElementSourceByPath.put(
                         path,
+                        domainSpecifiedDataElementSource
+                    )
+                }
+
+            override fun putDomainSpecifiedDataElementSourceForCoordinates(
+                fieldCoordinates: FieldCoordinates,
+                domainSpecifiedDataElementSource: DomainSpecifiedDataElementSource,
+            ): Builder =
+                this.apply {
+                    this.domainSpecifiedDataElementSourcesByCoordinates.put(
+                        fieldCoordinates,
                         domainSpecifiedDataElementSource
                     )
                 }
@@ -150,18 +186,16 @@ internal data class DefaultMaterializationMetamodelBuildContext(
 
             override fun build(): MaterializationMetamodelBuildContext {
                 return DefaultMaterializationMetamodelBuildContext(
-                    featureEngineeringModel =
-                        requireNotNull(featureEngineeringModel) { "featureEngineeringModel" },
-                    materializationGraphQLSchema =
-                        requireNotNull(materializationGraphQLSchema) {
-                            "materializationGraphQLSchema"
-                        },
+                    featureEngineeringModel = featureEngineeringModel,
+                    materializationGraphQLSchema = materializationGraphQLSchema,
                     childCanonicalPathsByParentPath = childCanonicalPathsByParentPath.build(),
                     querySchemaElementsByCanonicalPath = querySchemaElementsByPath.build(),
                     fieldCoordinatesByCanonicalPath = fieldCoordinatesByPath.build(),
                     canonicalPathsByFieldCoordinates = pathsByFieldCoordinates.build(),
                     domainSpecifiedDataElementSourceByPath =
                         domainSpecifiedDataElementSourceByPath.build(),
+                    domainSpecifiedDataElementSourcesByCoordinates =
+                        domainSpecifiedDataElementSourcesByCoordinates.build(),
                     featureSpecifiedFeatureCalculatorsByPath =
                         featureSpecifiedFeatureCalculatorsByPath.build(),
                     featurePathsByName = featurePathsByName.build(),

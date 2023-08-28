@@ -12,5 +12,5 @@ interface SingleRequestMaterializationOrchestratorService :
 
     override fun materializeValueInSession(
         session: SingleRequestFieldMaterializationSession
-    ): Mono<Any>
+    ): Mono<Any?>
 }

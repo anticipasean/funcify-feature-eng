@@ -8,9 +8,9 @@ import funcify.feature.schema.path.operation.GQLOperationPath
 import graphql.schema.FieldCoordinates
 import graphql.schema.GraphQLSchema
 import graphql.schema.GraphQLSchemaElement
+import java.time.Instant
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.ImmutableSet
-import java.time.Instant
 
 internal data class DefaultMaterializationMetamodel(
     override val created: Instant = Instant.now(),
@@ -21,10 +21,14 @@ internal data class DefaultMaterializationMetamodel(
         ImmutableMap<GQLOperationPath, ImmutableSet<GQLOperationPath>>,
     override val querySchemaElementsByCanonicalPath:
         ImmutableMap<GQLOperationPath, GraphQLSchemaElement>,
-    override val fieldCoordinatesByCanonicalPath: ImmutableMap<GQLOperationPath, FieldCoordinates>,
-    override val canonicalPathsByFieldCoordinates: ImmutableMap<FieldCoordinates, GQLOperationPath>,
+    override val fieldCoordinatesByCanonicalPath:
+        ImmutableMap<GQLOperationPath, ImmutableSet<FieldCoordinates>>,
+    override val canonicalPathsByFieldCoordinates:
+        ImmutableMap<FieldCoordinates, ImmutableSet<GQLOperationPath>>,
     override val domainSpecifiedDataElementSourceByPath:
         ImmutableMap<GQLOperationPath, DomainSpecifiedDataElementSource>,
+    override val domainSpecifiedDataElementSourceByCoordinates:
+        ImmutableMap<FieldCoordinates, DomainSpecifiedDataElementSource>,
     override val featureSpecifiedFeatureCalculatorsByPath:
         ImmutableMap<GQLOperationPath, FeatureSpecifiedFeatureCalculator>,
     override val featurePathsByName: ImmutableMap<String, GQLOperationPath>,

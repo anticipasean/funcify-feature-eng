@@ -38,10 +38,11 @@ internal class DefaultGraphQLSingleRequestMaterializationQueryExecutionStrategy(
             loggerFor<DefaultGraphQLSingleRequestMaterializationQueryExecutionStrategy>()
         private const val INTROSPECTION_FIELD_NAME_PREFIX = "__"
         private const val DEFAULT_GLOBAL_DATA_FETCHER_TIMEOUT_SECONDS: Long = 20
-        private fun Throwable?.unnestAnyPossibleGraphQLErrorThrowable(): Option<Throwable> {
+        private fun Throwable?.unnestThrowable(): Option<Throwable> {
             return this.toOption().recurse { x ->
                 when (x) {
                     is GraphQLError -> x.right().some()
+                    is ServiceError -> x.right().some()
                     else -> {
                         when (val innerCause: Throwable? = x.cause) {
                             null -> x.right().some()
@@ -59,9 +60,7 @@ internal class DefaultGraphQLSingleRequestMaterializationQueryExecutionStrategy(
                 handlerParameters: DataFetcherExceptionHandlerParameters,
             ): CompletableFuture<DataFetcherExceptionHandlerResult> {
                 val rootCause: Option<Throwable> =
-                    handlerParameters.toOption().flatMap { hp ->
-                        hp.exception.unnestAnyPossibleGraphQLErrorThrowable()
-                    }
+                    handlerParameters.toOption().flatMap { hp -> hp.exception.unnestThrowable() }
                 val sourceLocation: Option<SourceLocation> =
                     handlerParameters.toOption().mapNotNull { hp -> hp.sourceLocation }
                 val path: Option<ResultPath> =

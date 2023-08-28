@@ -13,6 +13,7 @@ import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import graphql.schema.FieldCoordinates
 import graphql.schema.GraphQLNamedSchemaElement
 import graphql.schema.GraphQLSchemaElement
+import kotlinx.collections.immutable.ImmutableSet
 import org.slf4j.Logger
 import reactor.core.publisher.Mono
 
@@ -60,9 +61,10 @@ internal class DefaultMaterializationMetamodelBuildStrategy :
                     "coordinates: {}",
                     mmf.fieldCoordinatesByCanonicalPath
                         .asSequence()
-                        .sortedBy(Map.Entry<GQLOperationPath, FieldCoordinates>::key)
-                        .joinToString(",\n") { (p: GQLOperationPath, fc: FieldCoordinates) ->
-                            "${p.toDecodedURIString()}: $fc"
+                        .sortedBy(Map.Entry<GQLOperationPath, ImmutableSet<FieldCoordinates>>::key)
+                        .joinToString(",\n") {
+                            (p: GQLOperationPath, fcs: ImmutableSet<FieldCoordinates>) ->
+                            "${p.toDecodedURIString()}: ${fcs.asSequence().joinToString(", ")}"
                         }
                 )
                 logger.debug(
@@ -71,13 +73,14 @@ internal class DefaultMaterializationMetamodelBuildStrategy :
                         .asSequence()
                         .sortedWith(
                             Comparator.comparing(
-                                Map.Entry<FieldCoordinates, GQLOperationPath>::key,
+                                Map.Entry<FieldCoordinates, ImmutableSet<GQLOperationPath>>::key,
                                 Comparator.comparing(FieldCoordinates::getTypeName)
                                     .thenComparing(FieldCoordinates::getFieldName)
                             )
                         )
-                        .joinToString(",\n") { (fc: FieldCoordinates, p: GQLOperationPath) ->
-                            "${fc}: ${p.toDecodedURIString()}"
+                        .joinToString(",\n") {
+                            (fc: FieldCoordinates, ps: ImmutableSet<GQLOperationPath>) ->
+                            "${fc}: ${ps.asSequence().map(GQLOperationPath::toDecodedURIString).joinToString(", ")}"
                         }
                 )
                 logger.debug(
@@ -103,6 +106,8 @@ internal class DefaultMaterializationMetamodelBuildStrategy :
                     canonicalPathsByFieldCoordinates = mmbc.canonicalPathsByFieldCoordinates,
                     domainSpecifiedDataElementSourceByPath =
                         mmbc.domainSpecifiedDataElementSourceByPath,
+                    domainSpecifiedDataElementSourceByCoordinates =
+                        mmbc.domainSpecifiedDataElementSourcesByCoordinates,
                     featureSpecifiedFeatureCalculatorsByPath =
                         mmbc.featureSpecifiedFeatureCalculatorsByPath,
                     featurePathsByName = mmbc.featurePathsByName,
@@ -147,9 +152,13 @@ internal class DefaultMaterializationMetamodelBuildStrategy :
                                 b: MaterializationMetamodelBuildContext.Builder,
                                 dsdes: DomainSpecifiedDataElementSource ->
                                 b.putDomainSpecifiedDataElementSourceForPath(
-                                    dsdes.domainPath,
-                                    dsdes
-                                )
+                                        dsdes.domainPath,
+                                        dsdes
+                                    )
+                                    .putDomainSpecifiedDataElementSourceForCoordinates(
+                                        dsdes.domainFieldCoordinates,
+                                        dsdes
+                                    )
                             }
                     }
                 }

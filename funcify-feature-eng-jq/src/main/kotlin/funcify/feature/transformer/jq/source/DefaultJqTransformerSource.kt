@@ -1,5 +1,6 @@
 package funcify.feature.transformer.jq.source
 
+import funcify.feature.schema.transformer.TransformerCallable
 import funcify.feature.transformer.jq.JqTransformer
 import funcify.feature.transformer.jq.JqTransformerSource
 import graphql.language.SDLDefinition
@@ -13,4 +14,9 @@ internal class DefaultJqTransformerSource(
     override val name: String,
     override val sourceSDLDefinitions: PersistentSet<SDLDefinition<*>>,
     override val jqTransformersByName: PersistentMap<String, JqTransformer> = persistentMapOf(),
-) : JqTransformerSource
+) : JqTransformerSource {
+
+    override fun builder(): TransformerCallable.Builder {
+        TODO("Not yet implemented")
+    }
+}

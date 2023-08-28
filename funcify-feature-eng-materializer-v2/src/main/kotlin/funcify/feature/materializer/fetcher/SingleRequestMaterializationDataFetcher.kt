@@ -15,10 +15,10 @@ import graphql.GraphqlErrorBuilder
 import graphql.execution.DataFetcherResult
 import graphql.schema.DataFetchingEnvironment
 import graphql.schema.GraphQLTypeUtil
-import org.slf4j.Logger
-import reactor.core.publisher.Mono
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CompletionStage
+import org.slf4j.Logger
+import reactor.core.publisher.Mono
 
 internal class SingleRequestMaterializationDataFetcher<R>(
     private val singleRequestMaterializationOrchestratorService:
@@ -91,13 +91,13 @@ internal class SingleRequestMaterializationDataFetcher<R>(
 
     private fun <R> foldResultPublisherIntoDataFetcherResult(
         environment: DataFetchingEnvironment,
-        resultPublisher: Mono<Any>
+        resultPublisher: Mono<Any?>
     ): CompletionStage<out DataFetcherResult<R>> {
         // Unwrap completion_stage and fold materialized_value_option in
         // data_fetcher_result creation to avoid use of null within kfuture
         val resultFuture: CompletableFuture<DataFetcherResult<R>> = CompletableFuture()
         resultPublisher.subscribe(
-            { resultValue ->
+            { resultValue: Any? ->
                 resultFuture.complete(
                     foldUntypedMaterializedValueOptionIntoTypedDataFetcherResult<R>(
                         environment,
@@ -105,7 +105,7 @@ internal class SingleRequestMaterializationDataFetcher<R>(
                     )
                 )
             },
-            { throwable ->
+            { throwable: Throwable ->
                 resultFuture.complete(
                     renderGraphQLErrorDataFetcherResultFromThrowableAndEnvironment<R>(
                         throwable,
@@ -180,7 +180,9 @@ internal class SingleRequestMaterializationDataFetcher<R>(
                         GraphqlErrorBuilder.newError(environment)
                             .errorType(ErrorType.DataFetchingException)
                             .message(possiblyUnnestedError.message)
-                            .extensions(mapOf("service_error" to possiblyUnnestedError))
+                            .extensions(
+                                mapOf("service_error" to possiblyUnnestedError.toJsonNode())
+                            )
                             .build()
                     )
                     .build()
@@ -204,6 +206,7 @@ internal class SingleRequestMaterializationDataFetcher<R>(
                                             .message("unhandled data_fetching_error")
                                             .cause(possiblyUnnestedError)
                                             .build()
+                                            .toJsonNode()
                                 )
                             )
                             .build()

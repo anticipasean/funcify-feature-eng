@@ -11,6 +11,7 @@ import funcify.feature.schema.feature.FeatureCalculator
 import funcify.feature.schema.feature.FeatureCalculatorProvider
 import funcify.feature.schema.feature.FeatureJsonValuePublisher
 import funcify.feature.schema.feature.FeatureJsonValueStore
+import funcify.feature.schema.limit.ModelLimits
 import funcify.feature.schema.transformer.TransformerSource
 import funcify.feature.schema.transformer.TransformerSourceProvider
 import graphql.schema.FieldCoordinates
@@ -36,4 +37,5 @@ internal data class DefaultFeatureEngineeringModel(
     override val typeDefinitionRegistry: TypeDefinitionRegistry,
     override val entityRegistry: EntityRegistry,
     override val lastUpdatedTemporalAttributeRegistry: LastUpdatedTemporalAttributeRegistry,
+    override val modelLimits: ModelLimits,
 ) : FeatureEngineeringModel

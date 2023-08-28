@@ -8,10 +8,10 @@ import funcify.feature.schema.path.operation.GQLOperationPath
 import graphql.schema.FieldCoordinates
 import graphql.schema.GraphQLSchema
 import graphql.schema.GraphQLSchemaElement
+import java.time.Instant
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.ImmutableSet
 import reactor.core.publisher.Mono
-import java.time.Instant
 
 /**
  * @author smccarron
@@ -32,12 +32,15 @@ interface MaterializationMetamodel {
 
     val querySchemaElementsByCanonicalPath: ImmutableMap<GQLOperationPath, GraphQLSchemaElement>
 
-    val fieldCoordinatesByCanonicalPath: ImmutableMap<GQLOperationPath, FieldCoordinates>
+    val fieldCoordinatesByCanonicalPath: ImmutableMap<GQLOperationPath, ImmutableSet<FieldCoordinates>>
 
-    val canonicalPathsByFieldCoordinates: ImmutableMap<FieldCoordinates, GQLOperationPath>
+    val canonicalPathsByFieldCoordinates: ImmutableMap<FieldCoordinates, ImmutableSet<GQLOperationPath>>
 
     val domainSpecifiedDataElementSourceByPath:
         ImmutableMap<GQLOperationPath, DomainSpecifiedDataElementSource>
+
+    val domainSpecifiedDataElementSourceByCoordinates:
+        ImmutableMap<FieldCoordinates, DomainSpecifiedDataElementSource>
 
     val featureSpecifiedFeatureCalculatorsByPath:
         ImmutableMap<GQLOperationPath, FeatureSpecifiedFeatureCalculator>

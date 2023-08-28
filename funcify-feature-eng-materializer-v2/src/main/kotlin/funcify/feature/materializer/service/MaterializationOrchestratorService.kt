@@ -9,5 +9,5 @@ import reactor.core.publisher.Mono
  */
 interface MaterializationOrchestratorService<M : MaterializationSession> {
 
-    fun materializeValueInSession(session: M): Mono<Any>
+    fun materializeValueInSession(session: M): Mono<Any?>
 }

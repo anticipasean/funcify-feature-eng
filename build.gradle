@@ -553,6 +553,7 @@ configure(mainKotlinSubProjects) {
         graphql {
             dependencies {
                 implementation("org.springframework.graphql:spring-graphql:${springGraphQLVersion}")
+                implementation("org.springframework.data:spring-data-commons:3.1.0")
                 implementation("com.querydsl:querydsl-core:5.0.0")
                 implementation("com.graphql-java:graphql-java:${graphQLJavaVersion}")
                 implementation("com.graphql-java:graphql-java-extended-scalars:${graphQLJavaExtScalarsVersion}")

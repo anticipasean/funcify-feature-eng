@@ -10,6 +10,7 @@ import funcify.feature.schema.feature.FeatureCalculator
 import funcify.feature.schema.feature.FeatureCalculatorProvider
 import funcify.feature.schema.feature.FeatureJsonValuePublisher
 import funcify.feature.schema.feature.FeatureJsonValueStore
+import funcify.feature.schema.limit.ModelLimits
 import funcify.feature.schema.transformer.TransformerSource
 import funcify.feature.schema.transformer.TransformerSourceProvider
 import graphql.schema.FieldCoordinates
@@ -53,6 +54,8 @@ interface FeatureEngineeringModel {
     val featureJsonValueStoresByName: ImmutableMap<String, FeatureJsonValueStore>
 
     val featureJsonValuePublishersByName: ImmutableMap<String, FeatureJsonValuePublisher>
+
+    val modelLimits: ModelLimits
 
     interface Builder {
 

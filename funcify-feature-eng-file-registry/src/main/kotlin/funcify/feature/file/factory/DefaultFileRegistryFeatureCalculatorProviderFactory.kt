@@ -7,6 +7,7 @@ import funcify.feature.file.FileRegistryFeatureCalculator
 import funcify.feature.file.FileRegistryFeatureCalculatorProvider
 import funcify.feature.file.FileRegistryFeatureCalculatorProviderFactory
 import funcify.feature.file.metadata.FileRegistryMetadataProvider
+import funcify.feature.schema.feature.FeatureCalculatorCallable
 import funcify.feature.schema.sdl.SDLDefinitionsSetExtractor
 import funcify.feature.schema.sdl.TypeDefinitionRegistryFilter
 import funcify.feature.tools.container.attempt.Try
@@ -110,7 +111,11 @@ internal class DefaultFileRegistryFeatureCalculatorProviderFactory(
         internal class DefaultFileRegistryFeatureCalculator(
             override val name: String,
             override val sourceSDLDefinitions: PersistentSet<SDLDefinition<*>>
-        ) : FileRegistryFeatureCalculator {}
+        ) : FileRegistryFeatureCalculator {
+            override fun builder(): FeatureCalculatorCallable.Builder {
+                TODO("Not yet implemented")
+            }
+        }
     }
 
     override fun builder(): FileRegistryFeatureCalculatorProvider.Builder {

@@ -27,12 +27,17 @@ interface MaterializationMetamodelBuildContext {
 
     val querySchemaElementsByCanonicalPath: ImmutableMap<GQLOperationPath, GraphQLSchemaElement>
 
-    val fieldCoordinatesByCanonicalPath: ImmutableMap<GQLOperationPath, FieldCoordinates>
+    val fieldCoordinatesByCanonicalPath:
+        ImmutableMap<GQLOperationPath, ImmutableSet<FieldCoordinates>>
 
-    val canonicalPathsByFieldCoordinates: ImmutableMap<FieldCoordinates, GQLOperationPath>
+    val canonicalPathsByFieldCoordinates:
+        ImmutableMap<FieldCoordinates, ImmutableSet<GQLOperationPath>>
 
     val domainSpecifiedDataElementSourceByPath:
         ImmutableMap<GQLOperationPath, DomainSpecifiedDataElementSource>
+
+    val domainSpecifiedDataElementSourcesByCoordinates:
+        ImmutableMap<FieldCoordinates, DomainSpecifiedDataElementSource>
 
     val featureSpecifiedFeatureCalculatorsByPath:
         ImmutableMap<GQLOperationPath, FeatureSpecifiedFeatureCalculator>
@@ -117,12 +122,14 @@ interface MaterializationMetamodelBuildContext {
         }
 
         fun putAllFieldCoordinates(
-            pathFieldCoordinatesSetPairs: Map<GQLOperationPath, FieldCoordinates>
+            pathFieldCoordinatesSetPairs: Map<GQLOperationPath, Set<FieldCoordinates>>
         ): Builder {
             return pathFieldCoordinatesSetPairs.foldLeft(this) {
                 b: Builder,
-                (p: GQLOperationPath, fc: FieldCoordinates) ->
-                b.putFieldCoordinatesForPath(p, fc)
+                (p: GQLOperationPath, fcs: Set<FieldCoordinates>) ->
+                fcs.fold(b) { b1: Builder, fc: FieldCoordinates ->
+                    b1.putFieldCoordinatesForPath(p, fc)
+                }
             }
         }
 
@@ -142,12 +149,14 @@ interface MaterializationMetamodelBuildContext {
         }
 
         fun putAllFieldCoordinatesPaths(
-            fieldCoordinatesPathPairs: Map<FieldCoordinates, GQLOperationPath>
+            fieldCoordinatesPathPairs: Map<FieldCoordinates, Set<GQLOperationPath>>
         ): Builder {
             return fieldCoordinatesPathPairs.foldLeft(this) {
                 b: Builder,
-                (fc: FieldCoordinates, p: GQLOperationPath) ->
-                b.putPathForFieldCoordinates(fc, p)
+                (fc: FieldCoordinates, ps: Set<GQLOperationPath>) ->
+                ps.fold(b) { b1: Builder, p: GQLOperationPath ->
+                    b1.putFieldCoordinatesForPath(p, fc)
+                }
             }
         }
 
@@ -174,6 +183,33 @@ interface MaterializationMetamodelBuildContext {
                 b: Builder,
                 (p: GQLOperationPath, dsdes: DomainSpecifiedDataElementSource) ->
                 b.putDomainSpecifiedDataElementSourceForPath(p, dsdes)
+            }
+        }
+
+        fun putDomainSpecifiedDataElementSourceForCoordinates(
+            fieldCoordinates: FieldCoordinates,
+            domainSpecifiedDataElementSource: DomainSpecifiedDataElementSource
+        ): Builder
+
+        fun putAllDomainSpecifiedDataElementSourceForCoordinates(
+            coordinatesDomainSpecifiedDataElementSourcePairs:
+                Iterable<Pair<FieldCoordinates, DomainSpecifiedDataElementSource>>
+        ): Builder {
+            return coordinatesDomainSpecifiedDataElementSourcePairs.fold(this) {
+                b: Builder,
+                (fc: FieldCoordinates, dsdes: DomainSpecifiedDataElementSource) ->
+                b.putDomainSpecifiedDataElementSourceForCoordinates(fc, dsdes)
+            }
+        }
+
+        fun putAllDomainSpecifiedDataElementSourceForCoordinates(
+            coordinatesDomainSpecifiedDataElementSourcePairs:
+                Map<FieldCoordinates, DomainSpecifiedDataElementSource>
+        ): Builder {
+            return coordinatesDomainSpecifiedDataElementSourcePairs.foldLeft(this) {
+                b: Builder,
+                (fc: FieldCoordinates, dsdes: DomainSpecifiedDataElementSource) ->
+                b.putDomainSpecifiedDataElementSourceForCoordinates(fc, dsdes)
             }
         }
 
