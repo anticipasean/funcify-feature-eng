@@ -1,6 +1,7 @@
 package funcify.feature.materializer.model
 
 import arrow.core.filterIsInstance
+import arrow.core.firstOrNone
 import arrow.core.getOrElse
 import arrow.core.orElse
 import arrow.core.toOption
@@ -8,6 +9,7 @@ import funcify.feature.error.ServiceError
 import funcify.feature.schema.dataelement.DomainSpecifiedDataElementSource
 import funcify.feature.schema.directive.alias.AliasCoordinatesRegistryCreator
 import funcify.feature.schema.feature.FeatureSpecifiedFeatureCalculator
+import funcify.feature.schema.path.operation.FieldSegment
 import funcify.feature.schema.path.operation.GQLOperationPath
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import graphql.schema.FieldCoordinates
@@ -40,8 +42,8 @@ internal class DefaultMaterializationMetamodelBuildStrategy :
             .flatMap(calculateAttributeCoordinatesRegistry())
             .doOnNext { mmf: MaterializationMetamodelBuildContext ->
                 logger.debug(
-                    "paths: {}",
-                    mmf.querySchemaElementsByCanonicalPath
+                    "query_schema_elements_by_path: {}",
+                    mmf.querySchemaElementsByPath
                         .asSequence()
                         .sortedBy(Map.Entry<GQLOperationPath, GraphQLSchemaElement>::key)
                         .joinToString(",\n") { (p: GQLOperationPath, e: GraphQLSchemaElement) ->
@@ -59,7 +61,7 @@ internal class DefaultMaterializationMetamodelBuildStrategy :
                 )
                 logger.debug(
                     "coordinates: {}",
-                    mmf.fieldCoordinatesByCanonicalPath
+                    mmf.fieldCoordinatesByPath
                         .asSequence()
                         .sortedBy(Map.Entry<GQLOperationPath, ImmutableSet<FieldCoordinates>>::key)
                         .joinToString(",\n") {
@@ -68,8 +70,8 @@ internal class DefaultMaterializationMetamodelBuildStrategy :
                         }
                 )
                 logger.debug(
-                    "paths: {}",
-                    mmf.canonicalPathsByFieldCoordinates
+                    "paths_by_field_coordinates: {}",
+                    mmf.pathsByFieldCoordinates
                         .asSequence()
                         .sortedWith(
                             Comparator.comparing(
@@ -95,19 +97,35 @@ internal class DefaultMaterializationMetamodelBuildStrategy :
                             "${p}: ${fsfc}"
                         }
                 )
+                logger.debug(
+                    "data_element_field_coordinates_by_name: {}",
+                    mmf.dataElementFieldCoordinatesByFieldName.asSequence().joinToString("\n") {
+                        (fn, fcs) ->
+                        "${fn}: ${fcs.asSequence().joinToString(", ")}"
+                    }
+                )
+                logger.debug(
+                    "data_element_paths_by_name: {}",
+                    mmf.dataElementPathsByFieldName.asSequence().joinToString("\n") { (fn, ps) ->
+                        "${fn}: ${ps.asSequence().joinToString(", ")}"
+                    }
+                )
             }
             .map { mmbc: MaterializationMetamodelBuildContext ->
                 DefaultMaterializationMetamodel(
                     featureEngineeringModel = mmbc.featureEngineeringModel,
                     materializationGraphQLSchema = mmbc.materializationGraphQLSchema,
-                    childCanonicalPathsByParentPath = mmbc.childCanonicalPathsByParentPath,
-                    querySchemaElementsByCanonicalPath = mmbc.querySchemaElementsByCanonicalPath,
-                    fieldCoordinatesByCanonicalPath = mmbc.fieldCoordinatesByCanonicalPath,
-                    canonicalPathsByFieldCoordinates = mmbc.canonicalPathsByFieldCoordinates,
+                    childPathsByParentPath = mmbc.childPathsByParentPath,
+                    querySchemaElementsByPath = mmbc.querySchemaElementsByPath,
+                    fieldCoordinatesByPath = mmbc.fieldCoordinatesByPath,
+                    pathsByFieldCoordinates = mmbc.pathsByFieldCoordinates,
                     domainSpecifiedDataElementSourceByPath =
                         mmbc.domainSpecifiedDataElementSourceByPath,
                     domainSpecifiedDataElementSourceByCoordinates =
                         mmbc.domainSpecifiedDataElementSourcesByCoordinates,
+                    dataElementFieldCoordinatesByFieldName =
+                        mmbc.dataElementFieldCoordinatesByFieldName,
+                    dataElementPathsByFieldName = mmbc.dataElementPathsByFieldName,
                     featureSpecifiedFeatureCalculatorsByPath =
                         mmbc.featureSpecifiedFeatureCalculatorsByPath,
                     featurePathsByName = mmbc.featurePathsByName,
@@ -159,6 +177,34 @@ internal class DefaultMaterializationMetamodelBuildStrategy :
                                         dsdes.domainFieldCoordinates,
                                         dsdes
                                     )
+                            }
+                    }
+                }
+                .map { m: MaterializationMetamodelBuildContext ->
+                    m.update {
+                        m.fieldCoordinatesByPath
+                            .asSequence()
+                            .filter { (p: GQLOperationPath, _: ImmutableSet<FieldCoordinates>) ->
+                                p.selection.size > 1 &&
+                                    p.selection
+                                        .firstOrNone()
+                                        .filterIsInstance<FieldSegment>()
+                                        .map(FieldSegment::fieldName)
+                                        .filter { fn: String ->
+                                            m.featureEngineeringModel.dataElementFieldCoordinates
+                                                .fieldName == fn
+                                        }
+                                        .isDefined()
+                            }
+                            .fold(this) {
+                                b: MaterializationMetamodelBuildContext.Builder,
+                                (p: GQLOperationPath, fcs: ImmutableSet<FieldCoordinates>) ->
+                                fcs.fold(b) {
+                                    b1: MaterializationMetamodelBuildContext.Builder,
+                                    fc: FieldCoordinates ->
+                                    b1.putFieldCoordinatesForDataElementFieldName(fc.fieldName, fc)
+                                        .putPathForDataElementFieldName(fc.fieldName, p)
+                                }
                             }
                     }
                 }

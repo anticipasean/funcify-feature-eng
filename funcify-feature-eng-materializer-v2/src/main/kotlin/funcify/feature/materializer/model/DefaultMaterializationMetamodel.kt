@@ -17,18 +17,20 @@ internal data class DefaultMaterializationMetamodel(
     override val featureEngineeringModel: FeatureEngineeringModel,
     override val materializationGraphQLSchema: GraphQLSchema,
     override val aliasCoordinatesRegistry: AliasCoordinatesRegistry,
-    override val childCanonicalPathsByParentPath:
+    override val childPathsByParentPath:
         ImmutableMap<GQLOperationPath, ImmutableSet<GQLOperationPath>>,
-    override val querySchemaElementsByCanonicalPath:
-        ImmutableMap<GQLOperationPath, GraphQLSchemaElement>,
-    override val fieldCoordinatesByCanonicalPath:
+    override val querySchemaElementsByPath: ImmutableMap<GQLOperationPath, GraphQLSchemaElement>,
+    override val fieldCoordinatesByPath:
         ImmutableMap<GQLOperationPath, ImmutableSet<FieldCoordinates>>,
-    override val canonicalPathsByFieldCoordinates:
+    override val pathsByFieldCoordinates:
         ImmutableMap<FieldCoordinates, ImmutableSet<GQLOperationPath>>,
     override val domainSpecifiedDataElementSourceByPath:
         ImmutableMap<GQLOperationPath, DomainSpecifiedDataElementSource>,
     override val domainSpecifiedDataElementSourceByCoordinates:
         ImmutableMap<FieldCoordinates, DomainSpecifiedDataElementSource>,
+    override val dataElementFieldCoordinatesByFieldName:
+        ImmutableMap<String, ImmutableSet<FieldCoordinates>>,
+    override val dataElementPathsByFieldName: ImmutableMap<String, ImmutableSet<GQLOperationPath>>,
     override val featureSpecifiedFeatureCalculatorsByPath:
         ImmutableMap<GQLOperationPath, FeatureSpecifiedFeatureCalculator>,
     override val featurePathsByName: ImmutableMap<String, GQLOperationPath>,

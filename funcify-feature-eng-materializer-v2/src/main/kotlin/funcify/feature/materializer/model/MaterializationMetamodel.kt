@@ -27,20 +27,23 @@ interface MaterializationMetamodel {
 
     val aliasCoordinatesRegistry: AliasCoordinatesRegistry
 
-    val childCanonicalPathsByParentPath:
-        ImmutableMap<GQLOperationPath, ImmutableSet<GQLOperationPath>>
+    val childPathsByParentPath: ImmutableMap<GQLOperationPath, ImmutableSet<GQLOperationPath>>
 
-    val querySchemaElementsByCanonicalPath: ImmutableMap<GQLOperationPath, GraphQLSchemaElement>
+    val querySchemaElementsByPath: ImmutableMap<GQLOperationPath, GraphQLSchemaElement>
 
-    val fieldCoordinatesByCanonicalPath: ImmutableMap<GQLOperationPath, ImmutableSet<FieldCoordinates>>
+    val fieldCoordinatesByPath: ImmutableMap<GQLOperationPath, ImmutableSet<FieldCoordinates>>
 
-    val canonicalPathsByFieldCoordinates: ImmutableMap<FieldCoordinates, ImmutableSet<GQLOperationPath>>
+    val pathsByFieldCoordinates: ImmutableMap<FieldCoordinates, ImmutableSet<GQLOperationPath>>
 
     val domainSpecifiedDataElementSourceByPath:
         ImmutableMap<GQLOperationPath, DomainSpecifiedDataElementSource>
 
     val domainSpecifiedDataElementSourceByCoordinates:
         ImmutableMap<FieldCoordinates, DomainSpecifiedDataElementSource>
+
+    val dataElementFieldCoordinatesByFieldName: ImmutableMap<String, ImmutableSet<FieldCoordinates>>
+
+    val dataElementPathsByFieldName: ImmutableMap<String, ImmutableSet<GQLOperationPath>>
 
     val featureSpecifiedFeatureCalculatorsByPath:
         ImmutableMap<GQLOperationPath, FeatureSpecifiedFeatureCalculator>

@@ -70,7 +70,7 @@ object TabularQueryConnector : RequestMaterializationGraphConnector<TabularQuery
                                     .firstOrNone()
                                     .flatMap { fc: FieldCoordinates ->
                                         connectorContext.materializationMetamodel
-                                            .canonicalPathsByFieldCoordinates
+                                            .pathsByFieldCoordinates
                                             .getOrNone(fc)
                                             .fold(
                                                 ::emptySequence,

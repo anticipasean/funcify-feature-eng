@@ -27,7 +27,7 @@ internal class DefaultSingleRequestMaterializationOrchestratorService(
 
     override fun materializeValueInSession(
         session: SingleRequestFieldMaterializationSession
-    ): Mono<Any> {
+    ): Mono<Any?> {
         logger.info(
             """materialize_value_in_session: [ 
             |session_id: ${session.sessionId}, 
@@ -63,7 +63,7 @@ internal class DefaultSingleRequestMaterializationOrchestratorService(
     private fun materializeValueInSessionThroughDispatchedRequestMaterializationGraph(
         session: SingleRequestFieldMaterializationSession,
         dispatchedRequestMaterializationGraph: DispatchedRequestMaterializationGraph
-    ): Mono<Any> {
+    ): Mono<Any?> {
         return when {
             else -> {
                 Mono.error { ServiceError.of("not yet implemented materialization logic") }

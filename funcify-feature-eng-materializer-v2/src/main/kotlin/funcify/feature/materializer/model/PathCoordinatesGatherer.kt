@@ -1,7 +1,6 @@
 package funcify.feature.materializer.model
 
 import arrow.core.Option
-import arrow.core.Some
 import arrow.core.filterIsInstance
 import arrow.core.getOrElse
 import arrow.core.none
@@ -14,6 +13,8 @@ import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.SequenceExtensions.firstOrNone
 import funcify.feature.tools.extensions.StringExtensions.flatten
+import funcify.feature.tools.extensions.TryExtensions.successIfDefined
+import funcify.feature.tools.extensions.TryExtensions.successIfNonNull
 import graphql.schema.*
 import graphql.util.Breadcrumb
 import graphql.util.TraversalControl
@@ -22,6 +23,12 @@ import graphql.util.TraverserContext
 import graphql.util.TraverserResult
 import graphql.util.TraverserVisitor
 import java.util.*
+import kotlinx.collections.immutable.ImmutableMap
+import kotlinx.collections.immutable.ImmutableSet
+import kotlinx.collections.immutable.PersistentMap
+import kotlinx.collections.immutable.PersistentSet
+import kotlinx.collections.immutable.persistentMapOf
+import kotlinx.collections.immutable.persistentSetOf
 import org.slf4j.Logger
 
 internal object PathCoordinatesGatherer :
@@ -34,55 +41,128 @@ internal object PathCoordinatesGatherer :
         materializationMetamodelBuildContext: MaterializationMetamodelBuildContext
     ): MaterializationMetamodelBuildContext {
         logger.debug("{}", METHOD_TAG)
-        return Some(materializationMetamodelBuildContext)
-            .flatMap(calculateCanonicalPathsAndFieldCoordinatesOffQueryObjectType())
-            .getOrElse { materializationMetamodelBuildContext }
+        return Try.success(materializationMetamodelBuildContext)
+            .flatMap(calculatePathsAndFieldCoordinatesWithinBuildContext())
+            .map(updateBuildContextWithPathsGathered(materializationMetamodelBuildContext))
+            .orElseThrow()
     }
 
-    private fun calculateCanonicalPathsAndFieldCoordinatesOffQueryObjectType():
-        (MaterializationMetamodelBuildContext) -> Option<MaterializationMetamodelBuildContext> {
+    private fun calculatePathsAndFieldCoordinatesWithinBuildContext():
+        (MaterializationMetamodelBuildContext) -> Try<PathGatheringContext> {
         return { mmf: MaterializationMetamodelBuildContext ->
-            mmf.materializationGraphQLSchema.queryType.toOption().flatMap { got: GraphQLObjectType
-                ->
-                val backRefQueue: Deque<Pair<GQLOperationPath, GraphQLFieldsContainer>> =
-                    LinkedList()
-                Traverser.breadthFirst(
-                        factGatheringTraversalFunction(mmf.materializationGraphQLSchema),
-                        GQLOperationPath.getRootPath(),
-                        mmf
+            mmf.materializationGraphQLSchema.queryType
+                .successIfNonNull {
+                    ServiceError.of(
+                        """materialization_metamodel_build_context.
+                        |materialization_graphql_schema.
+                        |query_type not available"""
+                            .flatten()
                     )
-                    .traverse(
-                        got,
-                        SchemaElementTraverserVisitor(
-                            graphQLTypeVisitor =
-                                PathGatheringElementVisitor(backRefQueue = backRefQueue)
+                }
+                .flatMap(calculatePathsAndFieldCoordinatesOffQueryObjectType(mmf))
+        }
+    }
+
+    private fun calculatePathsAndFieldCoordinatesOffQueryObjectType(
+        mmf: MaterializationMetamodelBuildContext
+    ): (GraphQLObjectType) -> Try<PathGatheringContext> {
+        return { got: GraphQLObjectType ->
+            val backRefQueue: Deque<Pair<GQLOperationPath, GraphQLFieldsContainer>> = LinkedList()
+            Traverser.breadthFirst(
+                    factGatheringTraversalFunction(mmf.materializationGraphQLSchema),
+                    GQLOperationPath.getRootPath(),
+                    DefaultPathGatheringContext(
+                        childPathsByParentPath = persistentMapOf(),
+                        querySchemaElementsByPath = persistentMapOf(),
+                        fieldCoordinatesByPath = persistentMapOf(),
+                        pathsByFieldCoordinates = persistentMapOf()
+                    )
+                )
+                .traverse(
+                    got,
+                    SchemaElementTraverserVisitor(
+                        graphQLTypeVisitor =
+                            PathGatheringElementVisitor(backRefQueue = backRefQueue)
+                    )
+                )
+                .toOption()
+                .mapNotNull(TraverserResult::getAccumulatedResult)
+                .filterIsInstance<PathGatheringContext>()
+                .successIfDefined(pathGatheringContextNotDefinedErrorSupplier())
+                .flatMap(ensureMaximumOperationDepthValid(mmf))
+                .map { pgc: PathGatheringContext ->
+                    var c: PathGatheringContext = pgc
+                    while (
+                        backRefQueue.isNotEmpty() &&
+                            backRefQueue.peekFirst().first.level() <
+                                mmf.featureEngineeringModel.modelLimits.maximumOperationDepth
+                    ) {
+                        val (p: GQLOperationPath, gfc: GraphQLFieldsContainer) =
+                            backRefQueue.pollFirst()
+                        c =
+                            Traverser.breadthFirst(
+                                    factGatheringTraversalFunction(
+                                        mmf.materializationGraphQLSchema
+                                    ),
+                                    p,
+                                    c
+                                )
+                                .traverse(
+                                    gfc,
+                                    SchemaElementTraverserVisitor(
+                                        PathGatheringElementVisitor(backRefQueue = backRefQueue)
+                                    )
+                                )
+                                .toOption()
+                                .mapNotNull(TraverserResult::getAccumulatedResult)
+                                .filterIsInstance<PathGatheringContext>()
+                                .successIfDefined(pathGatheringContextNotDefinedErrorSupplier())
+                                .orElseThrow()
+                    }
+                    c
+                }
+        }
+    }
+
+    private fun pathGatheringContextNotDefinedErrorSupplier(): () -> ServiceError {
+        return { ServiceError.of("path_gathering_context not passed as traverser_result") }
+    }
+
+    private fun ensureMaximumOperationDepthValid(
+        mmf: MaterializationMetamodelBuildContext
+    ): (PathGatheringContext) -> Try<PathGatheringContext> {
+        return { pgc: PathGatheringContext ->
+            when {
+                mmf.featureEngineeringModel.modelLimits.maximumOperationDepth > 0 -> {
+                    Try.success(pgc)
+                }
+                else -> {
+                    Try.failure(
+                        ServiceError.of(
+                            """materialization_metamodel_build_context.
+                            |feature_engineering_model.
+                            |model_limits.
+                            |maximum_operation_depth is invalid: 
+                            |[ maximum_operation_depth: %s ]"""
+                                .flatten(),
+                            mmf.featureEngineeringModel.modelLimits.maximumOperationDepth
                         )
                     )
-                    .toOption()
-                    .mapNotNull(TraverserResult::getAccumulatedResult)
-                    .filterIsInstance<MaterializationMetamodelBuildContext>()
+                }
             }
-            // .map { firstRoundMmf: MaterializationMetamodelFacts ->
-            //    backRefQueue.asSequence().fold(firstRoundMmf) {
-            //        mmf: MaterializationMetamodelFacts,
-            //        (p: GQLOperationPath, gfc: GraphQLFieldsContainer) ->
-            //        Traverser.breadthFirst(
-            //                factGatheringTraversalFunction(graphQLSchema),
-            //                p,
-            //                mmf
-            //            )
-            //            .traverse(
-            //                gfc,
-            //                SchemaElementTraverserVisitor(
-            //                    FactGatheringElementVisitor(LinkedList())
-            //                )
-            //            )
-            //            .toOption()
-            //            .mapNotNull(TraverserResult::getAccumulatedResult)
-            //            .filterIsInstance<MaterializationMetamodelFacts>()
-            //            .getOrElse { mmf }
-            //    }
-            // }
+        }
+    }
+
+    private fun updateBuildContextWithPathsGathered(
+        mmf: MaterializationMetamodelBuildContext
+    ): (PathGatheringContext) -> MaterializationMetamodelBuildContext {
+        return { pgc: PathGatheringContext ->
+            mmf.update {
+                putAllParentChildPaths(pgc.childPathsByParentPath)
+                putAllPathsForFieldCoordinates(pgc.fieldCoordinatesByPath)
+                putAllFieldCoordinatesForPaths(pgc.pathsByFieldCoordinates)
+                putAllGraphQLSchemaElementsForPaths(pgc.querySchemaElementsByPath)
+            }
         }
     }
 
@@ -136,6 +216,134 @@ internal object PathCoordinatesGatherer :
                     emptyList<GraphQLSchemaElement>()
                 }
             }
+        }
+    }
+
+    private interface PathGatheringContext {
+
+        val childPathsByParentPath: ImmutableMap<GQLOperationPath, ImmutableSet<GQLOperationPath>>
+
+        val querySchemaElementsByPath: ImmutableMap<GQLOperationPath, GraphQLSchemaElement>
+
+        val fieldCoordinatesByPath: ImmutableMap<GQLOperationPath, ImmutableSet<FieldCoordinates>>
+
+        val pathsByFieldCoordinates: ImmutableMap<FieldCoordinates, ImmutableSet<GQLOperationPath>>
+
+        fun update(transformer: Builder.() -> Builder): PathGatheringContext
+
+        interface Builder {
+
+            fun addChildPathForParentPath(
+                parentPath: GQLOperationPath,
+                childPath: GQLOperationPath
+            ): Builder
+
+            fun putGraphQLSchemaElementForPath(
+                path: GQLOperationPath,
+                element: GraphQLSchemaElement
+            ): Builder
+
+            fun putFieldCoordinatesForPath(
+                path: GQLOperationPath,
+                fieldCoordinates: FieldCoordinates
+            ): Builder
+
+            fun putPathForFieldCoordinates(
+                fieldCoordinates: FieldCoordinates,
+                path: GQLOperationPath
+            ): Builder
+
+            fun build(): PathGatheringContext
+        }
+    }
+
+    private class DefaultPathGatheringContext(
+        override val childPathsByParentPath:
+            PersistentMap<GQLOperationPath, PersistentSet<GQLOperationPath>>,
+        override val querySchemaElementsByPath:
+            PersistentMap<GQLOperationPath, GraphQLSchemaElement>,
+        override val fieldCoordinatesByPath:
+            PersistentMap<GQLOperationPath, PersistentSet<FieldCoordinates>>,
+        override val pathsByFieldCoordinates:
+            PersistentMap<FieldCoordinates, PersistentSet<GQLOperationPath>>
+    ) : PathGatheringContext {
+        companion object {
+            private class DefaultBuilder(
+                private val existingContext: DefaultPathGatheringContext,
+                private val childPathsByParentPath:
+                    PersistentMap.Builder<GQLOperationPath, PersistentSet<GQLOperationPath>> =
+                    existingContext.childPathsByParentPath.builder(),
+                private val querySchemaElementsByPath:
+                    PersistentMap.Builder<GQLOperationPath, GraphQLSchemaElement> =
+                    existingContext.querySchemaElementsByPath.builder(),
+                private val fieldCoordinatesByPath:
+                    PersistentMap.Builder<GQLOperationPath, PersistentSet<FieldCoordinates>> =
+                    existingContext.fieldCoordinatesByPath.builder(),
+                private val pathsByFieldCoordinates:
+                    PersistentMap.Builder<FieldCoordinates, PersistentSet<GQLOperationPath>> =
+                    existingContext.pathsByFieldCoordinates.builder(),
+            ) : PathGatheringContext.Builder {
+
+                override fun addChildPathForParentPath(
+                    parentPath: GQLOperationPath,
+                    childPath: GQLOperationPath
+                ): PathGatheringContext.Builder =
+                    this.apply {
+                        this.childPathsByParentPath.put(
+                            parentPath,
+                            this.childPathsByParentPath
+                                .getOrElse(parentPath, ::persistentSetOf)
+                                .add(childPath)
+                        )
+                    }
+
+                override fun putGraphQLSchemaElementForPath(
+                    path: GQLOperationPath,
+                    element: GraphQLSchemaElement,
+                ): PathGatheringContext.Builder =
+                    this.apply { this.querySchemaElementsByPath.put(path, element) }
+
+                override fun putFieldCoordinatesForPath(
+                    path: GQLOperationPath,
+                    fieldCoordinates: FieldCoordinates
+                ): PathGatheringContext.Builder =
+                    this.apply {
+                        this.fieldCoordinatesByPath.put(
+                            path,
+                            this.fieldCoordinatesByPath
+                                .getOrElse(path, ::persistentSetOf)
+                                .add(fieldCoordinates)
+                        )
+                    }
+
+                override fun putPathForFieldCoordinates(
+                    fieldCoordinates: FieldCoordinates,
+                    path: GQLOperationPath
+                ): PathGatheringContext.Builder =
+                    this.apply {
+                        this.pathsByFieldCoordinates.put(
+                            fieldCoordinates,
+                            this.pathsByFieldCoordinates
+                                .getOrElse(fieldCoordinates, ::persistentSetOf)
+                                .add(path)
+                        )
+                    }
+
+                override fun build(): PathGatheringContext {
+                    return DefaultPathGatheringContext(
+                        childPathsByParentPath = childPathsByParentPath.build(),
+                        querySchemaElementsByPath = querySchemaElementsByPath.build(),
+                        fieldCoordinatesByPath = fieldCoordinatesByPath.build(),
+                        pathsByFieldCoordinates = pathsByFieldCoordinates.build()
+                    )
+                }
+            }
+        }
+
+        override fun update(
+            transformer: PathGatheringContext.Builder.() -> PathGatheringContext.Builder
+        ): PathGatheringContext {
+            return transformer.invoke(DefaultBuilder(this)).build()
         }
     }
 
@@ -274,8 +482,8 @@ internal object PathCoordinatesGatherer :
             node: GraphQLFieldDefinition,
             parentNode: GraphQLObjectType,
         ) {
-            val mmf: MaterializationMetamodelBuildContext =
-                context.getCurrentAccumulate<MaterializationMetamodelBuildContext>().update {
+            val pgc: PathGatheringContext =
+                context.getCurrentAccumulate<PathGatheringContext>().update {
                     addChildPathForParentPath(parentPath, currentPath)
                     putFieldCoordinatesForPath(
                         currentPath,
@@ -286,7 +494,7 @@ internal object PathCoordinatesGatherer :
                         currentPath
                     )
                 }
-            context.setAccumulate(mmf)
+            context.setAccumulate(pgc)
         }
 
         private fun updateContextWithPathAndFieldCoordinatesForGraphQLFieldDefinition(
@@ -296,8 +504,8 @@ internal object PathCoordinatesGatherer :
             node: GraphQLFieldDefinition,
             parentNode: GraphQLImplementingType,
         ) {
-            val mmf: MaterializationMetamodelBuildContext =
-                context.getCurrentAccumulate<MaterializationMetamodelBuildContext>().update {
+            val pgc: PathGatheringContext =
+                context.getCurrentAccumulate<PathGatheringContext>().update {
                     addChildPathForParentPath(parentPath, currentPath)
                     putGraphQLSchemaElementForPath(currentPath, node)
                     putFieldCoordinatesForPath(
@@ -309,7 +517,7 @@ internal object PathCoordinatesGatherer :
                         currentPath
                     )
                 }
-            context.setAccumulate(mmf)
+            context.setAccumulate(pgc)
         }
 
         private fun extractParentPathContextVariableOrThrow(
@@ -335,12 +543,12 @@ internal object PathCoordinatesGatherer :
             logger.debug("visit_graphql_argument: [ node.name: {} ]", node.name)
             val parentPath: GQLOperationPath = extractParentPathContextVariableOrThrow(context)
             val p: GQLOperationPath = parentPath.transform { argument(node.name) }
-            val mmf: MaterializationMetamodelBuildContext =
-                context.getCurrentAccumulate<MaterializationMetamodelBuildContext>().update {
+            val pgc: PathGatheringContext =
+                context.getCurrentAccumulate<PathGatheringContext>().update {
                     addChildPathForParentPath(parentPath, p)
                     putGraphQLSchemaElementForPath(p, node)
                 }
-            context.setAccumulate(mmf)
+            context.setAccumulate(pgc)
             context.setVar(GQLOperationPath::class.java, p)
             return TraversalControl.CONTINUE
         }
@@ -381,12 +589,12 @@ internal object PathCoordinatesGatherer :
             }
             val parentPath: GQLOperationPath = extractParentPathContextVariableOrThrow(context)
             val p: GQLOperationPath = parentPath.transform { appendArgumentPathSegment(node.name) }
-            val mmf: MaterializationMetamodelBuildContext =
-                context.getCurrentAccumulate<MaterializationMetamodelBuildContext>().update {
+            val pgc: PathGatheringContext =
+                context.getCurrentAccumulate<PathGatheringContext>().update {
                     addChildPathForParentPath(parentPath, p)
                     putGraphQLSchemaElementForPath(p, node)
                 }
-            context.setAccumulate(mmf)
+            context.setAccumulate(pgc)
             context.setVar(GQLOperationPath::class.java, p)
             return TraversalControl.CONTINUE
         }

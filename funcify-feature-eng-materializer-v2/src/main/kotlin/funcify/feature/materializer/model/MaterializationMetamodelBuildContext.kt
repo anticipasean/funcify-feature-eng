@@ -22,16 +22,13 @@ interface MaterializationMetamodelBuildContext {
 
     val materializationGraphQLSchema: GraphQLSchema
 
-    val childCanonicalPathsByParentPath:
-        ImmutableMap<GQLOperationPath, ImmutableSet<GQLOperationPath>>
+    val childPathsByParentPath: ImmutableMap<GQLOperationPath, ImmutableSet<GQLOperationPath>>
 
-    val querySchemaElementsByCanonicalPath: ImmutableMap<GQLOperationPath, GraphQLSchemaElement>
+    val querySchemaElementsByPath: ImmutableMap<GQLOperationPath, GraphQLSchemaElement>
 
-    val fieldCoordinatesByCanonicalPath:
-        ImmutableMap<GQLOperationPath, ImmutableSet<FieldCoordinates>>
+    val fieldCoordinatesByPath: ImmutableMap<GQLOperationPath, ImmutableSet<FieldCoordinates>>
 
-    val canonicalPathsByFieldCoordinates:
-        ImmutableMap<FieldCoordinates, ImmutableSet<GQLOperationPath>>
+    val pathsByFieldCoordinates: ImmutableMap<FieldCoordinates, ImmutableSet<GQLOperationPath>>
 
     val domainSpecifiedDataElementSourceByPath:
         ImmutableMap<GQLOperationPath, DomainSpecifiedDataElementSource>
@@ -41,6 +38,10 @@ interface MaterializationMetamodelBuildContext {
 
     val featureSpecifiedFeatureCalculatorsByPath:
         ImmutableMap<GQLOperationPath, FeatureSpecifiedFeatureCalculator>
+
+    val dataElementFieldCoordinatesByFieldName: ImmutableMap<String, ImmutableSet<FieldCoordinates>>
+
+    val dataElementPathsByFieldName: ImmutableMap<String, ImmutableSet<GQLOperationPath>>
 
     val featurePathsByName: ImmutableMap<String, GQLOperationPath>
 
@@ -59,7 +60,7 @@ interface MaterializationMetamodelBuildContext {
             childPath: GQLOperationPath
         ): Builder
 
-        fun addAllParentChildPaths(
+        fun putAllParentChildPaths(
             parentChildPairs: Iterable<Pair<GQLOperationPath, GQLOperationPath>>
         ): Builder {
             return parentChildPairs.fold(this) {
@@ -69,7 +70,7 @@ interface MaterializationMetamodelBuildContext {
             }
         }
 
-        fun addAllParentChildPaths(
+        fun putAllParentChildPaths(
             parentChildPairs: Map<GQLOperationPath, Set<GQLOperationPath>>
         ): Builder {
             return parentChildPairs.foldLeft(this) {
@@ -86,7 +87,7 @@ interface MaterializationMetamodelBuildContext {
             element: GraphQLSchemaElement
         ): Builder
 
-        fun putAllGraphQLSchemaElements(
+        fun putAllGraphQLSchemaElementsForPaths(
             pathElementPairs: Iterable<Pair<GQLOperationPath, GraphQLSchemaElement>>
         ): Builder {
             return pathElementPairs.fold(this) {
@@ -96,7 +97,7 @@ interface MaterializationMetamodelBuildContext {
             }
         }
 
-        fun putAllGraphQLSchemaElements(
+        fun putAllGraphQLSchemaElementsForPaths(
             pathElementPairs: Map<GQLOperationPath, GraphQLSchemaElement>
         ): Builder {
             return pathElementPairs.foldLeft(this) {
@@ -111,7 +112,7 @@ interface MaterializationMetamodelBuildContext {
             fieldCoordinates: FieldCoordinates
         ): Builder
 
-        fun putAllFieldCoordinates(
+        fun putAllPathsForFieldCoordinates(
             pathFieldCoordinatesPairs: Iterable<Pair<GQLOperationPath, FieldCoordinates>>
         ): Builder {
             return pathFieldCoordinatesPairs.fold(this) {
@@ -121,7 +122,7 @@ interface MaterializationMetamodelBuildContext {
             }
         }
 
-        fun putAllFieldCoordinates(
+        fun putAllPathsForFieldCoordinates(
             pathFieldCoordinatesSetPairs: Map<GQLOperationPath, Set<FieldCoordinates>>
         ): Builder {
             return pathFieldCoordinatesSetPairs.foldLeft(this) {
@@ -138,7 +139,7 @@ interface MaterializationMetamodelBuildContext {
             path: GQLOperationPath
         ): Builder
 
-        fun putAllFieldCoordinatesPaths(
+        fun putAllFieldCoordinatesForPaths(
             fieldCoordinatesPathPairs: Iterable<Pair<FieldCoordinates, GQLOperationPath>>
         ): Builder {
             return fieldCoordinatesPathPairs.fold(this) {
@@ -148,14 +149,63 @@ interface MaterializationMetamodelBuildContext {
             }
         }
 
-        fun putAllFieldCoordinatesPaths(
+        fun putAllFieldCoordinatesForPaths(
             fieldCoordinatesPathPairs: Map<FieldCoordinates, Set<GQLOperationPath>>
         ): Builder {
             return fieldCoordinatesPathPairs.foldLeft(this) {
                 b: Builder,
                 (fc: FieldCoordinates, ps: Set<GQLOperationPath>) ->
                 ps.fold(b) { b1: Builder, p: GQLOperationPath ->
-                    b1.putFieldCoordinatesForPath(p, fc)
+                    b1.putPathForFieldCoordinates(fc, p)
+                }
+            }
+        }
+
+        fun putFieldCoordinatesForDataElementFieldName(
+            name: String,
+            fieldCoordinates: FieldCoordinates
+        ): Builder
+
+        fun putAllFieldCoordinatesForDataElementFieldNames(
+            nameFieldCoordinatesPairs: Iterable<Pair<String, FieldCoordinates>>
+        ): Builder {
+            return nameFieldCoordinatesPairs.fold(this) {
+                b: Builder,
+                (name: String, fc: FieldCoordinates) ->
+                b.putFieldCoordinatesForDataElementFieldName(name, fc)
+            }
+        }
+
+        fun putAllFieldCoordinatesForDataElementFieldNames(
+            nameFieldCoordinatesPairs: Map<String, Set<FieldCoordinates>>
+        ): Builder {
+            return nameFieldCoordinatesPairs.foldLeft(this) {
+                b: Builder,
+                (name: String, fcs: Set<FieldCoordinates>) ->
+                fcs.fold(b) { b1: Builder, fc: FieldCoordinates ->
+                    b1.putFieldCoordinatesForDataElementFieldName(name, fc)
+                }
+            }
+        }
+
+        fun putPathForDataElementFieldName(name: String, path: GQLOperationPath): Builder
+
+        fun putAllPathsForDataElementFieldNames(
+            namePathPairs: Iterable<Pair<String, GQLOperationPath>>
+        ): Builder {
+            return namePathPairs.fold(this) { b: Builder, (name: String, path: GQLOperationPath) ->
+                b.putPathForDataElementFieldName(name, path)
+            }
+        }
+
+        fun putAllPathsForDataElementFieldNames(
+            namePathPairs: Map<String, Set<GQLOperationPath>>
+        ): Builder {
+            return namePathPairs.foldLeft(this) {
+                b: Builder,
+                (name: String, paths: Set<GQLOperationPath>) ->
+                paths.fold(b) { b1: Builder, p: GQLOperationPath ->
+                    b1.putPathForDataElementFieldName(name, p)
                 }
             }
         }
@@ -242,13 +292,15 @@ interface MaterializationMetamodelBuildContext {
 
         fun putFeatureNameForPath(name: String, gqlOperationPath: GQLOperationPath): Builder
 
-        fun putAllFeatureNames(namePathPairs: Iterable<Pair<String, GQLOperationPath>>): Builder {
+        fun putAllFeatureNamesForPath(
+            namePathPairs: Iterable<Pair<String, GQLOperationPath>>
+        ): Builder {
             return namePathPairs.fold(this) { b: Builder, (name: String, p: GQLOperationPath) ->
                 b.putFeatureNameForPath(name, p)
             }
         }
 
-        fun putAllFeatureNames(namePathPairs: Map<String, GQLOperationPath>): Builder {
+        fun putAllFeatureNamesForPath(namePathPairs: Map<String, GQLOperationPath>): Builder {
             return namePathPairs.foldLeft(this) { b: Builder, (name: String, p: GQLOperationPath) ->
                 b.putFeatureNameForPath(name, p)
             }

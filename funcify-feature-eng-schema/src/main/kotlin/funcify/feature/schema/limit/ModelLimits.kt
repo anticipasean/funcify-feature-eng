@@ -13,7 +13,7 @@ interface ModelLimits {
          */
         const val REQUIRED_MINIMUM_OPERATION_DEPTH: Int = 3
 
-        const val DEFAULT_MAXIMUM_OPERATION_DEPTH: Int = 9
+        const val DEFAULT_MAXIMUM_OPERATION_DEPTH: Int = 7
     }
 
     /**
@@ -34,9 +34,12 @@ interface ModelLimits {
      *     }
      * }
      * ```
+     *
      * e.g. gqlo:/dataElement/show/cast/filmography/title: level of nesting == 5
      *
-     * Deeply nested operations are typically less performant than _flattened_ counterparts
+     * Deeply nested operations are typically less performant than _flattened_ counterparts, so a
+     * limit placed on operations enables a lot of optimization to be performed on the _supported_
+     * operation depth
      */
     val maximumOperationDepth: Int
 
