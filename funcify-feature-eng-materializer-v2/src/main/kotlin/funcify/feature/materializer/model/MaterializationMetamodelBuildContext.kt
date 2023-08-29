@@ -43,7 +43,9 @@ interface MaterializationMetamodelBuildContext {
 
     val dataElementPathsByFieldName: ImmutableMap<String, ImmutableSet<GQLOperationPath>>
 
-    val featurePathsByName: ImmutableMap<String, GQLOperationPath>
+    val dataElementPathsByFieldArgumentName: ImmutableMap<String, ImmutableSet<GQLOperationPath>>
+
+    val featurePathsByFieldName: ImmutableMap<String, GQLOperationPath>
 
     val aliasCoordinatesRegistry: AliasCoordinatesRegistry
 
@@ -206,6 +208,27 @@ interface MaterializationMetamodelBuildContext {
                 (name: String, paths: Set<GQLOperationPath>) ->
                 paths.fold(b) { b1: Builder, p: GQLOperationPath ->
                     b1.putPathForDataElementFieldName(name, p)
+                }
+            }
+        }
+
+        fun putPathForDataElementFieldArgumentName(name: String, path: GQLOperationPath): Builder
+
+        fun putAllPathsForDataElementFieldArguments(
+            namePathPairs: Iterable<Pair<String, GQLOperationPath>>
+        ): Builder {
+            return namePathPairs.fold(this) { b: Builder, (n: String, p: GQLOperationPath) ->
+                b.putPathForDataElementFieldArgumentName(n, p)
+            }
+        }
+
+        fun putAllPathsForDataElementFieldArguments(
+            namePathPairs: Map<String, Set<GQLOperationPath>>
+        ): Builder {
+            return namePathPairs.foldLeft(this) { b: Builder, (n: String, ps: Set<GQLOperationPath>)
+                ->
+                ps.fold(b) { b1: Builder, p: GQLOperationPath ->
+                    b1.putPathForDataElementFieldArgumentName(n, p)
                 }
             }
         }

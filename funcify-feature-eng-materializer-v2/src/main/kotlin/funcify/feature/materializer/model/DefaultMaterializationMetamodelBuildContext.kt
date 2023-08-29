@@ -32,9 +32,11 @@ internal data class DefaultMaterializationMetamodelBuildContext(
         PersistentMap<String, PersistentSet<FieldCoordinates>>,
     override val dataElementPathsByFieldName:
         PersistentMap<String, PersistentSet<GQLOperationPath>>,
+    override val dataElementPathsByFieldArgumentName:
+        PersistentMap<String, PersistentSet<GQLOperationPath>>,
     override val featureSpecifiedFeatureCalculatorsByPath:
         PersistentMap<GQLOperationPath, FeatureSpecifiedFeatureCalculator>,
-    override val featurePathsByName: PersistentMap<String, GQLOperationPath>,
+    override val featurePathsByFieldName: PersistentMap<String, GQLOperationPath>,
     override val aliasCoordinatesRegistry: AliasCoordinatesRegistry,
 ) : MaterializationMetamodelBuildContext {
 
@@ -55,8 +57,9 @@ internal data class DefaultMaterializationMetamodelBuildContext(
                 domainSpecifiedDataElementSourcesByCoordinates = persistentMapOf(),
                 dataElementFieldCoordinatesByFieldName = persistentMapOf(),
                 dataElementPathsByFieldName = persistentMapOf(),
+                dataElementPathsByFieldArgumentName = persistentMapOf(),
                 featureSpecifiedFeatureCalculatorsByPath = persistentMapOf(),
-                featurePathsByName = persistentMapOf(),
+                featurePathsByFieldName = persistentMapOf(),
                 aliasCoordinatesRegistry = AliasCoordinatesRegistry.empty(),
             )
         }
@@ -91,11 +94,14 @@ internal data class DefaultMaterializationMetamodelBuildContext(
             private val dataElementPathsByFieldName:
                 PersistentMap.Builder<String, PersistentSet<GQLOperationPath>> =
                 existingFacts.dataElementPathsByFieldName.builder(),
+            private val dataElementPathsByFieldArgumentName:
+                PersistentMap.Builder<String, PersistentSet<GQLOperationPath>> =
+                existingFacts.dataElementPathsByFieldArgumentName.builder(),
             private val featureSpecifiedFeatureCalculatorsByPath:
                 PersistentMap.Builder<GQLOperationPath, FeatureSpecifiedFeatureCalculator> =
                 existingFacts.featureSpecifiedFeatureCalculatorsByPath.builder(),
-            private val featurePathsByName: PersistentMap.Builder<String, GQLOperationPath> =
-                existingFacts.featurePathsByName.builder(),
+            private val featurePathsByFieldName: PersistentMap.Builder<String, GQLOperationPath> =
+                existingFacts.featurePathsByFieldName.builder(),
             private var aliasCoordinatesRegistry: AliasCoordinatesRegistry =
                 existingFacts.aliasCoordinatesRegistry,
         ) : Builder {
@@ -179,6 +185,19 @@ internal data class DefaultMaterializationMetamodelBuildContext(
                     )
                 }
 
+            override fun putPathForDataElementFieldArgumentName(
+                name: String,
+                path: GQLOperationPath
+            ): Builder =
+                this.apply {
+                    this.dataElementPathsByFieldArgumentName.put(
+                        name,
+                        this.dataElementPathsByFieldArgumentName
+                            .getOrElse(name, ::persistentSetOf)
+                            .add(path)
+                    )
+                }
+
             override fun putDomainSpecifiedDataElementSourceForPath(
                 path: GQLOperationPath,
                 domainSpecifiedDataElementSource: DomainSpecifiedDataElementSource,
@@ -215,7 +234,7 @@ internal data class DefaultMaterializationMetamodelBuildContext(
             override fun putFeatureNameForPath(
                 name: String,
                 gqlOperationPath: GQLOperationPath
-            ): Builder = this.apply { this.featurePathsByName.put(name, gqlOperationPath) }
+            ): Builder = this.apply { this.featurePathsByFieldName.put(name, gqlOperationPath) }
 
             override fun aliasCoordinatesRegistry(
                 aliasCoordinatesRegistry: AliasCoordinatesRegistry
@@ -236,9 +255,11 @@ internal data class DefaultMaterializationMetamodelBuildContext(
                     dataElementFieldCoordinatesByFieldName =
                         dataElementFieldCoordinatesByFieldName.build(),
                     dataElementPathsByFieldName = dataElementPathsByFieldName.build(),
+                    dataElementPathsByFieldArgumentName =
+                        dataElementPathsByFieldArgumentName.build(),
                     featureSpecifiedFeatureCalculatorsByPath =
                         featureSpecifiedFeatureCalculatorsByPath.build(),
-                    featurePathsByName = featurePathsByName.build(),
+                    featurePathsByFieldName = featurePathsByFieldName.build(),
                     aliasCoordinatesRegistry = aliasCoordinatesRegistry,
                 )
             }

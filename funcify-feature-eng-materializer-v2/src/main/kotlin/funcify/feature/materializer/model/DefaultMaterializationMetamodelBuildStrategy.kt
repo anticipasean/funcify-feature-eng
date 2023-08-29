@@ -13,6 +13,7 @@ import funcify.feature.schema.path.operation.FieldSegment
 import funcify.feature.schema.path.operation.GQLOperationPath
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import graphql.schema.FieldCoordinates
+import graphql.schema.GraphQLArgument
 import graphql.schema.GraphQLNamedSchemaElement
 import graphql.schema.GraphQLSchemaElement
 import kotlinx.collections.immutable.ImmutableSet
@@ -98,6 +99,13 @@ internal class DefaultMaterializationMetamodelBuildStrategy :
                         }
                 )
                 logger.debug(
+                    "domain_specified_data_element_sources_by_path: {}",
+                    mmf.domainSpecifiedDataElementSourceByPath.asSequence().joinToString("\n") {
+                        (p, d) ->
+                        "$p: $d"
+                    }
+                )
+                logger.debug(
                     "data_element_field_coordinates_by_name: {}",
                     mmf.dataElementFieldCoordinatesByFieldName.asSequence().joinToString("\n") {
                         (fn, fcs) ->
@@ -105,8 +113,15 @@ internal class DefaultMaterializationMetamodelBuildStrategy :
                     }
                 )
                 logger.debug(
-                    "data_element_paths_by_name: {}",
+                    "data_element_paths_by_field_name: {}",
                     mmf.dataElementPathsByFieldName.asSequence().joinToString("\n") { (fn, ps) ->
+                        "${fn}: ${ps.asSequence().joinToString(", ")}"
+                    }
+                )
+                logger.debug(
+                    "data_element_paths_by_field_argument_name: {}",
+                    mmf.dataElementPathsByFieldArgumentName.asSequence().joinToString("\n") {
+                        (fn, ps) ->
                         "${fn}: ${ps.asSequence().joinToString(", ")}"
                     }
                 )
@@ -126,9 +141,10 @@ internal class DefaultMaterializationMetamodelBuildStrategy :
                     dataElementFieldCoordinatesByFieldName =
                         mmbc.dataElementFieldCoordinatesByFieldName,
                     dataElementPathsByFieldName = mmbc.dataElementPathsByFieldName,
+                    dataElementPathByFieldArgumentName = mmbc.dataElementPathsByFieldArgumentName,
                     featureSpecifiedFeatureCalculatorsByPath =
                         mmbc.featureSpecifiedFeatureCalculatorsByPath,
-                    featurePathsByName = mmbc.featurePathsByName,
+                    featurePathsByName = mmbc.featurePathsByFieldName,
                     aliasCoordinatesRegistry = mmbc.aliasCoordinatesRegistry
                 )
             }
@@ -205,6 +221,23 @@ internal class DefaultMaterializationMetamodelBuildStrategy :
                                     b1.putFieldCoordinatesForDataElementFieldName(fc.fieldName, fc)
                                         .putPathForDataElementFieldName(fc.fieldName, p)
                                 }
+                            }
+                    }
+                }
+                .map { m: MaterializationMetamodelBuildContext ->
+                    m.update {
+                        m.domainSpecifiedDataElementSourceByPath.values
+                            .asSequence()
+                            .flatMap { dsdes: DomainSpecifiedDataElementSource ->
+                                dsdes.argumentsByPath.asSequence().map {
+                                    (p: GQLOperationPath, a: GraphQLArgument) ->
+                                    a.name to p
+                                }
+                            }
+                            .fold(this) {
+                                b: MaterializationMetamodelBuildContext.Builder,
+                                (n: String, p: GQLOperationPath) ->
+                                b.putPathForDataElementFieldArgumentName(n, p)
                             }
                     }
                 }

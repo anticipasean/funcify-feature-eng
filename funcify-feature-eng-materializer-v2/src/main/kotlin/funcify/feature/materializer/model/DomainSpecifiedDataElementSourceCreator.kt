@@ -184,7 +184,8 @@ internal object DomainSpecifiedDataElementSourceCreator :
             context: TraverserContext<GraphQLSchemaElement>
         ): TraversalControl {
             logger.debug("visit_graphql_field_definition: [ node.name: {} ]", node.name)
-            val p: GQLOperationPath = extractParentPathContextVariableOrThrow(context)
+            val p: GQLOperationPath =
+                extractParentPathContextVariableOrThrow(context).transform { field(node.name) }
             val b: DomainSpecifiedDataElementSource.Builder =
                 context.getCurrentAccumulate<DomainSpecifiedDataElementSource.Builder>()
             context.setAccumulate(b.domainPath(p).domainFieldDefinition(node))

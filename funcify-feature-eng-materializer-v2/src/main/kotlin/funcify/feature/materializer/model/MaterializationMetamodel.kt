@@ -45,6 +45,8 @@ interface MaterializationMetamodel {
 
     val dataElementPathsByFieldName: ImmutableMap<String, ImmutableSet<GQLOperationPath>>
 
+    val dataElementPathByFieldArgumentName: ImmutableMap<String, ImmutableSet<GQLOperationPath>>
+
     val featureSpecifiedFeatureCalculatorsByPath:
         ImmutableMap<GQLOperationPath, FeatureSpecifiedFeatureCalculator>
 
