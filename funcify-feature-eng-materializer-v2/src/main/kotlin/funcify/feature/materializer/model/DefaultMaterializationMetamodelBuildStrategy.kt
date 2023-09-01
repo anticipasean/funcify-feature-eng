@@ -144,6 +144,8 @@ internal class DefaultMaterializationMetamodelBuildStrategy :
                     dataElementPathByFieldArgumentName = mmbc.dataElementPathsByFieldArgumentName,
                     featureSpecifiedFeatureCalculatorsByPath =
                         mmbc.featureSpecifiedFeatureCalculatorsByPath,
+                    featureSpecifiedFeatureCalculatorsByCoordinates =
+                        mmbc.featureSpecifiedFeatureCalculatorsByCoordinates,
                     featurePathsByName = mmbc.featurePathsByFieldName,
                     aliasCoordinatesRegistry = mmbc.aliasCoordinatesRegistry
                 )
@@ -274,6 +276,10 @@ internal class DefaultMaterializationMetamodelBuildStrategy :
                                 fsfc: FeatureSpecifiedFeatureCalculator ->
                                 b.putFeatureSpecifiedFeatureCalculatorForPath(
                                         fsfc.featurePath,
+                                        fsfc
+                                    )
+                                    .putFeatureSpecifiedFeatureCalculatorForCoordinates(
+                                        fsfc.fieldCoordinates,
                                         fsfc
                                     )
                                     .putFeatureNameForPath(fsfc.featureName, fsfc.featurePath)

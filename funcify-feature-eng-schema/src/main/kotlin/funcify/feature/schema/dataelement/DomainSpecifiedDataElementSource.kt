@@ -22,6 +22,8 @@ interface DomainSpecifiedDataElementSource {
 
     val argumentsByName: ImmutableMap<String, GraphQLArgument>
 
+    val argumentPathsByName: ImmutableMap<String, GQLOperationPath>
+
     val argumentsWithDefaultValuesByName: ImmutableMap<String, GraphQLArgument>
 
     val dataElementSource: DataElementSource

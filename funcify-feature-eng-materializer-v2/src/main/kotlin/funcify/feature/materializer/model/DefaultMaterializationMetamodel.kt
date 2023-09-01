@@ -35,5 +35,7 @@ internal data class DefaultMaterializationMetamodel(
         ImmutableMap<String, ImmutableSet<GQLOperationPath>>,
     override val featureSpecifiedFeatureCalculatorsByPath:
         ImmutableMap<GQLOperationPath, FeatureSpecifiedFeatureCalculator>,
+    override val featureSpecifiedFeatureCalculatorsByCoordinates:
+        ImmutableMap<FieldCoordinates, FeatureSpecifiedFeatureCalculator>,
     override val featurePathsByName: ImmutableMap<String, GQLOperationPath>,
 ) : MaterializationMetamodel

@@ -36,6 +36,8 @@ internal data class DefaultMaterializationMetamodelBuildContext(
         PersistentMap<String, PersistentSet<GQLOperationPath>>,
     override val featureSpecifiedFeatureCalculatorsByPath:
         PersistentMap<GQLOperationPath, FeatureSpecifiedFeatureCalculator>,
+    override val featureSpecifiedFeatureCalculatorsByCoordinates:
+        PersistentMap<FieldCoordinates, FeatureSpecifiedFeatureCalculator>,
     override val featurePathsByFieldName: PersistentMap<String, GQLOperationPath>,
     override val aliasCoordinatesRegistry: AliasCoordinatesRegistry,
 ) : MaterializationMetamodelBuildContext {
@@ -59,6 +61,7 @@ internal data class DefaultMaterializationMetamodelBuildContext(
                 dataElementPathsByFieldName = persistentMapOf(),
                 dataElementPathsByFieldArgumentName = persistentMapOf(),
                 featureSpecifiedFeatureCalculatorsByPath = persistentMapOf(),
+                featureSpecifiedFeatureCalculatorsByCoordinates = persistentMapOf(),
                 featurePathsByFieldName = persistentMapOf(),
                 aliasCoordinatesRegistry = AliasCoordinatesRegistry.empty(),
             )
@@ -100,6 +103,9 @@ internal data class DefaultMaterializationMetamodelBuildContext(
             private val featureSpecifiedFeatureCalculatorsByPath:
                 PersistentMap.Builder<GQLOperationPath, FeatureSpecifiedFeatureCalculator> =
                 existingFacts.featureSpecifiedFeatureCalculatorsByPath.builder(),
+            private val featureSpecifiedFeatureCalculatorsByCoordinates:
+                PersistentMap.Builder<FieldCoordinates, FeatureSpecifiedFeatureCalculator> =
+                existingFacts.featureSpecifiedFeatureCalculatorsByCoordinates.builder(),
             private val featurePathsByFieldName: PersistentMap.Builder<String, GQLOperationPath> =
                 existingFacts.featurePathsByFieldName.builder(),
             private var aliasCoordinatesRegistry: AliasCoordinatesRegistry =
@@ -231,6 +237,17 @@ internal data class DefaultMaterializationMetamodelBuildContext(
                     )
                 }
 
+            override fun putFeatureSpecifiedFeatureCalculatorForCoordinates(
+                coordinates: FieldCoordinates,
+                featureSpecifiedFeatureCalculator: FeatureSpecifiedFeatureCalculator,
+            ): Builder =
+                this.apply {
+                    this.featureSpecifiedFeatureCalculatorsByCoordinates.put(
+                        coordinates,
+                        featureSpecifiedFeatureCalculator
+                    )
+                }
+
             override fun putFeatureNameForPath(
                 name: String,
                 gqlOperationPath: GQLOperationPath
@@ -259,6 +276,8 @@ internal data class DefaultMaterializationMetamodelBuildContext(
                         dataElementPathsByFieldArgumentName.build(),
                     featureSpecifiedFeatureCalculatorsByPath =
                         featureSpecifiedFeatureCalculatorsByPath.build(),
+                    featureSpecifiedFeatureCalculatorsByCoordinates =
+                        featureSpecifiedFeatureCalculatorsByCoordinates.build(),
                     featurePathsByFieldName = featurePathsByFieldName.build(),
                     aliasCoordinatesRegistry = aliasCoordinatesRegistry,
                 )

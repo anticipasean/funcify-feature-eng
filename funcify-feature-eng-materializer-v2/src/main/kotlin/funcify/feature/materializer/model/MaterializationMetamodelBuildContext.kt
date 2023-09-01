@@ -36,14 +36,17 @@ interface MaterializationMetamodelBuildContext {
     val domainSpecifiedDataElementSourcesByCoordinates:
         ImmutableMap<FieldCoordinates, DomainSpecifiedDataElementSource>
 
-    val featureSpecifiedFeatureCalculatorsByPath:
-        ImmutableMap<GQLOperationPath, FeatureSpecifiedFeatureCalculator>
-
     val dataElementFieldCoordinatesByFieldName: ImmutableMap<String, ImmutableSet<FieldCoordinates>>
 
     val dataElementPathsByFieldName: ImmutableMap<String, ImmutableSet<GQLOperationPath>>
 
     val dataElementPathsByFieldArgumentName: ImmutableMap<String, ImmutableSet<GQLOperationPath>>
+
+    val featureSpecifiedFeatureCalculatorsByPath:
+        ImmutableMap<GQLOperationPath, FeatureSpecifiedFeatureCalculator>
+
+    val featureSpecifiedFeatureCalculatorsByCoordinates:
+        ImmutableMap<FieldCoordinates, FeatureSpecifiedFeatureCalculator>
 
     val featurePathsByFieldName: ImmutableMap<String, GQLOperationPath>
 
@@ -291,7 +294,7 @@ interface MaterializationMetamodelBuildContext {
             featureSpecifiedFeatureCalculator: FeatureSpecifiedFeatureCalculator
         ): Builder
 
-        fun putAllFeatureSpecifiedFeatureCalculators(
+        fun putAllPathFeatureSpecifiedFeatureCalculatorPairs(
             pathFeatureSpecifiedFeatureCalculatorPairs:
                 Iterable<Pair<GQLOperationPath, FeatureSpecifiedFeatureCalculator>>
         ): Builder {
@@ -302,7 +305,7 @@ interface MaterializationMetamodelBuildContext {
             }
         }
 
-        fun putAllFeatureSpecifiedFeatureCalculators(
+        fun putAllPathFeatureSpecifiedFeatureCalculatorPairs(
             pathFeatureSpecifiedFeatureCalculatorPairs:
                 Map<GQLOperationPath, FeatureSpecifiedFeatureCalculator>
         ): Builder {
@@ -310,6 +313,33 @@ interface MaterializationMetamodelBuildContext {
                 b: Builder,
                 (p: GQLOperationPath, fsfc: FeatureSpecifiedFeatureCalculator) ->
                 b.putFeatureSpecifiedFeatureCalculatorForPath(p, fsfc)
+            }
+        }
+
+        fun putFeatureSpecifiedFeatureCalculatorForCoordinates(
+            coordinates: FieldCoordinates,
+            featureSpecifiedFeatureCalculator: FeatureSpecifiedFeatureCalculator
+        ): Builder
+
+        fun putAllCoordinatesFeatureSpecifiedFeatureCalculatorPairs(
+            coordinatesFeatureSpecifiedFeatureCalculatorPairs:
+                Iterable<Pair<FieldCoordinates, FeatureSpecifiedFeatureCalculator>>
+        ): Builder {
+            return coordinatesFeatureSpecifiedFeatureCalculatorPairs.fold(this) {
+                b: Builder,
+                (fc: FieldCoordinates, fsfc: FeatureSpecifiedFeatureCalculator) ->
+                b.putFeatureSpecifiedFeatureCalculatorForCoordinates(fc, fsfc)
+            }
+        }
+
+        fun putAllCoordinatesFeatureSpecifiedFeatureCalculatorPairs(
+            coordinatesFeatureSpecifiedFeatureCalculatorPairs:
+                Map<FieldCoordinates, FeatureSpecifiedFeatureCalculator>
+        ): Builder {
+            return coordinatesFeatureSpecifiedFeatureCalculatorPairs.foldLeft(this) {
+                b: Builder,
+                (fc: FieldCoordinates, fsfc: FeatureSpecifiedFeatureCalculator) ->
+                b.putFeatureSpecifiedFeatureCalculatorForCoordinates(fc, fsfc)
             }
         }
 

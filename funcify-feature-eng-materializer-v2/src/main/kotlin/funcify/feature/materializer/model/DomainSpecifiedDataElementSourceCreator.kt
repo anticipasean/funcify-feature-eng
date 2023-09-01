@@ -214,6 +214,8 @@ internal object DomainSpecifiedDataElementSourceCreator :
             context: TraverserContext<GraphQLSchemaElement>
         ): TraversalControl {
             logger.debug("visit_graphql_argument: [ node.name: {} ]", node.name)
+            // TODO: If later found that most of this work can be done through lazily initiated
+            // properties, then switch over
             val p: GQLOperationPath =
                 extractParentPathContextVariableOrThrow(context).transform { argument(node.name) }
             val b: DomainSpecifiedDataElementSource.Builder =

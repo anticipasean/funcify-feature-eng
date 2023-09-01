@@ -50,6 +50,9 @@ interface MaterializationMetamodel {
     val featureSpecifiedFeatureCalculatorsByPath:
         ImmutableMap<GQLOperationPath, FeatureSpecifiedFeatureCalculator>
 
+    val featureSpecifiedFeatureCalculatorsByCoordinates:
+        ImmutableMap<FieldCoordinates, FeatureSpecifiedFeatureCalculator>
+
     val featurePathsByName: ImmutableMap<String, GQLOperationPath>
 
     interface Builder {

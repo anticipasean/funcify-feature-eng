@@ -7,6 +7,7 @@ import funcify.feature.error.ServiceError
 import funcify.feature.schema.dataelement.DataElementSource
 import funcify.feature.schema.dataelement.DomainSpecifiedDataElementSource
 import funcify.feature.schema.path.operation.GQLOperationPath
+import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentMap
 import graphql.schema.FieldCoordinates
 import graphql.schema.GraphQLArgument
 import graphql.schema.GraphQLFieldDefinition
@@ -21,8 +22,15 @@ internal data class DefaultDomainSpecifiedDataElementSource(
     override val argumentsByPath: ImmutableMap<GQLOperationPath, GraphQLArgument>,
     override val argumentsByName: ImmutableMap<String, GraphQLArgument>,
     override val argumentsWithDefaultValuesByName: ImmutableMap<String, GraphQLArgument>,
-    override val dataElementSource: DataElementSource
+    override val dataElementSource: DataElementSource,
 ) : DomainSpecifiedDataElementSource {
+
+    override val argumentPathsByName: ImmutableMap<String, GQLOperationPath> by lazy {
+        argumentsByPath
+            .asSequence()
+            .map { (p: GQLOperationPath, a: GraphQLArgument) -> a.name to p }
+            .reducePairsToPersistentMap()
+    }
 
     companion object {
 
@@ -34,11 +42,11 @@ internal data class DefaultDomainSpecifiedDataElementSource(
             private var domainFieldCoordinates: FieldCoordinates? = null,
             private var domainPath: GQLOperationPath? = null,
             private var domainFieldDefinition: GraphQLFieldDefinition? = null,
-            private var argumentsByPath: PersistentMap.Builder<GQLOperationPath, GraphQLArgument> =
+            private val argumentsByPath: PersistentMap.Builder<GQLOperationPath, GraphQLArgument> =
                 persistentMapOf<GQLOperationPath, GraphQLArgument>().builder(),
-            private var argumentsByName: PersistentMap.Builder<String, GraphQLArgument> =
+            private val argumentsByName: PersistentMap.Builder<String, GraphQLArgument> =
                 persistentMapOf<String, GraphQLArgument>().builder(),
-            private var argumentsWithDefaultValuesByName:
+            private val argumentsWithDefaultValuesByName:
                 PersistentMap.Builder<String, GraphQLArgument> =
                 persistentMapOf<String, GraphQLArgument>().builder(),
             private var dataElementSource: DataElementSource? = null,

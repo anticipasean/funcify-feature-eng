@@ -18,7 +18,11 @@ import reactor.core.publisher.Mono
  */
 object OptionExtensions {
 
-    fun <T> Option<T>.stream(): Stream<T> {
+    fun <T> Option<T>.sequence(): Sequence<T> {
+        return this.fold(::emptySequence, ::sequenceOf)
+    }
+
+    fun <T> Option<T>.stream(): Stream<out T> {
         return this.fold({ Stream.empty() }, { t -> Stream.ofNullable(t) })
     }
 
