@@ -228,6 +228,31 @@ interface GQLOperationPath : Comparable<GQLOperationPath> {
         return directive.isNotEmpty()
     }
 
+    fun isAncestorTo(other: GQLOperationPath): Boolean {
+        return GQLOperationPathHierarchyAssessor.invoke(this, other) ==
+            GQLOperationPathHierarchyAssessor.RelationshipType.ANCESTOR_DESCENDENT
+    }
+
+    fun isDescendentTo(other: GQLOperationPath): Boolean {
+        return GQLOperationPathHierarchyAssessor.invoke(this, other) ==
+            GQLOperationPathHierarchyAssessor.RelationshipType.DESCENDENT_ANCESTOR
+    }
+
+    fun isParentTo(other: GQLOperationPath): Boolean {
+        return GQLOperationPathHierarchyAssessor.invoke(this, other) ==
+            GQLOperationPathHierarchyAssessor.RelationshipType.PARENT_CHILD
+    }
+
+    fun isChildTo(other: GQLOperationPath): Boolean {
+        return GQLOperationPathHierarchyAssessor.invoke(this, other) ==
+            GQLOperationPathHierarchyAssessor.RelationshipType.CHILD_PARENT
+    }
+
+    fun isSiblingTo(other: GQLOperationPath): Boolean {
+        return GQLOperationPathHierarchyAssessor.invoke(this, other) ==
+            GQLOperationPathHierarchyAssessor.RelationshipType.SIBLING_SIBLING
+    }
+
     fun toDecodedURIString(): String
 
     override fun compareTo(other: GQLOperationPath): Int {

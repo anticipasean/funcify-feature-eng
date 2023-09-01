@@ -20,6 +20,7 @@ import funcify.feature.tools.extensions.SequenceExtensions.firstOrNone
 import funcify.feature.tools.extensions.SequenceExtensions.flatMapOptions
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import graphql.schema.FieldCoordinates
+import graphql.schema.GraphQLArgument
 import kotlinx.collections.immutable.*
 import org.slf4j.Logger
 
@@ -124,7 +125,14 @@ object TabularQueryVariableBasedOperationCreator :
                         tabularQuery.materializationMetamodel.domainSpecifiedDataElementSourceByPath
                             .getOrNone(pp)
                             .map { dsdes: DomainSpecifiedDataElementSource ->
-                                dsdes.argumentsByPath.size == argPathsSet.size
+                                // Must provide all arguments or at least those lacking default
+                                // argument values
+                                dsdes.argumentsByPath.size == argPathsSet.size ||
+                                    // TODO: Cacheable operation
+                                    dsdes.argumentsWithoutDefaultValuesByPath.asSequence().all {
+                                        (p: GQLOperationPath, _: GraphQLArgument) ->
+                                        argPathsSet.contains(p)
+                                    }
                             }
                             .getOrElse { false }
                     }

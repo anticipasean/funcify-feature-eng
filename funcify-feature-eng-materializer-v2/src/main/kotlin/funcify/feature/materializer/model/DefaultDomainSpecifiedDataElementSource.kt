@@ -2,11 +2,14 @@ package funcify.feature.materializer.model
 
 import arrow.core.continuations.eagerEffect
 import arrow.core.continuations.ensureNotNull
+import arrow.core.getOrNone
 import arrow.core.identity
 import funcify.feature.error.ServiceError
 import funcify.feature.schema.dataelement.DataElementSource
 import funcify.feature.schema.dataelement.DomainSpecifiedDataElementSource
 import funcify.feature.schema.path.operation.GQLOperationPath
+import funcify.feature.tools.extensions.OptionExtensions.sequence
+import funcify.feature.tools.extensions.PersistentMapExtensions.reduceEntriesToPersistentMap
 import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentMap
 import graphql.schema.FieldCoordinates
 import graphql.schema.GraphQLArgument
@@ -29,6 +32,24 @@ internal data class DefaultDomainSpecifiedDataElementSource(
         argumentsByPath
             .asSequence()
             .map { (p: GQLOperationPath, a: GraphQLArgument) -> a.name to p }
+            .reducePairsToPersistentMap()
+    }
+
+    override val argumentsWithoutDefaultValuesByName:
+        ImmutableMap<String, GraphQLArgument> by lazy {
+        argumentsByName
+            .asSequence()
+            .filter { (n: String, _: GraphQLArgument) -> n !in argumentsWithDefaultValuesByName }
+            .reduceEntriesToPersistentMap()
+    }
+
+    override val argumentsWithoutDefaultValuesByPath:
+        ImmutableMap<GQLOperationPath, GraphQLArgument> by lazy {
+        argumentsWithoutDefaultValuesByName
+            .asSequence()
+            .flatMap { (n: String, a: GraphQLArgument) ->
+                argumentPathsByName.getOrNone(n).map { p: GQLOperationPath -> p to a }.sequence()
+            }
             .reducePairsToPersistentMap()
     }
 

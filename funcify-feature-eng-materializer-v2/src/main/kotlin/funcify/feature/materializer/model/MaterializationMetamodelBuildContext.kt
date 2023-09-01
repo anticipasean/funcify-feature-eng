@@ -22,6 +22,14 @@ interface MaterializationMetamodelBuildContext {
 
     val materializationGraphQLSchema: GraphQLSchema
 
+    val elementTypePaths: ImmutableSet<GQLOperationPath>
+
+    val dataElementElementTypePath: GQLOperationPath
+
+    val featureElementTypePath: GQLOperationPath
+
+    val transformerElementTypePath: GQLOperationPath
+
     val childPathsByParentPath: ImmutableMap<GQLOperationPath, ImmutableSet<GQLOperationPath>>
 
     val querySchemaElementsByPath: ImmutableMap<GQLOperationPath, GraphQLSchemaElement>
@@ -59,6 +67,14 @@ interface MaterializationMetamodelBuildContext {
         fun featureEngineeringModel(featureEngineeringModel: FeatureEngineeringModel): Builder
 
         fun materializationGraphQLSchema(materializationGraphQLSchema: GraphQLSchema): Builder
+
+        fun elementTypePaths(elementTypePaths: ImmutableSet<GQLOperationPath>): Builder
+
+        fun dataElementElementTypePath(dataElementElementTypePath: GQLOperationPath): Builder
+
+        fun featureElementTypePath(featureElementTypePath: GQLOperationPath): Builder
+
+        fun transformerElementTypePath(transformerElementTypePath: GQLOperationPath): Builder
 
         fun addChildPathForParentPath(
             parentPath: GQLOperationPath,

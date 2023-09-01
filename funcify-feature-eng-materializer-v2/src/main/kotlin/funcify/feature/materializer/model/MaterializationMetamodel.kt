@@ -25,6 +25,14 @@ interface MaterializationMetamodel {
 
     val materializationGraphQLSchema: GraphQLSchema
 
+    val elementTypePaths: ImmutableSet<GQLOperationPath>
+
+    val dataElementElementTypePath: GQLOperationPath
+
+    val featureElementTypePath: GQLOperationPath
+
+    val transformerElementTypePath: GQLOperationPath
+
     val aliasCoordinatesRegistry: AliasCoordinatesRegistry
 
     val childPathsByParentPath: ImmutableMap<GQLOperationPath, ImmutableSet<GQLOperationPath>>

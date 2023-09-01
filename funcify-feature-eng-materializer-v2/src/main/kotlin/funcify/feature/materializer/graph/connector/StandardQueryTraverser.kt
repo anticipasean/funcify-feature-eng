@@ -1,18 +1,27 @@
 package funcify.feature.materializer.graph.connector
 
+import arrow.core.None
 import arrow.core.filterIsInstance
 import arrow.core.getOrNone
 import arrow.core.identity
+import arrow.core.orElse
 import arrow.core.toOption
 import funcify.feature.error.ServiceError
 import funcify.feature.materializer.graph.component.QueryComponentContext
 import funcify.feature.materializer.graph.component.QueryComponentContextFactory
+import funcify.feature.materializer.model.MaterializationMetamodel
 import funcify.feature.schema.path.operation.GQLOperationPath
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.OptionExtensions.toOption
 import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentMap
+import funcify.feature.tools.extensions.TryExtensions.successIfDefined
+import graphql.introspection.Introspection
 import graphql.language.*
+import graphql.schema.FieldCoordinates
+import graphql.schema.GraphQLCompositeType
+import graphql.schema.GraphQLFieldDefinition
+import graphql.schema.GraphQLTypeUtil
 import graphql.util.TraversalControl
 import graphql.util.Traverser
 import graphql.util.TraverserContext
@@ -24,7 +33,8 @@ import kotlinx.collections.immutable.persistentListOf
 import org.slf4j.Logger
 
 internal class StandardQueryTraverser(
-    private val queryComponentContextFactory: QueryComponentContextFactory
+    private val queryComponentContextFactory: QueryComponentContextFactory,
+    private val materializationMetamodel: MaterializationMetamodel
 ) : (String, Document) -> Iterable<QueryComponentContext> {
 
     companion object {
@@ -49,7 +59,8 @@ internal class StandardQueryTraverser(
         }
 
         private class StandardQueryNodeVisitor(
-            private val queryComponentContextFactory: QueryComponentContextFactory
+            private val queryComponentContextFactory: QueryComponentContextFactory,
+            private val materializationMetamodel: MaterializationMetamodel
         ) : NodeVisitorStub() {
 
             companion object {
@@ -77,43 +88,74 @@ internal class StandardQueryTraverser(
                 when (val parentNode: Node<*> = context.parentNode) {
                     is OperationDefinition -> {
                         val p: GQLOperationPath =
-                            extractParentPathContextVariableOrThrow(context).transform {
+                            extractParentPathFromContext(context).transform {
                                 when (node.alias) {
                                     null -> appendField(node.name)
                                     else -> appendAliasedField(node.alias, node.name)
                                 }
                             }
                         val c: StandardQueryTraversalContext = context.getCurrentAccumulate()
+                        val fd: GraphQLFieldDefinition =
+                            getGraphQLFieldDefinitionForField(
+                                    materializationMetamodel.materializationGraphQLSchema.queryType,
+                                    node
+                                )
+                                .orElseThrow()
+                        val fc: FieldCoordinates =
+                            FieldCoordinates.coordinates(
+                                materializationMetamodel.materializationGraphQLSchema.queryType,
+                                fd
+                            )
                         val qcc: QueryComponentContext =
                             queryComponentContextFactory
                                 .selectedFieldComponentContextBuilder()
                                 .field(node)
                                 .path(p)
+                                .fieldCoordinates(fc)
                                 .build()
                         context.setAccumulate(c.copy(queue = c.queue.add(qcc)))
                         context.setVar(GQLOperationPath::class.java, p)
+                        context.setVar(FieldCoordinates::class.java, fc)
+                        GraphQLTypeUtil.unwrapAll(fd.type)
+                            .toOption()
+                            .filterIsInstance<GraphQLCompositeType>()
+                            .tap { gqlct: GraphQLCompositeType ->
+                                context.setVar(GraphQLCompositeType::class.java, gqlct)
+                            }
                     }
                     is Field -> {
                         val p: GQLOperationPath =
-                            extractParentPathContextVariableOrThrow(context).transform {
+                            extractParentPathFromContext(context).transform {
                                 when (node.alias) {
                                     null -> appendField(node.name)
                                     else -> appendAliasedField(node.alias, node.name)
                                 }
                             }
                         val c: StandardQueryTraversalContext = context.getCurrentAccumulate()
+                        val gct: GraphQLCompositeType = getParentCompositeTypeFromContext(context)
+                        val fd: GraphQLFieldDefinition =
+                            getGraphQLFieldDefinitionForField(gct, node).orElseThrow()
+                        val fc: FieldCoordinates = FieldCoordinates.coordinates(gct.name, fd.name)
                         val qcc: QueryComponentContext =
                             queryComponentContextFactory
                                 .selectedFieldComponentContextBuilder()
                                 .field(node)
+                                .fieldCoordinates(fc)
                                 .path(p)
                                 .build()
                         context.setAccumulate(c.copy(queue = c.queue.add(qcc)))
                         context.setVar(GQLOperationPath::class.java, p)
+                        context.setVar(FieldCoordinates::class.java, fc)
+                        GraphQLTypeUtil.unwrapAll(fd.type)
+                            .toOption()
+                            .filterIsInstance<GraphQLCompositeType>()
+                            .tap { gqlct: GraphQLCompositeType ->
+                                context.setVar(GraphQLCompositeType::class.java, gqlct)
+                            }
                     }
                     is InlineFragment -> {
                         val p: GQLOperationPath =
-                            extractParentPathContextVariableOrThrow(context).transform {
+                            extractParentPathFromContext(context).transform {
                                 when (node.alias) {
                                     null -> {
                                         when (parentNode.typeCondition) {
@@ -145,18 +187,51 @@ internal class StandardQueryTraverser(
                                 }
                             }
                         val c: StandardQueryTraversalContext = context.getCurrentAccumulate()
+                        val gct: GraphQLCompositeType =
+                            getParentCompositeTypeFromContext(context)
+                                .toOption()
+                                .filter { gct: GraphQLCompositeType ->
+                                    gct.name == parentNode.typeCondition?.name
+                                }
+                                .orElse {
+                                    parentNode.typeCondition
+                                        .toOption()
+                                        .mapNotNull { tn: TypeName ->
+                                            materializationMetamodel.materializationGraphQLSchema
+                                                .getType(tn.name)
+                                        }
+                                        .filterIsInstance<GraphQLCompositeType>()
+                                }
+                                .successIfDefined {
+                                    ServiceError.of(
+                                        "unable to determine parent composite_type for field [ name: %s ]",
+                                        node.name
+                                    )
+                                }
+                                .orElseThrow()
+                        val fd: GraphQLFieldDefinition =
+                            getGraphQLFieldDefinitionForField(gct, node).orElseThrow()
+                        val fc: FieldCoordinates = FieldCoordinates.coordinates(gct.name, fd.name)
                         val qcc: QueryComponentContext =
                             queryComponentContextFactory
                                 .selectedFieldComponentContextBuilder()
                                 .field(node)
                                 .path(p)
+                                .fieldCoordinates(fc)
                                 .build()
                         context.setAccumulate(c.copy(queue = c.queue.add(qcc)))
                         context.setVar(GQLOperationPath::class.java, p)
+                        context.setVar(FieldCoordinates::class.java, fc)
+                        GraphQLTypeUtil.unwrapAll(fd.type)
+                            .toOption()
+                            .filterIsInstance<GraphQLCompositeType>()
+                            .tap { gqlct: GraphQLCompositeType ->
+                                context.setVar(GraphQLCompositeType::class.java, gqlct)
+                            }
                     }
                     is FragmentDefinition -> {
                         val p: GQLOperationPath =
-                            extractParentPathContextVariableOrThrow(context).transform {
+                            extractParentPathFromContext(context).transform {
                                 when (node.alias) {
                                     null -> {
                                         when (parentNode.typeCondition) {
@@ -190,17 +265,95 @@ internal class StandardQueryTraverser(
                                 }
                             }
                         val c: StandardQueryTraversalContext = context.getCurrentAccumulate()
+                        val gct: GraphQLCompositeType =
+                            getParentCompositeTypeFromContext(context)
+                                .toOption()
+                                .filter { gct: GraphQLCompositeType ->
+                                    gct.name == parentNode.typeCondition?.name
+                                }
+                                .orElse {
+                                    parentNode.typeCondition
+                                        .toOption()
+                                        .mapNotNull { tn: TypeName ->
+                                            materializationMetamodel.materializationGraphQLSchema
+                                                .getType(tn.name)
+                                        }
+                                        .filterIsInstance<GraphQLCompositeType>()
+                                }
+                                .successIfDefined {
+                                    ServiceError.of(
+                                        "unable to determine parent composite_type for field [ name: %s ]",
+                                        node.name
+                                    )
+                                }
+                                .orElseThrow()
+                        val fd: GraphQLFieldDefinition =
+                            getGraphQLFieldDefinitionForField(gct, node).orElseThrow()
+                        val fc: FieldCoordinates = FieldCoordinates.coordinates(gct.name, fd.name)
                         val qcc: QueryComponentContext =
                             queryComponentContextFactory
                                 .selectedFieldComponentContextBuilder()
                                 .field(node)
+                                .fieldCoordinates(fc)
                                 .path(p)
                                 .build()
                         context.setAccumulate(c.copy(queue = c.queue.add(qcc)))
                         context.setVar(GQLOperationPath::class.java, p)
+                        context.setVar(FieldCoordinates::class.java, fc)
+                        GraphQLTypeUtil.unwrapAll(fd.type)
+                            .toOption()
+                            .filterIsInstance<GraphQLCompositeType>()
+                            .tap { gqlct: GraphQLCompositeType ->
+                                context.setVar(GraphQLCompositeType::class.java, gqlct)
+                            }
                     }
                 }
                 return TraversalControl.CONTINUE
+            }
+
+            private fun getGraphQLFieldDefinitionForField(
+                parentCompositeType: GraphQLCompositeType,
+                field: Field
+            ): Try<GraphQLFieldDefinition> {
+                return Try.attemptNullable {
+                        Introspection.getFieldDef(
+                            materializationMetamodel.materializationGraphQLSchema,
+                            parentCompositeType,
+                            field.name
+                        )
+                    }
+                    .flatMap(Try.Companion::fromOption)
+                    .mapFailure { t: Throwable ->
+                        when (t) {
+                            is ServiceError -> {
+                                t
+                            }
+                            else -> {
+                                ServiceError.builder()
+                                    .message(
+                                        "unable to get field_definition for field [ name: %s, alias: %s ]",
+                                        field.name,
+                                        field.alias
+                                    )
+                                    .cause(t)
+                                    .build()
+                            }
+                        }
+                    }
+            }
+
+            private fun getParentCompositeTypeFromContext(
+                context: TraverserContext<Node<*>>
+            ): GraphQLCompositeType {
+                return try {
+                        context.getVarFromParents(GraphQLCompositeType::class.java).toOption()
+                    } catch (c: ClassCastException) {
+                        None
+                    }
+                    .successIfDefined {
+                        ServiceError.of("unable to get parent_type from traverser_context")
+                    }
+                    .orElseThrow()
             }
 
             override fun visitFragmentDefinition(
@@ -236,22 +389,36 @@ internal class StandardQueryTraverser(
             ): TraversalControl {
                 logger.debug("visit_argument: [ node.name: {} ]", node.name)
                 val p: GQLOperationPath =
-                    extractParentPathContextVariableOrThrow(context).transform {
-                        argument(node.name)
-                    }
+                    extractParentPathFromContext(context).transform { argument(node.name) }
                 val c: StandardQueryTraversalContext = context.getCurrentAccumulate()
+                val fc: FieldCoordinates = extractFieldCoordinatesFromContext(context)
                 val qcc: QueryComponentContext =
                     queryComponentContextFactory
                         .fieldArgumentComponentContextBuilder()
                         .argument(node)
                         .path(p)
+                        .fieldCoordinates(fc)
                         .build()
                 context.setAccumulate(c.copy(queue = c.queue.add(qcc)))
                 context.setVar(GQLOperationPath::class.java, p)
                 return TraversalControl.CONTINUE
             }
 
-            private fun extractParentPathContextVariableOrThrow(
+            private fun extractFieldCoordinatesFromContext(
+                context: TraverserContext<Node<*>>
+            ): FieldCoordinates {
+                return try {
+                        context.getVarFromParents(FieldCoordinates::class.java).toOption()
+                    } catch (c: ClassCastException) {
+                        None
+                    }
+                    .successIfDefined {
+                        ServiceError.of("field_coordinates not available in traverser_context")
+                    }
+                    .orElseThrow()
+            }
+
+            private fun extractParentPathFromContext(
                 context: TraverserContext<Node<*>>
             ): GQLOperationPath {
                 return Try.attemptNullable {
@@ -301,7 +468,8 @@ internal class StandardQueryTraverser(
                         StandardQueryTraverserVisitor(
                             nodeVisitor =
                                 StandardQueryNodeVisitor(
-                                    queryComponentContextFactory = queryComponentContextFactory
+                                    queryComponentContextFactory = queryComponentContextFactory,
+                                    materializationMetamodel = materializationMetamodel
                                 )
                         )
                     )

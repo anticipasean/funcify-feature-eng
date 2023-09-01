@@ -9,14 +9,20 @@ import funcify.feature.schema.path.operation.GQLOperationPath
 import graphql.schema.FieldCoordinates
 import graphql.schema.GraphQLSchema
 import graphql.schema.GraphQLSchemaElement
+import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.PersistentSet
 import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.persistentSetOf
+import kotlinx.collections.immutable.toPersistentSet
 
 internal data class DefaultMaterializationMetamodelBuildContext(
     override val featureEngineeringModel: FeatureEngineeringModel,
     override val materializationGraphQLSchema: GraphQLSchema,
+    override val elementTypePaths: ImmutableSet<GQLOperationPath>,
+    override val dataElementElementTypePath: GQLOperationPath,
+    override val featureElementTypePath: GQLOperationPath,
+    override val transformerElementTypePath: GQLOperationPath,
     override val childPathsByParentPath:
         PersistentMap<GQLOperationPath, PersistentSet<GQLOperationPath>>,
     override val querySchemaElementsByPath: PersistentMap<GQLOperationPath, GraphQLSchemaElement>,
@@ -51,6 +57,28 @@ internal data class DefaultMaterializationMetamodelBuildContext(
             return DefaultMaterializationMetamodelBuildContext(
                 featureEngineeringModel = featureEngineeringModel,
                 materializationGraphQLSchema = materializationGraphQLSchema,
+                elementTypePaths =
+                    sequenceOf(
+                            featureEngineeringModel.dataElementFieldCoordinates,
+                            featureEngineeringModel.featureFieldCoordinates,
+                            featureEngineeringModel.transformerFieldCoordinates
+                        )
+                        .map { fc: FieldCoordinates ->
+                            GQLOperationPath.of { appendField(fc.fieldName) }
+                        }
+                        .toPersistentSet(),
+                dataElementElementTypePath =
+                    GQLOperationPath.of {
+                        field(featureEngineeringModel.dataElementFieldCoordinates.fieldName)
+                    },
+                featureElementTypePath =
+                    GQLOperationPath.of {
+                        appendField(featureEngineeringModel.featureFieldCoordinates.fieldName)
+                    },
+                transformerElementTypePath =
+                    GQLOperationPath.of {
+                        appendField(featureEngineeringModel.transformerFieldCoordinates.fieldName)
+                    },
                 childPathsByParentPath = persistentMapOf(),
                 querySchemaElementsByPath = persistentMapOf(),
                 fieldCoordinatesByPath = persistentMapOf(),
@@ -73,6 +101,14 @@ internal data class DefaultMaterializationMetamodelBuildContext(
                 existingFacts.featureEngineeringModel,
             private var materializationGraphQLSchema: GraphQLSchema =
                 existingFacts.materializationGraphQLSchema,
+            private var elementTypePaths: ImmutableSet<GQLOperationPath> =
+                existingFacts.elementTypePaths,
+            private var dataElementElementTypePath: GQLOperationPath =
+                existingFacts.dataElementElementTypePath,
+            private var featureElementTypePath: GQLOperationPath =
+                existingFacts.featureElementTypePath,
+            private var transformerElementTypePath: GQLOperationPath =
+                existingFacts.transformerElementTypePath,
             private val childPathsByParentPath:
                 PersistentMap.Builder<GQLOperationPath, PersistentSet<GQLOperationPath>> =
                 existingFacts.childPathsByParentPath.builder(),
@@ -120,6 +156,21 @@ internal data class DefaultMaterializationMetamodelBuildContext(
                 materializationGraphQLSchema: GraphQLSchema
             ): Builder =
                 this.apply { this.materializationGraphQLSchema = materializationGraphQLSchema }
+
+            override fun elementTypePaths(
+                elementTypePaths: ImmutableSet<GQLOperationPath>
+            ): Builder = this.apply { this.elementTypePaths = elementTypePaths }
+
+            override fun dataElementElementTypePath(
+                dataElementElementTypePath: GQLOperationPath
+            ): Builder = this.apply { this.dataElementElementTypePath = dataElementElementTypePath }
+
+            override fun featureElementTypePath(featureElementTypePath: GQLOperationPath): Builder =
+                this.apply { this.featureElementTypePath = featureElementTypePath }
+
+            override fun transformerElementTypePath(
+                transformerElementTypePath: GQLOperationPath
+            ): Builder = this.apply { this.transformerElementTypePath = transformerElementTypePath }
 
             override fun addChildPathForParentPath(
                 parentPath: GQLOperationPath,
@@ -261,6 +312,10 @@ internal data class DefaultMaterializationMetamodelBuildContext(
                 return DefaultMaterializationMetamodelBuildContext(
                     featureEngineeringModel = featureEngineeringModel,
                     materializationGraphQLSchema = materializationGraphQLSchema,
+                    elementTypePaths = elementTypePaths,
+                    dataElementElementTypePath = dataElementElementTypePath,
+                    featureElementTypePath = featureElementTypePath,
+                    transformerElementTypePath = transformerElementTypePath,
                     childPathsByParentPath = childPathsByParentPath.build(),
                     querySchemaElementsByPath = querySchemaElementsByPath.build(),
                     fieldCoordinatesByPath = fieldCoordinatesByPath.build(),
