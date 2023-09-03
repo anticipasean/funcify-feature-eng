@@ -95,7 +95,7 @@ object TabularQueryConnector : RequestMaterializationGraphConnector<TabularQuery
                             }
                     when {
                         featurePathAndField.isDefined() -> {
-                            TODO()
+                            c
                         }
                         columnName in c.rawInputContextKeys || columnName in c.variableKeys -> {
                             c.update { addPassThroughColumn(columnName) }
@@ -114,7 +114,7 @@ object TabularQueryConnector : RequestMaterializationGraphConnector<TabularQuery
         fieldArgumentComponentContext: FieldArgumentComponentContext,
     ): TabularQuery {
         logger.debug("connect_field_argument: [ path: {} ]", fieldArgumentComponentContext.path)
-        TODO("Not yet implemented")
+        return connectorContext
     }
 
     override fun connectSelectedField(
@@ -122,7 +122,7 @@ object TabularQueryConnector : RequestMaterializationGraphConnector<TabularQuery
         selectedFieldComponentContext: SelectedFieldComponentContext
     ): TabularQuery {
         logger.debug("connect_selected_field: [ path: {} ]", selectedFieldComponentContext.path)
-        TODO("Not yet implemented")
+        return connectorContext
     }
 
     override fun completeOperationDefinition(connectorContext: TabularQuery): TabularQuery {

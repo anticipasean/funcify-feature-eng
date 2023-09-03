@@ -1,6 +1,5 @@
 package funcify.feature.materializer.graph.component
 
-import arrow.core.Option
 import funcify.feature.schema.path.operation.GQLOperationPath
 import graphql.language.Argument
 import graphql.language.Field
@@ -14,7 +13,7 @@ sealed interface QueryComponentContext {
 
     val path: GQLOperationPath
 
-    val fieldCoordinates: Option<FieldCoordinates>
+    val fieldCoordinates: FieldCoordinates
 
     interface Builder<B : Builder<B>> {
 
@@ -27,9 +26,9 @@ sealed interface QueryComponentContext {
 
         override val path: GQLOperationPath
 
-        override val fieldCoordinates: Option<FieldCoordinates>
+        override val fieldCoordinates: FieldCoordinates
 
-        val field: Option<Field>
+        val field: Field
 
         interface Builder : QueryComponentContext.Builder<Builder> {
 
@@ -47,9 +46,9 @@ sealed interface QueryComponentContext {
 
         override val path: GQLOperationPath
 
-        override val fieldCoordinates: Option<FieldCoordinates>
+        override val fieldCoordinates: FieldCoordinates
 
-        val argument: Option<Argument>
+        val argument: Argument
 
         interface Builder : QueryComponentContext.Builder<Builder> {
 

@@ -6,11 +6,14 @@ import arrow.core.none
 import arrow.core.toOption
 import com.google.common.cache.CacheBuilder
 import funcify.feature.error.ServiceError
+import funcify.feature.graph.PersistentGraphFactory
+import funcify.feature.materializer.graph.component.DefaultQueryComponentContextFactory
 import funcify.feature.materializer.graph.component.QueryComponentContext
 import funcify.feature.materializer.graph.component.QueryComponentContextFactory
 import funcify.feature.materializer.graph.connector.RequestMaterializationGraphConnector
 import funcify.feature.materializer.graph.connector.StandardQueryConnector
 import funcify.feature.materializer.graph.connector.TabularQueryConnector
+import funcify.feature.materializer.graph.context.DefaultRequestMaterializationGraphContextFactory
 import funcify.feature.materializer.graph.context.RequestMaterializationGraphContext
 import funcify.feature.materializer.graph.context.RequestMaterializationGraphContextFactory
 import funcify.feature.materializer.graph.context.StandardQuery
@@ -39,28 +42,9 @@ import reactor.core.publisher.Mono
 internal class DefaultSingleRequestMaterializationGraphService(
     private val requestMaterializationGraphContextFactory:
         RequestMaterializationGraphContextFactory =
-        object : RequestMaterializationGraphContextFactory {
-
-            override fun standardQueryBuilder(): StandardQuery.Builder {
-                TODO("Not yet implemented")
-            }
-
-            override fun tabularQueryBuilder(): TabularQuery.Builder {
-                TODO("Not yet implemented")
-            }
-        },
+        DefaultRequestMaterializationGraphContextFactory,
     private val queryComponentContextFactory: QueryComponentContextFactory =
-        object : QueryComponentContextFactory {
-            override fun selectedFieldComponentContextBuilder():
-                QueryComponentContext.SelectedFieldComponentContext.Builder {
-                TODO("Not yet implemented")
-            }
-
-            override fun fieldArgumentComponentContextBuilder():
-                QueryComponentContext.FieldArgumentComponentContext.Builder {
-                TODO("Not yet implemented")
-            }
-        }
+        DefaultQueryComponentContextFactory
 ) : SingleRequestMaterializationGraphService {
 
     companion object {
@@ -222,6 +206,13 @@ internal class DefaultSingleRequestMaterializationGraphService(
                             .rawInputContextKeys(cacheKey.rawInputContextKeys)
                             .operationName(cacheKey.operationName.orNull()!!)
                             .document(cacheKey.standardQueryDocument.orNull()!!)
+                            .requestGraph(
+                                PersistentGraphFactory.defaultFactory()
+                                    .builder()
+                                    .directed()
+                                    .permitParallelEdges()
+                                    .build()
+                            )
                             .build()
                     }
                     cacheKey.tabularQueryOutputColumns.isDefined() -> {
@@ -232,6 +223,13 @@ internal class DefaultSingleRequestMaterializationGraphService(
                             .variableKeys(cacheKey.variableKeys)
                             .rawInputContextKeys(cacheKey.rawInputContextKeys)
                             .outputColumnNames(cacheKey.tabularQueryOutputColumns.orNull()!!)
+                            .requestGraph(
+                                PersistentGraphFactory.defaultFactory()
+                                    .builder()
+                                    .directed()
+                                    .permitParallelEdges()
+                                    .build()
+                            )
                             .build()
                     }
                     else -> {
