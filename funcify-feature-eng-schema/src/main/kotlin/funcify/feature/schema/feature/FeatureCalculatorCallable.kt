@@ -37,12 +37,6 @@ interface FeatureCalculatorCallable :
             graphQLFieldDefinition: GraphQLFieldDefinition
         ): Builder
 
-        fun addArgument(path: GQLOperationPath, graphQLArgument: GraphQLArgument): Builder
-
-        fun addAllArguments(arguments: Iterable<Pair<GQLOperationPath, GraphQLArgument>>): Builder
-
-        fun addAllArguments(arguments: Map<GQLOperationPath, GraphQLArgument>): Builder
-
         fun addTransformerCallable(transformerCallable: TransformerCallable): Builder
 
         fun build(): FeatureCalculatorCallable

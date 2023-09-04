@@ -61,6 +61,7 @@ object StandardQueryConnector : RequestMaterializationGraphConnector<StandardQue
                             document = connectorContext.document
                         )
                         .fold(this) { sqb: StandardQuery.Builder, qcc: QueryComponentContext ->
+                            logger.debug("query_component_context: {}", qcc)
                             sqb.addVertexContext(qcc)
                         }
                 }

@@ -2,6 +2,8 @@ package funcify.feature.schema.dataelement
 
 import com.fasterxml.jackson.databind.JsonNode
 import funcify.feature.schema.path.operation.GQLOperationPath
+import graphql.language.Field
+import graphql.language.Value
 import graphql.schema.FieldCoordinates
 import graphql.schema.GraphQLArgument
 import graphql.schema.GraphQLFieldDefinition
@@ -24,6 +26,8 @@ interface DataElementCallable : (ImmutableMap<GQLOperationPath, JsonNode>) -> Mo
 
     val selectionsByPath: ImmutableMap<GQLOperationPath, GraphQLFieldDefinition>
 
+    fun update(transformer: Builder.() -> Builder): DataElementCallable
+
     interface Builder {
 
         fun setDomainSelection(
@@ -32,22 +36,15 @@ interface DataElementCallable : (ImmutableMap<GQLOperationPath, JsonNode>) -> Mo
             graphQLFieldDefinition: GraphQLFieldDefinition
         ): Builder
 
-        fun addArgument(path: GQLOperationPath, graphQLArgument: GraphQLArgument): Builder
+        fun selectField(field: Field): Builder
 
-        fun addAllArguments(arguments: Iterable<Pair<GQLOperationPath, GraphQLArgument>>): Builder
+        fun addSelection(path: GQLOperationPath): Builder
 
-        fun addAllArguments(arguments: Map<GQLOperationPath, GraphQLArgument>): Builder
+        fun addSelectionDirective(path: GQLOperationPath): Builder
 
-        fun addSelection(
-            path: GQLOperationPath,
-            graphQLFieldDefinition: GraphQLFieldDefinition
-        ): Builder
+        fun addSelectionDirectiveWithValue(path: GQLOperationPath, value: Value<*>): Builder
 
-        fun addAllSelections(
-            selections: Iterable<Pair<GQLOperationPath, GraphQLFieldDefinition>>
-        ): Builder
-
-        fun addAllSelections(selections: Map<GQLOperationPath, GraphQLFieldDefinition>): Builder
+        fun addAllSelections(selections: Iterable<GQLOperationPath>): Builder
 
         fun build(): DataElementCallable
     }

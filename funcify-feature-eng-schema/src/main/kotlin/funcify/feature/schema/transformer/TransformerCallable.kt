@@ -30,12 +30,6 @@ interface TransformerCallable : (ImmutableMap<GQLOperationPath, JsonNode>) -> Mo
             graphQLFieldDefinition: GraphQLFieldDefinition
         ): Builder
 
-        fun addArgument(path: GQLOperationPath, graphQLArgument: GraphQLArgument): Builder
-
-        fun addAllArguments(arguments: Iterable<Pair<GQLOperationPath, GraphQLArgument>>): Builder
-
-        fun addAllArguments(arguments: Map<GQLOperationPath, GraphQLArgument>): Builder
-
         fun build(): TransformerCallable
     }
 }

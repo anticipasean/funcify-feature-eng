@@ -67,6 +67,12 @@ class StreamFunctions {
                 |            productionCountry
                 |            genres
                 |            dateAdded
+                |            ... on Movie {
+                |                duration
+                |            }
+                |            ... on TVShow {
+                |                numberOfSeasons
+                |            }
                 |        }
                 |    }
                 |    transformer {

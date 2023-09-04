@@ -19,6 +19,8 @@ interface DispatchedRequestMaterializationGraph {
     val featureCalculatorPublishersByCoordinates:
         ImmutableMap<FieldCoordinates, Mono<TrackableValue<JsonNode>>>
 
+    val passThruColumns: ImmutableMap<String, JsonNode>
+
     interface Builder {
 
         fun addTransformerPublisher(
@@ -42,11 +44,17 @@ interface DispatchedRequestMaterializationGraph {
         fun addFeatureCalculatorPublisher(
             coordinates: FieldCoordinates,
             publisher: Mono<TrackableValue<JsonNode>>
-        )
+        ): Builder
 
         fun addAllFeatureCalculatorPublishers(
             publisherPairs: Iterable<Pair<FieldCoordinates, Mono<TrackableValue<JsonNode>>>>
-        )
+        ): Builder
+
+        fun addPassThruColumn(columnName: String, columnValue: JsonNode): Builder
+
+        fun addAllPassThruColumns(columns: Map<String, JsonNode>): Builder
+
+        fun addAllPassThruColumns(columns: Iterable<Pair<String, JsonNode>>): Builder
 
         fun build(): DispatchedRequestMaterializationGraph
     }

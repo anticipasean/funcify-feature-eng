@@ -4,6 +4,8 @@ import arrow.core.continuations.eagerEffect
 import arrow.core.continuations.ensureNotNull
 import arrow.core.identity
 import funcify.feature.error.ServiceError
+import funcify.feature.materializer.graph.component.QueryComponentContext.FieldArgumentComponentContext
+import funcify.feature.materializer.graph.component.QueryComponentContext.SelectedFieldComponentContext
 import funcify.feature.naming.StandardNamingConventions
 import funcify.feature.schema.path.operation.GQLOperationPath
 import graphql.language.Argument
@@ -42,18 +44,16 @@ internal object DefaultQueryComponentContextFactory : QueryComponentContextFacto
             null,
         private var field: Field? = existingSelectedFieldComponentContext?.field
     ) :
-        DefaultQueryComponentContextBuilder<
-            QueryComponentContext.SelectedFieldComponentContext.Builder
-        >(existingContext = existingSelectedFieldComponentContext),
-        QueryComponentContext.SelectedFieldComponentContext.Builder {
+        DefaultQueryComponentContextBuilder<SelectedFieldComponentContext.Builder>(
+            existingContext = existingSelectedFieldComponentContext
+        ),
+        SelectedFieldComponentContext.Builder {
 
-        override fun field(
-            field: Field
-        ): QueryComponentContext.SelectedFieldComponentContext.Builder =
+        override fun field(field: Field): SelectedFieldComponentContext.Builder =
             this.apply { this.field = field }
 
-        override fun build(): QueryComponentContext.SelectedFieldComponentContext {
-            return eagerEffect<String, QueryComponentContext.SelectedFieldComponentContext> {
+        override fun build(): SelectedFieldComponentContext {
+            return eagerEffect<String, SelectedFieldComponentContext> {
                     ensureNotNull(path) { "path not provided" }
                     ensureNotNull(fieldCoordinates) { "field_coordinates not provided" }
                     ensureNotNull(field) { "field not provided" }
@@ -64,9 +64,7 @@ internal object DefaultQueryComponentContextFactory : QueryComponentContextFacto
                         throw ServiceError.of(
                             "unable to create %s [ message: %s ]",
                             StandardNamingConventions.SNAKE_CASE.deriveName(
-                                QueryComponentContext.SelectedFieldComponentContext::class
-                                    .simpleName
-                                    ?: "<NA>"
+                                SelectedFieldComponentContext::class.simpleName ?: "<NA>"
                             ),
                             message
                         )
@@ -80,25 +78,23 @@ internal object DefaultQueryComponentContextFactory : QueryComponentContextFacto
         override val path: GQLOperationPath,
         override val fieldCoordinates: FieldCoordinates,
         override val field: Field
-    ) : QueryComponentContext.SelectedFieldComponentContext {}
+    ) : SelectedFieldComponentContext {}
 
     internal class DefaultFieldArgumentComponentContextBuilder(
         private val existingFieldArgumentComponentContext: DefaultFieldArgumentComponentContext? =
             null,
         private var argument: Argument? = existingFieldArgumentComponentContext?.argument
     ) :
-        DefaultQueryComponentContextBuilder<
-            QueryComponentContext.FieldArgumentComponentContext.Builder
-        >(existingContext = existingFieldArgumentComponentContext),
-        QueryComponentContext.FieldArgumentComponentContext.Builder {
+        DefaultQueryComponentContextBuilder<FieldArgumentComponentContext.Builder>(
+            existingContext = existingFieldArgumentComponentContext
+        ),
+        FieldArgumentComponentContext.Builder {
 
-        override fun argument(
-            argument: Argument
-        ): QueryComponentContext.FieldArgumentComponentContext.Builder =
+        override fun argument(argument: Argument): FieldArgumentComponentContext.Builder =
             this.apply { this.argument = argument }
 
-        override fun build(): QueryComponentContext.FieldArgumentComponentContext {
-            return eagerEffect<String, QueryComponentContext.FieldArgumentComponentContext> {
+        override fun build(): FieldArgumentComponentContext {
+            return eagerEffect<String, FieldArgumentComponentContext> {
                     ensureNotNull(path) { "path not provided" }
                     ensureNotNull(fieldCoordinates) { "field_coordinates not provided" }
                     ensureNotNull(argument) { "argument not provided" }
@@ -109,9 +105,7 @@ internal object DefaultQueryComponentContextFactory : QueryComponentContextFacto
                         throw ServiceError.of(
                             "unable to create %s [ message: %s ]",
                             StandardNamingConventions.SNAKE_CASE.deriveName(
-                                QueryComponentContext.FieldArgumentComponentContext::class
-                                    .simpleName
-                                    ?: "<NA>"
+                                FieldArgumentComponentContext::class.simpleName ?: "<NA>"
                             ),
                             message
                         )
@@ -125,15 +119,13 @@ internal object DefaultQueryComponentContextFactory : QueryComponentContextFacto
         override val path: GQLOperationPath,
         override val fieldCoordinates: FieldCoordinates,
         override val argument: Argument
-    ) : QueryComponentContext.FieldArgumentComponentContext {}
+    ) : FieldArgumentComponentContext {}
 
-    override fun selectedFieldComponentContextBuilder():
-        QueryComponentContext.SelectedFieldComponentContext.Builder {
+    override fun selectedFieldComponentContextBuilder(): SelectedFieldComponentContext.Builder {
         return DefaultSelectedFieldComponentContextBuilder()
     }
 
-    override fun fieldArgumentComponentContextBuilder():
-        QueryComponentContext.FieldArgumentComponentContext.Builder {
+    override fun fieldArgumentComponentContextBuilder(): FieldArgumentComponentContext.Builder {
         return DefaultFieldArgumentComponentContextBuilder()
     }
 }

@@ -30,14 +30,11 @@ interface RequestMaterializationGraphContext {
 
     val passThroughColumns: ImmutableSet<String>
 
-    val transformerCallableBuildersByPath:
-        ImmutableMap<GQLOperationPath, TransformerCallable.Builder>
+    val transformerCallablesByPath: ImmutableMap<GQLOperationPath, TransformerCallable>
 
-    val dataElementCallableBuildersByPath:
-        ImmutableMap<GQLOperationPath, DataElementCallable.Builder>
+    val dataElementCallablesByPath: ImmutableMap<GQLOperationPath, DataElementCallable>
 
-    val featureCalculatorCallableBuildersByPath:
-        ImmutableMap<GQLOperationPath, FeatureCalculatorCallable.Builder>
+    val featureCalculatorCallablesByPath: ImmutableMap<GQLOperationPath, FeatureCalculatorCallable>
 
     val queryComponentContextFactory: QueryComponentContextFactory
 
@@ -57,19 +54,19 @@ interface RequestMaterializationGraphContext {
             requestGraph: DirectedPersistentGraph<GQLOperationPath, Node<*>, MaterializationEdge>
         ): B
 
-        fun putTransformerCallableBuildersForPath(
+        fun putTransformerCallableForPath(
             path: GQLOperationPath,
-            transformerCallableBuilder: TransformerCallable.Builder
+            transformerCallable: TransformerCallable
         ): B
 
-        fun putDataElementCallableBuildersForPath(
+        fun putDataElementCallableForPath(
             path: GQLOperationPath,
-            dataElementCallableBuilder: DataElementCallable.Builder
+            dataElementCallable: DataElementCallable
         ): B
 
-        fun putFeatureCalculatorCallableBuildersForPath(
+        fun putFeatureCalculatorCallableForPath(
             path: GQLOperationPath,
-            featureCalculatorCallableBuilder: FeatureCalculatorCallable.Builder
+            featureCalculatorCallable: FeatureCalculatorCallable
         ): B
 
         fun queryComponentContextFactory(

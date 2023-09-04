@@ -250,33 +250,35 @@ internal class DefaultSingleRequestMaterializationGraphService(
     private fun deriveRequestMaterializationGraphFromContext(
         context: RequestMaterializationGraphContext
     ): Mono<RequestMaterializationGraph> {
-        Mono.fromCallable {
-            when (context) {
-                is StandardQuery -> {
-                    val connector = StandardQueryConnector
-                    connectOperationDefinitionAndEachAddedVertex(connector, context) {
-                        c: StandardQuery ->
-                        c.addedVertexContexts.asSequence().firstOrNone() to
-                            c.update { dropFirstAddedVertex() }
+        return Mono.fromCallable {
+                when (context) {
+                    is StandardQuery -> {
+                        val connector = StandardQueryConnector
+                        connectOperationDefinitionAndEachAddedVertex(connector, context) {
+                            c: StandardQuery ->
+                            c.addedVertexContexts.asSequence().firstOrNone() to
+                                c.update { dropFirstAddedVertex() }
+                        }
                     }
-                }
-                is TabularQuery -> {
-                    val connector = TabularQueryConnector
-                    connectOperationDefinitionAndEachAddedVertex(connector, context) {
-                        c: TabularQuery ->
-                        c.addedVertexContexts.asSequence().firstOrNone() to
-                            c.update { dropFirstAddedVertex() }
+                    is TabularQuery -> {
+                        val connector = TabularQueryConnector
+                        connectOperationDefinitionAndEachAddedVertex(connector, context) {
+                            c: TabularQuery ->
+                            c.addedVertexContexts.asSequence().firstOrNone() to
+                                c.update { dropFirstAddedVertex() }
+                        }
                     }
-                }
-                else -> {
-                    throw ServiceError.of(
-                        "unsupported request_materialization_graph_context.type: [ type: %s ]",
-                        context::class.qualifiedName
-                    )
+                    else -> {
+                        throw ServiceError.of(
+                            "unsupported request_materialization_graph_context.type: [ type: %s ]",
+                            context::class.qualifiedName
+                        )
+                    }
                 }
             }
-        }
-        return Mono.error { ServiceError.of("request_materialization_graph not yet implemented") }
+            .then(
+                Mono.error { ServiceError.of("request_materialization_graph not yet implemented") }
+            )
     }
 
     private fun <C> connectOperationDefinitionAndEachAddedVertex(
