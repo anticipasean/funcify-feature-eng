@@ -3,30 +3,28 @@ package funcify.feature.materializer.request
 import arrow.core.foldLeft
 import com.fasterxml.jackson.databind.node.JsonNodeFactory
 import com.fasterxml.jackson.databind.node.ObjectNode
+import funcify.feature.materializer.request.DefaultRawGraphQLRequestFactory.Companion.DefaultRawGraphQLRequestBuilder
 import graphql.execution.ExecutionId
-import kotlinx.collections.immutable.PersistentList
-import kotlinx.collections.immutable.PersistentMap
-import kotlinx.collections.immutable.persistentListOf
-import kotlinx.collections.immutable.persistentMapOf
-import org.springframework.messaging.MessageHeaders
-import reactor.core.publisher.Mono
 import java.net.URI
 import java.security.Principal
 import java.util.*
+import kotlinx.collections.immutable.PersistentList
+import kotlinx.collections.immutable.PersistentMap
+import org.springframework.messaging.MessageHeaders
+import reactor.core.publisher.Mono
 
 internal data class DefaultRawGraphQLRequest(
     override val requestId: UUID,
     override val executionId: ExecutionId,
     override val uri: URI,
     override val headers: MessageHeaders,
-    override val principalPublisher: Mono<out Principal> = Mono.empty(),
-    override val rawGraphQLQueryText: String = "",
-    override val operationName: String = "",
-    override val variables: PersistentMap<String, Any?> = persistentMapOf(),
-    override val locale: Locale = Locale.getDefault(),
-    override val expectedOutputFieldNames: PersistentList<String> = persistentListOf(),
-    override val executionInputCustomizers: PersistentList<GraphQLExecutionInputCustomizer> =
-        persistentListOf(),
+    override val principalPublisher: Mono<out Principal>,
+    override val rawGraphQLQueryText: String,
+    override val operationName: String,
+    override val variables: PersistentMap<String, Any?>,
+    override val locale: Locale,
+    override val expectedOutputFieldNames: PersistentList<String>,
+    override val executionInputCustomizers: PersistentList<GraphQLExecutionInputCustomizer>,
 ) : RawGraphQLRequest {
 
     private val stringForm: String by lazy {
@@ -57,21 +55,7 @@ internal data class DefaultRawGraphQLRequest(
     override fun update(
         transformer: RawGraphQLRequest.Builder.() -> RawGraphQLRequest.Builder
     ): RawGraphQLRequest {
-        return transformer(
-                DefaultRawGraphQLRequestFactory.Companion.DefaultRawGraphQLRequestBuilder(
-                    requestId = this.requestId,
-                    executionId = this.executionId,
-                    uri = this.uri,
-                    headers = this.headers,
-                    principalPublisher = this.principalPublisher,
-                    rawGraphQLQueryText = this.rawGraphQLQueryText,
-                    operationName = this.operationName,
-                    variables = this.variables.builder(),
-                    locale = this.locale,
-                    expectedOutputFieldNames = this.expectedOutputFieldNames.builder(),
-                    executionInputCustomizers = this.executionInputCustomizers.builder(),
-                )
-            )
+        return transformer(DefaultRawGraphQLRequestBuilder(existingRawGraphQLRequest = this))
             .build()
     }
 }

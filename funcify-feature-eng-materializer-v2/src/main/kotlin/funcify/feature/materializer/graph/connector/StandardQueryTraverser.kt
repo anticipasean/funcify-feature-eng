@@ -13,8 +13,8 @@ import funcify.feature.materializer.model.MaterializationMetamodel
 import funcify.feature.schema.path.operation.GQLOperationPath
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
-import funcify.feature.tools.extensions.OptionExtensions.toOption
 import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentMap
+import funcify.feature.tools.extensions.SequenceExtensions.firstOrNone
 import funcify.feature.tools.extensions.TryExtensions.successIfDefined
 import graphql.introspection.Introspection
 import graphql.language.*
@@ -446,17 +446,33 @@ internal class StandardQueryTraverser(
             "{}: [ operation_name: {}, document.operation_definition.selection_set.selections.size: {} ]",
             METHOD_TAG,
             operationName,
-            document
-                .getOperationDefinition(operationName)
-                .toOption()
+            document.definitions
+                .asSequence()
+                .filterIsInstance<OperationDefinition>()
+                .filter { od: OperationDefinition ->
+                    if (operationName.isNotBlank()) {
+                        od.name == operationName
+                    } else {
+                        true
+                    }
+                }
+                .firstOrNone()
                 .mapNotNull(OperationDefinition::getSelectionSet)
                 .mapNotNull(SelectionSet::getSelections)
                 .fold(::emptyList, ::identity)
                 .size
         )
-        return document
-            .getOperationDefinition(operationName)
-            .toOption()
+        return document.definitions
+            .asSequence()
+            .filterIsInstance<OperationDefinition>()
+            .filter { od: OperationDefinition ->
+                if (operationName.isNotBlank()) {
+                    od.name == operationName
+                } else {
+                    true
+                }
+            }
+            .firstOrNone()
             .map { od: OperationDefinition ->
                 Traverser.breadthFirst(
                         nodeTraversalFunctionOverDocument(document),

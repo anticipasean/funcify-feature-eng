@@ -13,11 +13,12 @@ import funcify.feature.materializer.graph.context.StandardQuery
 import funcify.feature.schema.dataelement.DomainSpecifiedDataElementSource
 import funcify.feature.schema.path.operation.GQLOperationPath
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
-import funcify.feature.tools.extensions.OptionExtensions.toOption
+import funcify.feature.tools.extensions.SequenceExtensions.firstOrNone
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.extensions.TryExtensions.successIfDefined
 import graphql.language.Argument
 import graphql.language.Field
+import graphql.language.OperationDefinition
 import graphql.language.Value
 import graphql.language.VariableReference
 import graphql.schema.FieldCoordinates
@@ -39,9 +40,23 @@ object StandardQueryConnector : RequestMaterializationGraphConnector<StandardQue
             connectorContext.operationName
         )
         return when {
-            connectorContext.document
-                .getOperationDefinition(connectorContext.operationName)
-                .toOption()
+            /*
+             * [graphql.language.Document.getOperationDefinition] does not handle _null_ or empty
+             * names as expected
+             *
+             * => filter for operation_name only if it's not blank, else use the first found
+             */
+            connectorContext.document.definitions
+                .asSequence()
+                .filterIsInstance<OperationDefinition>()
+                .filter { od: OperationDefinition ->
+                    if (connectorContext.operationName.isNotBlank()) {
+                        od.name == connectorContext.operationName
+                    } else {
+                        true
+                    }
+                }
+                .firstOrNone()
                 .isEmpty() -> {
                 throw ServiceError.of(
                     "GraphQL document does not contain an operation_definition with [ name: %s ][ actual: %s ]",

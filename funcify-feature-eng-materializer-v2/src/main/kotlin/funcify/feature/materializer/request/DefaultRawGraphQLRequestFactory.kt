@@ -4,14 +4,16 @@ import funcify.feature.error.ServiceError
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.PersistentMapExtensions.toPersistentMap
 import graphql.execution.ExecutionId
+import java.net.URI
+import java.security.Principal
+import java.util.*
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.toPersistentList
 import kotlinx.collections.immutable.toPersistentMap
 import org.slf4j.Logger
 import org.springframework.messaging.MessageHeaders
 import reactor.core.publisher.Mono
-import java.net.URI
-import java.security.Principal
-import java.util.*
 
 internal class DefaultRawGraphQLRequestFactory : RawGraphQLRequestFactory {
 
@@ -21,21 +23,32 @@ internal class DefaultRawGraphQLRequestFactory : RawGraphQLRequestFactory {
         private val UNSET_EXECUTION_ID: ExecutionId = ExecutionId.from(UNSET_REQUEST_ID.toString())
         private val UNSET_URI: URI = URI.create("http://localhost")
         private const val UNSET_RAW_GRAPHQL_QUERY_TEXT: String = ""
-        private const val UNSET_OPERATION_NAME: String = "DEFAULT_OPERATION"
+        private const val UNSET_OPERATION_NAME: String = ""
 
         internal class DefaultRawGraphQLRequestBuilder(
-            private var requestId: UUID = UNSET_REQUEST_ID,
-            private var executionId: ExecutionId = UNSET_EXECUTION_ID,
-            private var uri: URI = UNSET_URI,
-            private var headers: MessageHeaders = MessageHeaders(mapOf()),
-            private var principalPublisher: Mono<out Principal> = Mono.empty(),
-            private var rawGraphQLQueryText: String = UNSET_RAW_GRAPHQL_QUERY_TEXT,
-            private var operationName: String = UNSET_OPERATION_NAME,
-            private var variables: MutableMap<String, Any?> = mutableMapOf(),
-            private var locale: Locale = Locale.getDefault(),
-            private var expectedOutputFieldNames: MutableList<String> = mutableListOf(),
+            private val existingRawGraphQLRequest: DefaultRawGraphQLRequest? = null,
+            private var requestId: UUID = existingRawGraphQLRequest?.requestId ?: UNSET_REQUEST_ID,
+            private var executionId: ExecutionId =
+                existingRawGraphQLRequest?.executionId ?: UNSET_EXECUTION_ID,
+            private var uri: URI = existingRawGraphQLRequest?.uri ?: UNSET_URI,
+            private var headers: MessageHeaders =
+                existingRawGraphQLRequest?.headers ?: MessageHeaders(mapOf()),
+            private var principalPublisher: Mono<out Principal> =
+                existingRawGraphQLRequest?.principalPublisher ?: Mono.empty(),
+            private var rawGraphQLQueryText: String =
+                existingRawGraphQLRequest?.rawGraphQLQueryText ?: UNSET_RAW_GRAPHQL_QUERY_TEXT,
+            private var operationName: String =
+                existingRawGraphQLRequest?.operationName ?: UNSET_OPERATION_NAME,
+            private var variables: MutableMap<String, Any?> =
+                existingRawGraphQLRequest?.variables?.builder()
+                    ?: persistentMapOf<String, Any?>().builder(),
+            private var locale: Locale = existingRawGraphQLRequest?.locale ?: Locale.getDefault(),
+            private var expectedOutputFieldNames: MutableList<String> =
+                existingRawGraphQLRequest?.expectedOutputFieldNames?.builder()
+                    ?: persistentListOf<String>().builder(),
             private var executionInputCustomizers: MutableList<GraphQLExecutionInputCustomizer> =
-                mutableListOf()
+                existingRawGraphQLRequest?.executionInputCustomizers?.builder()
+                    ?: persistentListOf<GraphQLExecutionInputCustomizer>().builder()
         ) : RawGraphQLRequest.Builder {
 
             override fun requestId(requestId: UUID): RawGraphQLRequest.Builder {
@@ -115,7 +128,12 @@ internal class DefaultRawGraphQLRequestFactory : RawGraphQLRequestFactory {
             override fun expectedOutputFieldNames(
                 expectedOutputFieldNames: List<String>
             ): RawGraphQLRequest.Builder {
-                this.expectedOutputFieldNames = expectedOutputFieldNames.toMutableList()
+                if (this.expectedOutputFieldNames.isEmpty()) {
+                    this.expectedOutputFieldNames =
+                        expectedOutputFieldNames.toPersistentList().builder()
+                } else {
+                    this.expectedOutputFieldNames.addAll(expectedOutputFieldNames)
+                }
                 return this
             }
 
@@ -136,7 +154,12 @@ internal class DefaultRawGraphQLRequestFactory : RawGraphQLRequestFactory {
             override fun executionInputCustomizers(
                 executionInputCustomizers: List<GraphQLExecutionInputCustomizer>
             ): RawGraphQLRequest.Builder {
-                this.executionInputCustomizers = executionInputCustomizers.toMutableList()
+                if (this.executionInputCustomizers.isEmpty()) {
+                    this.executionInputCustomizers =
+                        executionInputCustomizers.toPersistentList().builder()
+                } else {
+                    this.executionInputCustomizers.addAll(executionInputCustomizers)
+                }
                 return this
             }
 

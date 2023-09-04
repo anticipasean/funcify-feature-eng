@@ -48,7 +48,7 @@ class StreamFunctions {
     companion object {
         private val logger: Logger = LoggerFactory.getLogger(StreamFunctions::class.java)
         private val objectMapper: ObjectMapper = ObjectMapper()
-        const val OPERATION_NAME: String = "showFeatures"
+        const val OPERATION_NAME: String = ""
         val QUERY: String =
             """
                 |query ${OPERATION_NAME}(${'$'}show_id: ID!){
