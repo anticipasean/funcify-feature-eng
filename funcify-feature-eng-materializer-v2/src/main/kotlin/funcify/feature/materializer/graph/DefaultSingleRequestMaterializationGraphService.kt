@@ -276,6 +276,9 @@ internal class DefaultSingleRequestMaterializationGraphService(
                     }
                 }
             }
+            .doOnNext { rmgc: RequestMaterializationGraphContext ->
+                logger.debug("generated_graph: {}", rmgc.requestGraph)
+            }
             .then(
                 Mono.error { ServiceError.of("request_materialization_graph not yet implemented") }
             )

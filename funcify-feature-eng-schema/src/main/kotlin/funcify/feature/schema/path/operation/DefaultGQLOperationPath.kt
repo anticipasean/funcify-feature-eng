@@ -28,20 +28,22 @@ internal data class DefaultGQLOperationPath(
 
     companion object {
 
-        internal data class DefaultBuilder(private val schematicPath: DefaultGQLOperationPath) :
-            GQLOperationPath.Builder {
-
-            private var inputScheme: String = schematicPath.scheme
+        internal class DefaultBuilder(
+            private val existingPath: DefaultGQLOperationPath? = null,
+            private var inputScheme: String =
+                existingPath?.scheme ?: GQLOperationPath.GRAPHQL_OPERATION_PATH_SCHEME,
             private val selectionBuilder: PersistentList.Builder<SelectionSegment> =
-                schematicPath.selection.builder()
-            private var argumentName: String? = schematicPath.argument.orNull()?.first
+                existingPath?.selection?.builder()
+                    ?: persistentListOf<SelectionSegment>().builder(),
+            private var argumentName: String? = existingPath?.argument?.orNull()?.first,
             private var argumentPathBuilder: PersistentList.Builder<String> =
-                schematicPath.argument.orNull()?.second?.builder()
-                    ?: persistentListOf<String>().builder()
-            private var directiveName: String? = schematicPath.directive.orNull()?.first
+                existingPath?.argument?.orNull()?.second?.builder()
+                    ?: persistentListOf<String>().builder(),
+            private var directiveName: String? = existingPath?.directive?.orNull()?.first,
             private var directivePathBuilder: PersistentList.Builder<String> =
-                schematicPath.directive.orNull()?.second?.builder()
-                    ?: persistentListOf<String>().builder()
+                existingPath?.directive?.orNull()?.second?.builder()
+                    ?: persistentListOf<String>().builder(),
+        ) : GQLOperationPath.Builder {
 
             override fun scheme(scheme: String): GQLOperationPath.Builder {
                 inputScheme =
@@ -567,6 +569,46 @@ internal data class DefaultGQLOperationPath(
         }
     }
 
+    private val internedUnaliased: GQLOperationPath by lazy {
+        if (SelectionType.CONTAINS_ALIASED_FIELD !in internedSelectionTypes) {
+            this
+        } else {
+            selection
+                .fold(DefaultBuilder(this).clearSelection()) {
+                    b: GQLOperationPath.Builder,
+                    ss: SelectionSegment ->
+                    when (ss) {
+                        is AliasedFieldSegment -> {
+                            b.appendField(ss.fieldName)
+                        }
+                        is FieldSegment -> {
+                            b.appendField(ss.fieldName)
+                        }
+                        is FragmentSpreadSegment -> {
+                            b.appendFragmentSpread(
+                                ss.fragmentName,
+                                ss.typeName,
+                                when (val sf: SelectedField = ss.selectedField) {
+                                    is AliasedFieldSegment -> sf.fieldName
+                                    is FieldSegment -> sf.fieldName
+                                }
+                            )
+                        }
+                        is InlineFragmentSegment -> {
+                            b.appendInlineFragment(
+                                ss.typeName,
+                                when (val sf: SelectedField = ss.selectedField) {
+                                    is AliasedFieldSegment -> sf.fieldName
+                                    is FieldSegment -> sf.fieldName
+                                }
+                            )
+                        }
+                    }
+                }
+                .build()
+        }
+    }
+
     override fun referentOnFragment(): Boolean {
         return SelectionType.CONTAINS_FRAGMENT_SPREAD_REFERENCE in internedSelectionTypes ||
             SelectionType.CONTAINS_INLINE_FRAGMENT_REFERENCE in internedSelectionTypes
@@ -634,5 +676,9 @@ internal data class DefaultGQLOperationPath(
                 }
             }
         }
+    }
+
+    override fun toUnaliasedPath(): GQLOperationPath {
+        return internedUnaliased
     }
 }

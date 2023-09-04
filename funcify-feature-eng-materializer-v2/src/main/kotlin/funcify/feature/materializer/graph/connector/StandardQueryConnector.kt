@@ -10,6 +10,7 @@ import funcify.feature.materializer.graph.component.QueryComponentContext
 import funcify.feature.materializer.graph.component.QueryComponentContext.FieldArgumentComponentContext
 import funcify.feature.materializer.graph.component.QueryComponentContext.SelectedFieldComponentContext
 import funcify.feature.materializer.graph.context.StandardQuery
+import funcify.feature.schema.dataelement.DataElementCallable
 import funcify.feature.schema.dataelement.DomainSpecifiedDataElementSource
 import funcify.feature.schema.path.operation.GQLOperationPath
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
@@ -18,6 +19,7 @@ import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.extensions.TryExtensions.successIfDefined
 import graphql.language.Argument
 import graphql.language.Field
+import graphql.language.Node
 import graphql.language.OperationDefinition
 import graphql.language.Value
 import graphql.language.VariableReference
@@ -197,30 +199,203 @@ object StandardQueryConnector : RequestMaterializationGraphConnector<StandardQue
             "connect_selected_field: [ selected_field_component_context.path: {} ]",
             selectedFieldComponentContext.path
         )
-        val f: Field = selectedFieldComponentContext.field
-        val p: GQLOperationPath = selectedFieldComponentContext.path
+        val p: GQLOperationPath = selectedFieldComponentContext.path.toUnaliasedPath()
         return when {
-            // Case 1: Already connected
-            connectorContext.requestGraph.edgesFromPoint(p).any() ||
-                connectorContext.requestGraph.edgesToPoint(p).any() -> {
-                connectorContext
+            connectorContext.materializationMetamodel.elementTypePaths.contains(p) -> {
+                connectElementTypeSelectedField(connectorContext, selectedFieldComponentContext)
             }
-            // Case 2: Element Type Path
-            p in connectorContext.materializationMetamodel.elementTypePaths -> {
-                connectorContext.update { requestGraph(connectorContext.requestGraph.put(p, f)) }
+            connectorContext.materializationMetamodel.dataElementElementTypePath.isAncestorTo(
+                p
+            ) -> {
+                connectSelectedDataElementField(connectorContext, selectedFieldComponentContext)
             }
-            // Case 3: Domain Path
-            p.getParentPath()
-                .map { pp: GQLOperationPath ->
-                    pp in connectorContext.materializationMetamodel.elementTypePaths
+            connectorContext.materializationMetamodel.transformerElementTypePath.isAncestorTo(
+                p
+            ) -> {
+                connectSelectedTransformerField(connectorContext, selectedFieldComponentContext)
+            }
+            connectorContext.materializationMetamodel.featureElementTypePath.isAncestorTo(p) -> {
+                connectSelectedFeatureField(connectorContext, selectedFieldComponentContext)
+            }
+            else -> {
+                throw ServiceError.of("unhandled path type for selected_field [ path: %s ]", p)
+            }
+        }
+    }
+
+    private fun connectElementTypeSelectedField(
+        connectorContext: StandardQuery,
+        selectedFieldComponentContext: SelectedFieldComponentContext,
+    ): StandardQuery {
+        logger.debug(
+            "connect_element_type_selected_field: [ selected_field_component_context.path: {} ]",
+            selectedFieldComponentContext.path
+        )
+        val p: GQLOperationPath = selectedFieldComponentContext.path.toUnaliasedPath()
+        return when {
+            p == connectorContext.materializationMetamodel.dataElementElementTypePath &&
+                connectorContext.materializationMetamodel.dataElementElementTypePath !in
+                    connectorContext.requestGraph -> {
+                // Case 1: Connect data_element_element_type_path to root if not already connected
+                connectorContext.update {
+                    requestGraph(
+                        connectorContext.requestGraph.put(
+                            selectedFieldComponentContext.path,
+                            selectedFieldComponentContext.field
+                        )
+                    )
                 }
-                .isDefined() -> {
-                connectorContext.update { requestGraph(connectorContext.requestGraph.put(p, f)) }
             }
             else -> {
                 connectorContext
             }
         }
+    }
+
+    private fun connectSelectedDataElementField(
+        connectorContext: StandardQuery,
+        selectedFieldComponentContext: SelectedFieldComponentContext,
+    ): StandardQuery {
+        logger.debug(
+            "connect_selected_data_element_field: [ selected_field_component_context.path: {} ]",
+            selectedFieldComponentContext.path
+        )
+        val p: GQLOperationPath = selectedFieldComponentContext.path.toUnaliasedPath()
+        return when {
+            p in
+                connectorContext.materializationMetamodel
+                    .domainSpecifiedDataElementSourceByPath -> {
+                connectorContext.update(
+                    connectDomainDataElement(connectorContext, selectedFieldComponentContext)
+                )
+            }
+            else -> {
+                connectorContext.update(
+                    connectSelectedDataElementToDomainDataElement(
+                        connectorContext,
+                        selectedFieldComponentContext
+                    )
+                )
+            }
+        }
+    }
+
+    private fun connectDomainDataElement(
+        connectorContext: StandardQuery,
+        selectedFieldComponentContext: SelectedFieldComponentContext
+    ): (StandardQuery.Builder) -> StandardQuery.Builder {
+        return { sqb: StandardQuery.Builder ->
+            val p: GQLOperationPath = selectedFieldComponentContext.path.toUnaliasedPath()
+            val dec: DataElementCallable =
+                connectorContext.materializationMetamodel.domainSpecifiedDataElementSourceByPath
+                    .getOrNone(p)
+                    .successIfDefined {
+                        ServiceError.of(
+                            "domain_specified_data_element_source not available at [ path: %s ]",
+                            p
+                        )
+                    }
+                    .map { dsdes: DomainSpecifiedDataElementSource ->
+                        dsdes.dataElementSource
+                            .builder()
+                            .setDomainSelection(
+                                dsdes.domainFieldCoordinates,
+                                dsdes.domainPath,
+                                dsdes.domainFieldDefinition
+                            )
+                            .build()
+                    }
+                    .orElseThrow()
+            sqb.requestGraph(
+                    connectorContext.requestGraph.put(p, selectedFieldComponentContext.field)
+                )
+                .putDataElementCallableForPath(p, dec)
+        }
+    }
+
+    private fun connectSelectedDataElementToDomainDataElement(
+        connectorContext: StandardQuery,
+        selectedFieldComponentContext: SelectedFieldComponentContext,
+    ): (StandardQuery.Builder) -> StandardQuery.Builder {
+        return { sqb: StandardQuery.Builder ->
+            val p: GQLOperationPath = selectedFieldComponentContext.path.toUnaliasedPath()
+            val parentPath: GQLOperationPath =
+                p.getParentPath()
+                    .successIfDefined {
+                        ServiceError.of(
+                            "selected_data_element should not have root path [ field.name: %s ]",
+                            selectedFieldComponentContext.field.name
+                        )
+                    }
+                    .orElseThrow()
+            if (
+                !connectorContext.requestGraph.contains(parentPath) ||
+                    connectorContext.requestGraph.successorVertices(parentPath).none()
+            ) {
+                throw ServiceError.of(
+                    """parent of selected_data_element should have been added 
+                    |and connected to its domain prior to its child 
+                    |data_element fields: [ parent.path: %s ]"""
+                        .flatten(),
+                    parentPath
+                )
+            }
+            if (parentPath in connectorContext.dataElementCallablesByPath) {
+                sqb.requestGraph(
+                        connectorContext.requestGraph
+                            .put(p, selectedFieldComponentContext.field)
+                            .putEdge(p, parentPath, MaterializationEdge.EXTRACT_FROM_SOURCE)
+                    )
+                    .putDataElementCallableForPath(
+                        parentPath,
+                        connectorContext.dataElementCallablesByPath.get(parentPath)!!.update {
+                            addSelection(p)
+                        }
+                    )
+            } else {
+                val (domainPath: GQLOperationPath, _: Node<*>) =
+                    connectorContext.requestGraph.successorVertices(parentPath).first()
+                if (domainPath !in connectorContext.dataElementCallablesByPath) {
+                    throw ServiceError.of(
+                        "domain_data_element_callable has not been created for [ path: %s ]",
+                        domainPath
+                    )
+                }
+                sqb.requestGraph(
+                        connectorContext.requestGraph
+                            .put(p, selectedFieldComponentContext.field)
+                            .putEdge(p, domainPath, MaterializationEdge.EXTRACT_FROM_SOURCE)
+                    )
+                    .putDataElementCallableForPath(
+                        domainPath,
+                        connectorContext.dataElementCallablesByPath[domainPath]!!.update {
+                            addSelection(p)
+                        }
+                    )
+            }
+        }
+    }
+
+    private fun connectSelectedTransformerField(
+        connectorContext: StandardQuery,
+        selectedFieldComponentContext: SelectedFieldComponentContext,
+    ): StandardQuery {
+        logger.debug(
+            "connect_selected_transformer_field: [ selected_field_component_context.path: {} ]",
+            selectedFieldComponentContext.path
+        )
+        return connectorContext
+    }
+
+    private fun connectSelectedFeatureField(
+        connectorContext: StandardQuery,
+        selectedFieldComponentContext: SelectedFieldComponentContext,
+    ): StandardQuery {
+        logger.debug(
+            "connect_selected_feature_field: [ selected_field_component_context.path: {} ]",
+            selectedFieldComponentContext.path
+        )
+        return connectorContext
     }
 
     override fun completeOperationDefinition(connectorContext: StandardQuery): StandardQuery {
