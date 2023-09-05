@@ -29,9 +29,14 @@ interface FeatureCalculatorCallable :
 
     val transformerCallablesByPath: ImmutableMap<GQLOperationPath, TransformerCallable>
 
+    override fun invoke(
+        trackableFeatureValue: TrackableValue<JsonNode>,
+        arguments: ImmutableMap<GQLOperationPath, Mono<JsonNode>>
+    ): Mono<TrackableValue<JsonNode>>
+
     interface Builder {
 
-        fun setFeatureSelection(
+        fun selectFeature(
             coordinates: FieldCoordinates,
             path: GQLOperationPath,
             graphQLFieldDefinition: GraphQLFieldDefinition

@@ -8,6 +8,7 @@ import graphql.schema.FieldCoordinates
 import graphql.schema.GraphQLArgument
 import graphql.schema.GraphQLFieldDefinition
 import kotlinx.collections.immutable.ImmutableMap
+import kotlinx.collections.immutable.ImmutableSet
 import reactor.core.publisher.Mono
 
 /**
@@ -22,29 +23,32 @@ interface DataElementCallable : (ImmutableMap<GQLOperationPath, JsonNode>) -> Mo
 
     val domainGraphQLFieldDefinition: GraphQLFieldDefinition
 
-    val argumentsByPath: ImmutableMap<GQLOperationPath, GraphQLArgument>
+    //val argumentsByPath: ImmutableMap<GQLOperationPath, GraphQLArgument>
 
-    val selectionsByPath: ImmutableMap<GQLOperationPath, GraphQLFieldDefinition>
+    //val selectionsByPath: ImmutableMap<GQLOperationPath, GraphQLFieldDefinition>
 
-    fun update(transformer: Builder.() -> Builder): DataElementCallable
+    val selections: ImmutableSet<GQLOperationPath>
+
+    override fun invoke(arguments: ImmutableMap<GQLOperationPath, JsonNode>): Mono<JsonNode>
 
     interface Builder {
 
-        fun setDomainSelection(
+        fun selectDomain(
             coordinates: FieldCoordinates,
             path: GQLOperationPath,
             graphQLFieldDefinition: GraphQLFieldDefinition
         ): Builder
 
-        fun selectField(field: Field): Builder
+        fun selectFieldWithinDomain(field: Field): Builder
 
-        fun addSelection(path: GQLOperationPath): Builder
+        fun selectPathWithinDomain(path: GQLOperationPath): Builder
 
-        fun addSelectionDirective(path: GQLOperationPath): Builder
+        fun selectDirectivePathWithValueWithinDomain(
+            path: GQLOperationPath,
+            value: Value<*>
+        ): Builder
 
-        fun addSelectionDirectiveWithValue(path: GQLOperationPath, value: Value<*>): Builder
-
-        fun addAllSelections(selections: Iterable<GQLOperationPath>): Builder
+        fun selectAllPathsWithinDomain(selections: Iterable<GQLOperationPath>): Builder
 
         fun build(): DataElementCallable
     }

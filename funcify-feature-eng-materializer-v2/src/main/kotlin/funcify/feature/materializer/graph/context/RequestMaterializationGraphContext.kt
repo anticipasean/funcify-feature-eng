@@ -30,11 +30,14 @@ interface RequestMaterializationGraphContext {
 
     val passThroughColumns: ImmutableSet<String>
 
-    val transformerCallablesByPath: ImmutableMap<GQLOperationPath, TransformerCallable>
+    val transformerCallablesByPath:
+        ImmutableMap<GQLOperationPath, TransformerCallable>
 
-    val dataElementCallablesByPath: ImmutableMap<GQLOperationPath, DataElementCallable>
+    val dataElementCallableBuildersByPath:
+        ImmutableMap<GQLOperationPath, DataElementCallable.Builder>
 
-    val featureCalculatorCallablesByPath: ImmutableMap<GQLOperationPath, FeatureCalculatorCallable>
+    val featureCalculatorCallableBuildersByPath:
+        ImmutableMap<GQLOperationPath, FeatureCalculatorCallable.Builder>
 
     val queryComponentContextFactory: QueryComponentContextFactory
 
@@ -59,14 +62,14 @@ interface RequestMaterializationGraphContext {
             transformerCallable: TransformerCallable
         ): B
 
-        fun putDataElementCallableForPath(
+        fun putDataElementCallableBuilderForPath(
             path: GQLOperationPath,
-            dataElementCallable: DataElementCallable
+            dataElementCallableBuilder: DataElementCallable.Builder
         ): B
 
-        fun putFeatureCalculatorCallableForPath(
+        fun putFeatureCalculatorCallableBuilderForPath(
             path: GQLOperationPath,
-            featureCalculatorCallable: FeatureCalculatorCallable
+            featureCalculatorCallableBuilder: FeatureCalculatorCallable.Builder
         ): B
 
         fun queryComponentContextFactory(

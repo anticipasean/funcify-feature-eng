@@ -22,9 +22,11 @@ interface TransformerCallable : (ImmutableMap<GQLOperationPath, JsonNode>) -> Mo
 
     val argumentsByPath: ImmutableMap<GQLOperationPath, GraphQLArgument>
 
+    override fun invoke(arguments: ImmutableMap<GQLOperationPath, JsonNode>): Mono<JsonNode>
+
     interface Builder {
 
-        fun setTransformerSelection(
+        fun selectTransformer(
             coordinates: FieldCoordinates,
             path: GQLOperationPath,
             graphQLFieldDefinition: GraphQLFieldDefinition

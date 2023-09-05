@@ -286,7 +286,7 @@ object StandardQueryConnector : RequestMaterializationGraphConnector<StandardQue
     ): (StandardQuery.Builder) -> StandardQuery.Builder {
         return { sqb: StandardQuery.Builder ->
             val p: GQLOperationPath = selectedFieldComponentContext.path.toUnaliasedPath()
-            val dec: DataElementCallable =
+            val decb: DataElementCallable.Builder =
                 connectorContext.materializationMetamodel.domainSpecifiedDataElementSourceByPath
                     .getOrNone(p)
                     .successIfDefined {
@@ -298,18 +298,17 @@ object StandardQueryConnector : RequestMaterializationGraphConnector<StandardQue
                     .map { dsdes: DomainSpecifiedDataElementSource ->
                         dsdes.dataElementSource
                             .builder()
-                            .setDomainSelection(
+                            .selectDomain(
                                 dsdes.domainFieldCoordinates,
                                 dsdes.domainPath,
                                 dsdes.domainFieldDefinition
                             )
-                            .build()
                     }
                     .orElseThrow()
             sqb.requestGraph(
                     connectorContext.requestGraph.put(p, selectedFieldComponentContext.field)
                 )
-                .putDataElementCallableForPath(p, dec)
+                .putDataElementCallableBuilderForPath(p, decb)
         }
     }
 
@@ -340,22 +339,22 @@ object StandardQueryConnector : RequestMaterializationGraphConnector<StandardQue
                     parentPath
                 )
             }
-            if (parentPath in connectorContext.dataElementCallablesByPath) {
+            if (parentPath in connectorContext.dataElementCallableBuildersByPath) {
                 sqb.requestGraph(
                         connectorContext.requestGraph
                             .put(p, selectedFieldComponentContext.field)
                             .putEdge(p, parentPath, MaterializationEdge.EXTRACT_FROM_SOURCE)
                     )
-                    .putDataElementCallableForPath(
+                    .putDataElementCallableBuilderForPath(
                         parentPath,
-                        connectorContext.dataElementCallablesByPath.get(parentPath)!!.update {
-                            addSelection(p)
-                        }
+                        connectorContext.dataElementCallableBuildersByPath
+                            .get(parentPath)!!
+                            .selectPathWithinDomain(p)
                     )
             } else {
                 val (domainPath: GQLOperationPath, _: Node<*>) =
                     connectorContext.requestGraph.successorVertices(parentPath).first()
-                if (domainPath !in connectorContext.dataElementCallablesByPath) {
+                if (domainPath !in connectorContext.dataElementCallableBuildersByPath) {
                     throw ServiceError.of(
                         "domain_data_element_callable has not been created for [ path: %s ]",
                         domainPath
@@ -366,11 +365,10 @@ object StandardQueryConnector : RequestMaterializationGraphConnector<StandardQue
                             .put(p, selectedFieldComponentContext.field)
                             .putEdge(p, domainPath, MaterializationEdge.EXTRACT_FROM_SOURCE)
                     )
-                    .putDataElementCallableForPath(
+                    .putDataElementCallableBuilderForPath(
                         domainPath,
-                        connectorContext.dataElementCallablesByPath[domainPath]!!.update {
-                            addSelection(p)
-                        }
+                        connectorContext.dataElementCallableBuildersByPath[domainPath]!!
+                            .selectPathWithinDomain(p)
                     )
             }
         }

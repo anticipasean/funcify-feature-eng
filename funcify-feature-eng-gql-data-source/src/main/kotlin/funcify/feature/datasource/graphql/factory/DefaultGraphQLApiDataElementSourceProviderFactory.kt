@@ -5,12 +5,9 @@ import funcify.feature.datasource.graphql.GraphQLApiDataElementSource
 import funcify.feature.datasource.graphql.GraphQLApiDataElementSourceProvider
 import funcify.feature.datasource.graphql.GraphQLApiDataElementSourceProviderFactory
 import funcify.feature.datasource.graphql.GraphQLApiService
-import funcify.feature.datasource.graphql.SchemaOnlyDataElementSource
-import funcify.feature.datasource.graphql.ServiceBackedDataElementSource
 import funcify.feature.datasource.graphql.metadata.provider.GraphQLApiSchemaFileMetadataProvider
 import funcify.feature.datasource.graphql.metadata.provider.GraphQLApiServiceMetadataProvider
 import funcify.feature.error.ServiceError
-import funcify.feature.schema.dataelement.DataElementCallable
 import funcify.feature.schema.sdl.CompositeTypeDefinitionRegistryFilter
 import funcify.feature.schema.sdl.SDLDefinitionsSetExtractor
 import funcify.feature.schema.sdl.TypeDefinitionRegistryFilter
@@ -18,9 +15,7 @@ import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.ResultExtensions.toMono
 import funcify.feature.tools.json.JsonMapper
-import graphql.language.SDLDefinition
 import graphql.schema.idl.TypeDefinitionRegistry
-import kotlinx.collections.immutable.PersistentSet
 import org.slf4j.Logger
 import org.springframework.core.io.ClassPathResource
 import reactor.core.publisher.Mono
@@ -205,24 +200,6 @@ internal class DefaultGraphQLApiDataElementSourceProviderFactory(
             }
         }
 
-        internal class DefaultServiceBackedDataElementSource(
-            override val name: String,
-            override val sourceSDLDefinitions: PersistentSet<SDLDefinition<*>>,
-            override val graphQLApiService: GraphQLApiService
-        ) : ServiceBackedDataElementSource {
-            override fun builder(): DataElementCallable.Builder {
-                TODO("Not yet implemented")
-            }
-        }
-
-        internal class DefaultSchemaOnlyDataElementSource(
-            override val name: String,
-            override val sourceSDLDefinitions: PersistentSet<SDLDefinition<*>>
-        ) : SchemaOnlyDataElementSource {
-            override fun builder(): DataElementCallable.Builder {
-                TODO("Not yet implemented")
-            }
-        }
     }
 
     override fun builder(): GraphQLApiDataElementSourceProvider.Builder {
@@ -232,4 +209,5 @@ internal class DefaultGraphQLApiDataElementSourceProviderFactory(
                 CompositeTypeDefinitionRegistryFilter(typeDefinitionRegistryFilters)
         )
     }
+
 }
