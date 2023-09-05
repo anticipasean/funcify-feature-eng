@@ -5,6 +5,7 @@ import funcify.feature.schema.dataelement.DomainSpecifiedDataElementSource
 import funcify.feature.schema.directive.alias.AliasCoordinatesRegistry
 import funcify.feature.schema.feature.FeatureSpecifiedFeatureCalculator
 import funcify.feature.schema.path.operation.GQLOperationPath
+import funcify.feature.schema.transformer.TransformerSpecifiedTransformerSource
 import graphql.schema.FieldCoordinates
 import graphql.schema.GraphQLSchema
 import graphql.schema.GraphQLSchemaElement
@@ -42,4 +43,8 @@ internal data class DefaultMaterializationMetamodel(
     override val featureSpecifiedFeatureCalculatorsByCoordinates:
         ImmutableMap<FieldCoordinates, FeatureSpecifiedFeatureCalculator>,
     override val featurePathsByName: ImmutableMap<String, GQLOperationPath>,
+    override val transformerSpecifiedTransformerSourcesByPath:
+        ImmutableMap<GQLOperationPath, TransformerSpecifiedTransformerSource>,
+    override val transformerSpecifiedTransformerSourcesByCoordinates:
+        ImmutableMap<FieldCoordinates, TransformerSpecifiedTransformerSource>,
 ) : MaterializationMetamodel

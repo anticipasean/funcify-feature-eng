@@ -2,11 +2,15 @@ package funcify.feature.materializer.model
 
 import arrow.core.continuations.eagerEffect
 import arrow.core.continuations.ensureNotNull
+import arrow.core.filterIsInstance
+import arrow.core.getOrElse
 import arrow.core.getOrNone
 import arrow.core.identity
+import arrow.core.lastOrNone
 import funcify.feature.error.ServiceError
 import funcify.feature.schema.dataelement.DataElementSource
 import funcify.feature.schema.dataelement.DomainSpecifiedDataElementSource
+import funcify.feature.schema.path.operation.FieldSegment
 import funcify.feature.schema.path.operation.GQLOperationPath
 import funcify.feature.tools.extensions.OptionExtensions.sequence
 import funcify.feature.tools.extensions.PersistentMapExtensions.reduceEntriesToPersistentMap
@@ -132,6 +136,22 @@ internal data class DefaultDomainSpecifiedDataElementSource(
                         ensureNotNull(domainPath) { "domainPath is null" }
                         ensureNotNull(domainFieldDefinition) { "domainFieldDefinition is null" }
                         ensureNotNull(dataElementSource) { "dataElementSource is null" }
+                        ensure(domainFieldCoordinates!!.fieldName == domainFieldDefinition!!.name) {
+                            "domain_field_coordinates.field_name does not match domain_field_definition.name"
+                        }
+                        ensure(!domainPath!!.referentAliased()) { "domain_path cannot be aliased" }
+                        ensure(
+                            domainPath!!
+                                .selection
+                                .lastOrNone()
+                                .filterIsInstance<FieldSegment>()
+                                .map { fs: FieldSegment ->
+                                    fs.fieldName == domainFieldCoordinates!!.fieldName
+                                }
+                                .getOrElse { false }
+                        ) {
+                            "domain_path[-1].field_name does not match domain_field_coordinates.field_name"
+                        }
                         DefaultDomainSpecifiedDataElementSource(
                             domainFieldCoordinates = domainFieldCoordinates!!,
                             domainPath = domainPath!!,

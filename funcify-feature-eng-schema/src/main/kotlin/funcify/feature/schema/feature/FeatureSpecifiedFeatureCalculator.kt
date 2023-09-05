@@ -12,7 +12,7 @@ import kotlinx.collections.immutable.ImmutableMap
  */
 interface FeatureSpecifiedFeatureCalculator {
 
-    val fieldCoordinates: FieldCoordinates
+    val featureFieldCoordinates: FieldCoordinates
 
     val featureName: String
 
@@ -28,21 +28,13 @@ interface FeatureSpecifiedFeatureCalculator {
 
     interface Builder {
 
-        fun fieldCoordinates(fieldCoordinates: FieldCoordinates): Builder
+        fun featureFieldCoordinates(featureFieldCoordinates: FieldCoordinates): Builder
 
         fun featureName(featureName: String): Builder
 
         fun featurePath(featurePath: GQLOperationPath): Builder
 
         fun featureFieldDefinition(featureFieldDefinition: GraphQLFieldDefinition): Builder
-
-        fun putArgumentForPath(path: GQLOperationPath, argument: GraphQLArgument): Builder
-
-        fun putAllPathArguments(pathArgumentPairs: Map<GQLOperationPath, GraphQLArgument>): Builder
-
-        fun putArgumentForName(name: String, argument: GraphQLArgument): Builder
-
-        fun putAllNameArguments(nameArgumentPairs: Map<String, GraphQLArgument>): Builder
 
         fun featureCalculator(featureCalculator: FeatureCalculator): Builder
 

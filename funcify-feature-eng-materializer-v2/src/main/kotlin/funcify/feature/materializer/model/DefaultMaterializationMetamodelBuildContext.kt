@@ -6,6 +6,7 @@ import funcify.feature.schema.dataelement.DomainSpecifiedDataElementSource
 import funcify.feature.schema.directive.alias.AliasCoordinatesRegistry
 import funcify.feature.schema.feature.FeatureSpecifiedFeatureCalculator
 import funcify.feature.schema.path.operation.GQLOperationPath
+import funcify.feature.schema.transformer.TransformerSpecifiedTransformerSource
 import graphql.schema.FieldCoordinates
 import graphql.schema.GraphQLSchema
 import graphql.schema.GraphQLSchemaElement
@@ -45,6 +46,10 @@ internal data class DefaultMaterializationMetamodelBuildContext(
     override val featureSpecifiedFeatureCalculatorsByCoordinates:
         PersistentMap<FieldCoordinates, FeatureSpecifiedFeatureCalculator>,
     override val featurePathsByFieldName: PersistentMap<String, GQLOperationPath>,
+    override val transformerSpecifiedTransformerSourcesByPath:
+        PersistentMap<GQLOperationPath, TransformerSpecifiedTransformerSource>,
+    override val transformerSpecifiedTransformerSourcesByCoordinates:
+        PersistentMap<FieldCoordinates, TransformerSpecifiedTransformerSource>,
     override val aliasCoordinatesRegistry: AliasCoordinatesRegistry,
 ) : MaterializationMetamodelBuildContext {
 
@@ -91,6 +96,8 @@ internal data class DefaultMaterializationMetamodelBuildContext(
                 featureSpecifiedFeatureCalculatorsByPath = persistentMapOf(),
                 featureSpecifiedFeatureCalculatorsByCoordinates = persistentMapOf(),
                 featurePathsByFieldName = persistentMapOf(),
+                transformerSpecifiedTransformerSourcesByPath = persistentMapOf(),
+                transformerSpecifiedTransformerSourcesByCoordinates = persistentMapOf(),
                 aliasCoordinatesRegistry = AliasCoordinatesRegistry.empty(),
             )
         }
@@ -144,6 +151,12 @@ internal data class DefaultMaterializationMetamodelBuildContext(
                 existingFacts.featureSpecifiedFeatureCalculatorsByCoordinates.builder(),
             private val featurePathsByFieldName: PersistentMap.Builder<String, GQLOperationPath> =
                 existingFacts.featurePathsByFieldName.builder(),
+            private val transformerSpecifiedTransformerSourcesByPath:
+                PersistentMap.Builder<GQLOperationPath, TransformerSpecifiedTransformerSource> =
+                existingFacts.transformerSpecifiedTransformerSourcesByPath.builder(),
+            private val transformerSpecifiedTransformerSourcesByCoordinates:
+                PersistentMap.Builder<FieldCoordinates, TransformerSpecifiedTransformerSource> =
+                existingFacts.transformerSpecifiedTransformerSourcesByCoordinates.builder(),
             private var aliasCoordinatesRegistry: AliasCoordinatesRegistry =
                 existingFacts.aliasCoordinatesRegistry,
         ) : Builder {
@@ -304,6 +317,28 @@ internal data class DefaultMaterializationMetamodelBuildContext(
                 gqlOperationPath: GQLOperationPath
             ): Builder = this.apply { this.featurePathsByFieldName.put(name, gqlOperationPath) }
 
+            override fun putTransformerSpecifiedTransformerSourceForPath(
+                path: GQLOperationPath,
+                transformerSpecifiedTransformerSource: TransformerSpecifiedTransformerSource
+            ): Builder =
+                this.apply {
+                    this.transformerSpecifiedTransformerSourcesByPath.put(
+                        path,
+                        transformerSpecifiedTransformerSource
+                    )
+                }
+
+            override fun putTransformerSpecifiedTransformerSourceForCoordinates(
+                fieldCoordinates: FieldCoordinates,
+                transformerSpecifiedTransformerSource: TransformerSpecifiedTransformerSource,
+            ): Builder =
+                this.apply {
+                    this.transformerSpecifiedTransformerSourcesByCoordinates.put(
+                        fieldCoordinates,
+                        transformerSpecifiedTransformerSource
+                    )
+                }
+
             override fun aliasCoordinatesRegistry(
                 aliasCoordinatesRegistry: AliasCoordinatesRegistry
             ): Builder = this.apply { this.aliasCoordinatesRegistry = aliasCoordinatesRegistry }
@@ -334,6 +369,10 @@ internal data class DefaultMaterializationMetamodelBuildContext(
                     featureSpecifiedFeatureCalculatorsByCoordinates =
                         featureSpecifiedFeatureCalculatorsByCoordinates.build(),
                     featurePathsByFieldName = featurePathsByFieldName.build(),
+                    transformerSpecifiedTransformerSourcesByPath =
+                        transformerSpecifiedTransformerSourcesByPath.build(),
+                    transformerSpecifiedTransformerSourcesByCoordinates =
+                        transformerSpecifiedTransformerSourcesByCoordinates.build(),
                     aliasCoordinatesRegistry = aliasCoordinatesRegistry,
                 )
             }

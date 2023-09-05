@@ -9,9 +9,9 @@ import arrow.core.some
 import arrow.core.toOption
 import funcify.feature.error.ServiceError
 import funcify.feature.schema.FeatureEngineeringModel
-import funcify.feature.schema.feature.FeatureCalculator
-import funcify.feature.schema.feature.FeatureSpecifiedFeatureCalculator
 import funcify.feature.schema.path.operation.GQLOperationPath
+import funcify.feature.schema.transformer.TransformerSource
+import funcify.feature.schema.transformer.TransformerSpecifiedTransformerSource
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentMap
@@ -32,25 +32,25 @@ import kotlinx.collections.immutable.PersistentList
 import kotlinx.collections.immutable.persistentListOf
 import org.slf4j.Logger
 
-internal object FeatureSpecifiedFeatureCalculatorCreator :
-    (FeatureEngineeringModel, GraphQLSchema) -> Iterable<FeatureSpecifiedFeatureCalculator> {
+internal object TransformerSpecifiedTransformerSourceCreator :
+    (FeatureEngineeringModel, GraphQLSchema) -> Iterable<TransformerSpecifiedTransformerSource> {
 
-    private const val TYPE_NAME: String = "feature_specified_feature_calculator_creator"
+    private const val TYPE_NAME: String = "transformer_specified_transformer_source_creator"
     private const val QUERY_OBJECT_TYPE_NAME: String = "Query"
-    private val logger: Logger = loggerFor<FeatureSpecifiedFeatureCalculatorCreator>()
+    private val logger: Logger = loggerFor<TransformerSpecifiedTransformerSourceCreator>()
 
     override fun invoke(
         featureEngineeringModel: FeatureEngineeringModel,
         graphQLSchema: GraphQLSchema
-    ): Iterable<FeatureSpecifiedFeatureCalculator> {
+    ): Iterable<TransformerSpecifiedTransformerSource> {
         logger.info("{}.invoke: [ ]", TYPE_NAME)
         return graphQLSchema.queryType
             .toOption()
             .flatMap { got: GraphQLObjectType ->
                 when {
-                    got.name == featureEngineeringModel.featureFieldCoordinates.typeName -> {
+                    got.name == featureEngineeringModel.transformerFieldCoordinates.typeName -> {
                         got.getFieldDefinition(
-                                featureEngineeringModel.featureFieldCoordinates.fieldName
+                                featureEngineeringModel.transformerFieldCoordinates.fieldName
                             )
                             .toOption()
                             .map { gfd: GraphQLFieldDefinition ->
@@ -71,39 +71,40 @@ internal object FeatureSpecifiedFeatureCalculatorCreator :
                     .map { gfc: GraphQLFieldsContainer -> p to gfc }
             }
             .fold(::emptySequence) { (p: GQLOperationPath, gfc: GraphQLFieldsContainer) ->
-                val fcByFieldDefName: ImmutableMap<String, FeatureCalculator> =
-                    extractFeatureCalculatorByFieldDefinitionNameMapFromFeatureEngineeringModel(
+                val tsByFieldDefName: ImmutableMap<String, TransformerSource> =
+                    extractTransformerSourceByFieldDefinitionNameMapFromFeatureEngineeringModel(
                         featureEngineeringModel
                     )
                 gfc.fieldDefinitions
                     .asSequence()
                     .map { fd: GraphQLFieldDefinition ->
-                        fcByFieldDefName.getOrNone(fd.name).map { fc: FeatureCalculator ->
-                            fd to fc
+                        tsByFieldDefName.getOrNone(fd.name).map { ts: TransformerSource ->
+                            fd to ts
                         }
                     }
                     .flatMapOptions()
-                    .flatMap { (fd: GraphQLFieldDefinition, fc: FeatureCalculator) ->
+                    .flatMap { (fd: GraphQLFieldDefinition, ts: TransformerSource) ->
                         Traverser.breadthFirst(
                                 schemaElementTraversalFunction(graphQLSchema),
                                 p,
-                                FeatureSpecifiedFeatureCalculatorContext(
-                                    featureTypeName = gfc.name,
-                                    featureCalculator = fc,
-                                    featureSpecifiedFeatureCalculators = persistentListOf()
+                                TransformerSpecifiedTransformerSourceContext(
+                                    transformerTypeName = gfc.name,
+                                    transformerSource = ts,
+                                    transformerSpecifiedTransformerSources = persistentListOf()
                                 )
                             )
                             .traverse(
                                 fd,
                                 SchemaElementTraverserVisitor(
-                                    graphQLTypeVisitor = FeatureSpecifiedFeatureCalculatorVisitor()
+                                    graphQLTypeVisitor =
+                                        TransformerSpecifiedTransformerSourceVisitor()
                                 )
                             )
                             .toOption()
                             .mapNotNull(TraverserResult::getAccumulatedResult)
-                            .filterIsInstance<FeatureSpecifiedFeatureCalculatorContext>()
-                            .map { c: FeatureSpecifiedFeatureCalculatorContext ->
-                                c.featureSpecifiedFeatureCalculators.asSequence()
+                            .filterIsInstance<TransformerSpecifiedTransformerSourceContext>()
+                            .map { c: TransformerSpecifiedTransformerSourceContext ->
+                                c.transformerSpecifiedTransformerSources.asSequence()
                             }
                             .successIfDefined {
                                 ServiceError.of(
@@ -124,13 +125,13 @@ internal object FeatureSpecifiedFeatureCalculatorCreator :
             .asIterable()
     }
 
-    private fun extractFeatureCalculatorByFieldDefinitionNameMapFromFeatureEngineeringModel(
+    private fun extractTransformerSourceByFieldDefinitionNameMapFromFeatureEngineeringModel(
         featureEngineeringModel: FeatureEngineeringModel
-    ): ImmutableMap<String, FeatureCalculator> {
-        return featureEngineeringModel.featureCalculatorsByName.values
+    ): ImmutableMap<String, TransformerSource> {
+        return featureEngineeringModel.transformerSourcesByName.values
             .asSequence()
-            .flatMap { fc: FeatureCalculator ->
-                fc.sourceSDLDefinitions
+            .flatMap { ts: TransformerSource ->
+                ts.sourceSDLDefinitions
                     .asSequence()
                     .firstOrNone { sd: SDLDefinition<*> ->
                         sd is ObjectTypeDefinition && QUERY_OBJECT_TYPE_NAME == sd.name
@@ -139,7 +140,7 @@ internal object FeatureSpecifiedFeatureCalculatorCreator :
                     .map(ObjectTypeDefinition::getFieldDefinitions)
                     .fold(::emptyList, ::identity)
                     .asSequence()
-                    .map { fd: FieldDefinition -> fd.name to fc }
+                    .map { fd: FieldDefinition -> fd.name to ts }
             }
             .reducePairsToPersistentMap()
     }
@@ -188,10 +189,11 @@ internal object FeatureSpecifiedFeatureCalculatorCreator :
         }
     }
 
-    private data class FeatureSpecifiedFeatureCalculatorContext(
-        val featureTypeName: String,
-        val featureCalculator: FeatureCalculator,
-        val featureSpecifiedFeatureCalculators: PersistentList<FeatureSpecifiedFeatureCalculator>
+    private data class TransformerSpecifiedTransformerSourceContext(
+        val transformerTypeName: String,
+        val transformerSource: TransformerSource,
+        val transformerSpecifiedTransformerSources:
+            PersistentList<TransformerSpecifiedTransformerSource>
     )
 
     private class SchemaElementTraverserVisitor(
@@ -211,9 +213,9 @@ internal object FeatureSpecifiedFeatureCalculatorCreator :
         }
     }
 
-    private class FeatureSpecifiedFeatureCalculatorVisitor : GraphQLTypeVisitorStub() {
+    private class TransformerSpecifiedTransformerSourceVisitor : GraphQLTypeVisitorStub() {
         companion object {
-            private val logger: Logger = loggerFor<FeatureSpecifiedFeatureCalculatorVisitor>()
+            private val logger: Logger = loggerFor<TransformerSpecifiedTransformerSourceVisitor>()
         }
 
         override fun visitGraphQLFieldDefinition(
@@ -231,7 +233,7 @@ internal object FeatureSpecifiedFeatureCalculatorCreator :
                             field(node.name)
                         }
                     if (node.arguments.isNotEmpty()) {
-                        updateContextWithFeatureGraphQLFieldDefinition(context, p, node)
+                        updateContextWithTransformerGraphQLFieldDefinition(context, p, node)
                     }
                     context.setVar(GQLOperationPath::class.java, p)
                 }
@@ -247,7 +249,11 @@ internal object FeatureSpecifiedFeatureCalculatorCreator :
                                         inlineFragment(parentNode.name, node.name)
                                     }
                                 if (node.arguments.isNotEmpty()) {
-                                    updateContextWithFeatureGraphQLFieldDefinition(context, p, node)
+                                    updateContextWithTransformerGraphQLFieldDefinition(
+                                        context,
+                                        p,
+                                        node
+                                    )
                                 }
                                 context.setVar(GQLOperationPath::class.java, p)
                             }
@@ -258,7 +264,7 @@ internal object FeatureSpecifiedFeatureCalculatorCreator :
                                     field(node.name)
                                 }
                             if (node.arguments.isNotEmpty()) {
-                                updateContextWithFeatureGraphQLFieldDefinition(context, p, node)
+                                updateContextWithTransformerGraphQLFieldDefinition(context, p, node)
                             }
                             context.setVar(GQLOperationPath::class.java, p)
                         }
@@ -267,7 +273,7 @@ internal object FeatureSpecifiedFeatureCalculatorCreator :
                 else -> {
                     val p: GQLOperationPath = extractParentPathContextVariableOrThrow(context)
                     if (node.arguments.isNotEmpty()) {
-                        updateContextWithFeatureGraphQLFieldDefinition(context, p, node)
+                        updateContextWithTransformerGraphQLFieldDefinition(context, p, node)
                     }
                     context.setVar(GQLOperationPath::class.java, p)
                 }
@@ -275,43 +281,31 @@ internal object FeatureSpecifiedFeatureCalculatorCreator :
             return TraversalControl.CONTINUE
         }
 
-        private fun updateContextWithFeatureGraphQLFieldDefinition(
+        private fun updateContextWithTransformerGraphQLFieldDefinition(
             context: TraverserContext<GraphQLSchemaElement>,
             path: GQLOperationPath,
             fieldDefinition: GraphQLFieldDefinition,
         ) {
-            val c: FeatureSpecifiedFeatureCalculatorContext = context.getCurrentAccumulate()
+            val c: TransformerSpecifiedTransformerSourceContext = context.getCurrentAccumulate()
             val parentTypeName: String =
                 context.parentNode
                     .toOption()
                     .filterIsInstance<GraphQLImplementingType>()
                     .map(GraphQLImplementingType::getName)
-                    .getOrElse { c.featureTypeName }
-            val fsfc: FeatureSpecifiedFeatureCalculator =
-                DefaultFeatureSpecifiedFeatureCalculator.builder()
-                    .featureFieldCoordinates(
+                    .getOrElse { c.transformerTypeName }
+            val tsts: TransformerSpecifiedTransformerSource =
+                DefaultTransformerSpecifiedTransformerSource.builder()
+                    .transformerFieldCoordinates(
                         FieldCoordinates.coordinates(parentTypeName, fieldDefinition.name)
-                                            )
-                    .featureCalculator(c.featureCalculator)
-                    .featurePath(path)
-                    .featureFieldDefinition(fieldDefinition)
-                    .putAllNameArguments(
-                        fieldDefinition.arguments
-                            .asSequence()
-                            .map { a: GraphQLArgument -> a.name to a }
-                            .toMap()
                     )
-                    .putAllPathArguments(
-                        fieldDefinition.arguments
-                            .asSequence()
-                            .map { a: GraphQLArgument -> path.transform { argument(a.name) } to a }
-                            .toMap()
-                    )
+                    .transformerSource(c.transformerSource)
+                    .transformerPath(path)
+                    .transformerFieldDefinition(fieldDefinition)
                     .build()
             context.setAccumulate(
                 c.copy(
-                    featureSpecifiedFeatureCalculators =
-                        c.featureSpecifiedFeatureCalculators.add(fsfc)
+                    transformerSpecifiedTransformerSources =
+                        c.transformerSpecifiedTransformerSources.add(tsts)
                 )
             )
         }

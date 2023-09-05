@@ -6,6 +6,7 @@ import funcify.feature.schema.dataelement.DomainSpecifiedDataElementSource
 import funcify.feature.schema.directive.alias.AliasCoordinatesRegistry
 import funcify.feature.schema.feature.FeatureSpecifiedFeatureCalculator
 import funcify.feature.schema.path.operation.GQLOperationPath
+import funcify.feature.schema.transformer.TransformerSpecifiedTransformerSource
 import graphql.schema.FieldCoordinates
 import graphql.schema.GraphQLSchema
 import graphql.schema.GraphQLSchemaElement
@@ -57,6 +58,12 @@ interface MaterializationMetamodelBuildContext {
         ImmutableMap<FieldCoordinates, FeatureSpecifiedFeatureCalculator>
 
     val featurePathsByFieldName: ImmutableMap<String, GQLOperationPath>
+
+    val transformerSpecifiedTransformerSourcesByPath:
+        ImmutableMap<GQLOperationPath, TransformerSpecifiedTransformerSource>
+
+    val transformerSpecifiedTransformerSourcesByCoordinates:
+        ImmutableMap<FieldCoordinates, TransformerSpecifiedTransformerSource>
 
     val aliasCoordinatesRegistry: AliasCoordinatesRegistry
 
@@ -372,6 +379,60 @@ interface MaterializationMetamodelBuildContext {
         fun putAllFeatureNamesForPath(namePathPairs: Map<String, GQLOperationPath>): Builder {
             return namePathPairs.foldLeft(this) { b: Builder, (name: String, p: GQLOperationPath) ->
                 b.putFeatureNameForPath(name, p)
+            }
+        }
+
+        fun putTransformerSpecifiedTransformerSourceForPath(
+            path: GQLOperationPath,
+            transformerSpecifiedTransformerSource: TransformerSpecifiedTransformerSource
+        ): Builder
+
+        fun putAllPathTransformerSourcePairs(
+            pathTransformerSourcePairs:
+                Iterable<Pair<GQLOperationPath, TransformerSpecifiedTransformerSource>>
+        ): Builder {
+            return pathTransformerSourcePairs.fold(this) {
+                b: Builder,
+                (p: GQLOperationPath, ts: TransformerSpecifiedTransformerSource) ->
+                b.putTransformerSpecifiedTransformerSourceForPath(p, ts)
+            }
+        }
+
+        fun putAllPathTransformerSourcePairs(
+            pathTransformerSpecifiedTransformerSourcePairs:
+                Map<GQLOperationPath, TransformerSpecifiedTransformerSource>
+        ): Builder {
+            return pathTransformerSpecifiedTransformerSourcePairs.foldLeft(this) {
+                b: Builder,
+                (p: GQLOperationPath, ts: TransformerSpecifiedTransformerSource) ->
+                b.putTransformerSpecifiedTransformerSourceForPath(p, ts)
+            }
+        }
+
+        fun putTransformerSpecifiedTransformerSourceForCoordinates(
+            fieldCoordinates: FieldCoordinates,
+            transformerSpecifiedTransformerSource: TransformerSpecifiedTransformerSource
+        ): Builder
+
+        fun putAllCoordinatesTransformerSpecifiedTransformerSourcePairs(
+            coordinatesTransformerSourcePairs:
+                Iterable<Pair<FieldCoordinates, TransformerSpecifiedTransformerSource>>
+        ): Builder {
+            return coordinatesTransformerSourcePairs.fold(this) {
+                b: Builder,
+                (fc: FieldCoordinates, ts: TransformerSpecifiedTransformerSource) ->
+                b.putTransformerSpecifiedTransformerSourceForCoordinates(fc, ts)
+            }
+        }
+
+        fun putAllCoordinatesTransformerSpecifiedTransformerSourcePairs(
+            coordinatesTransformerSourcePairs:
+                Map<FieldCoordinates, TransformerSpecifiedTransformerSource>
+        ): Builder {
+            return coordinatesTransformerSourcePairs.foldLeft(this) {
+                b: Builder,
+                (fc: FieldCoordinates, ts: TransformerSpecifiedTransformerSource) ->
+                b.putTransformerSpecifiedTransformerSourceForCoordinates(fc, ts)
             }
         }
 

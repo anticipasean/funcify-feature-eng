@@ -11,6 +11,7 @@ import funcify.feature.schema.directive.alias.AliasCoordinatesRegistryCreator
 import funcify.feature.schema.feature.FeatureSpecifiedFeatureCalculator
 import funcify.feature.schema.path.operation.FieldSegment
 import funcify.feature.schema.path.operation.GQLOperationPath
+import funcify.feature.schema.transformer.TransformerSpecifiedTransformerSource
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import graphql.schema.FieldCoordinates
 import graphql.schema.GraphQLArgument
@@ -38,6 +39,7 @@ internal class DefaultMaterializationMetamodelBuildStrategy :
         logger.debug("{}: [ ]", MAIN_METHOD_TAG)
         return Mono.just(context)
             .flatMap(calculatePathsAndFieldCoordinates())
+            .flatMap(calculateTransformerSpecifiedTransformerSources())
             .flatMap(calculateDomainSpecifiedDataElementSources())
             .flatMap(calculateFeatureSpecifiedFeatureCalculators())
             .flatMap(calculateAttributeCoordinatesRegistry())
@@ -151,6 +153,10 @@ internal class DefaultMaterializationMetamodelBuildStrategy :
                     featureSpecifiedFeatureCalculatorsByCoordinates =
                         mmbc.featureSpecifiedFeatureCalculatorsByCoordinates,
                     featurePathsByName = mmbc.featurePathsByFieldName,
+                    transformerSpecifiedTransformerSourcesByPath =
+                        mmbc.transformerSpecifiedTransformerSourcesByPath,
+                    transformerSpecifiedTransformerSourcesByCoordinates =
+                        mmbc.transformerSpecifiedTransformerSourcesByCoordinates,
                     aliasCoordinatesRegistry = mmbc.aliasCoordinatesRegistry
                 )
             }
@@ -283,7 +289,7 @@ internal class DefaultMaterializationMetamodelBuildStrategy :
                                         fsfc
                                     )
                                     .putFeatureSpecifiedFeatureCalculatorForCoordinates(
-                                        fsfc.fieldCoordinates,
+                                        fsfc.featureFieldCoordinates,
                                         fsfc
                                     )
                                     .putFeatureNameForPath(fsfc.featureName, fsfc.featurePath)
@@ -299,6 +305,48 @@ internal class DefaultMaterializationMetamodelBuildStrategy :
                             ServiceError.builder()
                                 .message(
                                     "calculate_feature_specified_feature_calculators: [ status: failed ]"
+                                )
+                                .cause(t)
+                                .build()
+                        }
+                    }
+                }
+                .doOnError { t: Throwable -> logger.error("{}", t.message) }
+        }
+    }
+
+    private fun calculateTransformerSpecifiedTransformerSources():
+        (MaterializationMetamodelBuildContext) -> Mono<MaterializationMetamodelBuildContext> {
+        return { mmbc: MaterializationMetamodelBuildContext ->
+            Mono.fromCallable {
+                    mmbc.update {
+                        TransformerSpecifiedTransformerSourceCreator.invoke(
+                                mmbc.featureEngineeringModel,
+                                mmbc.materializationGraphQLSchema
+                            )
+                            .fold(this) {
+                                b: MaterializationMetamodelBuildContext.Builder,
+                                tsts: TransformerSpecifiedTransformerSource ->
+                                b.putTransformerSpecifiedTransformerSourceForPath(
+                                        tsts.transformerPath,
+                                        tsts
+                                    )
+                                    .putTransformerSpecifiedTransformerSourceForCoordinates(
+                                        tsts.transformerFieldCoordinates,
+                                        tsts
+                                    )
+                            }
+                    }
+                }
+                .onErrorMap { t: Throwable ->
+                    when (t) {
+                        is ServiceError -> {
+                            t
+                        }
+                        else -> {
+                            ServiceError.builder()
+                                .message(
+                                    "calculate_transformer_specified_transformer_sources: [ status: failed ]"
                                 )
                                 .cause(t)
                                 .build()

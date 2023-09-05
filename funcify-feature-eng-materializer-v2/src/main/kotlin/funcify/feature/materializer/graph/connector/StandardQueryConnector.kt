@@ -382,7 +382,13 @@ object StandardQueryConnector : RequestMaterializationGraphConnector<StandardQue
             "connect_selected_transformer_field: [ selected_field_component_context.path: {} ]",
             selectedFieldComponentContext.path
         )
-        return connectorContext
+        val p: GQLOperationPath = selectedFieldComponentContext.path.toUnaliasedPath()
+        return when {
+            p in connectorContext.transformerCallablesByPath -> {
+                connectorContext
+            }
+            p in connectorContext.materializationMetamodel
+        }
     }
 
     private fun connectSelectedFeatureField(
