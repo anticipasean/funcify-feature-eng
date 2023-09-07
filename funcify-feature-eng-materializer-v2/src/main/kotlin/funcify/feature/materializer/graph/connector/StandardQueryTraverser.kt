@@ -27,9 +27,11 @@ import graphql.util.Traverser
 import graphql.util.TraverserContext
 import graphql.util.TraverserResult
 import graphql.util.TraverserVisitor
+import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.PersistentList
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.persistentMapOf
 import org.slf4j.Logger
 
 internal class StandardQueryTraverser(
@@ -474,7 +476,7 @@ internal class StandardQueryTraverser(
             }
             .firstOrNone()
             .map { od: OperationDefinition ->
-                Traverser.breadthFirst(
+                Traverser.depthFirst(
                         nodeTraversalFunctionOverDocument(document),
                         GQLOperationPath.getRootPath(),
                         StandardQueryTraversalContext(queue = persistentListOf())
@@ -513,6 +515,7 @@ internal class StandardQueryTraverser(
                         .toOption()
                         .mapNotNull(SelectionSet::getSelections)
                         .fold(::emptyList, ::identity)
+                        .sortedWith(featuresLastComparator(fragmentDefinitionsByName))
                 }
                 is Field -> {
                     n.arguments
@@ -544,6 +547,60 @@ internal class StandardQueryTraverser(
                     emptyList()
                 }
             }
+        }
+    }
+
+    private fun featuresLastComparator(
+        fragmentDefinitionsByName: PersistentMap<String, FragmentDefinition>
+    ): Comparator<Selection<*>> {
+        val priorityByElementTypeName: ImmutableMap<String, Int> =
+            persistentMapOf(
+                materializationMetamodel.featureEngineeringModel.transformerFieldCoordinates
+                    .fieldName to 1,
+                materializationMetamodel.featureEngineeringModel.dataElementFieldCoordinates
+                    .fieldName to 2,
+                materializationMetamodel.featureEngineeringModel.featureFieldCoordinates
+                    .fieldName to 3
+            )
+        val selectionToPriorityMapper: (Selection<*>) -> Int = { s: Selection<*> ->
+            when (s) {
+                is Field -> {
+                    priorityByElementTypeName[s.name] ?: 0
+                }
+                is InlineFragment -> {
+                    // Get the lowest priority value for all fields under Query within this
+                    // InlineFragment
+                    s.toOption()
+                        .mapNotNull(InlineFragment::getSelectionSet)
+                        .mapNotNull(SelectionSet::getSelections)
+                        .map(List<Selection<*>>::asSequence)
+                        .fold(::emptySequence, ::identity)
+                        .filterIsInstance<Field>()
+                        .mapNotNull(Field::getName)
+                        .mapNotNull { fn: String -> priorityByElementTypeName[fn] }
+                        .minOrNull()
+                        ?: 0
+                }
+                is FragmentSpread -> {
+                    s.toOption()
+                        .mapNotNull { fs: FragmentSpread -> fragmentDefinitionsByName[fs.name] }
+                        .mapNotNull(FragmentDefinition::getSelectionSet)
+                        .mapNotNull(SelectionSet::getSelections)
+                        .map(List<Selection<*>>::asSequence)
+                        .fold(::emptySequence, ::identity)
+                        .filterIsInstance<Field>()
+                        .mapNotNull(Field::getName)
+                        .mapNotNull { fn: String -> priorityByElementTypeName[fn] }
+                        .minOrNull()
+                        ?: 0
+                }
+                else -> {
+                    0
+                }
+            }
+        }
+        return Comparator { s1: Selection<*>, s2: Selection<*> ->
+            selectionToPriorityMapper(s1) - selectionToPriorityMapper(s2)
         }
     }
 }

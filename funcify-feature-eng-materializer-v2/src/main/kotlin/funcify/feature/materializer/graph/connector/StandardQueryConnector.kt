@@ -13,6 +13,7 @@ import funcify.feature.materializer.graph.context.StandardQuery
 import funcify.feature.schema.dataelement.DataElementCallable
 import funcify.feature.schema.dataelement.DomainSpecifiedDataElementSource
 import funcify.feature.schema.path.operation.GQLOperationPath
+import funcify.feature.schema.transformer.TransformerSpecifiedTransformerSource
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.SequenceExtensions.firstOrNone
 import funcify.feature.tools.extensions.StringExtensions.flatten
@@ -387,7 +388,53 @@ object StandardQueryConnector : RequestMaterializationGraphConnector<StandardQue
             p in connectorContext.transformerCallablesByPath -> {
                 connectorContext
             }
-            p in connectorContext.materializationMetamodel
+            p in
+                connectorContext.materializationMetamodel
+                    .transformerSpecifiedTransformerSourcesByPath ||
+                selectedFieldComponentContext.fieldCoordinates in
+                    connectorContext.materializationMetamodel
+                        .transformerSpecifiedTransformerSourcesByCoordinates -> {
+                connectorContext.update(
+                    connectTransformer(connectorContext, selectedFieldComponentContext)
+                )
+            }
+            else -> {
+                connectorContext
+            }
+        }
+    }
+
+    private fun connectTransformer(
+        connectorContext: StandardQuery,
+        selectedFieldComponentContext: SelectedFieldComponentContext
+    ): (StandardQuery.Builder) -> StandardQuery.Builder {
+        return { sqb: StandardQuery.Builder ->
+            val p: GQLOperationPath = selectedFieldComponentContext.path.toUnaliasedPath()
+            if (
+                p !in
+                    connectorContext.materializationMetamodel
+                        .transformerSpecifiedTransformerSourcesByPath
+            ) {
+                throw ServiceError.of(
+                    "transformer_specified_transformer_source not available for [ (unaliased) path: %s ]",
+                    p
+                )
+            }
+            val tsts: TransformerSpecifiedTransformerSource =
+                connectorContext.materializationMetamodel
+                    .transformerSpecifiedTransformerSourcesByPath
+                    .get(p)!!
+            sqb.putTransformerCallableForPath(
+                p,
+                tsts.transformerSource
+                    .builder()
+                    .selectTransformer(
+                        tsts.transformerFieldCoordinates,
+                        tsts.transformerPath,
+                        tsts.transformerFieldDefinition
+                    )
+                    .build()
+            )
         }
     }
 
