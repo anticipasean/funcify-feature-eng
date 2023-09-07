@@ -1,6 +1,7 @@
 package funcify.feature.materializer.graph.connector
 
 import arrow.core.filterIsInstance
+import arrow.core.firstOrNone
 import arrow.core.getOrElse
 import arrow.core.getOrNone
 import arrow.core.toOption
@@ -26,7 +27,9 @@ import graphql.language.Value
 import graphql.language.VariableReference
 import graphql.schema.FieldCoordinates
 import graphql.schema.GraphQLArgument
+import graphql.schema.SelectedField
 import kotlinx.collections.immutable.ImmutableMap
+import kotlinx.collections.immutable.ImmutableSet
 import org.slf4j.Logger
 
 /**
@@ -42,25 +45,28 @@ object StandardQueryConnector : RequestMaterializationGraphConnector<StandardQue
             "connect_operation_definition: [ connector_context.operation_name: {} ]",
             connectorContext.operationName
         )
-        return when {
+        return when (
+            val od: OperationDefinition? =
+                connectorContext.document.definitions
+                    .asSequence()
+                    .filterIsInstance<OperationDefinition>()
+                    .filter { od: OperationDefinition ->
+                        if (connectorContext.operationName.isNotBlank()) {
+                            od.name == connectorContext.operationName
+                        } else {
+                            true
+                        }
+                    }
+                    .firstOrNone()
+                    .orNull()
+        ) {
             /*
              * [graphql.language.Document.getOperationDefinition] does not handle _null_ or empty
              * names as expected
              *
              * => filter for operation_name only if it's not blank, else use the first found
              */
-            connectorContext.document.definitions
-                .asSequence()
-                .filterIsInstance<OperationDefinition>()
-                .filter { od: OperationDefinition ->
-                    if (connectorContext.operationName.isNotBlank()) {
-                        od.name == connectorContext.operationName
-                    } else {
-                        true
-                    }
-                }
-                .firstOrNone()
-                .isEmpty() -> {
+            null -> {
                 throw ServiceError.of(
                     "GraphQL document does not contain an operation_definition with [ name: %s ][ actual: %s ]",
                     connectorContext.operationName,
@@ -78,7 +84,14 @@ object StandardQueryConnector : RequestMaterializationGraphConnector<StandardQue
                             operationName = connectorContext.operationName,
                             document = connectorContext.document
                         )
-                        .fold(this) { sqb: StandardQuery.Builder, qcc: QueryComponentContext ->
+                        .fold(
+                            this.requestGraph(
+                                connectorContext.requestGraph.put(
+                                    GQLOperationPath.getRootPath(),
+                                    od
+                                )
+                            )
+                        ) { sqb: StandardQuery.Builder, qcc: QueryComponentContext ->
                             logger.debug("query_component_context: {}", qcc)
                             sqb.addVertexContext(qcc)
                         }
@@ -201,25 +214,70 @@ object StandardQueryConnector : RequestMaterializationGraphConnector<StandardQue
             selectedFieldComponentContext.path
         )
         val p: GQLOperationPath = selectedFieldComponentContext.path.toUnaliasedPath()
+        val elementTypeSegmentNotOnFragment: Boolean =
+            p.selection.firstOrNone().filterIsInstance<SelectedField>().isDefined()
+        val elementTypeSegmentOnFragment: Boolean = !elementTypeSegmentNotOnFragment
         return when {
-            connectorContext.materializationMetamodel.elementTypePaths.contains(p) -> {
+            selectedFieldComponentContext.fieldCoordinates in
+                connectorContext.materializationMetamodel.elementTypeCoordinates -> {
                 connectElementTypeSelectedField(connectorContext, selectedFieldComponentContext)
             }
-            connectorContext.materializationMetamodel.dataElementElementTypePath.isAncestorTo(
-                p
-            ) -> {
+            elementTypeSegmentNotOnFragment &&
+                connectorContext.materializationMetamodel.dataElementElementTypePath.isAncestorTo(
+                    p
+                ) -> {
                 connectSelectedDataElementField(connectorContext, selectedFieldComponentContext)
             }
-            connectorContext.materializationMetamodel.transformerElementTypePath.isAncestorTo(
-                p
-            ) -> {
-                connectSelectedTransformerField(connectorContext, selectedFieldComponentContext)
-            }
-            connectorContext.materializationMetamodel.featureElementTypePath.isAncestorTo(p) -> {
+            elementTypeSegmentNotOnFragment &&
+                connectorContext.materializationMetamodel.featureElementTypePath.isAncestorTo(
+                    p
+                ) -> {
                 connectSelectedFeatureField(connectorContext, selectedFieldComponentContext)
             }
+            elementTypeSegmentNotOnFragment &&
+                connectorContext.materializationMetamodel.transformerElementTypePath.isAncestorTo(
+                    p
+                ) -> {
+                connectSelectedTransformerField(connectorContext, selectedFieldComponentContext)
+            }
+            elementTypeSegmentOnFragment &&
+                connectorContext.materializationMetamodel.pathsByFieldCoordinates
+                    .getOrNone(selectedFieldComponentContext.fieldCoordinates)
+                    .flatMap(ImmutableSet<GQLOperationPath>::firstOrNone)
+                    .filter { cp: GQLOperationPath ->
+                        connectorContext.materializationMetamodel.dataElementElementTypePath
+                            .isAncestorTo(cp)
+                    }
+                    .isDefined() -> {
+                connectSelectedDataElementField(connectorContext, selectedFieldComponentContext)
+            }
+            elementTypeSegmentOnFragment &&
+                connectorContext.materializationMetamodel.pathsByFieldCoordinates
+                    .getOrNone(selectedFieldComponentContext.fieldCoordinates)
+                    .flatMap(ImmutableSet<GQLOperationPath>::firstOrNone)
+                    .filter { cp: GQLOperationPath ->
+                        connectorContext.materializationMetamodel.featureElementTypePath
+                            .isAncestorTo(cp)
+                    }
+                    .isDefined() -> {
+                connectSelectedFeatureField(connectorContext, selectedFieldComponentContext)
+            }
+            elementTypeSegmentOnFragment &&
+                connectorContext.materializationMetamodel.pathsByFieldCoordinates
+                    .getOrNone(selectedFieldComponentContext.fieldCoordinates)
+                    .flatMap(ImmutableSet<GQLOperationPath>::firstOrNone)
+                    .filter { cp: GQLOperationPath ->
+                        connectorContext.materializationMetamodel.transformerElementTypePath
+                            .isAncestorTo(cp)
+                    }
+                    .isDefined() -> {
+                connectSelectedTransformerField(connectorContext, selectedFieldComponentContext)
+            }
             else -> {
-                throw ServiceError.of("unhandled path type for selected_field [ path: %s ]", p)
+                throw ServiceError.of(
+                    "unable to identify element_type bucket for selected_field [ path: %s ]",
+                    selectedFieldComponentContext.path
+                )
             }
         }
     }
@@ -232,18 +290,24 @@ object StandardQueryConnector : RequestMaterializationGraphConnector<StandardQue
             "connect_element_type_selected_field: [ selected_field_component_context.path: {} ]",
             selectedFieldComponentContext.path
         )
-        val p: GQLOperationPath = selectedFieldComponentContext.path.toUnaliasedPath()
         return when {
-            p == connectorContext.materializationMetamodel.dataElementElementTypePath &&
-                connectorContext.materializationMetamodel.dataElementElementTypePath !in
-                    connectorContext.requestGraph -> {
+            selectedFieldComponentContext.fieldCoordinates ==
+                connectorContext.materializationMetamodel.featureEngineeringModel
+                    .dataElementFieldCoordinates &&
+                selectedFieldComponentContext.path !in connectorContext.requestGraph -> {
                 // Case 1: Connect data_element_element_type_path to root if not already connected
                 connectorContext.update {
                     requestGraph(
-                        connectorContext.requestGraph.put(
-                            selectedFieldComponentContext.path,
-                            selectedFieldComponentContext.field
-                        )
+                        connectorContext.requestGraph
+                            .put(
+                                selectedFieldComponentContext.path,
+                                selectedFieldComponentContext.field
+                            )
+                            .putEdge(
+                                selectedFieldComponentContext.path,
+                                GQLOperationPath.getRootPath(),
+                                MaterializationEdge.ELEMENT_TYPE
+                            )
                     )
                 }
             }

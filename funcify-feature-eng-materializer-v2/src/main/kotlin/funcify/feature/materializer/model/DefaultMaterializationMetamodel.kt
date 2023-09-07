@@ -17,6 +17,7 @@ internal data class DefaultMaterializationMetamodel(
     override val created: Instant = Instant.now(),
     override val featureEngineeringModel: FeatureEngineeringModel,
     override val materializationGraphQLSchema: GraphQLSchema,
+    override val elementTypeCoordinates: ImmutableSet<FieldCoordinates>,
     override val elementTypePaths: ImmutableSet<GQLOperationPath>,
     override val dataElementElementTypePath: GQLOperationPath,
     override val featureElementTypePath: GQLOperationPath,

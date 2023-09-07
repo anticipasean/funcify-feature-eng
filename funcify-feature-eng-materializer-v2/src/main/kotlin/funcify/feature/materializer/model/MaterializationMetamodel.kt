@@ -26,6 +26,8 @@ interface MaterializationMetamodel {
 
     val materializationGraphQLSchema: GraphQLSchema
 
+    val elementTypeCoordinates: ImmutableSet<FieldCoordinates>
+
     val elementTypePaths: ImmutableSet<GQLOperationPath>
 
     val dataElementElementTypePath: GQLOperationPath

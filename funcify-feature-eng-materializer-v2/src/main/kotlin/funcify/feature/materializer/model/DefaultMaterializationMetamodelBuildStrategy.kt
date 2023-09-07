@@ -132,6 +132,7 @@ internal class DefaultMaterializationMetamodelBuildStrategy :
                 DefaultMaterializationMetamodel(
                     featureEngineeringModel = mmbc.featureEngineeringModel,
                     materializationGraphQLSchema = mmbc.materializationGraphQLSchema,
+                    elementTypeCoordinates = mmbc.elementTypeCoordinates,
                     elementTypePaths = mmbc.elementTypePaths,
                     dataElementElementTypePath = mmbc.dataElementElementTypePath,
                     featureElementTypePath = mmbc.featureElementTypePath,

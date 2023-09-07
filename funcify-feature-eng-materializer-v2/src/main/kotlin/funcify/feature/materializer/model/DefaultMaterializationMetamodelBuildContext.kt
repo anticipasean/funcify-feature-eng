@@ -20,6 +20,7 @@ import kotlinx.collections.immutable.toPersistentSet
 internal data class DefaultMaterializationMetamodelBuildContext(
     override val featureEngineeringModel: FeatureEngineeringModel,
     override val materializationGraphQLSchema: GraphQLSchema,
+    override val elementTypeCoordinates: ImmutableSet<FieldCoordinates>,
     override val elementTypePaths: ImmutableSet<GQLOperationPath>,
     override val dataElementElementTypePath: GQLOperationPath,
     override val featureElementTypePath: GQLOperationPath,
@@ -62,6 +63,13 @@ internal data class DefaultMaterializationMetamodelBuildContext(
             return DefaultMaterializationMetamodelBuildContext(
                 featureEngineeringModel = featureEngineeringModel,
                 materializationGraphQLSchema = materializationGraphQLSchema,
+                elementTypeCoordinates =
+                    sequenceOf(
+                            featureEngineeringModel.dataElementFieldCoordinates,
+                            featureEngineeringModel.featureFieldCoordinates,
+                            featureEngineeringModel.transformerFieldCoordinates
+                        )
+                        .toPersistentSet(),
                 elementTypePaths =
                     sequenceOf(
                             featureEngineeringModel.dataElementFieldCoordinates,
@@ -108,6 +116,8 @@ internal data class DefaultMaterializationMetamodelBuildContext(
                 existingFacts.featureEngineeringModel,
             private var materializationGraphQLSchema: GraphQLSchema =
                 existingFacts.materializationGraphQLSchema,
+            private var elementTypeCoordinates: ImmutableSet<FieldCoordinates> =
+                existingFacts.elementTypeCoordinates,
             private var elementTypePaths: ImmutableSet<GQLOperationPath> =
                 existingFacts.elementTypePaths,
             private var dataElementElementTypePath: GQLOperationPath =
@@ -347,6 +357,7 @@ internal data class DefaultMaterializationMetamodelBuildContext(
                 return DefaultMaterializationMetamodelBuildContext(
                     featureEngineeringModel = featureEngineeringModel,
                     materializationGraphQLSchema = materializationGraphQLSchema,
+                    elementTypeCoordinates = elementTypeCoordinates,
                     elementTypePaths = elementTypePaths,
                     dataElementElementTypePath = dataElementElementTypePath,
                     featureElementTypePath = featureElementTypePath,
