@@ -1,10 +1,13 @@
 package funcify.feature.materializer.graph.connector
 
+import arrow.core.None
+import arrow.core.Option
 import arrow.core.filterIsInstance
 import arrow.core.firstOrNone
 import arrow.core.getOrElse
 import arrow.core.getOrNone
 import arrow.core.toOption
+import funcify.feature.directive.TransformDirective
 import funcify.feature.error.ServiceError
 import funcify.feature.materializer.graph.MaterializationEdge
 import funcify.feature.materializer.graph.component.QueryComponentContext
@@ -13,23 +16,36 @@ import funcify.feature.materializer.graph.component.QueryComponentContext.Select
 import funcify.feature.materializer.graph.context.StandardQuery
 import funcify.feature.schema.dataelement.DataElementCallable
 import funcify.feature.schema.dataelement.DomainSpecifiedDataElementSource
+import funcify.feature.schema.feature.FeatureCalculatorCallable
+import funcify.feature.schema.feature.FeatureSpecifiedFeatureCalculator
 import funcify.feature.schema.path.operation.GQLOperationPath
+import funcify.feature.schema.transformer.TransformerCallable
 import funcify.feature.schema.transformer.TransformerSpecifiedTransformerSource
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.SequenceExtensions.firstOrNone
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.extensions.TryExtensions.successIfDefined
+import graphql.introspection.Introspection
 import graphql.language.Argument
 import graphql.language.Field
 import graphql.language.Node
+import graphql.language.ObjectField
+import graphql.language.ObjectValue
 import graphql.language.OperationDefinition
+import graphql.language.StringValue
 import graphql.language.Value
 import graphql.language.VariableReference
 import graphql.schema.FieldCoordinates
+import graphql.schema.GraphQLAppliedDirectiveArgument
 import graphql.schema.GraphQLArgument
+import graphql.schema.GraphQLCompositeType
+import graphql.schema.GraphQLFieldDefinition
+import graphql.schema.GraphQLTypeUtil
 import graphql.schema.SelectedField
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.ImmutableSet
+import kotlinx.collections.immutable.PersistentMap
+import kotlinx.collections.immutable.persistentMapOf
 import org.slf4j.Logger
 
 /**
@@ -325,11 +341,10 @@ object StandardQueryConnector : RequestMaterializationGraphConnector<StandardQue
             "connect_selected_data_element_field: [ selected_field_component_context.path: {} ]",
             selectedFieldComponentContext.path
         )
-        val p: GQLOperationPath = selectedFieldComponentContext.path.toUnaliasedPath()
         return when {
-            p in
+            selectedFieldComponentContext.fieldCoordinates in
                 connectorContext.materializationMetamodel
-                    .domainSpecifiedDataElementSourceByPath -> {
+                    .domainSpecifiedDataElementSourceByCoordinates -> {
                 connectorContext.update(
                     connectDomainDataElement(connectorContext, selectedFieldComponentContext)
                 )
@@ -350,14 +365,14 @@ object StandardQueryConnector : RequestMaterializationGraphConnector<StandardQue
         selectedFieldComponentContext: SelectedFieldComponentContext
     ): (StandardQuery.Builder) -> StandardQuery.Builder {
         return { sqb: StandardQuery.Builder ->
-            val p: GQLOperationPath = selectedFieldComponentContext.path.toUnaliasedPath()
             val decb: DataElementCallable.Builder =
-                connectorContext.materializationMetamodel.domainSpecifiedDataElementSourceByPath
-                    .getOrNone(p)
+                connectorContext.materializationMetamodel
+                    .domainSpecifiedDataElementSourceByCoordinates
+                    .getOrNone(selectedFieldComponentContext.fieldCoordinates)
                     .successIfDefined {
                         ServiceError.of(
-                            "domain_specified_data_element_source not available at [ path: %s ]",
-                            p
+                            "domain_specified_data_element_source not available at [ coordinates: %s ]",
+                            selectedFieldComponentContext.fieldCoordinates
                         )
                     }
                     .map { dsdes: DomainSpecifiedDataElementSource ->
@@ -371,9 +386,12 @@ object StandardQueryConnector : RequestMaterializationGraphConnector<StandardQue
                     }
                     .orElseThrow()
             sqb.requestGraph(
-                    connectorContext.requestGraph.put(p, selectedFieldComponentContext.field)
+                    connectorContext.requestGraph.put(
+                        selectedFieldComponentContext.path,
+                        selectedFieldComponentContext.field
+                    )
                 )
-                .putDataElementCallableBuilderForPath(p, decb)
+                .putDataElementCallableBuilderForPath(selectedFieldComponentContext.path, decb)
         }
     }
 
@@ -382,12 +400,12 @@ object StandardQueryConnector : RequestMaterializationGraphConnector<StandardQue
         selectedFieldComponentContext: SelectedFieldComponentContext,
     ): (StandardQuery.Builder) -> StandardQuery.Builder {
         return { sqb: StandardQuery.Builder ->
-            val p: GQLOperationPath = selectedFieldComponentContext.path.toUnaliasedPath()
             val parentPath: GQLOperationPath =
-                p.getParentPath()
+                selectedFieldComponentContext.path
+                    .getParentPath()
                     .successIfDefined {
                         ServiceError.of(
-                            "selected_data_element should not have root path [ field.name: %s ]",
+                            "the selected_data_element should be processed by an element_type method [ field.name: %s ]",
                             selectedFieldComponentContext.field.name
                         )
                     }
@@ -399,7 +417,7 @@ object StandardQueryConnector : RequestMaterializationGraphConnector<StandardQue
                 throw ServiceError.of(
                     """parent of selected_data_element should have been added 
                     |and connected to its domain prior to its child 
-                    |data_element fields: [ parent.path: %s ]"""
+                    |data_element fields: [ parent_path: %s ]"""
                         .flatten(),
                     parentPath
                 )
@@ -407,14 +425,21 @@ object StandardQueryConnector : RequestMaterializationGraphConnector<StandardQue
             if (parentPath in connectorContext.dataElementCallableBuildersByPath) {
                 sqb.requestGraph(
                         connectorContext.requestGraph
-                            .put(p, selectedFieldComponentContext.field)
-                            .putEdge(p, parentPath, MaterializationEdge.EXTRACT_FROM_SOURCE)
+                            .put(
+                                selectedFieldComponentContext.path,
+                                selectedFieldComponentContext.field
+                            )
+                            .putEdge(
+                                selectedFieldComponentContext.path,
+                                parentPath,
+                                MaterializationEdge.EXTRACT_FROM_SOURCE
+                            )
                     )
                     .putDataElementCallableBuilderForPath(
                         parentPath,
                         connectorContext.dataElementCallableBuildersByPath
                             .get(parentPath)!!
-                            .selectPathWithinDomain(p)
+                            .selectPathWithinDomain(selectedFieldComponentContext.path)
                     )
             } else {
                 val (domainPath: GQLOperationPath, _: Node<*>) =
@@ -427,13 +452,20 @@ object StandardQueryConnector : RequestMaterializationGraphConnector<StandardQue
                 }
                 sqb.requestGraph(
                         connectorContext.requestGraph
-                            .put(p, selectedFieldComponentContext.field)
-                            .putEdge(p, domainPath, MaterializationEdge.EXTRACT_FROM_SOURCE)
+                            .put(
+                                selectedFieldComponentContext.path,
+                                selectedFieldComponentContext.field
+                            )
+                            .putEdge(
+                                selectedFieldComponentContext.path,
+                                domainPath,
+                                MaterializationEdge.EXTRACT_FROM_SOURCE
+                            )
                     )
                     .putDataElementCallableBuilderForPath(
                         domainPath,
                         connectorContext.dataElementCallableBuildersByPath[domainPath]!!
-                            .selectPathWithinDomain(p)
+                            .selectPathWithinDomain(selectedFieldComponentContext.path)
                     )
             }
         }
@@ -447,22 +479,19 @@ object StandardQueryConnector : RequestMaterializationGraphConnector<StandardQue
             "connect_selected_transformer_field: [ selected_field_component_context.path: {} ]",
             selectedFieldComponentContext.path
         )
-        val p: GQLOperationPath = selectedFieldComponentContext.path.toUnaliasedPath()
         return when {
-            p in connectorContext.transformerCallablesByPath -> {
+            selectedFieldComponentContext.path in connectorContext.transformerCallablesByPath -> {
                 connectorContext
             }
-            p in
+            selectedFieldComponentContext.fieldCoordinates in
                 connectorContext.materializationMetamodel
-                    .transformerSpecifiedTransformerSourcesByPath ||
-                selectedFieldComponentContext.fieldCoordinates in
-                    connectorContext.materializationMetamodel
-                        .transformerSpecifiedTransformerSourcesByCoordinates -> {
+                    .transformerSpecifiedTransformerSourcesByCoordinates -> {
                 connectorContext.update(
                     connectTransformer(connectorContext, selectedFieldComponentContext)
                 )
             }
             else -> {
+                // paths belonging to object types do not need to be wired
                 connectorContext
             }
         }
@@ -473,23 +502,22 @@ object StandardQueryConnector : RequestMaterializationGraphConnector<StandardQue
         selectedFieldComponentContext: SelectedFieldComponentContext
     ): (StandardQuery.Builder) -> StandardQuery.Builder {
         return { sqb: StandardQuery.Builder ->
-            val p: GQLOperationPath = selectedFieldComponentContext.path.toUnaliasedPath()
             if (
-                p !in
+                selectedFieldComponentContext.fieldCoordinates !in
                     connectorContext.materializationMetamodel
-                        .transformerSpecifiedTransformerSourcesByPath
+                        .transformerSpecifiedTransformerSourcesByCoordinates
             ) {
                 throw ServiceError.of(
-                    "transformer_specified_transformer_source not available for [ (unaliased) path: %s ]",
-                    p
+                    "transformer_specified_transformer_source not available for [ coordinates: %s ]",
+                    selectedFieldComponentContext.fieldCoordinates
                 )
             }
             val tsts: TransformerSpecifiedTransformerSource =
                 connectorContext.materializationMetamodel
                     .transformerSpecifiedTransformerSourcesByPath
-                    .get(p)!!
+                    .get(selectedFieldComponentContext.path)!!
             sqb.putTransformerCallableForPath(
-                p,
+                selectedFieldComponentContext.path,
                 tsts.transformerSource
                     .builder()
                     .selectTransformer(
@@ -510,7 +538,187 @@ object StandardQueryConnector : RequestMaterializationGraphConnector<StandardQue
             "connect_selected_feature_field: [ selected_field_component_context.path: {} ]",
             selectedFieldComponentContext.path
         )
-        return connectorContext
+        return when {
+            selectedFieldComponentContext.path in
+                connectorContext.featureCalculatorCallableBuildersByPath -> {
+                connectorContext
+            }
+            selectedFieldComponentContext.fieldCoordinates in
+                connectorContext.materializationMetamodel
+                    .featureSpecifiedFeatureCalculatorsByCoordinates -> {
+                connectorContext.update(
+                    connectSelectedFeatureFieldToDataElementArguments(
+                        connectorContext,
+                        selectedFieldComponentContext
+                    )
+                )
+            }
+            extractGraphQLFieldDefinitionForCoordinates(
+                    connectorContext,
+                    selectedFieldComponentContext.fieldCoordinates
+                )
+                .mapNotNull(GraphQLFieldDefinition::getType)
+                .mapNotNull(GraphQLTypeUtil::unwrapAll)
+                .filterIsInstance<GraphQLCompositeType>()
+                .isDefined() -> {
+                // feature object type containers do not require wiring
+                connectorContext
+            }
+            else -> {
+                throw ServiceError.of(
+                    "unhandled selected_feature_field [ path: %s ]",
+                    selectedFieldComponentContext.path
+                )
+            }
+        }
+    }
+
+    private fun extractGraphQLFieldDefinitionForCoordinates(
+        connectorContext: StandardQuery,
+        fieldCoordinates: FieldCoordinates
+    ): Option<GraphQLFieldDefinition> {
+        return fieldCoordinates.typeName
+            .toOption()
+            .flatMap { tn: String ->
+                connectorContext.materializationMetamodel.materializationGraphQLSchema
+                    .getType(tn)
+                    .toOption()
+            }
+            .filterIsInstance<GraphQLCompositeType>()
+            .flatMap { gct: GraphQLCompositeType ->
+                try {
+                    Introspection.getFieldDef(
+                            connectorContext.materializationMetamodel.materializationGraphQLSchema,
+                            gct,
+                            fieldCoordinates.fieldName
+                        )
+                        .toOption()
+                } catch (t: Throwable) {
+                    None
+                }
+            }
+    }
+
+    private fun connectSelectedFeatureFieldToDataElementArguments(
+        connectorContext: StandardQuery,
+        selectedFieldComponentContext: SelectedFieldComponentContext,
+    ): (StandardQuery.Builder) -> StandardQuery.Builder {
+        return { sqb: StandardQuery.Builder ->
+            val fsfc: FeatureSpecifiedFeatureCalculator =
+                connectorContext.materializationMetamodel
+                    .featureSpecifiedFeatureCalculatorsByCoordinates
+                    .get(selectedFieldComponentContext.fieldCoordinates)!!
+            val fcb: FeatureCalculatorCallable.Builder =
+                fsfc.featureCalculator
+                    .builder()
+                    .selectFeature(
+                        fsfc.featureFieldCoordinates,
+                        fsfc.featurePath,
+                        fsfc.featureFieldDefinition
+                    )
+            val tc: TransformerCallable =
+                fsfc.featureFieldDefinition
+                    .getAppliedDirective(TransformDirective.name)
+                    .getArgument(TransformDirective.COORDINATES_INPUT_VALUE_DEFINITION_NAME)
+                    .toOption()
+                    .flatMap { ada: GraphQLAppliedDirectiveArgument ->
+                        when {
+                            ada.argumentValue.isInternal -> {
+                                ada.argumentValue.value
+                                    .toOption()
+                                    .filterIsInstance<ObjectValue>()
+                                    .map { ov: ObjectValue ->
+                                        ov.objectFields.asSequence().take(2).fold(
+                                            persistentMapOf<String, String>()
+                                        ) { pm: PersistentMap<String, String>, of: ObjectField ->
+                                            when {
+                                                of.name ==
+                                                    TransformDirective
+                                                        .FIELD_NAME_INPUT_VALUE_DEFINITION_NAME -> {
+                                                    pm.put(
+                                                        TransformDirective
+                                                            .FIELD_NAME_INPUT_VALUE_DEFINITION_NAME,
+                                                        of.value
+                                                            .toOption()
+                                                            .filterIsInstance<StringValue>()
+                                                            .mapNotNull(StringValue::getValue)
+                                                            .getOrElse { "" }
+                                                    )
+                                                }
+                                                of.name ==
+                                                    TransformDirective
+                                                        .TYPE_NAME_INPUT_VALUE_DEFINITION_NAME -> {
+                                                    pm.put(
+                                                        TransformDirective
+                                                            .TYPE_NAME_INPUT_VALUE_DEFINITION_NAME,
+                                                        of.value
+                                                            .toOption()
+                                                            .filterIsInstance<StringValue>()
+                                                            .mapNotNull(StringValue::getValue)
+                                                            .getOrElse { "" }
+                                                    )
+                                                }
+                                                else -> {
+                                                    pm
+                                                }
+                                            }
+                                        }
+                                    }
+                                    .filter { pm: PersistentMap<String, String> ->
+                                        pm.containsKey(
+                                            TransformDirective
+                                                .FIELD_NAME_INPUT_VALUE_DEFINITION_NAME
+                                        ) &&
+                                            pm.containsKey(
+                                                TransformDirective
+                                                    .TYPE_NAME_INPUT_VALUE_DEFINITION_NAME
+                                            )
+                                    }
+                                    .map { pm: PersistentMap<String, String> ->
+                                        FieldCoordinates.coordinates(
+                                            pm.get(
+                                                TransformDirective
+                                                    .TYPE_NAME_INPUT_VALUE_DEFINITION_NAME
+                                            )!!,
+                                            pm.get(
+                                                TransformDirective
+                                                    .FIELD_NAME_INPUT_VALUE_DEFINITION_NAME
+                                            )!!
+                                        )
+                                    }
+                                    .flatMap { fc: FieldCoordinates ->
+                                        connectorContext.materializationMetamodel
+                                            .transformerSpecifiedTransformerSourcesByCoordinates
+                                            .getOrNone(fc)
+                                    }
+                                    .map { tsts: TransformerSpecifiedTransformerSource ->
+                                        tsts.transformerSource
+                                            .builder()
+                                            .selectTransformer(
+                                                tsts.transformerFieldCoordinates,
+                                                tsts.transformerPath,
+                                                tsts.transformerFieldDefinition
+                                            )
+                                            .build()
+                                    }
+                            }
+                            else -> {
+                                None
+                            }
+                        }
+                    }
+                    .successIfDefined {
+                        ServiceError.of(
+                            "unable to create transformer_callable for feature_specified_feature_calculator: [ path: %s ]",
+                            selectedFieldComponentContext.path
+                        )
+                    }
+                    .orElseThrow()
+            sqb.putFeatureCalculatorCallableBuilderForPath(
+                selectedFieldComponentContext.path,
+                fcb.addTransformerCallable(tc)
+            )
+        }
     }
 
     override fun completeOperationDefinition(connectorContext: StandardQuery): StandardQuery {
