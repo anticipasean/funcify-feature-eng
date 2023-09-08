@@ -26,7 +26,8 @@ internal data class DefaultFeatureSpecifiedFeatureCalculator(
     override val featureName: String,
     override val featurePath: GQLOperationPath,
     override val featureFieldDefinition: GraphQLFieldDefinition,
-    override val featureCalculator: FeatureCalculator
+    override val featureCalculator: FeatureCalculator,
+    override val transformerFieldCoordinates: FieldCoordinates
 ) : FeatureSpecifiedFeatureCalculator {
 
     override val argumentsByName: ImmutableMap<String, GraphQLArgument> by lazy {
@@ -55,6 +56,7 @@ internal data class DefaultFeatureSpecifiedFeatureCalculator(
             private var featurePath: GQLOperationPath? = null,
             private var featureFieldDefinition: GraphQLFieldDefinition? = null,
             private var featureCalculator: FeatureCalculator? = null,
+            private var transformerFieldCoordinates: FieldCoordinates? = null,
         ) : FeatureSpecifiedFeatureCalculator.Builder {
 
             override fun featureFieldCoordinates(
@@ -81,6 +83,11 @@ internal data class DefaultFeatureSpecifiedFeatureCalculator(
                 featureCalculator: FeatureCalculator
             ): FeatureSpecifiedFeatureCalculator.Builder =
                 this.apply { this.featureCalculator = featureCalculator }
+
+            override fun transformerFieldCoordinates(
+                transformerFieldCoordinates: FieldCoordinates
+            ): FeatureSpecifiedFeatureCalculator.Builder =
+                this.apply { this.transformerFieldCoordinates = transformerFieldCoordinates }
 
             override fun build(): FeatureSpecifiedFeatureCalculator {
                 return eagerEffect<String, FeatureSpecifiedFeatureCalculator> {
@@ -112,12 +119,16 @@ internal data class DefaultFeatureSpecifiedFeatureCalculator(
                         ) {
                             "feature_path[-1].field_name does not match feature_field_coordinates.field_name"
                         }
+                        ensureNotNull(transformerFieldCoordinates) {
+                            "transformer_field_coordinates not provided"
+                        }
                         DefaultFeatureSpecifiedFeatureCalculator(
                             featureFieldCoordinates = featureFieldCoordinates!!,
                             featureName = featureName ?: featureFieldDefinition!!.name,
                             featurePath = featurePath!!,
                             featureFieldDefinition = featureFieldDefinition!!,
-                            featureCalculator = featureCalculator!!
+                            featureCalculator = featureCalculator!!,
+                            transformerFieldCoordinates = transformerFieldCoordinates!!
                         )
                     }
                     .fold(

@@ -7,7 +7,6 @@ import arrow.core.firstOrNone
 import arrow.core.getOrElse
 import arrow.core.getOrNone
 import arrow.core.toOption
-import funcify.feature.directive.TransformDirective
 import funcify.feature.error.ServiceError
 import funcify.feature.materializer.graph.MaterializationEdge
 import funcify.feature.materializer.graph.component.QueryComponentContext
@@ -29,14 +28,10 @@ import graphql.introspection.Introspection
 import graphql.language.Argument
 import graphql.language.Field
 import graphql.language.Node
-import graphql.language.ObjectField
-import graphql.language.ObjectValue
 import graphql.language.OperationDefinition
-import graphql.language.StringValue
 import graphql.language.Value
 import graphql.language.VariableReference
 import graphql.schema.FieldCoordinates
-import graphql.schema.GraphQLAppliedDirectiveArgument
 import graphql.schema.GraphQLArgument
 import graphql.schema.GraphQLCompositeType
 import graphql.schema.GraphQLFieldDefinition
@@ -44,8 +39,6 @@ import graphql.schema.GraphQLTypeUtil
 import graphql.schema.SelectedField
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.ImmutableSet
-import kotlinx.collections.immutable.PersistentMap
-import kotlinx.collections.immutable.persistentMapOf
 import org.slf4j.Logger
 
 /**
@@ -147,8 +140,8 @@ object StandardQueryConnector : RequestMaterializationGraphConnector<StandardQue
                         .successIfDefined {
                             ServiceError.of(
                                 """domain data_element source field has not 
-                                        |been defined in request_materialization_graph 
-                                        |for [ path: %s ]"""
+                                |been defined in request_materialization_graph 
+                                |for [ path: %s ]"""
                                     .flatten(),
                                 p.getParentPath().orNull()
                             )
@@ -236,7 +229,7 @@ object StandardQueryConnector : RequestMaterializationGraphConnector<StandardQue
         return when {
             selectedFieldComponentContext.fieldCoordinates in
                 connectorContext.materializationMetamodel.elementTypeCoordinates -> {
-                connectElementTypeSelectedField(connectorContext, selectedFieldComponentContext)
+                connectSelectedElementTypeField(connectorContext, selectedFieldComponentContext)
             }
             elementTypeSegmentNotOnFragment &&
                 connectorContext.materializationMetamodel.dataElementElementTypePath.isAncestorTo(
@@ -298,7 +291,7 @@ object StandardQueryConnector : RequestMaterializationGraphConnector<StandardQue
         }
     }
 
-    private fun connectElementTypeSelectedField(
+    private fun connectSelectedElementTypeField(
         connectorContext: StandardQuery,
         selectedFieldComponentContext: SelectedFieldComponentContext,
     ): StandardQuery {
@@ -346,12 +339,12 @@ object StandardQueryConnector : RequestMaterializationGraphConnector<StandardQue
                 connectorContext.materializationMetamodel
                     .domainSpecifiedDataElementSourceByCoordinates -> {
                 connectorContext.update(
-                    connectDomainDataElement(connectorContext, selectedFieldComponentContext)
+                    connectDomainDataElementField(connectorContext, selectedFieldComponentContext)
                 )
             }
             else -> {
                 connectorContext.update(
-                    connectSelectedDataElementToDomainDataElement(
+                    connectSelectedDataElementFieldToDomainDataElementField(
                         connectorContext,
                         selectedFieldComponentContext
                     )
@@ -360,7 +353,7 @@ object StandardQueryConnector : RequestMaterializationGraphConnector<StandardQue
         }
     }
 
-    private fun connectDomainDataElement(
+    private fun connectDomainDataElementField(
         connectorContext: StandardQuery,
         selectedFieldComponentContext: SelectedFieldComponentContext
     ): (StandardQuery.Builder) -> StandardQuery.Builder {
@@ -371,7 +364,8 @@ object StandardQueryConnector : RequestMaterializationGraphConnector<StandardQue
                     .getOrNone(selectedFieldComponentContext.fieldCoordinates)
                     .successIfDefined {
                         ServiceError.of(
-                            "domain_specified_data_element_source not available at [ coordinates: %s ]",
+                            "%s not found at [ coordinates: %s ]",
+                            DomainSpecifiedDataElementSource::class.simpleName,
                             selectedFieldComponentContext.fieldCoordinates
                         )
                     }
@@ -395,7 +389,7 @@ object StandardQueryConnector : RequestMaterializationGraphConnector<StandardQue
         }
     }
 
-    private fun connectSelectedDataElementToDomainDataElement(
+    private fun connectSelectedDataElementFieldToDomainDataElementField(
         connectorContext: StandardQuery,
         selectedFieldComponentContext: SelectedFieldComponentContext,
     ): (StandardQuery.Builder) -> StandardQuery.Builder {
@@ -487,7 +481,10 @@ object StandardQueryConnector : RequestMaterializationGraphConnector<StandardQue
                 connectorContext.materializationMetamodel
                     .transformerSpecifiedTransformerSourcesByCoordinates -> {
                 connectorContext.update(
-                    connectTransformer(connectorContext, selectedFieldComponentContext)
+                    connectTransformerForSelectedTransformerField(
+                        connectorContext,
+                        selectedFieldComponentContext
+                    )
                 )
             }
             else -> {
@@ -497,25 +494,23 @@ object StandardQueryConnector : RequestMaterializationGraphConnector<StandardQue
         }
     }
 
-    private fun connectTransformer(
+    private fun connectTransformerForSelectedTransformerField(
         connectorContext: StandardQuery,
         selectedFieldComponentContext: SelectedFieldComponentContext
     ): (StandardQuery.Builder) -> StandardQuery.Builder {
         return { sqb: StandardQuery.Builder ->
-            if (
-                selectedFieldComponentContext.fieldCoordinates !in
-                    connectorContext.materializationMetamodel
-                        .transformerSpecifiedTransformerSourcesByCoordinates
-            ) {
-                throw ServiceError.of(
-                    "transformer_specified_transformer_source not available for [ coordinates: %s ]",
-                    selectedFieldComponentContext.fieldCoordinates
-                )
-            }
             val tsts: TransformerSpecifiedTransformerSource =
                 connectorContext.materializationMetamodel
-                    .transformerSpecifiedTransformerSourcesByPath
-                    .get(selectedFieldComponentContext.path)!!
+                    .transformerSpecifiedTransformerSourcesByCoordinates
+                    .getOrNone(selectedFieldComponentContext.fieldCoordinates)
+                    .successIfDefined {
+                        ServiceError.of(
+                            "%s not found at [ coordinates: %s ]",
+                            TransformerSpecifiedTransformerSource::class.simpleName,
+                            selectedFieldComponentContext.fieldCoordinates
+                        )
+                    }
+                    .orElseThrow()
             sqb.putTransformerCallableForPath(
                 selectedFieldComponentContext.path,
                 tsts.transformerSource
@@ -547,7 +542,7 @@ object StandardQueryConnector : RequestMaterializationGraphConnector<StandardQue
                 connectorContext.materializationMetamodel
                     .featureSpecifiedFeatureCalculatorsByCoordinates -> {
                 connectorContext.update(
-                    connectSelectedFeatureFieldToDataElementArguments(
+                    connectFeatureCalculatorForSelectedFeatureField(
                         connectorContext,
                         selectedFieldComponentContext
                     )
@@ -599,7 +594,7 @@ object StandardQueryConnector : RequestMaterializationGraphConnector<StandardQue
             }
     }
 
-    private fun connectSelectedFeatureFieldToDataElementArguments(
+    private fun connectFeatureCalculatorForSelectedFeatureField(
         connectorContext: StandardQuery,
         selectedFieldComponentContext: SelectedFieldComponentContext,
     ): (StandardQuery.Builder) -> StandardQuery.Builder {
@@ -607,7 +602,15 @@ object StandardQueryConnector : RequestMaterializationGraphConnector<StandardQue
             val fsfc: FeatureSpecifiedFeatureCalculator =
                 connectorContext.materializationMetamodel
                     .featureSpecifiedFeatureCalculatorsByCoordinates
-                    .get(selectedFieldComponentContext.fieldCoordinates)!!
+                    .getOrNone(selectedFieldComponentContext.fieldCoordinates)
+                    .successIfDefined {
+                        ServiceError.of(
+                            "%s not found at [ coordinates: %s ]",
+                            FeatureSpecifiedFeatureCalculator::class.simpleName,
+                            selectedFieldComponentContext.fieldCoordinates
+                        )
+                    }
+                    .orElseThrow()
             val fcb: FeatureCalculatorCallable.Builder =
                 fsfc.featureCalculator
                     .builder()
@@ -617,107 +620,37 @@ object StandardQueryConnector : RequestMaterializationGraphConnector<StandardQue
                         fsfc.featureFieldDefinition
                     )
             val tc: TransformerCallable =
-                fsfc.featureFieldDefinition
-                    .getAppliedDirective(TransformDirective.name)
-                    .getArgument(TransformDirective.COORDINATES_INPUT_VALUE_DEFINITION_NAME)
-                    .toOption()
-                    .flatMap { ada: GraphQLAppliedDirectiveArgument ->
-                        when {
-                            ada.argumentValue.isInternal -> {
-                                ada.argumentValue.value
-                                    .toOption()
-                                    .filterIsInstance<ObjectValue>()
-                                    .map { ov: ObjectValue ->
-                                        ov.objectFields.asSequence().take(2).fold(
-                                            persistentMapOf<String, String>()
-                                        ) { pm: PersistentMap<String, String>, of: ObjectField ->
-                                            when {
-                                                of.name ==
-                                                    TransformDirective
-                                                        .FIELD_NAME_INPUT_VALUE_DEFINITION_NAME -> {
-                                                    pm.put(
-                                                        TransformDirective
-                                                            .FIELD_NAME_INPUT_VALUE_DEFINITION_NAME,
-                                                        of.value
-                                                            .toOption()
-                                                            .filterIsInstance<StringValue>()
-                                                            .mapNotNull(StringValue::getValue)
-                                                            .getOrElse { "" }
-                                                    )
-                                                }
-                                                of.name ==
-                                                    TransformDirective
-                                                        .TYPE_NAME_INPUT_VALUE_DEFINITION_NAME -> {
-                                                    pm.put(
-                                                        TransformDirective
-                                                            .TYPE_NAME_INPUT_VALUE_DEFINITION_NAME,
-                                                        of.value
-                                                            .toOption()
-                                                            .filterIsInstance<StringValue>()
-                                                            .mapNotNull(StringValue::getValue)
-                                                            .getOrElse { "" }
-                                                    )
-                                                }
-                                                else -> {
-                                                    pm
-                                                }
-                                            }
-                                        }
-                                    }
-                                    .filter { pm: PersistentMap<String, String> ->
-                                        pm.containsKey(
-                                            TransformDirective
-                                                .FIELD_NAME_INPUT_VALUE_DEFINITION_NAME
-                                        ) &&
-                                            pm.containsKey(
-                                                TransformDirective
-                                                    .TYPE_NAME_INPUT_VALUE_DEFINITION_NAME
-                                            )
-                                    }
-                                    .map { pm: PersistentMap<String, String> ->
-                                        FieldCoordinates.coordinates(
-                                            pm.get(
-                                                TransformDirective
-                                                    .TYPE_NAME_INPUT_VALUE_DEFINITION_NAME
-                                            )!!,
-                                            pm.get(
-                                                TransformDirective
-                                                    .FIELD_NAME_INPUT_VALUE_DEFINITION_NAME
-                                            )!!
-                                        )
-                                    }
-                                    .flatMap { fc: FieldCoordinates ->
-                                        connectorContext.materializationMetamodel
-                                            .transformerSpecifiedTransformerSourcesByCoordinates
-                                            .getOrNone(fc)
-                                    }
-                                    .map { tsts: TransformerSpecifiedTransformerSource ->
-                                        tsts.transformerSource
-                                            .builder()
-                                            .selectTransformer(
-                                                tsts.transformerFieldCoordinates,
-                                                tsts.transformerPath,
-                                                tsts.transformerFieldDefinition
-                                            )
-                                            .build()
-                                    }
-                            }
-                            else -> {
-                                None
-                            }
-                        }
-                    }
+                connectorContext.materializationMetamodel
+                    .transformerSpecifiedTransformerSourcesByCoordinates
+                    .getOrNone(fsfc.transformerFieldCoordinates)
                     .successIfDefined {
                         ServiceError.of(
-                            "unable to create transformer_callable for feature_specified_feature_calculator: [ path: %s ]",
-                            selectedFieldComponentContext.path
+                            "%s not found at [ coordinates: %s ]",
+                            TransformerSpecifiedTransformerSource::class.simpleName,
+                            fsfc.transformerFieldCoordinates
                         )
                     }
+                    .map { tsts: TransformerSpecifiedTransformerSource ->
+                        tsts.transformerSource
+                            .builder()
+                            .selectTransformer(
+                                tsts.transformerFieldCoordinates,
+                                tsts.transformerPath,
+                                tsts.transformerFieldDefinition
+                            )
+                            .build()
+                    }
                     .orElseThrow()
-            sqb.putFeatureCalculatorCallableBuilderForPath(
-                selectedFieldComponentContext.path,
-                fcb.addTransformerCallable(tc)
-            )
+            sqb.requestGraph(
+                    connectorContext.requestGraph.put(
+                        selectedFieldComponentContext.path,
+                        selectedFieldComponentContext.field
+                    )
+                )
+                .putFeatureCalculatorCallableBuilderForPath(
+                    selectedFieldComponentContext.path,
+                    fcb.addTransformerCallable(tc)
+                )
         }
     }
 

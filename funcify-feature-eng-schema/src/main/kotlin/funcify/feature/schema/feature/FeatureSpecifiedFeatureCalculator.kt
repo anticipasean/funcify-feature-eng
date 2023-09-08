@@ -24,6 +24,8 @@ interface FeatureSpecifiedFeatureCalculator {
 
     val argumentsByName: ImmutableMap<String, GraphQLArgument>
 
+    val transformerFieldCoordinates: FieldCoordinates
+
     val featureCalculator: FeatureCalculator
 
     interface Builder {
@@ -37,6 +39,8 @@ interface FeatureSpecifiedFeatureCalculator {
         fun featureFieldDefinition(featureFieldDefinition: GraphQLFieldDefinition): Builder
 
         fun featureCalculator(featureCalculator: FeatureCalculator): Builder
+
+        fun transformerFieldCoordinates(transformerFieldCoordinates: FieldCoordinates): Builder
 
         fun build(): FeatureSpecifiedFeatureCalculator
     }

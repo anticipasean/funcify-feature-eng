@@ -1,5 +1,6 @@
 package funcify.feature.materializer.model
 
+import arrow.core.None
 import arrow.core.filterIsInstance
 import arrow.core.getOrElse
 import arrow.core.getOrNone
@@ -7,13 +8,17 @@ import arrow.core.identity
 import arrow.core.none
 import arrow.core.some
 import arrow.core.toOption
+import com.fasterxml.jackson.databind.JsonNode
+import funcify.feature.directive.TransformDirective
 import funcify.feature.error.ServiceError
 import funcify.feature.schema.FeatureEngineeringModel
 import funcify.feature.schema.feature.FeatureCalculator
 import funcify.feature.schema.feature.FeatureSpecifiedFeatureCalculator
+import funcify.feature.schema.json.GraphQLValueToJsonNodeConverter
 import funcify.feature.schema.path.operation.GQLOperationPath
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
+import funcify.feature.tools.extensions.PairExtensions.fold
 import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentMap
 import funcify.feature.tools.extensions.SequenceExtensions.firstOrNone
 import funcify.feature.tools.extensions.SequenceExtensions.flatMapOptions
@@ -21,6 +26,7 @@ import funcify.feature.tools.extensions.TryExtensions.successIfDefined
 import graphql.language.FieldDefinition
 import graphql.language.ObjectTypeDefinition
 import graphql.language.SDLDefinition
+import graphql.language.Value
 import graphql.schema.*
 import graphql.util.TraversalControl
 import graphql.util.Traverser
@@ -36,6 +42,7 @@ internal object FeatureSpecifiedFeatureCalculatorCreator :
     (FeatureEngineeringModel, GraphQLSchema) -> Iterable<FeatureSpecifiedFeatureCalculator> {
 
     private const val TYPE_NAME: String = "feature_specified_feature_calculator_creator"
+    private const val METHOD_TAG: String = TYPE_NAME + ".invoke"
     private const val QUERY_OBJECT_TYPE_NAME: String = "Query"
     private val logger: Logger = loggerFor<FeatureSpecifiedFeatureCalculatorCreator>()
 
@@ -43,7 +50,7 @@ internal object FeatureSpecifiedFeatureCalculatorCreator :
         featureEngineeringModel: FeatureEngineeringModel,
         graphQLSchema: GraphQLSchema
     ): Iterable<FeatureSpecifiedFeatureCalculator> {
-        logger.info("{}.invoke: [ ]", TYPE_NAME)
+        logger.info("{}: [ ]", METHOD_TAG)
         return graphQLSchema.queryType
             .toOption()
             .flatMap { got: GraphQLObjectType ->
@@ -90,7 +97,8 @@ internal object FeatureSpecifiedFeatureCalculatorCreator :
                                 FeatureSpecifiedFeatureCalculatorContext(
                                     featureTypeName = gfc.name,
                                     featureCalculator = fc,
-                                    featureSpecifiedFeatureCalculators = persistentListOf()
+                                    featureSpecifiedFeatureCalculators = persistentListOf(),
+                                    errors = persistentListOf()
                                 )
                             )
                             .traverse(
@@ -102,23 +110,45 @@ internal object FeatureSpecifiedFeatureCalculatorCreator :
                             .toOption()
                             .mapNotNull(TraverserResult::getAccumulatedResult)
                             .filterIsInstance<FeatureSpecifiedFeatureCalculatorContext>()
-                            .map { c: FeatureSpecifiedFeatureCalculatorContext ->
-                                c.featureSpecifiedFeatureCalculators.asSequence()
-                            }
                             .successIfDefined {
                                 ServiceError.of(
                                     "context instance failed to be passed back from visitor"
                                 )
                             }
+                            .flatMap { c: FeatureSpecifiedFeatureCalculatorContext ->
+                                when {
+                                    c.errors.isNotEmpty() -> {
+                                        Try.failure(
+                                            c.errors.fold(
+                                                ServiceError.of(
+                                                    "error(s) occurred when creating %s",
+                                                    FeatureSpecifiedFeatureCalculator::class
+                                                        .simpleName
+                                                ),
+                                                ServiceError::plus
+                                            )
+                                        )
+                                    }
+                                    else -> {
+                                        Try.success(
+                                            c.featureSpecifiedFeatureCalculators.asSequence()
+                                        )
+                                    }
+                                }
+                            }
                             .peekIfFailure { t: Throwable ->
                                 logger.warn(
-                                    "{}.invoke: [ status: error occurred ][ type: {}, message: {} ]",
-                                    TYPE_NAME,
+                                    "{}: [ status: error occurred ][ type: {}, json/message: {} ]",
+                                    METHOD_TAG,
                                     t::class.simpleName,
-                                    t.message
+                                    t.toOption()
+                                        .filterIsInstance<ServiceError>()
+                                        .map(ServiceError::toJsonNode)
+                                        .map(JsonNode::toString)
+                                        .getOrElse { t.message }
                                 )
                             }
-                            .fold(::identity) { _: Throwable -> emptySequence() }
+                            .orElseThrow()
                     }
             }
             .asIterable()
@@ -191,7 +221,8 @@ internal object FeatureSpecifiedFeatureCalculatorCreator :
     private data class FeatureSpecifiedFeatureCalculatorContext(
         val featureTypeName: String,
         val featureCalculator: FeatureCalculator,
-        val featureSpecifiedFeatureCalculators: PersistentList<FeatureSpecifiedFeatureCalculator>
+        val featureSpecifiedFeatureCalculators: PersistentList<FeatureSpecifiedFeatureCalculator>,
+        val errors: PersistentList<ServiceError>
     )
 
     private class SchemaElementTraverserVisitor(
@@ -287,26 +318,32 @@ internal object FeatureSpecifiedFeatureCalculatorCreator :
                     .filterIsInstance<GraphQLImplementingType>()
                     .map(GraphQLImplementingType::getName)
                     .getOrElse { c.featureTypeName }
+            val tfc: Try<FieldCoordinates> =
+                extractTransformerFieldCoordinatesForFeatureFieldDefinition(fieldDefinition)
+            if (tfc.isFailure()) {
+                context.setAccumulate(
+                    c.copy(
+                        errors =
+                            c.errors.add(
+                                tfc.getFailure().orNull() as? ServiceError
+                                    ?: throw ServiceError.of(
+                                        "error for transformer_field_coordinates extraction not of type %s",
+                                        ServiceError::class.simpleName
+                                    )
+                            )
+                    )
+                )
+                return
+            }
             val fsfc: FeatureSpecifiedFeatureCalculator =
                 DefaultFeatureSpecifiedFeatureCalculator.builder()
                     .featureFieldCoordinates(
                         FieldCoordinates.coordinates(parentTypeName, fieldDefinition.name)
-                                            )
+                    )
                     .featureCalculator(c.featureCalculator)
                     .featurePath(path)
                     .featureFieldDefinition(fieldDefinition)
-                    .putAllNameArguments(
-                        fieldDefinition.arguments
-                            .asSequence()
-                            .map { a: GraphQLArgument -> a.name to a }
-                            .toMap()
-                    )
-                    .putAllPathArguments(
-                        fieldDefinition.arguments
-                            .asSequence()
-                            .map { a: GraphQLArgument -> path.transform { argument(a.name) } to a }
-                            .toMap()
-                    )
+                    .transformerFieldCoordinates(tfc.orElseThrow())
                     .build()
             context.setAccumulate(
                 c.copy(
@@ -329,6 +366,57 @@ internal object FeatureSpecifiedFeatureCalculatorCreator :
                 }
                 .orElseThrow { _: Throwable ->
                     ServiceError.of("parent_path has not been set as variable in traverser_context")
+                }
+        }
+
+        private fun extractTransformerFieldCoordinatesForFeatureFieldDefinition(
+            graphQLFieldDefinition: GraphQLFieldDefinition
+        ): Try<FieldCoordinates> {
+            return graphQLFieldDefinition
+                .getAppliedDirective(TransformDirective.name)
+                .toOption()
+                .mapNotNull { gad: GraphQLAppliedDirective ->
+                    gad.getArgument(TransformDirective.COORDINATES_INPUT_VALUE_DEFINITION_NAME)
+                }
+                .flatMap { ada: GraphQLAppliedDirectiveArgument ->
+                    when {
+                        ada.argumentValue.isLiteral -> {
+                            ada.argumentValue
+                                .toOption()
+                                .mapNotNull(InputValueWithState::getValue)
+                                .filterIsInstance<Value<*>>()
+                                .flatMap(GraphQLValueToJsonNodeConverter)
+                                .flatMap { jn: JsonNode ->
+                                    jn.get(TransformDirective.TYPE_NAME_INPUT_VALUE_DEFINITION_NAME)
+                                        .toOption()
+                                        .zip(
+                                            jn.get(
+                                                    TransformDirective
+                                                        .FIELD_NAME_INPUT_VALUE_DEFINITION_NAME
+                                                )
+                                                .toOption()
+                                        )
+                                        .map { p: Pair<JsonNode, JsonNode> ->
+                                            p.first.asText("") to p.second.asText("")
+                                        }
+                                        .filter { p: Pair<String, String> ->
+                                            p.first.isNotBlank() && p.second.isNotBlank()
+                                        }
+                                        .map { p: Pair<String, String> ->
+                                            p.fold(FieldCoordinates::coordinates)
+                                        }
+                                }
+                        }
+                        else -> {
+                            None
+                        }
+                    }
+                }
+                .successIfDefined {
+                    ServiceError.of(
+                        "unable to determine transformer_field_coordinates for feature graphql_field_definition [ name: %s ]",
+                        graphQLFieldDefinition.name
+                    )
                 }
         }
     }
