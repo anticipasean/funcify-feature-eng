@@ -61,6 +61,8 @@ interface MaterializationMetamodelBuildContext {
 
     val featurePathsByFieldName: ImmutableMap<String, GQLOperationPath>
 
+    val featureCoordinatesByFieldName: ImmutableMap<String, FieldCoordinates>
+
     val transformerSpecifiedTransformerSourcesByPath:
         ImmutableMap<GQLOperationPath, TransformerSpecifiedTransformerSource>
 
@@ -381,6 +383,28 @@ interface MaterializationMetamodelBuildContext {
         fun putAllFeatureNamesForPath(namePathPairs: Map<String, GQLOperationPath>): Builder {
             return namePathPairs.foldLeft(this) { b: Builder, (name: String, p: GQLOperationPath) ->
                 b.putFeatureNameForPath(name, p)
+            }
+        }
+
+        fun putFeatureCoordinatesForName(name: String, fieldCoordinates: FieldCoordinates): Builder
+
+        fun putAllFeatureNameCoordinatesPairs(
+            featureNameCoordinatesPairs: Iterable<Pair<String, FieldCoordinates>>
+        ): Builder {
+            return featureNameCoordinatesPairs.fold(this) {
+                b: Builder,
+                (n: String, fc: FieldCoordinates) ->
+                b.putFeatureCoordinatesForName(n, fc)
+            }
+        }
+
+        fun putAllFeatureNameCoordinatesPairs(
+            featureNameCoordinatesPairs: Map<String, FieldCoordinates>
+        ): Builder {
+            return featureNameCoordinatesPairs.foldLeft(this) {
+                b: Builder,
+                (n: String, fc: FieldCoordinates) ->
+                b.putFeatureCoordinatesForName(n, fc)
             }
         }
 

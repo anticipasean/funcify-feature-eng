@@ -47,6 +47,7 @@ internal data class DefaultMaterializationMetamodelBuildContext(
     override val featureSpecifiedFeatureCalculatorsByCoordinates:
         PersistentMap<FieldCoordinates, FeatureSpecifiedFeatureCalculator>,
     override val featurePathsByFieldName: PersistentMap<String, GQLOperationPath>,
+    override val featureCoordinatesByFieldName: PersistentMap<String, FieldCoordinates>,
     override val transformerSpecifiedTransformerSourcesByPath:
         PersistentMap<GQLOperationPath, TransformerSpecifiedTransformerSource>,
     override val transformerSpecifiedTransformerSourcesByCoordinates:
@@ -104,6 +105,7 @@ internal data class DefaultMaterializationMetamodelBuildContext(
                 featureSpecifiedFeatureCalculatorsByPath = persistentMapOf(),
                 featureSpecifiedFeatureCalculatorsByCoordinates = persistentMapOf(),
                 featurePathsByFieldName = persistentMapOf(),
+                featureCoordinatesByFieldName = persistentMapOf(),
                 transformerSpecifiedTransformerSourcesByPath = persistentMapOf(),
                 transformerSpecifiedTransformerSourcesByCoordinates = persistentMapOf(),
                 aliasCoordinatesRegistry = AliasCoordinatesRegistry.empty(),
@@ -161,6 +163,9 @@ internal data class DefaultMaterializationMetamodelBuildContext(
                 existingFacts.featureSpecifiedFeatureCalculatorsByCoordinates.builder(),
             private val featurePathsByFieldName: PersistentMap.Builder<String, GQLOperationPath> =
                 existingFacts.featurePathsByFieldName.builder(),
+            private val featureCoordinatesByFieldName:
+                PersistentMap.Builder<String, FieldCoordinates> =
+                existingFacts.featureCoordinatesByFieldName.builder(),
             private val transformerSpecifiedTransformerSourcesByPath:
                 PersistentMap.Builder<GQLOperationPath, TransformerSpecifiedTransformerSource> =
                 existingFacts.transformerSpecifiedTransformerSourcesByPath.builder(),
@@ -327,6 +332,12 @@ internal data class DefaultMaterializationMetamodelBuildContext(
                 gqlOperationPath: GQLOperationPath
             ): Builder = this.apply { this.featurePathsByFieldName.put(name, gqlOperationPath) }
 
+            override fun putFeatureCoordinatesForName(
+                name: String,
+                fieldCoordinates: FieldCoordinates
+            ): Builder =
+                this.apply { this.featureCoordinatesByFieldName.put(name, fieldCoordinates) }
+
             override fun putTransformerSpecifiedTransformerSourceForPath(
                 path: GQLOperationPath,
                 transformerSpecifiedTransformerSource: TransformerSpecifiedTransformerSource
@@ -380,6 +391,7 @@ internal data class DefaultMaterializationMetamodelBuildContext(
                     featureSpecifiedFeatureCalculatorsByCoordinates =
                         featureSpecifiedFeatureCalculatorsByCoordinates.build(),
                     featurePathsByFieldName = featurePathsByFieldName.build(),
+                    featureCoordinatesByFieldName = featureCoordinatesByFieldName.build(),
                     transformerSpecifiedTransformerSourcesByPath =
                         transformerSpecifiedTransformerSourcesByPath.build(),
                     transformerSpecifiedTransformerSourcesByCoordinates =

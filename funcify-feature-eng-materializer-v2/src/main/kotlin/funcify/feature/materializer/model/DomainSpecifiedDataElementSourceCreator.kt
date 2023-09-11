@@ -116,10 +116,9 @@ internal object DomainSpecifiedDataElementSourceCreator :
                                     t.message
                                 )
                             }
-                            .getSuccess()
+                            .orElseThrow()
                     }
             }
-            .flatMapOptions()
             .asIterable()
     }
 

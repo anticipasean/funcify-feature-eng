@@ -57,7 +57,11 @@ internal object DefaultQueryComponentContextFactory : QueryComponentContextFacto
                     ensureNotNull(path) { "path not provided" }
                     ensureNotNull(fieldCoordinates) { "field_coordinates not provided" }
                     ensureNotNull(field) { "field not provided" }
-                    DefaultSelectedFieldComponentContext(path!!, fieldCoordinates!!, field!!)
+                    DefaultSelectedFieldComponentContext(
+                        path = path!!,
+                        fieldCoordinates = fieldCoordinates!!,
+                        field = field!!
+                    )
                 }
                 .fold(
                     { message: String ->
@@ -98,7 +102,11 @@ internal object DefaultQueryComponentContextFactory : QueryComponentContextFacto
                     ensureNotNull(path) { "path not provided" }
                     ensureNotNull(fieldCoordinates) { "field_coordinates not provided" }
                     ensureNotNull(argument) { "argument not provided" }
-                    DefaultFieldArgumentComponentContext(path!!, fieldCoordinates!!, argument!!)
+                    DefaultFieldArgumentComponentContext(
+                        path = path!!,
+                        fieldCoordinates = fieldCoordinates!!,
+                        argument = argument!!
+                    )
                 }
                 .fold(
                     { message: String ->

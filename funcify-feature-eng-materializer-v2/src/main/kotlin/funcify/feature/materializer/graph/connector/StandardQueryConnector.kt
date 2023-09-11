@@ -1,13 +1,8 @@
 package funcify.feature.materializer.graph.connector
 
-import arrow.core.None
-import arrow.core.Option
-import arrow.core.filterIsInstance
-import arrow.core.firstOrNone
-import arrow.core.getOrElse
-import arrow.core.getOrNone
-import arrow.core.toOption
+import arrow.core.*
 import funcify.feature.error.ServiceError
+import funcify.feature.graph.DirectedPersistentGraph
 import funcify.feature.materializer.graph.MaterializationEdge
 import funcify.feature.materializer.graph.component.QueryComponentContext
 import funcify.feature.materializer.graph.component.QueryComponentContext.FieldArgumentComponentContext
@@ -17,17 +12,24 @@ import funcify.feature.schema.dataelement.DataElementCallable
 import funcify.feature.schema.dataelement.DomainSpecifiedDataElementSource
 import funcify.feature.schema.feature.FeatureCalculatorCallable
 import funcify.feature.schema.feature.FeatureSpecifiedFeatureCalculator
+import funcify.feature.schema.path.operation.AliasedFieldSegment
+import funcify.feature.schema.path.operation.FieldSegment
+import funcify.feature.schema.path.operation.FragmentSpreadSegment
 import funcify.feature.schema.path.operation.GQLOperationPath
+import funcify.feature.schema.path.operation.InlineFragmentSegment
+import funcify.feature.schema.path.operation.SelectionSegment
 import funcify.feature.schema.transformer.TransformerCallable
 import funcify.feature.schema.transformer.TransformerSpecifiedTransformerSource
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.SequenceExtensions.firstOrNone
+import funcify.feature.tools.extensions.SequenceExtensions.flatMapOptions
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.extensions.TryExtensions.successIfDefined
 import graphql.introspection.Introspection
 import graphql.language.Argument
 import graphql.language.Field
 import graphql.language.Node
+import graphql.language.NullValue
 import graphql.language.OperationDefinition
 import graphql.language.Value
 import graphql.language.VariableReference
@@ -39,6 +41,8 @@ import graphql.schema.GraphQLTypeUtil
 import graphql.schema.SelectedField
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.ImmutableSet
+import kotlinx.collections.immutable.persistentSetOf
+import kotlinx.collections.immutable.toPersistentSet
 import org.slf4j.Logger
 
 /**
@@ -102,7 +106,7 @@ object StandardQueryConnector : RequestMaterializationGraphConnector<StandardQue
                             )
                         ) { sqb: StandardQuery.Builder, qcc: QueryComponentContext ->
                             logger.debug("query_component_context: {}", qcc)
-                            sqb.addVertexContext(qcc)
+                            sqb.appendVertexContext(qcc)
                         }
                 }
             }
@@ -213,7 +217,7 @@ object StandardQueryConnector : RequestMaterializationGraphConnector<StandardQue
             }
             // Case 3: Subdomain Data Element Argument
             else -> {
-                connectorContext
+                TODO("subdomain domain element arguments not yet handled")
             }
         }
     }
@@ -242,10 +246,12 @@ object StandardQueryConnector : RequestMaterializationGraphConnector<StandardQue
                 fieldArgumentComponentContext.fieldCoordinates to a.name
             val e: MaterializationEdge =
                 when {
-                    connectorContext.variableKeys.contains(a.name) ||
-                        connectorContext.materializationMetamodel.aliasCoordinatesRegistry
-                            .getAllAliasesForFieldArgument(faLoc)
-                            .any { n: String -> connectorContext.variableKeys.contains(n) } -> {
+                    fieldArgumentComponentContext.argument.value
+                        .toOption()
+                        .filterIsInstance<VariableReference>()
+                        .mapNotNull(VariableReference::getName)
+                        .filter(connectorContext.variableKeys::contains)
+                        .isDefined() -> {
                         MaterializationEdge.ARGUMENT_VALUE_PROVIDED
                     }
                     connectorContext.rawInputContextKeys.contains(a.name) ||
@@ -256,13 +262,22 @@ object StandardQueryConnector : RequestMaterializationGraphConnector<StandardQue
                             } -> {
                         MaterializationEdge.RAW_INPUT_VALUE_PROVIDED
                     }
-                    connectorContext.rawInputContextKeys.contains(
-                        connectorContext.requestGraph[fieldPath]
-                            .toOption()
-                            .filterIsInstance<Field>()
-                            .map(Field::getName)
-                            .orNull()
-                    ) -> {
+                    connectorContext.requestGraph[fieldPath]
+                        .toOption()
+                        .flatMap { n: Node<*> ->
+                            n.toOption().filterIsInstance<Field>().map(Field::getName).orElse {
+                                fieldPath.selection.lastOrNone().map { ss: SelectionSegment ->
+                                    when (ss) {
+                                        is FieldSegment -> ss.fieldName
+                                        is AliasedFieldSegment -> ss.fieldName
+                                        is FragmentSpreadSegment -> ss.selectedField.fieldName
+                                        is InlineFragmentSegment -> ss.selectedField.fieldName
+                                    }
+                                }
+                            }
+                        }
+                        .filter(connectorContext.rawInputContextKeys::contains)
+                        .isDefined() -> {
                         MaterializationEdge.RAW_INPUT_VALUE_PROVIDED
                     }
                     a.value
@@ -318,7 +333,345 @@ object StandardQueryConnector : RequestMaterializationGraphConnector<StandardQue
             "connect_selected_feature_argument: [ field_argument_component_context.path: {} ]",
             fieldArgumentComponentContext.path
         )
-        return connectorContext
+        return when {
+            // Case 1: Already connected to data_element_field
+            connectorContext.requestGraph
+                .edgesFromPoint(fieldArgumentComponentContext.path)
+                .any() -> {
+                connectorContext
+            }
+            fieldArgumentComponentContext.argument.value
+                .toOption()
+                .filterIsInstance<VariableReference>()
+                .isDefined() -> {
+                connectorContext.update(
+                    connectFeatureFieldToVariableProvidedArgument(
+                        connectorContext,
+                        fieldArgumentComponentContext
+                    )
+                )
+            }
+            connectorContext.materializationMetamodel
+                .featureSpecifiedFeatureCalculatorsByCoordinates
+                .getOrNone(fieldArgumentComponentContext.fieldCoordinates)
+                .flatMap { fsfc: FeatureSpecifiedFeatureCalculator ->
+                    fsfc.argumentsByName.getOrNone(fieldArgumentComponentContext.argument.name)
+                }
+                .filter { ga: GraphQLArgument ->
+                    ga.argumentDefaultValue.value == fieldArgumentComponentContext.argument.value
+                }
+                .isDefined() -> {
+                connectorContext.update(
+                    connectFeatureFieldToFeatureArgumentToDataElementField(
+                        connectorContext,
+                        fieldArgumentComponentContext
+                    )
+                )
+            }
+            else -> {
+                TODO("feature argument case not yet handled")
+            }
+        }
+    }
+
+    private fun connectFeatureFieldToVariableProvidedArgument(
+        connectorContext: StandardQuery,
+        fieldArgumentComponentContext: FieldArgumentComponentContext
+    ): (StandardQuery.Builder) -> StandardQuery.Builder {
+        return { sqb: StandardQuery.Builder ->
+            val fieldPath: GQLOperationPath =
+                fieldArgumentComponentContext.path
+                    .getParentPath()
+                    .filter { p: GQLOperationPath -> connectorContext.requestGraph.contains(p) }
+                    .successIfDefined {
+                        ServiceError.of(
+                            "feature_field_argument parent field path [ %s ] not found in request_materialization_graph",
+                            fieldArgumentComponentContext.path.getParentPath().orNull()
+                        )
+                    }
+                    .orElseThrow()
+            sqb.requestGraph(
+                connectorContext.requestGraph
+                    .put(fieldArgumentComponentContext.path, fieldArgumentComponentContext.argument)
+                    .putEdge(
+                        fieldPath,
+                        fieldArgumentComponentContext.path,
+                        MaterializationEdge.ARGUMENT_VALUE_PROVIDED
+                    )
+            )
+        }
+    }
+
+    private fun connectFeatureFieldToFeatureArgumentToDataElementField(
+        connectorContext: StandardQuery,
+        fieldArgumentComponentContext: FieldArgumentComponentContext
+    ): (StandardQuery.Builder) -> StandardQuery.Builder {
+        return { sqb: StandardQuery.Builder ->
+            val fieldPath: GQLOperationPath =
+                fieldArgumentComponentContext.path
+                    .getParentPath()
+                    .filter { p: GQLOperationPath -> connectorContext.requestGraph.contains(p) }
+                    .successIfDefined {
+                        ServiceError.of(
+                            "feature_field_argument [ argument.name: %s ] parent field path [ %s ] not found in request_materialization_graph",
+                            fieldArgumentComponentContext.argument.name,
+                            fieldArgumentComponentContext.path.getParentPath().orNull()
+                        )
+                    }
+                    .orElseThrow()
+            val fsfc: FeatureSpecifiedFeatureCalculator =
+                connectorContext.materializationMetamodel
+                    .featureSpecifiedFeatureCalculatorsByCoordinates
+                    .getOrNone(fieldArgumentComponentContext.fieldCoordinates)
+                    .successIfDefined {
+                        ServiceError.of(
+                            "%s not found for [ coordinates: %s ]",
+                            FeatureSpecifiedFeatureCalculator::class.simpleName,
+                            fieldArgumentComponentContext.fieldCoordinates
+                        )
+                    }
+                    .orElseThrow()
+            val coordinatesOfConnectedField: ImmutableSet<FieldCoordinates> =
+                fieldArgumentComponentContext.argument
+                    .toOption()
+                    .map(Argument::getName)
+                    .flatMap { n: String ->
+                        connectorContext.materializationMetamodel
+                            .dataElementFieldCoordinatesByFieldName
+                            .getOrNone(n)
+                            .fold(::emptySequence, ImmutableSet<FieldCoordinates>::asSequence)
+                            .filter(connectorContext.connectedFieldPathsByCoordinates::containsKey)
+                            .toPersistentSet()
+                            .toOption()
+                            .filter(ImmutableSet<FieldCoordinates>::isNotEmpty)
+                            .orElse {
+                                connectorContext.materializationMetamodel.featureCoordinatesByName
+                                    .getOrNone(n)
+                                    .filter(
+                                        connectorContext.connectedFieldPathsByCoordinates::
+                                            containsKey
+                                    )
+                                    .map(::persistentSetOf)
+                            }
+                            .orElse {
+                                connectorContext.materializationMetamodel.aliasCoordinatesRegistry
+                                    .getFieldsWithAlias(n)
+                                    .asSequence()
+                                    .filter(
+                                        connectorContext.connectedFieldPathsByCoordinates::
+                                            containsKey
+                                    )
+                                    .toPersistentSet()
+                                    .some()
+                            }
+                    }
+                    .fold(::persistentSetOf, ::identity)
+            if (coordinatesOfConnectedField.isNotEmpty()) {
+                sqb.requestGraph(
+                    coordinatesOfConnectedField
+                        .asSequence()
+                        .flatMap { fc: FieldCoordinates ->
+                            connectorContext.connectedFieldPathsByCoordinates
+                                .getOrNone(fc)
+                                .fold(::emptySequence, ImmutableSet<GQLOperationPath>::asSequence)
+                        }
+                        .fold(
+                            connectorContext.requestGraph
+                                .put(
+                                    fieldArgumentComponentContext.path,
+                                    fieldArgumentComponentContext.argument
+                                )
+                                .putEdge(
+                                    fieldPath,
+                                    fieldArgumentComponentContext.path,
+                                    MaterializationEdge.EXTRACT_FROM_SOURCE
+                                )
+                        ) {
+                            d:
+                                DirectedPersistentGraph<
+                                    GQLOperationPath, Node<*>, MaterializationEdge
+                                >,
+                            p: GQLOperationPath ->
+                            d.putEdge(
+                                fieldArgumentComponentContext.path,
+                                p,
+                                MaterializationEdge.EXTRACT_FROM_SOURCE
+                            )
+                        }
+                )
+            } else {
+                sqb
+            }
+        }
+    }
+
+    private fun determineVerticesToAddInOrderToConnectFeatureArgument(
+        connectorContext: StandardQuery,
+        fieldArgumentComponentContext: FieldArgumentComponentContext
+    ): StandardQuery {
+        return when {
+            // Case 1: argument.name points to another feature, either directly or through alias
+            connectorContext.materializationMetamodel.featureCoordinatesByName
+                .getOrNone(fieldArgumentComponentContext.argument.name)
+                .orElse {
+                    connectorContext.materializationMetamodel.aliasCoordinatesRegistry
+                        .getFieldsWithAlias(fieldArgumentComponentContext.argument.name)
+                        .firstOrNone(
+                            connectorContext.materializationMetamodel
+                                .featureSpecifiedFeatureCalculatorsByCoordinates::containsKey
+                        )
+                }
+                .isDefined() -> {
+                connectorContext.materializationMetamodel.featureCoordinatesByName
+                    .getOrNone(fieldArgumentComponentContext.argument.name)
+                    .orElse {
+                        connectorContext.materializationMetamodel.aliasCoordinatesRegistry
+                            .getFieldsWithAlias(fieldArgumentComponentContext.argument.name)
+                            .firstOrNone(
+                                connectorContext.materializationMetamodel
+                                    .featureSpecifiedFeatureCalculatorsByCoordinates::containsKey
+                            )
+                    }
+                    .flatMap(
+                        connectorContext.materializationMetamodel
+                            .featureSpecifiedFeatureCalculatorsByCoordinates::getOrNone
+                    )
+                    .map { fsfc: FeatureSpecifiedFeatureCalculator ->
+                        val featureParentFieldComponentContexts:
+                            List<SelectedFieldComponentContext> =
+                            ((connectorContext.materializationMetamodel.featureElementTypePath
+                                    .selection
+                                    .size + 1) until fsfc.featurePath.selection.size)
+                                .asSequence()
+                                .map { limit: Int ->
+                                    GQLOperationPath.of {
+                                        selections(fsfc.featurePath.selection.subList(0, limit))
+                                    }
+                                }
+                                .map { p: GQLOperationPath ->
+                                    connectorContext.materializationMetamodel.fieldCoordinatesByPath
+                                        .getOrNone(p)
+                                        .flatMap(ImmutableSet<FieldCoordinates>::firstOrNone)
+                                        .map { fc: FieldCoordinates ->
+                                            connectorContext.queryComponentContextFactory
+                                                .selectedFieldComponentContextBuilder()
+                                                .field(Field.newField().name(fc.fieldName).build())
+                                                .fieldCoordinates(fc)
+                                                .path(p)
+                                                .build()
+                                        }
+                                }
+                                .flatMapOptions()
+                                .toList()
+                        logger.debug(
+                            "dependent_feature_parent_paths: {}",
+                            featureParentFieldComponentContexts
+                                .asSequence()
+                                .map(SelectedFieldComponentContext::path)
+                                .joinToString(", ")
+                        )
+                        val argumentComponentContexts: List<FieldArgumentComponentContext> =
+                            fsfc.argumentsByPath
+                                .asSequence()
+                                .map { (p: GQLOperationPath, a: GraphQLArgument) ->
+                                    connectorContext.queryComponentContextFactory
+                                        .fieldArgumentComponentContextBuilder()
+                                        .path(p)
+                                        .argument(
+                                            Argument.newArgument()
+                                                .name(a.name)
+                                                .value(
+                                                    a.argumentDefaultValue.value
+                                                        .toOption()
+                                                        .filterIsInstance<Value<*>>()
+                                                        .getOrElse { NullValue.of() }
+                                                )
+                                                .build()
+                                        )
+                                        .fieldCoordinates(fsfc.featureFieldCoordinates)
+                                        .build()
+                                }
+                                .toList()
+                        val featureFieldComponentContext: SelectedFieldComponentContext =
+                            connectorContext.queryComponentContextFactory
+                                .selectedFieldComponentContextBuilder()
+                                .field(Field.newField().name(fsfc.featureName).build())
+                                .path(fsfc.featurePath)
+                                .fieldCoordinates(fsfc.featureFieldCoordinates)
+                                .build()
+                        connectorContext.update {
+                            requestGraph(
+                                connectorContext.requestGraph
+                                    .put(
+                                        fieldArgumentComponentContext.path,
+                                        fieldArgumentComponentContext.argument
+                                    )
+                                    .put(
+                                        featureFieldComponentContext.path,
+                                        featureFieldComponentContext.field
+                                    )
+                                    .putEdge(
+                                        fieldArgumentComponentContext.path,
+                                        featureFieldComponentContext.path,
+                                        MaterializationEdge.EXTRACT_FROM_SOURCE
+                                    )
+                            )
+                            prependAllVertexContexts(argumentComponentContexts)
+                            prependVertexContext(featureFieldComponentContext)
+                            prependAllVertexContexts(featureParentFieldComponentContexts)
+                        }
+                    }
+                    .getOrElse { connectorContext }
+            }
+            // Case 2: path under already specified domain_data_element_source
+            connectorContext.materializationMetamodel.dataElementFieldCoordinatesByFieldName
+                .getOrNone(fieldArgumentComponentContext.argument.name)
+                .filter(ImmutableSet<FieldCoordinates>::isNotEmpty)
+                .orElse {
+                    connectorContext.materializationMetamodel.aliasCoordinatesRegistry
+                        .getFieldsWithAlias(fieldArgumentComponentContext.argument.name)
+                        .toOption()
+                        .filter(ImmutableSet<FieldCoordinates>::isNotEmpty)
+                }
+                .fold(::emptySequence, ImmutableSet<FieldCoordinates>::asSequence)
+                .firstOrNone { fc: FieldCoordinates ->
+                    // TODO: Find fc under already specified data_element_sources
+                    true
+                }
+                .isDefined() -> {
+                connectorContext
+            }
+            // Case 3: path under not yet specified domain_data_element_source but one for which the
+            // argument names can be found in the variable keys
+            // => tricky because there could be more than one candidate domain_data_element_source
+            // that matches this criteria
+            // ---ideally the selected domain _covers_ the most features without data_elements
+            // selected
+            connectorContext.materializationMetamodel.dataElementFieldCoordinatesByFieldName
+                .getOrNone(fieldArgumentComponentContext.argument.name)
+                .filter(ImmutableSet<FieldCoordinates>::isNotEmpty)
+                .orElse {
+                    connectorContext.materializationMetamodel.aliasCoordinatesRegistry
+                        .getFieldsWithAlias(fieldArgumentComponentContext.argument.name)
+                        .toOption()
+                        .filter(ImmutableSet<FieldCoordinates>::isNotEmpty)
+                }
+                .isDefined() -> {
+                connectorContext.materializationMetamodel.dataElementFieldCoordinatesByFieldName
+                    .getOrNone(fieldArgumentComponentContext.argument.name)
+                    .filter(ImmutableSet<FieldCoordinates>::isNotEmpty)
+                    .orElse {
+                        connectorContext.materializationMetamodel.aliasCoordinatesRegistry
+                            .getFieldsWithAlias(fieldArgumentComponentContext.argument.name)
+                            .toOption()
+                            .filter(ImmutableSet<FieldCoordinates>::isNotEmpty)
+                    }
+                connectorContext
+            }
+            else -> {
+                connectorContext
+            }
+        }
     }
 
     private fun connectSelectedTransformerArgument(
@@ -424,6 +777,10 @@ object StandardQueryConnector : RequestMaterializationGraphConnector<StandardQue
                 selectedFieldComponentContext.path !in connectorContext.requestGraph -> {
                 // Case 1: Connect data_element_element_type_path to root if not already connected
                 connectorContext.update {
+                    putConnectedFieldPathForCoordinates(
+                        selectedFieldComponentContext.fieldCoordinates,
+                        selectedFieldComponentContext.path
+                    )
                     requestGraph(
                         connectorContext.requestGraph
                             .put(
@@ -439,7 +796,12 @@ object StandardQueryConnector : RequestMaterializationGraphConnector<StandardQue
                 }
             }
             else -> {
-                connectorContext
+                connectorContext.update {
+                    putConnectedFieldPathForCoordinates(
+                        selectedFieldComponentContext.fieldCoordinates,
+                        selectedFieldComponentContext.path
+                    )
+                }
             }
         }
     }
@@ -504,6 +866,10 @@ object StandardQueryConnector : RequestMaterializationGraphConnector<StandardQue
                     )
                 )
                 .putDataElementCallableBuilderForPath(selectedFieldComponentContext.path, decb)
+                .putConnectedFieldPathForCoordinates(
+                    selectedFieldComponentContext.fieldCoordinates,
+                    selectedFieldComponentContext.path
+                )
         }
     }
 
@@ -553,6 +919,10 @@ object StandardQueryConnector : RequestMaterializationGraphConnector<StandardQue
                             .get(parentPath)!!
                             .selectPathWithinDomain(selectedFieldComponentContext.path)
                     )
+                    .putConnectedFieldPathForCoordinates(
+                        selectedFieldComponentContext.fieldCoordinates,
+                        selectedFieldComponentContext.path
+                    )
             } else {
                 val (domainPath: GQLOperationPath, _: Node<*>) =
                     connectorContext.requestGraph.successorVertices(parentPath).first()
@@ -578,6 +948,10 @@ object StandardQueryConnector : RequestMaterializationGraphConnector<StandardQue
                         domainPath,
                         connectorContext.dataElementCallableBuildersByPath[domainPath]!!
                             .selectPathWithinDomain(selectedFieldComponentContext.path)
+                    )
+                    .putConnectedFieldPathForCoordinates(
+                        selectedFieldComponentContext.fieldCoordinates,
+                        selectedFieldComponentContext.path
                     )
             }
         }
@@ -675,7 +1049,12 @@ object StandardQueryConnector : RequestMaterializationGraphConnector<StandardQue
                 .filterIsInstance<GraphQLCompositeType>()
                 .isDefined() -> {
                 // feature object type containers do not require wiring
-                connectorContext
+                connectorContext.update {
+                    putConnectedFieldPathForCoordinates(
+                        selectedFieldComponentContext.fieldCoordinates,
+                        selectedFieldComponentContext.path
+                    )
+                }
             }
             else -> {
                 throw ServiceError.of(
@@ -768,6 +1147,10 @@ object StandardQueryConnector : RequestMaterializationGraphConnector<StandardQue
                 .putFeatureCalculatorCallableBuilderForPath(
                     selectedFieldComponentContext.path,
                     fcb.addTransformerCallable(tc)
+                )
+                .putConnectedFieldPathForCoordinates(
+                    selectedFieldComponentContext.fieldCoordinates,
+                    selectedFieldComponentContext.path
                 )
         }
     }

@@ -10,6 +10,7 @@ import funcify.feature.schema.feature.FeatureCalculatorCallable
 import funcify.feature.schema.path.operation.GQLOperationPath
 import funcify.feature.schema.transformer.TransformerCallable
 import graphql.language.Node
+import graphql.schema.FieldCoordinates
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.ImmutableSet
@@ -30,8 +31,10 @@ interface RequestMaterializationGraphContext {
 
     val passThroughColumns: ImmutableSet<String>
 
-    val transformerCallablesByPath:
-        ImmutableMap<GQLOperationPath, TransformerCallable>
+    val connectedFieldPathsByCoordinates:
+        ImmutableMap<FieldCoordinates, ImmutableSet<GQLOperationPath>>
+
+    val transformerCallablesByPath: ImmutableMap<GQLOperationPath, TransformerCallable>
 
     val dataElementCallableBuildersByPath:
         ImmutableMap<GQLOperationPath, DataElementCallable.Builder>
@@ -52,6 +55,11 @@ interface RequestMaterializationGraphContext {
         fun rawInputContextKeys(rawInputContextKeys: ImmutableSet<String>): B
 
         fun addPassThroughColumn(name: String): B
+
+        fun putConnectedFieldPathForCoordinates(
+            fieldCoordinates: FieldCoordinates,
+            path: GQLOperationPath
+        ): B
 
         fun requestGraph(
             requestGraph: DirectedPersistentGraph<GQLOperationPath, Node<*>, MaterializationEdge>
@@ -76,9 +84,13 @@ interface RequestMaterializationGraphContext {
             queryComponentContextFactory: QueryComponentContextFactory
         ): B
 
-        fun addVertexContext(nextVertex: QueryComponentContext): B
+        fun prependVertexContext(nextVertex: QueryComponentContext): B
 
-        fun addedVertexContexts(addedVertexContexts: Iterable<QueryComponentContext>): B
+        fun prependAllVertexContexts(nextVertices: Iterable<QueryComponentContext>): B
+
+        fun appendVertexContext(nextVertex: QueryComponentContext): B
+
+        fun appendAllVertexContexts(nextVertices: Iterable<QueryComponentContext>): B
 
         fun dropFirstAddedVertex(): B
     }

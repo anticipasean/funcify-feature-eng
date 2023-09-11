@@ -154,6 +154,7 @@ internal class DefaultMaterializationMetamodelBuildStrategy :
                     featureSpecifiedFeatureCalculatorsByCoordinates =
                         mmbc.featureSpecifiedFeatureCalculatorsByCoordinates,
                     featurePathsByName = mmbc.featurePathsByFieldName,
+                    featureCoordinatesByName = mmbc.featureCoordinatesByFieldName,
                     transformerSpecifiedTransformerSourcesByPath =
                         mmbc.transformerSpecifiedTransformerSourcesByPath,
                     transformerSpecifiedTransformerSourcesByCoordinates =
@@ -294,6 +295,10 @@ internal class DefaultMaterializationMetamodelBuildStrategy :
                                         fsfc
                                     )
                                     .putFeatureNameForPath(fsfc.featureName, fsfc.featurePath)
+                                    .putFeatureCoordinatesForName(
+                                        fsfc.featureName,
+                                        fsfc.featureFieldCoordinates
+                                    )
                             }
                     }
                 }

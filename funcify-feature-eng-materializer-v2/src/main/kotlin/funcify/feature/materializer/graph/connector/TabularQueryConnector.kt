@@ -42,11 +42,11 @@ object TabularQueryConnector : RequestMaterializationGraphConnector<TabularQuery
             }
             connectorContext.rawInputContextKeys.isEmpty() -> {
                 connectorContext.update {
-                    addedVertexContexts(
+                    appendAllVertexContexts(
                         TabularQueryVariableBasedOperationCreator.invoke(
                             tabularQuery = connectorContext
                         )
-                    )
+                                           )
                 }
             }
             else -> {

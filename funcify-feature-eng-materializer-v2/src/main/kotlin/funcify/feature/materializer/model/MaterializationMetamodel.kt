@@ -66,6 +66,8 @@ interface MaterializationMetamodel {
 
     val featurePathsByName: ImmutableMap<String, GQLOperationPath>
 
+    val featureCoordinatesByName: ImmutableMap<String, FieldCoordinates>
+
     val transformerSpecifiedTransformerSourcesByPath:
         ImmutableMap<GQLOperationPath, TransformerSpecifiedTransformerSource>
 
