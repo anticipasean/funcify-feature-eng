@@ -25,6 +25,8 @@ interface FeatureCalculatorCallable :
 
     val featureGraphQLFieldDefinition: GraphQLFieldDefinition
 
+    val argumentsByName: ImmutableMap<String, GraphQLArgument>
+
     val argumentsByPath: ImmutableMap<GQLOperationPath, GraphQLArgument>
 
     val transformerCallablesByPath: ImmutableMap<GQLOperationPath, TransformerCallable>

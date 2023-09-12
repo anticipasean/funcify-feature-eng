@@ -89,38 +89,73 @@ internal object PathCoordinatesGatherer :
                 .mapNotNull(TraverserResult::getAccumulatedResult)
                 .filterIsInstance<PathGatheringContext>()
                 .successIfDefined(pathGatheringContextNotDefinedErrorSupplier())
+                // .map(gatherPathsAndCoordinatesUntilFirstBackRefSetExhausted(backRefQueue, mmf))
                 .flatMap(ensureMaximumOperationDepthValid(mmf))
-                .map { pgc: PathGatheringContext ->
-                    var c: PathGatheringContext = pgc
-                    while (
-                        backRefQueue.isNotEmpty() &&
-                            backRefQueue.peekFirst().first.level() <
-                                mmf.featureEngineeringModel.modelLimits.maximumOperationDepth
-                    ) {
-                        val (p: GQLOperationPath, gfc: GraphQLFieldsContainer) =
-                            backRefQueue.pollFirst()
-                        c =
-                            Traverser.breadthFirst(
-                                    factGatheringTraversalFunction(
-                                        mmf.materializationGraphQLSchema
-                                    ),
-                                    p,
-                                    c
-                                )
-                                .traverse(
-                                    gfc,
-                                    SchemaElementTraverserVisitor(
-                                        PathGatheringElementVisitor(backRefQueue = backRefQueue)
-                                    )
-                                )
-                                .toOption()
-                                .mapNotNull(TraverserResult::getAccumulatedResult)
-                                .filterIsInstance<PathGatheringContext>()
-                                .successIfDefined(pathGatheringContextNotDefinedErrorSupplier())
-                                .orElseThrow()
-                    }
-                    c
-                }
+                .map(gatherPathsAndCoordinatesUntilMaximumOperationDepth(backRefQueue, mmf))
+        }
+    }
+
+    private fun gatherPathsAndCoordinatesUntilFirstBackRefSetExhausted(
+        backRefQueue: Deque<Pair<GQLOperationPath, GraphQLFieldsContainer>>,
+        mmf: MaterializationMetamodelBuildContext,
+    ): (PathGatheringContext) -> PathGatheringContext {
+        return { pgc: PathGatheringContext ->
+            var c: PathGatheringContext = pgc
+            while (backRefQueue.isNotEmpty()) {
+                val (p: GQLOperationPath, gfc: GraphQLFieldsContainer) = backRefQueue.pollFirst()
+                c =
+                    Traverser.breadthFirst(
+                            factGatheringTraversalFunction(mmf.materializationGraphQLSchema),
+                            p,
+                            c
+                        )
+                        .traverse(
+                            gfc,
+                            SchemaElementTraverserVisitor(
+                                PathGatheringElementVisitor(backRefQueue = LinkedList())
+                            )
+                        )
+                        .toOption()
+                        .mapNotNull(TraverserResult::getAccumulatedResult)
+                        .filterIsInstance<PathGatheringContext>()
+                        .successIfDefined(pathGatheringContextNotDefinedErrorSupplier())
+                        .orElseThrow()
+            }
+            c
+        }
+    }
+
+    private fun gatherPathsAndCoordinatesUntilMaximumOperationDepth(
+        backRefQueue: Deque<Pair<GQLOperationPath, GraphQLFieldsContainer>>,
+        mmf: MaterializationMetamodelBuildContext,
+    ): (PathGatheringContext) -> PathGatheringContext {
+        return { pgc: PathGatheringContext ->
+            var c: PathGatheringContext = pgc
+            while (
+                backRefQueue.isNotEmpty() &&
+                    backRefQueue.peekFirst().first.level() <
+                        mmf.featureEngineeringModel.modelLimits.maximumOperationDepth
+            ) {
+                val (p: GQLOperationPath, gfc: GraphQLFieldsContainer) = backRefQueue.pollFirst()
+                c =
+                    Traverser.breadthFirst(
+                            factGatheringTraversalFunction(mmf.materializationGraphQLSchema),
+                            p,
+                            c
+                        )
+                        .traverse(
+                            gfc,
+                            SchemaElementTraverserVisitor(
+                                PathGatheringElementVisitor(backRefQueue = backRefQueue)
+                            )
+                        )
+                        .toOption()
+                        .mapNotNull(TraverserResult::getAccumulatedResult)
+                        .filterIsInstance<PathGatheringContext>()
+                        .successIfDefined(pathGatheringContextNotDefinedErrorSupplier())
+                        .orElseThrow()
+            }
+            c
         }
     }
 

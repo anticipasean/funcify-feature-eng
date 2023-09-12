@@ -12,7 +12,7 @@ import reactor.core.publisher.Mono
  * @author smccarron
  * @created 2023-08-01
  */
-interface TransformerCallable : (ImmutableMap<GQLOperationPath, JsonNode>) -> Mono<JsonNode> {
+interface TransformerCallable : (ImmutableMap<String, JsonNode>) -> Mono<JsonNode> {
 
     val transformerFieldCoordinates: FieldCoordinates
 
@@ -20,9 +20,11 @@ interface TransformerCallable : (ImmutableMap<GQLOperationPath, JsonNode>) -> Mo
 
     val transformerGraphQLFieldDefinition: GraphQLFieldDefinition
 
+    val argumentsByName: ImmutableMap<String, GraphQLArgument>
+
     val argumentsByPath: ImmutableMap<GQLOperationPath, GraphQLArgument>
 
-    override fun invoke(arguments: ImmutableMap<GQLOperationPath, JsonNode>): Mono<JsonNode>
+    override fun invoke(arguments: ImmutableMap<String, JsonNode>): Mono<JsonNode>
 
     interface Builder {
 

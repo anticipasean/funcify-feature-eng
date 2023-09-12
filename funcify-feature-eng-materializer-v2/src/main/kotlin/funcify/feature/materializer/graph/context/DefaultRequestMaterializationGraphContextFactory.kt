@@ -153,7 +153,11 @@ internal object DefaultRequestMaterializationGraphContextFactory :
             this.applyOnBuilder { this.addedVertexContexts.addAll(nextVertices) }
 
         override fun dropFirstAddedVertex(): B =
-            this.applyOnBuilder { this.addedVertexContexts.removeFirst() }
+            this.applyOnBuilder {
+                if (this.addedVertexContexts.isNotEmpty()) {
+                    this.addedVertexContexts.removeFirst()
+                }
+            }
     }
 
     internal class DefaultStandardQueryBuilder(

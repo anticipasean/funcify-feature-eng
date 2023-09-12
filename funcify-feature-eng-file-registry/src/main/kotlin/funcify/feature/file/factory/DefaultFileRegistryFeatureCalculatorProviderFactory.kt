@@ -7,7 +7,6 @@ import funcify.feature.file.FileRegistryFeatureCalculator
 import funcify.feature.file.FileRegistryFeatureCalculatorProvider
 import funcify.feature.file.FileRegistryFeatureCalculatorProviderFactory
 import funcify.feature.file.metadata.FileRegistryMetadataProvider
-import funcify.feature.schema.feature.FeatureCalculatorCallable
 import funcify.feature.schema.sdl.SDLDefinitionsSetExtractor
 import funcify.feature.schema.sdl.TypeDefinitionRegistryFilter
 import funcify.feature.tools.container.attempt.Try
@@ -15,9 +14,7 @@ import funcify.feature.tools.container.attempt.Try.Companion.success
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.ResultExtensions.toMono
 import funcify.feature.tools.extensions.StringExtensions.flatten
-import graphql.language.SDLDefinition
 import graphql.schema.idl.TypeDefinitionRegistry
-import kotlinx.collections.immutable.PersistentSet
 import org.slf4j.Logger
 import org.springframework.core.io.ClassPathResource
 import reactor.core.publisher.Mono
@@ -108,14 +105,6 @@ internal class DefaultFileRegistryFeatureCalculatorProviderFactory(
             }
         }
 
-        internal class DefaultFileRegistryFeatureCalculator(
-            override val name: String,
-            override val sourceSDLDefinitions: PersistentSet<SDLDefinition<*>>
-        ) : FileRegistryFeatureCalculator {
-            override fun builder(): FeatureCalculatorCallable.Builder {
-                TODO("Not yet implemented")
-            }
-        }
     }
 
     override fun builder(): FileRegistryFeatureCalculatorProvider.Builder {
@@ -124,4 +113,5 @@ internal class DefaultFileRegistryFeatureCalculatorProviderFactory(
             typeDefinitionRegistryFilter = typeDefinitionRegistryFilter,
         )
     }
+
 }
