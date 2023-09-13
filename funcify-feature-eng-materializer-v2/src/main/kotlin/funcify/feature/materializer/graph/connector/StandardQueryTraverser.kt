@@ -48,6 +48,11 @@ internal class StandardQueryTraverser(
             val queue: PersistentList<QueryComponentContext>
         )
 
+        private data class StandardQueryPathContext(
+            val path: GQLOperationPath,
+            val canonicalPath: GQLOperationPath
+        )
+
         private class StandardQueryTraverserVisitor(private val nodeVisitor: NodeVisitor) :
             TraverserVisitor<Node<*>> {
 
@@ -89,8 +94,12 @@ internal class StandardQueryTraverser(
                 )
                 when (val parentNode: Node<*> = context.parentNode) {
                     is OperationDefinition -> {
+                        val pc: StandardQueryPathContext =
+                            extractParentPathContextFromTraverserContext(context)
+                        val cp: GQLOperationPath =
+                            pc.canonicalPath.transform { appendField(node.name) }
                         val p: GQLOperationPath =
-                            extractParentPathFromContext(context).transform {
+                            pc.path.transform {
                                 when (node.alias) {
                                     null -> appendField(node.name)
                                     else -> appendAliasedField(node.alias, node.name)
@@ -114,9 +123,13 @@ internal class StandardQueryTraverser(
                                 .field(node)
                                 .path(p)
                                 .fieldCoordinates(fc)
+                                .canonicalPath(cp)
                                 .build()
                         context.setAccumulate(c.copy(queue = c.queue.add(qcc)))
-                        context.setVar(GQLOperationPath::class.java, p)
+                        context.setVar(
+                            StandardQueryPathContext::class.java,
+                            StandardQueryPathContext(p, cp)
+                        )
                         context.setVar(FieldCoordinates::class.java, fc)
                         GraphQLTypeUtil.unwrapAll(fd.type)
                             .toOption()
@@ -126,8 +139,12 @@ internal class StandardQueryTraverser(
                             }
                     }
                     is Field -> {
+                        val pc: StandardQueryPathContext =
+                            extractParentPathContextFromTraverserContext(context)
+                        val cp: GQLOperationPath =
+                            pc.canonicalPath.transform { appendField(node.name) }
                         val p: GQLOperationPath =
-                            extractParentPathFromContext(context).transform {
+                            pc.path.transform {
                                 when (node.alias) {
                                     null -> appendField(node.name)
                                     else -> appendAliasedField(node.alias, node.name)
@@ -144,9 +161,13 @@ internal class StandardQueryTraverser(
                                 .field(node)
                                 .fieldCoordinates(fc)
                                 .path(p)
+                                .canonicalPath(cp)
                                 .build()
                         context.setAccumulate(c.copy(queue = c.queue.add(qcc)))
-                        context.setVar(GQLOperationPath::class.java, p)
+                        context.setVar(
+                            StandardQueryPathContext::class.java,
+                            StandardQueryPathContext(p, cp)
+                        )
                         context.setVar(FieldCoordinates::class.java, fc)
                         GraphQLTypeUtil.unwrapAll(fd.type)
                             .toOption()
@@ -156,8 +177,10 @@ internal class StandardQueryTraverser(
                             }
                     }
                     is InlineFragment -> {
+                        val pc: StandardQueryPathContext =
+                            extractParentPathContextFromTraverserContext(context)
                         val p: GQLOperationPath =
-                            extractParentPathFromContext(context).transform {
+                            pc.path.transform {
                                 when (node.alias) {
                                     null -> {
                                         when (parentNode.typeCondition) {
@@ -213,6 +236,24 @@ internal class StandardQueryTraverser(
                                 .orElseThrow()
                         val fd: GraphQLFieldDefinition =
                             getGraphQLFieldDefinitionForField(gct, node).orElseThrow()
+                        val cp: GQLOperationPath =
+                            pc.canonicalPath.transform {
+                                when (parentNode.typeCondition) {
+                                    null -> {
+                                        appendField(node.name)
+                                    }
+                                    else -> {
+                                        if (gct.name != parentNode.typeCondition.name) {
+                                            appendInlineFragment(
+                                                parentNode.typeCondition.name,
+                                                node.name
+                                            )
+                                        } else {
+                                            appendField(node.name)
+                                        }
+                                    }
+                                }
+                            }
                         val fc: FieldCoordinates = FieldCoordinates.coordinates(gct.name, fd.name)
                         val qcc: QueryComponentContext =
                             queryComponentContextFactory
@@ -220,9 +261,13 @@ internal class StandardQueryTraverser(
                                 .field(node)
                                 .path(p)
                                 .fieldCoordinates(fc)
+                                .canonicalPath(cp)
                                 .build()
                         context.setAccumulate(c.copy(queue = c.queue.add(qcc)))
-                        context.setVar(GQLOperationPath::class.java, p)
+                        context.setVar(
+                            StandardQueryPathContext::class.java,
+                            StandardQueryPathContext(p, cp)
+                        )
                         context.setVar(FieldCoordinates::class.java, fc)
                         GraphQLTypeUtil.unwrapAll(fd.type)
                             .toOption()
@@ -232,8 +277,10 @@ internal class StandardQueryTraverser(
                             }
                     }
                     is FragmentDefinition -> {
+                        val pc: StandardQueryPathContext =
+                            extractParentPathContextFromTraverserContext(context)
                         val p: GQLOperationPath =
-                            extractParentPathFromContext(context).transform {
+                            pc.path.transform {
                                 when (node.alias) {
                                     null -> {
                                         when (parentNode.typeCondition) {
@@ -289,6 +336,24 @@ internal class StandardQueryTraverser(
                                     )
                                 }
                                 .orElseThrow()
+                        val cp: GQLOperationPath =
+                            pc.canonicalPath.transform {
+                                when (parentNode.typeCondition) {
+                                    null -> {
+                                        appendField(node.name)
+                                    }
+                                    else -> {
+                                        if (gct.name != parentNode.typeCondition.name) {
+                                            appendInlineFragment(
+                                                parentNode.typeCondition.name,
+                                                node.name
+                                            )
+                                        } else {
+                                            appendField(node.name)
+                                        }
+                                    }
+                                }
+                            }
                         val fd: GraphQLFieldDefinition =
                             getGraphQLFieldDefinitionForField(gct, node).orElseThrow()
                         val fc: FieldCoordinates = FieldCoordinates.coordinates(gct.name, fd.name)
@@ -298,9 +363,13 @@ internal class StandardQueryTraverser(
                                 .field(node)
                                 .fieldCoordinates(fc)
                                 .path(p)
+                                .canonicalPath(cp)
                                 .build()
                         context.setAccumulate(c.copy(queue = c.queue.add(qcc)))
-                        context.setVar(GQLOperationPath::class.java, p)
+                        context.setVar(
+                            StandardQueryPathContext::class.java,
+                            StandardQueryPathContext(p, cp)
+                        )
                         context.setVar(FieldCoordinates::class.java, fc)
                         GraphQLTypeUtil.unwrapAll(fd.type)
                             .toOption()
@@ -390,8 +459,10 @@ internal class StandardQueryTraverser(
                 context: TraverserContext<Node<*>>
             ): TraversalControl {
                 logger.debug("visit_argument: [ node.name: {} ]", node.name)
-                val p: GQLOperationPath =
-                    extractParentPathFromContext(context).transform { argument(node.name) }
+                val pc: StandardQueryPathContext =
+                    extractParentPathContextFromTraverserContext(context)
+                val p: GQLOperationPath = pc.path.transform { argument(node.name) }
+                val cp: GQLOperationPath = pc.canonicalPath.transform { argument(node.name) }
                 val c: StandardQueryTraversalContext = context.getCurrentAccumulate()
                 val fc: FieldCoordinates = extractFieldCoordinatesFromContext(context)
                 val qcc: QueryComponentContext =
@@ -400,9 +471,13 @@ internal class StandardQueryTraverser(
                         .argument(node)
                         .path(p)
                         .fieldCoordinates(fc)
+                        .canonicalPath(cp)
                         .build()
                 context.setAccumulate(c.copy(queue = c.queue.add(qcc)))
-                context.setVar(GQLOperationPath::class.java, p)
+                context.setVar(
+                    StandardQueryPathContext::class.java,
+                    StandardQueryPathContext(p, cp)
+                )
                 return TraversalControl.CONTINUE
             }
 
@@ -420,22 +495,31 @@ internal class StandardQueryTraverser(
                     .orElseThrow()
             }
 
-            private fun extractParentPathFromContext(
+            private fun extractParentPathContextFromTraverserContext(
                 context: TraverserContext<Node<*>>
-            ): GQLOperationPath {
-                return Try.attemptNullable {
-                        context.getVarFromParents<GQLOperationPath>(GQLOperationPath::class.java)
+            ): StandardQueryPathContext {
+                return try {
+                        context
+                            .getVarFromParents<StandardQueryPathContext>(
+                                StandardQueryPathContext::class.java
+                            )
+                            .toOption()
+                    } catch (c: ClassCastException) {
+                        None
                     }
-                    .flatMap(Try.Companion::fromOption)
-                    .orElseTry {
-                        Try.attemptNullable { context.getSharedContextData<GQLOperationPath>() }
-                            .flatMap(Try.Companion::fromOption)
+                    .orElse {
+                        try {
+                            context.getSharedContextData<StandardQueryPathContext>().toOption()
+                        } catch (c: ClassCastException) {
+                            None
+                        }
                     }
-                    .orElseThrow { _: Throwable ->
+                    .successIfDefined {
                         ServiceError.of(
-                            "parent_path has not been set as variable in traverser_context"
+                            "parent_path_context has not been set as variable in traverser_context"
                         )
                     }
+                    .orElseThrow()
             }
         }
     }
@@ -478,7 +562,10 @@ internal class StandardQueryTraverser(
             .map { od: OperationDefinition ->
                 Traverser.depthFirst(
                         nodeTraversalFunctionOverDocument(document),
-                        GQLOperationPath.getRootPath(),
+                        StandardQueryPathContext(
+                            path = GQLOperationPath.getRootPath(),
+                            canonicalPath = GQLOperationPath.getRootPath()
+                        ),
                         StandardQueryTraversalContext(queue = persistentListOf())
                     )
                     .traverse(

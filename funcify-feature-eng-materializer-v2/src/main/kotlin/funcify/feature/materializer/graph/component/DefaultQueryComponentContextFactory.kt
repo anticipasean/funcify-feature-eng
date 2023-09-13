@@ -22,7 +22,8 @@ internal object DefaultQueryComponentContextFactory : QueryComponentContextFacto
         B : QueryComponentContext.Builder<B>>(
         protected open val existingContext: QueryComponentContext? = null,
         protected open var path: GQLOperationPath? = existingContext?.path,
-        protected open var fieldCoordinates: FieldCoordinates? = existingContext?.fieldCoordinates
+        protected open var fieldCoordinates: FieldCoordinates? = existingContext?.fieldCoordinates,
+        protected open var canonicalPath: GQLOperationPath? = existingContext?.canonicalPath,
     ) : QueryComponentContext.Builder<B> {
 
         companion object {
@@ -37,6 +38,9 @@ internal object DefaultQueryComponentContextFactory : QueryComponentContextFacto
 
         override fun fieldCoordinates(fieldCoordinates: FieldCoordinates): B =
             this.applyToBuilder { this.fieldCoordinates = fieldCoordinates }
+
+        override fun canonicalPath(canonicalPath: GQLOperationPath): B =
+            this.applyToBuilder { this.canonicalPath = canonicalPath }
     }
 
     internal class DefaultSelectedFieldComponentContextBuilder(
@@ -57,10 +61,12 @@ internal object DefaultQueryComponentContextFactory : QueryComponentContextFacto
                     ensureNotNull(path) { "path not provided" }
                     ensureNotNull(fieldCoordinates) { "field_coordinates not provided" }
                     ensureNotNull(field) { "field not provided" }
+                    ensureNotNull(canonicalPath) { "canonical_path not provided" }
                     DefaultSelectedFieldComponentContext(
                         path = path!!,
                         fieldCoordinates = fieldCoordinates!!,
-                        field = field!!
+                        field = field!!,
+                        canonicalPath = canonicalPath!!,
                     )
                 }
                 .fold(
@@ -81,7 +87,8 @@ internal object DefaultQueryComponentContextFactory : QueryComponentContextFacto
     internal data class DefaultSelectedFieldComponentContext(
         override val path: GQLOperationPath,
         override val fieldCoordinates: FieldCoordinates,
-        override val field: Field
+        override val field: Field,
+        override val canonicalPath: GQLOperationPath,
     ) : SelectedFieldComponentContext {}
 
     internal class DefaultFieldArgumentComponentContextBuilder(
@@ -102,10 +109,12 @@ internal object DefaultQueryComponentContextFactory : QueryComponentContextFacto
                     ensureNotNull(path) { "path not provided" }
                     ensureNotNull(fieldCoordinates) { "field_coordinates not provided" }
                     ensureNotNull(argument) { "argument not provided" }
+                    ensureNotNull(canonicalPath) { "canonical_path not provided" }
                     DefaultFieldArgumentComponentContext(
                         path = path!!,
                         fieldCoordinates = fieldCoordinates!!,
-                        argument = argument!!
+                        argument = argument!!,
+                        canonicalPath = canonicalPath!!,
                     )
                 }
                 .fold(
@@ -126,7 +135,8 @@ internal object DefaultQueryComponentContextFactory : QueryComponentContextFacto
     internal data class DefaultFieldArgumentComponentContext(
         override val path: GQLOperationPath,
         override val fieldCoordinates: FieldCoordinates,
-        override val argument: Argument
+        override val argument: Argument,
+        override val canonicalPath: GQLOperationPath,
     ) : FieldArgumentComponentContext {}
 
     override fun selectedFieldComponentContextBuilder(): SelectedFieldComponentContext.Builder {

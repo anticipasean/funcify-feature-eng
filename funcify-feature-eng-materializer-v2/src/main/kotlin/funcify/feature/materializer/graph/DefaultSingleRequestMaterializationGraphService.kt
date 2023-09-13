@@ -28,6 +28,7 @@ import funcify.feature.tools.extensions.TryExtensions.failure
 import funcify.feature.tools.extensions.TryExtensions.successIfNonNull
 import graphql.GraphQLError
 import graphql.execution.preparsed.PreparsedDocumentEntry
+import graphql.language.Node
 import java.time.Duration
 import java.util.concurrent.ConcurrentMap
 import kotlinx.collections.immutable.persistentSetOf
@@ -277,7 +278,12 @@ internal class DefaultSingleRequestMaterializationGraphService(
                 }
             }
             .doOnNext { rmgc: RequestMaterializationGraphContext ->
-                logger.debug("generated_graph: \n{}", rmgc.requestGraph)
+                logger.debug(
+                    "generated_graph: \n{}",
+                    rmgc.requestGraph.stringify(
+                        vertexStringifier = { n: Node<*> -> n::class.simpleName ?: "<NA>" }
+                    )
+                )
             }
             .then(
                 Mono.error { ServiceError.of("request_materialization_graph not yet implemented") }

@@ -15,11 +15,15 @@ sealed interface QueryComponentContext {
 
     val fieldCoordinates: FieldCoordinates
 
+    val canonicalPath: GQLOperationPath
+
     interface Builder<B : Builder<B>> {
 
         fun path(path: GQLOperationPath): B
 
         fun fieldCoordinates(fieldCoordinates: FieldCoordinates): B
+
+        fun canonicalPath(canonicalPath: GQLOperationPath): B
     }
 
     interface SelectedFieldComponentContext : QueryComponentContext {

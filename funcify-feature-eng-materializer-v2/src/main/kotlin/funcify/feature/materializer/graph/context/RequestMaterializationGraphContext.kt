@@ -34,13 +34,15 @@ interface RequestMaterializationGraphContext {
     val connectedFieldPathsByCoordinates:
         ImmutableMap<FieldCoordinates, ImmutableSet<GQLOperationPath>>
 
+    val connectedPathsByCanonicalPath:
+        ImmutableMap<GQLOperationPath, ImmutableSet<GQLOperationPath>>
+
     val transformerCallablesByPath: ImmutableMap<GQLOperationPath, TransformerCallable>
 
     val dataElementCallableBuildersByPath:
         ImmutableMap<GQLOperationPath, DataElementCallable.Builder>
 
-    val featureCalculatorCallableBuildersByPath:
-        ImmutableMap<GQLOperationPath, FeatureCalculatorCallable.Builder>
+    val featureCalculatorCallablesByPath: ImmutableMap<GQLOperationPath, FeatureCalculatorCallable>
 
     val queryComponentContextFactory: QueryComponentContextFactory
 
@@ -61,6 +63,11 @@ interface RequestMaterializationGraphContext {
             path: GQLOperationPath
         ): B
 
+        fun putConnectedPathForCanonicalPath(
+            canonicalPath: GQLOperationPath,
+            path: GQLOperationPath
+        ): B
+
         fun requestGraph(
             requestGraph: DirectedPersistentGraph<GQLOperationPath, Node<*>, MaterializationEdge>
         ): B
@@ -75,9 +82,9 @@ interface RequestMaterializationGraphContext {
             dataElementCallableBuilder: DataElementCallable.Builder
         ): B
 
-        fun putFeatureCalculatorCallableBuilderForPath(
+        fun putFeatureCalculatorCallableForPath(
             path: GQLOperationPath,
-            featureCalculatorCallableBuilder: FeatureCalculatorCallable.Builder
+            featureCalculatorCallable: FeatureCalculatorCallable
         ): B
 
         fun queryComponentContextFactory(
