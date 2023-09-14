@@ -28,7 +28,7 @@ internal object DefaultRequestMaterializationGraphContextFactory :
         protected open var materializationMetamodel: MaterializationMetamodel? =
             existingGraphContext?.materializationMetamodel,
         protected open var requestGraph:
-            DirectedPersistentGraph<GQLOperationPath, Node<*>, MaterializationEdge>? =
+            DirectedPersistentGraph<GQLOperationPath, QueryComponentContext, MaterializationEdge>? =
             existingGraphContext?.requestGraph,
         protected open var queryComponentContextFactory: QueryComponentContextFactory? =
             existingGraphContext?.queryComponentContextFactory,
@@ -122,7 +122,7 @@ internal object DefaultRequestMaterializationGraphContextFactory :
             }
 
         override fun requestGraph(
-            requestGraph: DirectedPersistentGraph<GQLOperationPath, Node<*>, MaterializationEdge>
+            requestGraph: DirectedPersistentGraph<GQLOperationPath, QueryComponentContext, MaterializationEdge>
         ): B = this.applyOnBuilder { this.requestGraph = requestGraph }
 
         override fun putTransformerCallableForPath(
@@ -241,7 +241,7 @@ internal object DefaultRequestMaterializationGraphContextFactory :
         override val connectedPathsByCanonicalPath:
             PersistentMap<GQLOperationPath, ImmutableSet<GQLOperationPath>>,
         override val requestGraph:
-            DirectedPersistentGraph<GQLOperationPath, Node<*>, MaterializationEdge>,
+            DirectedPersistentGraph<GQLOperationPath, QueryComponentContext, MaterializationEdge>,
         override val passThroughColumns: PersistentSet<String>,
         override val transformerCallablesByPath:
             PersistentMap<GQLOperationPath, TransformerCallable>,
@@ -340,7 +340,7 @@ internal object DefaultRequestMaterializationGraphContextFactory :
         override val connectedPathsByCanonicalPath:
             PersistentMap<GQLOperationPath, ImmutableSet<GQLOperationPath>>,
         override val requestGraph:
-            DirectedPersistentGraph<GQLOperationPath, Node<*>, MaterializationEdge>,
+            DirectedPersistentGraph<GQLOperationPath, QueryComponentContext, MaterializationEdge>,
         override val passThroughColumns: PersistentSet<String>,
         override val transformerCallablesByPath:
             PersistentMap<GQLOperationPath, TransformerCallable>,

@@ -28,7 +28,6 @@ import funcify.feature.tools.extensions.TryExtensions.failure
 import funcify.feature.tools.extensions.TryExtensions.successIfNonNull
 import graphql.GraphQLError
 import graphql.execution.preparsed.PreparsedDocumentEntry
-import graphql.language.Node
 import java.time.Duration
 import java.util.concurrent.ConcurrentMap
 import kotlinx.collections.immutable.persistentSetOf
@@ -281,7 +280,9 @@ internal class DefaultSingleRequestMaterializationGraphService(
                 logger.debug(
                     "generated_graph: \n{}",
                     rmgc.requestGraph.stringify(
-                        vertexStringifier = { n: Node<*> -> n::class.simpleName ?: "<NA>" }
+                        vertexStringifier = { qcc: QueryComponentContext ->
+                            qcc::class.simpleName ?: "<NA>"
+                        }
                     )
                 )
             }

@@ -27,7 +27,7 @@ interface RequestMaterializationGraphContext {
 
     val rawInputContextKeys: ImmutableSet<String>
 
-    val requestGraph: DirectedPersistentGraph<GQLOperationPath, Node<*>, MaterializationEdge>
+    val requestGraph: DirectedPersistentGraph<GQLOperationPath, QueryComponentContext, MaterializationEdge>
 
     val passThroughColumns: ImmutableSet<String>
 
@@ -69,7 +69,7 @@ interface RequestMaterializationGraphContext {
         ): B
 
         fun requestGraph(
-            requestGraph: DirectedPersistentGraph<GQLOperationPath, Node<*>, MaterializationEdge>
+            requestGraph: DirectedPersistentGraph<GQLOperationPath, QueryComponentContext, MaterializationEdge>
         ): B
 
         fun putTransformerCallableForPath(

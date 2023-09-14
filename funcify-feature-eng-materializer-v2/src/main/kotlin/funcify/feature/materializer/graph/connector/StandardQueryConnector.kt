@@ -96,14 +96,7 @@ object StandardQueryConnector : RequestMaterializationGraphConnector<StandardQue
                             operationName = connectorContext.operationName,
                             document = connectorContext.document
                         )
-                        .fold(
-                            this.requestGraph(
-                                connectorContext.requestGraph.put(
-                                    GQLOperationPath.getRootPath(),
-                                    od
-                                )
-                            )
-                        ) { sqb: StandardQuery.Builder, qcc: QueryComponentContext ->
+                        .fold(this) { sqb: StandardQuery.Builder, qcc: QueryComponentContext ->
                             logger.debug("query_component_context: {}", qcc)
                             sqb.appendVertexContext(qcc)
                         }
@@ -117,8 +110,10 @@ object StandardQueryConnector : RequestMaterializationGraphConnector<StandardQue
         fieldArgumentComponentContext: FieldArgumentComponentContext,
     ): StandardQuery {
         logger.debug(
-            "connect_field_argument: [ field_argument_component_context.path: {} ]",
-            fieldArgumentComponentContext.path
+            "connect_field_argument: [ field_argument_component_context: { path: {}, coordinates: {}, canonical_path: {} } ]",
+            fieldArgumentComponentContext.path,
+            fieldArgumentComponentContext.fieldCoordinates,
+            fieldArgumentComponentContext.canonicalPath
         )
         return when {
             fieldArgumentComponentContext.fieldCoordinates in
@@ -223,6 +218,8 @@ object StandardQueryConnector : RequestMaterializationGraphConnector<StandardQue
                     }
                     connectorContext.requestGraph[fieldPath]
                         .toOption()
+                        .filterIsInstance<SelectedFieldComponentContext>()
+                        .map(SelectedFieldComponentContext::field)
                         .flatMap { n: Node<*> ->
                             n.toOption().filterIsInstance<Field>().map(Field::getName).orElse {
                                 fieldPath.selection.lastOrNone().map { ss: SelectionSegment ->
@@ -273,7 +270,7 @@ object StandardQueryConnector : RequestMaterializationGraphConnector<StandardQue
             // Connect the argument to its element type
             sqb.requestGraph(
                     connectorContext.requestGraph
-                        .put(fieldArgumentComponentContext.path, a)
+                        .put(fieldArgumentComponentContext.path, fieldArgumentComponentContext)
                         .putEdge(fieldPath, fieldArgumentComponentContext.path, e)
                         .putEdge(
                             fieldArgumentComponentContext.path,
@@ -355,10 +352,7 @@ object StandardQueryConnector : RequestMaterializationGraphConnector<StandardQue
                     .orElseThrow()
             sqb.requestGraph(
                     connectorContext.requestGraph
-                        .put(
-                            fieldArgumentComponentContext.path,
-                            fieldArgumentComponentContext.argument
-                        )
+                        .put(fieldArgumentComponentContext.path, fieldArgumentComponentContext)
                         .putEdge(
                             fieldPath,
                             fieldArgumentComponentContext.path,
@@ -452,7 +446,7 @@ object StandardQueryConnector : RequestMaterializationGraphConnector<StandardQue
                                 connectorContext.requestGraph
                                     .put(
                                         fieldArgumentComponentContext.path,
-                                        fieldArgumentComponentContext.argument
+                                        fieldArgumentComponentContext
                                     )
                                     .putEdge(
                                         fieldPath,
@@ -462,7 +456,7 @@ object StandardQueryConnector : RequestMaterializationGraphConnector<StandardQue
                             ) {
                                 d:
                                     DirectedPersistentGraph<
-                                        GQLOperationPath, Node<*>, MaterializationEdge
+                                        GQLOperationPath, QueryComponentContext, MaterializationEdge
                                     >,
                                 p: GQLOperationPath ->
                                 d.putEdge(
@@ -581,11 +575,11 @@ object StandardQueryConnector : RequestMaterializationGraphConnector<StandardQue
                                 connectorContext.requestGraph
                                     .put(
                                         fieldArgumentComponentContext.path,
-                                        fieldArgumentComponentContext.argument
+                                        fieldArgumentComponentContext
                                     )
                                     .put(
                                         featureFieldComponentContext.path,
-                                        featureFieldComponentContext.field
+                                        featureFieldComponentContext
                                     )
                                     .putEdge(
                                         fieldArgumentComponentContext.path,
@@ -726,16 +720,10 @@ object StandardQueryConnector : RequestMaterializationGraphConnector<StandardQue
                         selectedFieldComponentContext.path
                     )
                     requestGraph(
-                        connectorContext.requestGraph
-                            .put(
-                                selectedFieldComponentContext.path,
-                                selectedFieldComponentContext.field
-                            )
-                            .putEdge(
-                                selectedFieldComponentContext.path,
-                                GQLOperationPath.getRootPath(),
-                                MaterializationEdge.ELEMENT_TYPE
-                            )
+                        connectorContext.requestGraph.put(
+                            selectedFieldComponentContext.path,
+                            selectedFieldComponentContext
+                        )
                     )
                 }
             }
@@ -810,7 +798,7 @@ object StandardQueryConnector : RequestMaterializationGraphConnector<StandardQue
             sqb.requestGraph(
                     connectorContext.requestGraph.put(
                         selectedFieldComponentContext.path,
-                        selectedFieldComponentContext.field
+                        selectedFieldComponentContext
                     )
                 )
                 .putDataElementCallableBuilderForPath(selectedFieldComponentContext.path, decb)
@@ -855,10 +843,7 @@ object StandardQueryConnector : RequestMaterializationGraphConnector<StandardQue
             if (parentPath in connectorContext.dataElementCallableBuildersByPath) {
                 sqb.requestGraph(
                         connectorContext.requestGraph
-                            .put(
-                                selectedFieldComponentContext.path,
-                                selectedFieldComponentContext.field
-                            )
+                            .put(selectedFieldComponentContext.path, selectedFieldComponentContext)
                             .putEdge(
                                 selectedFieldComponentContext.path,
                                 parentPath,
@@ -880,7 +865,7 @@ object StandardQueryConnector : RequestMaterializationGraphConnector<StandardQue
                         selectedFieldComponentContext.path
                     )
             } else {
-                val (domainPath: GQLOperationPath, _: Node<*>) =
+                val (domainPath: GQLOperationPath, _: QueryComponentContext) =
                     connectorContext.requestGraph.successorVertices(parentPath).first()
                 if (domainPath !in connectorContext.dataElementCallableBuildersByPath) {
                     throw ServiceError.of(
@@ -890,10 +875,7 @@ object StandardQueryConnector : RequestMaterializationGraphConnector<StandardQue
                 }
                 sqb.requestGraph(
                         connectorContext.requestGraph
-                            .put(
-                                selectedFieldComponentContext.path,
-                                selectedFieldComponentContext.field
-                            )
+                            .put(selectedFieldComponentContext.path, selectedFieldComponentContext)
                             .putEdge(
                                 selectedFieldComponentContext.path,
                                 domainPath,
@@ -1113,7 +1095,7 @@ object StandardQueryConnector : RequestMaterializationGraphConnector<StandardQue
             sqb.requestGraph(
                     connectorContext.requestGraph.put(
                         selectedFieldComponentContext.path,
-                        selectedFieldComponentContext.field
+                        selectedFieldComponentContext
                     )
                 )
                 .putFeatureCalculatorCallableForPath(

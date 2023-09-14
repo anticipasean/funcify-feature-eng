@@ -46,7 +46,7 @@ object TabularQueryConnector : RequestMaterializationGraphConnector<TabularQuery
                         TabularQueryVariableBasedOperationCreator.invoke(
                             tabularQuery = connectorContext
                         )
-                                           )
+                    )
                 }
             }
             else -> {
