@@ -24,7 +24,7 @@ import graphql.schema.GraphQLArgument
 import kotlinx.collections.immutable.*
 import org.slf4j.Logger
 
-object TabularQueryVariableBasedOperationCreator :
+internal object TabularQueryVariableBasedOperationCreator :
     (TabularQuery) -> Iterable<QueryComponentContext> {
 
     private const val METHOD_TAG: String = "tabular_query_variable_based_operation_creator.invoke"

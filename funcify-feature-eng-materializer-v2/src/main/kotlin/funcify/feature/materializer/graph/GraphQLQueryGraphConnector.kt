@@ -9,8 +9,6 @@ import funcify.feature.materializer.graph.component.QueryComponentContext.Select
  */
 interface GraphQLQueryGraphConnector<C> {
 
-    fun startOperationDefinition(connectorContext: C): C
-
     fun connectFieldArgument(
         connectorContext: C,
         fieldArgumentComponentContext: FieldArgumentComponentContext
@@ -21,5 +19,4 @@ interface GraphQLQueryGraphConnector<C> {
         selectedFieldComponentContext: SelectedFieldComponentContext
     ): C
 
-    fun completeOperationDefinition(connectorContext: C): C
 }

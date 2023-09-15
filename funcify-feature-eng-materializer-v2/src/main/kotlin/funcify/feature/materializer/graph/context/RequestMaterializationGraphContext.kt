@@ -9,7 +9,6 @@ import funcify.feature.schema.dataelement.DataElementCallable
 import funcify.feature.schema.feature.FeatureCalculatorCallable
 import funcify.feature.schema.path.operation.GQLOperationPath
 import funcify.feature.schema.transformer.TransformerCallable
-import graphql.language.Node
 import graphql.schema.FieldCoordinates
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableMap
@@ -27,7 +26,8 @@ interface RequestMaterializationGraphContext {
 
     val rawInputContextKeys: ImmutableSet<String>
 
-    val requestGraph: DirectedPersistentGraph<GQLOperationPath, QueryComponentContext, MaterializationEdge>
+    val requestGraph:
+        DirectedPersistentGraph<GQLOperationPath, QueryComponentContext, MaterializationEdge>
 
     val passThroughColumns: ImmutableSet<String>
 
@@ -37,6 +37,8 @@ interface RequestMaterializationGraphContext {
     val connectedPathsByCanonicalPath:
         ImmutableMap<GQLOperationPath, ImmutableSet<GQLOperationPath>>
 
+    val canonicalPathByConnectedPath: ImmutableMap<GQLOperationPath, GQLOperationPath>
+
     val transformerCallablesByPath: ImmutableMap<GQLOperationPath, TransformerCallable>
 
     val dataElementCallableBuildersByPath:
@@ -45,8 +47,6 @@ interface RequestMaterializationGraphContext {
     val featureCalculatorCallablesByPath: ImmutableMap<GQLOperationPath, FeatureCalculatorCallable>
 
     val queryComponentContextFactory: QueryComponentContextFactory
-
-    val addedVertexContexts: ImmutableList<QueryComponentContext>
 
     interface Builder<B : Builder<B>> {
 
@@ -69,7 +69,10 @@ interface RequestMaterializationGraphContext {
         ): B
 
         fun requestGraph(
-            requestGraph: DirectedPersistentGraph<GQLOperationPath, QueryComponentContext, MaterializationEdge>
+            requestGraph:
+                DirectedPersistentGraph<
+                    GQLOperationPath, QueryComponentContext, MaterializationEdge
+                >
         ): B
 
         fun putTransformerCallableForPath(
@@ -91,14 +94,5 @@ interface RequestMaterializationGraphContext {
             queryComponentContextFactory: QueryComponentContextFactory
         ): B
 
-        fun prependVertexContext(nextVertex: QueryComponentContext): B
-
-        fun prependAllVertexContexts(nextVertices: Iterable<QueryComponentContext>): B
-
-        fun appendVertexContext(nextVertex: QueryComponentContext): B
-
-        fun appendAllVertexContexts(nextVertices: Iterable<QueryComponentContext>): B
-
-        fun dropFirstAddedVertex(): B
     }
 }

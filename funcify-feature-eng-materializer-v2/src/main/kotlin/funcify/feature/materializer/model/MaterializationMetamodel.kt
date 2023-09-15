@@ -1,5 +1,6 @@
 package funcify.feature.materializer.model
 
+import arrow.core.Option
 import funcify.feature.schema.FeatureEngineeringModel
 import funcify.feature.schema.dataelement.DomainSpecifiedDataElementSource
 import funcify.feature.schema.directive.alias.AliasCoordinatesRegistry
@@ -73,6 +74,11 @@ interface MaterializationMetamodel {
 
     val transformerSpecifiedTransformerSourcesByCoordinates:
         ImmutableMap<FieldCoordinates, TransformerSpecifiedTransformerSource>
+
+    val fieldCoordinatesAvailableUnderPath: (FieldCoordinates, GQLOperationPath) -> Boolean
+
+    val firstPathWithFieldCoordinatesUnderPath:
+        (FieldCoordinates, GQLOperationPath) -> Option<GQLOperationPath>
 
     interface Builder {
 

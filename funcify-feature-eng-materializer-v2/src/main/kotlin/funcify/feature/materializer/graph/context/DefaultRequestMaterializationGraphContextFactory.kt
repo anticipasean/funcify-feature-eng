@@ -15,7 +15,6 @@ import funcify.feature.schema.feature.FeatureCalculatorCallable
 import funcify.feature.schema.path.operation.GQLOperationPath
 import funcify.feature.schema.transformer.TransformerCallable
 import graphql.language.Document
-import graphql.language.Node
 import graphql.schema.FieldCoordinates
 import kotlinx.collections.immutable.*
 
@@ -49,6 +48,10 @@ internal object DefaultRequestMaterializationGraphContextFactory :
             PersistentMap.Builder<GQLOperationPath, ImmutableSet<GQLOperationPath>> =
             existingGraphContext?.connectedPathsByCanonicalPath?.toPersistentMap()?.builder()
                 ?: persistentMapOf<GQLOperationPath, ImmutableSet<GQLOperationPath>>().builder(),
+        protected open val canonicalPathByConnectedPath:
+            PersistentMap.Builder<GQLOperationPath, GQLOperationPath> =
+            existingGraphContext?.canonicalPathByConnectedPath?.toPersistentMap()?.builder()
+                ?: persistentMapOf<GQLOperationPath, GQLOperationPath>().builder(),
         protected open val transformerCallablesByPath:
             PersistentMap.Builder<GQLOperationPath, TransformerCallable> =
             existingGraphContext?.transformerCallablesByPath?.toPersistentMap()?.builder()
@@ -61,9 +64,6 @@ internal object DefaultRequestMaterializationGraphContextFactory :
             PersistentMap.Builder<GQLOperationPath, FeatureCalculatorCallable> =
             existingGraphContext?.featureCalculatorCallablesByPath?.toPersistentMap()?.builder()
                 ?: persistentMapOf<GQLOperationPath, FeatureCalculatorCallable>().builder(),
-        protected open val addedVertexContexts: PersistentList.Builder<QueryComponentContext> =
-            existingGraphContext?.addedVertexContexts?.toPersistentList()?.builder()
-                ?: persistentListOf<QueryComponentContext>().builder()
     ) : RequestMaterializationGraphContext.Builder<B> {
 
         companion object {
@@ -119,10 +119,14 @@ internal object DefaultRequestMaterializationGraphContextFactory :
                         .toPersistentSet()
                         .add(path)
                 )
+                this.canonicalPathByConnectedPath.put(path, canonicalPath)
             }
 
         override fun requestGraph(
-            requestGraph: DirectedPersistentGraph<GQLOperationPath, QueryComponentContext, MaterializationEdge>
+            requestGraph:
+                DirectedPersistentGraph<
+                    GQLOperationPath, QueryComponentContext, MaterializationEdge
+                >
         ): B = this.applyOnBuilder { this.requestGraph = requestGraph }
 
         override fun putTransformerCallableForPath(
@@ -151,25 +155,6 @@ internal object DefaultRequestMaterializationGraphContextFactory :
             queryComponentContextFactory: QueryComponentContextFactory
         ): B =
             this.applyOnBuilder { this.queryComponentContextFactory = queryComponentContextFactory }
-
-        override fun prependVertexContext(nextVertex: QueryComponentContext): B =
-            this.applyOnBuilder { this.addedVertexContexts.add(0, nextVertex) }
-
-        override fun prependAllVertexContexts(nextVertices: Iterable<QueryComponentContext>): B =
-            this.applyOnBuilder { this.addedVertexContexts.addAll(0, nextVertices.toList()) }
-
-        override fun appendVertexContext(nextVertex: QueryComponentContext): B =
-            this.applyOnBuilder { this.addedVertexContexts.add(nextVertex) }
-
-        override fun appendAllVertexContexts(nextVertices: Iterable<QueryComponentContext>): B =
-            this.applyOnBuilder { this.addedVertexContexts.addAll(nextVertices) }
-
-        override fun dropFirstAddedVertex(): B =
-            this.applyOnBuilder {
-                if (this.addedVertexContexts.isNotEmpty()) {
-                    this.addedVertexContexts.removeFirst()
-                }
-            }
     }
 
     internal class DefaultStandardQueryBuilder(
@@ -205,6 +190,7 @@ internal object DefaultRequestMaterializationGraphContextFactory :
                         rawInputContextKeys = rawInputContextKeys.build(),
                         connectedFieldPathsByCoordinates = connectedFieldPathsByCoordinates.build(),
                         connectedPathsByCanonicalPath = connectedPathsByCanonicalPath.build(),
+                        canonicalPathByConnectedPath = canonicalPathByConnectedPath.build(),
                         requestGraph = requestGraph!!,
                         passThroughColumns = passThroughColumns.build(),
                         transformerCallablesByPath = transformerCallablesByPath.build(),
@@ -212,7 +198,6 @@ internal object DefaultRequestMaterializationGraphContextFactory :
                             dataElementCallableBuildersByPath.build(),
                         featureCalculatorCallablesByPath = featureCalculatorCallablesByPath.build(),
                         queryComponentContextFactory = queryComponentContextFactory!!,
-                        addedVertexContexts = addedVertexContexts.build(),
                         operationName = operationName!!,
                         document = document!!,
                     )
@@ -240,6 +225,8 @@ internal object DefaultRequestMaterializationGraphContextFactory :
             PersistentMap<FieldCoordinates, ImmutableSet<GQLOperationPath>>,
         override val connectedPathsByCanonicalPath:
             PersistentMap<GQLOperationPath, ImmutableSet<GQLOperationPath>>,
+        override val canonicalPathByConnectedPath:
+            PersistentMap<GQLOperationPath, GQLOperationPath>,
         override val requestGraph:
             DirectedPersistentGraph<GQLOperationPath, QueryComponentContext, MaterializationEdge>,
         override val passThroughColumns: PersistentSet<String>,
@@ -250,7 +237,6 @@ internal object DefaultRequestMaterializationGraphContextFactory :
         override val featureCalculatorCallablesByPath:
             PersistentMap<GQLOperationPath, FeatureCalculatorCallable>,
         override val queryComponentContextFactory: QueryComponentContextFactory,
-        override val addedVertexContexts: PersistentList<QueryComponentContext>,
         override val operationName: String,
         override val document: Document,
     ) : StandardQuery {
@@ -304,6 +290,7 @@ internal object DefaultRequestMaterializationGraphContextFactory :
                         rawInputContextKeys = rawInputContextKeys.build(),
                         connectedFieldPathsByCoordinates = connectedFieldPathsByCoordinates.build(),
                         connectedPathsByCanonicalPath = connectedPathsByCanonicalPath.build(),
+                        canonicalPathByConnectedPath = canonicalPathByConnectedPath.build(),
                         requestGraph = requestGraph!!,
                         passThroughColumns = passThroughColumns.build(),
                         transformerCallablesByPath = transformerCallablesByPath.build(),
@@ -311,7 +298,6 @@ internal object DefaultRequestMaterializationGraphContextFactory :
                             dataElementCallableBuildersByPath.build(),
                         featureCalculatorCallablesByPath = featureCalculatorCallablesByPath.build(),
                         queryComponentContextFactory = queryComponentContextFactory!!,
-                        addedVertexContexts = addedVertexContexts.build(),
                         outputColumnNames = outputColumnNames.build(),
                         unhandledOutputColumnNames = unhandledColumnNames.build()
                     )
@@ -339,6 +325,8 @@ internal object DefaultRequestMaterializationGraphContextFactory :
             PersistentMap<FieldCoordinates, ImmutableSet<GQLOperationPath>>,
         override val connectedPathsByCanonicalPath:
             PersistentMap<GQLOperationPath, ImmutableSet<GQLOperationPath>>,
+        override val canonicalPathByConnectedPath:
+            PersistentMap<GQLOperationPath, GQLOperationPath>,
         override val requestGraph:
             DirectedPersistentGraph<GQLOperationPath, QueryComponentContext, MaterializationEdge>,
         override val passThroughColumns: PersistentSet<String>,
@@ -349,7 +337,6 @@ internal object DefaultRequestMaterializationGraphContextFactory :
         override val featureCalculatorCallablesByPath:
             PersistentMap<GQLOperationPath, FeatureCalculatorCallable>,
         override val queryComponentContextFactory: QueryComponentContextFactory,
-        override val addedVertexContexts: PersistentList<QueryComponentContext>,
         override val outputColumnNames: PersistentSet<String>,
         override val unhandledOutputColumnNames: PersistentList<String>
     ) : TabularQuery {

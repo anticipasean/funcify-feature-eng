@@ -1,6 +1,5 @@
 package funcify.feature.materializer.graph
 
-import arrow.core.Option
 import arrow.core.getOrElse
 import arrow.core.none
 import arrow.core.toOption
@@ -10,9 +9,11 @@ import funcify.feature.graph.PersistentGraphFactory
 import funcify.feature.materializer.graph.component.DefaultQueryComponentContextFactory
 import funcify.feature.materializer.graph.component.QueryComponentContext
 import funcify.feature.materializer.graph.component.QueryComponentContextFactory
-import funcify.feature.materializer.graph.connector.RequestMaterializationGraphConnector
 import funcify.feature.materializer.graph.connector.StandardQueryConnector
+import funcify.feature.materializer.graph.connector.StandardQueryTraverser
 import funcify.feature.materializer.graph.connector.TabularQueryConnector
+import funcify.feature.materializer.graph.connector.TabularQueryRawInputBasedOperationCreator
+import funcify.feature.materializer.graph.connector.TabularQueryVariableBasedOperationCreator
 import funcify.feature.materializer.graph.context.DefaultRequestMaterializationGraphContextFactory
 import funcify.feature.materializer.graph.context.RequestMaterializationGraphContext
 import funcify.feature.materializer.graph.context.RequestMaterializationGraphContextFactory
@@ -22,7 +23,6 @@ import funcify.feature.materializer.input.RawInputContext
 import funcify.feature.materializer.session.GraphQLSingleRequestSession
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.MonoExtensions.widen
-import funcify.feature.tools.extensions.SequenceExtensions.firstOrNone
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.extensions.TryExtensions.failure
 import funcify.feature.tools.extensions.TryExtensions.successIfNonNull
@@ -254,18 +254,50 @@ internal class DefaultSingleRequestMaterializationGraphService(
                 when (context) {
                     is StandardQuery -> {
                         val connector = StandardQueryConnector
-                        connectOperationDefinitionAndEachAddedVertex(connector, context) {
-                            c: StandardQuery ->
-                            c.addedVertexContexts.asSequence().firstOrNone() to
-                                c.update { dropFirstAddedVertex() }
+                        StandardQueryTraverser.invoke(context).fold(context) {
+                            sq: StandardQuery,
+                            qcc: QueryComponentContext ->
+                            when (qcc) {
+                                is QueryComponentContext.FieldArgumentComponentContext -> {
+                                    connector.connectFieldArgument(sq, qcc)
+                                }
+                                is QueryComponentContext.SelectedFieldComponentContext -> {
+                                    connector.connectSelectedField(sq, qcc)
+                                }
+                            }
                         }
                     }
                     is TabularQuery -> {
                         val connector = TabularQueryConnector
-                        connectOperationDefinitionAndEachAddedVertex(connector, context) {
-                            c: TabularQuery ->
-                            c.addedVertexContexts.asSequence().firstOrNone() to
-                                c.update { dropFirstAddedVertex() }
+                        when {
+                            context.rawInputContextKeys.isEmpty() -> {
+                                TabularQueryVariableBasedOperationCreator.invoke(context).fold(
+                                    context
+                                ) { tq: TabularQuery, qcc: QueryComponentContext ->
+                                    when (qcc) {
+                                        is QueryComponentContext.FieldArgumentComponentContext -> {
+                                            connector.connectFieldArgument(tq, qcc)
+                                        }
+                                        is QueryComponentContext.SelectedFieldComponentContext -> {
+                                            connector.connectSelectedField(tq, qcc)
+                                        }
+                                    }
+                                }
+                            }
+                            else -> {
+                                TabularQueryRawInputBasedOperationCreator.invoke(context).fold(
+                                    context
+                                ) { tq: TabularQuery, qcc: QueryComponentContext ->
+                                    when (qcc) {
+                                        is QueryComponentContext.FieldArgumentComponentContext -> {
+                                            connector.connectFieldArgument(tq, qcc)
+                                        }
+                                        is QueryComponentContext.SelectedFieldComponentContext -> {
+                                            connector.connectSelectedField(tq, qcc)
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                     else -> {
@@ -289,30 +321,5 @@ internal class DefaultSingleRequestMaterializationGraphService(
             .then(
                 Mono.error { ServiceError.of("request_materialization_graph not yet implemented") }
             )
-    }
-
-    private fun <C> connectOperationDefinitionAndEachAddedVertex(
-        connector: RequestMaterializationGraphConnector<C>,
-        context: C,
-        pollFirstFunction: (C) -> Pair<Option<QueryComponentContext>, C>,
-    ): C where C : RequestMaterializationGraphContext {
-        var pollResult: Pair<Option<QueryComponentContext>, C> =
-            pollFirstFunction.invoke(connector.startOperationDefinition(context))
-        var qccOpt: Option<QueryComponentContext> = pollResult.first
-        var c: C = pollResult.second
-        while (qccOpt.isDefined()) {
-            when (val nextVertexContext: QueryComponentContext = qccOpt.orNull()!!) {
-                is QueryComponentContext.FieldArgumentComponentContext -> {
-                    c = connector.connectFieldArgument(c, nextVertexContext)
-                }
-                is QueryComponentContext.SelectedFieldComponentContext -> {
-                    c = connector.connectSelectedField(c, nextVertexContext)
-                }
-            }
-            pollResult = pollFirstFunction.invoke(c)
-            qccOpt = pollResult.first
-            c = pollResult.second
-        }
-        return connector.completeOperationDefinition(c)
     }
 }
