@@ -112,6 +112,11 @@ internal object DefaultRequestMaterializationGraphContextFactory :
             path: GQLOperationPath
         ): B =
             this.applyOnBuilder {
+                if (canonicalPath.referentOnFragmentSpread() || canonicalPath.referentAliased()) {
+                    throw ServiceError.of(
+                        "canonical_path input should not refer to alias or fragment_spread"
+                    )
+                }
                 this.connectedPathsByCanonicalPath.put(
                     canonicalPath,
                     this.connectedPathsByCanonicalPath
