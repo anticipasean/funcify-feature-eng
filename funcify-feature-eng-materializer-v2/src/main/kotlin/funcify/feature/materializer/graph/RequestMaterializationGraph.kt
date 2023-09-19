@@ -1,6 +1,7 @@
 package funcify.feature.materializer.graph
 
 import funcify.feature.graph.DirectedPersistentGraph
+import funcify.feature.materializer.graph.component.QueryComponentContext
 import funcify.feature.schema.dataelement.DataElementCallable
 import funcify.feature.schema.feature.FeatureCalculatorCallable
 import funcify.feature.schema.feature.FeatureJsonValuePublisher
@@ -19,7 +20,8 @@ interface RequestMaterializationGraph {
 
     val document: Document
 
-    val requestGraph: DirectedPersistentGraph<GQLOperationPath, Node<*>, MaterializationEdge>
+    val requestGraph:
+        DirectedPersistentGraph<GQLOperationPath, QueryComponentContext, MaterializationEdge>
 
     val transformerCallablesByPath: ImmutableMap<GQLOperationPath, TransformerCallable>
 

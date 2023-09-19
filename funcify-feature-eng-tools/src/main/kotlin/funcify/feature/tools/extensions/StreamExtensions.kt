@@ -3,6 +3,7 @@ package funcify.feature.tools.extensions
 import arrow.core.Either
 import arrow.core.Option
 import funcify.feature.tools.control.TraversalFunctions
+import java.util.*
 import java.util.stream.Stream
 
 object StreamExtensions {
@@ -22,7 +23,11 @@ object StreamExtensions {
         }
     }
 
-    fun <L, R> Stream<L>.recurse(function: (L) -> Stream<Either<L, R>>): Stream<R> {
+    fun <L, R> Stream<out L>.recurse(function: (L) -> Stream<out Either<L, R>>): Stream<out R> {
         return this.flatMap { l: L -> TraversalFunctions.recurseWithStream(l, function) }
+    }
+
+    fun <T> Stream<out T>.asIterable(): Iterable<T> {
+        return Iterable<T> { this.iterator() }
     }
 }

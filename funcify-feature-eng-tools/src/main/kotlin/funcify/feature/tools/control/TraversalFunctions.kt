@@ -40,7 +40,7 @@ object TraversalFunctions {
         return nextOptionHolder[0].mapNotNull { either: Either<T, R> -> either.orNull() }
     }
 
-    fun <T, R> recurseWithStream(startValue: T, function: (T) -> Stream<Either<T, R>>): Stream<R> {
+    fun <T, R> recurseWithStream(startValue: T, function: (T) -> Stream<out Either<T, R>>): Stream<out R> {
         if (startValue == null) {
             return Stream.empty()
         }

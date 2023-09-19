@@ -40,6 +40,8 @@ sealed interface QueryComponentContext {
 
             override fun fieldCoordinates(fieldCoordinates: FieldCoordinates): Builder
 
+            override fun canonicalPath(canonicalPath: GQLOperationPath): Builder
+
             fun field(field: Field): Builder
 
             fun build(): SelectedFieldComponentContext
@@ -59,6 +61,8 @@ sealed interface QueryComponentContext {
             override fun path(path: GQLOperationPath): Builder
 
             override fun fieldCoordinates(fieldCoordinates: FieldCoordinates): Builder
+
+            override fun canonicalPath(canonicalPath: GQLOperationPath): Builder
 
             fun argument(argument: Argument): Builder
 

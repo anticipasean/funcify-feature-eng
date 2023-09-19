@@ -154,7 +154,7 @@ object StandardQueryConnector : RequestMaterializationGraphConnector<StandardQue
                         .mapNotNull(VariableReference::getName)
                         .filter(connectorContext.variableKeys::contains)
                         .isDefined() -> {
-                        MaterializationEdge.ARGUMENT_VALUE_PROVIDED
+                        MaterializationEdge.VARIABLE_VALUE_PROVIDED
                     }
                     connectorContext.rawInputContextKeys.contains(a.name) ||
                         connectorContext.materializationMetamodel.aliasCoordinatesRegistry
@@ -302,7 +302,7 @@ object StandardQueryConnector : RequestMaterializationGraphConnector<StandardQue
                         .putEdge(
                             fieldPath,
                             fieldArgumentComponentContext.path,
-                            MaterializationEdge.ARGUMENT_VALUE_PROVIDED
+                            MaterializationEdge.VARIABLE_VALUE_PROVIDED
                         )
                 )
                 .putConnectedPathForCanonicalPath(
@@ -363,8 +363,17 @@ object StandardQueryConnector : RequestMaterializationGraphConnector<StandardQue
                     fieldArgumentComponentContext
                 )
             }
+            // Next case: unconnected data_element_source with variable keys matching all of its
+            // arguments
             else -> {
-                TODO("unhandled feature_field to feature_argument to data_element_field case")
+                throw ServiceError.of(
+                    """unable to map feature_field_argument 
+                    |[ argument: { path: %s, name: %s } ] 
+                    |to data_element_field value"""
+                        .flatten(),
+                    fieldArgumentComponentContext.path,
+                    fieldArgumentComponentContext.argument.name
+                )
             }
         }
     }

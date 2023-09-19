@@ -97,8 +97,8 @@ class MaterializerConfiguration {
 
     @ConditionalOnMissingBean(value = [SingleRequestMaterializationDispatchService::class])
     @Bean
-    fun singleRequestMaterializationDispatchService(): SingleRequestMaterializationDispatchService {
-        return DefaultSingleRequestMaterializationDispatchService()
+    fun singleRequestMaterializationDispatchService(jsonMapper: JsonMapper): SingleRequestMaterializationDispatchService {
+        return DefaultSingleRequestMaterializationDispatchService(jsonMapper = jsonMapper)
     }
 
     @ConditionalOnMissingBean(value = [DataFetcherFactory::class])
