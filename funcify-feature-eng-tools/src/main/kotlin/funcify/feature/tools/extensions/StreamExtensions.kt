@@ -8,7 +8,7 @@ import java.util.stream.Stream
 
 object StreamExtensions {
 
-    fun <T, O : Option<T>> Stream<O>.flatMapOptions(): Stream<T> {
+    fun <T, O : Option<T>> Stream<out O>.flatMapOptions(): Stream<out T> {
         return this.flatMap { opt: Option<T> ->
             opt.fold({ Stream.empty() }, { t: T -> Stream.ofNullable(t) })
         }

@@ -45,7 +45,7 @@ object PersistentMapExtensions {
             .reduceEntriesToPersistentMap()
     }
 
-    fun <K, V> Stream<Map.Entry<K, V>>.reduceEntriesToPersistentMap(): PersistentMap<K, V> {
+    fun <K, V> Stream<out Map.Entry<K, V>>.reduceEntriesToPersistentMap(): PersistentMap<K, V> {
         return this.reduce(
             persistentMapOf<K, V>(),
             { pm: PersistentMap<K, V>, (k: K, v: V): Map.Entry<K, V> -> pm.put(k, v) },
@@ -53,19 +53,19 @@ object PersistentMapExtensions {
         )
     }
 
-    fun <K, V> Stream<Map.Entry<K, V>>.toPersistentMap(): PersistentMap<K, V> {
+    fun <K, V> Stream<out Map.Entry<K, V>>.toPersistentMap(): PersistentMap<K, V> {
         return this.reduceEntriesToPersistentMap()
     }
 
-    fun <K, V> Stream<Map.Entry<K, V>>.reduceEntriesToImmutableMap(): ImmutableMap<K, V> {
+    fun <K, V> Stream<out Map.Entry<K, V>>.reduceEntriesToImmutableMap(): ImmutableMap<K, V> {
         return this.reduceEntriesToPersistentMap()
     }
 
-    fun <K, V> Stream<Map.Entry<K, V>>.toImmutableMap(): ImmutableMap<K, V> {
+    fun <K, V> Stream<out Map.Entry<K, V>>.toImmutableMap(): ImmutableMap<K, V> {
         return this.reduceEntriesToImmutableMap()
     }
 
-    fun <K, V> Stream<Pair<K, V>>.reducePairsToPersistentMap(): PersistentMap<K, V> {
+    fun <K, V> Stream<out Pair<K, V>>.reducePairsToPersistentMap(): PersistentMap<K, V> {
         return this.reduce(
             persistentMapOf<K, V>(),
             { pm: PersistentMap<K, V>, (k: K, v: V): Pair<K, V> -> pm.put(k, v) },
@@ -78,7 +78,7 @@ object PersistentMapExtensions {
             .reducePairsToPersistentMap()
     }
 
-    fun <K, V> Stream<Pair<K, V>>.reducePairsToImmutableMap(): ImmutableMap<K, V> {
+    fun <K, V> Stream<out Pair<K, V>>.reducePairsToImmutableMap(): ImmutableMap<K, V> {
         return this.reducePairsToPersistentMap()
     }
 
@@ -96,7 +96,7 @@ object PersistentMapExtensions {
         )
     }
 
-    fun <K, V> Stream<Map.Entry<K, V>>.reduceEntriesToPersistentSetValueMap(
+    fun <K, V> Stream<out Map.Entry<K, V>>.reduceEntriesToPersistentSetValueMap(
         startValue: PersistentMap<K, PersistentSet<V>> = persistentMapOf()
     ): PersistentMap<K, PersistentSet<V>> {
         return this.reduce(
@@ -140,7 +140,7 @@ object PersistentMapExtensions {
         }
     }
 
-    fun <K, V> Stream<Pair<K, V>>.reducePairsToPersistentListValueMap(
+    fun <K, V> Stream<out Pair<K, V>>.reducePairsToPersistentListValueMap(
         startValue: PersistentMap<K, PersistentList<V>> = persistentMapOf()
     ): PersistentMap<K, PersistentList<V>> {
         return this.reduce(
@@ -154,7 +154,7 @@ object PersistentMapExtensions {
         )
     }
 
-    fun <K, V> Stream<Map.Entry<K, V>>.reduceEntriesToPersistentListValueMap(
+    fun <K, V> Stream<out Map.Entry<K, V>>.reduceEntriesToPersistentListValueMap(
         startValue: PersistentMap<K, PersistentList<V>> = persistentMapOf()
     ): PersistentMap<K, PersistentList<V>> {
         return this.reduce(

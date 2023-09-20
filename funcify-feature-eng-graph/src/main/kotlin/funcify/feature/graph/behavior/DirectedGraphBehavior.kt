@@ -24,10 +24,10 @@ internal interface DirectedGraphBehavior<DWT> : GraphBehavior<DWT> {
     fun <P, V, E> edgesFromPointAsStream(
         container: GraphData<DWT, P, V, E>,
         point: P
-    ): Stream<out Pair<Line<P>, E>>
+    ): Stream<out Pair<DirectedLine<P>, E>>
 
     fun <P, V, E> edgesToPointAsStream(
         container: GraphData<DWT, P, V, E>,
         point: P
-    ): Stream<out Pair<Line<P>, E>>
+    ): Stream<out Pair<DirectedLine<P>, E>>
 }

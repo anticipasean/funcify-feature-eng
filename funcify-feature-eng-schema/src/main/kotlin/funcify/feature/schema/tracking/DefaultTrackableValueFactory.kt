@@ -40,65 +40,56 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
             protected open var graphQLOutputType: GraphQLOutputType? = null,
         ) : TrackableValue.Builder<B> {
 
-            override fun targetSourceIndexPath(targetSourceIndexPath: GQLOperationPath): B {
-                this.targetSourceIndexPath = targetSourceIndexPath
-                @Suppress("UNCHECKED_CAST") //
-                return this as B
+            companion object {
+                /**
+                 * @param WB - Wide Builder Type
+                 * @param NB - Narrow Builder Type
+                 */
+                private inline fun <reified WB, reified NB : WB> WB.applyOnBuilder(
+                    builderUpdater: WB.() -> Unit
+                ): NB {
+                    return this.apply(builderUpdater) as NB
+                }
             }
+
+            override fun targetSourceIndexPath(targetSourceIndexPath: GQLOperationPath): B =
+                this.applyOnBuilder { this.targetSourceIndexPath = targetSourceIndexPath }
 
             override fun contextualParameters(
                 contextualParameters: ImmutableMap<GQLOperationPath, JsonNode>
-            ): B {
-                this.contextualParameters = contextualParameters.toPersistentMap().builder()
-                @Suppress("UNCHECKED_CAST") //
-                return this as B
-            }
+            ): B =
+                this.applyOnBuilder {
+                    this.contextualParameters = contextualParameters.toPersistentMap().builder()
+                }
 
             override fun addContextualParameter(
                 parameterPath: GQLOperationPath,
                 parameterValue: JsonNode
-            ): B {
-                this.contextualParameters.put(parameterPath, parameterValue)
-                @Suppress("UNCHECKED_CAST") //
-                return this as B
-            }
+            ): B =
+                this.applyOnBuilder { this.contextualParameters.put(parameterPath, parameterValue) }
 
             override fun addContextualParameter(
                 parameterPathValuePair: Pair<GQLOperationPath, JsonNode>
-            ): B {
-                this.contextualParameters.put(
-                    parameterPathValuePair.first,
-                    parameterPathValuePair.second
-                )
-                @Suppress("UNCHECKED_CAST") //
-                return this as B
-            }
+            ): B =
+                this.applyOnBuilder {
+                    this.contextualParameters.put(
+                        parameterPathValuePair.first,
+                        parameterPathValuePair.second
+                    )
+                }
 
-            override fun removeContextualParameter(parameterPath: GQLOperationPath): B {
-                this.contextualParameters.remove(parameterPath)
-                @Suppress("UNCHECKED_CAST") //
-                return this as B
-            }
+            override fun removeContextualParameter(parameterPath: GQLOperationPath): B =
+                this.applyOnBuilder { this.contextualParameters.remove(parameterPath) }
 
-            override fun clearContextualParameters(): B {
-                this.contextualParameters.clear()
-                @Suppress("UNCHECKED_CAST") //
-                return this as B
-            }
+            override fun clearContextualParameters(): B =
+                this.applyOnBuilder { this.contextualParameters.clear() }
 
             override fun addContextualParameters(
                 contextualParameters: Map<GQLOperationPath, JsonNode>
-            ): B {
-                this.contextualParameters.putAll(contextualParameters)
-                @Suppress("UNCHECKED_CAST") //
-                return this as B
-            }
+            ): B = this.applyOnBuilder { this.contextualParameters.putAll(contextualParameters) }
 
-            override fun graphQLOutputType(graphQLOutputType: GraphQLOutputType): B {
-                this.graphQLOutputType = graphQLOutputType
-                @Suppress("UNCHECKED_CAST") //
-                return this as B
-            }
+            override fun graphQLOutputType(graphQLOutputType: GraphQLOutputType): B =
+                this.applyOnBuilder { this.graphQLOutputType = graphQLOutputType }
         }
 
         internal class DefaultPlannedValueBuilder<V>(

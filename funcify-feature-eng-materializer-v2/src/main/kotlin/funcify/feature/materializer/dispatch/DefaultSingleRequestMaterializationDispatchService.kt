@@ -10,7 +10,6 @@ import arrow.core.toOption
 import com.fasterxml.jackson.databind.JsonNode
 import funcify.feature.error.ServiceError
 import funcify.feature.graph.line.DirectedLine
-import funcify.feature.graph.line.Line
 import funcify.feature.materializer.dispatch.context.DefaultDispatchedRequestMaterializationGraphContextFactory
 import funcify.feature.materializer.dispatch.context.DispatchedRequestMaterializationGraphContext
 import funcify.feature.materializer.dispatch.context.DispatchedRequestMaterializationGraphContextFactory
@@ -184,11 +183,8 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                 Flux.merge(
                         requestMaterializationGraph.requestGraph
                             .edgesFromPointAsStream(path)
-                            .map { (l: Line<GQLOperationPath>, e: MaterializationEdge) ->
-                                if (
-                                    l is DirectedLine<GQLOperationPath> &&
-                                        !l.destinationPoint.referentOnArgument()
-                                ) {
+                            .map { (l: DirectedLine<GQLOperationPath>, e: MaterializationEdge) ->
+                                if (!l.destinationPoint.referentOnArgument()) {
                                     Mono.error<Pair<String, JsonNode>> {
                                         ServiceError.of(
                                             "dependent [ %s ] for transformer_source [ path: %s ] is not an argument",
@@ -200,7 +196,7 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                                     when (e) {
                                         MaterializationEdge.DEFAULT_ARGUMENT_VALUE_PROVIDED -> {
                                             requestMaterializationGraph.requestGraph
-                                                .get(l.component2())
+                                                .get(l.destinationPoint)
                                                 .toOption()
                                                 .filterIsInstance<FieldArgumentComponentContext>()
                                                 .flatMap { facc: FieldArgumentComponentContext ->
@@ -214,14 +210,14 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                                                 .successIfDefined {
                                                     ServiceError.of(
                                                         "unable to extract default argument.value as json for argument [ path: %s ]",
-                                                        l.component2()
+                                                        l.destinationPoint
                                                     )
                                                 }
                                                 .toMono()
                                         }
                                         MaterializationEdge.VARIABLE_VALUE_PROVIDED -> {
                                             requestMaterializationGraph.requestGraph
-                                                .get(l.component2())
+                                                .get(l.destinationPoint)
                                                 .toOption()
                                                 .filterIsInstance<FieldArgumentComponentContext>()
                                                 .flatMap { facc: FieldArgumentComponentContext ->
@@ -239,7 +235,7 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                                                 .successIfDefined {
                                                     ServiceError.of(
                                                         "unable to extract argument value for [ path: %s ]",
-                                                        l.component2()
+                                                        l.destinationPoint
                                                     )
                                                 }
                                                 .toMono()
@@ -310,11 +306,8 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                 Flux.merge(
                         requestMaterializationGraph.requestGraph
                             .edgesFromPointAsStream(path)
-                            .map { (l: Line<GQLOperationPath>, e: MaterializationEdge) ->
-                                if (
-                                    l is DirectedLine<GQLOperationPath> &&
-                                        !l.destinationPoint.referentOnArgument()
-                                ) {
+                            .map { (l: DirectedLine<GQLOperationPath>, e: MaterializationEdge) ->
+                                if (!l.destinationPoint.referentOnArgument()) {
                                     Mono.error<Pair<GQLOperationPath, JsonNode>> {
                                         ServiceError.of(
                                             "dependent [ %s ] for data_element_source [ path: %s ] is not an argument",
@@ -326,7 +319,7 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                                     when (e) {
                                         MaterializationEdge.DEFAULT_ARGUMENT_VALUE_PROVIDED -> {
                                             requestMaterializationGraph.requestGraph
-                                                .get(l.component2())
+                                                .get(l.destinationPoint)
                                                 .toOption()
                                                 .filterIsInstance<FieldArgumentComponentContext>()
                                                 .flatMap { facc: FieldArgumentComponentContext ->
@@ -334,18 +327,18 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                                                         facc.argument.value
                                                     )
                                                 }
-                                                .map { jn: JsonNode -> l.component2() to jn }
+                                                .map { jn: JsonNode -> l.destinationPoint to jn }
                                                 .successIfDefined {
                                                     ServiceError.of(
                                                         "unable to extract default argument.value as json for argument [ path: %s ]",
-                                                        l.component2()
+                                                        l.destinationPoint
                                                     )
                                                 }
                                                 .toMono()
                                         }
                                         MaterializationEdge.VARIABLE_VALUE_PROVIDED -> {
                                             requestMaterializationGraph.requestGraph
-                                                .get(l.component2())
+                                                .get(l.destinationPoint)
                                                 .toOption()
                                                 .filterIsInstance<FieldArgumentComponentContext>()
                                                 .map { facc: FieldArgumentComponentContext ->
@@ -354,11 +347,11 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                                                 .filterIsInstance<VariableReference>()
                                                 .map { vr: VariableReference -> vr.name }
                                                 .flatMap { n: String -> variables.getOrNone(n) }
-                                                .map { jn: JsonNode -> l.component2() to jn }
+                                                .map { jn: JsonNode -> l.destinationPoint to jn }
                                                 .successIfDefined {
                                                     ServiceError.of(
                                                         "unable to extract argument value for [ path: %s ]",
-                                                        l.component2()
+                                                        l.destinationPoint
                                                     )
                                                 }
                                                 .toMono()
@@ -426,19 +419,14 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                     drmgc.requestMaterializationGraph.featureCalculatorCallablesByPath.asIterable()
                 )
                 .sort(bringForwardIndependentFeatureCalculationsComparator(drmgc))
-                .reduceWith(::persistentMapOf, dispatchAndAddFeatureCalculatorCallable(drmgc))
+                .reduceWith(
+                    ::persistentMapOf,
+                    createTrackedFeatureValueAndDispatchFeatureCalculatorCallable(drmgc)
+                )
                 .map { m: PersistentMap<GQLOperationPath, Mono<TrackableValue<JsonNode>>> ->
                     drmgc.update { addAllFeatureCalculatorPublishers(m) }
                 }
         }
-    }
-
-    private fun <M, E> dispatchAndAddFeatureCalculatorCallable(
-        drmgc: DispatchedRequestMaterializationGraphContext
-    ): (M, E) -> M where
-    M : PersistentMap<GQLOperationPath, Mono<TrackableValue<JsonNode>>>,
-    E : Map.Entry<GQLOperationPath, FeatureCalculatorCallable> {
-        return { m: M, (p: GQLOperationPath, fcc: FeatureCalculatorCallable) -> m }
     }
 
     private fun bringForwardIndependentFeatureCalculationsComparator(
@@ -448,25 +436,25 @@ internal class DefaultSingleRequestMaterializationDispatchService(
             when {
                 drmgc.requestMaterializationGraph.requestGraph
                     .edgesFromPointAsStream(p1)
-                    .flatMap { (l: Line<GQLOperationPath>, e: MaterializationEdge) ->
+                    .flatMap { (l: DirectedLine<GQLOperationPath>, e: MaterializationEdge) ->
                         drmgc.requestMaterializationGraph.requestGraph.edgesFromPointAsStream(
-                            l.component2()
+                            l.destinationPoint
                         )
                     }
-                    .anyMatch { (l: Line<GQLOperationPath>, e: MaterializationEdge) ->
-                        l.component2() == p2
+                    .anyMatch { (l: DirectedLine<GQLOperationPath>, e: MaterializationEdge) ->
+                        l.destinationPoint == p2
                     } -> {
                     1
                 }
                 drmgc.requestMaterializationGraph.requestGraph
                     .edgesFromPointAsStream(p2)
-                    .flatMap { (l: Line<GQLOperationPath>, e: MaterializationEdge) ->
+                    .flatMap { (l: DirectedLine<GQLOperationPath>, e: MaterializationEdge) ->
                         drmgc.requestMaterializationGraph.requestGraph.edgesFromPointAsStream(
-                            l.component2()
+                            l.destinationPoint
                         )
                     }
-                    .anyMatch { (l: Line<GQLOperationPath>, e: MaterializationEdge) ->
-                        l.component2() == p1
+                    .anyMatch { (l: DirectedLine<GQLOperationPath>, e: MaterializationEdge) ->
+                        l.destinationPoint == p1
                     } -> {
                     -1
                 }
@@ -474,19 +462,20 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                     .recurse { p: GQLOperationPath ->
                         drmgc.requestMaterializationGraph.requestGraph
                             .edgesFromPointAsStream(p)
-                            .flatMap { (l: Line<GQLOperationPath>, e: MaterializationEdge) ->
+                            .flatMap { (l: DirectedLine<GQLOperationPath>, e: MaterializationEdge)
+                                ->
                                 drmgc.requestMaterializationGraph.requestGraph
-                                    .edgesFromPointAsStream(l.component2())
+                                    .edgesFromPointAsStream(l.destinationPoint)
                             }
-                            .flatMap { (l: Line<GQLOperationPath>, e: MaterializationEdge) ->
-                                when {
-                                    l.component2() == p2 -> {
-                                        Stream.of(l.component2().right())
+                            .flatMap { (l: DirectedLine<GQLOperationPath>, e: MaterializationEdge)
+                                ->
+                                when (l.destinationPoint) {
+                                    p2 -> {
+                                        Stream.of(l.destinationPoint.right())
                                     }
-                                    l.component2() in
-                                        drmgc.requestMaterializationGraph
-                                            .featureCalculatorCallablesByPath -> {
-                                        Stream.of(l.component2().left())
+                                    in drmgc.requestMaterializationGraph
+                                        .featureCalculatorCallablesByPath -> {
+                                        Stream.of(l.destinationPoint.left())
                                     }
                                     else -> {
                                         Stream.empty()
@@ -501,19 +490,20 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                     .recurse { p: GQLOperationPath ->
                         drmgc.requestMaterializationGraph.requestGraph
                             .edgesFromPointAsStream(p)
-                            .flatMap { (l: Line<GQLOperationPath>, e: MaterializationEdge) ->
+                            .flatMap { (l: DirectedLine<GQLOperationPath>, e: MaterializationEdge)
+                                ->
                                 drmgc.requestMaterializationGraph.requestGraph
-                                    .edgesFromPointAsStream(l.component2())
+                                    .edgesFromPointAsStream(l.destinationPoint)
                             }
-                            .flatMap { (l: Line<GQLOperationPath>, e: MaterializationEdge) ->
-                                when {
-                                    l.component2() == p1 -> {
-                                        Stream.of(l.component2().right())
+                            .flatMap { (l: DirectedLine<GQLOperationPath>, e: MaterializationEdge)
+                                ->
+                                when (l.destinationPoint) {
+                                    p1 -> {
+                                        Stream.of(l.destinationPoint.right())
                                     }
-                                    l.component2() in
-                                        drmgc.requestMaterializationGraph
-                                            .featureCalculatorCallablesByPath -> {
-                                        Stream.of(l.component2().left())
+                                    in drmgc.requestMaterializationGraph
+                                        .featureCalculatorCallablesByPath -> {
+                                        Stream.of(l.destinationPoint.left())
                                     }
                                     else -> {
                                         Stream.empty()
@@ -529,6 +519,76 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                 }
             }
         }
+    }
+
+    private fun <M, E> createTrackedFeatureValueAndDispatchFeatureCalculatorCallable(
+        drmgc: DispatchedRequestMaterializationGraphContext
+    ): (M, E) -> PersistentMap<GQLOperationPath, Mono<TrackableValue<JsonNode>>> where
+    M : PersistentMap<GQLOperationPath, Mono<TrackableValue<JsonNode>>>,
+    E : Map.Entry<GQLOperationPath, FeatureCalculatorCallable> {
+        return { m: M, (p: GQLOperationPath, fcc: FeatureCalculatorCallable) ->
+            createTrackableJsonValueForFeature(drmgc, p, fcc)
+                .map { tv: TrackableValue<JsonNode> ->
+                    dispatchFeatureCalculatorCallable(drmgc, tv, fcc, m)
+                }
+                .map { tvPub: Mono<TrackableValue<JsonNode>> -> m.put(p, tvPub) }
+                .orElseThrow()
+        }
+    }
+
+    private fun createTrackableJsonValueForFeature(
+        context: DispatchedRequestMaterializationGraphContext,
+        path: GQLOperationPath,
+        featureCalculatorCallable: FeatureCalculatorCallable
+    ): Try<TrackableValue<JsonNode>> {
+        // TODO: Make this calculation a one time operation since its output will be the same for
+        // the same graph
+        Stream.of(path)
+            .recurse { p: GQLOperationPath ->
+                context.requestMaterializationGraph.requestGraph
+                    .edgesFromPointAsStream(p)
+                    .flatMap { (l: DirectedLine<GQLOperationPath>, e: MaterializationEdge) ->
+                        when (e) {
+                            MaterializationEdge.DEFAULT_ARGUMENT_VALUE_PROVIDED,
+                            MaterializationEdge.VARIABLE_VALUE_PROVIDED,
+                            MaterializationEdge.RAW_INPUT_VALUE_PROVIDED -> {
+                                Stream.of((l to e).right())
+                            }
+                            MaterializationEdge.EXTRACT_FROM_SOURCE -> {
+                                Stream.of(l.destinationPoint.left())
+                            }
+                            else -> {
+                                Stream.empty()
+                            }
+                        }
+                    }
+            }
+            .map { (l: DirectedLine<GQLOperationPath>, e: MaterializationEdge) ->
+                // TODO: Add materialized raw_input or variable values to context
+                // so that same value may be extracted here from context
+                when (e) {
+                    MaterializationEdge.DEFAULT_ARGUMENT_VALUE_PROVIDED -> {
+                        TODO()
+                    }
+                    MaterializationEdge.VARIABLE_VALUE_PROVIDED -> {
+                        TODO()
+                    }
+                    MaterializationEdge.RAW_INPUT_VALUE_PROVIDED -> {
+                        TODO()
+                    }
+                    else -> {}
+                }
+            }
+        TODO()
+    }
+
+    private fun dispatchFeatureCalculatorCallable(
+        context: DispatchedRequestMaterializationGraphContext,
+        trackableValue: TrackableValue<JsonNode>,
+        featureCalculatorCallable: FeatureCalculatorCallable,
+        alreadyDispatchedFeatures: ImmutableMap<GQLOperationPath, Mono<TrackableValue<JsonNode>>>
+    ): Mono<TrackableValue<JsonNode>> {
+        TODO("Not yet implemented")
     }
 
     private fun createDispatchedRequestMaterializationGraphFromContext():

@@ -1,5 +1,6 @@
 package funcify.feature.graph
 
+import funcify.feature.graph.line.DirectedLine
 import funcify.feature.graph.line.Line
 import java.util.stream.Stream
 
@@ -127,11 +128,11 @@ interface DirectedPersistentGraph<P, V, E> : PersistentGraph<P, V, E> {
         pointExtractor: (V) -> P
     ): Stream<out Pair<P, V>>
 
-    fun edgesFromPoint(point: P): Iterable<Pair<Line<P>, E>>
+    fun edgesFromPoint(point: P): Iterable<Pair<DirectedLine<P>, E>>
 
-    fun edgesFromPointAsStream(point: P): Stream<out Pair<Line<P>, E>>
+    fun edgesFromPointAsStream(point: P): Stream<out Pair<DirectedLine<P>, E>>
 
-    fun edgesToPoint(point: P): Iterable<Pair<Line<P>, E>>
+    fun edgesToPoint(point: P): Iterable<Pair<DirectedLine<P>, E>>
 
-    fun edgesToPointAsStream(point: P): Stream<out Pair<Line<P>, E>>
+    fun edgesToPointAsStream(point: P): Stream<out Pair<DirectedLine<P>, E>>
 }
