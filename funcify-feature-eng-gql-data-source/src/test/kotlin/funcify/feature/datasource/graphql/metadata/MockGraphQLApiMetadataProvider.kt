@@ -119,11 +119,10 @@ class MockGraphQLApiMetadataProvider(val objectMapper: ObjectMapper) :
 
     override fun provideTypeDefinitionRegistry(
         service: GraphQLApiService
-    ): Mono<TypeDefinitionRegistry> {
+    ): Mono<out TypeDefinitionRegistry> {
         return mimicIntrospectionQueryAgainstGraphQLAPIServerOnParsedSchema()
             .flatMap { jn -> convertJsonNodeIntoTypeDefinitionRegistryInstance(jn) }
             .toMono()
-            .widen()
     }
 
     private fun mimicIntrospectionQueryAgainstGraphQLAPIServerOnParsedSchema(): Try<JsonNode> {

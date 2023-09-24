@@ -43,6 +43,7 @@ import funcify.feature.materializer.wiring.DefaultMaterializationGraphQLWiringFa
 import funcify.feature.materializer.wiring.MaterializationGraphQLWiringFactory
 import funcify.feature.scalar.registry.ScalarTypeRegistry
 import funcify.feature.schema.FeatureEngineeringModel
+import funcify.feature.schema.tracking.TrackableValueFactory
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.json.JsonMapper
@@ -97,8 +98,14 @@ class MaterializerConfiguration {
 
     @ConditionalOnMissingBean(value = [SingleRequestMaterializationDispatchService::class])
     @Bean
-    fun singleRequestMaterializationDispatchService(jsonMapper: JsonMapper): SingleRequestMaterializationDispatchService {
-        return DefaultSingleRequestMaterializationDispatchService(jsonMapper = jsonMapper)
+    fun singleRequestMaterializationDispatchService(
+        jsonMapper: JsonMapper,
+        trackableValueFactory: TrackableValueFactory
+    ): SingleRequestMaterializationDispatchService {
+        return DefaultSingleRequestMaterializationDispatchService(
+            jsonMapper = jsonMapper,
+            trackableValueFactory = trackableValueFactory
+        )
     }
 
     @ConditionalOnMissingBean(value = [DataFetcherFactory::class])

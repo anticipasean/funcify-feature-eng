@@ -25,7 +25,7 @@ internal class DefaultSingleRequestRawInputContextExtractor(private val jsonMapp
 
     override fun extractRawInputContextIfProvided(
         session: GraphQLSingleRequestSession
-    ): Mono<GraphQLSingleRequestSession> {
+    ): Mono<out GraphQLSingleRequestSession> {
         logger.info(
             "extract_raw_input_context_if_provided: [ session.session_id: {} ]",
             session.sessionId
@@ -57,7 +57,7 @@ internal class DefaultSingleRequestRawInputContextExtractor(private val jsonMapp
 
     private fun extractRawInputContextFromRawRequest(
         rawGraphQLRequest: RawGraphQLRequest
-    ): Mono<RawInputContext> {
+    ): Mono<out RawInputContext> {
         return when (
             val rawInput: Any? =
                 rawGraphQLRequest.variables[RawInputContext.RAW_INPUT_CONTEXT_VARIABLE_KEY]

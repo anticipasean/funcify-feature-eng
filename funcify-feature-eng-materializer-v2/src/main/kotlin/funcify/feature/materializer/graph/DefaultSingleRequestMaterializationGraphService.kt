@@ -61,7 +61,7 @@ internal class DefaultSingleRequestMaterializationGraphService(
 
     override fun createRequestMaterializationGraphForSession(
         session: GraphQLSingleRequestSession
-    ): Mono<GraphQLSingleRequestSession> {
+    ): Mono<out GraphQLSingleRequestSession> {
         logger.debug(
             "create_request_materialization_graph_for_session: [ session.session_id: ${session.sessionId} ]"
         )
@@ -104,7 +104,7 @@ internal class DefaultSingleRequestMaterializationGraphService(
 
     private fun createRequestMaterializationGraphCacheKeyForSession(
         session: GraphQLSingleRequestSession
-    ): Mono<RequestMaterializationGraphCacheKey> {
+    ): Mono<out RequestMaterializationGraphCacheKey> {
         logger.info(
             "create_request_materialization_graph_cache_key_for_session: [ session.session_id: ${session.sessionId} ]"
         )
@@ -185,13 +185,12 @@ internal class DefaultSingleRequestMaterializationGraphService(
                 }
             }
             .toMono()
-            .widen()
     }
 
     private fun calculateRequestMaterializationGraphForSession(
         cacheKey: RequestMaterializationGraphCacheKey,
         session: GraphQLSingleRequestSession
-    ): Mono<RequestMaterializationGraph> {
+    ): Mono<out RequestMaterializationGraph> {
         logger.info(
             "calculate_request_materialization_graph_for_session: [ session.session_id: ${session.sessionId} ]"
         )
@@ -249,7 +248,7 @@ internal class DefaultSingleRequestMaterializationGraphService(
 
     private fun deriveRequestMaterializationGraphFromContext(
         context: RequestMaterializationGraphContext
-    ): Mono<RequestMaterializationGraph> {
+    ): Mono<out RequestMaterializationGraph> {
         return Mono.fromCallable {
                 when (context) {
                     is StandardQuery -> {

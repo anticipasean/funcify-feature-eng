@@ -12,5 +12,5 @@ interface SingleRequestMaterializationDispatchService :
 
     override fun dispatchRequestsInMaterializationGraphInSession(
         session: GraphQLSingleRequestSession
-    ): Mono<GraphQLSingleRequestSession>
+    ): Mono<out GraphQLSingleRequestSession>
 }

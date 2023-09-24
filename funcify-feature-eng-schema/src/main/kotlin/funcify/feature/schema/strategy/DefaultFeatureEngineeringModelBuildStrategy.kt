@@ -126,7 +126,7 @@ internal class DefaultFeatureEngineeringModelBuildStrategy(
     }
 
     private fun validateSourceProviders():
-        (FeatureEngineeringModelBuildContext) -> Mono<FeatureEngineeringModelBuildContext> {
+        (FeatureEngineeringModelBuildContext) -> Mono<out FeatureEngineeringModelBuildContext> {
         return { context: FeatureEngineeringModelBuildContext ->
             when {
                 context.transformerSourceProviders.size !=
@@ -209,7 +209,7 @@ internal class DefaultFeatureEngineeringModelBuildStrategy(
     }
 
     private fun extractSourcesFromSourceProviders():
-        (FeatureEngineeringModelBuildContext) -> Mono<FeatureEngineeringModelBuildContext> {
+        (FeatureEngineeringModelBuildContext) -> Mono<out FeatureEngineeringModelBuildContext> {
         return { context: FeatureEngineeringModelBuildContext ->
             Mono.just(context)
                 .flatMap { ctx: FeatureEngineeringModelBuildContext ->
@@ -255,7 +255,7 @@ internal class DefaultFeatureEngineeringModelBuildStrategy(
 
     private fun <TS : TransformerSource> validateTransformerSourceForProvider(
         provider: TransformerSourceProvider<TS>
-    ): (TS) -> Mono<TS> {
+    ): (TS) -> Mono<out TS> {
         return { transformerSource: TS ->
             when {
                 transformerSource.name != provider.name -> {
@@ -373,7 +373,7 @@ internal class DefaultFeatureEngineeringModelBuildStrategy(
 
     private fun <DES : DataElementSource> validateDataElementSourceForProvider(
         provider: DataElementSourceProvider<DES>
-    ): (DES) -> Mono<DES> {
+    ): (DES) -> Mono<out DES> {
         return { dataElementSource: DES ->
             when {
                 dataElementSource.name != provider.name -> {
@@ -420,7 +420,7 @@ internal class DefaultFeatureEngineeringModelBuildStrategy(
     private fun <FC : FeatureCalculator> validateFeatureCalculatorForProvider(
         provider: FeatureCalculatorProvider<*>,
         context: FeatureEngineeringModelBuildContext
-    ): (FC) -> Mono<FC> {
+    ): (FC) -> Mono<out FC> {
         return { featureCalculator: FC ->
             when {
                     featureCalculator.name != provider.name -> {
@@ -498,7 +498,7 @@ internal class DefaultFeatureEngineeringModelBuildStrategy(
     }
 
     private fun createTypeDefinitionRegistryFromSources():
-        (FeatureEngineeringModelBuildContext) -> Mono<FeatureEngineeringModelBuildContext> {
+        (FeatureEngineeringModelBuildContext) -> Mono<out FeatureEngineeringModelBuildContext> {
         return { context: FeatureEngineeringModelBuildContext ->
             createTypeDefinitionRegistriesForEachSourceType(context)
                 .map { tdr: TypeDefinitionRegistry ->
@@ -809,7 +809,7 @@ internal class DefaultFeatureEngineeringModelBuildStrategy(
     }
 
     private fun createTopLevelQueryObjectTypeDefinitionBasedOnSourceTypes():
-        (FeatureEngineeringModelBuildContext) -> Mono<FeatureEngineeringModelBuildContext> {
+        (FeatureEngineeringModelBuildContext) -> Mono<out FeatureEngineeringModelBuildContext> {
         return { context: FeatureEngineeringModelBuildContext ->
             Try.attempt {
                     sequenceOf(
@@ -931,12 +931,11 @@ internal class DefaultFeatureEngineeringModelBuildStrategy(
                     context.update { typeDefinitionRegistry(tdr) }
                 }
                 .toMono()
-                .widen()
         }
     }
 
     private fun createLastUpdatedTemporalAttributeRegistryFromTypeDefinitionRegistry():
-        (FeatureEngineeringModelBuildContext) -> Mono<FeatureEngineeringModelBuildContext> {
+        (FeatureEngineeringModelBuildContext) -> Mono<out FeatureEngineeringModelBuildContext> {
         return { context: FeatureEngineeringModelBuildContext ->
             LastUpdatedTemporalAttributeRegistryComposer()
                 .createLastUpdatedTemporalAttributeRegistry(context.typeDefinitionRegistry)

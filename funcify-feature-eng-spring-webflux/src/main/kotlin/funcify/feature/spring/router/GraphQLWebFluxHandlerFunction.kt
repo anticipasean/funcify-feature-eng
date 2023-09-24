@@ -20,7 +20,6 @@ import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.container.attempt.Try.Companion.filterInstanceOf
 import funcify.feature.tools.container.attempt.Try.Companion.flatMapFailure
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
-import funcify.feature.tools.extensions.MonoExtensions.widen
 import funcify.feature.tools.extensions.OptionExtensions.toMono
 import funcify.feature.tools.extensions.PersistentMapExtensions.reduceEntriesToPersistentMap
 import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentMap
@@ -126,12 +125,11 @@ internal class GraphQLWebFluxHandlerFunction(
                 )
                 timedResponse.get()
             }
-            .widen()
     }
 
     private fun convertServerRequestIntoRawGraphQLRequest(
         request: ServerRequest
-    ): Mono<RawGraphQLRequest> {
+    ): Mono<out RawGraphQLRequest> {
         return when (request.headers().contentType().orElse(null)) {
             MediaType.APPLICATION_GRAPHQL_RESPONSE,
             MediaType.APPLICATION_GRAPHQL -> {
@@ -150,7 +148,7 @@ internal class GraphQLWebFluxHandlerFunction(
 
     private fun transformStringKeyMapIntoRawGraphQLRequest(
         request: ServerRequest
-    ): Mono<RawGraphQLRequest> {
+    ): Mono<out RawGraphQLRequest> {
         return request
             .bodyToMono(STR_KEY_MAP_PARAMETERIZED_TYPE_REF)
             .flatMap { nullableStrKeyMap: Map<String, Any?>? ->
@@ -186,7 +184,7 @@ internal class GraphQLWebFluxHandlerFunction(
 
     private fun transformJsonIntoRawGraphQLRequest(
         request: ServerRequest
-    ): Mono<RawGraphQLRequest> {
+    ): Mono<out RawGraphQLRequest> {
         return request
             .bodyToMono<JsonNode?>(JsonNode::class.java)
             .flatMap { nullableQueryJson: JsonNode? ->
@@ -222,7 +220,7 @@ internal class GraphQLWebFluxHandlerFunction(
 
     private fun transformRawGraphQLOperationTextIntoRawGraphQLRequest(
         request: ServerRequest
-    ): Mono<RawGraphQLRequest> {
+    ): Mono<out RawGraphQLRequest> {
         return request
             .bodyToMono<String?>(String::class.java)
             .flatMap { nullableQueryText: String? ->

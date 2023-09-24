@@ -11,7 +11,6 @@ import funcify.feature.tools.container.attempt.Failure
 import funcify.feature.tools.container.attempt.Success
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
-import funcify.feature.tools.extensions.MonoExtensions.widen
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.json.JsonMapper
 import funcify.feature.transformer.jq.JqTransformer
@@ -37,7 +36,7 @@ class JqTransformerYamlReader(
         private val logger: Logger = loggerFor<JqTransformerYamlReader>()
     }
 
-    override fun readTransformers(resource: ClassPathResource): Mono<List<JqTransformer>> {
+    override fun readTransformers(resource: ClassPathResource): Mono<out List<JqTransformer>> {
         logger.info("read_metadata: [ resource.path: {} ]", resource.path)
         return Try.success(resource)
             .filter(ClassPathResource::exists) { c: ClassPathResource ->
@@ -97,7 +96,6 @@ class JqTransformerYamlReader(
                 convertJQTransformerDefinitionsIntoSDLDefinitions(j)
             }
             .toMono()
-            .widen()
     }
 
     private fun convertJQTransformerDefinitionsIntoSDLDefinitions(

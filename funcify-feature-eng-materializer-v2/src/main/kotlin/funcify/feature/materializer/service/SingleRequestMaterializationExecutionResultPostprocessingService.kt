@@ -13,5 +13,5 @@ interface SingleRequestMaterializationExecutionResultPostprocessingService :
 
     override fun postprocessExecutionResultWithExtensions(
         executionResult: ExecutionResult
-    ): Mono<GraphQLSingleRequestSession>
+    ): Mono<out GraphQLSingleRequestSession>
 }

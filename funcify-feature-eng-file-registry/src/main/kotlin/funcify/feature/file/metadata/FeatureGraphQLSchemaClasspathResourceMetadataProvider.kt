@@ -28,7 +28,7 @@ internal class FeatureGraphQLSchemaClasspathResourceMetadataProvider :
 
     override fun provideTypeDefinitionRegistry(
         resource: ClassPathResource
-    ): Mono<TypeDefinitionRegistry> {
+    ): Mono<out TypeDefinitionRegistry> {
         logger.debug("{}: [ class_path_resource.path: {} ]", METHOD_TAG, resource.path)
         return Try.success(resource)
             .filter(ClassPathResource::exists) { cr: ClassPathResource ->
@@ -68,7 +68,6 @@ internal class FeatureGraphQLSchemaClasspathResourceMetadataProvider :
                 }
             }
             .toMono()
-            .widen()
             .doOnError { t: Throwable ->
                 logger.error(
                     "{}: [ status: failed ][ type: {}, message: {} ]",

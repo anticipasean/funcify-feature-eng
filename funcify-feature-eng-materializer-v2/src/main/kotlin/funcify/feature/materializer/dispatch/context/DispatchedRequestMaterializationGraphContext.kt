@@ -6,6 +6,8 @@ import funcify.feature.materializer.graph.RequestMaterializationGraph
 import funcify.feature.materializer.input.RawInputContext
 import funcify.feature.schema.path.operation.GQLOperationPath
 import funcify.feature.schema.tracking.TrackableValue
+import funcify.feature.schema.tracking.TrackableValue.PlannedValue
+import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableMap
 import reactor.core.publisher.Mono
 
@@ -21,9 +23,14 @@ interface DispatchedRequestMaterializationGraphContext {
 
     val rawInputContext: Option<RawInputContext>
 
+    val materializedArgumentsByPath: ImmutableMap<GQLOperationPath, JsonNode>
+
     val transformerPublishersByPath: ImmutableMap<GQLOperationPath, Mono<JsonNode>>
 
     val dataElementPublishersByPath: ImmutableMap<GQLOperationPath, Mono<JsonNode>>
+
+    val plannedFeatureValuesByPath:
+        ImmutableMap<GQLOperationPath, ImmutableList<PlannedValue<JsonNode>>>
 
     val featureCalculatorPublishersByPath:
         ImmutableMap<GQLOperationPath, Mono<TrackableValue<JsonNode>>>
@@ -42,14 +49,27 @@ interface DispatchedRequestMaterializationGraphContext {
 
         fun rawInputContext(rawInputContext: RawInputContext): Builder
 
+        fun addMaterializedArgument(path: GQLOperationPath, jsonValue: JsonNode): Builder
+
+        fun addAllMaterializedArguments(
+            pathJsonValuePairs: Map<GQLOperationPath, JsonNode>
+        ): Builder
+
         fun addTransformerPublisher(path: GQLOperationPath, publisher: Mono<JsonNode>): Builder
 
         fun addAllTransformerPublishers(
             pathPublisherPairs: Map<GQLOperationPath, Mono<JsonNode>>
         ): Builder
 
+        fun addDataElementPublisher(path: GQLOperationPath, publisher: Mono<JsonNode>): Builder
+
         fun addAllDataElementPublishers(
             pathPublisherPairs: Map<GQLOperationPath, Mono<JsonNode>>
+        ): Builder
+
+        fun addPlannedFeatureValue(
+            path: GQLOperationPath,
+            plannedValue: PlannedValue<JsonNode>
         ): Builder
 
         fun addFeatureCalculatorPublisher(

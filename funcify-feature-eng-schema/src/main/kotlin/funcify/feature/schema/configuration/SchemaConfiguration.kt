@@ -14,6 +14,8 @@ import funcify.feature.schema.limit.DefaultModelLimits
 import funcify.feature.schema.limit.ModelLimits
 import funcify.feature.schema.sdl.UnsupportedDirectivesTypeDefinitionRegistryFilter
 import funcify.feature.schema.strategy.DefaultFeatureEngineeringModelBuildStrategy
+import funcify.feature.schema.tracking.DefaultTrackableValueFactory
+import funcify.feature.schema.tracking.TrackableValueFactory
 import funcify.feature.schema.transformer.TransformerSourceProvider
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import graphql.language.FieldDefinition
@@ -140,5 +142,11 @@ class SchemaConfiguration {
             }
             .toFuture()
             .join()
+    }
+
+    @ConditionalOnMissingBean(value = [TrackableValueFactory::class])
+    @Bean
+    fun trackableValueFactory(): TrackableValueFactory {
+        return DefaultTrackableValueFactory()
     }
 }

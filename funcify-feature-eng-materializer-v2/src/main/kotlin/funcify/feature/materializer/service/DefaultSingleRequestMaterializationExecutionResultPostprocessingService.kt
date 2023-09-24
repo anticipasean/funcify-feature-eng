@@ -10,7 +10,6 @@ import funcify.feature.materializer.response.SerializedGraphQLResponseFactory
 import funcify.feature.materializer.response.SingleRequestMaterializationTabularResponsePostprocessingService
 import funcify.feature.materializer.session.GraphQLSingleRequestSession
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
-import funcify.feature.tools.extensions.MonoExtensions.widen
 import funcify.feature.tools.extensions.TryExtensions.successIfDefined
 import graphql.ExecutionResult
 import graphql.ExecutionResultImpl
@@ -34,7 +33,7 @@ internal class DefaultSingleRequestMaterializationExecutionResultPostprocessingS
 
     override fun postprocessExecutionResultWithExtensions(
         executionResult: ExecutionResult
-    ): Mono<GraphQLSingleRequestSession> {
+    ): Mono<out GraphQLSingleRequestSession> {
         logger.info(
             "postprocess_execution_result: [ execution_result: { is_data_present: {}, extensions.size: {}, extensions.keys: {} } ]",
             executionResult.isDataPresent,
@@ -92,7 +91,6 @@ internal class DefaultSingleRequestMaterializationExecutionResultPostprocessingS
                     }
                     .successIfDefined(sessionNotFoundWithinDeclaredExtensionsExceptionSupplier())
                     .toMono()
-                    .widen()
             }
         }
     }

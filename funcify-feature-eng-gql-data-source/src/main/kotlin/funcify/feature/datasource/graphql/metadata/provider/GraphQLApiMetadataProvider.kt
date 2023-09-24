@@ -9,5 +9,5 @@ import reactor.core.publisher.Mono
  */
 fun interface GraphQLApiMetadataProvider<in R> {
 
-    fun provideTypeDefinitionRegistry(resource: R): Mono<TypeDefinitionRegistry>
+    fun provideTypeDefinitionRegistry(resource: R): Mono<out TypeDefinitionRegistry>
 }

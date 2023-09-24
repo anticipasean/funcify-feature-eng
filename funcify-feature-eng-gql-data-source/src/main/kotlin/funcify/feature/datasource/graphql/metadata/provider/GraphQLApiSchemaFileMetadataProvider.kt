@@ -26,7 +26,7 @@ internal class GraphQLApiSchemaFileMetadataProvider :
 
     override fun provideTypeDefinitionRegistry(
         resource: ClassPathResource
-    ): Mono<TypeDefinitionRegistry> {
+    ): Mono<out TypeDefinitionRegistry> {
         val methodTag: String = """provide_type_definition_registry"""
         logger.debug("$methodTag: [ class_path_resource.path: {} ]", resource.path)
         return Try.success(resource)
@@ -67,7 +67,6 @@ internal class GraphQLApiSchemaFileMetadataProvider :
                 }
             }
             .toMono()
-            .widen()
             .doOnError { t: Throwable ->
                 logger.error(
                     "$methodTag: [ status: failed ][ type: {}, message: {} ]",

@@ -12,5 +12,5 @@ import reactor.core.publisher.Mono
  */
 interface MaterializationRequestDispatchService<M : MaterializationSession> {
 
-    fun dispatchRequestsInMaterializationGraphInSession(session: M): Mono<M>
+    fun dispatchRequestsInMaterializationGraphInSession(session: M): Mono<out M>
 }

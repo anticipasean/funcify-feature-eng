@@ -9,5 +9,5 @@ import reactor.core.publisher.Mono
  */
 interface MaterializationGraphService<M : MaterializationSession> {
 
-    fun createRequestMaterializationGraphForSession(session: M): Mono<M>
+    fun createRequestMaterializationGraphForSession(session: M): Mono<out M>
 }

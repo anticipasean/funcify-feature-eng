@@ -9,5 +9,5 @@ import reactor.core.publisher.Mono
  */
 interface MaterializationRawInputContextExtractor<M : MaterializationSession> {
 
-    fun extractRawInputContextIfProvided(session: M): Mono<M>
+    fun extractRawInputContextIfProvided(session: M): Mono<out M>
 }
