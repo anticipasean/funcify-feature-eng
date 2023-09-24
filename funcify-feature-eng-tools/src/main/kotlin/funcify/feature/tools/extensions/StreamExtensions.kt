@@ -3,8 +3,11 @@ package funcify.feature.tools.extensions
 import arrow.core.Either
 import arrow.core.Option
 import funcify.feature.tools.control.TraversalFunctions
+import funcify.feature.tools.iterator.MultiValueMapSingleValueEntryCombinationsIterator
 import java.util.*
+import java.util.stream.Collectors
 import java.util.stream.Stream
+import java.util.stream.StreamSupport
 
 object StreamExtensions {
 
@@ -14,7 +17,7 @@ object StreamExtensions {
         }
     }
 
-    inline fun <reified T> Stream<*>.filterIsInstance(): Stream<T> {
+    inline fun <reified T> Stream<*>.filterIsInstance(): Stream<out T> {
         return this.flatMap { input: Any? ->
             when (input) {
                 is T -> Stream.of(input)
@@ -29,5 +32,40 @@ object StreamExtensions {
 
     fun <T> Stream<out T>.asIterable(): Iterable<T> {
         return Iterable<T> { this.iterator() }
+    }
+
+    fun <K, V> Stream<out Map.Entry<K, V>>.singleValueMapCombinationsFromEntries():
+        Stream<out Map<K, V>> {
+        return StreamSupport.stream(
+            Spliterators.spliteratorUnknownSize(
+                MultiValueMapSingleValueEntryCombinationsIterator(
+                    this.collect(
+                        Collectors.groupingBy(
+                            Map.Entry<K, V>::key,
+                            Collectors.mapping(Map.Entry<K, V>::value, Collectors.toList())
+                        )
+                    )
+                ),
+                0
+            ),
+            false
+        )
+    }
+
+    fun <K, V> Stream<out Pair<K, V>>.singleValueMapCombinationsFromPairs(): Stream<out Map<K, V>> {
+        return StreamSupport.stream(
+            Spliterators.spliteratorUnknownSize(
+                MultiValueMapSingleValueEntryCombinationsIterator(
+                    this.collect(
+                        Collectors.groupingBy(
+                            Pair<K, V>::first,
+                            Collectors.mapping(Pair<K, V>::second, Collectors.toList())
+                        )
+                    )
+                ),
+                0
+            ),
+            false
+        )
     }
 }

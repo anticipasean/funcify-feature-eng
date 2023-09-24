@@ -82,7 +82,7 @@ object PersistentMapExtensions {
         return this.reducePairsToPersistentMap()
     }
 
-    fun <K, V> Stream<Pair<K, V>>.reducePairsToPersistentSetValueMap(
+    fun <K, V> Stream<out Pair<K, V>>.reducePairsToPersistentSetValueMap(
         startValue: PersistentMap<K, PersistentSet<V>> = persistentMapOf()
     ): PersistentMap<K, PersistentSet<V>> {
         return this.reduce(

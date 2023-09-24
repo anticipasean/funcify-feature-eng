@@ -86,7 +86,7 @@ internal class TwoToOnePathsToEdgePathBasedGraphTest {
                     g.putVertex(i, i)
                 }
             ) { g, e -> g.putEdge(e.first, e.second, e.third) }
-        val depthFirstSearch: Stream<Tuple5<Int, Int, Int, Int, Int>> =
+        val depthFirstSearch: Stream<out Tuple5<Int, Int, Int, Int, Int>> =
             graph.depthFirstSearchOnPath(1)
         val verticesEncountered =
             depthFirstSearch

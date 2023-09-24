@@ -1,9 +1,15 @@
 package funcify.feature.tools.extensions
 
+import java.util.AbstractMap.SimpleImmutableEntry
+
 object PairExtensions {
 
     fun <A, B> Pair<A, B>.swap(): Pair<B, A> {
         return this.second to this.first
+    }
+
+    fun <K, V> Pair<K, V>.toEntry(): Map.Entry<K, V> {
+        return SimpleImmutableEntry(this.first, this.second)
     }
 
     inline fun <A, B, C, D> Pair<A, B>.bimap(

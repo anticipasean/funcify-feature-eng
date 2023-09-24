@@ -16,7 +16,7 @@ object MonoExtensions {
         )
     }
 
-    fun <T> Mono<T>?.toTry(): Try<T> {
+    fun <T> Mono<out T>?.toTry(): Try<T> {
         return when (this) {
             null -> {
                 Try.failure<T>(NULL_RESULT_EXCEPTION)
@@ -38,7 +38,7 @@ object MonoExtensions {
         }
     }
 
-    fun <T> Mono<T>?.toKFuture(): KFuture<T> {
+    fun <T> Mono<out T>?.toKFuture(): KFuture<T> {
         return when {
             this == null -> {
                 KFuture.failed(NoSuchElementException("${Mono::class.qualifiedName} is null"))
@@ -64,12 +64,8 @@ object MonoExtensions {
     }
 
     /** @return [Mono<W>] where W is a widened type from the narrow N */
-    fun <N : W, W> Mono<N>.widen(): Mono<W> {
-        return try {
-            @Suppress("UNCHECKED_CAST") //
-            this as Mono<W>
-        } catch (cce: ClassCastException) {
-            this.map { n -> n }
-        }
+    fun <N : W, W> Mono<out N>.widen(): Mono<W> {
+        @Suppress("UNCHECKED_CAST") //
+        return this as Mono<W>
     }
 }

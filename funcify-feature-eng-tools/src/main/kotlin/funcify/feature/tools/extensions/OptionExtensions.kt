@@ -8,6 +8,8 @@ import arrow.core.none
 import funcify.feature.tools.control.TraversalFunctions
 import java.util.*
 import java.util.stream.Stream
+import java.util.stream.Stream.empty
+import java.util.stream.Stream.ofNullable
 import kotlinx.collections.immutable.PersistentSet
 import kotlinx.collections.immutable.persistentSetOf
 import reactor.core.publisher.Mono
@@ -23,7 +25,7 @@ object OptionExtensions {
     }
 
     fun <T> Option<T>.stream(): Stream<out T> {
-        return this.fold({ Stream.empty() }, { t -> Stream.ofNullable(t) })
+        return this.fold(::empty, ::ofNullable)
     }
 
     fun <L, R> Option<L>.recurse(function: (L) -> Option<Either<L, R>>): Option<R> {

@@ -4,6 +4,8 @@ import arrow.core.Either
 import arrow.core.Option
 import arrow.core.toOption
 import funcify.feature.tools.control.TraversalFunctions
+import funcify.feature.tools.iterator.MultiValueMapSingleValueEntryCombinationsIterator
+import java.util.*
 
 object SequenceExtensions {
 
@@ -22,4 +24,22 @@ object SequenceExtensions {
     fun <L, R> Sequence<L>.recurse(function: (L) -> Sequence<Either<L, R>>): Sequence<R> {
         return this.flatMap { l: L -> TraversalFunctions.recurseWithSequence(l, function) }
     }
+
+    fun <K, V> Sequence<Map.Entry<K, V>>.singleValueMapCombinationsFromEntries():
+        Sequence<Map<K, V>> {
+        return Sequence {
+            MultiValueMapSingleValueEntryCombinationsIterator(
+                this.groupBy(Map.Entry<K, V>::key, Map.Entry<K, V>::value)
+            )
+        }
+    }
+
+    fun <K, V> Sequence<Pair<K, V>>.singleValueMapCombinationsFromPairs(): Sequence<Map<K, V>> {
+        return Sequence {
+            MultiValueMapSingleValueEntryCombinationsIterator(
+                this.groupBy(Pair<K, V>::first, Pair<K, V>::second)
+            )
+        }
+    }
+
 }
