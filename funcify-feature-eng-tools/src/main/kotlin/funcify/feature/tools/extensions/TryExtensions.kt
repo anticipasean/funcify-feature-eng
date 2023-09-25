@@ -48,10 +48,26 @@ object TryExtensions {
         }
     }
 
+    inline fun <reified T : Any, reified R : Any> Sequence<T>.foldIntoTry(
+        initial: R,
+        crossinline accumulator: (R, T) -> R
+    ): Try<R> {
+        return this.fold(Try.success(initial)) { result: Try<R>, nextItem: T ->
+            result.map { r: R -> accumulator.invoke(r, nextItem) }
+        }
+    }
+
     inline fun <reified S : Any, reified R : Any> Iterable<Try<S>>.foldTry(
         initial: R,
         crossinline accumulator: (R, S) -> R
     ): Try<R> {
         return this.asSequence().foldTry(initial, accumulator)
+    }
+
+    inline fun <reified T : Any, reified R : Any> Iterable<T>.foldIntoTry(
+        initial: R,
+        crossinline accumulator: (R, T) -> R
+    ): Try<R> {
+        return this.asSequence().foldIntoTry(initial, accumulator)
     }
 }

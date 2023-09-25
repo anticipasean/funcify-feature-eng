@@ -33,7 +33,7 @@ interface DispatchedRequestMaterializationGraphContext {
         ImmutableMap<GQLOperationPath, ImmutableList<PlannedValue<JsonNode>>>
 
     val featureCalculatorPublishersByPath:
-        ImmutableMap<GQLOperationPath, Mono<TrackableValue<JsonNode>>>
+        ImmutableMap<GQLOperationPath, ImmutableList<Mono<TrackableValue<JsonNode>>>>
 
     val passThruColumns: ImmutableMap<String, JsonNode>
 

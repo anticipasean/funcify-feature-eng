@@ -10,6 +10,7 @@ import funcify.feature.schema.path.operation.GQLOperationPath
 import funcify.feature.schema.transformer.TransformerCallable
 import graphql.language.Document
 import graphql.language.Node
+import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.ImmutableSet
 
@@ -34,7 +35,9 @@ interface RequestMaterializationGraph {
 
     val featureJsonValuePublisherByPath: ImmutableMap<GQLOperationPath, FeatureJsonValuePublisher>
 
-    val featureDependentArgumentsByPath: (GQLOperationPath) -> ImmutableSet<GQLOperationPath>
+    val featureArgumentGroupsByPath: (GQLOperationPath) -> ImmutableList<ImmutableMap<String, GQLOperationPath>>
+
+    val featureArgumentDependenciesSetByPathAndIndex: (GQLOperationPath, Int) -> ImmutableSet<GQLOperationPath>
 
     fun update(transformer: Builder.() -> Builder): RequestMaterializationGraph
 

@@ -37,34 +37,40 @@ object StreamExtensions {
     fun <K, V> Stream<out Map.Entry<K, V>>.singleValueMapCombinationsFromEntries():
         Stream<out Map<K, V>> {
         return StreamSupport.stream(
-            Spliterators.spliteratorUnknownSize(
-                MultiValueMapSingleValueEntryCombinationsIterator(
-                    this.collect(
-                        Collectors.groupingBy(
-                            Map.Entry<K, V>::key,
-                            Collectors.mapping(Map.Entry<K, V>::value, Collectors.toList())
+            {
+                Spliterators.spliteratorUnknownSize(
+                    MultiValueMapSingleValueEntryCombinationsIterator(
+                        this.collect(
+                            Collectors.groupingBy(
+                                Map.Entry<K, V>::key,
+                                Collectors.mapping(Map.Entry<K, V>::value, Collectors.toList())
+                            )
                         )
-                    )
-                ),
-                0
-            ),
+                    ),
+                    0
+                )
+            },
+            0,
             false
         )
     }
 
     fun <K, V> Stream<out Pair<K, V>>.singleValueMapCombinationsFromPairs(): Stream<out Map<K, V>> {
         return StreamSupport.stream(
-            Spliterators.spliteratorUnknownSize(
-                MultiValueMapSingleValueEntryCombinationsIterator(
-                    this.collect(
-                        Collectors.groupingBy(
-                            Pair<K, V>::first,
-                            Collectors.mapping(Pair<K, V>::second, Collectors.toList())
+            {
+                Spliterators.spliteratorUnknownSize(
+                    MultiValueMapSingleValueEntryCombinationsIterator(
+                        this.collect(
+                            Collectors.groupingBy(
+                                Pair<K, V>::first,
+                                Collectors.mapping(Pair<K, V>::second, Collectors.toList())
+                            )
                         )
-                    )
-                ),
-                0
-            ),
+                    ),
+                    0
+                )
+            },
+            0,
             false
         )
     }

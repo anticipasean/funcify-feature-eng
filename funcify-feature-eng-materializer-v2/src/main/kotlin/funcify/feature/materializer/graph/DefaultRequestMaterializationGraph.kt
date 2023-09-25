@@ -22,14 +22,14 @@ import funcify.feature.tools.extensions.StreamExtensions.singleValueMapCombinati
 import graphql.language.Document
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentMap
-import java.util.stream.Collectors
 import java.util.stream.Stream
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.persistentSetOf
-import kotlinx.collections.immutable.toImmutableSet
+import kotlinx.collections.immutable.toPersistentMap
 
 /**
  * @author smccarron
@@ -48,62 +48,16 @@ internal data class DefaultRequestMaterializationGraph(
         ImmutableMap<GQLOperationPath, FeatureJsonValuePublisher>,
 ) : RequestMaterializationGraph {
 
-    override val featureDependentArgumentsByPath:
-        (GQLOperationPath) -> ImmutableSet<GQLOperationPath> by lazy {
-        val cache: ConcurrentMap<GQLOperationPath, ImmutableSet<GQLOperationPath>> =
-            ConcurrentHashMap()
-        val dependentArgsGraphCalculation: (GQLOperationPath) -> ImmutableSet<GQLOperationPath> =
-            { path: GQLOperationPath ->
-                Stream.of(path)
-                    .recurse { p: GQLOperationPath ->
-                        requestGraph.edgesFromPointAsStream(p).flatMap {
-                            (l: DirectedLine<GQLOperationPath>, e: MaterializationEdge) ->
-                            when (e) {
-                                MaterializationEdge.DEFAULT_ARGUMENT_VALUE_PROVIDED,
-                                MaterializationEdge.VARIABLE_VALUE_PROVIDED,
-                                MaterializationEdge.RAW_INPUT_VALUE_PROVIDED -> {
-                                    Stream.of((l to e).right())
-                                }
-                                MaterializationEdge.EXTRACT_FROM_SOURCE -> {
-                                    Stream.of(l.destinationPoint.left())
-                                }
-                                else -> {
-                                    Stream.empty()
-                                }
-                            }
-                        }
-                    }
-                    .flatMap { (l: DirectedLine<GQLOperationPath>, e: MaterializationEdge) ->
-                        // TODO: Add materialized raw_input or variable values to context
-                        // so that same value may be extracted here from context
-                        when (e) {
-                            MaterializationEdge.DEFAULT_ARGUMENT_VALUE_PROVIDED,
-                            MaterializationEdge.VARIABLE_VALUE_PROVIDED,
-                            MaterializationEdge.RAW_INPUT_VALUE_PROVIDED -> {
-                                Stream.of(l.sourcePoint).filter { p: GQLOperationPath ->
-                                    p.argumentReferent()
-                                }
-                            }
-                            else -> {
-                                Stream.empty()
-                            }
-                        }
-                    }
-                    .toImmutableSet()
-            }
-        { path: GQLOperationPath ->
-            cache.computeIfAbsent(path, dependentArgsGraphCalculation) ?: persistentSetOf()
-        }
-    }
-
-    val featureToArgumentGroups:
-        (GQLOperationPath) -> ImmutableList<ImmutableSet<GQLOperationPath>> by lazy {
-        val cache: ConcurrentMap<GQLOperationPath, ImmutableList<ImmutableSet<GQLOperationPath>>> =
+    override val featureArgumentGroupsByPath:
+        (GQLOperationPath) -> ImmutableList<ImmutableMap<String, GQLOperationPath>> by lazy {
+        val cache:
+            ConcurrentMap<GQLOperationPath, ImmutableList<ImmutableMap<String, GQLOperationPath>>> =
             ConcurrentHashMap()
         val dependentArgsGraphCalculation:
-            (GQLOperationPath) -> ImmutableList<ImmutableSet<GQLOperationPath>> =
+            (GQLOperationPath) -> ImmutableList<ImmutableMap<String, GQLOperationPath>> =
             { path: GQLOperationPath ->
                 Stream.of(path)
+                    .filter { p: GQLOperationPath -> p in featureCalculatorCallablesByPath }
                     .flatMap { p: GQLOperationPath ->
                         requestGraph.edgesFromPointAsStream(p).flatMap {
                             (l: DirectedLine<GQLOperationPath>, e: MaterializationEdge) ->
@@ -117,12 +71,59 @@ internal data class DefaultRequestMaterializationGraph(
                                 .stream()
                         }
                     }
-                    .singleValueMapCombinationsFromPairs().map { m: Map<String, GQLOperationPath> ->
-                        m.values.toImmutableSet()
-                    }.reduceToPersistentList()
+                    .singleValueMapCombinationsFromPairs()
+                    .map(Map<String, GQLOperationPath>::toPersistentMap)
+                    .reduceToPersistentList()
             }
         { path: GQLOperationPath ->
             cache.computeIfAbsent(path, dependentArgsGraphCalculation) ?: persistentListOf()
+        }
+    }
+
+    override val featureArgumentDependenciesSetByPathAndIndex:
+        (GQLOperationPath, Int) -> ImmutableSet<GQLOperationPath> by lazy {
+        val cache: ConcurrentMap<Pair<GQLOperationPath, Int>, ImmutableSet<GQLOperationPath>> =
+            ConcurrentHashMap()
+        val dependentValuePathsCalculation:
+            (Pair<GQLOperationPath, Int>) -> ImmutableSet<GQLOperationPath> =
+            { (path: GQLOperationPath, index: Int) ->
+                Stream.of(featureArgumentGroupsByPath.invoke(path))
+                    .map { argGroups: ImmutableList<ImmutableMap<String, GQLOperationPath>> ->
+                        when {
+                            index in argGroups.indices -> {
+                                argGroups.get(index)
+                            }
+                            else -> {
+                                persistentMapOf()
+                            }
+                        }
+                    }
+                    .map(ImmutableMap<String, GQLOperationPath>::entries)
+                    .flatMap(ImmutableSet<Map.Entry<String, GQLOperationPath>>::stream)
+                    .map(Map.Entry<String, GQLOperationPath>::value)
+                    .recurse { p: GQLOperationPath ->
+                        requestGraph.edgesFromPointAsStream(p).flatMap {
+                            (l: DirectedLine<GQLOperationPath>, e: MaterializationEdge) ->
+                            when (e) {
+                                MaterializationEdge.DEFAULT_ARGUMENT_VALUE_PROVIDED,
+                                MaterializationEdge.VARIABLE_VALUE_PROVIDED,
+                                MaterializationEdge.RAW_INPUT_VALUE_PROVIDED -> {
+                                    Stream.of(l.destinationPoint.right())
+                                }
+                                MaterializationEdge.EXTRACT_FROM_SOURCE -> {
+                                    Stream.of(l.destinationPoint.left())
+                                }
+                                else -> {
+                                    Stream.empty()
+                                }
+                            }
+                        }
+                    }
+                    .toImmutableSet()
+            }
+        { path: GQLOperationPath, argumentGroupIndex: Int ->
+            cache.computeIfAbsent(path to argumentGroupIndex, dependentValuePathsCalculation)
+                ?: persistentSetOf()
         }
     }
 

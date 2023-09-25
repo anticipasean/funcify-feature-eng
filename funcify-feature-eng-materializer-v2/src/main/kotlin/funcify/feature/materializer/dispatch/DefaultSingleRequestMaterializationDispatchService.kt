@@ -32,6 +32,7 @@ import funcify.feature.tools.extensions.PairExtensions.bimap
 import funcify.feature.tools.extensions.StreamExtensions.recurse
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.extensions.TryExtensions.failure
+import funcify.feature.tools.extensions.TryExtensions.foldIntoTry
 import funcify.feature.tools.extensions.TryExtensions.foldTry
 import funcify.feature.tools.extensions.TryExtensions.successIfDefined
 import funcify.feature.tools.json.JsonMapper
@@ -511,35 +512,54 @@ internal class DefaultSingleRequestMaterializationDispatchService(
         path: GQLOperationPath,
         featureCalculatorCallable: FeatureCalculatorCallable,
     ): DispatchedRequestMaterializationGraphContext {
-        return createTrackableJsonValueForFeatureCalculation(
-                context,
-                path,
-                featureCalculatorCallable
-            )
-            .zip(
-                createArgumentPublishersMapForFeatureCalculation(
-                    context,
-                    path,
-                    featureCalculatorCallable
-                )
-            ) { tv: TrackableValue<JsonNode>, ap: ImmutableMap<GQLOperationPath, Mono<JsonNode>> ->
-                context.update {
-                    addFeatureCalculatorPublisher(
+        return context.requestMaterializationGraph.featureArgumentGroupsByPath
+            .invoke(path)
+            .asSequence()
+            .withIndex()
+            .foldIntoTry(context) {
+                c: DispatchedRequestMaterializationGraphContext,
+                (argGroupIndex: Int, argGroup: ImmutableMap<String, GQLOperationPath>) ->
+                createTrackableJsonValueForFeatureCalculation(
+                        c,
+                        argGroupIndex,
+                        argGroup,
                         path,
-                        featureCalculatorCallable.invoke(tv, ap).cache()
+                        featureCalculatorCallable
                     )
-                }
+                    .zip(
+                        createArgumentPublishersMapForFeatureCalculation(
+                            c,
+                            argGroupIndex,
+                            argGroup,
+                            path,
+                            featureCalculatorCallable
+                        )
+                    ) {
+                        tv: TrackableValue.PlannedValue<JsonNode>,
+                        ap: ImmutableMap<GQLOperationPath, Mono<JsonNode>> ->
+                        c.update {
+                            addPlannedFeatureValue(path, tv)
+                            addFeatureCalculatorPublisher(
+                                path,
+                                featureCalculatorCallable.invoke(tv, ap).cache()
+                            )
+                        }
+                    }
+                    .orElseThrow()
             }
             .orElseThrow()
+        // TODO: Add handling for no arg groups found for feature path scenario
     }
 
     private fun createTrackableJsonValueForFeatureCalculation(
         context: DispatchedRequestMaterializationGraphContext,
+        argGroupIndex: Int,
+        argumentGroup: ImmutableMap<String, GQLOperationPath>,
         path: GQLOperationPath,
         featureCalculatorCallable: FeatureCalculatorCallable
-    ): Try<TrackableValue<JsonNode>> {
+    ): Try<TrackableValue.PlannedValue<JsonNode>> {
         val dependentArgPaths: ImmutableSet<GQLOperationPath> =
-            context.requestMaterializationGraph.featureDependentArgumentsByPath.invoke(path)
+            context.requestMaterializationGraph.featureArgumentGroupsByPath.invoke(path)
         return when {
             dependentArgPaths.isEmpty() &&
                 featureCalculatorCallable.argumentsByPath.isNotEmpty() -> {
@@ -591,6 +611,8 @@ internal class DefaultSingleRequestMaterializationDispatchService(
 
     private fun createArgumentPublishersMapForFeatureCalculation(
         context: DispatchedRequestMaterializationGraphContext,
+        argGroupIndex: Int,
+        argumentGroup: ImmutableMap<String, GQLOperationPath>,
         path: GQLOperationPath,
         featureCalculatorCallable: FeatureCalculatorCallable
     ): Try<ImmutableMap<GQLOperationPath, Mono<JsonNode>>> {

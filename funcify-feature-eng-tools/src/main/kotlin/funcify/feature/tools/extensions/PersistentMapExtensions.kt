@@ -18,6 +18,10 @@ import kotlinx.collections.immutable.persistentSetOf
  */
 object PersistentMapExtensions {
 
+    fun <K, V> ImmutableMap<K, V>.stream(): Stream<Map.Entry<K, V>> {
+        return this.entries.stream()
+    }
+
     fun <K, V> ImmutableMap<K, V>?.streamEntries(): Stream<Map.Entry<K, V>> {
         return this?.entries?.stream() ?: Stream.empty()
     }
