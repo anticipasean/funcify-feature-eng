@@ -7,8 +7,8 @@ import arrow.core.some
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.node.JsonNodeFactory
 import funcify.feature.schema.path.JsonObjectHierarchyAssessor
-import funcify.feature.tools.json.JacksonJsonNodeComparator
 import funcify.feature.tools.extensions.JsonNodeExtensions.removeAllChildKeyValuePairsFromRightmostObjectNode
+import funcify.feature.tools.json.JacksonJsonNodeComparator
 import java.math.BigDecimal
 import java.net.URI
 import kotlinx.collections.immutable.ImmutableList
@@ -16,8 +16,8 @@ import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.toPersistentMap
 
 /**
- * Represents a data element, derived or raw, within the schema, its arguments / parameters, and any
- * directives specifying additional contextual information or processing steps
+ * Represents the location of a value within registered feature definitions, the folder structure
+ * and any arguments on which the given value depended for its calculation
  *
  * @author smccarron
  * @created 1/30/22
@@ -26,7 +26,7 @@ interface SchematicPath : Comparable<SchematicPath> {
 
     companion object {
 
-        const val GRAPHQL_SCHEMATIC_PATH_SCHEME: String = "mlfs"
+        const val SCHEMATIC_PATH_SCHEME: String = "mlfs"
 
         private val rootPath: SchematicPath = DefaultSchematicPath()
 
@@ -112,6 +112,7 @@ interface SchematicPath : Comparable<SchematicPath> {
      *     }
      * }
      * ```
+     *
      * in GraphQL query form
      */
     val pathSegments: ImmutableList<String>
@@ -126,8 +127,8 @@ interface SchematicPath : Comparable<SchematicPath> {
 
     /**
      * Represented by URI fragments `#uppercase&aliases=names=amount_remaining_3m_1m,amt_rem_3m1m`
-     * in URI form and schema directives `@uppercase @aliases(names: ["amount_remaining_3m_1m",
-     * "amt_rem_3m1m" ])` in GraphQL SDL form
+     * in URI form and schema directives `@uppercase @aliases(names:
+     * ["amount_remaining_3m_1m", "amt_rem_3m1m" ])` in GraphQL SDL form
      */
     val directives: ImmutableMap<String, JsonNode>
 
@@ -145,11 +146,11 @@ interface SchematicPath : Comparable<SchematicPath> {
     /**
      * One schematic path is a parent to another when:
      * - parent has the same path segments _up to_ the child's final segment and neither parent nor
-     * child schematic path represents parameters (=> have arguments or directives) to a source
-     * container or attribute type e.g. `(Parent) gqls:/path_1 -> (Child) gqls:/path_1/path_2`
+     *   child schematic path represents parameters (=> have arguments or directives) to a source
+     *   container or attribute type e.g. `(Parent) gqls:/path_1 -> (Child) gqls:/path_1/path_2`
      * - parent has the same path segments as child does but child has arguments and/or directives
-     * indicating it is a parameter specification for the parent source container or attribute type
-     * e.g. `(Parent) gqls:/path_1 -> (Child) gqls:/path_1?argument_1=1`
+     *   indicating it is a parameter specification for the parent source container or attribute
+     *   type e.g. `(Parent) gqls:/path_1 -> (Child) gqls:/path_1?argument_1=1`
      *
      * There is not a parent-child relationship when one path represents different parameters than
      * another _on the same_ source container or attribute type: `gqls:/path_1?argument_1=1 NOT
@@ -211,14 +212,22 @@ interface SchematicPath : Comparable<SchematicPath> {
                     .all { matched -> matched } &&
                     (when (
                         val argumentsRelationshipType =
-                            JsonObjectHierarchyAssessor.findRelationshipTypeBetweenTwoJsonObjectMaps(this.arguments, other.arguments)
+                            JsonObjectHierarchyAssessor
+                                .findRelationshipTypeBetweenTwoJsonObjectMaps(
+                                    this.arguments,
+                                    other.arguments
+                                )
                     ) {
                         JsonObjectHierarchyAssessor.RelationshipType.IDENTITY -> {
-                            JsonObjectHierarchyAssessor.findRelationshipTypeBetweenTwoJsonObjectMaps(this.directives,
-                                                                                                     other.directives) == JsonObjectHierarchyAssessor.RelationshipType.PARENT_CHILD
+                            JsonObjectHierarchyAssessor
+                                .findRelationshipTypeBetweenTwoJsonObjectMaps(
+                                    this.directives,
+                                    other.directives
+                                ) == JsonObjectHierarchyAssessor.RelationshipType.PARENT_CHILD
                         }
                         else -> {
-                            argumentsRelationshipType == JsonObjectHierarchyAssessor.RelationshipType.PARENT_CHILD &&
+                            argumentsRelationshipType ==
+                                JsonObjectHierarchyAssessor.RelationshipType.PARENT_CHILD &&
                                 (this.directives.isEmpty() && other.directives.isEmpty())
                         }
                     })
@@ -233,11 +242,11 @@ interface SchematicPath : Comparable<SchematicPath> {
      *
      * One schematic path is a child to another when:
      * - child has N-1 path segments the same as the parent and neither parent nor child schematic
-     * path represents parameters (=> have arguments or directives) to a source container or
-     * attribute type e.g. `(Child) gqls:/path_1/path_2 -> (Parent) gqls:/path_1`
+     *   path represents parameters (=> have arguments or directives) to a source container or
+     *   attribute type e.g. `(Child) gqls:/path_1/path_2 -> (Parent) gqls:/path_1`
      * - child has the same path segments as parent does but child has arguments and/or directives
-     * indicating it is a parameter specification for the parent source container or attribute type
-     * e.g. `(Child) gqls:/path_1?argument_1=1 -> (Parent) gqls:/path_1`
+     *   indicating it is a parameter specification for the parent source container or attribute
+     *   type e.g. `(Child) gqls:/path_1?argument_1=1 -> (Parent) gqls:/path_1`
      *
      * There is not a parent-child relationship when one path represents different parameters than
      * another _on the same_ source container or attribute type: `gqls:/path_1?argument_1=1 NOT
@@ -298,14 +307,22 @@ interface SchematicPath : Comparable<SchematicPath> {
                     .all { matched -> matched } &&
                     (when (
                         val argumentsRelationshipType =
-                            JsonObjectHierarchyAssessor.findRelationshipTypeBetweenTwoJsonObjectMaps(this.arguments, other.arguments)
+                            JsonObjectHierarchyAssessor
+                                .findRelationshipTypeBetweenTwoJsonObjectMaps(
+                                    this.arguments,
+                                    other.arguments
+                                )
                     ) {
                         JsonObjectHierarchyAssessor.RelationshipType.IDENTITY -> {
-                            JsonObjectHierarchyAssessor.findRelationshipTypeBetweenTwoJsonObjectMaps(this.directives,
-                                                                                                     other.directives) == JsonObjectHierarchyAssessor.RelationshipType.CHILD_PARENT
+                            JsonObjectHierarchyAssessor
+                                .findRelationshipTypeBetweenTwoJsonObjectMaps(
+                                    this.directives,
+                                    other.directives
+                                ) == JsonObjectHierarchyAssessor.RelationshipType.CHILD_PARENT
                         }
                         else -> {
-                            argumentsRelationshipType == JsonObjectHierarchyAssessor.RelationshipType.CHILD_PARENT &&
+                            argumentsRelationshipType ==
+                                JsonObjectHierarchyAssessor.RelationshipType.CHILD_PARENT &&
                                 this.directives.isEmpty() &&
                                 other.directives.isEmpty()
                         }
@@ -389,18 +406,30 @@ interface SchematicPath : Comparable<SchematicPath> {
                     .all { matched -> matched } &&
                     (when (
                         val argumentsRelationshipType =
-                            JsonObjectHierarchyAssessor.findRelationshipTypeBetweenTwoJsonObjectMaps(this.arguments, other.arguments)
+                            JsonObjectHierarchyAssessor
+                                .findRelationshipTypeBetweenTwoJsonObjectMaps(
+                                    this.arguments,
+                                    other.arguments
+                                )
                     ) {
                         JsonObjectHierarchyAssessor.RelationshipType.IDENTITY -> {
-                            JsonObjectHierarchyAssessor.findRelationshipTypeBetweenTwoJsonObjectMaps(this.directives, other.directives) in
-                                setOf(JsonObjectHierarchyAssessor.RelationshipType.DESCENDENT_ANCESTOR,
-                                      JsonObjectHierarchyAssessor.RelationshipType.CHILD_PARENT
+                            JsonObjectHierarchyAssessor
+                                .findRelationshipTypeBetweenTwoJsonObjectMaps(
+                                    this.directives,
+                                    other.directives
+                                ) in
+                                setOf(
+                                    JsonObjectHierarchyAssessor.RelationshipType
+                                        .DESCENDENT_ANCESTOR,
+                                    JsonObjectHierarchyAssessor.RelationshipType.CHILD_PARENT
                                 )
                         }
                         else -> {
                             argumentsRelationshipType in
-                                setOf(JsonObjectHierarchyAssessor.RelationshipType.DESCENDENT_ANCESTOR,
-                                      JsonObjectHierarchyAssessor.RelationshipType.CHILD_PARENT
+                                setOf(
+                                    JsonObjectHierarchyAssessor.RelationshipType
+                                        .DESCENDENT_ANCESTOR,
+                                    JsonObjectHierarchyAssessor.RelationshipType.CHILD_PARENT
                                 ) && this.directives.isEmpty() && other.directives.isEmpty()
                         }
                     })
@@ -454,18 +483,30 @@ interface SchematicPath : Comparable<SchematicPath> {
                     .all { matched -> matched } &&
                     (when (
                         val argumentsRelationship =
-                            JsonObjectHierarchyAssessor.findRelationshipTypeBetweenTwoJsonObjectMaps(this.arguments, other.arguments)
+                            JsonObjectHierarchyAssessor
+                                .findRelationshipTypeBetweenTwoJsonObjectMaps(
+                                    this.arguments,
+                                    other.arguments
+                                )
                     ) {
                         JsonObjectHierarchyAssessor.RelationshipType.IDENTITY -> {
-                            JsonObjectHierarchyAssessor.findRelationshipTypeBetweenTwoJsonObjectMaps(this.directives, other.directives) in
-                                setOf(JsonObjectHierarchyAssessor.RelationshipType.ANCESTOR_DESCENDENT,
-                                      JsonObjectHierarchyAssessor.RelationshipType.PARENT_CHILD
+                            JsonObjectHierarchyAssessor
+                                .findRelationshipTypeBetweenTwoJsonObjectMaps(
+                                    this.directives,
+                                    other.directives
+                                ) in
+                                setOf(
+                                    JsonObjectHierarchyAssessor.RelationshipType
+                                        .ANCESTOR_DESCENDENT,
+                                    JsonObjectHierarchyAssessor.RelationshipType.PARENT_CHILD
                                 )
                         }
                         else -> {
                             argumentsRelationship in
-                                setOf(JsonObjectHierarchyAssessor.RelationshipType.ANCESTOR_DESCENDENT,
-                                      JsonObjectHierarchyAssessor.RelationshipType.PARENT_CHILD
+                                setOf(
+                                    JsonObjectHierarchyAssessor.RelationshipType
+                                        .ANCESTOR_DESCENDENT,
+                                    JsonObjectHierarchyAssessor.RelationshipType.PARENT_CHILD
                                 ) && this.directives.isEmpty() && other.directives.isEmpty()
                         }
                     })
@@ -481,11 +522,11 @@ interface SchematicPath : Comparable<SchematicPath> {
     /**
      * A parent path is:
      * - one that represents the container if the current path represents an attribute on that
-     * container
+     *   container
      *
      * _OR_
      * - one that represents an attribute on a data source to which the value represented by the
-     * current path may be passed as a parameter
+     *   current path may be passed as a parameter
      */
     fun getParentPath(): Option<SchematicPath> {
         return when {

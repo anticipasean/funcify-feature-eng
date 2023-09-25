@@ -2,6 +2,7 @@ package funcify.feature.schema.tracking
 
 import arrow.core.Option
 import com.fasterxml.jackson.databind.JsonNode
+import funcify.feature.schema.path.lookup.SchematicPath
 import funcify.feature.schema.path.operation.GQLOperationPath
 import funcify.feature.tools.container.attempt.Try
 import graphql.schema.GraphQLOutputType
@@ -15,9 +16,9 @@ import kotlinx.collections.immutable.ImmutableSet
  */
 sealed interface TrackableValue<out V> {
 
-    val targetSourceIndexPath: GQLOperationPath
+    val operationPath: GQLOperationPath
 
-    val contextualParameters: ImmutableMap<GQLOperationPath, JsonNode>
+    val contextualParameters: ImmutableMap<String, JsonNode>
 
     val graphQLOutputType: GraphQLOutputType
 
@@ -48,21 +49,21 @@ sealed interface TrackableValue<out V> {
      */
     interface Builder<B : Builder<B>> {
 
-        fun targetSourceIndexPath(targetSourceIndexPath: GQLOperationPath): B
+        fun operationPath(operationPath: GQLOperationPath): B
 
         /** Replaces all current contextual_parameters with this map */
-        fun contextualParameters(contextualParameters: ImmutableMap<GQLOperationPath, JsonNode>): B
+        fun setContextualParameters(parameters: Map<String, JsonNode>): B
 
-        fun addContextualParameter(parameterPath: GQLOperationPath, parameterValue: JsonNode): B
+        fun addContextualParameter(parameterName: String, parameterValue: JsonNode): B
 
-        fun addContextualParameter(parameterPathValuePair: Pair<GQLOperationPath, JsonNode>): B
+        fun addContextualParameter(parameter: Pair<String, JsonNode>): B
 
-        fun removeContextualParameter(parameterPath: GQLOperationPath): B
+        fun removeContextualParameter(parameterName: String): B
 
         fun clearContextualParameters(): B
 
         /** Adds all contextual_parameters to the existing map */
-        fun addContextualParameters(contextualParameters: Map<GQLOperationPath, JsonNode>): B
+        fun addAllContextualParameters(contextualParameters: Map<String, JsonNode>): B
 
         fun graphQLOutputType(graphQLOutputType: GraphQLOutputType): B
     }
@@ -145,9 +146,9 @@ sealed interface TrackableValue<out V> {
 
     interface TrackedValue<V> : TrackableValue<V> {
 
-        val canonicalPath: Option<GQLOperationPath>
+        val canonicalPath: Option<SchematicPath>
 
-        val referencePaths: ImmutableSet<GQLOperationPath>
+        val referencePaths: ImmutableSet<SchematicPath>
 
         val trackedValue: V
 
@@ -169,19 +170,19 @@ sealed interface TrackableValue<out V> {
 
         interface Builder<V> : TrackableValue.Builder<Builder<V>> {
 
-            fun canonicalPath(canonicalPath: GQLOperationPath): Builder<V>
+            fun canonicalPath(canonicalPath: SchematicPath): Builder<V>
 
             /** Replaces all current reference_paths with this set */
-            fun referencePaths(referencePaths: ImmutableSet<GQLOperationPath>): Builder<V>
+            fun referencePaths(referencePaths: ImmutableSet<SchematicPath>): Builder<V>
 
-            fun addReferencePath(referencePath: GQLOperationPath): Builder<V>
+            fun addReferencePath(referencePath: SchematicPath): Builder<V>
 
-            fun removeReferencePath(referencePath: GQLOperationPath): Builder<V>
+            fun removeReferencePath(referencePath: SchematicPath): Builder<V>
 
             fun clearReferencePaths(): Builder<V>
 
             /** Adds all reference_paths to the existing set */
-            fun addReferencePaths(referencePaths: Iterable<GQLOperationPath>): Builder<V>
+            fun addReferencePaths(referencePaths: Iterable<SchematicPath>): Builder<V>
 
             fun trackedValue(trackedValue: V): Builder<V>
 

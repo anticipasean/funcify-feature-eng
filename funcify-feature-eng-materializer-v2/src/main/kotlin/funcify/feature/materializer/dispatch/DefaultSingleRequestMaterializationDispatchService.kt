@@ -553,13 +553,16 @@ internal class DefaultSingleRequestMaterializationDispatchService(
 
     private fun createTrackableJsonValueForFeatureCalculation(
         context: DispatchedRequestMaterializationGraphContext,
-        argGroupIndex: Int,
+        argumentGroupIndex: Int,
         argumentGroup: ImmutableMap<String, GQLOperationPath>,
         path: GQLOperationPath,
         featureCalculatorCallable: FeatureCalculatorCallable
     ): Try<TrackableValue.PlannedValue<JsonNode>> {
         val dependentArgPaths: ImmutableSet<GQLOperationPath> =
-            context.requestMaterializationGraph.featureArgumentGroupsByPath.invoke(path)
+            context.requestMaterializationGraph.featureArgumentDependenciesSetByPathAndIndex.invoke(
+                path,
+                argumentGroupIndex
+            )
         return when {
             dependentArgPaths.isEmpty() &&
                 featureCalculatorCallable.argumentsByPath.isNotEmpty() -> {
@@ -579,7 +582,6 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                     .map { p: GQLOperationPath ->
                         context.materializedArgumentsByPath
                             .getOrNone(p)
-                            .map { jn: JsonNode -> p to jn }
                             .successIfDefined {
                                 ServiceError.of(
                                     """materialized argument value not present for 
@@ -590,6 +592,22 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                                     path
                                 )
                             }
+                            .flatMap { jn: JsonNode ->
+                                context.requestMaterializationGraph.requestGraph
+                                    .get(p)
+                                    .toOption()
+                                    .filterIsInstance<FieldArgumentComponentContext>()
+                                    .map { facc: FieldArgumentComponentContext ->
+                                        facc.argument.name
+                                    }
+                                    .successIfDefined {
+                                        ServiceError.of(
+                                            "argument.name not found for materialized argument path [ %s ]",
+                                            p
+                                        )
+                                    }
+                                    .map { name: String -> name to jn }
+                            }
                     }
                     .foldTry(
                         trackableValueFactory
@@ -597,10 +615,9 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                             .graphQLOutputType(
                                 featureCalculatorCallable.featureGraphQLFieldDefinition.type
                             )
-                            .targetSourceIndexPath(featureCalculatorCallable.featurePath)
-                    ) { b: TrackableValue.PlannedValue.Builder, (p: GQLOperationPath, jn: JsonNode)
-                        ->
-                        b.addContextualParameter(p, jn)
+                            .operationPath(featureCalculatorCallable.featurePath)
+                    ) { b: TrackableValue.PlannedValue.Builder, (n: String, jn: JsonNode) ->
+                        b.addContextualParameter(n, jn)
                     }
                     .flatMap { b: TrackableValue.PlannedValue.Builder ->
                         b.buildForInstanceOf<JsonNode>()
@@ -611,7 +628,7 @@ internal class DefaultSingleRequestMaterializationDispatchService(
 
     private fun createArgumentPublishersMapForFeatureCalculation(
         context: DispatchedRequestMaterializationGraphContext,
-        argGroupIndex: Int,
+        argumentGroupIndex: Int,
         argumentGroup: ImmutableMap<String, GQLOperationPath>,
         path: GQLOperationPath,
         featureCalculatorCallable: FeatureCalculatorCallable
@@ -710,7 +727,7 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                                         Mono.error {
                                             ServiceError.of(
                                                 "dependent feature value [ %s ] planned but not calculated or tracked",
-                                                tv.targetSourceIndexPath
+                                                tv.operationPath
                                             )
                                         }
                                     }

@@ -5,6 +5,7 @@ import arrow.core.orElse
 import arrow.core.toOption
 import com.fasterxml.jackson.databind.JsonNode
 import funcify.feature.error.ServiceError
+import funcify.feature.schema.path.lookup.SchematicPath
 import funcify.feature.schema.path.operation.GQLOperationPath
 import funcify.feature.schema.tracking.TrackableValue.CalculatedValue
 import funcify.feature.schema.tracking.TrackableValue.PlannedValue
@@ -33,10 +34,9 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
     companion object {
 
         internal abstract class BaseBuilder<B : TrackableValue.Builder<B>, V>(
-            protected open var targetSourceIndexPath: GQLOperationPath? = null,
-            protected open var contextualParameters:
-                PersistentMap.Builder<GQLOperationPath, JsonNode> =
-                persistentMapOf<GQLOperationPath, JsonNode>().builder(),
+            protected open var operationPath: GQLOperationPath? = null,
+            protected open var contextualParameters: PersistentMap.Builder<String, JsonNode> =
+                persistentMapOf<String, JsonNode>().builder(),
             protected open var graphQLOutputType: GraphQLOutputType? = null,
         ) : TrackableValue.Builder<B> {
 
@@ -52,41 +52,34 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
                 }
             }
 
-            override fun targetSourceIndexPath(targetSourceIndexPath: GQLOperationPath): B =
-                this.applyOnBuilder { this.targetSourceIndexPath = targetSourceIndexPath }
+            override fun operationPath(operationPath: GQLOperationPath): B =
+                this.applyOnBuilder { this.operationPath = operationPath }
 
-            override fun contextualParameters(
-                contextualParameters: ImmutableMap<GQLOperationPath, JsonNode>
-            ): B =
+            override fun setContextualParameters(parameters: Map<String, JsonNode>): B =
                 this.applyOnBuilder {
-                    this.contextualParameters = contextualParameters.toPersistentMap().builder()
+                    this.contextualParameters = parameters.toPersistentMap().builder()
                 }
 
-            override fun addContextualParameter(
-                parameterPath: GQLOperationPath,
-                parameterValue: JsonNode
-            ): B =
-                this.applyOnBuilder { this.contextualParameters.put(parameterPath, parameterValue) }
+            override fun addAllContextualParameters(
+                contextualParameters: Map<String, JsonNode>
+            ): B = this.applyOnBuilder { this.contextualParameters.putAll(contextualParameters) }
 
-            override fun addContextualParameter(
-                parameterPathValuePair: Pair<GQLOperationPath, JsonNode>
-            ): B =
+            override fun addContextualParameter(parameter: Pair<String, JsonNode>): B =
                 this.applyOnBuilder {
-                    this.contextualParameters.put(
-                        parameterPathValuePair.first,
-                        parameterPathValuePair.second
-                    )
+                    this.contextualParameters.put(parameter.first, parameter.second)
                 }
-
-            override fun removeContextualParameter(parameterPath: GQLOperationPath): B =
-                this.applyOnBuilder { this.contextualParameters.remove(parameterPath) }
 
             override fun clearContextualParameters(): B =
                 this.applyOnBuilder { this.contextualParameters.clear() }
 
-            override fun addContextualParameters(
-                contextualParameters: Map<GQLOperationPath, JsonNode>
-            ): B = this.applyOnBuilder { this.contextualParameters.putAll(contextualParameters) }
+            override fun addContextualParameter(
+                parameterName: String,
+                parameterValue: JsonNode
+            ): B =
+                this.applyOnBuilder { this.contextualParameters.put(parameterName, parameterValue) }
+
+            override fun removeContextualParameter(parameterName: String): B =
+                this.applyOnBuilder { this.contextualParameters.remove(parameterName) }
 
             override fun graphQLOutputType(graphQLOutputType: GraphQLOutputType): B =
                 this.applyOnBuilder { this.graphQLOutputType = graphQLOutputType }
@@ -96,21 +89,19 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
             private val existingPlannedValue: PlannedValue<V>? = null
         ) :
             BaseBuilder<PlannedValue.Builder, V>(
-                targetSourceIndexPath = existingPlannedValue?.targetSourceIndexPath,
+                operationPath = existingPlannedValue?.operationPath,
                 contextualParameters =
                     existingPlannedValue?.contextualParameters?.toPersistentMap()?.builder()
-                        ?: persistentMapOf<GQLOperationPath, JsonNode>().builder(),
+                        ?: persistentMapOf<String, JsonNode>().builder(),
                 graphQLOutputType = existingPlannedValue?.graphQLOutputType
             ),
             PlannedValue.Builder {
 
             override fun <V> buildForInstanceOf(): Try<PlannedValue<V>> {
                 return when {
-                    targetSourceIndexPath == null -> {
+                    operationPath == null -> {
                         Try.failure(
-                            ServiceError.of(
-                                "target_source_index_path has not been set for planned_value"
-                            )
+                            ServiceError.of("operation_path has not been set for planned_value")
                         )
                     }
                     contextualParameters.isEmpty() -> {
@@ -132,7 +123,7 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
                     }
                     else -> {
                         DefaultPlannedValue<V>(
-                                targetSourceIndexPath = targetSourceIndexPath!!,
+                                operationPath = operationPath!!,
                                 contextualParameters = contextualParameters.build(),
                                 graphQLOutputType = graphQLOutputType!!,
                             )
@@ -144,18 +135,17 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
 
         internal class DefaultCalculatedValueBuilder<V>(
             private val existingPlannedValue: PlannedValue<V>? = null,
-            override var targetSourceIndexPath: GQLOperationPath? =
-                existingPlannedValue?.targetSourceIndexPath,
-            override var contextualParameters: PersistentMap.Builder<GQLOperationPath, JsonNode> =
+            override var operationPath: GQLOperationPath? = existingPlannedValue?.operationPath,
+            override var contextualParameters: PersistentMap.Builder<String, JsonNode> =
                 existingPlannedValue?.contextualParameters?.toPersistentMap()?.builder()
-                    ?: persistentMapOf<GQLOperationPath, JsonNode>().builder(),
+                    ?: persistentMapOf<String, JsonNode>().builder(),
             override var graphQLOutputType: GraphQLOutputType? =
                 existingPlannedValue?.graphQLOutputType,
             private var calculatedValue: V? = null,
             private var calculatedTimestamp: Instant? = null,
         ) :
             BaseBuilder<CalculatedValue.Builder<V>, V>(
-                targetSourceIndexPath = targetSourceIndexPath,
+                operationPath = operationPath,
                 contextualParameters = contextualParameters,
                 graphQLOutputType = graphQLOutputType
             ),
@@ -175,11 +165,9 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
 
             override fun build(): Try<CalculatedValue<V>> {
                 return when {
-                    targetSourceIndexPath == null -> {
+                    operationPath == null -> {
                         Try.failure(
-                            ServiceError.of(
-                                "target_source_index_path has not been set for calculated_value"
-                            )
+                            ServiceError.of("operation_path has not been set for calculated_value")
                         )
                     }
                     contextualParameters.isEmpty() -> {
@@ -210,7 +198,7 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
                     }
                     else -> {
                         DefaultCalculatedValue<V>(
-                                targetSourceIndexPath!!,
+                                operationPath!!,
                                 contextualParameters.build(),
                                 graphQLOutputType!!,
                                 calculatedValue!!,
@@ -225,17 +213,15 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
         internal class DefaultTrackedValueBuilder<V>(
             private val existingPlannedValue: PlannedValue<V>? = null,
             private val existingCalculatedValue: CalculatedValue<V>? = null,
-            override var targetSourceIndexPath: GQLOperationPath? =
+            override var operationPath: GQLOperationPath? =
                 existingPlannedValue
                     .toOption()
-                    .map(PlannedValue<V>::targetSourceIndexPath)
+                    .map(PlannedValue<V>::operationPath)
                     .orElse {
-                        existingCalculatedValue
-                            .toOption()
-                            .map(CalculatedValue<V>::targetSourceIndexPath)
+                        existingCalculatedValue.toOption().map(CalculatedValue<V>::operationPath)
                     }
                     .orNull(),
-            override var contextualParameters: PersistentMap.Builder<GQLOperationPath, JsonNode> =
+            override var contextualParameters: PersistentMap.Builder<String, JsonNode> =
                 existingPlannedValue
                     .toOption()
                     .map(PlannedValue<V>::contextualParameters)
@@ -246,7 +232,7 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
                     }
                     .map { m -> m.toPersistentMap().builder() }
                     .orNull()
-                    ?: persistentMapOf<GQLOperationPath, JsonNode>().builder(),
+                    ?: persistentMapOf<String, JsonNode>().builder(),
             override var graphQLOutputType: GraphQLOutputType? =
                 existingPlannedValue
                     .toOption()
@@ -257,42 +243,42 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
                             .map(CalculatedValue<V>::graphQLOutputType)
                     }
                     .orNull(),
-            private var canonicalPath: GQLOperationPath? = null,
-            private var referencePaths: PersistentSet.Builder<GQLOperationPath> =
-                persistentSetOf<GQLOperationPath>().builder(),
+            private var canonicalPath: SchematicPath? = null,
+            private var referencePaths: PersistentSet.Builder<SchematicPath> =
+                persistentSetOf<SchematicPath>().builder(),
             private var trackedValue: V? = null,
             private var valueAtTimestamp: Instant? = null,
         ) :
             BaseBuilder<TrackedValue.Builder<V>, V>(
-                targetSourceIndexPath = targetSourceIndexPath,
+                operationPath = operationPath,
                 contextualParameters = contextualParameters,
                 graphQLOutputType = graphQLOutputType
             ),
             TrackedValue.Builder<V> {
 
             override fun canonicalPath(
-                canonicalPath: GQLOperationPath
+                canonicalPath: SchematicPath
             ): DefaultTrackedValueBuilder<V> {
                 this.canonicalPath = canonicalPath
                 return this
             }
 
             override fun referencePaths(
-                referencePaths: ImmutableSet<GQLOperationPath>
+                referencePaths: ImmutableSet<SchematicPath>
             ): DefaultTrackedValueBuilder<V> {
                 this.referencePaths = referencePaths.toPersistentSet().builder()
                 return this
             }
 
             override fun addReferencePath(
-                referencePath: GQLOperationPath
+                referencePath: SchematicPath
             ): DefaultTrackedValueBuilder<V> {
                 this.referencePaths.add(referencePath)
                 return this
             }
 
             override fun removeReferencePath(
-                referencePath: GQLOperationPath
+                referencePath: SchematicPath
             ): DefaultTrackedValueBuilder<V> {
                 this.referencePaths.remove(referencePath)
                 return this
@@ -304,7 +290,7 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
             }
 
             override fun addReferencePaths(
-                referencePaths: Iterable<GQLOperationPath>
+                referencePaths: Iterable<SchematicPath>
             ): DefaultTrackedValueBuilder<V> {
                 this.referencePaths.addAll(referencePaths)
                 return this
@@ -324,11 +310,9 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
 
             override fun build(): Try<TrackedValue<V>> {
                 return when {
-                    targetSourceIndexPath == null -> {
+                    operationPath == null -> {
                         Try.failure(
-                            ServiceError.of(
-                                "target_source_index_path has not been set for tracked_value"
-                            )
+                            ServiceError.of("operation_path has not been set for tracked_value")
                         )
                     }
                     contextualParameters.isEmpty() -> {
@@ -359,7 +343,7 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
                     }
                     else -> {
                         DefaultTrackedValue<V>(
-                                targetSourceIndexPath!!,
+                                operationPath!!,
                                 canonicalPath.toOption(),
                                 referencePaths.build(),
                                 contextualParameters.build(),
@@ -374,8 +358,8 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
         }
 
         internal data class DefaultPlannedValue<V>(
-            override val targetSourceIndexPath: GQLOperationPath,
-            override val contextualParameters: ImmutableMap<GQLOperationPath, JsonNode>,
+            override val operationPath: GQLOperationPath,
+            override val contextualParameters: ImmutableMap<String, JsonNode>,
             override val graphQLOutputType: GraphQLOutputType
         ) : PlannedValue<V> {
 
@@ -409,8 +393,8 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
         }
 
         internal data class DefaultCalculatedValue<V>(
-            override val targetSourceIndexPath: GQLOperationPath,
-            override val contextualParameters: ImmutableMap<GQLOperationPath, JsonNode>,
+            override val operationPath: GQLOperationPath,
+            override val contextualParameters: ImmutableMap<String, JsonNode>,
             override val graphQLOutputType: GraphQLOutputType,
             override val calculatedValue: V,
             override val calculatedTimestamp: Instant
@@ -422,7 +406,7 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
                 return transformer(
                         DefaultCalculatedValueBuilder<V>(
                             existingPlannedValue = null,
-                            targetSourceIndexPath = targetSourceIndexPath,
+                            operationPath = operationPath,
                             contextualParameters = contextualParameters.toPersistentMap().builder(),
                             graphQLOutputType = graphQLOutputType,
                             calculatedValue = calculatedValue,
@@ -444,10 +428,10 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
         }
 
         internal data class DefaultTrackedValue<V>(
-            override val targetSourceIndexPath: GQLOperationPath,
-            override val canonicalPath: Option<GQLOperationPath>,
-            override val referencePaths: ImmutableSet<GQLOperationPath>,
-            override val contextualParameters: ImmutableMap<GQLOperationPath, JsonNode>,
+            override val operationPath: GQLOperationPath,
+            override val canonicalPath: Option<SchematicPath>,
+            override val referencePaths: ImmutableSet<SchematicPath>,
+            override val contextualParameters: ImmutableMap<String, JsonNode>,
             override val graphQLOutputType: GraphQLOutputType,
             override val trackedValue: V,
             override val valueAtTimestamp: Instant
@@ -461,7 +445,7 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
                         DefaultTrackedValueBuilder<V>(
                             null,
                             null,
-                            targetSourceIndexPath,
+                            operationPath,
                             contextualParameters.toPersistentMap().builder(),
                             graphQLOutputType,
                             canonicalPath.orNull(),

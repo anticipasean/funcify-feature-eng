@@ -18,7 +18,7 @@ import kotlinx.collections.immutable.persistentMapOf
  * @created 2/20/22
  */
 internal data class DefaultSchematicPath(
-    override val scheme: String = SchematicPath.GRAPHQL_SCHEMATIC_PATH_SCHEME,
+    override val scheme: String = SchematicPath.SCHEMATIC_PATH_SCHEME,
     override val pathSegments: PersistentList<String> = persistentListOf(),
     override val arguments: PersistentMap<String, JsonNode> = persistentMapOf(),
     override val directives: PersistentMap<String, JsonNode> = persistentMapOf()
