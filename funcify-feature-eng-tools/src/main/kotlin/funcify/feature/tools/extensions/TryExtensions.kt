@@ -4,6 +4,7 @@ import arrow.core.Option
 import funcify.feature.tools.container.attempt.Failure
 import funcify.feature.tools.container.attempt.Success
 import funcify.feature.tools.container.attempt.Try
+import java.util.stream.Stream
 
 object TryExtensions {
 
@@ -69,5 +70,37 @@ object TryExtensions {
         crossinline accumulator: (R, T) -> R
     ): Try<R> {
         return this.asSequence().foldIntoTry(initial, accumulator)
+    }
+
+    inline fun <reified S : Any, reified R : Any> Stream<Try<S>>.reduceTry(
+        initial: R,
+        crossinline accumulator: (R, S) -> R,
+        crossinline combiner: (R, R) -> R
+    ): Try<R> {
+        return this.reduce(
+            Try.success(initial),
+            { result: Try<R>, nextAttempt: Try<S> ->
+                result.flatMap { r: R -> nextAttempt.map { s: S -> accumulator.invoke(r, s) } }
+            },
+            { result1: Try<R>, result2: Try<R> ->
+                result1.flatMap { r1: R -> result2.map { r2: R -> combiner.invoke(r1, r2) } }
+            }
+        )
+    }
+
+    inline fun <reified T : Any, reified R : Any> Stream<T>.reduceIntoTry(
+        initial: R,
+        crossinline accumulator: (R, T) -> R,
+        crossinline combiner: (R, R) -> R
+    ): Try<R> {
+        return this.reduce(
+            Try.success(initial),
+            { result: Try<R>, nextItem: T ->
+                result.map { r: R -> accumulator.invoke(r, nextItem) }
+            },
+            { result1: Try<R>, result2: Try<R> ->
+                result1.flatMap { r1: R -> result2.map { r2: R -> combiner.invoke(r1, r2) } }
+            }
+        )
     }
 }

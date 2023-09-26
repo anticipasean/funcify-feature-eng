@@ -58,6 +58,15 @@ sealed interface Try<out S> : Iterable<S> {
         }
 
         @JvmStatic
+        fun <S> failure(function: () -> Throwable): Try<S> {
+            return try {
+                nullableFailure(function.invoke())
+            } catch (t: Throwable) {
+                nullableFailure(t)
+            }
+        }
+
+        @JvmStatic
         fun <S> nullableSuccess(successfulResult: S?): Try<S> {
             return nullableSuccess(successfulResult) { NoSuchElementException("result is null") }
         }
