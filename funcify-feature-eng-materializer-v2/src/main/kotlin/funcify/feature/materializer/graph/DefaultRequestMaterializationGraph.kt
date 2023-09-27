@@ -4,6 +4,7 @@ import arrow.core.filterIsInstance
 import arrow.core.left
 import arrow.core.right
 import arrow.core.toOption
+import com.fasterxml.jackson.databind.JsonNode
 import funcify.feature.graph.DirectedPersistentGraph
 import funcify.feature.graph.line.DirectedLine
 import funcify.feature.materializer.graph.component.QueryComponentContext
@@ -37,15 +38,13 @@ import kotlinx.collections.immutable.toPersistentMap
  */
 internal data class DefaultRequestMaterializationGraph(
     override val document: Document,
-    override val requestGraph:
-        DirectedPersistentGraph<GQLOperationPath, QueryComponentContext, MaterializationEdge>,
+    override val requestGraph: DirectedPersistentGraph<GQLOperationPath, QueryComponentContext, MaterializationEdge>,
+    override val passThruColumns: ImmutableSet<String>,
     override val transformerCallablesByPath: ImmutableMap<GQLOperationPath, TransformerCallable>,
     override val dataElementCallablesByPath: ImmutableMap<GQLOperationPath, DataElementCallable>,
     override val featureJsonValueStoreByPath: ImmutableMap<GQLOperationPath, FeatureJsonValueStore>,
-    override val featureCalculatorCallablesByPath:
-        ImmutableMap<GQLOperationPath, FeatureCalculatorCallable>,
-    override val featureJsonValuePublisherByPath:
-        ImmutableMap<GQLOperationPath, FeatureJsonValuePublisher>,
+    override val featureCalculatorCallablesByPath: ImmutableMap<GQLOperationPath, FeatureCalculatorCallable>,
+    override val featureJsonValuePublisherByPath: ImmutableMap<GQLOperationPath, FeatureJsonValuePublisher>,
 ) : RequestMaterializationGraph {
 
     override val featureArgumentGroupsByPath:
@@ -125,11 +124,5 @@ internal data class DefaultRequestMaterializationGraph(
             cache.computeIfAbsent(path to argumentGroupIndex, dependentValuePathsCalculation)
                 ?: persistentSetOf()
         }
-    }
-
-    override fun update(
-        transformer: RequestMaterializationGraph.Builder.() -> RequestMaterializationGraph.Builder
-    ): RequestMaterializationGraph {
-        TODO("Not yet implemented")
     }
 }

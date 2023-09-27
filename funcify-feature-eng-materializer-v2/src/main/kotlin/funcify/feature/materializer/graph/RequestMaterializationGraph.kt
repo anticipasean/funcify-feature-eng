@@ -9,7 +9,6 @@ import funcify.feature.schema.feature.FeatureJsonValueStore
 import funcify.feature.schema.path.operation.GQLOperationPath
 import funcify.feature.schema.transformer.TransformerCallable
 import graphql.language.Document
-import graphql.language.Node
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.ImmutableSet
@@ -25,6 +24,8 @@ interface RequestMaterializationGraph {
     val requestGraph:
         DirectedPersistentGraph<GQLOperationPath, QueryComponentContext, MaterializationEdge>
 
+    val passThruColumns: ImmutableSet<String>
+
     val transformerCallablesByPath: ImmutableMap<GQLOperationPath, TransformerCallable>
 
     val dataElementCallablesByPath: ImmutableMap<GQLOperationPath, DataElementCallable>
@@ -35,45 +36,9 @@ interface RequestMaterializationGraph {
 
     val featureJsonValuePublisherByPath: ImmutableMap<GQLOperationPath, FeatureJsonValuePublisher>
 
-    val featureArgumentGroupsByPath: (GQLOperationPath) -> ImmutableList<ImmutableMap<String, GQLOperationPath>>
+    val featureArgumentGroupsByPath:
+        (GQLOperationPath) -> ImmutableList<ImmutableMap<String, GQLOperationPath>>
 
-    val featureArgumentDependenciesSetByPathAndIndex: (GQLOperationPath, Int) -> ImmutableSet<GQLOperationPath>
-
-    fun update(transformer: Builder.() -> Builder): RequestMaterializationGraph
-
-    interface Builder {
-
-        fun document(document: Document): Builder
-
-        fun requestGraph(
-            requestGraph: DirectedPersistentGraph<GQLOperationPath, Node<*>, MaterializationEdge>
-        ): Builder
-
-        fun addTransformerCallable(
-            path: GQLOperationPath,
-            transformerCallable: TransformerCallable
-        ): Builder
-
-        fun addDataElementCallable(
-            path: GQLOperationPath,
-            dataElementCallable: DataElementCallable
-        ): Builder
-
-        fun addFeatureJsonStore(
-            path: GQLOperationPath,
-            featureJsonValueStore: FeatureJsonValueStore
-        ): Builder
-
-        fun addFeatureCalculatorCallable(
-            path: GQLOperationPath,
-            featureCalculatorCallable: FeatureCalculatorCallable
-        ): Builder
-
-        fun addFeatureJsonValuePublisher(
-            path: GQLOperationPath,
-            featureJsonValuePublisher: FeatureJsonValuePublisher
-        ): Builder
-
-        fun build(): RequestMaterializationGraph
-    }
+    val featureArgumentDependenciesSetByPathAndIndex:
+        (GQLOperationPath, Int) -> ImmutableSet<GQLOperationPath>
 }

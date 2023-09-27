@@ -78,7 +78,7 @@ interface DispatchedRequestMaterializationGraphContext {
         ): Builder
 
         fun addAllFeatureCalculatorPublishers(
-            pathPublisherPairs: Map<GQLOperationPath, Mono<TrackableValue<JsonNode>>>
+            pathPublisherPairs: Map<GQLOperationPath, List<Mono<TrackableValue<JsonNode>>>>
         ): Builder
 
         fun addPassThruColumn(columnName: String, columnValue: JsonNode): Builder

@@ -119,6 +119,7 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                     }
                 }
             }
+            .flatMap(extractPassThruColumnsWithinContext())
             .flatMap(dispatchAllTransformerCallablesWithinContext())
             .flatMap(dispatchAllDataElementCallablesWithinContext())
             .flatMap(dispatchAllFeatureCalculatorCallablesWithinContext())
@@ -139,6 +140,31 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                     t.message
                 )
             }
+    }
+
+    private fun <C> extractPassThruColumnsWithinContext():
+        (C) -> Mono<out DispatchedRequestMaterializationGraphContext> where
+    C : DispatchedRequestMaterializationGraphContext {
+        return { drmgc: DispatchedRequestMaterializationGraphContext ->
+            drmgc.requestMaterializationGraph.passThruColumns
+                .asSequence()
+                .map { c: String ->
+                    drmgc.variables
+                        .getOrNone(c)
+                        .map { jn: JsonNode -> c to jn }
+                        .successIfDefined {
+                            ServiceError.of(
+                                "passthru_column [ %s ] expected but not found in variables set",
+                                c
+                            )
+                        }
+                }
+                .tryFold(persistentMapOf<String, JsonNode>(), PersistentMap<String, JsonNode>::plus)
+                .map { pm: PersistentMap<String, JsonNode> ->
+                    drmgc.update { addAllPassThruColumns(pm) }
+                }
+                .toMono()
+        }
     }
 
     private fun <C> dispatchAllTransformerCallablesWithinContext():
