@@ -40,7 +40,7 @@ object TryExtensions {
         return this.fold({ s: S -> Success<S>(s) }, { t: Throwable -> Failure<S>(t) })
     }
 
-    inline fun <reified S : Any, reified R : Any> Sequence<Try<S>>.foldTry(
+    inline fun <reified S : Any, reified R : Any> Sequence<Try<S>>.tryFold(
         initial: R,
         crossinline accumulator: (R, S) -> R
     ): Try<R> {
@@ -58,11 +58,11 @@ object TryExtensions {
         }
     }
 
-    inline fun <reified S : Any, reified R : Any> Iterable<Try<S>>.foldTry(
+    inline fun <reified S : Any, reified R : Any> Iterable<Try<S>>.tryFold(
         initial: R,
         crossinline accumulator: (R, S) -> R
     ): Try<R> {
-        return this.asSequence().foldTry(initial, accumulator)
+        return this.asSequence().tryFold(initial, accumulator)
     }
 
     inline fun <reified T : Any, reified R : Any> Iterable<T>.foldIntoTry(
@@ -72,7 +72,7 @@ object TryExtensions {
         return this.asSequence().foldIntoTry(initial, accumulator)
     }
 
-    inline fun <reified S : Any, reified R : Any> Stream<Try<S>>.reduceTry(
+    inline fun <reified S : Any, reified R : Any> Stream<Try<S>>.tryReduce(
         initial: R,
         crossinline accumulator: (R, S) -> R,
         crossinline combiner: (R, R) -> R

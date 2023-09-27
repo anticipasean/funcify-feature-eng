@@ -28,9 +28,9 @@ import funcify.feature.tools.extensions.StreamExtensions.recurse
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.extensions.TryExtensions.failure
 import funcify.feature.tools.extensions.TryExtensions.foldIntoTry
-import funcify.feature.tools.extensions.TryExtensions.foldTry
-import funcify.feature.tools.extensions.TryExtensions.reduceTry
 import funcify.feature.tools.extensions.TryExtensions.successIfDefined
+import funcify.feature.tools.extensions.TryExtensions.tryFold
+import funcify.feature.tools.extensions.TryExtensions.tryReduce
 import funcify.feature.tools.json.JsonMapper
 import funcify.feature.tools.json.MappingTarget.Companion.toKotlinObject
 import graphql.language.Value
@@ -236,7 +236,7 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                             }
                         }
                     }
-                    .foldTry(
+                    .tryFold(
                         persistentMapOf<GQLOperationPath, JsonNode>() to
                             persistentMapOf<String, JsonNode>()
                     ) { maps, (p: GQLOperationPath, n: String, jn: JsonNode) ->
@@ -376,7 +376,7 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                             }
                         }
                     }
-                    .foldTry(persistentMapOf<GQLOperationPath, JsonNode>()) {
+                    .tryFold(persistentMapOf<GQLOperationPath, JsonNode>()) {
                         pm,
                         (p: GQLOperationPath, jn: JsonNode) ->
                         pm.put(p, jn)
@@ -602,7 +602,7 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                                     .map { name: String -> name to jn }
                             }
                     }
-                    .foldTry(
+                    .tryFold(
                         trackableValueFactory
                             .builder()
                             .graphQLOutputType(
@@ -655,7 +655,7 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                     }
                 }
             }
-            .foldTry(persistentMapOf<GQLOperationPath, Mono<JsonNode>>()) {
+            .tryFold(persistentMapOf<GQLOperationPath, Mono<JsonNode>>()) {
                 pm: PersistentMap<GQLOperationPath, Mono<JsonNode>>,
                 (p: GQLOperationPath, e: MaterializationEdge) ->
                 when (e) {
@@ -804,7 +804,7 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                     }
                 }
             }
-            .reduceTry(
+            .tryReduce(
                 persistentListOf(),
                 PersistentList<DirectedLine<GQLOperationPath>>::add,
                 PersistentList<DirectedLine<GQLOperationPath>>::addAll
@@ -814,10 +814,7 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                     dataElementLines.isEmpty() -> {
                         Try.success<Option<DirectedLine<GQLOperationPath>>>(None)
                     }
-                    dataElementLines.size == 1 -> {
-                        Try.success(dataElementLines[0].toOption())
-                    }
-                    else -> {
+                    dataElementLines.size > 1 -> {
                         Try.failure<Option<DirectedLine<GQLOperationPath>>> {
                             ServiceError.of(
                                 """more than one data_element edge found 
@@ -828,6 +825,9 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                                 dataElementLines.asSequence().joinToString(", ")
                             )
                         }
+                    }
+                    else -> {
+                        Try.success(dataElementLines[0].toOption())
                     }
                 }
             }
@@ -880,6 +880,7 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                                     .toList()
                             )
                         }
+                    // TODO: Support of array indexing on subnodes necessary
                     JsonNodeValueExtractionByOperationPath.invoke(jn, childPath)
                         .successIfDefined {
                             ServiceError.of(

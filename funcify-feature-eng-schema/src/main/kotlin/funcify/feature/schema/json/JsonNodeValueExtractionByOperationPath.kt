@@ -81,6 +81,7 @@ object JsonNodeValueExtractionByOperationPath : (JsonNode, GQLOperationPath) -> 
         topLevelJsonNode: JsonNode,
         pathToExtract: GQLOperationPath
     ): Option<JsonNode> {
+        // TODO: Contract and logic needs to be adjusted for handling of JSON ArrayNode sub nodes
         return jsonPointerForPath.invoke(pathToExtract).flatMap { jp: JsonPointer ->
             Option.catch(
                 { t: Throwable ->
