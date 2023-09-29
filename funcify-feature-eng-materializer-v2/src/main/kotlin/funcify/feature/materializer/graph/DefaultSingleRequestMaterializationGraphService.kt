@@ -6,6 +6,7 @@ import arrow.core.toOption
 import com.google.common.cache.CacheBuilder
 import funcify.feature.error.ServiceError
 import funcify.feature.graph.PersistentGraphFactory
+import funcify.feature.graph.line.Line
 import funcify.feature.materializer.graph.component.DefaultQueryComponentContextFactory
 import funcify.feature.materializer.graph.component.QueryComponentContext
 import funcify.feature.materializer.graph.component.QueryComponentContextFactory
@@ -317,13 +318,59 @@ internal class DefaultSingleRequestMaterializationGraphService(
                 }
             }
             .doOnNext { rmgc: RequestMaterializationGraphContext ->
+                val vertexStringifier: (QueryComponentContext?) -> String =
+                    { qcc: QueryComponentContext? ->
+                        qcc?.run {
+                            this::class
+                                .supertypes
+                                .asSequence()
+                                .mapNotNull(KType::classifier)
+                                .filterIsInstance<KClass<*>>()
+                                .filter(QueryComponentContext::class::isSuperclassOf)
+                                .mapNotNull(KClass<*>::simpleName)
+                                .firstOrNull()
+                        }
+                            ?: "<NA>"
+                    }
                 logger.debug(
                     "generated_graph: \n{}",
-                    rmgc.requestGraph.stringify(
-                        vertexStringifier = { qcc: QueryComponentContext ->
-                            qcc::class.simpleName ?: "<NA>"
+                    buildString {
+                        append("vertices: [\n")
+                        rmgc.requestGraph.foldLeftVertices(this) {
+                            sb: StringBuilder,
+                            (p: GQLOperationPath, v: QueryComponentContext) ->
+                            sb.append("  ")
+                                .append("[")
+                                .append(p)
+                                .append("]: ")
+                                .append(vertexStringifier(v))
+                                .append("\n")
                         }
-                    )
+                        append("]\n")
+                        append("edges: [\n")
+                        rmgc.requestGraph.foldLeftEdges(this) {
+                            sb: StringBuilder,
+                            (l: Line<GQLOperationPath>, e: MaterializationEdge) ->
+                            sb.append("  ")
+                                .append("[")
+                                .append(l.component1())
+                                .append("]")
+                                .append(": ")
+                                .append(vertexStringifier(rmgc.requestGraph[l.component1()]))
+                                .append("  --> ")
+                                .append("[")
+                                .append(e)
+                                .append("]")
+                                .append("  -->  ")
+                                .append("[")
+                                .append(l.component2())
+                                .append("]")
+                                .append(": ")
+                                .append(vertexStringifier(rmgc.requestGraph[l.component2()]))
+                                .append("\n")
+                        }
+                        append("]\n")
+                    }
                 )
             }
     }

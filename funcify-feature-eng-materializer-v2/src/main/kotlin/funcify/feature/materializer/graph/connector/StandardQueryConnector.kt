@@ -13,12 +13,7 @@ import funcify.feature.schema.dataelement.DataElementCallable
 import funcify.feature.schema.dataelement.DomainSpecifiedDataElementSource
 import funcify.feature.schema.feature.FeatureCalculatorCallable
 import funcify.feature.schema.feature.FeatureSpecifiedFeatureCalculator
-import funcify.feature.schema.path.operation.AliasedFieldSegment
-import funcify.feature.schema.path.operation.FieldSegment
-import funcify.feature.schema.path.operation.FragmentSpreadSegment
 import funcify.feature.schema.path.operation.GQLOperationPath
-import funcify.feature.schema.path.operation.InlineFragmentSegment
-import funcify.feature.schema.path.operation.SelectionSegment
 import funcify.feature.schema.transformer.TransformerCallable
 import funcify.feature.schema.transformer.TransformerSpecifiedTransformerSource
 import funcify.feature.tools.container.attempt.Try
@@ -30,7 +25,6 @@ import funcify.feature.tools.extensions.TryExtensions.successIfDefined
 import graphql.introspection.Introspection
 import graphql.language.Argument
 import graphql.language.Field
-import graphql.language.Node
 import graphql.language.NullValue
 import graphql.language.Value
 import graphql.language.VariableReference
@@ -148,6 +142,63 @@ object StandardQueryConnector : RequestMaterializationGraphConnector<StandardQue
                 fieldArgumentComponentContext.fieldCoordinates to a.name
             val e: MaterializationEdge =
                 when {
+                    // Case 1: Raw input context contains entry for parent field or alias of parent
+                    // field
+                    connectorContext.requestGraph
+                        .get(fieldPath)
+                        .toOption()
+                        .filterIsInstance<SelectedFieldComponentContext>()
+                        .map(SelectedFieldComponentContext::fieldCoordinates)
+                        .map(FieldCoordinates::getFieldName)
+                        .filter(connectorContext.rawInputContextKeys::contains)
+                        .orElse {
+                            connectorContext.materializationMetamodel.aliasCoordinatesRegistry
+                                .getAllAliasesForField(faLoc.first)
+                                .asSequence()
+                                .filter(connectorContext.rawInputContextKeys::contains)
+                                .firstOrNone()
+                        }
+                        .isDefined() -> {
+                        MaterializationEdge.RAW_INPUT_VALUE_PROVIDED
+                    }
+                    // Case 2: Raw input context contains entry for field argument that is set to
+                    // its default argument value or alias thereof
+                    fieldArgumentComponentContext.argument.value
+                        .toOption()
+                        .filterNot(VariableReference::class::isInstance)
+                        .and(
+                            connectorContext.materializationMetamodel
+                                .domainSpecifiedDataElementSourceByCoordinates
+                                .getOrNone(faLoc.first)
+                                .map(
+                                    DomainSpecifiedDataElementSource::
+                                        argumentsWithDefaultValuesByName
+                                )
+                                .flatMap { awdvn: ImmutableMap<String, GraphQLArgument> ->
+                                    awdvn.getOrNone(fieldArgumentComponentContext.argument.name)
+                                }
+                                .filter { ga: GraphQLArgument ->
+                                    fieldArgumentComponentContext.argument.value ==
+                                        ga.argumentDefaultValue.value
+                                }
+                        )
+                        .and(
+                            a.name
+                                .toOption()
+                                .filter(connectorContext.rawInputContextKeys::contains)
+                                .orElse {
+                                    connectorContext.materializationMetamodel
+                                        .aliasCoordinatesRegistry
+                                        .getAllAliasesForFieldArgument(faLoc)
+                                        .asSequence()
+                                        .filter(connectorContext.rawInputContextKeys::contains)
+                                        .firstOrNone()
+                                }
+                        )
+                        .isDefined() -> {
+                        MaterializationEdge.RAW_INPUT_VALUE_PROVIDED
+                    }
+                    // Case 3: Variable key matches variable reference for argument
                     fieldArgumentComponentContext.argument.value
                         .toOption()
                         .filterIsInstance<VariableReference>()
@@ -156,54 +207,73 @@ object StandardQueryConnector : RequestMaterializationGraphConnector<StandardQue
                         .isDefined() -> {
                         MaterializationEdge.VARIABLE_VALUE_PROVIDED
                     }
-                    connectorContext.rawInputContextKeys.contains(a.name) ||
-                        connectorContext.materializationMetamodel.aliasCoordinatesRegistry
-                            .getAllAliasesForFieldArgument(faLoc)
-                            .any { n: String ->
-                                connectorContext.rawInputContextKeys.contains(n)
-                            } -> {
-                        MaterializationEdge.RAW_INPUT_VALUE_PROVIDED
-                    }
-                    connectorContext.requestGraph[fieldPath]
-                        .toOption()
-                        .filterIsInstance<SelectedFieldComponentContext>()
-                        .map(SelectedFieldComponentContext::field)
-                        .flatMap { n: Node<*> ->
-                            n.toOption().filterIsInstance<Field>().map(Field::getName).orElse {
-                                fieldPath.selection.lastOrNone().map { ss: SelectionSegment ->
-                                    when (ss) {
-                                        is FieldSegment -> ss.fieldName
-                                        is AliasedFieldSegment -> ss.fieldName
-                                        is FragmentSpreadSegment -> ss.selectedField.fieldName
-                                        is InlineFragmentSegment -> ss.selectedField.fieldName
-                                    }
-                                }
-                            }
-                        }
-                        .filter(connectorContext.rawInputContextKeys::contains)
-                        .isDefined() -> {
-                        MaterializationEdge.RAW_INPUT_VALUE_PROVIDED
-                    }
+                    // Case 4: Argument value is not a variable reference, argument is not one with
+                    // default values, and argument value provided
+                    // Assumes validation function has asserted argument.value is of expected type
+                    // for
+                    // argument
                     a.value
                         .toOption()
-                        .filterNot { v: Value<*> -> v !is VariableReference }
+                        .filterNot(VariableReference::class::isInstance)
                         .and(
                             connectorContext.materializationMetamodel
-                                .domainSpecifiedDataElementSourceByPath
-                                .getOrNone(fieldPath)
+                                .domainSpecifiedDataElementSourceByCoordinates
+                                .getOrNone(faLoc.first)
+                                .map(
+                                    DomainSpecifiedDataElementSource::
+                                        argumentsWithoutDefaultValuesByName
+                                )
+                                .filter { awdvn: ImmutableMap<String, GraphQLArgument> ->
+                                    awdvn.containsKey(a.name)
+                                }
+                        )
+                        .isDefined() -> {
+                        MaterializationEdge.DIRECT_ARGUMENT_VALUE_PROVIDED
+                    }
+                    // Case 5: Argument value is not a variable reference, argument is one with
+                    // default values, and argument value provided that is not the default value
+                    // Assumes validation function has asserted argument.value is of expected type
+                    // for
+                    // argument
+                    a.value
+                        .toOption()
+                        .filterNot(VariableReference::class::isInstance)
+                        .and(
+                            connectorContext.materializationMetamodel
+                                .domainSpecifiedDataElementSourceByCoordinates
+                                .getOrNone(faLoc.first)
                                 .map(
                                     DomainSpecifiedDataElementSource::
                                         argumentsWithDefaultValuesByName
                                 )
-                                .map { m: ImmutableMap<String, GraphQLArgument> ->
-                                    m.containsKey(a.name) ||
-                                        connectorContext.materializationMetamodel
-                                            .aliasCoordinatesRegistry
-                                            .getAllAliasesForFieldArgument(faLoc)
-                                            .any { n: String -> m.containsKey(n) }
+                                .flatMap { awdvn: ImmutableMap<String, GraphQLArgument> ->
+                                    awdvn.getOrNone(a.name)
+                                }
+                                .filter { ga: GraphQLArgument ->
+                                    a.value != ga.argumentDefaultValue.value
                                 }
                         )
-                        .getOrElse { false } -> {
+                        .isDefined() -> {
+                        MaterializationEdge.DIRECT_ARGUMENT_VALUE_PROVIDED
+                    }
+                    // Case 6: Argument value is not a variable reference and default argument value
+                    // provided for argument
+                    a.value
+                        .toOption()
+                        .filterNot(VariableReference::class::isInstance)
+                        .and(
+                            connectorContext.materializationMetamodel
+                                .domainSpecifiedDataElementSourceByCoordinates
+                                .getOrNone(faLoc.first)
+                                .map(
+                                    DomainSpecifiedDataElementSource::
+                                        argumentsWithDefaultValuesByName
+                                )
+                                .filter { awodvn: ImmutableMap<String, GraphQLArgument> ->
+                                    awodvn.containsKey(a.name)
+                                }
+                        )
+                        .isDefined() -> {
                         MaterializationEdge.DEFAULT_ARGUMENT_VALUE_PROVIDED
                     }
                     else -> {
@@ -1069,7 +1139,90 @@ object StandardQueryConnector : RequestMaterializationGraphConnector<StandardQue
             "connect_selected_transformer_argument: [ field_argument_component_context.path: {} ]",
             fieldArgumentComponentContext.path
         )
-        return connectorContext
+        return connectorContext.update(
+            connectTransformerFieldToTransformerArgument(
+                connectorContext,
+                fieldArgumentComponentContext
+            )
+        )
+    }
+
+    private fun connectTransformerFieldToTransformerArgument(
+        connectorContext: StandardQuery,
+        fieldArgumentComponentContext: FieldArgumentComponentContext,
+    ): (StandardQuery.Builder) -> StandardQuery.Builder {
+        return { sqb: StandardQuery.Builder ->
+            val fp: GQLOperationPath =
+                fieldArgumentComponentContext.path
+                    .getParentPath()
+                    .filter { p: GQLOperationPath ->
+                        connectorContext.requestGraph
+                            .get(p)
+                            .toOption()
+                            .filterIsInstance<SelectedFieldComponentContext>()
+                            .filter { sfcc: SelectedFieldComponentContext ->
+                                sfcc.fieldCoordinates ==
+                                    fieldArgumentComponentContext.fieldCoordinates
+                            }
+                            .isDefined()
+                    }
+                    .successIfDefined {
+                        ServiceError.of(
+                            """transformer_field [ path: %s ] corresponding 
+                            |to transformer_argument [ path: %s ] 
+                            |not found in request_graph"""
+                                .flatten(),
+                            fieldArgumentComponentContext.path.getParentPath().orNull(),
+                            fieldArgumentComponentContext.path
+                        )
+                    }
+                    .orElseThrow()
+            val e: MaterializationEdge =
+                when {
+                    fieldArgumentComponentContext.argument.value
+                        .toOption()
+                        .filterIsInstance<VariableReference>()
+                        .filter { vr: VariableReference ->
+                            vr.name in connectorContext.variableKeys
+                        }
+                        .isDefined() -> {
+                        MaterializationEdge.VARIABLE_VALUE_PROVIDED
+                    }
+                    fieldArgumentComponentContext.argument.value
+                        .toOption()
+                        .filter { v: Value<*> -> v !is NullValue }
+                        .isDefined() -> {
+                        MaterializationEdge.DIRECT_ARGUMENT_VALUE_PROVIDED
+                    }
+                    connectorContext.materializationMetamodel
+                        .transformerSpecifiedTransformerSourcesByCoordinates
+                        .getOrNone(fieldArgumentComponentContext.fieldCoordinates)
+                        .map(TransformerSpecifiedTransformerSource::argumentsByName)
+                        .flatMap { aByName: ImmutableMap<String, GraphQLArgument> ->
+                            aByName.getOrNone(fieldArgumentComponentContext.argument.name)
+                        }
+                        .filter { ga: GraphQLArgument -> ga.hasSetDefaultValue() }
+                        .isDefined() -> {
+                        MaterializationEdge.DEFAULT_ARGUMENT_VALUE_PROVIDED
+                    }
+                    else -> {
+                        throw ServiceError.of(
+                            """unable to connect transformer field [ path: %s ] 
+                            |to its argument [ path: %s ]; 
+                            |variable, default argument, or direct argument value 
+                            |is missing"""
+                                .flatten(),
+                            fieldArgumentComponentContext.path.getParentPath().orNull(),
+                            fieldArgumentComponentContext.path
+                        )
+                    }
+                }
+            sqb.requestGraph(
+                connectorContext.requestGraph
+                    .put(fieldArgumentComponentContext.path, fieldArgumentComponentContext)
+                    .putEdge(fp, fieldArgumentComponentContext.path, e)
+            )
+        }
     }
 
     override fun connectSelectedField(
@@ -1323,9 +1476,6 @@ object StandardQueryConnector : RequestMaterializationGraphConnector<StandardQue
             selectedFieldComponentContext.path
         )
         return when {
-            selectedFieldComponentContext.path in connectorContext.transformerCallablesByPath -> {
-                connectorContext
-            }
             selectedFieldComponentContext.fieldCoordinates in
                 connectorContext.materializationMetamodel
                     .transformerSpecifiedTransformerSourcesByCoordinates -> {
@@ -1360,7 +1510,13 @@ object StandardQueryConnector : RequestMaterializationGraphConnector<StandardQue
                         )
                     }
                     .orElseThrow()
-            sqb.putTransformerCallableForPath(
+            sqb.requestGraph(
+                    connectorContext.requestGraph.put(
+                        selectedFieldComponentContext.path,
+                        selectedFieldComponentContext
+                    )
+                )
+                .putTransformerCallableForPath(
                     selectedFieldComponentContext.path,
                     tsts.transformerSource
                         .builder()

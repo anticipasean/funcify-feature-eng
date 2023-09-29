@@ -208,6 +208,7 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                                 .failure()
                         } else {
                             when (e) {
+                                MaterializationEdge.DIRECT_ARGUMENT_VALUE_PROVIDED,
                                 MaterializationEdge.DEFAULT_ARGUMENT_VALUE_PROVIDED -> {
                                     context.requestMaterializationGraph.requestGraph
                                         .get(l.destinationPoint)
@@ -223,7 +224,7 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                                         }
                                         .successIfDefined {
                                             ServiceError.of(
-                                                "unable to extract default argument.value as json for argument [ path: %s ]",
+                                                "unable to extract direct or default argument.value as json for argument [ path: %s ]",
                                                 l.destinationPoint
                                             )
                                         }
@@ -809,8 +810,7 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                     l.destinationPoint
                 )
             }
-            .map { (l: DirectedLine<GQLOperationPath>, e: MaterializationEdge),
-                ->
+            .map { (l: DirectedLine<GQLOperationPath>, e: MaterializationEdge) ->
                 when {
                     e == MaterializationEdge.EXTRACT_FROM_SOURCE &&
                         l.destinationPoint in context.dataElementPublishersByPath -> {
@@ -857,8 +857,7 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                     }
                 }
             }
-            .flatMap { dataElementLine: Option<DirectedLine<GQLOperationPath>>,
-                ->
+            .flatMap { dataElementLine: Option<DirectedLine<GQLOperationPath>> ->
                 when (val del: DirectedLine<GQLOperationPath>? = dataElementLine.orNull()) {
                     null -> {
                         createArgumentPublisherForDependentFeature(
@@ -931,14 +930,13 @@ internal class DefaultSingleRequestMaterializationDispatchService(
     ): Try<Pair<GQLOperationPath, Mono<JsonNode>>> {
         return context.featureCalculatorPublishersByPath
             .getOrNone(argumentPath)
-            .filter { fps: ImmutableList<Mono<TrackableValue<JsonNode>>>,
-                -> // TODO: Figure out the correct index to fetch
+            .filter { fps: ImmutableList<Mono<TrackableValue<JsonNode>>> ->
+                // TODO: Figure out the correct index to fetch
                 // from dependent
                 // feature list of trackable value publishers
                 argumentGroupIndex in fps.indices
             }
-            .map { fps: ImmutableList<Mono<TrackableValue<JsonNode>>>,
-                ->
+            .map { fps: ImmutableList<Mono<TrackableValue<JsonNode>>> ->
                 fps.get(argumentGroupIndex)
             }
             .map { fp: Mono<TrackableValue<JsonNode>> ->
@@ -978,7 +976,14 @@ internal class DefaultSingleRequestMaterializationDispatchService(
     private fun createDispatchedRequestMaterializationGraphFromContext():
         (DispatchedRequestMaterializationGraphContext) -> DispatchedRequestMaterializationGraph {
         return { drmgc: DispatchedRequestMaterializationGraphContext ->
-            TODO("not yet implemented")
+            DefaultDispatchedRequestMaterializationGraph(
+                materializedArgumentsByPath = drmgc.materializedArgumentsByPath,
+                transformerPublishersByPath = drmgc.transformerPublishersByPath,
+                dataElementPublishersByPath = drmgc.dataElementPublishersByPath,
+                plannedFeatureValuesByPath = drmgc.plannedFeatureValuesByPath,
+                featureCalculatorPublishersByPath = drmgc.featureCalculatorPublishersByPath,
+                passThruColumns = drmgc.passThruColumns,
+            )
         }
     }
 }
