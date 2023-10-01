@@ -40,17 +40,18 @@ internal class DefaultSingleRequestRawInputContextExtractor(private val jsonMapp
                 Mono.just(session)
             }
             else -> {
-                extractRawInputContextFromRawRequest(session.rawGraphQLRequest).map {
-                    ric: RawInputContext ->
-                    session.update {
-                        rawGraphQLRequest(
-                            session.rawGraphQLRequest.update {
-                                removeVariable(RawInputContext.RAW_INPUT_CONTEXT_VARIABLE_KEY)
-                            }
-                        )
-                        rawInputContext(ric)
+                extractRawInputContextFromRawRequest(session.rawGraphQLRequest)
+                    .doOnNext { ric: RawInputContext -> logger.debug("raw_input_context: {}", ric) }
+                    .map { ric: RawInputContext ->
+                        session.update {
+                            rawGraphQLRequest(
+                                session.rawGraphQLRequest.update {
+                                    removeVariable(RawInputContext.RAW_INPUT_CONTEXT_VARIABLE_KEY)
+                                }
+                            )
+                            rawInputContext(ric)
+                        }
                     }
-                }
             }
         }
     }

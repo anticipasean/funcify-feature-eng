@@ -321,16 +321,16 @@ internal class DefaultSingleRequestMaterializationGraphService(
                 val vertexStringifier: (QueryComponentContext?) -> String =
                     { qcc: QueryComponentContext? ->
                         qcc?.run {
-                            this::class
-                                .supertypes
-                                .asSequence()
-                                .mapNotNull(KType::classifier)
-                                .filterIsInstance<KClass<*>>()
-                                .filter(QueryComponentContext::class::isSuperclassOf)
-                                .mapNotNull(KClass<*>::simpleName)
-                                .firstOrNull()
-                        }
-                            ?: "<NA>"
+                                this::class
+                                    .supertypes
+                                    .asSequence()
+                                    .mapNotNull(KType::classifier)
+                                    .filterIsInstance<KClass<*>>()
+                                    .filter(QueryComponentContext::class::isSuperclassOf)
+                                    .mapNotNull(KClass<*>::simpleName)
+                                    .firstOrNull()
+                            }
+                            .orEmpty()
                     }
                 logger.debug(
                     "generated_graph: \n{}",

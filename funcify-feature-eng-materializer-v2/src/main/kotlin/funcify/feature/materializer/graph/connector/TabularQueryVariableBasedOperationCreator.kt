@@ -7,6 +7,7 @@ import arrow.core.orElse
 import arrow.core.toOption
 import funcify.feature.error.ServiceError
 import funcify.feature.materializer.graph.component.QueryComponentContext
+import funcify.feature.materializer.graph.component.QueryComponentContext.SelectedFieldComponentContext
 import funcify.feature.materializer.graph.connector.TabularQueryVariableBasedOperationCreator.TabularQueryCompositionContext.*
 import funcify.feature.materializer.graph.context.TabularQuery
 import funcify.feature.schema.dataelement.DomainSpecifiedDataElementSource
@@ -19,6 +20,7 @@ import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPer
 import funcify.feature.tools.extensions.SequenceExtensions.firstOrNone
 import funcify.feature.tools.extensions.SequenceExtensions.flatMapOptions
 import funcify.feature.tools.extensions.StringExtensions.flatten
+import graphql.language.Field
 import graphql.schema.FieldCoordinates
 import graphql.schema.GraphQLArgument
 import kotlinx.collections.immutable.*
@@ -42,7 +44,10 @@ internal object TabularQueryVariableBasedOperationCreator :
             .filter(contextContainsErrors(), createAggregateErrorFromContext())
             .map(determineAllDomainDataElementSourcePathsWithCompleteArgumentSets(tabularQuery))
             .filter(contextContainsErrors(), createAggregateErrorFromContext())
-            .map(matchExpectedOutputColumnNamesToFeaturePathsOrDataElementPaths(tabularQuery))
+            .map(matchExpectedOutputColumnNamesToFeaturePathsOrDataElementCoordinates(tabularQuery))
+            .filter(contextContainsErrors(), createAggregateErrorFromContext())
+            .map(connectDataElementCoordinatesToPathsUnderSupportedSources(tabularQuery))
+            .filter(contextContainsErrors(), createAggregateErrorFromContext())
         TODO("Not yet implemented")
     }
 
@@ -63,7 +68,8 @@ internal object TabularQueryVariableBasedOperationCreator :
                                 ServiceError.of(
                                     """variable [ key: %s ] does not match 
                                     |any of the names or aliases 
-                                    |for arguments to supported data element sources"""
+                                    |for arguments to supported data element 
+                                    |sources for a tabular query"""
                                         .flatten(),
                                     vk
                                 )
@@ -84,13 +90,14 @@ internal object TabularQueryVariableBasedOperationCreator :
     ): Option<ImmutableSet<GQLOperationPath>> {
         return tabularQuery.materializationMetamodel.dataElementPathByFieldArgumentName
             .getOrNone(variableKey)
+            .filter(ImmutableSet<GQLOperationPath>::isNotEmpty)
             .orElse {
                 tabularQuery.materializationMetamodel.aliasCoordinatesRegistry
                     .getFieldArgumentsWithAlias(variableKey)
                     .toOption()
                     .filter(ImmutableSet<Pair<FieldCoordinates, String>>::isNotEmpty)
-                    .map { faLocs: ImmutableSet<Pair<FieldCoordinates, String>> ->
-                        faLocs
+                    .map { fieldArgumentLocations: ImmutableSet<Pair<FieldCoordinates, String>> ->
+                        fieldArgumentLocations
                             .asSequence()
                             .map { (fc: FieldCoordinates, argName: String) ->
                                 tabularQuery.materializationMetamodel
@@ -107,43 +114,6 @@ internal object TabularQueryVariableBasedOperationCreator :
             }
     }
 
-    private fun determineAllDomainDataElementSourcePathsWithCompleteArgumentSets(
-        tabularQuery: TabularQuery
-    ): (TabularQueryCompositionContext) -> TabularQueryCompositionContext {
-        return { tqcc: TabularQueryCompositionContext ->
-            tqcc.update {
-                tqcc.argumentPathSetsForVariables
-                    .asSequence()
-                    .map(Map.Entry<String, ImmutableSet<GQLOperationPath>>::value)
-                    .flatMap(ImmutableSet<GQLOperationPath>::asSequence)
-                    .flatMap { p: GQLOperationPath ->
-                        p.getParentPath().map { pp: GQLOperationPath -> pp to p }.sequence()
-                    }
-                    .reducePairsToPersistentSetValueMap()
-                    .asSequence()
-                    .filter { (pp: GQLOperationPath, argPathsSet: Set<GQLOperationPath>) ->
-                        tabularQuery.materializationMetamodel.domainSpecifiedDataElementSourceByPath
-                            .getOrNone(pp)
-                            .map { dsdes: DomainSpecifiedDataElementSource ->
-                                // Must provide all arguments or at least those lacking default
-                                // argument values
-                                dsdes.argumentsByPath.size == argPathsSet.size ||
-                                    // TODO: Cacheable operation
-                                    dsdes.argumentsWithoutDefaultValuesByPath.asSequence().all {
-                                        (p: GQLOperationPath, _: GraphQLArgument) ->
-                                        argPathsSet.contains(p)
-                                    }
-                            }
-                            .getOrElse { false }
-                    }
-                    .map(Map.Entry<GQLOperationPath, Set<GQLOperationPath>>::key)
-                    .fold(this) { cb: Builder, p: GQLOperationPath ->
-                        cb.putDomainDataElementSourcePath(p)
-                    }
-            }
-        }
-    }
-
     private fun contextContainsErrors(): (TabularQueryCompositionContext) -> Boolean {
         return { tqcc: TabularQueryCompositionContext -> tqcc.errors.isNotEmpty() }
     }
@@ -157,7 +127,53 @@ internal object TabularQueryVariableBasedOperationCreator :
         }
     }
 
-    private fun matchExpectedOutputColumnNamesToFeaturePathsOrDataElementPaths(
+    private fun determineAllDomainDataElementSourcePathsWithCompleteArgumentSets(
+        tabularQuery: TabularQuery
+    ): (TabularQueryCompositionContext) -> TabularQueryCompositionContext {
+        return { tqcc: TabularQueryCompositionContext ->
+            tqcc.argumentPathSetsForVariables
+                .asSequence()
+                .map(Map.Entry<String, ImmutableSet<GQLOperationPath>>::value)
+                .flatMap(ImmutableSet<GQLOperationPath>::asSequence)
+                .flatMap { p: GQLOperationPath ->
+                    p.getParentPath().map { pp: GQLOperationPath -> pp to p }.sequence()
+                }
+                .reducePairsToPersistentSetValueMap()
+                .asSequence()
+                .filter { (pp: GQLOperationPath, argPathsSet: Set<GQLOperationPath>) ->
+                    tabularQuery.materializationMetamodel.domainSpecifiedDataElementSourceByPath
+                        .getOrNone(pp)
+                        .map { dsdes: DomainSpecifiedDataElementSource ->
+                            // Must provide all arguments or at least those lacking default
+                            // argument values
+                            dsdes.argumentsByPath.size == argPathsSet.size ||
+                                // TODO: Cacheable operation
+                                dsdes.argumentsWithoutDefaultValuesByPath.asSequence().all {
+                                    (p: GQLOperationPath, _: GraphQLArgument) ->
+                                    argPathsSet.contains(p)
+                                }
+                        }
+                        .getOrElse { false }
+                }
+                .map(Map.Entry<GQLOperationPath, Set<GQLOperationPath>>::key)
+                .toSet()
+                .let { dataElementDomainPaths: Set<GQLOperationPath> ->
+                    if (dataElementDomainPaths.isNotEmpty()) {
+                        tqcc.update { putAllDomainDataElementSourcePaths(dataElementDomainPaths) }
+                    } else {
+                        tqcc.update {
+                            addError(
+                                ServiceError.of(
+                                    "none of the data element arguments specified within variables set correspond to a _complete_ argument set for a domain data element source"
+                                )
+                            )
+                        }
+                    }
+                }
+        }
+    }
+
+    private fun matchExpectedOutputColumnNamesToFeaturePathsOrDataElementCoordinates(
         tabularQuery: TabularQuery
     ): (TabularQueryCompositionContext) -> TabularQueryCompositionContext {
         return { tqcc: TabularQueryCompositionContext ->
@@ -230,6 +246,7 @@ internal object TabularQueryVariableBasedOperationCreator :
     ): Option<ImmutableSet<FieldCoordinates>> {
         return tabularQuery.materializationMetamodel.dataElementFieldCoordinatesByFieldName
             .getOrNone(columnName)
+            .filter(ImmutableSet<FieldCoordinates>::isNotEmpty)
             .orElse {
                 tabularQuery.materializationMetamodel.aliasCoordinatesRegistry
                     .getFieldsWithAlias(columnName)
@@ -238,29 +255,131 @@ internal object TabularQueryVariableBasedOperationCreator :
             }
     }
 
+    private fun connectDataElementCoordinatesToPathsUnderSupportedSources(
+        tabularQuery: TabularQuery
+    ): (TabularQueryCompositionContext) -> TabularQueryCompositionContext {
+        return { tqcc: TabularQueryCompositionContext ->
+            tqcc.update {
+                tqcc.dataElementFieldCoordinatesByExpectedOutputColumnName
+                    .asSequence()
+                    .map { (cn: String, fcs: ImmutableSet<FieldCoordinates>) ->
+                        tqcc.domainDataElementSourcePaths
+                            .asSequence()
+                            .map { ddep: GQLOperationPath ->
+                                fcs.asSequence()
+                                    .map { fc: FieldCoordinates ->
+                                        tabularQuery.materializationMetamodel
+                                            .firstPathWithFieldCoordinatesUnderPath
+                                            .invoke(fc, ddep)
+                                            .map { p: GQLOperationPath -> fc to p }
+                                    }
+                                    .flatMapOptions()
+                                    .firstOrNone()
+                                    .map { (fc: FieldCoordinates, p: GQLOperationPath) ->
+                                        when {
+                                            fc.fieldName == cn -> {
+                                                tabularQuery.queryComponentContextFactory
+                                                    .selectedFieldComponentContextBuilder()
+                                                    .field(
+                                                        Field.newField().name(fc.fieldName).build()
+                                                    )
+                                                    .fieldCoordinates(fc)
+                                                    .canonicalPath(p)
+                                                    .path(p)
+                                                    .build()
+                                            }
+                                            else -> {
+                                                tabularQuery.queryComponentContextFactory
+                                                    .selectedFieldComponentContextBuilder()
+                                                    .field(
+                                                        Field.newField()
+                                                            .name(fc.fieldName)
+                                                            .alias(cn)
+                                                            .build()
+                                                    )
+                                                    .fieldCoordinates(fc)
+                                                    .canonicalPath(p)
+                                                    .path(
+                                                        p.transform {
+                                                            dropTailSelectionSegment()
+                                                            aliasedField(cn, fc.fieldName)
+                                                        }
+                                                    )
+                                                    .build()
+                                            }
+                                        }
+                                    }
+                            }
+                            .flatMapOptions()
+                            .toList()
+                            .let { sfccs: List<SelectedFieldComponentContext> -> cn to sfccs }
+                    }
+                    .fold(this) {
+                        tb: TabularQueryCompositionContext.Builder,
+                        (cn: String, sfccs: List<SelectedFieldComponentContext>) ->
+                        when {
+                            sfccs.isNotEmpty() -> {
+                                tb.putSelectedFieldComponentContextsForOutputColumnName(cn, sfccs)
+                            }
+                            else -> {
+                                tb.addError(
+                                    ServiceError.of(
+                                        """data element with [ column_name: %s ] 
+                                        |does not match path under domain data element 
+                                        |sources specified through variables 
+                                        |in the request"""
+                                            .flatten(),
+                                        cn
+                                    )
+                                )
+                            }
+                        }
+                    }
+            }
+        }
+    }
+
     private interface TabularQueryCompositionContext {
         val argumentPathSetsForVariables: ImmutableMap<String, ImmutableSet<GQLOperationPath>>
         val domainDataElementSourcePaths: ImmutableSet<GQLOperationPath>
         val featurePathByExpectedOutputColumnName: ImmutableMap<String, GQLOperationPath>
         val dataElementFieldCoordinatesByExpectedOutputColumnName:
             ImmutableMap<String, ImmutableSet<FieldCoordinates>>
+        val dataElementFieldComponentContextsByOutputColumnName:
+            ImmutableMap<String, ImmutableList<SelectedFieldComponentContext>>
         val errors: ImmutableList<ServiceError>
+
         fun update(transformer: Builder.() -> Builder): TabularQueryCompositionContext
+
         interface Builder {
             fun putArgumentPathSetForVariable(
                 variableKey: String,
                 argumentPathSet: Set<GQLOperationPath>
             ): Builder
+
             fun putDomainDataElementSourcePath(domainDataElementPath: GQLOperationPath): Builder
+
+            fun putAllDomainDataElementSourcePaths(
+                domainDataElementSourcePaths: Set<GQLOperationPath>
+            ): Builder
+
             fun putFeaturePathForExpectedOutputColumnName(
                 columnName: String,
                 featurePath: GQLOperationPath
             ): Builder
+
             fun putDataElementFieldCoordinatesForExpectedOutputColumnName(
                 columnName: String,
                 dataElementFieldCoordinatesSet: Set<FieldCoordinates>
             ): Builder
+
+            fun putSelectedFieldComponentContextsForOutputColumnName(
+                columnName: String,
+                selectedFieldComponentContexts: List<SelectedFieldComponentContext>
+            ): Builder
+
             fun addError(serviceError: ServiceError): Builder
+
             fun build(): TabularQueryCompositionContext
         }
     }
@@ -272,6 +391,8 @@ internal object TabularQueryVariableBasedOperationCreator :
         override val featurePathByExpectedOutputColumnName: PersistentMap<String, GQLOperationPath>,
         override val dataElementFieldCoordinatesByExpectedOutputColumnName:
             PersistentMap<String, PersistentSet<FieldCoordinates>>,
+        override val dataElementFieldComponentContextsByOutputColumnName:
+            PersistentMap<String, PersistentList<SelectedFieldComponentContext>>,
         override val errors: PersistentList<ServiceError>,
     ) : TabularQueryCompositionContext {
         companion object {
@@ -281,9 +402,11 @@ internal object TabularQueryVariableBasedOperationCreator :
                     domainDataElementSourcePaths = persistentSetOf(),
                     featurePathByExpectedOutputColumnName = persistentMapOf(),
                     dataElementFieldCoordinatesByExpectedOutputColumnName = persistentMapOf(),
+                    dataElementFieldComponentContextsByOutputColumnName = persistentMapOf(),
                     errors = persistentListOf()
                 )
             }
+
             private class DefaultBuilder(
                 private val existingContext: DefaultTabularQueryCompositionContext,
                 private val argumentPathSetsForVariables:
@@ -297,6 +420,9 @@ internal object TabularQueryVariableBasedOperationCreator :
                 private val dataElementFieldCoordinatesByExpectedOutputColumnName:
                     PersistentMap.Builder<String, PersistentSet<FieldCoordinates>> =
                     existingContext.dataElementFieldCoordinatesByExpectedOutputColumnName.builder(),
+                private val dataElementFieldComponentContextsByOutputColumnName:
+                    PersistentMap.Builder<String, PersistentList<SelectedFieldComponentContext>> =
+                    existingContext.dataElementFieldComponentContextsByOutputColumnName.builder(),
                 private val errors: PersistentList.Builder<ServiceError> =
                     existingContext.errors.builder()
             ) : Builder {
@@ -316,6 +442,13 @@ internal object TabularQueryVariableBasedOperationCreator :
                     domainDataElementPath: GQLOperationPath
                 ): Builder =
                     this.apply { this.domainDataElementSourcePaths.add(domainDataElementPath) }
+
+                override fun putAllDomainDataElementSourcePaths(
+                    domainDataElementSourcePaths: Set<GQLOperationPath>
+                ): Builder =
+                    this.apply {
+                        this.domainDataElementSourcePaths.addAll(domainDataElementSourcePaths)
+                    }
 
                 override fun putFeaturePathForExpectedOutputColumnName(
                     columnName: String,
@@ -339,6 +472,19 @@ internal object TabularQueryVariableBasedOperationCreator :
                         )
                     }
 
+                override fun putSelectedFieldComponentContextsForOutputColumnName(
+                    columnName: String,
+                    selectedFieldComponentContexts: List<SelectedFieldComponentContext>
+                ): Builder =
+                    this.apply {
+                        this.dataElementFieldComponentContextsByOutputColumnName.put(
+                            columnName,
+                            this.dataElementFieldComponentContextsByOutputColumnName
+                                .getOrElse(columnName, ::persistentListOf)
+                                .addAll(selectedFieldComponentContexts)
+                        )
+                    }
+
                 override fun build(): TabularQueryCompositionContext {
                     return DefaultTabularQueryCompositionContext(
                         argumentPathSetsForVariables = argumentPathSetsForVariables.build(),
@@ -347,11 +493,14 @@ internal object TabularQueryVariableBasedOperationCreator :
                             featurePathByExpectedOutputColumnName.build(),
                         dataElementFieldCoordinatesByExpectedOutputColumnName =
                             dataElementFieldCoordinatesByExpectedOutputColumnName.build(),
+                        dataElementFieldComponentContextsByOutputColumnName =
+                            dataElementFieldComponentContextsByOutputColumnName.build(),
                         errors = errors.build()
                     )
                 }
             }
         }
+
         override fun update(transformer: Builder.() -> Builder): TabularQueryCompositionContext {
             return transformer.invoke(DefaultBuilder(this)).build()
         }
