@@ -368,28 +368,7 @@ internal object TabularQueryVariableBasedOperationCreator :
                     persistentMapOf<GQLOperationPath, PersistentSet<GQLOperationPath>>() to
                         persistentMapOf<GQLOperationPath, SelectedFieldComponentContext>()
                 ) { (childrenByParentPaths, dataElementContextsByPath), sfcc ->
-                    (childrenByParentPaths to sfcc.path)
-                        .toOption()
-                        .filter { (pm, p) -> p !in pm }
-                        .map { (pm, p) -> pm.put(p, pm.getOrElse(p, ::persistentSetOf)) to p }
-                        .recurse { (pm, p) ->
-                            when (val pp: GQLOperationPath? = p.getParentPath().orNull()) {
-                                null -> {
-                                    pm.right().some()
-                                }
-                                in pm -> {
-                                    pm.put(pp, pm.getOrElse(pp, ::persistentSetOf).add(p))
-                                        .right()
-                                        .some()
-                                }
-                                else -> {
-                                    (pm.put(pp, pm.getOrElse(pp, ::persistentSetOf).add(p)) to pp)
-                                        .left()
-                                        .some()
-                                }
-                            }
-                        }
-                        .getOrElse { childrenByParentPaths } to
+                    updateChildPathsByParentPathsMapWithPath(childrenByParentPaths, sfcc.path) to
                         dataElementContextsByPath.put(sfcc.path, sfcc)
                 }
                 .fold { childrenByParentPaths, dataElementContextsByPath ->
@@ -401,6 +380,30 @@ internal object TabularQueryVariableBasedOperationCreator :
                     )
                 }
         }
+    }
+
+    private fun updateChildPathsByParentPathsMapWithPath(
+        childrenByParentPaths: PersistentMap<GQLOperationPath, PersistentSet<GQLOperationPath>>,
+        nextPath: GQLOperationPath,
+    ): PersistentMap<GQLOperationPath, PersistentSet<GQLOperationPath>> {
+        return (childrenByParentPaths to nextPath)
+            .toOption()
+            .filter { (pm, p) -> p !in pm }
+            .map { (pm, p) -> pm.put(p, pm.getOrElse(p, ::persistentSetOf)) to p }
+            .recurse { (pm, p) ->
+                when (val pp: GQLOperationPath? = p.getParentPath().orNull()) {
+                    null -> {
+                        pm.right().some()
+                    }
+                    in pm -> {
+                        pm.put(pp, pm.getOrElse(pp, ::persistentSetOf).add(p)).right().some()
+                    }
+                    else -> {
+                        (pm.put(pp, pm.getOrElse(pp, ::persistentSetOf).add(p)) to pp).left().some()
+                    }
+                }
+            }
+            .getOrElse { childrenByParentPaths }
     }
 
     private fun createQueryComponentContextsForEachDataElementPath(
@@ -550,8 +553,120 @@ internal object TabularQueryVariableBasedOperationCreator :
         tabularQuery: TabularQuery
     ): (TabularQueryCompositionContext) -> TabularQueryCompositionContext {
         return { tqcc: TabularQueryCompositionContext ->
-            TODO("Creation of feature query component contexts not yet implemented")
+            tqcc.featurePathByExpectedOutputColumnName.values
+                .asSequence()
+                .fold(persistentMapOf<GQLOperationPath, PersistentSet<GQLOperationPath>>()) {
+                    childrenByParentPath,
+                    featurePath ->
+                    updateChildPathsByParentPathsMapWithPath(childrenByParentPath, featurePath)
+                }
+                .let { childrenByParentPath ->
+                    createQueryComponentContextsForEachFeaturePath(
+                        tabularQuery,
+                        tqcc,
+                        childrenByParentPath
+                    )
+                }
         }
+    }
+
+    private fun createQueryComponentContextsForEachFeaturePath(
+        tabularQuery: TabularQuery,
+        context: TabularQueryCompositionContext,
+        childrenByParentPaths: PersistentMap<GQLOperationPath, PersistentSet<GQLOperationPath>>
+    ): TabularQueryCompositionContext {
+        return sequenceOf(tabularQuery.materializationMetamodel.featureElementTypePath)
+            .recurse { p: GQLOperationPath ->
+                when {
+                    p in
+                        tabularQuery.materializationMetamodel
+                            .featureSpecifiedFeatureCalculatorsByPath -> {
+                        tabularQuery.materializationMetamodel
+                            .featureSpecifiedFeatureCalculatorsByPath
+                            .getOrNone(p)
+                            .sequence()
+                            .flatMap { fsfc: FeatureSpecifiedFeatureCalculator ->
+                                sequenceOf(
+                                        tabularQuery.queryComponentContextFactory
+                                            .selectedFieldComponentContextBuilder()
+                                            .field(Field.newField().name(fsfc.featureName).build())
+                                            .fieldCoordinates(fsfc.featureFieldCoordinates)
+                                            .path(fsfc.featurePath)
+                                            .canonicalPath(fsfc.featurePath)
+                                            .build()
+                                            .right()
+                                    )
+                                    .plus(
+                                        fsfc.argumentsByPath
+                                            .asSequence()
+                                            .map { (ap, ga) ->
+                                                tabularQuery.queryComponentContextFactory
+                                                    .fieldArgumentComponentContextBuilder()
+                                                    .argument(
+                                                        Argument.newArgument()
+                                                            .name(ga.name)
+                                                            .value(
+                                                                ga.argumentDefaultValue
+                                                                    .toOption()
+                                                                    .filter(
+                                                                        InputValueWithState::
+                                                                            isLiteral
+                                                                    )
+                                                                    .mapNotNull(
+                                                                        InputValueWithState::
+                                                                            getValue
+                                                                    )
+                                                                    .filterIsInstance<Value<*>>()
+                                                                    .successIfDefined {
+                                                                        ServiceError.of(
+                                                                            "default value could not be found for argument [ name: %s ]",
+                                                                            ga.name
+                                                                        )
+                                                                    }
+                                                                    .orElseThrow()
+                                                            )
+                                                            .build()
+                                                    )
+                                                    .fieldCoordinates(fsfc.featureFieldCoordinates)
+                                                    .path(ap)
+                                                    .canonicalPath(ap)
+                                                    .build()
+                                            }
+                                            .map(QueryComponentContext::right)
+                                    )
+                            }
+                    }
+                    else -> {
+                        tabularQuery.materializationMetamodel.fieldCoordinatesByPath
+                            .getOrNone(p)
+                            .map(ImmutableSet<FieldCoordinates>::asSequence)
+                            .fold(::emptySequence, ::identity)
+                            .firstOrNone()
+                            .map { fc: FieldCoordinates ->
+                                tabularQuery.queryComponentContextFactory
+                                    .selectedFieldComponentContextBuilder()
+                                    .field(Field.newField().name(fc.fieldName).build())
+                                    .fieldCoordinates(fc)
+                                    .canonicalPath(p)
+                                    .path(p)
+                                    .build()
+                                    .right()
+                            }
+                            .sequence()
+                            .plus(
+                                childrenByParentPaths
+                                    .getOrNone(p)
+                                    .sequence()
+                                    .flatMap(ImmutableSet<GQLOperationPath>::asSequence)
+                                    .map(GQLOperationPath::left)
+                            )
+                    }
+                }
+            }
+            .toPersistentList()
+            .let { qcccs: List<QueryComponentContext> ->
+                context.update { addAllQueryComponentContexts(qcccs) }
+            }
     }
 
     private interface TabularQueryCompositionContext {
