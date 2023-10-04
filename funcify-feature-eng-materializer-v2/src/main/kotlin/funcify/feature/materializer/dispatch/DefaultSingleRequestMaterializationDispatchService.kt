@@ -24,7 +24,7 @@ import funcify.feature.schema.transformer.TransformerCallable
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.PairExtensions.bimap
-import funcify.feature.tools.extensions.StreamExtensions.recurse
+import funcify.feature.tools.extensions.StreamExtensions.recurseBreadthFirst
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.extensions.TryExtensions.failure
 import funcify.feature.tools.extensions.TryExtensions.foldIntoTry
@@ -465,7 +465,7 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                     -1
                 }
                 Stream.of(p1)
-                    .recurse { p: GQLOperationPath ->
+                    .recurseBreadthFirst { p: GQLOperationPath ->
                         drmgc.requestMaterializationGraph.requestGraph
                             .edgesFromPointAsStream(p)
                             .flatMap { (l: DirectedLine<GQLOperationPath>, e: MaterializationEdge)
@@ -493,7 +493,7 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                     1
                 }
                 Stream.of(p2)
-                    .recurse { p: GQLOperationPath ->
+                    .recurseBreadthFirst { p: GQLOperationPath ->
                         drmgc.requestMaterializationGraph.requestGraph
                             .edgesFromPointAsStream(p)
                             .flatMap { (l: DirectedLine<GQLOperationPath>, e: MaterializationEdge)

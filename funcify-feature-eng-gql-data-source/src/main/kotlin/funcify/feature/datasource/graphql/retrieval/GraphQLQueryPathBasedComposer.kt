@@ -1,31 +1,6 @@
 package funcify.feature.datasource.graphql.retrieval
 
-import arrow.core.Either
-import arrow.core.Option
-import arrow.core.filterIsInstance
-import arrow.core.getOrElse
-import arrow.core.identity
-import arrow.core.left
-import arrow.core.right
-import arrow.core.some
-import arrow.core.toOption
-import com.fasterxml.jackson.core.JsonParser
-import com.fasterxml.jackson.databind.JsonNode
-import com.fasterxml.jackson.databind.node.JsonNodeType
-import com.fasterxml.jackson.databind.node.NumericNode
-import funcify.feature.schema.path.operation.GQLOperationPath
-import funcify.feature.tools.extensions.FunctionExtensions.compose
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
-import funcify.feature.tools.extensions.OptionExtensions.recurse
-import graphql.language.*
-import java.util.*
-import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.ConcurrentMap
-import kotlinx.collections.immutable.ImmutableList
-import kotlinx.collections.immutable.ImmutableMap
-import kotlinx.collections.immutable.ImmutableSet
-import kotlinx.collections.immutable.PersistentSet
-import kotlinx.collections.immutable.persistentSetOf
 import org.slf4j.Logger
 
 object GraphQLQueryPathBasedComposer {

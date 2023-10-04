@@ -4,7 +4,7 @@ import arrow.core.Either
 import arrow.core.left
 import arrow.core.right
 import com.fasterxml.jackson.databind.JsonNode
-import funcify.feature.tools.control.TraversalFunctions
+import funcify.feature.tools.extensions.SequenceExtensions.recurseBreadthFirst
 
 internal object JsonObjectHierarchyAssessor {
 
@@ -163,10 +163,7 @@ internal object JsonObjectHierarchyAssessor {
                         )
                     }
                     .flatMap { topLevelPairsContext ->
-                        TraversalFunctions.recurseWithSequence(
-                            topLevelPairsContext,
-                            traversalFunction
-                        )
+                        sequenceOf(topLevelPairsContext).recurseBreadthFirst(traversalFunction)
                     }
                     .map { context ->
                         when {
@@ -213,8 +210,7 @@ internal object JsonObjectHierarchyAssessor {
                             next -> next
                             else -> RelationshipType.NOT_RELATED
                         }
-                    }
-                    ?: RelationshipType.IDENTITY
+                    } ?: RelationshipType.IDENTITY
             }
             else -> {
                 if (map1.isEmpty() || map2.isEmpty()) {

@@ -2,8 +2,10 @@ package funcify.feature.tools.extensions
 
 import arrow.core.Either
 import arrow.core.Option
-import funcify.feature.tools.control.TraversalFunctions
-import funcify.feature.tools.iterator.MultiValueMapSingleValueEntryCombinationsSpliterator
+import funcify.feature.tools.extensions.FunctionExtensions.andThen
+import funcify.feature.tools.spliterator.BreadthFirstEitherRecursiveSpliterator
+import funcify.feature.tools.spliterator.DepthFirstEitherRecursiveSpliterator
+import funcify.feature.tools.spliterator.MultiValueMapSingleValueEntryCombinationsSpliterator
 import java.util.*
 import java.util.stream.Collectors
 import java.util.stream.Stream
@@ -26,8 +28,34 @@ object StreamExtensions {
         }
     }
 
-    fun <L, R> Stream<out L>.recurse(function: (L) -> Stream<out Either<L, R>>): Stream<out R> {
-        return this.flatMap { l: L -> TraversalFunctions.recurseWithStream(l, function) }
+    fun <L, R> Stream<out L>.recurseBreadthFirst(
+        function: (L) -> Stream<out Either<L, R>>
+    ): Stream<out R> {
+        return this.flatMap { l: L ->
+            StreamSupport.stream(
+                BreadthFirstEitherRecursiveSpliterator<L, R>(
+                    initialLeftValue = l,
+                    traversalFunction =
+                        function.andThen { s: Stream<out Either<L, R>> -> s.iterator() }
+                ),
+                false
+            )
+        }
+    }
+
+    fun <L, R> Stream<out L>.recurseDepthFirst(
+        function: (L) -> Stream<out Either<L, R>>
+    ): Stream<out R> {
+        return this.flatMap { l: L ->
+            StreamSupport.stream(
+                DepthFirstEitherRecursiveSpliterator<L, R>(
+                    initialLeftValue = l,
+                    traversalFunction =
+                        function.andThen { s: Stream<out Either<L, R>> -> s.iterator() }
+                ),
+                false
+            )
+        }
     }
 
     fun <T> Stream<out T>.asIterable(): Iterable<T> {

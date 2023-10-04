@@ -17,7 +17,7 @@ import funcify.feature.tools.extensions.PairExtensions.fold
 import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentSetValueMap
 import funcify.feature.tools.extensions.SequenceExtensions.firstOrNone
 import funcify.feature.tools.extensions.SequenceExtensions.flatMapOptions
-import funcify.feature.tools.extensions.SequenceExtensions.recurse
+import funcify.feature.tools.extensions.SequenceExtensions.recurseBreadthFirst
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.extensions.TryExtensions.successIfDefined
 import graphql.language.Argument
@@ -368,7 +368,7 @@ internal object TabularQueryVariableBasedOperationCreator :
                     persistentMapOf<GQLOperationPath, PersistentSet<GQLOperationPath>>() to
                         persistentMapOf<GQLOperationPath, SelectedFieldComponentContext>()
                 ) { (childrenByParentPaths, dataElementContextsByPath), sfcc ->
-                    updateChildPathsByParentPathsMapWithPath(childrenByParentPaths, sfcc.path) to
+                    updateChildPathsByParentPathMapWithPath(childrenByParentPaths, sfcc.path) to
                         dataElementContextsByPath.put(sfcc.path, sfcc)
                 }
                 .fold { childrenByParentPaths, dataElementContextsByPath ->
@@ -382,11 +382,11 @@ internal object TabularQueryVariableBasedOperationCreator :
         }
     }
 
-    private fun updateChildPathsByParentPathsMapWithPath(
-        childrenByParentPaths: PersistentMap<GQLOperationPath, PersistentSet<GQLOperationPath>>,
+    private fun updateChildPathsByParentPathMapWithPath(
+        childPathsByParentPathMap: PersistentMap<GQLOperationPath, PersistentSet<GQLOperationPath>>,
         nextPath: GQLOperationPath,
     ): PersistentMap<GQLOperationPath, PersistentSet<GQLOperationPath>> {
-        return (childrenByParentPaths to nextPath)
+        return (childPathsByParentPathMap to nextPath)
             .toOption()
             .filter { (pm, p) -> p !in pm }
             .map { (pm, p) -> pm.put(p, pm.getOrElse(p, ::persistentSetOf)) to p }
@@ -403,7 +403,7 @@ internal object TabularQueryVariableBasedOperationCreator :
                     }
                 }
             }
-            .getOrElse { childrenByParentPaths }
+            .getOrElse { childPathsByParentPathMap }
     }
 
     private fun createQueryComponentContextsForEachDataElementPath(
@@ -413,24 +413,47 @@ internal object TabularQueryVariableBasedOperationCreator :
         childrenByParentPaths: PersistentMap<GQLOperationPath, PersistentSet<GQLOperationPath>>,
     ): TabularQueryCompositionContext {
         return sequenceOf(tabularQuery.materializationMetamodel.dataElementElementTypePath)
-            .recurse { p: GQLOperationPath ->
-                when {
-                    p in dataElementContextsByPath -> {
-                        dataElementContextsByPath
+            .recurseBreadthFirst { p: GQLOperationPath ->
+                sequenceOf(p.right())
+                    .plus(
+                        childrenByParentPaths
                             .getOrNone(p)
                             .sequence()
-                            .map { sfcc: SelectedFieldComponentContext -> sfcc.right() }
-                            .plus(
-                                childrenByParentPaths
-                                    .getOrNone(p)
-                                    .sequence()
-                                    .flatMap(ImmutableSet<GQLOperationPath>::asSequence)
-                                    .map(GQLOperationPath::left)
-                            )
+                            .flatMap(ImmutableSet<GQLOperationPath>::asSequence)
+                            .map(GQLOperationPath::left)
+                    )
+            }
+            .flatMap { p: GQLOperationPath ->
+                when (p) {
+                    tabularQuery.materializationMetamodel.dataElementElementTypePath -> {
+                        sequenceOf(
+                            tabularQuery.queryComponentContextFactory
+                                .selectedFieldComponentContextBuilder()
+                                .fieldCoordinates(
+                                    tabularQuery.materializationMetamodel.featureEngineeringModel
+                                        .dataElementFieldCoordinates
+                                )
+                                .field(
+                                    Field.newField()
+                                        .name(
+                                            tabularQuery.materializationMetamodel
+                                                .featureEngineeringModel
+                                                .dataElementFieldCoordinates
+                                                .fieldName
+                                        )
+                                        .build()
+                                )
+                                .canonicalPath(
+                                    tabularQuery.materializationMetamodel.dataElementElementTypePath
+                                )
+                                .path(
+                                    tabularQuery.materializationMetamodel.dataElementElementTypePath
+                                )
+                                .build()
+                        )
                     }
-                    p in
-                        tabularQuery.materializationMetamodel
-                            .domainSpecifiedDataElementSourceByPath -> {
+                    in tabularQuery.materializationMetamodel
+                        .domainSpecifiedDataElementSourceByPath -> {
                         tabularQuery.materializationMetamodel.domainSpecifiedDataElementSourceByPath
                             .getOrNone(p)
                             .sequence()
@@ -449,7 +472,8 @@ internal object TabularQueryVariableBasedOperationCreator :
                                             .build()
                                     )
                                     .plus(
-                                        dsdes.argumentsByPath.asSequence().map { (ap, ga) ->
+                                        dsdes.argumentsByPath.asSequence().map {
+                                            (ap: GQLOperationPath, ga: GraphQLArgument) ->
                                             tabularQuery.queryComponentContextFactory
                                                 .fieldArgumentComponentContextBuilder()
                                                 .argument(
@@ -471,7 +495,9 @@ internal object TabularQueryVariableBasedOperationCreator :
                                         }
                                     )
                             }
-                            .map(QueryComponentContext::right)
+                    }
+                    in dataElementContextsByPath -> {
+                        dataElementContextsByPath.getOrNone(p).sequence()
                     }
                     else -> {
                         tabularQuery.materializationMetamodel.fieldCoordinatesByPath
@@ -483,20 +509,14 @@ internal object TabularQueryVariableBasedOperationCreator :
                                 tabularQuery.queryComponentContextFactory
                                     .selectedFieldComponentContextBuilder()
                                     .path(p)
+                                    // TODO: This is not the canonical path in some cases; Modify
+                                    // logic accordingly
                                     .canonicalPath(p)
                                     .fieldCoordinates(fc)
                                     .field(Field.newField().name(fc.fieldName).build())
                                     .build()
                             }
-                            .map(QueryComponentContext::right)
                             .sequence()
-                            .plus(
-                                childrenByParentPaths
-                                    .getOrNone(p)
-                                    .sequence()
-                                    .flatMap(ImmutableSet<GQLOperationPath>::asSequence)
-                                    .map(GQLOperationPath::left)
-                            )
                     }
                 }
             }
@@ -558,7 +578,7 @@ internal object TabularQueryVariableBasedOperationCreator :
                 .fold(persistentMapOf<GQLOperationPath, PersistentSet<GQLOperationPath>>()) {
                     childrenByParentPath,
                     featurePath ->
-                    updateChildPathsByParentPathsMapWithPath(childrenByParentPath, featurePath)
+                    updateChildPathsByParentPathMapWithPath(childrenByParentPath, featurePath)
                 }
                 .let { childrenByParentPath ->
                     createQueryComponentContextsForEachFeaturePath(
@@ -576,11 +596,43 @@ internal object TabularQueryVariableBasedOperationCreator :
         childrenByParentPaths: PersistentMap<GQLOperationPath, PersistentSet<GQLOperationPath>>
     ): TabularQueryCompositionContext {
         return sequenceOf(tabularQuery.materializationMetamodel.featureElementTypePath)
-            .recurse { p: GQLOperationPath ->
-                when {
-                    p in
-                        tabularQuery.materializationMetamodel
-                            .featureSpecifiedFeatureCalculatorsByPath -> {
+            .recurseBreadthFirst { p: GQLOperationPath ->
+                sequenceOf(p.right())
+                    .plus(
+                        childrenByParentPaths
+                            .getOrNone(p)
+                            .sequence()
+                            .flatMap(ImmutableSet<GQLOperationPath>::asSequence)
+                            .map(GQLOperationPath::left)
+                    )
+            }
+            .flatMap { p: GQLOperationPath ->
+                when (p) {
+                    tabularQuery.materializationMetamodel.featureElementTypePath -> {
+                        sequenceOf(
+                            tabularQuery.queryComponentContextFactory
+                                .selectedFieldComponentContextBuilder()
+                                .canonicalPath(p)
+                                .path(p)
+                                .fieldCoordinates(
+                                    tabularQuery.materializationMetamodel.featureEngineeringModel
+                                        .featureFieldCoordinates
+                                )
+                                .field(
+                                    Field.newField()
+                                        .name(
+                                            tabularQuery.materializationMetamodel
+                                                .featureEngineeringModel
+                                                .featureFieldCoordinates
+                                                .fieldName
+                                        )
+                                        .build()
+                                )
+                                .build()
+                        )
+                    }
+                    in tabularQuery.materializationMetamodel
+                        .featureSpecifiedFeatureCalculatorsByPath -> {
                         tabularQuery.materializationMetamodel
                             .featureSpecifiedFeatureCalculatorsByPath
                             .getOrNone(p)
@@ -594,45 +646,23 @@ internal object TabularQueryVariableBasedOperationCreator :
                                             .path(fsfc.featurePath)
                                             .canonicalPath(fsfc.featurePath)
                                             .build()
-                                            .right()
                                     )
                                     .plus(
-                                        fsfc.argumentsByPath
-                                            .asSequence()
-                                            .map { (ap, ga) ->
-                                                tabularQuery.queryComponentContextFactory
-                                                    .fieldArgumentComponentContextBuilder()
-                                                    .argument(
-                                                        Argument.newArgument()
-                                                            .name(ga.name)
-                                                            .value(
-                                                                ga.argumentDefaultValue
-                                                                    .toOption()
-                                                                    .filter(
-                                                                        InputValueWithState::
-                                                                            isLiteral
-                                                                    )
-                                                                    .mapNotNull(
-                                                                        InputValueWithState::
-                                                                            getValue
-                                                                    )
-                                                                    .filterIsInstance<Value<*>>()
-                                                                    .successIfDefined {
-                                                                        ServiceError.of(
-                                                                            "default value could not be found for argument [ name: %s ]",
-                                                                            ga.name
-                                                                        )
-                                                                    }
-                                                                    .orElseThrow()
-                                                            )
-                                                            .build()
-                                                    )
-                                                    .fieldCoordinates(fsfc.featureFieldCoordinates)
-                                                    .path(ap)
-                                                    .canonicalPath(ap)
-                                                    .build()
-                                            }
-                                            .map(QueryComponentContext::right)
+                                        fsfc.argumentsByPath.asSequence().map {
+                                            (ap: GQLOperationPath, ga: GraphQLArgument) ->
+                                            tabularQuery.queryComponentContextFactory
+                                                .fieldArgumentComponentContextBuilder()
+                                                .argument(
+                                                    Argument.newArgument()
+                                                        .name(ga.name)
+                                                        .value(extractDefaultValueForArgument(ga))
+                                                        .build()
+                                                )
+                                                .fieldCoordinates(fsfc.featureFieldCoordinates)
+                                                .path(ap)
+                                                .canonicalPath(ap)
+                                                .build()
+                                        }
                                     )
                             }
                     }
@@ -650,16 +680,8 @@ internal object TabularQueryVariableBasedOperationCreator :
                                     .canonicalPath(p)
                                     .path(p)
                                     .build()
-                                    .right()
                             }
                             .sequence()
-                            .plus(
-                                childrenByParentPaths
-                                    .getOrNone(p)
-                                    .sequence()
-                                    .flatMap(ImmutableSet<GQLOperationPath>::asSequence)
-                                    .map(GQLOperationPath::left)
-                            )
                     }
                 }
             }
@@ -667,6 +689,26 @@ internal object TabularQueryVariableBasedOperationCreator :
             .let { qcccs: List<QueryComponentContext> ->
                 context.update { addAllQueryComponentContexts(qcccs) }
             }
+    }
+
+    private fun extractDefaultValueForArgument(graphQLArgument: GraphQLArgument): Value<*> {
+        return graphQLArgument
+            .toOption()
+            .filter(GraphQLArgument::hasSetDefaultValue)
+            .mapNotNull { ga1: GraphQLArgument -> ga1.argumentDefaultValue }
+            .filter(InputValueWithState::isLiteral)
+            .mapNotNull(InputValueWithState::getValue)
+            .filterIsInstance<Value<*>>()
+            .successIfDefined {
+                ServiceError.of(
+                    """default literal value [ type: %s ] could 
+                    |not be found for argument [ name: %s ]"""
+                        .flatten(),
+                    Value::class.qualifiedName,
+                    graphQLArgument.name
+                )
+            }
+            .orElseThrow()
     }
 
     private interface TabularQueryCompositionContext {

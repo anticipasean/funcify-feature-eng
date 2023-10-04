@@ -10,8 +10,8 @@ import com.fasterxml.jackson.databind.node.JsonNodeType
 import com.fasterxml.jackson.databind.node.MissingNode
 import com.fasterxml.jackson.databind.node.NullNode
 import com.fasterxml.jackson.databind.node.ObjectNode
-import funcify.feature.tools.control.TraversalFunctions
 import funcify.feature.tools.extensions.PersistentListExtensions.toImmutableList
+import funcify.feature.tools.extensions.StreamExtensions.recurseBreadthFirst
 import java.util.stream.Stream
 import kotlinx.collections.immutable.ImmutableList
 
@@ -20,8 +20,9 @@ object JsonNodeExtensions {
     /**
      * Finds the rightmost child node within the json node's tree and if it is an object type or
      * represents null or missing, the child field and value are set and returned
+     *
      * @return [Some(current_node with leftmost child_node having the field and value added)] else
-     * [none]
+     *   [none]
      */
     fun JsonNode.addChildKeyValuePairToRightmostObjectOrNullNode(
         childKeyValuePair: Pair<String, JsonNode>
@@ -35,8 +36,9 @@ object JsonNodeExtensions {
     /**
      * Finds the rightmost child node within the json node's tree and if it is an object type or
      * represents null or missing, the child field and value are set and returned
+     *
      * @return [Some(current_node with leftmost child_node having the field and value added)] else
-     * [none]
+     *   [none]
      */
     fun JsonNode.addChildKeyValuePairToRightmostObjectOrNullNode(
         childKey: String,
@@ -44,7 +46,8 @@ object JsonNodeExtensions {
     ): Option<JsonNode> {
         val root: String = "/"
         val keyValueLineageList: ImmutableList<Pair<String, JsonNode>> =
-            TraversalFunctions.recurseWithStream(root to this) { (fName: String, jn: JsonNode) ->
+            Stream.of(root to this)
+                .recurseBreadthFirst { (fName: String, jn: JsonNode) ->
                     when (jn.nodeType) {
                         JsonNodeType.OBJECT -> {
                             jn.fields()
@@ -96,7 +99,8 @@ object JsonNodeExtensions {
     fun JsonNode.removeLastChildKeyValuePairFromRightmostObjectNode(): JsonNode {
         val root: String = "/"
         val keyValueLineageList: ImmutableList<Pair<String, JsonNode>> =
-            TraversalFunctions.recurseWithStream(root to this) { (fName: String, jn: JsonNode) ->
+            Stream.of(root to this)
+                .recurseBreadthFirst { (fName: String, jn: JsonNode) ->
                     when (jn.nodeType) {
                         JsonNodeType.OBJECT -> {
                             jn.fields()
@@ -155,12 +159,10 @@ object JsonNodeExtensions {
                                             )
                                         else -> parentJsonValue
                                     })
-                            }
-                            ?: updatedParentKeyValue
+                            } ?: updatedParentKeyValue
                     }
                     .map { (_, jn) -> jn }
-                    .orNull()
-                    ?: this
+                    .orNull() ?: this
             }
             else -> this
         }
@@ -169,7 +171,8 @@ object JsonNodeExtensions {
     fun JsonNode.removeAllChildKeyValuePairsFromRightmostObjectNode(): JsonNode {
         val root: String = "/"
         val keyValueLineageList: ImmutableList<Pair<String, JsonNode>> =
-            TraversalFunctions.recurseWithStream(root to this) { (fName: String, jn: JsonNode) ->
+            Stream.of(root to this)
+                .recurseBreadthFirst { (fName: String, jn: JsonNode) ->
                     when (jn.nodeType) {
                         JsonNodeType.OBJECT -> {
                             jn.fields()
@@ -215,12 +218,10 @@ object JsonNodeExtensions {
                                             )
                                         else -> parentJsonValue
                                     })
-                            }
-                            ?: updatedParentKeyValue
+                            } ?: updatedParentKeyValue
                     }
                     .map { (_, jn) -> jn }
-                    .orNull()
-                    ?: this
+                    .orNull() ?: this
             }
             else -> this
         }

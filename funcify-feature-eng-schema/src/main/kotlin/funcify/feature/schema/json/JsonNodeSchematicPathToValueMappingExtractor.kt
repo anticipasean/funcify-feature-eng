@@ -14,7 +14,7 @@ import com.fasterxml.jackson.databind.node.JsonNodeType
 import com.fasterxml.jackson.databind.node.ObjectNode
 import funcify.feature.schema.path.operation.GQLOperationPath
 import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentMap
-import funcify.feature.tools.extensions.SequenceExtensions.recurse
+import funcify.feature.tools.extensions.SequenceExtensions.recurseBreadthFirst
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.PersistentList
 import kotlinx.collections.immutable.persistentListOf
@@ -24,7 +24,7 @@ object JsonNodeSchematicPathToValueMappingExtractor :
 
     override fun invoke(dataJsonObject: JsonNode): ImmutableMap<GQLOperationPath, JsonNode> {
         return sequenceOf(JsonNodePathTraversalContext(persistentListOf(), dataJsonObject))
-            .recurse { ctx -> traverseJsonNodeContextCreatingPathsForEachNonObjectValue(ctx) }
+            .recurseBreadthFirst { ctx -> traverseJsonNodeContextCreatingPathsForEachNonObjectValue(ctx) }
             .sortedBy { (sp, _) -> sp }
             .reducePairsToPersistentMap()
     }

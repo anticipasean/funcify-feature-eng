@@ -1,4 +1,4 @@
-package funcify.feature.tools.iterator
+package funcify.feature.tools.spliterator
 
 import java.util.*
 import java.util.function.Consumer

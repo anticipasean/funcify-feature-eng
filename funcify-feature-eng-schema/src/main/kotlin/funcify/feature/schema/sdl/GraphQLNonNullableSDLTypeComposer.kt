@@ -8,8 +8,8 @@ import arrow.core.none
 import arrow.core.right
 import arrow.core.some
 import funcify.feature.error.ServiceError
-import funcify.feature.tools.control.TraversalFunctions
 import funcify.feature.tools.extensions.FunctionExtensions.compose
+import funcify.feature.tools.extensions.OptionExtensions.recurse
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import graphql.language.ListType
 import graphql.language.NonNullType
@@ -145,10 +145,9 @@ object GraphQLNonNullableSDLTypeComposer : (GraphQLType) -> Type<*> {
                     .flatten()
             throw ServiceError.of(message)
         }
-        return TraversalFunctions.recurseWithOption(
-                TypeCompositionContext(outerGraphQLType = graphQLInputOrOutputType),
-                typeComposingRecursiveFunction
-            )
+        return TypeCompositionContext(outerGraphQLType = graphQLInputOrOutputType)
+            .some()
+            .recurse(typeComposingRecursiveFunction)
             .fold(
                 { ->
                     throw unnamedGraphQLInputOrOutputTypeGraphQLSchemaCreationError(

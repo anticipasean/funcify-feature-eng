@@ -4,7 +4,6 @@ import arrow.core.filterIsInstance
 import arrow.core.left
 import arrow.core.right
 import arrow.core.toOption
-import com.fasterxml.jackson.databind.JsonNode
 import funcify.feature.graph.DirectedPersistentGraph
 import funcify.feature.graph.line.DirectedLine
 import funcify.feature.materializer.graph.component.QueryComponentContext
@@ -18,7 +17,7 @@ import funcify.feature.schema.transformer.TransformerCallable
 import funcify.feature.tools.extensions.OptionExtensions.stream
 import funcify.feature.tools.extensions.PersistentListExtensions.reduceToPersistentList
 import funcify.feature.tools.extensions.PersistentSetExtensions.toImmutableSet
-import funcify.feature.tools.extensions.StreamExtensions.recurse
+import funcify.feature.tools.extensions.StreamExtensions.recurseBreadthFirst
 import funcify.feature.tools.extensions.StreamExtensions.singleValueMapCombinationsFromPairs
 import graphql.language.Document
 import java.util.concurrent.ConcurrentHashMap
@@ -100,7 +99,7 @@ internal data class DefaultRequestMaterializationGraph(
                     .map(ImmutableMap<String, GQLOperationPath>::entries)
                     .flatMap(ImmutableSet<Map.Entry<String, GQLOperationPath>>::stream)
                     .map(Map.Entry<String, GQLOperationPath>::value)
-                    .recurse { p: GQLOperationPath ->
+                    .recurseBreadthFirst { p: GQLOperationPath ->
                         requestGraph.edgesFromPointAsStream(p).flatMap {
                             (l: DirectedLine<GQLOperationPath>, e: MaterializationEdge) ->
                             when (e) {
