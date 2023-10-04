@@ -43,7 +43,7 @@ internal object TabularQueryVariableBasedOperationCreator :
             tabularQuery.variableKeys.size
         )
         // TODO: Impose rule that no data element may share the same name as a feature
-        Try.success(DefaultTabularQueryCompositionContext.empty())
+        return Try.success(DefaultTabularQueryCompositionContext.empty())
             .map(matchVariableKeysWithDomainSpecifiedDataElementSourceArguments(tabularQuery))
             .filter(contextContainsErrors(), createAggregateErrorFromContext())
             .map(determineAllDomainDataElementSourcePathsWithCompleteArgumentSets(tabularQuery))
@@ -54,7 +54,8 @@ internal object TabularQueryVariableBasedOperationCreator :
             .filter(contextContainsErrors(), createAggregateErrorFromContext())
             .map(createSequenceOfDataElementQueryComponentContexts(tabularQuery))
             .map(createSequenceOfFeatureQueryComponentContexts(tabularQuery))
-        TODO("Not yet implemented")
+            .map(combineDataElementAndFeatureQueryComponentContextsIntoIterable())
+            .orElseThrow()
     }
 
     private fun matchVariableKeysWithDomainSpecifiedDataElementSourceArguments(
@@ -695,7 +696,7 @@ internal object TabularQueryVariableBasedOperationCreator :
         return graphQLArgument
             .toOption()
             .filter(GraphQLArgument::hasSetDefaultValue)
-            .mapNotNull { ga1: GraphQLArgument -> ga1.argumentDefaultValue }
+            .mapNotNull { ga: GraphQLArgument -> ga.argumentDefaultValue }
             .filter(InputValueWithState::isLiteral)
             .mapNotNull(InputValueWithState::getValue)
             .filterIsInstance<Value<*>>()
@@ -709,6 +710,11 @@ internal object TabularQueryVariableBasedOperationCreator :
                 )
             }
             .orElseThrow()
+    }
+
+    private fun combineDataElementAndFeatureQueryComponentContextsIntoIterable():
+        (TabularQueryCompositionContext) -> Iterable<QueryComponentContext> {
+        return { tqcc: TabularQueryCompositionContext -> tqcc.queryComponentContexts }
     }
 
     private interface TabularQueryCompositionContext {
