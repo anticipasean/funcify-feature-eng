@@ -4,7 +4,7 @@ import arrow.core.*
 import funcify.feature.error.ServiceError
 import funcify.feature.materializer.graph.component.QueryComponentContext
 import funcify.feature.materializer.graph.component.QueryComponentContext.SelectedFieldComponentContext
-import funcify.feature.materializer.graph.connector.TabularQueryVariableBasedOperationCreator.TabularQueryCompositionContext.*
+import funcify.feature.materializer.graph.connector.TabularQueryOperationCreator.TabularQueryCompositionContext.*
 import funcify.feature.materializer.graph.context.TabularQuery
 import funcify.feature.schema.dataelement.DomainSpecifiedDataElementSource
 import funcify.feature.schema.feature.FeatureSpecifiedFeatureCalculator
@@ -26,27 +26,31 @@ import graphql.language.Value
 import graphql.language.VariableReference
 import graphql.schema.FieldCoordinates
 import graphql.schema.GraphQLArgument
+import graphql.schema.GraphQLCompositeType
+import graphql.schema.GraphQLFieldDefinition
+import graphql.schema.GraphQLTypeUtil
 import graphql.schema.InputValueWithState
 import kotlinx.collections.immutable.*
 import org.slf4j.Logger
 
-internal object TabularQueryVariableBasedOperationCreator :
-    (TabularQuery) -> Iterable<QueryComponentContext> {
+internal object TabularQueryOperationCreator : (TabularQuery) -> Iterable<QueryComponentContext> {
 
     private const val METHOD_TAG: String = "tabular_query_variable_based_operation_creator.invoke"
-    private val logger: Logger = loggerFor<TabularQueryVariableBasedOperationCreator>()
+    private val logger: Logger = loggerFor<TabularQueryOperationCreator>()
 
     override fun invoke(tabularQuery: TabularQuery): Iterable<QueryComponentContext> {
         logger.info(
-            "{}: [ tabular_query.variable_keys.size: {} ]",
+            "{}: [ tabular_query.variable_keys.size: {}, tabular_query.raw_input_context_keys.size: {} ]",
             METHOD_TAG,
-            tabularQuery.variableKeys.size
+            tabularQuery.variableKeys.size,
+            tabularQuery.rawInputContextKeys.size
         )
         // TODO: Impose rule that no data element may share the same name as a feature
         return Try.success(DefaultTabularQueryCompositionContext.empty())
+            .map(matchRawInputContextKeysWithDomainSpecifiedDataElementSources(tabularQuery))
             .map(matchVariableKeysWithDomainSpecifiedDataElementSourceArguments(tabularQuery))
             .filter(contextContainsErrors(), createAggregateErrorFromContext())
-            .map(determineAllDomainDataElementSourcePathsWithCompleteArgumentSets(tabularQuery))
+            .map(addAllDomainDataElementsWithCompleteVariableKeyArgumentSets(tabularQuery))
             .filter(contextContainsErrors(), createAggregateErrorFromContext())
             .map(matchExpectedOutputColumnNamesToFeaturePathsOrDataElementCoordinates(tabularQuery))
             .filter(contextContainsErrors(), createAggregateErrorFromContext())
@@ -56,6 +60,60 @@ internal object TabularQueryVariableBasedOperationCreator :
             .map(createSequenceOfFeatureQueryComponentContexts(tabularQuery))
             .map(combineDataElementAndFeatureQueryComponentContextsIntoIterable())
             .orElseThrow()
+    }
+
+    private fun matchRawInputContextKeysWithDomainSpecifiedDataElementSources(
+        tabularQuery: TabularQuery
+    ): (TabularQueryCompositionContext) -> TabularQueryCompositionContext {
+        return { tqcc: TabularQueryCompositionContext ->
+            tqcc.update {
+                tabularQuery.rawInputContextKeys
+                    .asSequence()
+                    .map { k: String ->
+                        k to
+                            matchRawInputContextKeyWithDomainSpecifiedDataElementSource(
+                                tabularQuery,
+                                k
+                            )
+                    }
+                    .fold(this) {
+                        cb: TabularQueryCompositionContext.Builder,
+                        (k: String, dsdesOpt: Option<DomainSpecifiedDataElementSource>) ->
+                        when (val dsdes: DomainSpecifiedDataElementSource? = dsdesOpt.orNull()) {
+                            null -> {
+                                cb.addPassthruRawInputContextKey(k)
+                            }
+                            else -> {
+                                cb.putRawInputContextKeyForDataElementSourcePath(
+                                    dsdes.domainPath,
+                                    k
+                                )
+                            }
+                        }
+                    }
+            }
+        }
+    }
+
+    private fun matchRawInputContextKeyWithDomainSpecifiedDataElementSource(
+        tabularQuery: TabularQuery,
+        rawInputContextKey: String
+    ): Option<DomainSpecifiedDataElementSource> {
+        // TODO: Add lookup_by_name for domain_specified_data_element_sources sparing the need for
+        // these lookups if this is determined to be the best way to deduce what domains have been
+        // provided in raw_input_context
+        return tabularQuery.materializationMetamodel.querySchemaElementsByPath
+            .getOrNone(tabularQuery.materializationMetamodel.dataElementElementTypePath)
+            .filterIsInstance<GraphQLFieldDefinition>()
+            .map(GraphQLFieldDefinition::getType)
+            .map(GraphQLTypeUtil::unwrapAll)
+            .filterIsInstance<GraphQLCompositeType>()
+            .map(GraphQLCompositeType::getName)
+            .map { tn: String -> FieldCoordinates.coordinates(tn, rawInputContextKey) }
+            .flatMap(
+                tabularQuery.materializationMetamodel
+                    .domainSpecifiedDataElementSourceByCoordinates::getOrNone
+            )
     }
 
     private fun matchVariableKeysWithDomainSpecifiedDataElementSourceArguments(
@@ -134,7 +192,7 @@ internal object TabularQueryVariableBasedOperationCreator :
         }
     }
 
-    private fun determineAllDomainDataElementSourcePathsWithCompleteArgumentSets(
+    private fun addAllDomainDataElementsWithCompleteVariableKeyArgumentSets(
         tabularQuery: TabularQuery
     ): (TabularQueryCompositionContext) -> TabularQueryCompositionContext {
         return { tqcc: TabularQueryCompositionContext ->
@@ -154,7 +212,7 @@ internal object TabularQueryVariableBasedOperationCreator :
                             // Must provide all arguments or at least those lacking default
                             // argument values
                             dsdes.argumentsByPath.size == argPathsSet.size ||
-                                // TODO: Cacheable operation
+                                // TODO: Convert to cacheable operation
                                 dsdes.argumentsWithoutDefaultValuesByPath.asSequence().all {
                                     (p: GQLOperationPath, _: GraphQLArgument) ->
                                     argPathsSet.contains(p)
@@ -165,15 +223,31 @@ internal object TabularQueryVariableBasedOperationCreator :
                 .map(Map.Entry<GQLOperationPath, Set<GQLOperationPath>>::key)
                 .toSet()
                 .let { dataElementDomainPaths: Set<GQLOperationPath> ->
-                    if (dataElementDomainPaths.isNotEmpty()) {
-                        tqcc.update { putAllDomainDataElementSourcePaths(dataElementDomainPaths) }
-                    } else {
-                        tqcc.update {
-                            addError(
-                                ServiceError.of(
-                                    "none of the data element arguments specified within variables set correspond to a _complete_ argument set for a domain data element source"
+                    when {
+                        dataElementDomainPaths.isNotEmpty() -> {
+                            tqcc.update {
+                                putAllDomainDataElementSourcePaths(dataElementDomainPaths)
+                            }
+                        }
+                        tqcc.rawInputContextKeysByDataElementSourcePath.isNotEmpty() -> {
+                            tqcc
+                        }
+                        else -> {
+                            // TODO: This may need to be revisited for case where caller does not
+                            // want any feature or data element values but still provides variables
+                            // and/or raw_input_context for some reason: the passthru_columns only
+                            // use case
+                            tqcc.update {
+                                addError(
+                                    ServiceError.of(
+                                        """none of the data element arguments specified 
+                                        |within variables set correspond to a _complete_ argument 
+                                        |set for a domain data element source nor 
+                                        |do any raw_input_context.keys provide known data_element_sources"""
+                                            .flatten()
+                                    )
                                 )
-                            )
+                            }
                         }
                     }
                 }
@@ -718,6 +792,8 @@ internal object TabularQueryVariableBasedOperationCreator :
     }
 
     private interface TabularQueryCompositionContext {
+        val rawInputContextKeysByDataElementSourcePath: ImmutableMap<GQLOperationPath, String>
+        val passthruRawInputContextKeys: ImmutableSet<String>
         val argumentPathSetsForVariables: ImmutableMap<String, ImmutableSet<GQLOperationPath>>
         val domainDataElementSourcePaths: ImmutableSet<GQLOperationPath>
         val featurePathByExpectedOutputColumnName: ImmutableMap<String, GQLOperationPath>
@@ -731,6 +807,14 @@ internal object TabularQueryVariableBasedOperationCreator :
         fun update(transformer: Builder.() -> Builder): TabularQueryCompositionContext
 
         interface Builder {
+
+            fun putRawInputContextKeyForDataElementSourcePath(
+                dataElementSourcePath: GQLOperationPath,
+                rawInputContextKey: String
+            ): Builder
+
+            fun addPassthruRawInputContextKey(passthruRawInputContextKey: String): Builder
+
             fun putArgumentPathSetForVariable(
                 variableKey: String,
                 argumentPathSet: Set<GQLOperationPath>
@@ -770,6 +854,9 @@ internal object TabularQueryVariableBasedOperationCreator :
     }
 
     private class DefaultTabularQueryCompositionContext(
+        override val rawInputContextKeysByDataElementSourcePath:
+            PersistentMap<GQLOperationPath, String>,
+        override val passthruRawInputContextKeys: PersistentSet<String>,
         override val argumentPathSetsForVariables:
             PersistentMap<String, PersistentSet<GQLOperationPath>>,
         override val domainDataElementSourcePaths: PersistentSet<GQLOperationPath>,
@@ -784,6 +871,8 @@ internal object TabularQueryVariableBasedOperationCreator :
         companion object {
             fun empty(): TabularQueryCompositionContext {
                 return DefaultTabularQueryCompositionContext(
+                    rawInputContextKeysByDataElementSourcePath = persistentMapOf(),
+                    passthruRawInputContextKeys = persistentSetOf(),
                     argumentPathSetsForVariables = persistentMapOf(),
                     domainDataElementSourcePaths = persistentSetOf(),
                     featurePathByExpectedOutputColumnName = persistentMapOf(),
@@ -796,6 +885,11 @@ internal object TabularQueryVariableBasedOperationCreator :
 
             private class DefaultBuilder(
                 private val existingContext: DefaultTabularQueryCompositionContext,
+                private val rawInputContextKeysByDataElementSourcePath:
+                    PersistentMap.Builder<GQLOperationPath, String> =
+                    existingContext.rawInputContextKeysByDataElementSourcePath.builder(),
+                private val passthruRawInputContextKeys: PersistentSet.Builder<String> =
+                    existingContext.passthruRawInputContextKeys.builder(),
                 private val argumentPathSetsForVariables:
                     PersistentMap.Builder<String, PersistentSet<GQLOperationPath>> =
                     existingContext.argumentPathSetsForVariables.builder(),
@@ -815,6 +909,22 @@ internal object TabularQueryVariableBasedOperationCreator :
                 private val errors: PersistentList.Builder<ServiceError> =
                     existingContext.errors.builder()
             ) : Builder {
+
+                override fun putRawInputContextKeyForDataElementSourcePath(
+                    dataElementSourcePath: GQLOperationPath,
+                    rawInputContextKey: String,
+                ): Builder =
+                    this.apply {
+                        this.rawInputContextKeysByDataElementSourcePath.put(
+                            dataElementSourcePath,
+                            rawInputContextKey
+                        )
+                    }
+
+                override fun addPassthruRawInputContextKey(
+                    passthruRawInputContextKey: String
+                ): Builder =
+                    this.apply { this.passthruRawInputContextKeys.add(passthruRawInputContextKey) }
 
                 override fun putArgumentPathSetForVariable(
                     variableKey: String,
@@ -885,6 +995,9 @@ internal object TabularQueryVariableBasedOperationCreator :
 
                 override fun build(): TabularQueryCompositionContext {
                     return DefaultTabularQueryCompositionContext(
+                        rawInputContextKeysByDataElementSourcePath =
+                            rawInputContextKeysByDataElementSourcePath.build(),
+                        passthruRawInputContextKeys = passthruRawInputContextKeys.build(),
                         argumentPathSetsForVariables = argumentPathSetsForVariables.build(),
                         domainDataElementSourcePaths = domainDataElementSourcePaths.build(),
                         featurePathByExpectedOutputColumnName =

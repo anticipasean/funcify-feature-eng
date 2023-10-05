@@ -13,8 +13,7 @@ import funcify.feature.materializer.graph.component.QueryComponentContextFactory
 import funcify.feature.materializer.graph.connector.StandardQueryConnector
 import funcify.feature.materializer.graph.connector.StandardQueryTraverser
 import funcify.feature.materializer.graph.connector.TabularQueryConnector
-import funcify.feature.materializer.graph.connector.TabularQueryRawInputBasedOperationCreator
-import funcify.feature.materializer.graph.connector.TabularQueryVariableBasedOperationCreator
+import funcify.feature.materializer.graph.connector.TabularQueryOperationCreator
 import funcify.feature.materializer.graph.context.DefaultRequestMaterializationGraphContextFactory
 import funcify.feature.materializer.graph.context.RequestMaterializationGraphContext
 import funcify.feature.materializer.graph.context.RequestMaterializationGraphContextFactory
@@ -278,33 +277,15 @@ internal class DefaultSingleRequestMaterializationGraphService(
                     }
                     is TabularQuery -> {
                         val connector = TabularQueryConnector
-                        when {
-                            context.rawInputContextKeys.isEmpty() -> {
-                                TabularQueryVariableBasedOperationCreator.invoke(context).fold(
-                                    context
-                                ) { tq: TabularQuery, qcc: QueryComponentContext ->
-                                    when (qcc) {
-                                        is QueryComponentContext.FieldArgumentComponentContext -> {
-                                            connector.connectFieldArgument(tq, qcc)
-                                        }
-                                        is QueryComponentContext.SelectedFieldComponentContext -> {
-                                            connector.connectSelectedField(tq, qcc)
-                                        }
-                                    }
+                        TabularQueryOperationCreator.invoke(context).fold(context) {
+                            tq: TabularQuery,
+                            qcc: QueryComponentContext ->
+                            when (qcc) {
+                                is QueryComponentContext.FieldArgumentComponentContext -> {
+                                    connector.connectFieldArgument(tq, qcc)
                                 }
-                            }
-                            else -> {
-                                TabularQueryRawInputBasedOperationCreator.invoke(context).fold(
-                                    context
-                                ) { tq: TabularQuery, qcc: QueryComponentContext ->
-                                    when (qcc) {
-                                        is QueryComponentContext.FieldArgumentComponentContext -> {
-                                            connector.connectFieldArgument(tq, qcc)
-                                        }
-                                        is QueryComponentContext.SelectedFieldComponentContext -> {
-                                            connector.connectSelectedField(tq, qcc)
-                                        }
-                                    }
+                                is QueryComponentContext.SelectedFieldComponentContext -> {
+                                    connector.connectSelectedField(tq, qcc)
                                 }
                             }
                         }

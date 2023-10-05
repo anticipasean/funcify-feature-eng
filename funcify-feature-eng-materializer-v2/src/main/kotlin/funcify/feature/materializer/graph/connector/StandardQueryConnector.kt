@@ -33,6 +33,7 @@ import graphql.schema.GraphQLArgument
 import graphql.schema.GraphQLCompositeType
 import graphql.schema.GraphQLFieldDefinition
 import graphql.schema.GraphQLTypeUtil
+import graphql.schema.InputValueWithState
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentSetOf
@@ -668,8 +669,11 @@ object StandardQueryConnector : RequestMaterializationGraphConnector<StandardQue
                                 Argument.newArgument()
                                     .name(a.name)
                                     .value(
-                                        a.argumentDefaultValue.value
-                                            .toOption()
+                                        a.toOption()
+                                            .filter(GraphQLArgument::hasSetDefaultValue)
+                                            .map { ga: GraphQLArgument -> ga.argumentDefaultValue }
+                                            .filter(InputValueWithState::isLiteral)
+                                            .mapNotNull(InputValueWithState::getValue)
                                             .filterIsInstance<Value<*>>()
                                             // TODO: Check whether null is permitted as default
                                             // value for argument
