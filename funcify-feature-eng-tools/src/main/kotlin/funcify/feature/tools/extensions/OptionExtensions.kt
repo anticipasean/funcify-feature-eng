@@ -28,11 +28,13 @@ object OptionExtensions {
 
     /**
      * Calls the input function of type `(L) -> Option<Either<L, R>>` on any `Either.Left<L>>` value
-     * until `Option.None` or a `Option.Some(Either.Right<R>)` value is returned. This call will
+     * until `Option.None` or a `Option.Some(Either.Right<R>(r))` value is returned. This call will
      * _NOT_ terminate if the such a function _never_ returns `Option.None` or a
-     * `Option.Some(Either.Right<R>))` value. The caller must ensure that the input function
-     * contains some sort of terminal condition Note on naming: I have named this `recurse` instead
-     * of its more common name `traverse` in order to avoid clashes with the arrow.core API
+     * `Option.Some(Either.Right<R>(r))` value. The caller must ensure that the input function
+     * contains some sort of terminal condition.
+     *
+     * Note on naming: I have named this `recurse` instead of its more common name `traverse` in
+     * order to avoid clashes with the arrow.core API
      */
     fun <L, R> Option<L>.recurse(function: (L) -> Option<Either<L, R>>): Option<R> {
         return this.flatMap { l: L ->
@@ -88,7 +90,7 @@ object OptionExtensions {
         }
     }
 
-    fun <T : Any?> Option<T>?.toMono(): Mono<out T> {
+    fun <T : Any> Option<T>?.toMono(): Mono<out T> {
         return when (this) {
             null -> {
                 Mono.empty<T>()

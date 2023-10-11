@@ -20,6 +20,7 @@ internal class BreadthFirstEitherRecursiveSpliterator<L, R>(
         private const val SIZE_UNKNOWN: Long = Long.MAX_VALUE
     }
 
+    // TODO: Could add deque size limit in case someone passes non-terminating traversal
     private val deque: Deque<Either<L, R>> =
         LinkedList<Either<L, R>>().apply { push(initialLeftValue.left()) }
 
@@ -58,7 +59,7 @@ internal class BreadthFirstEitherRecursiveSpliterator<L, R>(
             }
             return null
         } catch (e: OutOfMemoryError) {
-            throw Throwable(
+            throw Error(
                 "out-of-memory error occurred likely due to non-terminating recursive operation",
                 e
             )
