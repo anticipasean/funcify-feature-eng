@@ -19,6 +19,14 @@ object PairExtensions {
         return f1.invoke(this.first) to f2.invoke(this.second)
     }
 
+    inline fun <A, B, C> Pair<A, B>.mapFirst(crossinline f: (A) -> C): Pair<C, B> {
+        return f.invoke(this.first) to this.second
+    }
+
+    inline fun <A, B, C> Pair<A, B>.mapSecond(crossinline f: (B) -> C): Pair<A, C> {
+        return this.first to f.invoke(this.second)
+    }
+
     inline fun <A, B, C, D> Pair<A, B>.flatMap(crossinline f: (A, B) -> Pair<C, D>): Pair<C, D> {
         return f.invoke(this.first, this.second)
     }

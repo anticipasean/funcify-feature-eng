@@ -1,12 +1,12 @@
 package funcify.feature.materializer.gql
 
-import arrow.core.Option
 import arrow.core.filterIsInstance
 import arrow.core.getOrElse
 import arrow.core.getOrNone
 import arrow.core.identity
 import arrow.core.lastOrNone
 import arrow.core.left
+import arrow.core.none
 import arrow.core.orElse
 import arrow.core.right
 import arrow.core.some
@@ -20,13 +20,25 @@ import funcify.feature.schema.path.operation.GQLOperationPath
 import funcify.feature.schema.path.operation.InlineFragmentSegment
 import funcify.feature.schema.path.operation.SelectedField
 import funcify.feature.schema.path.operation.SelectionSegment
+import funcify.feature.schema.sdl.GraphQLNullableSDLTypeComposer
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.FunctionExtensions.compose
+import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.OptionExtensions.recurse
+import funcify.feature.tools.extensions.PairExtensions.bimap
 import funcify.feature.tools.extensions.PairExtensions.fold
+import funcify.feature.tools.extensions.PairExtensions.mapFirst
+import funcify.feature.tools.extensions.PairExtensions.mapSecond
 import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentMap
 import funcify.feature.tools.extensions.SequenceExtensions.firstOrNone
 import funcify.feature.tools.extensions.SequenceExtensions.flatMapOptions
+import funcify.feature.tools.extensions.StringExtensions.flatten
+import funcify.feature.tools.extensions.TripleExtensions.fold
+import funcify.feature.tools.extensions.TripleExtensions.mapFirst
+import funcify.feature.tools.extensions.TripleExtensions.mapSecond
+import funcify.feature.tools.extensions.TripleExtensions.mapThird
+import funcify.feature.tools.extensions.TryExtensions.successIfDefined
+import graphql.language.Argument
 import graphql.language.Document
 import graphql.language.Field
 import graphql.language.FragmentDefinition
@@ -37,16 +49,21 @@ import graphql.language.OperationDefinition
 import graphql.language.Selection
 import graphql.language.SelectionSet
 import graphql.language.TypeName
+import graphql.language.Value
 import graphql.language.VariableDefinition
+import graphql.language.VariableReference
+import graphql.schema.GraphQLArgument
 import graphql.schema.GraphQLFieldDefinition
 import graphql.schema.GraphQLImplementingType
 import graphql.schema.GraphQLInterfaceType
 import graphql.schema.GraphQLObjectType
 import graphql.schema.GraphQLSchema
 import graphql.schema.GraphQLTypeUtil
+import graphql.schema.InputValueWithState
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentMap
+import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.PersistentList
 import kotlinx.collections.immutable.PersistentMap
@@ -57,6 +74,7 @@ import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toPersistentList
 import kotlinx.collections.immutable.toPersistentMap
 import kotlinx.collections.immutable.toPersistentSet
+import org.slf4j.Logger
 
 object GQLOperationPathsToDocumentTransformer :
     (GraphQLSchema, Set<GQLOperationPath>) -> Try<Document> {
@@ -64,6 +82,8 @@ object GQLOperationPathsToDocumentTransformer :
     // private val cache: ConcurrentMap<Pair<Instant, ImmutableSet<GQLOperationPath>>,
     // Try<Document>> =
     //    ConcurrentHashMap()
+
+    private val logger: Logger = loggerFor<GQLOperationPathsToDocumentTransformer>()
 
     private val cache:
         ConcurrentMap<Pair<GraphQLSchema, ImmutableSet<GQLOperationPath>>, Try<Document>> =
@@ -79,6 +99,9 @@ object GQLOperationPathsToDocumentTransformer :
     //    )
     // }
 
+    // TODO: Surface error for name collisions in variable definitions
+    // TODO: Incorporate directive specs
+    // TODO: Add support for handling non-scalar argument values
     override fun invoke(graphQLSchema: GraphQLSchema, paths: Set<GQLOperationPath>): Try<Document> {
         return cache.computeIfAbsent(
             graphQLSchema to paths.toPersistentSet(),
@@ -96,8 +119,8 @@ object GQLOperationPathsToDocumentTransformer :
                         schema = graphQLSchema,
                         childFieldPathsByParentPath = persistentMapOf(),
                         fieldPathsByLevel = persistentMapOf(),
-                        argumentPathsByParentFieldPath = persistentMapOf(),
-                        directivePathsByParentPath = persistentMapOf()
+                        argumentPaths = persistentSetOf(),
+                        directivePaths = persistentSetOf()
                     )
                 ) { c: DocumentCreationContext, p: GQLOperationPath ->
                     when {
@@ -105,49 +128,22 @@ object GQLOperationPathsToDocumentTransformer :
                             c
                         }
                         p.referentOnDirective() -> {
-                            p.getParentPath()
-                                .map { pp: GQLOperationPath ->
-                                    c.copy(
-                                        directivePathsByParentPath =
-                                            c.directivePathsByParentPath.put(
-                                                pp,
-                                                c.directivePathsByParentPath
-                                                    .getOrElse(pp, ::persistentSetOf)
-                                                    .add(p)
-                                            )
-                                    )
-                                }
-                                .getOrElse { c }
+                            c.copy(directivePaths = c.directivePaths.add(p))
                         }
                         p.referentOnArgument() -> {
-                            p.getParentPath()
-                                .map { pp: GQLOperationPath ->
-                                    c.copy(
-                                        argumentPathsByParentFieldPath =
-                                            c.argumentPathsByParentFieldPath.put(
-                                                pp,
-                                                c.argumentPathsByParentFieldPath
-                                                    .getOrElse(pp, ::persistentSetOf)
-                                                    .add(p)
-                                            )
-                                    )
-                                }
-                                .getOrElse { c }
+                            c.copy(argumentPaths = c.argumentPaths.add(p))
                         }
                         else -> {
                             c.copy(
+                                // TODO: This currently isn't used and may be dropped if no use is
+                                // found
                                 childFieldPathsByParentPath =
                                     updateChildFieldPathsByParentFieldPathMapWithPath(
                                         c.childFieldPathsByParentPath,
                                         p
                                     ),
                                 fieldPathsByLevel =
-                                    c.fieldPathsByLevel.put(
-                                        p.level(),
-                                        c.fieldPathsByLevel
-                                            .getOrElse(p.level(), ::persistentSetOf)
-                                            .add(p)
-                                    )
+                                    updateFieldPathsByLevelMapWithPath(c.fieldPathsByLevel, p)
                             )
                         }
                     }
@@ -180,81 +176,89 @@ object GQLOperationPathsToDocumentTransformer :
             .getOrElse { childPathsByParentPathMap }
     }
 
-    private fun createDocumentFromCreationContext(context: DocumentCreationContext): Try<Document> {
-        return context.fieldPathsByLevel.keys
+    private fun updateFieldPathsByLevelMapWithPath(
+        fieldPathsByLevel: PersistentMap<Int, PersistentSet<GQLOperationPath>>,
+        nextPath: GQLOperationPath,
+    ): PersistentMap<Int, PersistentSet<GQLOperationPath>> {
+        return (fieldPathsByLevel to nextPath)
+            .toOption()
+            .filter { (pm, p) -> !pm.getOrElse(p.level(), ::persistentSetOf).contains(p) }
+            .map { (pm, p) ->
+                pm.put(p.level(), pm.getOrElse(p.level(), ::persistentSetOf).add(p)) to p
+            }
+            .recurse { (pm, p) ->
+                when (val pp: GQLOperationPath? = p.getParentPath().orNull()) {
+                    null -> {
+                        pm.right().some()
+                    }
+                    else -> {
+                        when {
+                            pm.getOrElse(pp.level(), ::persistentSetOf).contains(pp) -> {
+                                pm.right().some()
+                            }
+                            else -> {
+                                (pm.put(
+                                        pp.level(),
+                                        pm.getOrElse(pp.level(), ::persistentSetOf).add(pp)
+                                    ) to pp)
+                                    .left()
+                                    .some()
+                            }
+                        }
+                    }
+                }
+            }
+            .getOrElse { fieldPathsByLevel }
+    }
+
+    private fun createDocumentFromCreationContext(
+        documentCreationContext: DocumentCreationContext
+    ): Try<Document> {
+        logger.debug(
+            "create_document_from_creation_context: [ field_paths_by_level: {} ]",
+            documentCreationContext.fieldPathsByLevel
+                .asSequence()
+                .sortedBy { (l, fps) -> l }
+                .joinToString(separator = ",\n") { (l, ps) ->
+                    "[${l}]: ${ps.asSequence().joinToString()}"
+                }
+        )
+        return documentCreationContext.fieldPathsByLevel.keys
+            .asSequence()
+            .filter { level: Int -> level != 0 }
             .sorted()
             .fold(
                 DocumentTraversalContext(
                     parentImplementingTypeByParentPath =
-                        persistentMapOf(GQLOperationPath.getRootPath() to context.schema.queryType),
+                        persistentMapOf(
+                            GQLOperationPath.getRootPath() to
+                                documentCreationContext.schema.queryType
+                        ),
                     documentTraverser = ::identity
                 )
             ) { dtc: DocumentTraversalContext, level: Int ->
-                dtc.copy(
+                logger.debug(
+                    "document_traversal_context: [ level: {}, parent_implementing_type_by_parent_path.keys: {} ]",
+                    level,
+                    dtc.parentImplementingTypeByParentPath.asSequence().joinToString { (p, git) ->
+                        "$p: ${git.name}"
+                    }
+                )
+                DocumentTraversalContext(
                     parentImplementingTypeByParentPath =
-                        context.fieldPathsByLevel
-                            .getOrNone(level)
-                            .fold(::emptySequence, Set<GQLOperationPath>::asSequence)
-                            .map { p: GQLOperationPath ->
-                                p.getParentPath().flatMap { pp: GQLOperationPath ->
-                                    dtc.parentImplementingTypeByParentPath.getOrNone(pp).map {
-                                        git: GraphQLImplementingType ->
-                                        git to p
-                                    }
-                                }
-                            }
-                            .flatMapOptions()
-                            .map { (git: GraphQLImplementingType, p: GQLOperationPath) ->
-                                Option.fromNullable(
-                                        when (
-                                            val s: SelectionSegment? =
-                                                p.selection.lastOrNone().orNull()
-                                        ) {
-                                            null -> {
-                                                null
-                                            }
-                                            is FieldSegment -> {
-                                                s.fieldName
-                                            }
-                                            is AliasedFieldSegment -> {
-                                                s.fieldName
-                                            }
-                                            is FragmentSpreadSegment -> {
-                                                s.selectedField.fieldName
-                                            }
-                                            is InlineFragmentSegment -> {
-                                                s.selectedField.fieldName
-                                            }
-                                        }
-                                    )
-                                    .flatMap { fn: String ->
-                                        git.getFieldDefinition(fn).toOption().orElse {
-                                            git.toOption()
-                                                .filterIsInstance<GraphQLInterfaceType>()
-                                                .flatMap { inf: GraphQLInterfaceType ->
-                                                    context.schema
-                                                        .getImplementations(inf)
-                                                        .asSequence()
-                                                        .map { got: GraphQLObjectType ->
-                                                            got.getFieldDefinition(fn).toOption()
-                                                        }
-                                                        .flatMapOptions()
-                                                        .firstOrNone()
-                                                }
-                                        }
-                                    }
-                                    .map { gfd: GraphQLFieldDefinition ->
-                                        GraphQLTypeUtil.unwrapAll(gfd.type)
-                                    }
-                                    .filterIsInstance<GraphQLImplementingType>()
-                                    .map { git1: GraphQLImplementingType -> p to git1 }
-                            }
-                            .flatMapOptions()
-                            .reducePairsToPersistentMap(),
+                        createParentImplementingTypeByParentPathForChildrenAtLevel(
+                            documentCreationContext,
+                            dtc,
+                            level
+                        ),
                     documentTraverser =
                         DocumentTraverser(
                             dtc.documentTraverser.compose(
-                                createMapOfParentsForChildNodesAtLevel(context, level)
+                                createMapOfParentsForChildrenAtLevel(
+                                    documentCreationContext,
+                                    dtc,
+                                    level
+                                )
                             )
                         )
                 )
@@ -277,247 +281,504 @@ object GQLOperationPathsToDocumentTransformer :
             }
     }
 
-    private fun createMapOfParentsForChildNodesAtLevel(
-        context: DocumentCreationContext,
+    private fun createParentImplementingTypeByParentPathForChildrenAtLevel(
+        documentCreationContext: DocumentCreationContext,
+        documentTraversalContext: DocumentTraversalContext,
+        level: Int,
+    ): PersistentMap<GQLOperationPath, GraphQLImplementingType> {
+        return documentCreationContext.fieldPathsByLevel
+            .getOrNone(level)
+            .fold(::emptySequence, Set<GQLOperationPath>::asSequence)
+            .map { p: GQLOperationPath ->
+                p.getParentPath().flatMap { pp: GQLOperationPath ->
+                    documentTraversalContext.parentImplementingTypeByParentPath.getOrNone(pp).map {
+                        git: GraphQLImplementingType ->
+                        git to p
+                    }
+                }
+            }
+            .flatMapOptions()
+            .map { (git: GraphQLImplementingType, p: GQLOperationPath) ->
+                p.selection
+                    .lastOrNone()
+                    .map { ss: SelectionSegment ->
+                        when (ss) {
+                            is FieldSegment -> {
+                                ss.fieldName
+                            }
+                            is AliasedFieldSegment -> {
+                                ss.fieldName
+                            }
+                            is FragmentSpreadSegment -> {
+                                ss.selectedField.fieldName
+                            }
+                            is InlineFragmentSegment -> {
+                                ss.selectedField.fieldName
+                            }
+                        }
+                    }
+                    .flatMap { fn: String ->
+                        git.getFieldDefinition(fn).toOption().orElse {
+                            git.toOption().filterIsInstance<GraphQLInterfaceType>().flatMap {
+                                inf: GraphQLInterfaceType ->
+                                documentCreationContext.schema
+                                    .getImplementations(inf)
+                                    .asSequence()
+                                    .map { got: GraphQLObjectType ->
+                                        got.getFieldDefinition(fn).toOption()
+                                    }
+                                    .flatMapOptions()
+                                    .firstOrNone()
+                            }
+                        }
+                    }
+                    .map { gfd: GraphQLFieldDefinition -> GraphQLTypeUtil.unwrapAll(gfd.type) }
+                    .filterIsInstance<GraphQLImplementingType>()
+                    .map { git1: GraphQLImplementingType -> p to git1 }
+            }
+            .flatMapOptions()
+            .reducePairsToPersistentMap()
+    }
+
+    private fun createMapOfParentsForChildrenAtLevel(
+        documentCreationContext: DocumentCreationContext,
+        parentLevelDocumentTraversalContext: DocumentTraversalContext,
         level: Int,
     ): DocumentTraverser {
-        return DocumentTraverser { m: Map<GQLOperationPath, TraversedFieldContext> ->
-            context.fieldPathsByLevel
+        return DocumentTraverser { m: ImmutableMap<GQLOperationPath, TraversedFieldContext> ->
+            logger.debug(
+                "create_map_of_parents_for_children_at_level: [ level: {}, m.keys: {} ]",
+                level,
+                m.keys
+            )
+            documentCreationContext.fieldPathsByLevel
                 .getOrNone(level)
                 .fold(::emptySequence, Set<GQLOperationPath>::asSequence)
                 .map { p: GQLOperationPath ->
-                    p to m.getOrNone(p).getOrElse { TraversedFieldContext() }
+                    m.getOrNone(p).getOrElse { DefaultTraversedFieldContext(path = p) }
                 }
-                .map { (p: GQLOperationPath, tfc: TraversedFieldContext) ->
-                    when (
-                        val sf: SelectedField? =
-                            p.selection
-                                .lastOrNone()
-                                .map { ss: SelectionSegment ->
-                                    when (ss) {
-                                        is FieldSegment -> {
-                                            ss
-                                        }
-                                        is AliasedFieldSegment -> {
-                                            ss
-                                        }
-                                        is FragmentSpreadSegment -> {
-                                            ss.selectedField
-                                        }
-                                        is InlineFragmentSegment -> {
-                                            ss.selectedField
-                                        }
-                                    }
-                                }
-                                .orNull()
-                    ) {
-                        null -> {
-                            throw ServiceError.of("path must have at least one level")
-                        }
-                        is FieldSegment -> {
-                            Field.newField()
-                                .name(sf.fieldName)
-                                .selectionSet(tfc.selectionSet)
-                                .build()
-                        }
-                        is AliasedFieldSegment -> {
-                            Field.newField()
-                                .alias(sf.alias)
-                                .name(sf.fieldName)
-                                .selectionSet(tfc.selectionSet)
-                                .build()
-                        }
-                    }.let { f: Field -> p to f }
-                }
-                .map { p: Pair<GQLOperationPath, Field> ->
-                    p.first.getParentPath().map { pp: GQLOperationPath -> pp to p }
+                .map { tfc: TraversedFieldContext ->
+                    tfc.path.getParentPath().flatMap { pp: GQLOperationPath ->
+                        parentLevelDocumentTraversalContext.parentImplementingTypeByParentPath
+                            .getOrNone(pp)
+                            .map { git: GraphQLImplementingType ->
+                                extractFieldDefinitionForChildNodeFromParentImplementingType(
+                                    documentCreationContext,
+                                    git,
+                                    tfc
+                                )
+                            }
+                            .map { gfd: GraphQLFieldDefinition ->
+                                pp to
+                                    DefaultTraversedFieldContextWithFieldDef(
+                                        existingContext = tfc,
+                                        graphQLFieldDefinition = gfd
+                                    )
+                            }
+                    }
                 }
                 .flatMapOptions()
                 .fold(
                     persistentMapOf<
                         GQLOperationPath,
-                        Map<Pair<String, String>, List<Pair<GQLOperationPath, Field>>>
+                        Map<SelectionGroup, List<DefaultTraversedFieldContextWithFieldDef>>
                     >()
                 ) { pm, (pp, cf) ->
-                    updateMapWithSelectionGroupsForParentPerChildField(pm, pp, cf.first, cf.second)
+                    updateMapWithSelectionGroupsForParentPerChildTraversedFieldContext(pm, pp, cf)
                 }
                 .asSequence()
                 .map {
                     (
                         pp: GQLOperationPath,
-                        csm: Map<Pair<String, String>, List<Pair<GQLOperationPath, Field>>>) ->
-                    convertChildSelectionGroupsForParentIntoTraversedFieldContext(pp, csm)
+                        csm: Map<SelectionGroup, List<DefaultTraversedFieldContextWithFieldDef>>) ->
+                    convertChildSelectionGroupsIntoParentTraversedFieldContext(
+                        documentCreationContext,
+                        pp,
+                        csm
+                    )
                 }
-                .reducePairsToPersistentMap()
+                .fold(persistentMapOf()) {
+                    pm: PersistentMap<GQLOperationPath, TraversedFieldContext>,
+                    traversedFieldContext: TraversedFieldContext ->
+                    pm.put(traversedFieldContext.path, traversedFieldContext)
+                }
         }
     }
 
-    private fun updateMapWithSelectionGroupsForParentPerChildField(
+    private fun extractFieldDefinitionForChildNodeFromParentImplementingType(
+        documentCreationContext: DocumentCreationContext,
+        graphQLImplementingType: GraphQLImplementingType,
+        traversedFieldContext: TraversedFieldContext,
+    ): GraphQLFieldDefinition {
+        return traversedFieldContext.path.selection
+            .lastOrNone()
+            .map { ss: SelectionSegment ->
+                when (ss) {
+                    is FieldSegment -> {
+                        ss.fieldName
+                    }
+                    is AliasedFieldSegment -> {
+                        ss.fieldName
+                    }
+                    is FragmentSpreadSegment -> {
+                        ss.selectedField.fieldName
+                    }
+                    is InlineFragmentSegment -> {
+                        ss.selectedField.fieldName
+                    }
+                }
+            }
+            .flatMap { fn: String ->
+                graphQLImplementingType.getFieldDefinition(fn).toOption().orElse {
+                    graphQLImplementingType
+                        .toOption()
+                        .filterIsInstance<GraphQLInterfaceType>()
+                        .flatMap { git: GraphQLInterfaceType ->
+                            documentCreationContext.schema
+                                .getImplementations(git)
+                                .asSequence()
+                                .mapNotNull { got: GraphQLObjectType -> got.getFieldDefinition(fn) }
+                                .firstOrNone()
+                        }
+                }
+            }
+            .successIfDefined {
+                ServiceError.of(
+                    "unable to find graphql_field_definition for path [ %s ] in parent implementing type [ name: %s ]",
+                    traversedFieldContext.path,
+                    graphQLImplementingType.name
+                )
+            }
+            .orElseThrow()
+    }
+
+    private fun updateMapWithSelectionGroupsForParentPerChildTraversedFieldContext(
         map:
             PersistentMap<
-                GQLOperationPath, Map<Pair<String, String>, List<Pair<GQLOperationPath, Field>>>
+                GQLOperationPath,
+                Map<SelectionGroup, List<DefaultTraversedFieldContextWithFieldDef>>
             >,
         parentPath: GQLOperationPath,
-        childPath: GQLOperationPath,
-        childField: Field,
+        childContext: DefaultTraversedFieldContextWithFieldDef
     ): PersistentMap<
-        GQLOperationPath, Map<Pair<String, String>, List<Pair<GQLOperationPath, Field>>>
+        GQLOperationPath, Map<SelectionGroup, List<DefaultTraversedFieldContextWithFieldDef>>
     > {
-        return when (val ss: SelectionSegment? = childPath.selection.lastOrNone().orNull()) {
+        return when (
+            val ss: SelectionSegment? = childContext.path.selection.lastOrNone().orNull()
+        ) {
             null -> {
                 throw ServiceError.of(
                     "child path must have at least one selection_segment [ %s ]",
-                    childPath
+                    childContext
                 )
             }
             is AliasedFieldSegment -> {
-                val childGroupKey: Pair<String, String> = "" to ""
-                map.put(
-                    parentPath,
-                    map.getOrElse(parentPath, ::persistentMapOf)
-                        .toPersistentMap()
-                        .put(
-                            childGroupKey,
-                            map.getOrElse(parentPath, ::persistentMapOf)
-                                .getOrElse(childGroupKey, ::persistentListOf)
-                                .toPersistentList()
-                                .add(childPath to childField)
-                        )
-                )
+                SelectionGroup()
             }
             is FieldSegment -> {
-                val childGroupKey: Pair<String, String> = "" to ""
-                map.put(
-                    parentPath,
-                    map.getOrElse(parentPath, ::persistentMapOf)
-                        .toPersistentMap()
-                        .put(
-                            childGroupKey,
-                            map.getOrElse(parentPath, ::persistentMapOf)
-                                .getOrElse(childGroupKey, ::persistentListOf)
-                                .toPersistentList()
-                                .add(childPath to childField)
-                        )
-                )
+                SelectionGroup()
             }
             is FragmentSpreadSegment -> {
-                val childGroupKey: Pair<String, String> = ss.fragmentName to ss.typeName
-                map.put(
-                    parentPath,
-                    map.getOrElse(parentPath, ::persistentMapOf)
-                        .toPersistentMap()
-                        .put(
-                            childGroupKey,
-                            map.getOrElse(parentPath, ::persistentMapOf)
-                                .getOrElse(childGroupKey, ::persistentListOf)
-                                .toPersistentList()
-                                .add(childPath to childField)
-                        )
-                )
+                SelectionGroup(fragmentName = ss.fragmentName, typeName = ss.typeName)
             }
             is InlineFragmentSegment -> {
-                val childGroupKey: Pair<String, String> = "" to ss.typeName
-                map.put(
-                    parentPath,
-                    map.getOrElse(parentPath, ::persistentMapOf)
-                        .toPersistentMap()
-                        .put(
-                            childGroupKey,
-                            map.getOrElse(parentPath, ::persistentMapOf)
-                                .getOrElse(childGroupKey, ::persistentListOf)
-                                .toPersistentList()
-                                .add(childPath to childField)
-                        )
+                SelectionGroup(fragmentName = "", typeName = ss.typeName)
+            }
+        }.let { sg: SelectionGroup ->
+            map.put(
+                parentPath,
+                map.getOrElse(parentPath, ::persistentMapOf)
+                    .toPersistentMap()
+                    .put(
+                        sg,
+                        map.getOrElse(parentPath, ::persistentMapOf)
+                            .getOrElse(sg, ::persistentListOf)
+                            .toPersistentList()
+                            .add(childContext)
+                    )
+            )
+        }
+    }
+
+    private fun convertChildSelectionGroupsIntoParentTraversedFieldContext(
+        documentCreationContext: DocumentCreationContext,
+        parentPath: GQLOperationPath,
+        childSelectionGroups: Map<SelectionGroup, List<DefaultTraversedFieldContextWithFieldDef>>,
+    ): TraversedFieldContext {
+        return childSelectionGroups
+            .asSequence()
+            .flatMap { (sg: SelectionGroup, tfcs: List<DefaultTraversedFieldContextWithFieldDef>) ->
+                when {
+                    sg.fragmentName.isBlank() && sg.typeName.isBlank() -> {
+                        tfcs.asSequence().flatMap { tfc: DefaultTraversedFieldContextWithFieldDef ->
+                            createFieldAndOtherNodesFromTraversedFieldContextWithFieldDef(
+                                documentCreationContext,
+                                tfc
+                            )
+                        }
+                    }
+                    sg.fragmentName.isBlank() -> {
+                        tfcs
+                            .asSequence()
+                            .flatMap { tfc: DefaultTraversedFieldContextWithFieldDef ->
+                                createFieldAndOtherNodesFromTraversedFieldContextWithFieldDef(
+                                    documentCreationContext,
+                                    tfc
+                                )
+                            }
+                            .fold(
+                                persistentListOf<Selection<*>>() to persistentListOf<Node<*>>()
+                            ) { selAndOther, n ->
+                                when (n) {
+                                    is Selection<*> -> {
+                                        selAndOther.mapFirst { selections -> selections.add(n) }
+                                    }
+                                    else -> {
+                                        selAndOther.mapSecond { otherNodes -> otherNodes.add(n) }
+                                    }
+                                }
+                            }
+                            .fold { selections, otherNodes ->
+                                sequenceOf(
+                                        InlineFragment.newInlineFragment()
+                                            .typeCondition(TypeName(sg.typeName))
+                                            .selectionSet(
+                                                SelectionSet.newSelectionSet()
+                                                    .selections(selections)
+                                                    .build()
+                                            )
+                                            .build()
+                                    )
+                                    .plus(otherNodes)
+                            }
+                    }
+                    else -> {
+                        tfcs
+                            .asSequence()
+                            .flatMap { tfc: DefaultTraversedFieldContextWithFieldDef ->
+                                createFieldAndOtherNodesFromTraversedFieldContextWithFieldDef(
+                                    documentCreationContext,
+                                    tfc
+                                )
+                            }
+                            .fold(
+                                persistentListOf<Selection<*>>() to persistentListOf<Node<*>>()
+                            ) { selAndOther, n ->
+                                when (n) {
+                                    is Selection<*> -> {
+                                        selAndOther.mapFirst { selections -> selections.add(n) }
+                                    }
+                                    else -> {
+                                        selAndOther.mapSecond { otherNodes -> otherNodes.add(n) }
+                                    }
+                                }
+                            }
+                            .fold { selections, otherNodes ->
+                                sequenceOf(
+                                        FragmentSpread.newFragmentSpread()
+                                            .name(sg.fragmentName)
+                                            .build(),
+                                        FragmentDefinition.newFragmentDefinition()
+                                            .name(sg.fragmentName)
+                                            .typeCondition(TypeName(sg.typeName))
+                                            .selectionSet(
+                                                SelectionSet.newSelectionSet()
+                                                    .selections(selections)
+                                                    .build()
+                                            )
+                                            .build()
+                                    )
+                                    .plus(otherNodes)
+                            }
+                    }
+                }
+            }
+            .fold(
+                Triple(
+                    persistentListOf<Selection<*>>(),
+                    persistentListOf<VariableDefinition>(),
+                    persistentListOf<FragmentDefinition>()
                 )
+            ) { selVarFrag, n ->
+                when (n) {
+                    is Selection<*> -> {
+                        selVarFrag.mapFirst { selections -> selections.add(n) }
+                    }
+                    is VariableDefinition -> {
+                        selVarFrag.mapSecond { variableDefinitions -> variableDefinitions.add(n) }
+                    }
+                    is FragmentDefinition -> {
+                        selVarFrag.mapThird { fragmentDefinitions -> fragmentDefinitions.add(n) }
+                    }
+                    else -> {
+                        selVarFrag
+                    }
+                }
+            }
+            .fold {
+                selections: PersistentList<Selection<*>>,
+                variableDefinitions: PersistentList<VariableDefinition>,
+                fragmentDefinitions: PersistentList<FragmentDefinition> ->
+                DefaultTraversedFieldContext(
+                    path = parentPath,
+                    selectionSet = SelectionSet.newSelectionSet().selections(selections).build(),
+                    variableDefinitions = variableDefinitions,
+                    fragmentDefinitions = fragmentDefinitions
+                )
+            }
+    }
+
+    private fun createFieldAndOtherNodesFromTraversedFieldContextWithFieldDef(
+        documentCreationContext: DocumentCreationContext,
+        defaultTraversedFieldContextWithFieldDef: DefaultTraversedFieldContextWithFieldDef,
+    ): Sequence<Node<*>> {
+        return defaultTraversedFieldContextWithFieldDef.graphQLFieldDefinition.arguments
+            .asSequence()
+            .map { ga: GraphQLArgument ->
+                defaultTraversedFieldContextWithFieldDef.path
+                    .transform { argument(ga.name) }
+                    .let { ap: GQLOperationPath ->
+                        when {
+                            ap in documentCreationContext.argumentPaths -> {
+                                Argument.newArgument()
+                                    .name(ga.name)
+                                    .value(
+                                        VariableReference.newVariableReference()
+                                            .name(ga.name)
+                                            .build()
+                                    )
+                                    .build() to
+                                    VariableDefinition.newVariableDefinition()
+                                        .name(ga.name)
+                                        .type(GraphQLNullableSDLTypeComposer.invoke(ga.type))
+                                        .defaultValue(extractGraphQLArgumentDefaultLiteralValue(ga))
+                                        .build()
+                                        .some()
+                            }
+                            !ga.hasSetDefaultValue() -> {
+                                throw ServiceError.of(
+                                    """argument [ name: %s ] for field [ name: %s ] 
+                                    |has not been specified as a selected path 
+                                    |for variable_definition creation 
+                                    |but does not have a default value 
+                                    |for input_type [ %s ]"""
+                                        .flatten(),
+                                    ga.name,
+                                    defaultTraversedFieldContextWithFieldDef.graphQLFieldDefinition
+                                        .name,
+                                    GraphQLTypeUtil.simplePrint(ga.type)
+                                )
+                            }
+                            else -> {
+                                Argument.newArgument()
+                                    .name(ga.name)
+                                    .value(extractGraphQLArgumentDefaultLiteralValue(ga))
+                                    .build() to none()
+                            }
+                        }
+                    }
+            }
+            .fold(persistentListOf<Argument>() to persistentListOf<VariableDefinition>()) {
+                argsAndVars,
+                avPair ->
+                argsAndVars.bimap(
+                    { args: PersistentList<Argument> -> args.add(avPair.first) },
+                    { vars: PersistentList<VariableDefinition> ->
+                        avPair.second
+                            .map { vd: VariableDefinition -> vars.add(vd) }
+                            .getOrElse { vars }
+                    }
+                )
+            }
+            .fold { arguments: List<Argument>, variableDefinitions: List<VariableDefinition> ->
+                when (
+                    val sf: SelectedField? =
+                        defaultTraversedFieldContextWithFieldDef.path.selection
+                            .lastOrNone()
+                            .map { ss: SelectionSegment ->
+                                when (ss) {
+                                    is FieldSegment -> {
+                                        ss
+                                    }
+                                    is AliasedFieldSegment -> {
+                                        ss
+                                    }
+                                    is FragmentSpreadSegment -> {
+                                        ss.selectedField
+                                    }
+                                    is InlineFragmentSegment -> {
+                                        ss.selectedField
+                                    }
+                                }
+                            }
+                            .orNull()
+                ) {
+                    null -> {
+                        throw ServiceError.of("path must have at least one level")
+                    }
+                    is FieldSegment -> {
+                        sequenceOf(
+                            Field.newField()
+                                .name(sf.fieldName)
+                                .arguments(arguments)
+                                .selectionSet(
+                                    useTraversedFieldContextSelectionSetIfNonEmpty(
+                                        defaultTraversedFieldContextWithFieldDef
+                                    )
+                                )
+                                .build()
+                        )
+                    }
+                    is AliasedFieldSegment -> {
+                        sequenceOf(
+                            Field.newField()
+                                .alias(sf.alias)
+                                .name(sf.fieldName)
+                                .arguments(arguments)
+                                .selectionSet(
+                                    useTraversedFieldContextSelectionSetIfNonEmpty(
+                                        defaultTraversedFieldContextWithFieldDef
+                                    )
+                                )
+                                .build()
+                        )
+                    }
+                }.plus(variableDefinitions)
+            }
+            .plus(defaultTraversedFieldContextWithFieldDef.fragmentDefinitions)
+            .plus(defaultTraversedFieldContextWithFieldDef.variableDefinitions)
+    }
+
+    private fun extractGraphQLArgumentDefaultLiteralValue(
+        graphQLArgument: GraphQLArgument
+    ): Value<*>? {
+        return graphQLArgument.argumentDefaultValue
+            .toOption()
+            .filter(InputValueWithState::isLiteral)
+            .mapNotNull(InputValueWithState::getValue)
+            .filterIsInstance<Value<*>>()
+            .orNull()
+    }
+
+    private fun useTraversedFieldContextSelectionSetIfNonEmpty(
+        traversedFieldContext: TraversedFieldContext
+    ): SelectionSet? {
+        return when {
+            traversedFieldContext.selectionSet
+                .toOption()
+                .mapNotNull(SelectionSet::getSelections)
+                .filter(List<Selection<*>>::isNotEmpty)
+                .isDefined() -> {
+                traversedFieldContext.selectionSet
+            }
+            else -> {
+                null
             }
         }
     }
 
-    private fun convertChildSelectionGroupsForParentIntoTraversedFieldContext(
-        parentPath: GQLOperationPath,
-        childSelectionGroups: Map<Pair<String, String>, List<Pair<GQLOperationPath, Field>>>,
-    ): Pair<GQLOperationPath, TraversedFieldContext> {
-        return childSelectionGroups
-            .asSequence()
-            .flatMap {
-                (
-                    groupSignature: Pair<String, String>,
-                    childFields: List<Pair<GQLOperationPath, Field>>) ->
-                when {
-                    groupSignature.first.isBlank() && groupSignature.second.isBlank() -> {
-                        childFields.asSequence().map { (p: GQLOperationPath, f: Field) -> f }
-                    }
-                    groupSignature.first.isBlank() -> {
-                        sequenceOf(
-                            InlineFragment.newInlineFragment()
-                                .typeCondition(TypeName(groupSignature.second))
-                                .selectionSet(
-                                    SelectionSet.newSelectionSet()
-                                        .selections(
-                                            childFields
-                                                .asSequence()
-                                                .map { (p: GQLOperationPath, f: Field) -> f }
-                                                .toList()
-                                        )
-                                        .build()
-                                )
-                                .build()
-                        )
-                    }
-                    else -> {
-                        sequenceOf(
-                            FragmentDefinition.newFragmentDefinition()
-                                .name(groupSignature.first)
-                                .typeCondition(TypeName(groupSignature.second))
-                                .selectionSet(
-                                    SelectionSet.newSelectionSet()
-                                        .selections(
-                                            childFields
-                                                .asSequence()
-                                                .map { (p: GQLOperationPath, f: Field) -> f }
-                                                .toList()
-                                        )
-                                        .build()
-                                )
-                                .build()
-                        )
-                    }
-                }
-            }
-            .partition { n: Node<*> -> n !is FragmentDefinition }
-            .fold { selections: List<Node<*>>, fragmentDefinitions: List<Node<*>> ->
-                parentPath to
-                    TraversedFieldContext(
-                        selectionSet =
-                            SelectionSet.newSelectionSet()
-                                .selections(
-                                    selections
-                                        .asSequence()
-                                        .filterIsInstance<Selection<*>>()
-                                        .plus(
-                                            fragmentDefinitions
-                                                .asSequence()
-                                                .filterIsInstance<FragmentDefinition>()
-                                                .map { fd: FragmentDefinition ->
-                                                    FragmentSpread.newFragmentSpread()
-                                                        .name(fd.name)
-                                                        .build()
-                                                }
-                                        )
-                                        .toList()
-                                )
-                                .build(),
-                        fragmentDefinitions =
-                            fragmentDefinitions
-                                .asSequence()
-                                .filterIsInstance<FragmentDefinition>()
-                                .toPersistentList()
-                    )
-            }
-    }
-
     private fun interface DocumentTraverser :
-        (Map<GQLOperationPath, TraversedFieldContext>) -> Map<
+        (ImmutableMap<GQLOperationPath, TraversedFieldContext>) -> ImmutableMap<
                 GQLOperationPath, TraversedFieldContext
             >
 
@@ -544,21 +805,34 @@ object GQLOperationPathsToDocumentTransformer :
         val childFieldPathsByParentPath:
             PersistentMap<GQLOperationPath, PersistentSet<GQLOperationPath>>,
         val fieldPathsByLevel: PersistentMap<Int, PersistentSet<GQLOperationPath>>,
-        val argumentPathsByParentFieldPath:
-            PersistentMap<GQLOperationPath, PersistentSet<GQLOperationPath>>,
-        val directivePathsByParentPath:
-            PersistentMap<GQLOperationPath, PersistentSet<GQLOperationPath>>
+        val argumentPaths: PersistentSet<GQLOperationPath>,
+        val directivePaths: PersistentSet<GQLOperationPath>
     )
 
-    private data class TraversedFieldContext(
-        val selectionSet: SelectionSet = SelectionSet.newSelectionSet().build(),
-        val variableDefinitions: PersistentList<VariableDefinition> = persistentListOf(),
-        val fragmentDefinitions: PersistentList<FragmentDefinition> = persistentListOf()
-    )
+    private interface TraversedFieldContext {
+        val path: GQLOperationPath
+        val selectionSet: SelectionSet
+        val variableDefinitions: PersistentList<VariableDefinition>
+        val fragmentDefinitions: PersistentList<FragmentDefinition>
+    }
+
+    private data class DefaultTraversedFieldContext(
+        override val path: GQLOperationPath,
+        override val selectionSet: SelectionSet = SelectionSet.newSelectionSet().build(),
+        override val variableDefinitions: PersistentList<VariableDefinition> = persistentListOf(),
+        override val fragmentDefinitions: PersistentList<FragmentDefinition> = persistentListOf()
+    ) : TraversedFieldContext
+
+    private data class DefaultTraversedFieldContextWithFieldDef(
+        private val existingContext: TraversedFieldContext,
+        val graphQLFieldDefinition: GraphQLFieldDefinition,
+    ) : TraversedFieldContext by existingContext
 
     private data class DocumentTraversalContext(
         val parentImplementingTypeByParentPath:
             PersistentMap<GQLOperationPath, GraphQLImplementingType>,
         val documentTraverser: DocumentTraverser,
     )
+
+    private data class SelectionGroup(val fragmentName: String = "", val typeName: String = "")
 }
