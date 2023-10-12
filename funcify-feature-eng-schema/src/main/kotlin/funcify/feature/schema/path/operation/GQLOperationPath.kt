@@ -1,6 +1,7 @@
 package funcify.feature.schema.path.operation
 
 import arrow.core.Option
+import arrow.core.getOrElse
 import arrow.core.none
 import arrow.core.some
 import java.net.URI
@@ -200,32 +201,32 @@ interface GQLOperationPath : Comparable<GQLOperationPath> {
         }
     }
 
-    fun selectionReferent(): Boolean {
+    fun refersToSelection(): Boolean {
         return argument.isEmpty() && directive.isEmpty()
     }
 
-    fun argumentReferent(): Boolean {
-        return argument.isNotEmpty() && directive.isEmpty()
+    fun refersToArgument(): Boolean {
+        return directive.isEmpty() && argument.map { (_, ps) -> ps.isEmpty() }.getOrElse { false }
     }
 
-    fun directiveReferent(): Boolean {
-        return directive.isNotEmpty()
+    fun refersToDirective(): Boolean {
+        return directive.map { (_, ps) -> ps.isEmpty() }.getOrElse { false }
     }
 
-    fun referentOnFragment(): Boolean
+    fun refersToSelectionOnFragment(): Boolean
 
-    fun referentOnInlineFragment(): Boolean
+    fun refersToSelectionOnInlineFragment(): Boolean
 
-    fun referentOnFragmentSpread(): Boolean
+    fun refersToSelectionOnFragmentSpread(): Boolean
 
-    fun referentAliased(): Boolean
+    fun containsAliasForField(): Boolean
 
-    fun referentOnArgument(): Boolean {
-        return argument.isNotEmpty()
+    fun refersToPartOfArgument(): Boolean {
+        return argument.map { (_, ps) -> ps.isNotEmpty() }.getOrElse { false }
     }
 
-    fun referentOnDirective(): Boolean {
-        return directive.isNotEmpty()
+    fun refersToPartOfDirective(): Boolean {
+        return directive.map { (_, ps) -> ps.isNotEmpty() }.getOrElse { false }
     }
 
     fun isAncestorTo(other: GQLOperationPath): Boolean {

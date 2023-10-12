@@ -118,7 +118,7 @@ internal data class DefaultTransformerSpecifiedTransformerSource(
                         ) {
                             "transformer_field_coordinates.field_name does not match transformer_field_definition.name"
                         }
-                        ensure(!transformerPath!!.referentAliased()) {
+                        ensure(!transformerPath!!.containsAliasForField()) {
                             "transformer_path cannot be aliased"
                         }
                         ensure(

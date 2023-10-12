@@ -320,4 +320,65 @@ internal class GQLOperationPathsToDocumentTransformerTest {
             "document does not match expected output format"
         }
     }
+
+    /*@Test
+    fun queryWithAliasWithoutFragmentsCreationTest() {
+        val pathsSet =
+            sequenceOf(
+                    GQLOperationPath.of { field("shows", "title") },
+                    GQLOperationPath.of { field("shows", "releaseYear") },
+                    GQLOperationPath.of { field("shows", "reviews", "username") },
+                    GQLOperationPath.of { field("shows", "reviews", "starScore") },
+                    GQLOperationPath.of { field("shows", "reviews", "submittedDate") },
+                    GQLOperationPath.of { field("shows", "artwork", "url") },
+                    GQLOperationPath.of { field("shows", "title").argument("format") },
+                    GQLOperationPath.of { field("shows").argument("titleFilter") },
+                    GQLOperationPath.of { field("shows", "artwork").argument("limits") },
+                    GQLOperationPath.of { field("shows", "title") },
+                    GQLOperationPath.of { field("shows", "releaseYear") },
+                    GQLOperationPath.of { field("shows", "reviews", "username") },
+                    GQLOperationPath.of { field("shows", "reviews", "starScore") },
+                    GQLOperationPath.of { field("shows", "reviews", "submittedDate") },
+                    GQLOperationPath.of { field("shows", "artwork", "url") },
+                    GQLOperationPath.of { field("shows", "title").argument("format") },
+                    GQLOperationPath.of { field("shows").argument("titleFilter") },
+                    GQLOperationPath.of { field("shows", "artwork").argument("limits") }
+                )
+                .toPersistentSet()
+        val graphQLSchema: GraphQLSchema =
+            Assertions.assertDoesNotThrow<GraphQLSchema> {
+                SchemaGenerator.createdMockedSchema(exampleDGSSchema)
+            }
+        val document: Document =
+            Assertions.assertDoesNotThrow<Document> {
+                GQLOperationPathsToDocumentTransformer.invoke(graphQLSchema, pathsSet).orElseThrow()
+            }
+        Assertions.assertTrue(
+            document.getDefinitionsOfType(OperationDefinition::class.java).isNotEmpty()
+        ) {
+            "document does not contain any operation_definition"
+        }
+        val expectedOutputFormat: String =
+            """
+            |query (${"$"}titleFilter: String, ${"$"}format: TitleFormat, ${"$"}limits: ImageLimits) {
+            |  shows(titleFilter: ${"$"}titleFilter) {
+            |    title(format: ${"$"}format)
+            |    releaseYear
+            |    reviews(minStarScore: 0) {
+            |      username
+            |      starScore
+            |      submittedDate
+            |    }
+            |    artwork(limits: ${"$"}limits) {
+            |      url
+            |    }
+            |  }
+            |}
+            |
+        """
+                .trimMargin()
+        Assertions.assertEquals(expectedOutputFormat, AstPrinter.printAst(document)) {
+            "document does not match expected output format"
+        }
+    }*/
 }

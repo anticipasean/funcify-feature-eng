@@ -139,7 +139,7 @@ internal data class DefaultDomainSpecifiedDataElementSource(
                         ensure(domainFieldCoordinates!!.fieldName == domainFieldDefinition!!.name) {
                             "domain_field_coordinates.field_name does not match domain_field_definition.name"
                         }
-                        ensure(!domainPath!!.referentAliased()) { "domain_path cannot be aliased" }
+                        ensure(!domainPath!!.containsAliasForField()) { "domain_path cannot be aliased" }
                         ensure(
                             domainPath!!
                                 .selection

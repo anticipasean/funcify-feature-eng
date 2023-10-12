@@ -519,7 +519,6 @@ internal data class DefaultGQLOperationPath(
                         }
                         mm
                     }
-
                 when {
                     selectionSegmentGroupCounts
                         .getOrNone(InlineFragmentSegment::class)
@@ -609,20 +608,23 @@ internal data class DefaultGQLOperationPath(
         }
     }
 
-    override fun referentOnFragment(): Boolean {
-        return SelectionType.CONTAINS_FRAGMENT_SPREAD_REFERENCE in internedSelectionTypes ||
+    override fun refersToSelectionOnFragment(): Boolean {
+        return super.refersToSelection() &&
+            SelectionType.CONTAINS_FRAGMENT_SPREAD_REFERENCE in internedSelectionTypes ||
             SelectionType.CONTAINS_INLINE_FRAGMENT_REFERENCE in internedSelectionTypes
     }
 
-    override fun referentOnInlineFragment(): Boolean {
-        return SelectionType.CONTAINS_INLINE_FRAGMENT_REFERENCE in internedSelectionTypes
+    override fun refersToSelectionOnInlineFragment(): Boolean {
+        return super.refersToSelection() &&
+            SelectionType.CONTAINS_INLINE_FRAGMENT_REFERENCE in internedSelectionTypes
     }
 
-    override fun referentOnFragmentSpread(): Boolean {
-        return SelectionType.CONTAINS_FRAGMENT_SPREAD_REFERENCE in internedSelectionTypes
+    override fun refersToSelectionOnFragmentSpread(): Boolean {
+        return super.refersToSelection() &&
+            SelectionType.CONTAINS_FRAGMENT_SPREAD_REFERENCE in internedSelectionTypes
     }
 
-    override fun referentAliased(): Boolean {
+    override fun containsAliasForField(): Boolean {
         return SelectionType.CONTAINS_ALIASED_FIELD in internedSelectionTypes
     }
 

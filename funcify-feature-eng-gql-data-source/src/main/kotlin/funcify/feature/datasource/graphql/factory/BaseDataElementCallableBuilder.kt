@@ -56,10 +56,10 @@ internal abstract class BaseDataElementCallableBuilder<B : DataElementCallable.B
     override fun selectPathWithinDomain(path: GQLOperationPath): B =
         this.applyToBuilder {
             when {
-                path.directiveReferent() -> {
+                path.refersToDirective() -> {
                     this.directivePathSelections.add(path)
                 }
-                !path.argumentReferent() -> {
+                !path.refersToArgument() -> {
                     this.fieldPathSelections.add(path)
                 }
             }
@@ -70,7 +70,7 @@ internal abstract class BaseDataElementCallableBuilder<B : DataElementCallable.B
         value: Value<*>
     ): B =
         this.applyToBuilder {
-            if (path.directiveReferent()) {
+            if (path.refersToDirective()) {
                 this.directivePathValueSelections.put(path, value)
             }
         }
@@ -79,10 +79,10 @@ internal abstract class BaseDataElementCallableBuilder<B : DataElementCallable.B
         this.applyToBuilder {
             selections.asSequence().forEach { p: GQLOperationPath ->
                 when {
-                    p.directiveReferent() -> {
+                    p.refersToDirective() -> {
                         this.directivePathSelections.add(p)
                     }
-                    !p.argumentReferent() -> {
+                    !p.refersToArgument() -> {
                         this.fieldPathSelections.add(p)
                     }
                 }

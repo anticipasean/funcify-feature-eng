@@ -126,10 +126,10 @@ object GQLOperationPathsToDocumentTransformer :
                         p.isRoot() -> {
                             c
                         }
-                        p.referentOnDirective() -> {
+                        p.refersToPartOfDirective() -> {
                             c.copy(directivePaths = c.directivePaths.add(p))
                         }
-                        p.referentOnArgument() -> {
+                        p.refersToPartOfArgument() -> {
                             c.copy(argumentPaths = c.argumentPaths.add(p))
                         }
                         else -> {

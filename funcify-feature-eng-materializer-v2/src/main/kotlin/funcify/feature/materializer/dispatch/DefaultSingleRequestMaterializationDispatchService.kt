@@ -199,7 +199,7 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                     .edgesFromPoint(path)
                     .asSequence()
                     .map { (l: DirectedLine<GQLOperationPath>, e: MaterializationEdge) ->
-                        if (!l.destinationPoint.referentOnArgument()) {
+                        if (!l.destinationPoint.refersToPartOfArgument()) {
                             ServiceError.of(
                                     "dependent [ %s ] for transformer_source [ path: %s ] is not an argument",
                                     l.destinationPoint,
@@ -318,7 +318,7 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                     .edgesFromPoint(path)
                     .asSequence()
                     .map { (l: DirectedLine<GQLOperationPath>, e: MaterializationEdge) ->
-                        if (!l.destinationPoint.referentOnArgument()) {
+                        if (!l.destinationPoint.refersToPartOfArgument()) {
                             ServiceError.of(
                                     "dependent [ %s ] for data_element_source [ path: %s ] is not an argument",
                                     l.destinationPoint,

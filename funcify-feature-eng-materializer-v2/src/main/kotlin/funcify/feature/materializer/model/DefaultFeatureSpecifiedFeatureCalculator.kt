@@ -104,7 +104,7 @@ internal data class DefaultFeatureSpecifiedFeatureCalculator(
                         ) {
                             "feature_field_coordinates.field_name does not match feature_field_definition.name"
                         }
-                        ensure(!featurePath!!.referentAliased()) {
+                        ensure(!featurePath!!.containsAliasForField()) {
                             "feature_path cannot be aliased"
                         }
                         ensure(
