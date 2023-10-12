@@ -99,7 +99,6 @@ object GQLOperationPathsToDocumentTransformer :
     //    )
     // }
 
-    // TODO: Surface error for name collisions in variable definitions
     // TODO: Incorporate directive specs
     // TODO: Add support for handling non-scalar argument values
     override fun invoke(graphQLSchema: GraphQLSchema, paths: Set<GQLOperationPath>): Try<Document> {
@@ -219,9 +218,7 @@ object GQLOperationPathsToDocumentTransformer :
             documentCreationContext.fieldPathsByLevel
                 .asSequence()
                 .sortedBy { (l, fps) -> l }
-                .joinToString(separator = ",\n") { (l, ps) ->
-                    "[${l}]: ${ps.asSequence().joinToString()}"
-                }
+                .joinToString { (l, ps) -> "[${l}]: [ ${ps.asSequence().joinToString()} ]" }
         )
         return documentCreationContext.fieldPathsByLevel.keys
             .asSequence()
@@ -622,7 +619,11 @@ object GQLOperationPathsToDocumentTransformer :
                 DefaultTraversedFieldContext(
                     path = parentPath,
                     selectionSet = SelectionSet.newSelectionSet().selections(selections).build(),
-                    variableDefinitions = variableDefinitions,
+                    variableDefinitionsByName =
+                        variableDefinitions
+                            .asSequence()
+                            .map { vd: VariableDefinition -> vd.name to vd }
+                            .reducePairsToPersistentMap(),
                     fragmentDefinitions = fragmentDefinitions
                 )
             }
@@ -630,12 +631,12 @@ object GQLOperationPathsToDocumentTransformer :
 
     private fun createFieldAndOtherNodesFromTraversedFieldContextWithFieldDef(
         documentCreationContext: DocumentCreationContext,
-        defaultTraversedFieldContextWithFieldDef: DefaultTraversedFieldContextWithFieldDef,
+        traversedFieldContextWithFieldDef: DefaultTraversedFieldContextWithFieldDef,
     ): Sequence<Node<*>> {
-        return defaultTraversedFieldContextWithFieldDef.graphQLFieldDefinition.arguments
+        return traversedFieldContextWithFieldDef.graphQLFieldDefinition.arguments
             .asSequence()
             .map { ga: GraphQLArgument ->
-                defaultTraversedFieldContextWithFieldDef.path
+                traversedFieldContextWithFieldDef.path
                     .transform { argument(ga.name) }
                     .let { ap: GQLOperationPath ->
                         when {
@@ -664,8 +665,7 @@ object GQLOperationPathsToDocumentTransformer :
                                     |for input_type [ %s ]"""
                                         .flatten(),
                                     ga.name,
-                                    defaultTraversedFieldContextWithFieldDef.graphQLFieldDefinition
-                                        .name,
+                                    traversedFieldContextWithFieldDef.graphQLFieldDefinition.name,
                                     GraphQLTypeUtil.simplePrint(ga.type)
                                 )
                             }
@@ -693,7 +693,7 @@ object GQLOperationPathsToDocumentTransformer :
             .fold { arguments: List<Argument>, variableDefinitions: List<VariableDefinition> ->
                 when (
                     val sf: SelectedField? =
-                        defaultTraversedFieldContextWithFieldDef.path.selection
+                        traversedFieldContextWithFieldDef.path.selection
                             .lastOrNone()
                             .map { ss: SelectionSegment ->
                                 when (ss) {
@@ -723,7 +723,7 @@ object GQLOperationPathsToDocumentTransformer :
                                 .arguments(arguments)
                                 .selectionSet(
                                     useTraversedFieldContextSelectionSetIfNonEmpty(
-                                        defaultTraversedFieldContextWithFieldDef
+                                        traversedFieldContextWithFieldDef
                                     )
                                 )
                                 .build()
@@ -737,16 +737,52 @@ object GQLOperationPathsToDocumentTransformer :
                                 .arguments(arguments)
                                 .selectionSet(
                                     useTraversedFieldContextSelectionSetIfNonEmpty(
-                                        defaultTraversedFieldContextWithFieldDef
+                                        traversedFieldContextWithFieldDef
                                     )
                                 )
                                 .build()
                         )
                     }
-                }.plus(variableDefinitions)
+                }.plus(
+                    addNewVariableDefinitionsIfNoneRedefineExisting(
+                        traversedFieldContextWithFieldDef,
+                        variableDefinitions
+                    )
+                )
             }
-            .plus(defaultTraversedFieldContextWithFieldDef.fragmentDefinitions)
-            .plus(defaultTraversedFieldContextWithFieldDef.variableDefinitions)
+            .plus(traversedFieldContextWithFieldDef.variableDefinitionsByName.values)
+            .plus(traversedFieldContextWithFieldDef.fragmentDefinitions)
+    }
+
+    private fun addNewVariableDefinitionsIfNoneRedefineExisting(
+        traversedFieldContextWithFieldDef: DefaultTraversedFieldContextWithFieldDef,
+        newVariableDefinitions: List<VariableDefinition>,
+    ): Sequence<VariableDefinition> {
+        return newVariableDefinitions
+            .partition { vd: VariableDefinition ->
+                traversedFieldContextWithFieldDef.variableDefinitionsByName
+                    .getOrNone(vd.name)
+                    .map { vd1: VariableDefinition -> !vd1.type.isEqualTo(vd.type) }
+                    .getOrElse { false }
+            }
+            .fold {
+                redefiningNewDefs: List<VariableDefinition>,
+                otherNewDefs: List<VariableDefinition> ->
+                when {
+                    redefiningNewDefs.isNotEmpty() -> {
+                        throw ServiceError.of(
+                            """at least one variable_definition already exists 
+                            |with same name but with different type 
+                            |[ definitions: %s ]"""
+                                .flatten(),
+                            redefiningNewDefs.asSequence().joinToString()
+                        )
+                    }
+                    else -> {
+                        otherNewDefs.asSequence()
+                    }
+                }
+            }
     }
 
     private fun extractGraphQLArgumentDefaultLiteralValue(
@@ -790,7 +826,7 @@ object GQLOperationPathsToDocumentTransformer :
                             OperationDefinition.newOperationDefinition()
                                 .operation(OperationDefinition.Operation.QUERY)
                                 .selectionSet(dtc.selectionSet)
-                                .variableDefinitions(dtc.variableDefinitions)
+                                .variableDefinitions(dtc.variableDefinitionsByName.values.toList())
                                 .build()
                         )
                         .plus(dtc.fragmentDefinitions)
@@ -812,14 +848,15 @@ object GQLOperationPathsToDocumentTransformer :
     private interface TraversedFieldContext {
         val path: GQLOperationPath
         val selectionSet: SelectionSet
-        val variableDefinitions: PersistentList<VariableDefinition>
+        val variableDefinitionsByName: PersistentMap<String, VariableDefinition>
         val fragmentDefinitions: PersistentList<FragmentDefinition>
     }
 
     private data class DefaultTraversedFieldContext(
         override val path: GQLOperationPath,
         override val selectionSet: SelectionSet = SelectionSet.newSelectionSet().build(),
-        override val variableDefinitions: PersistentList<VariableDefinition> = persistentListOf(),
+        override val variableDefinitionsByName: PersistentMap<String, VariableDefinition> =
+            persistentMapOf(),
         override val fragmentDefinitions: PersistentList<FragmentDefinition> = persistentListOf()
     ) : TraversedFieldContext
 

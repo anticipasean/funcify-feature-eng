@@ -263,4 +263,61 @@ internal class GQLOperationPathsToDocumentTransformerTest {
             "document does not match expected output format"
         }
     }
+
+    @Test
+    fun queryWithFragmentSpreadCreationTest() {
+        val pathsSet =
+            sequenceOf(
+                    GQLOperationPath.of { field("shows", "title") },
+                    GQLOperationPath.of {
+                        field("shows").fragmentSpread("MyTVShowFields", "TVShow", "numberOfSeasons")
+                    },
+                    GQLOperationPath.of {
+                        field("shows").fragmentSpread("MyTVShowFields", "TVShow", "releaseYear")
+                    },
+                    GQLOperationPath.of { field("shows", "reviews", "username") },
+                    GQLOperationPath.of { field("shows", "reviews", "starScore") },
+                    GQLOperationPath.of { field("shows", "reviews", "submittedDate") },
+                    GQLOperationPath.of { field("shows", "title").argument("format") },
+                    GQLOperationPath.of { field("shows").argument("titleFilter") },
+                )
+                .toPersistentSet()
+        val graphQLSchema: GraphQLSchema =
+            Assertions.assertDoesNotThrow<GraphQLSchema> {
+                SchemaGenerator.createdMockedSchema(exampleDGSSchema)
+            }
+        val document: Document =
+            Assertions.assertDoesNotThrow<Document> {
+                GQLOperationPathsToDocumentTransformer.invoke(graphQLSchema, pathsSet).orElseThrow()
+            }
+        Assertions.assertTrue(
+            document.getDefinitionsOfType(OperationDefinition::class.java).isNotEmpty()
+        ) {
+            "document does not contain any operation_definition"
+        }
+        val expectedOutputFormat: String =
+            """
+            |query (${"$"}titleFilter: String, ${"$"}format: TitleFormat) {
+            |  shows(titleFilter: ${"$"}titleFilter) {
+            |    title(format: ${"$"}format)
+            |    reviews(minStarScore: 0) {
+            |      username
+            |      starScore
+            |      submittedDate
+            |    }
+            |    ...MyTVShowFields
+            |  }
+            |}
+            |
+            |fragment MyTVShowFields on TVShow {
+            |  numberOfSeasons
+            |  releaseYear
+            |}
+            |
+            """
+                .trimMargin()
+        Assertions.assertEquals(expectedOutputFormat, AstPrinter.printAst(document)) {
+            "document does not match expected output format"
+        }
+    }
 }
