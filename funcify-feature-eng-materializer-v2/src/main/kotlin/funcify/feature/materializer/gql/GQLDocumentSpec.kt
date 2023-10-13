@@ -2,8 +2,10 @@ package funcify.feature.materializer.gql
 
 import funcify.feature.schema.path.operation.GQLOperationPath
 import graphql.language.Value
+import graphql.schema.GraphQLSchema
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.ImmutableSet
+import java.time.Instant
 
 /**
  * @author smccarron
@@ -14,6 +16,8 @@ interface GQLDocumentSpec {
     val fieldPaths: ImmutableSet<GQLOperationPath>
 
     val argumentPathsByVariableName: ImmutableMap<String, ImmutableSet<GQLOperationPath>>
+
+    val variableNameByArgumentPath: ImmutableMap<GQLOperationPath, String>
 
     val argumentDefaultLiteralValuesByPath: ImmutableMap<GQLOperationPath, Value<*>>
 

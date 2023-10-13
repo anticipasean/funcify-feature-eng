@@ -2,6 +2,7 @@ package funcify.feature.materializer.gql
 
 import arrow.core.foldLeft
 import funcify.feature.schema.path.operation.GQLOperationPath
+import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentMap
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import graphql.language.Value
 import kotlinx.collections.immutable.ImmutableMap
@@ -60,7 +61,10 @@ internal class DefaultGQLDocumentSpecFactory : GQLDocumentSpecFactory {
                 argumentPath: GQLOperationPath
             ): GQLDocumentSpec.Builder =
                 this.apply {
-                    require(argumentPath.refersToArgument()) {
+                    require(
+                        argumentPath.refersToArgument() ||
+                            argumentPath.refersToObjectFieldWithinArgumentValue()
+                    ) {
                         """path refers to selection (field, inline_fragment, fragment_spread) 
                             |or directive or part of a directive; 
                             |path must refer to an argument"""
@@ -92,8 +96,10 @@ internal class DefaultGQLDocumentSpecFactory : GQLDocumentSpecFactory {
                 this.apply {
                     variableNameArgumentPathsMap.foldLeft(this) {
                         b: GQLDocumentSpec.Builder,
-                        e: Map.Entry<String, Set<GQLOperationPath>> ->
-                        e.value.fold(b) { b1, p -> b1.putArgumentPathForVariableName(e.key, p) }
+                        (vn: String, ps: Set<GQLOperationPath>) ->
+                        ps.fold(b) { b1, p: GQLOperationPath ->
+                            b1.putArgumentPathForVariableName(vn, p)
+                        }
                     }
                 }
 
@@ -102,7 +108,10 @@ internal class DefaultGQLDocumentSpecFactory : GQLDocumentSpecFactory {
                 defaultLiteralValue: Value<*>,
             ): GQLDocumentSpec.Builder =
                 this.apply {
-                    require(argumentPath.refersToArgument()) {
+                    require(
+                        argumentPath.refersToArgument() ||
+                            argumentPath.refersToObjectFieldWithinArgumentValue()
+                    ) {
                         """path refers to selection (field, inline_fragment, fragment_spread) 
                             |or directive or part of a directive; 
                             |path must refer to an argument"""
@@ -150,6 +159,16 @@ internal class DefaultGQLDocumentSpecFactory : GQLDocumentSpecFactory {
             override val argumentDefaultLiteralValuesByPath:
                 ImmutableMap<GQLOperationPath, Value<*>>
         ) : GQLDocumentSpec {
+
+            override val variableNameByArgumentPath:
+                ImmutableMap<GQLOperationPath, String> by lazy {
+                argumentPathsByVariableName
+                    .asSequence()
+                    .flatMap { (vn: String, ps: Set<GQLOperationPath>) ->
+                        ps.asSequence().map { p: GQLOperationPath -> p to vn }
+                    }
+                    .reducePairsToPersistentMap()
+            }
 
             override fun update(
                 transformer: GQLDocumentSpec.Builder.() -> GQLDocumentSpec.Builder

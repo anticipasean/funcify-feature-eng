@@ -1,5 +1,6 @@
 package funcify.feature.materializer.gql
 
+import arrow.core.Option
 import arrow.core.filterIsInstance
 import arrow.core.getOrElse
 import arrow.core.getOrNone
@@ -12,7 +13,8 @@ import arrow.core.right
 import arrow.core.some
 import arrow.core.toOption
 import funcify.feature.error.ServiceError
-import funcify.feature.materializer.gql.GQLOperationPathsToDocumentTransformer.DocumentTraverser
+import funcify.feature.materializer.gql.DefaultGQLDocumentComposer.DocumentTraverser
+import funcify.feature.materializer.model.MaterializationMetamodel
 import funcify.feature.schema.path.operation.AliasedFieldSegment
 import funcify.feature.schema.path.operation.FieldSegment
 import funcify.feature.schema.path.operation.FragmentSpreadSegment
@@ -39,12 +41,14 @@ import funcify.feature.tools.extensions.TripleExtensions.mapSecond
 import funcify.feature.tools.extensions.TripleExtensions.mapThird
 import funcify.feature.tools.extensions.TryExtensions.successIfDefined
 import graphql.language.Argument
+import graphql.language.ArrayValue
 import graphql.language.Document
 import graphql.language.Field
 import graphql.language.FragmentDefinition
 import graphql.language.FragmentSpread
 import graphql.language.InlineFragment
 import graphql.language.Node
+import graphql.language.NullValue
 import graphql.language.OperationDefinition
 import graphql.language.Selection
 import graphql.language.SelectionSet
@@ -56,15 +60,18 @@ import graphql.schema.GraphQLArgument
 import graphql.schema.GraphQLFieldDefinition
 import graphql.schema.GraphQLImplementingType
 import graphql.schema.GraphQLInterfaceType
+import graphql.schema.GraphQLList
+import graphql.schema.GraphQLNonNull
 import graphql.schema.GraphQLObjectType
 import graphql.schema.GraphQLSchema
+import graphql.schema.GraphQLType
 import graphql.schema.GraphQLTypeUtil
 import graphql.schema.InputValueWithState
+import java.time.Instant
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentMap
 import kotlinx.collections.immutable.ImmutableMap
-import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.PersistentList
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.PersistentSet
@@ -73,81 +80,93 @@ import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toPersistentList
 import kotlinx.collections.immutable.toPersistentMap
-import kotlinx.collections.immutable.toPersistentSet
 import org.slf4j.Logger
 
-object GQLOperationPathsToDocumentTransformer :
-    (GraphQLSchema, Set<GQLOperationPath>) -> Try<Document> {
+/**
+ * @author smccarron
+ * @created 2023-10-12
+ */
+internal object DefaultGQLDocumentComposer : GQLDocumentComposer {
 
-    // private val cache: ConcurrentMap<Pair<Instant, ImmutableSet<GQLOperationPath>>,
-    // Try<Document>> =
-    //    ConcurrentHashMap()
+    private val logger: Logger = loggerFor<DefaultGQLDocumentComposer>()
 
-    private val logger: Logger = loggerFor<GQLOperationPathsToDocumentTransformer>()
-
-    private val cache:
-        ConcurrentMap<Pair<GraphQLSchema, ImmutableSet<GQLOperationPath>>, Try<Document>> =
+    /**
+     * [GraphQLSchema]s as of v20 do not have hashcode implementations, so their identity hash code
+     * must be used instead
+     */
+    private val earliestInstantReceivedBySchema: (GraphQLSchema) -> Instant by lazy {
+        val earliestInstantReceivedByIdentityHashCodeCache: ConcurrentMap<Int, Instant> =
+            ConcurrentHashMap();
+        { gs: GraphQLSchema ->
+            earliestInstantReceivedByIdentityHashCodeCache.computeIfAbsent(
+                System.identityHashCode(gs)
+            ) { _: Int ->
+                Instant.now()
+            }
+        }
+    }
+    private val cache: ConcurrentMap<Pair<Instant, GQLDocumentSpec>, Try<Document>> =
         ConcurrentHashMap()
-
-    // override fun invoke(
-    //    materializationMetamodel: MaterializationMetamodel,
-    //    paths: Set<GQLOperationPath>
-    // ): Try<Document> {
-    //    return cache.computeIfAbsent(
-    //        materializationMetamodel.created to paths.toPersistentSet(),
-    //        calculateDocumentForPathsSetWithMetamodel(materializationMetamodel)
-    //    )
-    // }
 
     // TODO: Incorporate directive specs
     // TODO: Add support for handling non-scalar argument values
-    override fun invoke(graphQLSchema: GraphQLSchema, paths: Set<GQLOperationPath>): Try<Document> {
+    override fun composeDocumentFromSpecWithMetamodel(
+        spec: GQLDocumentSpec,
+        materializationMetamodel: MaterializationMetamodel
+    ): Try<Document> {
+        logger.info(
+            "compose_document_from_spec_with_metamodel: [ spec.field_paths.size: {} ]",
+            spec.fieldPaths.size
+        )
         return cache.computeIfAbsent(
-            graphQLSchema to paths.toPersistentSet(),
-            calculateDocumentForPathsSetWithMetamodel()
+            materializationMetamodel.created to spec,
+            calculateDocumentForSpecWithSchema(
+                materializationMetamodel.materializationGraphQLSchema
+            )
         )
     }
 
-    private fun calculateDocumentForPathsSetWithMetamodel():
-        (Pair<GraphQLSchema, ImmutableSet<GQLOperationPath>>) -> Try<Document> {
-        return { (graphQLSchema: GraphQLSchema, pathsSet: ImmutableSet<GQLOperationPath>) ->
-            pathsSet
+    override fun composeDocumentFromSpecWithSchema(
+        spec: GQLDocumentSpec,
+        graphQLSchema: GraphQLSchema
+    ): Try<Document> {
+        logger.info(
+            "compose_document_from_spec_with_schema: [ spec.field_paths.size: {} ]",
+            spec.fieldPaths.size
+        )
+        return cache.computeIfAbsent(
+            earliestInstantReceivedBySchema.invoke(graphQLSchema) to spec,
+            calculateDocumentForSpecWithSchema(graphQLSchema)
+        )
+    }
+
+    private fun calculateDocumentForSpecWithSchema(
+        graphQLSchema: GraphQLSchema
+    ): (Pair<Instant, GQLDocumentSpec>) -> Try<Document> {
+        return { (_: Instant, spec: GQLDocumentSpec) ->
+            spec.fieldPaths
                 .asSequence()
-                .fold(
-                    DocumentCreationContext(
-                        schema = graphQLSchema,
-                        childFieldPathsByParentPath = persistentMapOf(),
-                        fieldPathsByLevel = persistentMapOf(),
-                        argumentPaths = persistentSetOf(),
-                        directivePaths = persistentSetOf()
-                    )
-                ) { c: DocumentCreationContext, p: GQLOperationPath ->
+                .fold(persistentMapOf<Int, PersistentSet<GQLOperationPath>>()) {
+                    pm: PersistentMap<Int, PersistentSet<GQLOperationPath>>,
+                    p: GQLOperationPath ->
                     when {
                         p.isRoot() -> {
-                            c
-                        }
-                        p.refersToPartOfDirective() -> {
-                            c.copy(directivePaths = c.directivePaths.add(p))
-                        }
-                        p.refersToPartOfArgument() -> {
-                            c.copy(argumentPaths = c.argumentPaths.add(p))
+                            pm
                         }
                         else -> {
-                            c.copy(
-                                // TODO: This currently isn't used and may be dropped if no use is
-                                // found
-                                childFieldPathsByParentPath =
-                                    updateChildFieldPathsByParentFieldPathMapWithPath(
-                                        c.childFieldPathsByParentPath,
-                                        p
-                                    ),
-                                fieldPathsByLevel =
-                                    updateFieldPathsByLevelMapWithPath(c.fieldPathsByLevel, p)
-                            )
+                            updateFieldPathsByLevelMapWithPath(pm, p)
                         }
                     }
                 }
-                .let { c: DocumentCreationContext -> createDocumentFromCreationContext(c) }
+                .let { pm: PersistentMap<Int, PersistentSet<GQLOperationPath>> ->
+                    createDocumentFromCreationContext(
+                        DocumentCreationContext(
+                            spec = spec,
+                            schema = graphQLSchema,
+                            fieldPathsByLevel = pm
+                        )
+                    )
+                }
         }
     }
 
@@ -181,29 +200,27 @@ object GQLOperationPathsToDocumentTransformer :
     ): PersistentMap<Int, PersistentSet<GQLOperationPath>> {
         return (fieldPathsByLevel to nextPath)
             .toOption()
-            .filter { (pm, p) -> !pm.getOrElse(p.level(), ::persistentSetOf).contains(p) }
+            .filterNot { (pm, p) -> pm.getOrElse(p.level(), ::persistentSetOf).contains(p) }
             .map { (pm, p) ->
                 pm.put(p.level(), pm.getOrElse(p.level(), ::persistentSetOf).add(p)) to p
             }
             .recurse { (pm, p) ->
-                when (val pp: GQLOperationPath? = p.getParentPath().orNull()) {
+                when (
+                    val pp: GQLOperationPath? =
+                        p.getParentPath()
+                            .filterNot { pp: GQLOperationPath ->
+                                pm.getOrElse(pp.level(), ::persistentSetOf).contains(pp)
+                            }
+                            .orNull()
+                ) {
                     null -> {
                         pm.right().some()
                     }
                     else -> {
-                        when {
-                            pm.getOrElse(pp.level(), ::persistentSetOf).contains(pp) -> {
-                                pm.right().some()
-                            }
-                            else -> {
-                                (pm.put(
-                                        pp.level(),
-                                        pm.getOrElse(pp.level(), ::persistentSetOf).add(pp)
-                                    ) to pp)
-                                    .left()
-                                    .some()
-                            }
-                        }
+                        (pm.put(pp.level(), pm.getOrElse(pp.level(), ::persistentSetOf).add(pp)) to
+                                pp)
+                            .left()
+                            .some()
                     }
                 }
             }
@@ -213,13 +230,17 @@ object GQLOperationPathsToDocumentTransformer :
     private fun createDocumentFromCreationContext(
         documentCreationContext: DocumentCreationContext
     ): Try<Document> {
-        logger.debug(
-            "create_document_from_creation_context: [ field_paths_by_level: {} ]",
-            documentCreationContext.fieldPathsByLevel
-                .asSequence()
-                .sortedBy { (l, fps) -> l }
-                .joinToString { (l, ps) -> "[${l}]: [ ${ps.asSequence().joinToString()} ]" }
-        )
+        if (logger.isDebugEnabled) {
+            logger.debug(
+                "create_document_from_creation_context: [ field_paths_by_level: {} ]",
+                documentCreationContext.fieldPathsByLevel
+                    .asSequence()
+                    .sortedBy { (l: Int, _: Set<GQLOperationPath>) -> l }
+                    .joinToString { (l: Int, ps: Set<GQLOperationPath>) ->
+                        "[${l}]: [ ${ps.asSequence().joinToString()} ]"
+                    }
+            )
+        }
         return documentCreationContext.fieldPathsByLevel.keys
             .asSequence()
             .filter { level: Int -> level != 0 }
@@ -234,13 +255,16 @@ object GQLOperationPathsToDocumentTransformer :
                     documentTraverser = ::identity
                 )
             ) { dtc: DocumentTraversalContext, level: Int ->
-                logger.debug(
-                    "document_traversal_context: [ level: {}, parent_implementing_type_by_parent_path.keys: {} ]",
-                    level,
-                    dtc.parentImplementingTypeByParentPath.asSequence().joinToString { (p, git) ->
-                        "$p: ${git.name}"
-                    }
-                )
+                if (logger.isDebugEnabled) {
+                    logger.debug(
+                        "document_traversal_context: [ level: {}, parent_implementing_type_by_parent_path.keys: {} ]",
+                        level,
+                        dtc.parentImplementingTypeByParentPath.asSequence().joinToString {
+                            (p: GQLOperationPath, git: GraphQLImplementingType) ->
+                            "$p: ${git.name}"
+                        }
+                    )
+                }
                 DocumentTraversalContext(
                     parentImplementingTypeByParentPath =
                         createParentImplementingTypeByParentPathForChildrenAtLevel(
@@ -342,17 +366,22 @@ object GQLOperationPathsToDocumentTransformer :
         parentLevelDocumentTraversalContext: DocumentTraversalContext,
         level: Int,
     ): DocumentTraverser {
-        return DocumentTraverser { m: ImmutableMap<GQLOperationPath, TraversedFieldContext> ->
-            logger.debug(
-                "create_map_of_parents_for_children_at_level: [ level: {}, m.keys: {} ]",
-                level,
-                m.keys
-            )
+        return DocumentTraverser {
+            childContextsByPath: ImmutableMap<GQLOperationPath, TraversedFieldContext> ->
+            if (logger.isDebugEnabled) {
+                logger.debug(
+                    "create_map_of_parents_for_children_at_level: [ level: {}, child_contexts_by_path.keys: {} ]",
+                    level,
+                    childContextsByPath.keys.asSequence().joinToString()
+                )
+            }
             documentCreationContext.fieldPathsByLevel
                 .getOrNone(level)
                 .fold(::emptySequence, Set<GQLOperationPath>::asSequence)
                 .map { p: GQLOperationPath ->
-                    m.getOrNone(p).getOrElse { DefaultTraversedFieldContext(path = p) }
+                    childContextsByPath.getOrNone(p).getOrElse {
+                        DefaultTraversedFieldContext(path = p)
+                    }
                 }
                 .map { tfc: TraversedFieldContext ->
                     tfc.path.getParentPath().flatMap { pp: GQLOperationPath ->
@@ -441,7 +470,9 @@ object GQLOperationPathsToDocumentTransformer :
             }
             .successIfDefined {
                 ServiceError.of(
-                    "unable to find graphql_field_definition for path [ %s ] in parent implementing type [ name: %s ]",
+                    """unable to find graphql_field_definition for path [ %s ] 
+                    |in parent implementing type [ name: %s ]"""
+                        .flatten(),
                     traversedFieldContext.path,
                     graphQLImplementingType.name
                 )
@@ -502,6 +533,12 @@ object GQLOperationPathsToDocumentTransformer :
         parentPath: GQLOperationPath,
         childSelectionGroups: Map<SelectionGroup, List<DefaultTraversedFieldContextWithFieldDef>>,
     ): TraversedFieldContext {
+        if (logger.isDebugEnabled) {
+            logger.debug(
+                "convert_child_selection_groups_into_parent_traversed_field_context: [ parent_path: {} ]",
+                parentPath
+            )
+        }
         return childSelectionGroups
             .asSequence()
             .flatMap { (sg: SelectionGroup, tfcs: List<DefaultTraversedFieldContextWithFieldDef>) ->
@@ -633,50 +670,20 @@ object GQLOperationPathsToDocumentTransformer :
         documentCreationContext: DocumentCreationContext,
         traversedFieldContextWithFieldDef: DefaultTraversedFieldContextWithFieldDef,
     ): Sequence<Node<*>> {
+        if (logger.isDebugEnabled) {
+            logger.debug(
+                "create_field_and_other_nodes_from_traversed_field_context_with_field_def: [ path: {} ]",
+                traversedFieldContextWithFieldDef.path
+            )
+        }
         return traversedFieldContextWithFieldDef.graphQLFieldDefinition.arguments
             .asSequence()
             .map { ga: GraphQLArgument ->
-                traversedFieldContextWithFieldDef.path
-                    .transform { argument(ga.name) }
-                    .let { ap: GQLOperationPath ->
-                        when {
-                            ap in documentCreationContext.argumentPaths -> {
-                                Argument.newArgument()
-                                    .name(ga.name)
-                                    .value(
-                                        VariableReference.newVariableReference()
-                                            .name(ga.name)
-                                            .build()
-                                    )
-                                    .build() to
-                                    VariableDefinition.newVariableDefinition()
-                                        .name(ga.name)
-                                        .type(GraphQLNullableSDLTypeComposer.invoke(ga.type))
-                                        .defaultValue(extractGraphQLArgumentDefaultLiteralValue(ga))
-                                        .build()
-                                        .some()
-                            }
-                            !ga.hasSetDefaultValue() -> {
-                                throw ServiceError.of(
-                                    """argument [ name: %s ] for field [ name: %s ] 
-                                    |has not been specified as a selected path 
-                                    |for variable_definition creation 
-                                    |but does not have a default value 
-                                    |for input_type [ %s ]"""
-                                        .flatten(),
-                                    ga.name,
-                                    traversedFieldContextWithFieldDef.graphQLFieldDefinition.name,
-                                    GraphQLTypeUtil.simplePrint(ga.type)
-                                )
-                            }
-                            else -> {
-                                Argument.newArgument()
-                                    .name(ga.name)
-                                    .value(extractGraphQLArgumentDefaultLiteralValue(ga))
-                                    .build() to none()
-                            }
-                        }
-                    }
+                createArgumentAndConditionallyVariableDefinition(
+                    documentCreationContext,
+                    traversedFieldContextWithFieldDef,
+                    ga
+                )
             }
             .fold(persistentListOf<Argument>() to persistentListOf<VariableDefinition>()) {
                 argsAndVars,
@@ -754,6 +761,115 @@ object GQLOperationPathsToDocumentTransformer :
             .plus(traversedFieldContextWithFieldDef.fragmentDefinitions)
     }
 
+    private fun createArgumentAndConditionallyVariableDefinition(
+        documentCreationContext: DocumentCreationContext,
+        traversedFieldContextWithFieldDef: DefaultTraversedFieldContextWithFieldDef,
+        graphQLArgument: GraphQLArgument,
+    ): Pair<Argument, Option<VariableDefinition>> {
+        val argumentPath: GQLOperationPath =
+            traversedFieldContextWithFieldDef.path.transform { argument(graphQLArgument.name) }
+        return when {
+            argumentPath in documentCreationContext.variableNameByArgumentPath -> {
+                val variableNameToAssign: String =
+                    documentCreationContext.variableNameByArgumentPath[argumentPath]!!
+                Argument.newArgument()
+                    .name(graphQLArgument.name)
+                    .value(
+                        VariableReference.newVariableReference().name(variableNameToAssign).build()
+                    )
+                    .build() to
+                    VariableDefinition.newVariableDefinition()
+                        .name(variableNameToAssign)
+                        .type(GraphQLNullableSDLTypeComposer.invoke(graphQLArgument.type))
+                        .defaultValue(extractGraphQLArgumentDefaultLiteralValue(graphQLArgument))
+                        .build()
+                        .some()
+            }
+            argumentPath in documentCreationContext.argumentDefaultLiteralValuesByPath -> {
+                Argument.newArgument()
+                    .name(graphQLArgument.name)
+                    .value(documentCreationContext.argumentDefaultLiteralValuesByPath[argumentPath])
+                    .build() to none()
+            }
+            graphQLArgument.hasSetDefaultValue() -> {
+                Argument.newArgument()
+                    .name(graphQLArgument.name)
+                    .value(extractGraphQLArgumentDefaultLiteralValue(graphQLArgument))
+                    .build() to none()
+            }
+            argumentHasListType(graphQLArgument) -> {
+                Argument.newArgument()
+                    .name(graphQLArgument.name)
+                    .value(ArrayValue.newArrayValue().build())
+                    .build() to none()
+            }
+            GraphQLTypeUtil.isNullable(graphQLArgument.type) -> {
+                Argument.newArgument().name(graphQLArgument.name).value(NullValue.of()).build() to
+                    none()
+            }
+            else -> {
+                throw ServiceError.of(
+                    """argument [ name: %s ] for field [ name: %s ] 
+                    |does not have an assigned variable_name, 
+                    |an assigned default GraphQL value, 
+                    |nor a schema-defined default GraphQL value 
+                    |for non-nullable input_type [ %s ]"""
+                        .flatten(),
+                    graphQLArgument.name,
+                    traversedFieldContextWithFieldDef.graphQLFieldDefinition.name,
+                    GraphQLTypeUtil.simplePrint(graphQLArgument.type)
+                )
+            }
+        }
+    }
+
+    private fun argumentHasListType(graphQLArgument: GraphQLArgument): Boolean {
+        return graphQLArgument.type
+            .toOption()
+            .recurse { gt: GraphQLType ->
+                when (gt) {
+                    is GraphQLNonNull -> {
+                        gt.wrappedType.left().some()
+                    }
+                    is GraphQLList -> {
+                        gt.right().some()
+                    }
+                    else -> {
+                        none()
+                    }
+                }
+            }
+            .isDefined()
+    }
+
+    private fun extractGraphQLArgumentDefaultLiteralValue(
+        graphQLArgument: GraphQLArgument
+    ): Value<*>? {
+        return graphQLArgument.argumentDefaultValue
+            .toOption()
+            .filter(InputValueWithState::isLiteral)
+            .mapNotNull(InputValueWithState::getValue)
+            .filterIsInstance<Value<*>>()
+            .orNull()
+    }
+
+    private fun useTraversedFieldContextSelectionSetIfNonEmpty(
+        traversedFieldContext: TraversedFieldContext
+    ): SelectionSet? {
+        return when {
+            traversedFieldContext.selectionSet
+                .toOption()
+                .mapNotNull(SelectionSet::getSelections)
+                .filter(List<Selection<*>>::isNotEmpty)
+                .isDefined() -> {
+                traversedFieldContext.selectionSet
+            }
+            else -> {
+                null
+            }
+        }
+    }
+
     private fun addNewVariableDefinitionsIfNoneRedefineExisting(
         traversedFieldContextWithFieldDef: DefaultTraversedFieldContextWithFieldDef,
         newVariableDefinitions: List<VariableDefinition>,
@@ -785,39 +901,6 @@ object GQLOperationPathsToDocumentTransformer :
             }
     }
 
-    private fun extractGraphQLArgumentDefaultLiteralValue(
-        graphQLArgument: GraphQLArgument
-    ): Value<*>? {
-        return graphQLArgument.argumentDefaultValue
-            .toOption()
-            .filter(InputValueWithState::isLiteral)
-            .mapNotNull(InputValueWithState::getValue)
-            .filterIsInstance<Value<*>>()
-            .orNull()
-    }
-
-    private fun useTraversedFieldContextSelectionSetIfNonEmpty(
-        traversedFieldContext: TraversedFieldContext
-    ): SelectionSet? {
-        return when {
-            traversedFieldContext.selectionSet
-                .toOption()
-                .mapNotNull(SelectionSet::getSelections)
-                .filter(List<Selection<*>>::isNotEmpty)
-                .isDefined() -> {
-                traversedFieldContext.selectionSet
-            }
-            else -> {
-                null
-            }
-        }
-    }
-
-    private fun interface DocumentTraverser :
-        (ImmutableMap<GQLOperationPath, TraversedFieldContext>) -> ImmutableMap<
-                GQLOperationPath, TraversedFieldContext
-            >
-
     private fun initialDocumentTraversalFunction(): (TraversedFieldContext) -> Document {
         return { dtc: TraversedFieldContext ->
             Document.newDocument()
@@ -836,14 +919,16 @@ object GQLOperationPathsToDocumentTransformer :
         }
     }
 
+    private fun interface DocumentTraverser :
+        (ImmutableMap<GQLOperationPath, TraversedFieldContext>) -> ImmutableMap<
+                GQLOperationPath, TraversedFieldContext
+            >
+
     private data class DocumentCreationContext(
+        private val spec: GQLDocumentSpec,
         val schema: GraphQLSchema,
-        val childFieldPathsByParentPath:
-            PersistentMap<GQLOperationPath, PersistentSet<GQLOperationPath>>,
         val fieldPathsByLevel: PersistentMap<Int, PersistentSet<GQLOperationPath>>,
-        val argumentPaths: PersistentSet<GQLOperationPath>,
-        val directivePaths: PersistentSet<GQLOperationPath>
-    )
+    ) : GQLDocumentSpec by spec
 
     private interface TraversedFieldContext {
         val path: GQLOperationPath

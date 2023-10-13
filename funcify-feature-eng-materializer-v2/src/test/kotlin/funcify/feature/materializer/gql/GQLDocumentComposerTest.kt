@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import funcify.feature.error.ServiceError
 import funcify.feature.json.JsonObjectMappingConfiguration
 import funcify.feature.schema.path.operation.GQLOperationPath
+import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import graphql.language.AstPrinter
@@ -12,17 +13,16 @@ import graphql.language.Document
 import graphql.language.OperationDefinition
 import graphql.schema.GraphQLSchema
 import graphql.schema.idl.SchemaGenerator
-import kotlinx.collections.immutable.toPersistentSet
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
-internal class GQLOperationPathsToDocumentTransformerTest {
+internal class GQLDocumentComposerTest {
 
     companion object {
-        private val logger: Logger = loggerFor<GQLOperationPathsToDocumentTransformerTest>()
+        private val logger: Logger = loggerFor<GQLDocumentComposerTest>()
         private val objectMapper: ObjectMapper = JsonObjectMappingConfiguration.objectMapper()
         /**
          * Example schema obtained from
@@ -41,7 +41,7 @@ internal class GQLOperationPathsToDocumentTransformerTest {
                     |    reviews(
                     |      minStarScore: Int = 0
                     |    ): [Review]
-                    |    artwork(limits: ImageLimits): [Image]
+                    |    artwork(limits: ImageLimits!): [Image]
                     |}
                     |
                     |type TVShow implements Show {
@@ -51,7 +51,7 @@ internal class GQLOperationPathsToDocumentTransformerTest {
                     |    reviews(
                     |      minStarScore: Int = 0
                     |    ): [Review]
-                    |    artwork(limits: ImageLimits): [Image]
+                    |    artwork(limits: ImageLimits!): [Image]
                     |    numberOfSeasons: Int
                     |}
                     |
@@ -73,7 +73,7 @@ internal class GQLOperationPathsToDocumentTransformerTest {
                     |    reviews(
                     |      minStarScore: Int = 0
                     |    ): [Review]
-                    |    artwork(limits: ImageLimits): [Image]
+                    |    artwork(limits: ImageLimits!): [Image]
                     |    duration: Duration
                     |}
                     |
@@ -119,7 +119,7 @@ internal class GQLOperationPathsToDocumentTransformerTest {
         internal fun setUp() {
             (LoggerFactory.getILoggerFactory() as? ch.qos.logback.classic.LoggerContext)?.let {
                 lc: ch.qos.logback.classic.LoggerContext ->
-                lc.getLogger(GQLOperationPathsToDocumentTransformer::class.java.packageName)?.let {
+                lc.getLogger(DefaultGQLDocumentComposer::class.java.packageName)?.let {
                     l: ch.qos.logback.classic.Logger ->
                     l.level = Level.DEBUG
                 }
@@ -127,60 +127,87 @@ internal class GQLOperationPathsToDocumentTransformerTest {
         }
     }
 
+    private val specFactory: GQLDocumentSpecFactory = GQLDocumentSpecFactory.defaultFactory()
+
     @Test
     fun argumentWithoutDefaultNotSpecifiedForVariableDefinitionCreationTest() {
-        val pathsSet =
-            sequenceOf(
-                    GQLOperationPath.of { field("shows", "title") },
-                    GQLOperationPath.of { field("shows", "releaseYear") },
-                    GQLOperationPath.of { field("shows", "reviews", "username") },
-                    GQLOperationPath.of { field("shows", "reviews", "starScore") },
-                    GQLOperationPath.of { field("shows", "reviews", "submittedDate") },
-                    GQLOperationPath.of { field("shows", "artwork", "url") },
-                    GQLOperationPath.of { field("shows", "title").argument("format") },
-                    GQLOperationPath.of { field("shows").argument("titleFilter") }
+        val spec: GQLDocumentSpec =
+            specFactory
+                .builder()
+                .addAllFieldPaths(
+                    setOf(
+                        GQLOperationPath.of { field("shows", "title") },
+                        GQLOperationPath.of { field("shows", "releaseYear") },
+                        GQLOperationPath.of { field("shows", "reviews", "username") },
+                        GQLOperationPath.of { field("shows", "reviews", "starScore") },
+                        GQLOperationPath.of { field("shows", "reviews", "submittedDate") },
+                        GQLOperationPath.of { field("shows", "artwork", "url") },
+                    )
                 )
-                .toPersistentSet()
+                .putAllArgumentPathsForVariableNames(
+                    setOf(
+                        "format" to
+                            GQLOperationPath.of { field("shows", "title").argument("format") },
+                        "titleFilter" to
+                            GQLOperationPath.of { field("shows").argument("titleFilter") }
+                    )
+                )
+                .build()
         val graphQLSchema: GraphQLSchema =
             Assertions.assertDoesNotThrow<GraphQLSchema> {
                 SchemaGenerator.createdMockedSchema(exampleDGSSchema)
             }
+        val docCreationAttempt: Try<Document> =
+            DefaultGQLDocumentComposer.composeDocumentFromSpecWithSchema(spec, graphQLSchema)
         val se: ServiceError =
-            Assertions.assertThrows(ServiceError::class.java) {
-                GQLOperationPathsToDocumentTransformer.invoke(graphQLSchema, pathsSet).orElseThrow()
-            }
+            Assertions.assertThrows(ServiceError::class.java) { docCreationAttempt.orElseThrow() }
         Assertions.assertTrue(
             se.message.contains(
-                """argument [ name: limits ] for field [ name: artwork ] 
-                |has not been specified as a selected path for variable_definition creation 
-                |but does not have a default value for input_type [ ImageLimits ]"""
+                """does not have an assigned variable_name, 
+                    |an assigned default GraphQL value, 
+                    |nor a schema-defined default GraphQL value 
+                    |for non-nullable input_type"""
                     .flatten()
             )
-        )
+        ) {
+            "message does not match expected pattern: [ actual_message: %s ]".format(se.message)
+        }
     }
 
     @Test
     fun queryWithoutFragmentsCreationTest() {
-        val pathsSet =
-            sequenceOf(
-                    GQLOperationPath.of { field("shows", "title") },
-                    GQLOperationPath.of { field("shows", "releaseYear") },
-                    GQLOperationPath.of { field("shows", "reviews", "username") },
-                    GQLOperationPath.of { field("shows", "reviews", "starScore") },
-                    GQLOperationPath.of { field("shows", "reviews", "submittedDate") },
-                    GQLOperationPath.of { field("shows", "artwork", "url") },
-                    GQLOperationPath.of { field("shows", "title").argument("format") },
-                    GQLOperationPath.of { field("shows").argument("titleFilter") },
-                    GQLOperationPath.of { field("shows", "artwork").argument("limits") }
+        val spec: GQLDocumentSpec =
+            specFactory
+                .builder()
+                .addAllFieldPaths(
+                    setOf(
+                        GQLOperationPath.of { field("shows", "title") },
+                        GQLOperationPath.of { field("shows", "releaseYear") },
+                        GQLOperationPath.of { field("shows", "reviews", "username") },
+                        GQLOperationPath.of { field("shows", "reviews", "starScore") },
+                        GQLOperationPath.of { field("shows", "reviews", "submittedDate") },
+                        GQLOperationPath.of { field("shows", "artwork", "url") }
+                    )
                 )
-                .toPersistentSet()
+                .putAllArgumentPathsForVariableNames(
+                    setOf(
+                        "format" to
+                            GQLOperationPath.of { field("shows", "title").argument("format") },
+                        "titleFilter" to
+                            GQLOperationPath.of { field("shows").argument("titleFilter") },
+                        "limits" to
+                            GQLOperationPath.of { field("shows", "artwork").argument("limits") }
+                    )
+                )
+                .build()
         val graphQLSchema: GraphQLSchema =
             Assertions.assertDoesNotThrow<GraphQLSchema> {
                 SchemaGenerator.createdMockedSchema(exampleDGSSchema)
             }
         val document: Document =
             Assertions.assertDoesNotThrow<Document> {
-                GQLOperationPathsToDocumentTransformer.invoke(graphQLSchema, pathsSet).orElseThrow()
+                DefaultGQLDocumentComposer.composeDocumentFromSpecWithSchema(spec, graphQLSchema)
+                    .orElseThrow()
             }
         Assertions.assertTrue(
             document.getDefinitionsOfType(OperationDefinition::class.java).isNotEmpty()
@@ -213,27 +240,40 @@ internal class GQLOperationPathsToDocumentTransformerTest {
 
     @Test
     fun queryWithInlineFragmentCreationTest() {
-        val pathsSet =
-            sequenceOf(
-                    GQLOperationPath.of { field("shows", "title") },
-                    GQLOperationPath.of {
-                        field("shows").inlineFragment("TVShow", "numberOfSeasons")
-                    },
-                    GQLOperationPath.of { field("shows").inlineFragment("TVShow", "releaseYear") },
-                    GQLOperationPath.of { field("shows", "reviews", "username") },
-                    GQLOperationPath.of { field("shows", "reviews", "starScore") },
-                    GQLOperationPath.of { field("shows", "reviews", "submittedDate") },
-                    GQLOperationPath.of { field("shows", "title").argument("format") },
-                    GQLOperationPath.of { field("shows").argument("titleFilter") },
+        val spec: GQLDocumentSpec =
+            specFactory
+                .builder()
+                .addAllFieldPaths(
+                    setOf(
+                        GQLOperationPath.of { field("shows", "title") },
+                        GQLOperationPath.of {
+                            field("shows").inlineFragment("TVShow", "numberOfSeasons")
+                        },
+                        GQLOperationPath.of {
+                            field("shows").inlineFragment("TVShow", "releaseYear")
+                        },
+                        GQLOperationPath.of { field("shows", "reviews", "username") },
+                        GQLOperationPath.of { field("shows", "reviews", "starScore") },
+                        GQLOperationPath.of { field("shows", "reviews", "submittedDate") },
+                    )
                 )
-                .toPersistentSet()
+                .putAllArgumentPathsForVariableNames(
+                    setOf(
+                        "format" to
+                            GQLOperationPath.of { field("shows", "title").argument("format") },
+                        "titleFilter" to
+                            GQLOperationPath.of { field("shows").argument("titleFilter") }
+                    )
+                )
+                .build()
         val graphQLSchema: GraphQLSchema =
             Assertions.assertDoesNotThrow<GraphQLSchema> {
                 SchemaGenerator.createdMockedSchema(exampleDGSSchema)
             }
         val document: Document =
             Assertions.assertDoesNotThrow<Document> {
-                GQLOperationPathsToDocumentTransformer.invoke(graphQLSchema, pathsSet).orElseThrow()
+                DefaultGQLDocumentComposer.composeDocumentFromSpecWithSchema(spec, graphQLSchema)
+                    .orElseThrow()
             }
         Assertions.assertTrue(
             document.getDefinitionsOfType(OperationDefinition::class.java).isNotEmpty()
@@ -266,29 +306,41 @@ internal class GQLOperationPathsToDocumentTransformerTest {
 
     @Test
     fun queryWithFragmentSpreadCreationTest() {
-        val pathsSet =
-            sequenceOf(
-                    GQLOperationPath.of { field("shows", "title") },
-                    GQLOperationPath.of {
-                        field("shows").fragmentSpread("MyTVShowFields", "TVShow", "numberOfSeasons")
-                    },
-                    GQLOperationPath.of {
-                        field("shows").fragmentSpread("MyTVShowFields", "TVShow", "releaseYear")
-                    },
-                    GQLOperationPath.of { field("shows", "reviews", "username") },
-                    GQLOperationPath.of { field("shows", "reviews", "starScore") },
-                    GQLOperationPath.of { field("shows", "reviews", "submittedDate") },
-                    GQLOperationPath.of { field("shows", "title").argument("format") },
-                    GQLOperationPath.of { field("shows").argument("titleFilter") },
+        val spec: GQLDocumentSpec =
+            specFactory
+                .builder()
+                .addAllFieldPaths(
+                    setOf(
+                        GQLOperationPath.of { field("shows", "title") },
+                        GQLOperationPath.of {
+                            field("shows")
+                                .fragmentSpread("MyTVShowFields", "TVShow", "numberOfSeasons")
+                        },
+                        GQLOperationPath.of {
+                            field("shows").fragmentSpread("MyTVShowFields", "TVShow", "releaseYear")
+                        },
+                        GQLOperationPath.of { field("shows", "reviews", "username") },
+                        GQLOperationPath.of { field("shows", "reviews", "starScore") },
+                        GQLOperationPath.of { field("shows", "reviews", "submittedDate") },
+                    )
                 )
-                .toPersistentSet()
+                .putAllArgumentPathsForVariableNames(
+                    setOf(
+                        "format" to
+                            GQLOperationPath.of { field("shows", "title").argument("format") },
+                        "titleFilter" to
+                            GQLOperationPath.of { field("shows").argument("titleFilter") }
+                    )
+                )
+                .build()
         val graphQLSchema: GraphQLSchema =
             Assertions.assertDoesNotThrow<GraphQLSchema> {
                 SchemaGenerator.createdMockedSchema(exampleDGSSchema)
             }
         val document: Document =
             Assertions.assertDoesNotThrow<Document> {
-                GQLOperationPathsToDocumentTransformer.invoke(graphQLSchema, pathsSet).orElseThrow()
+                DefaultGQLDocumentComposer.composeDocumentFromSpecWithSchema(spec, graphQLSchema)
+                    .orElseThrow()
             }
         Assertions.assertTrue(
             document.getDefinitionsOfType(OperationDefinition::class.java).isNotEmpty()
@@ -321,37 +373,42 @@ internal class GQLOperationPathsToDocumentTransformerTest {
         }
     }
 
-    /*@Test
-    fun queryWithAliasWithoutFragmentsCreationTest() {
-        val pathsSet =
-            sequenceOf(
-                    GQLOperationPath.of { field("shows", "title") },
-                    GQLOperationPath.of { field("shows", "releaseYear") },
-                    GQLOperationPath.of { field("shows", "reviews", "username") },
-                    GQLOperationPath.of { field("shows", "reviews", "starScore") },
-                    GQLOperationPath.of { field("shows", "reviews", "submittedDate") },
-                    GQLOperationPath.of { field("shows", "artwork", "url") },
-                    GQLOperationPath.of { field("shows", "title").argument("format") },
-                    GQLOperationPath.of { field("shows").argument("titleFilter") },
-                    GQLOperationPath.of { field("shows", "artwork").argument("limits") },
-                    GQLOperationPath.of { field("shows", "title") },
-                    GQLOperationPath.of { field("shows", "releaseYear") },
-                    GQLOperationPath.of { field("shows", "reviews", "username") },
-                    GQLOperationPath.of { field("shows", "reviews", "starScore") },
-                    GQLOperationPath.of { field("shows", "reviews", "submittedDate") },
-                    GQLOperationPath.of { field("shows", "artwork", "url") },
-                    GQLOperationPath.of { field("shows", "title").argument("format") },
-                    GQLOperationPath.of { field("shows").argument("titleFilter") },
-                    GQLOperationPath.of { field("shows", "artwork").argument("limits") }
+    @Test
+    fun queryWithAliasesWithoutFragmentsCreationTest() {
+        val spec: GQLDocumentSpec =
+            specFactory
+                .builder()
+                .addAllFieldPaths(
+                    setOf(
+                        GQLOperationPath.of { field("shows").aliasedField("name", "title") },
+                        GQLOperationPath.of { field("shows", "releaseYear") },
+                        GQLOperationPath.of { field("shows", "reviews", "username") },
+                        GQLOperationPath.of { field("shows", "reviews", "starScore") },
+                        GQLOperationPath.of { field("shows", "reviews", "submittedDate") },
+                        GQLOperationPath.of { field("shows", "artwork", "url") }
+                    )
                 )
-                .toPersistentSet()
+                .putAllArgumentPathsForVariableNames(
+                    setOf(
+                        "format" to
+                            GQLOperationPath.of {
+                                field("shows").aliasedField("name", "title").argument("format")
+                            },
+                        "titleFilter" to
+                            GQLOperationPath.of { field("shows").argument("titleFilter") },
+                        "limits" to
+                            GQLOperationPath.of { field("shows", "artwork").argument("limits") }
+                    )
+                )
+                .build()
         val graphQLSchema: GraphQLSchema =
             Assertions.assertDoesNotThrow<GraphQLSchema> {
                 SchemaGenerator.createdMockedSchema(exampleDGSSchema)
             }
         val document: Document =
             Assertions.assertDoesNotThrow<Document> {
-                GQLOperationPathsToDocumentTransformer.invoke(graphQLSchema, pathsSet).orElseThrow()
+                DefaultGQLDocumentComposer.composeDocumentFromSpecWithSchema(spec, graphQLSchema)
+                    .orElseThrow()
             }
         Assertions.assertTrue(
             document.getDefinitionsOfType(OperationDefinition::class.java).isNotEmpty()
@@ -362,7 +419,7 @@ internal class GQLOperationPathsToDocumentTransformerTest {
             """
             |query (${"$"}titleFilter: String, ${"$"}format: TitleFormat, ${"$"}limits: ImageLimits) {
             |  shows(titleFilter: ${"$"}titleFilter) {
-            |    title(format: ${"$"}format)
+            |    name: title(format: ${"$"}format)
             |    releaseYear
             |    reviews(minStarScore: 0) {
             |      username
@@ -375,10 +432,10 @@ internal class GQLOperationPathsToDocumentTransformerTest {
             |  }
             |}
             |
-        """
+            """
                 .trimMargin()
         Assertions.assertEquals(expectedOutputFormat, AstPrinter.printAst(document)) {
             "document does not match expected output format"
         }
-    }*/
+    }
 }

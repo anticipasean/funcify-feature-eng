@@ -221,11 +221,11 @@ interface GQLOperationPath : Comparable<GQLOperationPath> {
 
     fun containsAliasForField(): Boolean
 
-    fun refersToPartOfArgument(): Boolean {
+    fun refersToObjectFieldWithinArgumentValue(): Boolean {
         return argument.map { (_, ps) -> ps.isNotEmpty() }.getOrElse { false }
     }
 
-    fun refersToPartOfDirective(): Boolean {
+    fun refersToObjectFieldWithinDirectiveArgumentValue(): Boolean {
         return directive.map { (_, ps) -> ps.isNotEmpty() }.getOrElse { false }
     }
 
