@@ -643,7 +643,7 @@ internal object TabularQueryOperationCreator : (TabularQuery) -> Iterable<QueryC
                 graphQLArgument
                     .toOption()
                     .filter(GraphQLArgument::hasSetDefaultValue)
-                    .mapNotNull { ga: GraphQLArgument -> graphQLArgument.argumentDefaultValue }
+                    .mapNotNull { ga: GraphQLArgument -> ga.argumentDefaultValue }
                     .filter(InputValueWithState::isLiteral)
                     .mapNotNull(InputValueWithState::getValue)
                     .filterIsInstance<Value<*>>()
