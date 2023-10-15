@@ -110,6 +110,7 @@ internal object DefaultGQLDocumentComposer : GQLDocumentComposer {
 
     // TODO: Incorporate directive specs
     // TODO: Add support for handling non-scalar argument values
+    // TODO: Check handling for empty specs
     override fun composeDocumentFromSpecWithMetamodel(
         spec: GQLDocumentSpec,
         materializationMetamodel: MaterializationMetamodel

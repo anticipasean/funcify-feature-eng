@@ -4,7 +4,7 @@ import arrow.core.*
 import funcify.feature.error.ServiceError
 import funcify.feature.materializer.graph.component.QueryComponentContext
 import funcify.feature.materializer.graph.component.QueryComponentContext.SelectedFieldComponentContext
-import funcify.feature.materializer.graph.connector.TabularQueryOperationCreator.TabularQueryCompositionContext.*
+import funcify.feature.materializer.graph.connector.TabularQueryTraverser.TabularQueryTraversalContext.*
 import funcify.feature.materializer.graph.context.TabularQuery
 import funcify.feature.schema.dataelement.DomainSpecifiedDataElementSource
 import funcify.feature.schema.feature.FeatureSpecifiedFeatureCalculator
@@ -33,10 +33,14 @@ import graphql.schema.InputValueWithState
 import kotlinx.collections.immutable.*
 import org.slf4j.Logger
 
-internal object TabularQueryOperationCreator : (TabularQuery) -> Iterable<QueryComponentContext> {
+/**
+ * @author smccarron
+ * @created 2023-10-13
+ */
+internal object TabularQueryTraverser : (TabularQuery) -> Iterable<QueryComponentContext> {
 
-    private const val METHOD_TAG: String = "tabular_query_variable_based_operation_creator.invoke"
-    private val logger: Logger = loggerFor<TabularQueryOperationCreator>()
+    private const val METHOD_TAG: String = "tabular_query_traverser.invoke"
+    private val logger: Logger = loggerFor<TabularQueryTraverser>()
 
     override fun invoke(tabularQuery: TabularQuery): Iterable<QueryComponentContext> {
         logger.info(
@@ -46,7 +50,7 @@ internal object TabularQueryOperationCreator : (TabularQuery) -> Iterable<QueryC
             tabularQuery.rawInputContextKeys.size
         )
         // TODO: Impose rule that no data element may share the same name as a feature
-        return Try.success(DefaultTabularQueryCompositionContext.empty())
+        return Try.success(DefaultTabularQueryTraversalContext.empty())
             .map(matchRawInputContextKeysWithDomainSpecifiedDataElementSources(tabularQuery))
             .map(matchVariableKeysWithDomainSpecifiedDataElementSourceArguments(tabularQuery))
             .filter(contextContainsErrors(), createAggregateErrorFromContext())
@@ -64,11 +68,11 @@ internal object TabularQueryOperationCreator : (TabularQuery) -> Iterable<QueryC
 
     private fun matchRawInputContextKeysWithDomainSpecifiedDataElementSources(
         tabularQuery: TabularQuery
-    ): (TabularQueryCompositionContext) -> TabularQueryCompositionContext {
-        return { tqcc: TabularQueryCompositionContext ->
+    ): (TabularQueryTraversalContext) -> TabularQueryTraversalContext {
+        return { tqcc: TabularQueryTraversalContext ->
             tqcc.update {
                 tabularQuery.rawInputContextKeys.asSequence().fold(this) {
-                    cb: TabularQueryCompositionContext.Builder,
+                    cb: TabularQueryTraversalContext.Builder,
                     k: String ->
                     when (
                         val dsdes: DomainSpecifiedDataElementSource? =
@@ -113,11 +117,11 @@ internal object TabularQueryOperationCreator : (TabularQuery) -> Iterable<QueryC
 
     private fun matchVariableKeysWithDomainSpecifiedDataElementSourceArguments(
         tabularQuery: TabularQuery
-    ): (TabularQueryCompositionContext) -> TabularQueryCompositionContext {
-        return { tqcc: TabularQueryCompositionContext ->
+    ): (TabularQueryTraversalContext) -> TabularQueryTraversalContext {
+        return { tqcc: TabularQueryTraversalContext ->
             tqcc.update {
                 tabularQuery.variableKeys.asSequence().fold(this) {
-                    cb: TabularQueryCompositionContext.Builder,
+                    cb: TabularQueryTraversalContext.Builder,
                     vk: String ->
                     when (
                         val argumentPathSet: ImmutableSet<GQLOperationPath>? =
@@ -174,12 +178,12 @@ internal object TabularQueryOperationCreator : (TabularQuery) -> Iterable<QueryC
             }
     }
 
-    private fun contextContainsErrors(): (TabularQueryCompositionContext) -> Boolean {
-        return { tqcc: TabularQueryCompositionContext -> tqcc.errors.isNotEmpty() }
+    private fun contextContainsErrors(): (TabularQueryTraversalContext) -> Boolean {
+        return { tqcc: TabularQueryTraversalContext -> tqcc.errors.isNotEmpty() }
     }
 
-    private fun createAggregateErrorFromContext(): (TabularQueryCompositionContext) -> Throwable {
-        return { tqcc: TabularQueryCompositionContext ->
+    private fun createAggregateErrorFromContext(): (TabularQueryTraversalContext) -> Throwable {
+        return { tqcc: TabularQueryTraversalContext ->
             ServiceError.builder()
                 .message("unable to create tabular query operation")
                 .addAllServiceErrorsToHistory(tqcc.errors)
@@ -189,8 +193,8 @@ internal object TabularQueryOperationCreator : (TabularQuery) -> Iterable<QueryC
 
     private fun addAllDomainDataElementsWithCompleteVariableKeyArgumentSets(
         tabularQuery: TabularQuery
-    ): (TabularQueryCompositionContext) -> TabularQueryCompositionContext {
-        return { tqcc: TabularQueryCompositionContext ->
+    ): (TabularQueryTraversalContext) -> TabularQueryTraversalContext {
+        return { tqcc: TabularQueryTraversalContext ->
             tqcc.argumentPathSetsForVariables
                 .asSequence()
                 .map(Map.Entry<String, ImmutableSet<GQLOperationPath>>::value)
@@ -252,11 +256,11 @@ internal object TabularQueryOperationCreator : (TabularQuery) -> Iterable<QueryC
 
     private fun matchExpectedOutputColumnNamesToFeaturePathsOrDataElementCoordinates(
         tabularQuery: TabularQuery
-    ): (TabularQueryCompositionContext) -> TabularQueryCompositionContext {
-        return { tqcc: TabularQueryCompositionContext ->
+    ): (TabularQueryTraversalContext) -> TabularQueryTraversalContext {
+        return { tqcc: TabularQueryTraversalContext ->
             tqcc.update {
                 tabularQuery.outputColumnNames.asSequence().fold(this) {
-                    cb: TabularQueryCompositionContext.Builder,
+                    cb: TabularQueryTraversalContext.Builder,
                     cn: String ->
                     matchExpectedOutputColumnNameToFeaturePath(tabularQuery, cn)
                         .map { fp: GQLOperationPath ->
@@ -331,11 +335,11 @@ internal object TabularQueryOperationCreator : (TabularQuery) -> Iterable<QueryC
     }
 
     private fun matchExpectedOutputColumnNameToPassThruRawInputContextKey(
-        tabularQueryCompositionContext: TabularQueryCompositionContext,
+        tabularQueryTraversalContext: TabularQueryTraversalContext,
         columnName: String
     ): Option<String> {
         return when {
-            tabularQueryCompositionContext.passthruRawInputContextKeys.contains(columnName) -> {
+            tabularQueryTraversalContext.passthruRawInputContextKeys.contains(columnName) -> {
                 columnName.some()
             }
             else -> {
@@ -346,8 +350,8 @@ internal object TabularQueryOperationCreator : (TabularQuery) -> Iterable<QueryC
 
     private fun connectDataElementCoordinatesToPathsUnderSupportedSources(
         tabularQuery: TabularQuery
-    ): (TabularQueryCompositionContext) -> TabularQueryCompositionContext {
-        return { tqcc: TabularQueryCompositionContext ->
+    ): (TabularQueryTraversalContext) -> TabularQueryTraversalContext {
+        return { tqcc: TabularQueryTraversalContext ->
             tqcc.update {
                 tqcc.dataElementFieldCoordinatesByExpectedOutputColumnName
                     .asSequence()
@@ -360,7 +364,7 @@ internal object TabularQueryOperationCreator : (TabularQuery) -> Iterable<QueryC
                         )
                     }
                     .fold(this) {
-                        tb: TabularQueryCompositionContext.Builder,
+                        tb: TabularQueryTraversalContext.Builder,
                         (cn: String, sfccs: List<SelectedFieldComponentContext>) ->
                         when {
                             sfccs.isNotEmpty() -> {
@@ -385,14 +389,14 @@ internal object TabularQueryOperationCreator : (TabularQuery) -> Iterable<QueryC
     }
 
     private fun createFieldContextForEachDomainDataElementSourceUnderWhichColumnAvailable(
-        tabularQueryCompositionContext: TabularQueryCompositionContext,
+        tabularQueryTraversalContext: TabularQueryTraversalContext,
         tabularQuery: TabularQuery,
         columnName: String,
         coordinates: ImmutableSet<FieldCoordinates>
     ): Pair<String, List<SelectedFieldComponentContext>> {
-        return tabularQueryCompositionContext.rawInputContextKeysByDataElementSourcePath.keys
+        return tabularQueryTraversalContext.rawInputContextKeysByDataElementSourcePath.keys
             .asSequence()
-            .plus(tabularQueryCompositionContext.domainDataElementSourcePathsForVariables)
+            .plus(tabularQueryTraversalContext.domainDataElementSourcePathsForVariables)
             .map { ddesp: GQLOperationPath ->
                 coordinates
                     .asSequence()
@@ -438,8 +442,8 @@ internal object TabularQueryOperationCreator : (TabularQuery) -> Iterable<QueryC
 
     private fun createSequenceOfDataElementQueryComponentContexts(
         tabularQuery: TabularQuery
-    ): (TabularQueryCompositionContext) -> TabularQueryCompositionContext {
-        return { tqcc: TabularQueryCompositionContext ->
+    ): (TabularQueryTraversalContext) -> TabularQueryTraversalContext {
+        return { tqcc: TabularQueryTraversalContext ->
             tqcc.dataElementFieldComponentContextsByOutputColumnName.values
                 .asSequence()
                 .flatMap(ImmutableList<SelectedFieldComponentContext>::asSequence)
@@ -487,10 +491,10 @@ internal object TabularQueryOperationCreator : (TabularQuery) -> Iterable<QueryC
 
     private fun createQueryComponentContextsForEachDataElementPath(
         tabularQuery: TabularQuery,
-        context: TabularQueryCompositionContext,
+        context: TabularQueryTraversalContext,
         dataElementContextsByPath: PersistentMap<GQLOperationPath, SelectedFieldComponentContext>,
         childrenByParentPaths: PersistentMap<GQLOperationPath, PersistentSet<GQLOperationPath>>,
-    ): TabularQueryCompositionContext {
+    ): TabularQueryTraversalContext {
         return sequenceOf(tabularQuery.materializationMetamodel.dataElementElementTypePath)
             .recurseBreadthFirst { p: GQLOperationPath ->
                 sequenceOf(p.right())
@@ -659,8 +663,8 @@ internal object TabularQueryOperationCreator : (TabularQuery) -> Iterable<QueryC
 
     private fun createSequenceOfFeatureQueryComponentContexts(
         tabularQuery: TabularQuery
-    ): (TabularQueryCompositionContext) -> TabularQueryCompositionContext {
-        return { tqcc: TabularQueryCompositionContext ->
+    ): (TabularQueryTraversalContext) -> TabularQueryTraversalContext {
+        return { tqcc: TabularQueryTraversalContext ->
             tqcc.featurePathByExpectedOutputColumnName.values
                 .asSequence()
                 .fold(persistentMapOf<GQLOperationPath, PersistentSet<GQLOperationPath>>()) {
@@ -680,9 +684,9 @@ internal object TabularQueryOperationCreator : (TabularQuery) -> Iterable<QueryC
 
     private fun createQueryComponentContextsForEachFeaturePath(
         tabularQuery: TabularQuery,
-        context: TabularQueryCompositionContext,
+        context: TabularQueryTraversalContext,
         childrenByParentPaths: PersistentMap<GQLOperationPath, PersistentSet<GQLOperationPath>>
-    ): TabularQueryCompositionContext {
+    ): TabularQueryTraversalContext {
         return sequenceOf(tabularQuery.materializationMetamodel.featureElementTypePath)
             .recurseBreadthFirst { p: GQLOperationPath ->
                 sequenceOf(p.right())
@@ -800,11 +804,11 @@ internal object TabularQueryOperationCreator : (TabularQuery) -> Iterable<QueryC
     }
 
     private fun combineDataElementAndFeatureQueryComponentContextsIntoIterable():
-        (TabularQueryCompositionContext) -> Iterable<QueryComponentContext> {
-        return { tqcc: TabularQueryCompositionContext -> tqcc.queryComponentContexts }
+        (TabularQueryTraversalContext) -> Iterable<QueryComponentContext> {
+        return { tqcc: TabularQueryTraversalContext -> tqcc.queryComponentContexts }
     }
 
-    private interface TabularQueryCompositionContext {
+    private interface TabularQueryTraversalContext {
         val rawInputContextKeysByDataElementSourcePath: ImmutableMap<GQLOperationPath, String>
         val passthruRawInputContextKeys: ImmutableSet<String>
         val argumentPathSetsForVariables: ImmutableMap<String, ImmutableSet<GQLOperationPath>>
@@ -818,7 +822,7 @@ internal object TabularQueryOperationCreator : (TabularQuery) -> Iterable<QueryC
         val queryComponentContexts: ImmutableList<QueryComponentContext>
         val errors: ImmutableList<ServiceError>
 
-        fun update(transformer: Builder.() -> Builder): TabularQueryCompositionContext
+        fun update(transformer: Builder.() -> Builder): TabularQueryTraversalContext
 
         interface Builder {
 
@@ -867,11 +871,11 @@ internal object TabularQueryOperationCreator : (TabularQuery) -> Iterable<QueryC
 
             fun addError(serviceError: ServiceError): Builder
 
-            fun build(): TabularQueryCompositionContext
+            fun build(): TabularQueryTraversalContext
         }
     }
 
-    private class DefaultTabularQueryCompositionContext(
+    private class DefaultTabularQueryTraversalContext(
         override val rawInputContextKeysByDataElementSourcePath:
             PersistentMap<GQLOperationPath, String>,
         override val passthruRawInputContextKeys: PersistentSet<String>,
@@ -886,10 +890,10 @@ internal object TabularQueryOperationCreator : (TabularQuery) -> Iterable<QueryC
             PersistentMap<String, PersistentList<SelectedFieldComponentContext>>,
         override val queryComponentContexts: PersistentList<QueryComponentContext>,
         override val errors: PersistentList<ServiceError>,
-    ) : TabularQueryCompositionContext {
+    ) : TabularQueryTraversalContext {
         companion object {
-            fun empty(): TabularQueryCompositionContext {
-                return DefaultTabularQueryCompositionContext(
+            fun empty(): TabularQueryTraversalContext {
+                return DefaultTabularQueryTraversalContext(
                     rawInputContextKeysByDataElementSourcePath = persistentMapOf(),
                     passthruRawInputContextKeys = persistentSetOf(),
                     argumentPathSetsForVariables = persistentMapOf(),
@@ -904,7 +908,7 @@ internal object TabularQueryOperationCreator : (TabularQuery) -> Iterable<QueryC
             }
 
             private class DefaultBuilder(
-                private val existingContext: DefaultTabularQueryCompositionContext,
+                private val existingContext: DefaultTabularQueryTraversalContext,
                 private val rawInputContextKeysByDataElementSourcePath:
                     PersistentMap.Builder<GQLOperationPath, String> =
                     existingContext.rawInputContextKeysByDataElementSourcePath.builder(),
@@ -1027,8 +1031,8 @@ internal object TabularQueryOperationCreator : (TabularQuery) -> Iterable<QueryC
                     queryComponentContext: QueryComponentContext
                 ): Builder = this.apply { this.queryComponentContexts.add(queryComponentContext) }
 
-                override fun build(): TabularQueryCompositionContext {
-                    return DefaultTabularQueryCompositionContext(
+                override fun build(): TabularQueryTraversalContext {
+                    return DefaultTabularQueryTraversalContext(
                         rawInputContextKeysByDataElementSourcePath =
                             rawInputContextKeysByDataElementSourcePath.build(),
                         passthruRawInputContextKeys = passthruRawInputContextKeys.build(),
@@ -1049,7 +1053,7 @@ internal object TabularQueryOperationCreator : (TabularQuery) -> Iterable<QueryC
             }
         }
 
-        override fun update(transformer: Builder.() -> Builder): TabularQueryCompositionContext {
+        override fun update(transformer: Builder.() -> Builder): TabularQueryTraversalContext {
             return transformer.invoke(DefaultBuilder(this)).build()
         }
     }
