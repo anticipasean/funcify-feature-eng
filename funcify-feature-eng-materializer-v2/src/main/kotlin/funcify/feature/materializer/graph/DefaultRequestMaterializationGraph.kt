@@ -1,5 +1,6 @@
 package funcify.feature.materializer.graph
 
+import arrow.core.Option
 import arrow.core.filterIsInstance
 import arrow.core.left
 import arrow.core.right
@@ -46,7 +47,7 @@ internal data class DefaultRequestMaterializationGraph(
     override val featureJsonValueStoreByPath: ImmutableMap<GQLOperationPath, FeatureJsonValueStore>,
     override val featureCalculatorCallablesByPath: ImmutableMap<GQLOperationPath, FeatureCalculatorCallable>,
     override val featureJsonValuePublisherByPath: ImmutableMap<GQLOperationPath, FeatureJsonValuePublisher>,
-    override val errors: ImmutableList<ServiceError>,
+    override val processingError: Option<ServiceError>,
 ) : RequestMaterializationGraph {
 
     override val featureArgumentGroupsByPath:

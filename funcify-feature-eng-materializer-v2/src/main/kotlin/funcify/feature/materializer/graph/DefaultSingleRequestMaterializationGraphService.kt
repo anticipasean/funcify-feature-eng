@@ -2,6 +2,7 @@ package funcify.feature.materializer.graph
 
 import arrow.core.getOrElse
 import arrow.core.none
+import arrow.core.some
 import arrow.core.toOption
 import com.google.common.cache.CacheBuilder
 import funcify.feature.error.ServiceError
@@ -42,7 +43,6 @@ import kotlin.reflect.KClass
 import kotlin.reflect.KType
 import kotlin.reflect.full.isSuperclassOf
 import kotlinx.collections.immutable.PersistentMap
-import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.plus
@@ -102,21 +102,43 @@ internal class DefaultSingleRequestMaterializationGraphService(
                                         requestMaterializationGraphCache[rmgck] = calculatedGraph
                                     }
                                     .map { calculatedGraph: RequestMaterializationGraph ->
-                                        session.update {
-                                            preparsedDocumentEntry(
-                                                calculatedGraph.preparsedDocumentEntry
-                                            )
-                                            requestMaterializationGraph(calculatedGraph)
+                                        when (
+                                            val e: ServiceError? =
+                                                calculatedGraph.processingError.orNull()
+                                        ) {
+                                            null -> {
+                                                session.update {
+                                                    preparsedDocumentEntry(
+                                                        calculatedGraph.preparsedDocumentEntry
+                                                    )
+                                                    requestMaterializationGraph(calculatedGraph)
+                                                }
+                                            }
+                                            else -> {
+                                                throw e
+                                            }
                                         }
                                     }
                             }
                             else -> {
-                                Mono.just(
-                                    session.update {
-                                        preparsedDocumentEntry(existingGraph.preparsedDocumentEntry)
-                                        requestMaterializationGraph(existingGraph)
+                                Mono.fromCallable {
+                                    when (
+                                        val e: ServiceError? =
+                                            existingGraph.processingError.orNull()
+                                    ) {
+                                        null -> {
+                                            session.update {
+                                                preparsedDocumentEntry(
+                                                    existingGraph.preparsedDocumentEntry
+                                                )
+                                                requestMaterializationGraph(existingGraph)
+                                            }
+                                        }
+                                        else -> {
+                                            throw e
+                                        }
                                     }
-                                )
+                                }
                             }
                         }
                     }
@@ -271,6 +293,9 @@ internal class DefaultSingleRequestMaterializationGraphService(
             .flatMap { c: RequestMaterializationGraphContext ->
                 createRequestMaterializationGraphFromContext(c)
             }
+            .onErrorResume { t: Throwable ->
+                convertErrorIntoRequestMaterializationGraphInstance(t)
+            }
     }
 
     private fun createAndValidateGQLDocumentForTabularQueryIfApt(
@@ -285,7 +310,7 @@ internal class DefaultSingleRequestMaterializationGraphService(
                         tabularQueryDocumentCreator.createDocumentForTabularQuery(context)
                     }
                     .map { d: Document ->
-                        val validationErrors: List<ValidationError>? =
+                        val ves: List<ValidationError>? =
                             ParseAndValidate.validate(
                                 context.materializationMetamodel.materializationGraphQLSchema,
                                 d,
@@ -295,8 +320,8 @@ internal class DefaultSingleRequestMaterializationGraphService(
                                 Locale.getDefault()
                             )
                         when {
-                            validationErrors?.isNotEmpty() == true -> {
-                                PreparsedDocumentEntry(d, validationErrors)
+                            ves?.isNotEmpty() == true -> {
+                                PreparsedDocumentEntry(d, ves)
                             }
                             else -> {
                                 PreparsedDocumentEntry(d)
@@ -478,11 +503,8 @@ internal class DefaultSingleRequestMaterializationGraphService(
                         featureJsonValueStoreByPath = persistentMapOf(),
                         featureCalculatorCallablesByPath = context.featureCalculatorCallablesByPath,
                         featureJsonValuePublisherByPath = persistentMapOf(),
-                        errors = persistentListOf()
+                        processingError = none()
                     )
-                }
-                is TabularQuery -> {
-                    TODO("tabular_query transformation into graph not yet implemented")
                 }
                 else -> {
                     throw ServiceError.of(
@@ -491,6 +513,53 @@ internal class DefaultSingleRequestMaterializationGraphService(
                         RequestMaterializationGraph::class.simpleName
                     )
                 }
+            }
+        }
+    }
+
+    private fun convertErrorIntoRequestMaterializationGraphInstance(
+        throwable: Throwable
+    ): Mono<out RequestMaterializationGraph> {
+        return when (throwable) {
+            is ServiceError -> {
+                Mono.just(
+                    DefaultRequestMaterializationGraph(
+                        preparsedDocumentEntry = PreparsedDocumentEntry(listOf()),
+                        requestGraph =
+                            PersistentGraphFactory.defaultFactory().builder().directed().build(),
+                        passThruColumns = persistentSetOf(),
+                        transformerCallablesByPath = persistentMapOf(),
+                        dataElementCallablesByPath = persistentMapOf(),
+                        featureJsonValueStoreByPath = persistentMapOf(),
+                        featureCalculatorCallablesByPath = persistentMapOf(),
+                        featureJsonValuePublisherByPath = persistentMapOf(),
+                        processingError = throwable.some()
+                    )
+                )
+            }
+            else -> {
+                Mono.just(
+                    DefaultRequestMaterializationGraph(
+                        preparsedDocumentEntry = PreparsedDocumentEntry(listOf()),
+                        requestGraph =
+                            PersistentGraphFactory.defaultFactory().builder().directed().build(),
+                        passThruColumns = persistentSetOf(),
+                        transformerCallablesByPath = persistentMapOf(),
+                        dataElementCallablesByPath = persistentMapOf(),
+                        featureJsonValueStoreByPath = persistentMapOf(),
+                        featureCalculatorCallablesByPath = persistentMapOf(),
+                        featureJsonValuePublisherByPath = persistentMapOf(),
+                        processingError =
+                            ServiceError.builder()
+                                .message(
+                                    "error occurred during request_materialization_graph processing",
+                                    throwable::class.simpleName
+                                )
+                                .cause(throwable)
+                                .build()
+                                .some()
+                    )
+                )
             }
         }
     }

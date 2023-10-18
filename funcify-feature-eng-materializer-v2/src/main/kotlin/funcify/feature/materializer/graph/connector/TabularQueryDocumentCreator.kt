@@ -136,6 +136,7 @@ internal class TabularQueryDocumentCreator(
                 PersistentMap<String, PersistentSet<GQLOperationPath>>,
             override val errors: PersistentList<ServiceError>,
         ) : TabularQueryCompositionContext {
+
             companion object {
                 fun empty(): TabularQueryCompositionContext {
                     return DefaultTabularQueryCompositionContext(
