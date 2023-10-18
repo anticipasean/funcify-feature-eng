@@ -44,7 +44,7 @@ import org.slf4j.Logger
  * @author smccarron
  * @created 2023-08-05
  */
-object StandardQueryConnector : RequestMaterializationGraphConnector<StandardQuery> {
+internal object StandardQueryConnector : RequestMaterializationGraphConnector<StandardQuery> {
 
     private val logger: Logger = loggerFor<StandardQueryConnector>()
 

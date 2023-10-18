@@ -1,5 +1,6 @@
 package funcify.feature.materializer.graph
 
+import funcify.feature.error.ServiceError
 import funcify.feature.graph.DirectedPersistentGraph
 import funcify.feature.materializer.graph.component.QueryComponentContext
 import funcify.feature.schema.dataelement.DataElementCallable
@@ -8,6 +9,7 @@ import funcify.feature.schema.feature.FeatureJsonValuePublisher
 import funcify.feature.schema.feature.FeatureJsonValueStore
 import funcify.feature.schema.path.operation.GQLOperationPath
 import funcify.feature.schema.transformer.TransformerCallable
+import graphql.execution.preparsed.PreparsedDocumentEntry
 import graphql.language.Document
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableMap
@@ -19,7 +21,7 @@ import kotlinx.collections.immutable.ImmutableSet
  */
 interface RequestMaterializationGraph {
 
-    val document: Document
+    val preparsedDocumentEntry: PreparsedDocumentEntry
 
     val requestGraph:
         DirectedPersistentGraph<GQLOperationPath, QueryComponentContext, MaterializationEdge>
@@ -41,4 +43,6 @@ interface RequestMaterializationGraph {
 
     val featureArgumentDependenciesSetByPathAndIndex:
         (GQLOperationPath, Int) -> ImmutableSet<GQLOperationPath>
+
+    val errors: ImmutableList<ServiceError>
 }

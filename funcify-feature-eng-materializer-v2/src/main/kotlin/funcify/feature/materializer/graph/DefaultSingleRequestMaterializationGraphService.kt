@@ -7,13 +7,14 @@ import com.google.common.cache.CacheBuilder
 import funcify.feature.error.ServiceError
 import funcify.feature.graph.PersistentGraphFactory
 import funcify.feature.graph.line.Line
+import funcify.feature.materializer.gql.DefaultGQLDocumentComposer
+import funcify.feature.materializer.gql.DefaultGQLDocumentSpecFactory
 import funcify.feature.materializer.graph.component.DefaultQueryComponentContextFactory
 import funcify.feature.materializer.graph.component.QueryComponentContext
 import funcify.feature.materializer.graph.component.QueryComponentContextFactory
 import funcify.feature.materializer.graph.connector.StandardQueryConnector
 import funcify.feature.materializer.graph.connector.StandardQueryTraverser
-import funcify.feature.materializer.graph.connector.TabularQueryConnector
-import funcify.feature.materializer.graph.connector.TabularQueryTraverser
+import funcify.feature.materializer.graph.connector.TabularQueryDocumentCreator
 import funcify.feature.materializer.graph.context.DefaultRequestMaterializationGraphContextFactory
 import funcify.feature.materializer.graph.context.RequestMaterializationGraphContext
 import funcify.feature.materializer.graph.context.RequestMaterializationGraphContextFactory
@@ -30,13 +31,18 @@ import funcify.feature.tools.extensions.TryExtensions.failure
 import funcify.feature.tools.extensions.TryExtensions.successIfNonNull
 import funcify.feature.tools.extensions.TryExtensions.tryFold
 import graphql.GraphQLError
+import graphql.ParseAndValidate
 import graphql.execution.preparsed.PreparsedDocumentEntry
+import graphql.language.Document
+import graphql.validation.ValidationError
 import java.time.Duration
+import java.util.*
 import java.util.concurrent.ConcurrentMap
 import kotlin.reflect.KClass
 import kotlin.reflect.KType
 import kotlin.reflect.full.isSuperclassOf
 import kotlinx.collections.immutable.PersistentMap
+import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.plus
@@ -53,7 +59,12 @@ internal class DefaultSingleRequestMaterializationGraphService(
         RequestMaterializationGraphContextFactory =
         DefaultRequestMaterializationGraphContextFactory,
     private val queryComponentContextFactory: QueryComponentContextFactory =
-        DefaultQueryComponentContextFactory
+        DefaultQueryComponentContextFactory,
+    private val tabularQueryDocumentCreator: TabularQueryDocumentCreator =
+        TabularQueryDocumentCreator(
+            documentSpecFactory = DefaultGQLDocumentSpecFactory(),
+            gqlDocumentComposer = DefaultGQLDocumentComposer
+        )
 ) : SingleRequestMaterializationGraphService {
 
     companion object {
@@ -82,28 +93,28 @@ internal class DefaultSingleRequestMaterializationGraphService(
                 Mono.defer { createRequestMaterializationGraphCacheKeyForSession(session) }
                     .flatMap { rmgck: RequestMaterializationGraphCacheKey ->
                         when (
-                            val rmg: RequestMaterializationGraph? =
+                            val existingGraph: RequestMaterializationGraph? =
                                 requestMaterializationGraphCache[rmgck]
                         ) {
                             null -> {
                                 calculateRequestMaterializationGraphForSession(rmgck, session)
-                                    .doOnNext { rmg1: RequestMaterializationGraph ->
-                                        requestMaterializationGraphCache[rmgck] = rmg1
+                                    .doOnNext { calculatedGraph: RequestMaterializationGraph ->
+                                        requestMaterializationGraphCache[rmgck] = calculatedGraph
                                     }
-                                    .map { rmg1: RequestMaterializationGraph ->
+                                    .map { calculatedGraph: RequestMaterializationGraph ->
                                         session.update {
                                             preparsedDocumentEntry(
-                                                PreparsedDocumentEntry(rmg1.document)
+                                                calculatedGraph.preparsedDocumentEntry
                                             )
-                                            requestMaterializationGraph(rmg1)
+                                            requestMaterializationGraph(calculatedGraph)
                                         }
                                     }
                             }
                             else -> {
                                 Mono.just(
                                     session.update {
-                                        preparsedDocumentEntry(PreparsedDocumentEntry(rmg.document))
-                                        requestMaterializationGraph(rmg)
+                                        preparsedDocumentEntry(existingGraph.preparsedDocumentEntry)
+                                        requestMaterializationGraph(existingGraph)
                                     }
                                 )
                             }
@@ -133,10 +144,7 @@ internal class DefaultSingleRequestMaterializationGraphService(
                                 RawInputContext::fieldNames
                             ),
                         operationName = session.rawGraphQLRequest.operationName.toOption(),
-                        standardQueryDocument =
-                            session.preparsedDocumentEntry.mapNotNull(
-                                PreparsedDocumentEntry::getDocument
-                            ),
+                        preparsedDocumentEntry = session.preparsedDocumentEntry,
                         tabularQueryOutputColumns = none(),
                     )
                     .successIfNonNull()
@@ -155,7 +163,7 @@ internal class DefaultSingleRequestMaterializationGraphService(
                             .getOrElse(::emptyList)
                             .asSequence()
                             .withIndex()
-                            .joinToString(", ") { (idx: Int, ge: GraphQLError) -> "[$idx]:$ge" }
+                            .joinToString(", ") { (idx: Int, ge: GraphQLError) -> "[$idx]: $ge" }
                     )
                     .build()
                     .failure()
@@ -170,7 +178,7 @@ internal class DefaultSingleRequestMaterializationGraphService(
                                 RawInputContext::fieldNames
                             ),
                         operationName = none(),
-                        standardQueryDocument = none(),
+                        preparsedDocumentEntry = none(),
                         tabularQueryOutputColumns =
                             session.rawGraphQLRequest.expectedOutputFieldNames
                                 .toPersistentSet()
@@ -202,7 +210,10 @@ internal class DefaultSingleRequestMaterializationGraphService(
         )
         return Mono.fromCallable {
                 when {
-                    cacheKey.standardQueryDocument.isDefined() -> {
+                    cacheKey.preparsedDocumentEntry
+                        .filterNot(PreparsedDocumentEntry::hasErrors)
+                        .mapNotNull(PreparsedDocumentEntry::getDocument)
+                        .isDefined() -> {
                         requestMaterializationGraphContextFactory
                             .standardQueryBuilder()
                             .materializationMetamodel(session.materializationMetamodel)
@@ -210,7 +221,11 @@ internal class DefaultSingleRequestMaterializationGraphService(
                             .variableKeys(cacheKey.variableKeys)
                             .rawInputContextKeys(cacheKey.rawInputContextKeys)
                             .operationName(cacheKey.operationName.orNull()!!)
-                            .document(cacheKey.standardQueryDocument.orNull()!!)
+                            .document(
+                                cacheKey.preparsedDocumentEntry
+                                    .mapNotNull(PreparsedDocumentEntry::getDocument)
+                                    .orNull()!!
+                            )
                             .requestGraph(
                                 PersistentGraphFactory.defaultFactory()
                                     .builder()
@@ -248,11 +263,95 @@ internal class DefaultSingleRequestMaterializationGraphService(
                 }
             }
             .flatMap { c: RequestMaterializationGraphContext ->
+                createAndValidateGQLDocumentForTabularQueryIfApt(c)
+            }
+            .flatMap { c: RequestMaterializationGraphContext ->
                 traverseNodesWithinContextCreatingGraphComponents(c)
             }
             .flatMap { c: RequestMaterializationGraphContext ->
                 createRequestMaterializationGraphFromContext(c)
             }
+    }
+
+    private fun createAndValidateGQLDocumentForTabularQueryIfApt(
+        context: RequestMaterializationGraphContext
+    ): Mono<out RequestMaterializationGraphContext> {
+        return when (context) {
+            is StandardQuery -> {
+                Mono.just(context)
+            }
+            is TabularQuery -> {
+                Mono.fromCallable {
+                        tabularQueryDocumentCreator.createDocumentForTabularQuery(context)
+                    }
+                    .map { d: Document ->
+                        val validationErrors: List<ValidationError>? =
+                            ParseAndValidate.validate(
+                                context.materializationMetamodel.materializationGraphQLSchema,
+                                d,
+                                graphQLDocumentValidationRulesToApplyCondition(),
+                                // TODO: Determine whether locale should be sourced from
+                                // raw_graphql_request
+                                Locale.getDefault()
+                            )
+                        when {
+                            validationErrors?.isNotEmpty() == true -> {
+                                PreparsedDocumentEntry(d, validationErrors)
+                            }
+                            else -> {
+                                PreparsedDocumentEntry(d)
+                            }
+                        }
+                    }
+                    .flatMap { pde: PreparsedDocumentEntry ->
+                        when {
+                            pde.hasErrors() -> {
+                                Mono.error {
+                                    ServiceError.of(
+                                        """unable to create valid %s that fits tabular_query 
+                                        |[ validation_errors.size: %s ]
+                                        |[ %s ]"""
+                                            .flatten(),
+                                        Document::class.qualifiedName,
+                                        pde.errors.size,
+                                        pde.errors.asSequence().withIndex().joinToString(",") {
+                                            (idx: Int, ge: GraphQLError) ->
+                                            "[${idx}]: ${ge}"
+                                        }
+                                    )
+                                }
+                            }
+                            else -> {
+                                Mono.fromCallable {
+                                    requestMaterializationGraphContextFactory
+                                        .standardQueryBuilder()
+                                        .materializationMetamodel(context.materializationMetamodel)
+                                        .queryComponentContextFactory(queryComponentContextFactory)
+                                        .variableKeys(context.variableKeys)
+                                        .rawInputContextKeys(context.rawInputContextKeys)
+                                        .operationName("")
+                                        .document(pde.document)
+                                        .requestGraph(context.requestGraph)
+                                        .build()
+                                }
+                            }
+                        }
+                    }
+            }
+            else -> {
+                Mono.error {
+                    ServiceError.of(
+                        "unsupported request_materialization_graph_context.type: [ type: %s ]",
+                        context::class.qualifiedName
+                    )
+                }
+            }
+        }
+    }
+
+    /** Specifies which graphql.validation.rules.* member to have applied */
+    private fun graphQLDocumentValidationRulesToApplyCondition(): (Class<*>) -> Boolean {
+        return { c: Class<*> -> true }
     }
 
     private fun traverseNodesWithinContextCreatingGraphComponents(
@@ -271,21 +370,6 @@ internal class DefaultSingleRequestMaterializationGraphService(
                                 }
                                 is QueryComponentContext.SelectedFieldComponentContext -> {
                                     connector.connectSelectedField(sq, qcc)
-                                }
-                            }
-                        }
-                    }
-                    is TabularQuery -> {
-                        val connector = TabularQueryConnector
-                        TabularQueryTraverser.invoke(context).fold(context) {
-                            tq: TabularQuery,
-                            qcc: QueryComponentContext ->
-                            when (qcc) {
-                                is QueryComponentContext.FieldArgumentComponentContext -> {
-                                    connector.connectFieldArgument(tq, qcc)
-                                }
-                                is QueryComponentContext.SelectedFieldComponentContext -> {
-                                    connector.connectSelectedField(tq, qcc)
                                 }
                             }
                         }
@@ -376,7 +460,7 @@ internal class DefaultSingleRequestMaterializationGraphService(
             when (context) {
                 is StandardQuery -> {
                     DefaultRequestMaterializationGraph(
-                        document = context.document,
+                        preparsedDocumentEntry = PreparsedDocumentEntry(context.document),
                         requestGraph = context.requestGraph,
                         passThruColumns = context.passThroughColumns,
                         transformerCallablesByPath = context.transformerCallablesByPath,
@@ -394,6 +478,7 @@ internal class DefaultSingleRequestMaterializationGraphService(
                         featureJsonValueStoreByPath = persistentMapOf(),
                         featureCalculatorCallablesByPath = context.featureCalculatorCallablesByPath,
                         featureJsonValuePublisherByPath = persistentMapOf(),
+                        errors = persistentListOf()
                     )
                 }
                 is TabularQuery -> {

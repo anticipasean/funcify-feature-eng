@@ -265,9 +265,10 @@ internal class DefaultMaterializationPreparsedDocumentProvider(
                                     Mono.error<PreparsedDocumentEntry> {
                                         ServiceError.of(
                                             """session [ session_id: %s ] has not been furnished 
-                                            |with a PreparsedDocumentEntry post graph creation and dispatch"""
+                                            |with a %s post graph creation and dispatch"""
                                                 .flatten(),
-                                            s.sessionId
+                                            s.sessionId,
+                                            PreparsedDocumentEntry::class.simpleName
                                         )
                                     }
                                 }
@@ -298,8 +299,7 @@ internal class DefaultMaterializationPreparsedDocumentProvider(
                                     .flatMap { spec ->
                                         jsonMapper.fromKotlinObject(spec).toJsonString()
                                     }
-                                    .orNull()
-                                    ?: "<NA>"
+                                    .orNull() ?: "<NA>"
                             }
                         )
                 logger.debug(

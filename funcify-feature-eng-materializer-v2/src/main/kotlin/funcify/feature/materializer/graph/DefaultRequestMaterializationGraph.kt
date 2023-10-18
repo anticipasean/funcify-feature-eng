@@ -4,6 +4,7 @@ import arrow.core.filterIsInstance
 import arrow.core.left
 import arrow.core.right
 import arrow.core.toOption
+import funcify.feature.error.ServiceError
 import funcify.feature.graph.DirectedPersistentGraph
 import funcify.feature.graph.line.DirectedLine
 import funcify.feature.materializer.graph.component.QueryComponentContext
@@ -19,6 +20,7 @@ import funcify.feature.tools.extensions.PersistentListExtensions.reduceToPersist
 import funcify.feature.tools.extensions.PersistentSetExtensions.toImmutableSet
 import funcify.feature.tools.extensions.StreamExtensions.recurseBreadthFirst
 import funcify.feature.tools.extensions.StreamExtensions.singleValueMapCombinationsFromPairs
+import graphql.execution.preparsed.PreparsedDocumentEntry
 import graphql.language.Document
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentMap
@@ -36,7 +38,7 @@ import kotlinx.collections.immutable.toPersistentMap
  * @created 2023-09-21
  */
 internal data class DefaultRequestMaterializationGraph(
-    override val document: Document,
+    override val preparsedDocumentEntry: PreparsedDocumentEntry,
     override val requestGraph: DirectedPersistentGraph<GQLOperationPath, QueryComponentContext, MaterializationEdge>,
     override val passThruColumns: ImmutableSet<String>,
     override val transformerCallablesByPath: ImmutableMap<GQLOperationPath, TransformerCallable>,
@@ -44,6 +46,7 @@ internal data class DefaultRequestMaterializationGraph(
     override val featureJsonValueStoreByPath: ImmutableMap<GQLOperationPath, FeatureJsonValueStore>,
     override val featureCalculatorCallablesByPath: ImmutableMap<GQLOperationPath, FeatureCalculatorCallable>,
     override val featureJsonValuePublisherByPath: ImmutableMap<GQLOperationPath, FeatureJsonValuePublisher>,
+    override val errors: ImmutableList<ServiceError>,
 ) : RequestMaterializationGraph {
 
     override val featureArgumentGroupsByPath:
