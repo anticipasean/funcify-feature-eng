@@ -1,4 +1,4 @@
-package funcify.feature.materializer.gql
+package funcify.feature.schema.document
 
 import arrow.core.Option
 import arrow.core.filterIsInstance
@@ -13,8 +13,7 @@ import arrow.core.right
 import arrow.core.some
 import arrow.core.toOption
 import funcify.feature.error.ServiceError
-import funcify.feature.materializer.gql.DefaultGQLDocumentComposer.DocumentTraverser
-import funcify.feature.materializer.model.MaterializationMetamodel
+import funcify.feature.schema.document.DefaultGQLDocumentComposer.DocumentTraverser
 import funcify.feature.schema.path.operation.AliasedFieldSegment
 import funcify.feature.schema.path.operation.FieldSegment
 import funcify.feature.schema.path.operation.FragmentSpreadSegment
@@ -111,21 +110,21 @@ internal object DefaultGQLDocumentComposer : GQLDocumentComposer {
     // TODO: Incorporate directive specs
     // TODO: Add support for handling non-scalar argument values
     // TODO: Check handling for empty specs
-    override fun composeDocumentFromSpecWithMetamodel(
-        spec: GQLDocumentSpec,
-        materializationMetamodel: MaterializationMetamodel
-    ): Try<Document> {
-        logger.info(
-            "compose_document_from_spec_with_metamodel: [ spec.field_paths.size: {} ]",
-            spec.fieldPaths.size
-        )
-        return cache.computeIfAbsent(
-            materializationMetamodel.created to spec,
-            calculateDocumentForSpecWithSchema(
-                materializationMetamodel.materializationGraphQLSchema
-            )
-        )
-    }
+    // override fun composeDocumentFromSpecWithMetamodel(
+    //    spec: GQLDocumentSpec,
+    //    materializationMetamodel: MaterializationMetamodel
+    // ): Try<Document> {
+    //    logger.info(
+    //        "compose_document_from_spec_with_metamodel: [ spec.field_paths.size: {} ]",
+    //        spec.fieldPaths.size
+    //    )
+    //    return cache.computeIfAbsent(
+    //        materializationMetamodel.created to spec,
+    //        calculateDocumentForSpecWithSchema(
+    //            materializationMetamodel.materializationGraphQLSchema
+    //        )
+    //    )
+    // }
 
     override fun composeDocumentFromSpecWithSchema(
         spec: GQLDocumentSpec,

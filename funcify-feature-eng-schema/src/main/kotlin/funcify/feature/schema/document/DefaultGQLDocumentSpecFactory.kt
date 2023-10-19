@@ -1,4 +1,4 @@
-package funcify.feature.materializer.gql
+package funcify.feature.schema.document
 
 import arrow.core.foldLeft
 import funcify.feature.schema.path.operation.GQLOperationPath
@@ -84,8 +84,8 @@ internal class DefaultGQLDocumentSpecFactory : GQLDocumentSpecFactory {
             ): GQLDocumentSpec.Builder =
                 this.apply {
                     variableNameArgumentPathPairs.fold(this) {
-                        b: GQLDocumentSpec.Builder,
-                        p: Pair<String, GQLOperationPath> ->
+                            b: GQLDocumentSpec.Builder,
+                            p: Pair<String, GQLOperationPath> ->
                         b.putArgumentPathForVariableName(p.first, p.second)
                     }
                 }
@@ -95,8 +95,8 @@ internal class DefaultGQLDocumentSpecFactory : GQLDocumentSpecFactory {
             ): GQLDocumentSpec.Builder =
                 this.apply {
                     variableNameArgumentPathsMap.foldLeft(this) {
-                        b: GQLDocumentSpec.Builder,
-                        (vn: String, ps: Set<GQLOperationPath>) ->
+                            b: GQLDocumentSpec.Builder,
+                            (vn: String, ps: Set<GQLOperationPath>) ->
                         ps.fold(b) { b1, p: GQLOperationPath ->
                             b1.putArgumentPathForVariableName(vn, p)
                         }
@@ -125,8 +125,8 @@ internal class DefaultGQLDocumentSpecFactory : GQLDocumentSpecFactory {
             ): GQLDocumentSpec.Builder =
                 this.apply {
                     argumentPathDefaultLiteralValuePairs.fold(this) {
-                        b: GQLDocumentSpec.Builder,
-                        (p: GQLOperationPath, v: Value<*>) ->
+                            b: GQLDocumentSpec.Builder,
+                            (p: GQLOperationPath, v: Value<*>) ->
                         b.putDefaultLiteralValueForArgumentPath(p, v)
                     }
                 }
@@ -136,8 +136,8 @@ internal class DefaultGQLDocumentSpecFactory : GQLDocumentSpecFactory {
             ): GQLDocumentSpec.Builder =
                 this.apply {
                     argumentPathDefaultLiteralValuesMap.foldLeft(this) {
-                        b: GQLDocumentSpec.Builder,
-                        (p: GQLOperationPath, v: Value<*>) ->
+                            b: GQLDocumentSpec.Builder,
+                            (p: GQLOperationPath, v: Value<*>) ->
                         b.putDefaultLiteralValueForArgumentPath(p, v)
                     }
                 }

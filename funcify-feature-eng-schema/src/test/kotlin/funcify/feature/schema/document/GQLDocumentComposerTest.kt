@@ -1,4 +1,4 @@
-package funcify.feature.materializer.gql
+package funcify.feature.schema.document
 
 import ch.qos.logback.classic.Level
 import com.fasterxml.jackson.databind.ObjectMapper

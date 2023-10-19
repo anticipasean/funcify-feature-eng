@@ -8,8 +8,6 @@ import com.google.common.cache.CacheBuilder
 import funcify.feature.error.ServiceError
 import funcify.feature.graph.PersistentGraphFactory
 import funcify.feature.graph.line.Line
-import funcify.feature.materializer.gql.DefaultGQLDocumentComposer
-import funcify.feature.materializer.gql.DefaultGQLDocumentSpecFactory
 import funcify.feature.materializer.graph.component.DefaultQueryComponentContextFactory
 import funcify.feature.materializer.graph.component.QueryComponentContext
 import funcify.feature.materializer.graph.component.QueryComponentContextFactory
@@ -24,6 +22,8 @@ import funcify.feature.materializer.graph.context.TabularQuery
 import funcify.feature.materializer.input.RawInputContext
 import funcify.feature.materializer.session.GraphQLSingleRequestSession
 import funcify.feature.schema.dataelement.DataElementCallable
+import funcify.feature.schema.document.GQLDocumentComposer
+import funcify.feature.schema.document.GQLDocumentSpecFactory
 import funcify.feature.schema.path.operation.GQLOperationPath
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
@@ -63,8 +63,8 @@ internal class DefaultSingleRequestMaterializationGraphService(
         DefaultQueryComponentContextFactory,
     private val tabularQueryDocumentCreator: TabularQueryDocumentCreator =
         TabularQueryDocumentCreator(
-            documentSpecFactory = DefaultGQLDocumentSpecFactory(),
-            gqlDocumentComposer = DefaultGQLDocumentComposer
+            documentSpecFactory = GQLDocumentSpecFactory.defaultFactory(),
+            gqlDocumentComposer = GQLDocumentComposer.defaultComposer(),
         )
 ) : SingleRequestMaterializationGraphService {
 

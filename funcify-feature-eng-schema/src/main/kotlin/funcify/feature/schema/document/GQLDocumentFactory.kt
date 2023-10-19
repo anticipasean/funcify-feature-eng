@@ -1,4 +1,4 @@
-package funcify.feature.materializer.gql
+package funcify.feature.schema.document
 
 /**
  *

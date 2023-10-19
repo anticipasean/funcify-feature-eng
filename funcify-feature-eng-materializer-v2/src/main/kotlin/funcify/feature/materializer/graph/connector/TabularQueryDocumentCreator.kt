@@ -2,12 +2,12 @@ package funcify.feature.materializer.graph.connector
 
 import arrow.core.*
 import funcify.feature.error.ServiceError
-import funcify.feature.materializer.gql.GQLDocumentComposer
-import funcify.feature.materializer.gql.GQLDocumentSpec
-import funcify.feature.materializer.gql.GQLDocumentSpecFactory
 import funcify.feature.materializer.graph.connector.TabularQueryDocumentCreator.Companion.TabularQueryCompositionContext.*
 import funcify.feature.materializer.graph.context.TabularQuery
 import funcify.feature.schema.dataelement.DomainSpecifiedDataElementSource
+import funcify.feature.schema.document.GQLDocumentComposer
+import funcify.feature.schema.document.GQLDocumentSpec
+import funcify.feature.schema.document.GQLDocumentSpecFactory
 import funcify.feature.schema.feature.FeatureSpecifiedFeatureCalculator
 import funcify.feature.schema.path.operation.GQLOperationPath
 import funcify.feature.tools.container.attempt.Try
@@ -758,9 +758,9 @@ internal class TabularQueryDocumentCreator(
                         .build()
                 }
                 .let { spec: GQLDocumentSpec ->
-                    gqlDocumentComposer.composeDocumentFromSpecWithMetamodel(
+                    gqlDocumentComposer.composeDocumentFromSpecWithSchema(
                         spec,
-                        tabularQuery.materializationMetamodel
+                        tabularQuery.materializationMetamodel.materializationGraphQLSchema
                     )
                 }
         }

@@ -1,6 +1,5 @@
-package funcify.feature.materializer.gql
+package funcify.feature.schema.document
 
-import funcify.feature.materializer.model.MaterializationMetamodel
 import funcify.feature.tools.container.attempt.Try
 import graphql.language.Document
 import graphql.schema.GraphQLSchema
@@ -11,10 +10,12 @@ import graphql.schema.GraphQLSchema
  */
 interface GQLDocumentComposer {
 
-    fun composeDocumentFromSpecWithMetamodel(
-        spec: GQLDocumentSpec,
-        materializationMetamodel: MaterializationMetamodel
-    ): Try<Document>
+    companion object {
+
+        fun defaultComposer(): GQLDocumentComposer {
+            return DefaultGQLDocumentComposer
+        }
+    }
 
     fun composeDocumentFromSpecWithSchema(
         spec: GQLDocumentSpec,
