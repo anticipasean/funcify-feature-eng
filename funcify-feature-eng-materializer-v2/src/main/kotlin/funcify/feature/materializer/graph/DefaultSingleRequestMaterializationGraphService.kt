@@ -522,45 +522,32 @@ internal class DefaultSingleRequestMaterializationGraphService(
     ): Mono<out RequestMaterializationGraph> {
         return when (throwable) {
             is ServiceError -> {
-                Mono.just(
-                    DefaultRequestMaterializationGraph(
-                        preparsedDocumentEntry = PreparsedDocumentEntry(listOf()),
-                        requestGraph =
-                            PersistentGraphFactory.defaultFactory().builder().directed().build(),
-                        passThruColumns = persistentSetOf(),
-                        transformerCallablesByPath = persistentMapOf(),
-                        dataElementCallablesByPath = persistentMapOf(),
-                        featureJsonValueStoreByPath = persistentMapOf(),
-                        featureCalculatorCallablesByPath = persistentMapOf(),
-                        featureJsonValuePublisherByPath = persistentMapOf(),
-                        processingError = throwable.some()
-                    )
-                )
+                throwable
             }
             else -> {
-                Mono.just(
-                    DefaultRequestMaterializationGraph(
-                        preparsedDocumentEntry = PreparsedDocumentEntry(listOf()),
-                        requestGraph =
-                            PersistentGraphFactory.defaultFactory().builder().directed().build(),
-                        passThruColumns = persistentSetOf(),
-                        transformerCallablesByPath = persistentMapOf(),
-                        dataElementCallablesByPath = persistentMapOf(),
-                        featureJsonValueStoreByPath = persistentMapOf(),
-                        featureCalculatorCallablesByPath = persistentMapOf(),
-                        featureJsonValuePublisherByPath = persistentMapOf(),
-                        processingError =
-                            ServiceError.builder()
-                                .message(
-                                    "error occurred during request_materialization_graph processing",
-                                    throwable::class.simpleName
-                                )
-                                .cause(throwable)
-                                .build()
-                                .some()
+                ServiceError.builder()
+                    .message(
+                        "error occurred during request_materialization_graph processing",
+                        throwable::class.simpleName
                     )
-                )
+                    .cause(throwable)
+                    .build()
             }
+        }.let { se: ServiceError ->
+            Mono.just(
+                DefaultRequestMaterializationGraph(
+                    preparsedDocumentEntry = PreparsedDocumentEntry(listOf()),
+                    requestGraph =
+                        PersistentGraphFactory.defaultFactory().builder().directed().build(),
+                    passThruColumns = persistentSetOf(),
+                    transformerCallablesByPath = persistentMapOf(),
+                    dataElementCallablesByPath = persistentMapOf(),
+                    featureJsonValueStoreByPath = persistentMapOf(),
+                    featureCalculatorCallablesByPath = persistentMapOf(),
+                    featureJsonValuePublisherByPath = persistentMapOf(),
+                    processingError = se.some()
+                )
+            )
         }
     }
 }

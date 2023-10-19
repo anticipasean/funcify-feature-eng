@@ -1,12 +1,19 @@
 package funcify.feature.stream
 
+import arrow.core.filterIsInstance
+import arrow.core.foldLeft
+import arrow.core.identity
+import arrow.core.toOption
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.node.JsonNodeFactory
+import com.fasterxml.jackson.databind.node.ObjectNode
+import com.fasterxml.jackson.databind.node.TextNode
 import funcify.feature.datasource.graphql.GraphQLApiDataElementSourceProvider
 import funcify.feature.datasource.graphql.GraphQLApiDataElementSourceProviderFactory
 import funcify.feature.file.FileRegistryFeatureCalculatorProvider
 import funcify.feature.file.FileRegistryFeatureCalculatorProviderFactory
+import funcify.feature.materializer.input.RawInputContext
 import funcify.feature.materializer.request.RawGraphQLRequest
 import funcify.feature.materializer.request.RawGraphQLRequestFactory
 import funcify.feature.materializer.response.SerializedGraphQLResponse
@@ -64,15 +71,9 @@ class StreamFunctions {
                 |                name
                 |            }
                 |            audienceSuitabilityRating
-                |            productionCountry
-                |            genres
                 |            dateAdded
-                |            ... on Movie {
-                |                duration
-                |            }
-                |            ... on TVShow {
-                |                numberOfSeasons
-                |            }
+                |            ...TVShowFragment
+                |            ...MovieFragment
                 |        }
                 |    }
                 |    transformer {
@@ -86,6 +87,14 @@ class StreamFunctions {
                 |            releaseDecade
                 |        }
                 |    }
+                |}
+                |fragment TVShowFragment on TVShow {
+                |    numberOfSeasons
+                |    genres
+                |}
+                |fragment MovieFragment on Movie {
+                |    duration
+                |    productionCountry
                 |}
             """
                 .trimMargin()
@@ -225,7 +234,10 @@ class StreamFunctions {
                             .operationName(OPERATION_NAME)
                             .headers(m.headers)
                             .rawGraphQLQueryText(QUERY)
-                            .variable("inputContext", jn)
+                            .variable(
+                                RawInputContext.RAW_INPUT_CONTEXT_VARIABLE_KEY,
+                                convertJsonNodeIntoSchemaFormatJsonNode(jn)
+                            )
                             .variable("show_id", jn.get("show_id"))
                             .build()
                     }
@@ -256,6 +268,92 @@ class StreamFunctions {
                     .map { jn: JsonNode -> GenericMessage<JsonNode>(jn, m.headers) }
             }
         }
+    }
+
+    private fun convertJsonNodeIntoSchemaFormatJsonNode(jn: JsonNode): JsonNode {
+        val mapToObjectNode: (Map<String, JsonNode>) -> JsonNode = { m: Map<String, JsonNode> ->
+            m.foldLeft(JsonNodeFactory.instance.objectNode()) {
+                on: ObjectNode,
+                (k: String, v: JsonNode) ->
+                on.set(k, v)
+            }
+        }
+        val durationNodeToShowSpecificField: (JsonNode) -> Pair<String, JsonNode> = { j: JsonNode ->
+            when {
+                j.get("type").asText("") == "TV Show" -> {
+                    "numberOfSeasons" to
+                        JsonNodeFactory.instance.numberNode(
+                            Regex("(?<numberOfSeasons>\\d+) [Ss]easons?")
+                                .find(j.get("duration").asText(""))
+                                ?.groups
+                                ?.get("numberOfSeasons")
+                                ?.value
+                                ?.toIntOrNull() ?: 0
+                        )
+                }
+                else -> {
+                    "duration" to
+                        JsonNodeFactory.instance.numberNode(
+                            Regex("(?<duration>\\d+) min")
+                                .find(j.get("duration").asText(""))
+                                ?.groups
+                                ?.get("duration")
+                                ?.value
+                                ?.toIntOrNull() ?: 0
+                        )
+                }
+            }
+        }
+        return mapToObjectNode.invoke(
+            mapOf(
+                "show" to
+                    mapToObjectNode.invoke(
+                        mapOf(
+                            "show_id" to jn.get("show_id"),
+                            "type" to jn.get("type"),
+                            "title" to jn.get("title"),
+                            "director" to
+                                mapToObjectNode.invoke(mapOf("name" to jn.get("director"))),
+                            "cast" to
+                                jn.get("cast")
+                                    .toOption()
+                                    .filterIsInstance<TextNode>()
+                                    .map { tn: TextNode ->
+                                        tn.textValue()?.splitToSequence(", ") ?: emptySequence()
+                                    }
+                                    .fold(::emptySequence, ::identity)
+                                    .map { n: String ->
+                                        mapToObjectNode.invoke(
+                                            mapOf("name" to JsonNodeFactory.instance.textNode(n))
+                                        )
+                                    }
+                                    .fold(JsonNodeFactory.instance.arrayNode()) { an, n ->
+                                        an.add(n)
+                                    },
+                            "country" to jn.get("country"),
+                            "date_added" to jn.get("date_added"),
+                            "release_year" to
+                                JsonNodeFactory.instance.numberNode(
+                                    jn.get("release_year").asText("").toIntOrNull() ?: 0
+                                ),
+                            "rating" to jn.get("rating"),
+                            durationNodeToShowSpecificField(jn),
+                            "listed_in" to
+                                jn.get("listed_in")
+                                    .toOption()
+                                    .filterIsInstance<TextNode>()
+                                    .map { tn: TextNode ->
+                                        tn.textValue()?.splitToSequence(", ") ?: emptySequence()
+                                    }
+                                    .fold(::emptySequence, ::identity)
+                                    .fold(JsonNodeFactory.instance.arrayNode()) { an, g ->
+                                        an.add(g)
+                                    },
+                            "description" to jn.get("description")
+                        )
+                    )
+            )
+        )
     }
 
     private fun executeGraphQLRequestWithSchema(
