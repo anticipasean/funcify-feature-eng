@@ -322,6 +322,7 @@ class StreamFunctions {
                                         tn.textValue()?.splitToSequence(", ") ?: emptySequence()
                                     }
                                     .fold(::emptySequence, ::identity)
+                                    .filter(String::isNotBlank)
                                     .map { n: String ->
                                         mapToObjectNode.invoke(
                                             mapOf("name" to JsonNodeFactory.instance.textNode(n))
@@ -346,6 +347,7 @@ class StreamFunctions {
                                         tn.textValue()?.splitToSequence(", ") ?: emptySequence()
                                     }
                                     .fold(::emptySequence, ::identity)
+                                    .filter(String::isNotBlank)
                                     .fold(JsonNodeFactory.instance.arrayNode()) { an, g ->
                                         an.add(g)
                                     },
