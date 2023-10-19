@@ -34,6 +34,7 @@ import funcify.feature.tools.extensions.TryExtensions.tryFold
 import graphql.GraphQLError
 import graphql.ParseAndValidate
 import graphql.execution.preparsed.PreparsedDocumentEntry
+import graphql.language.AstPrinter
 import graphql.language.Document
 import graphql.validation.ValidationError
 import java.time.Duration
@@ -231,58 +232,7 @@ internal class DefaultSingleRequestMaterializationGraphService(
             "calculate_request_materialization_graph_for_session: [ session.session_id: ${session.sessionId} ]"
         )
         return Mono.fromCallable {
-                when {
-                    cacheKey.preparsedDocumentEntry
-                        .filterNot(PreparsedDocumentEntry::hasErrors)
-                        .mapNotNull(PreparsedDocumentEntry::getDocument)
-                        .isDefined() -> {
-                        requestMaterializationGraphContextFactory
-                            .standardQueryBuilder()
-                            .materializationMetamodel(session.materializationMetamodel)
-                            .queryComponentContextFactory(queryComponentContextFactory)
-                            .variableKeys(cacheKey.variableKeys)
-                            .rawInputContextKeys(cacheKey.rawInputContextKeys)
-                            .operationName(cacheKey.operationName.orNull()!!)
-                            .document(
-                                cacheKey.preparsedDocumentEntry
-                                    .mapNotNull(PreparsedDocumentEntry::getDocument)
-                                    .orNull()!!
-                            )
-                            .requestGraph(
-                                PersistentGraphFactory.defaultFactory()
-                                    .builder()
-                                    .directed()
-                                    .permitParallelEdges()
-                                    .build()
-                            )
-                            .build()
-                    }
-                    cacheKey.tabularQueryOutputColumns.isDefined() -> {
-                        requestMaterializationGraphContextFactory
-                            .tabularQueryBuilder()
-                            .materializationMetamodel(session.materializationMetamodel)
-                            .queryComponentContextFactory(queryComponentContextFactory)
-                            .variableKeys(cacheKey.variableKeys)
-                            .rawInputContextKeys(cacheKey.rawInputContextKeys)
-                            .outputColumnNames(cacheKey.tabularQueryOutputColumns.orNull()!!)
-                            .requestGraph(
-                                PersistentGraphFactory.defaultFactory()
-                                    .builder()
-                                    .directed()
-                                    .permitParallelEdges()
-                                    .build()
-                            )
-                            .build()
-                    }
-                    else -> {
-                        throw ServiceError.of(
-                            """unable to create a request_materialization_graph_context 
-                            |instance for [ cache_key: %s ]"""
-                                .flatten(),
-                            cacheKey
-                        )
-                    }
-                }
+                createRequestMaterializationGraphContextForCacheKey(cacheKey, session)
             }
             .flatMap { c: RequestMaterializationGraphContext ->
                 createAndValidateGQLDocumentForTabularQueryIfApt(c)
@@ -298,6 +248,64 @@ internal class DefaultSingleRequestMaterializationGraphService(
             }
     }
 
+    private fun createRequestMaterializationGraphContextForCacheKey(
+        cacheKey: RequestMaterializationGraphCacheKey,
+        session: GraphQLSingleRequestSession,
+    ): RequestMaterializationGraphContext {
+        return when {
+            cacheKey.preparsedDocumentEntry
+                .filterNot(PreparsedDocumentEntry::hasErrors)
+                .mapNotNull(PreparsedDocumentEntry::getDocument)
+                .isDefined() -> {
+                requestMaterializationGraphContextFactory
+                    .standardQueryBuilder()
+                    .materializationMetamodel(session.materializationMetamodel)
+                    .queryComponentContextFactory(queryComponentContextFactory)
+                    .variableKeys(cacheKey.variableKeys)
+                    .rawInputContextKeys(cacheKey.rawInputContextKeys)
+                    .operationName(cacheKey.operationName.orNull()!!)
+                    .document(
+                        cacheKey.preparsedDocumentEntry
+                            .mapNotNull(PreparsedDocumentEntry::getDocument)
+                            .orNull()!!
+                    )
+                    .requestGraph(
+                        PersistentGraphFactory.defaultFactory()
+                            .builder()
+                            .directed()
+                            .permitParallelEdges()
+                            .build()
+                    )
+                    .build()
+            }
+            cacheKey.tabularQueryOutputColumns.isDefined() -> {
+                requestMaterializationGraphContextFactory
+                    .tabularQueryBuilder()
+                    .materializationMetamodel(session.materializationMetamodel)
+                    .queryComponentContextFactory(queryComponentContextFactory)
+                    .variableKeys(cacheKey.variableKeys)
+                    .rawInputContextKeys(cacheKey.rawInputContextKeys)
+                    .outputColumnNames(cacheKey.tabularQueryOutputColumns.orNull()!!)
+                    .requestGraph(
+                        PersistentGraphFactory.defaultFactory()
+                            .builder()
+                            .directed()
+                            .permitParallelEdges()
+                            .build()
+                    )
+                    .build()
+            }
+            else -> {
+                throw ServiceError.of(
+                    """unable to create a request_materialization_graph_context 
+                    |instance for [ cache_key: %s ]"""
+                        .flatten(),
+                    cacheKey
+                )
+            }
+        }
+    }
+
     private fun createAndValidateGQLDocumentForTabularQueryIfApt(
         context: RequestMaterializationGraphContext
     ): Mono<out RequestMaterializationGraphContext> {
@@ -308,6 +316,12 @@ internal class DefaultSingleRequestMaterializationGraphService(
             is TabularQuery -> {
                 Mono.fromCallable {
                         tabularQueryDocumentCreator.createDocumentForTabularQuery(context)
+                    }
+                    .doOnNext { d: Document ->
+                        logger.debug(
+                            "tabular_query_generated_document: \n{}",
+                            AstPrinter.printAst(d)
+                        )
                     }
                     .map { d: Document ->
                         val ves: List<ValidationError>? =
@@ -526,10 +540,7 @@ internal class DefaultSingleRequestMaterializationGraphService(
             }
             else -> {
                 ServiceError.builder()
-                    .message(
-                        "error occurred during request_materialization_graph processing",
-                        throwable::class.simpleName
-                    )
+                    .message("request_materialization_graph error")
                     .cause(throwable)
                     .build()
             }
