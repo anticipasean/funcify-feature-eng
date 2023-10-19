@@ -7,7 +7,6 @@ import arrow.core.identity
 import arrow.core.orElse
 import arrow.core.toOption
 import com.fasterxml.jackson.databind.JsonNode
-import funcify.feature.datasource.graphql.retrieval.GraphQLQueryPathBasedComposer
 import funcify.feature.tools.json.JsonMapper
 import funcify.feature.materializer.context.document.ColumnarDocumentContext
 import funcify.feature.materializer.context.document.ColumnarDocumentContextFactory

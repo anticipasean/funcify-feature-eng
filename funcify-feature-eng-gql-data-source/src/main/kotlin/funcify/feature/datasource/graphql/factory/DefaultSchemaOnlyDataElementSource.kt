@@ -168,9 +168,10 @@ internal class DefaultSchemaOnlyDataElementSource(
                 arguments: ImmutableMap<GQLOperationPath, JsonNode>
             ): Mono<JsonNode> {
                 logger.debug(
-                    "{}: [ arguments.key: {} ]",
+                    "{}: [ arguments.key: {}, selections: {} ]",
                     METHOD_TAG,
-                    arguments.keys.asSequence().joinToString(", ", "{ ", " }")
+                    arguments.keys.asSequence().joinToString(", ", "{ ", " }"),
+                    selections.joinToString(", ", "{ ", " }")
                 )
                 return Mono.error { TODO("${METHOD_TAG} not yet implemented") }
             }

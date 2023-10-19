@@ -2,7 +2,6 @@ package funcify.feature.materializer.fetcher
 
 import arrow.core.Option
 import arrow.core.filterIsInstance
-import arrow.core.some
 import arrow.core.toOption
 import funcify.feature.materializer.model.MaterializationMetamodel
 import funcify.feature.materializer.session.GraphQLSingleRequestSession
@@ -13,8 +12,8 @@ import graphql.schema.DataFetchingEnvironment
 import graphql.schema.FieldCoordinates
 import graphql.schema.GraphQLFieldDefinition
 import graphql.schema.GraphQLFieldsContainer
+import graphql.schema.GraphQLImplementingType
 import graphql.schema.GraphQLOutputType
-import graphql.schema.GraphQLType
 import graphql.schema.GraphQLTypeUtil
 import java.util.*
 
@@ -51,26 +50,17 @@ interface SingleRequestFieldMaterializationSession : MaterializationSession {
     val fieldOutputType: GraphQLOutputType
         get() = dataFetchingEnvironment.fieldType
 
-    val parentGraphQLFieldsContainer: Option<GraphQLFieldsContainer>
+    val parentImplementingType: Option<GraphQLImplementingType>
         get() {
-            return dataFetchingEnvironment.parentType.toOption().flatMap { gt: GraphQLType ->
-                when (gt) {
-                    is GraphQLFieldsContainer -> {
-                        gt.some()
-                    }
-                    else -> {
-                        gt.some()
-                            .mapNotNull(GraphQLTypeUtil::unwrapAll)
-                            .filterIsInstance<GraphQLFieldsContainer>()
-                    }
-                }
-            }
+            return dataFetchingEnvironment.parentType
+                .toOption()
+                .mapNotNull(GraphQLTypeUtil::unwrapAll)
+                .filterIsInstance<GraphQLImplementingType>()
         }
 
     val fieldCoordinates: Option<FieldCoordinates>
         get() {
-            return parentGraphQLFieldsContainer.map(GraphQLFieldsContainer::getName).map {
-                tn: String ->
+            return parentImplementingType.map(GraphQLFieldsContainer::getName).map { tn: String ->
                 FieldCoordinates.coordinates(tn, this.field.name)
             }
         }
