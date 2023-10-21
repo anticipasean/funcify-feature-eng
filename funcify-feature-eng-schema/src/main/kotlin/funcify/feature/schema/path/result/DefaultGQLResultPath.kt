@@ -43,8 +43,15 @@ internal data class DefaultGQLResultPath(
                 vararg elementSegment: ElementSegment
             ): GQLResultPath.Builder =
                 this.apply {
-                    elementSegment.reversed().forEach { es: ElementSegment ->
-                        elementSegmentsBuilders.add(0, es)
+                    when (elementSegment.size) {
+                        1 -> {
+                            elementSegmentsBuilders.add(0, elementSegment[0])
+                        }
+                        else -> {
+                            elementSegment.reversed().forEach { es: ElementSegment ->
+                                elementSegmentsBuilders.add(0, es)
+                            }
+                        }
                     }
                 }
 
@@ -52,8 +59,15 @@ internal data class DefaultGQLResultPath(
                 elementSegments: List<ElementSegment>
             ): GQLResultPath.Builder =
                 this.apply {
-                    elementSegments.reversed().forEach { es: ElementSegment ->
-                        elementSegmentsBuilders.add(0, es)
+                    when (elementSegments.size) {
+                        1 -> {
+                            elementSegmentsBuilders.add(0, elementSegments[0])
+                        }
+                        else -> {
+                            elementSegments.reversed().forEach { es: ElementSegment ->
+                                elementSegmentsBuilders.add(0, es)
+                            }
+                        }
                     }
                 }
 

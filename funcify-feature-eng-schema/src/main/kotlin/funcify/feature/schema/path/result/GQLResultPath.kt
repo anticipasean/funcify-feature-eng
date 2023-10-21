@@ -2,7 +2,7 @@ package funcify.feature.schema.path.result
 
 import arrow.core.Option
 import arrow.core.identity
-import arrow.core.lastOrNone
+import graphql.execution.ResultPath
 import java.net.URI
 import kotlinx.collections.immutable.ImmutableList
 
@@ -44,6 +44,11 @@ interface GQLResultPath : Comparable<GQLResultPath> {
         fun parseOrNull(pathAsString: String): GQLResultPath? {
             return GQLResultPathParser.invoke(pathAsString)
                 .fold({ _: IllegalArgumentException -> null }, ::identity)
+        }
+
+        @JvmStatic
+        fun fromNativeResultPath(nativePath: ResultPath): GQLResultPath {
+            return NativeToSchemaResultPathTransformer.invoke(nativePath)
         }
     }
 
