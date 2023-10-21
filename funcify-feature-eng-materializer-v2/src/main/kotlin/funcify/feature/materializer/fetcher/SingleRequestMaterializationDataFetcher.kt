@@ -35,7 +35,7 @@ internal class SingleRequestMaterializationDataFetcher<R>(
         logger.debug(
             """get: [ 
                |fetcher_id_hash: ${System.identityHashCode(this)}, 
-               |environment.parent.type.name: ${environment?.parentType?.run { GraphQLTypeUtil.simplePrint(this) }}, 
+               |environment.parent_type.name: ${environment?.parentType?.run { GraphQLTypeUtil.simplePrint(this) }}, 
                |environment.field.name: ${environment?.field?.name} 
                |]"""
                 .flatten()

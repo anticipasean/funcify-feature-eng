@@ -31,6 +31,7 @@ internal class DefaultSingleRequestMaterializationOrchestratorService(
         logger.info(
             """materialize_value_in_session: [ 
             |session_id: ${session.sessionId}, 
+            |env.execution_step_info.path: ${session.dataFetchingEnvironment.executionStepInfo.path}, 
             |field.name: ${session.field.name}, 
             |field_coordinates: ${session.fieldCoordinates.orNull()}, 
             |source: ${session.dataFetchingEnvironment.getSource<Any?>()}

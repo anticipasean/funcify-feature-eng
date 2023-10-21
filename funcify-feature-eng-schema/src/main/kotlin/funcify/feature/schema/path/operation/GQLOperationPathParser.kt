@@ -23,8 +23,8 @@ internal object GQLOperationPathParser : (String) -> Try<GQLOperationPath> {
             builder.selections(
                 uri.path
                     .splitToSequence('/')
-                    .map(String::trim)
                     .filter(String::isNotBlank)
+                    .map(String::trim)
                     .map(createSelectionSegmentForPathSegment())
                     .toList()
             )

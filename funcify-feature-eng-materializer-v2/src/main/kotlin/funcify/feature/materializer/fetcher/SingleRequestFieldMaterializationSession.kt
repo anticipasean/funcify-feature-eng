@@ -11,7 +11,6 @@ import graphql.language.Field
 import graphql.schema.DataFetchingEnvironment
 import graphql.schema.FieldCoordinates
 import graphql.schema.GraphQLFieldDefinition
-import graphql.schema.GraphQLFieldsContainer
 import graphql.schema.GraphQLImplementingType
 import graphql.schema.GraphQLOutputType
 import graphql.schema.GraphQLTypeUtil
@@ -60,7 +59,7 @@ interface SingleRequestFieldMaterializationSession : MaterializationSession {
 
     val fieldCoordinates: Option<FieldCoordinates>
         get() {
-            return parentImplementingType.map(GraphQLFieldsContainer::getName).map { tn: String ->
+            return parentImplementingType.map(GraphQLImplementingType::getName).map { tn: String ->
                 FieldCoordinates.coordinates(tn, this.field.name)
             }
         }
