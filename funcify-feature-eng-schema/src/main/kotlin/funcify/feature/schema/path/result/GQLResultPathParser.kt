@@ -95,22 +95,22 @@ internal object GQLResultPathParser : (String) -> Either<IllegalArgumentExceptio
                     }
                 }
                 firstStartBracketIndex > 0 -> {
-                    val firstEndBrackedIndex: Int =
+                    val firstEndBracketIndex: Int =
                         s.indexOf(']', startIndex = firstStartBracketIndex + 1)
                     when {
-                        firstEndBrackedIndex < 0 -> {
+                        firstEndBracketIndex < 0 -> {
                             throw IllegalArgumentException(
                                 "start bracket for index within %s not closed with end bracket: [ segment_string: '%s' ]"
                                     .format(ElementSegment::class.simpleName, s)
                             )
                         }
-                        firstEndBrackedIndex == firstStartBracketIndex + 1 -> {
+                        firstEndBracketIndex == firstStartBracketIndex + 1 -> {
                             throw IllegalArgumentException(
                                 "no index has been specified within start and end brackets: [ segment_string: '%s' ]"
                                     .format(s)
                             )
                         }
-                        firstEndBrackedIndex < s.length - 1 -> {
+                        firstEndBracketIndex < s.length - 1 -> {
                             throw IllegalArgumentException(
                                 "contains text after end bracket: [ segment_string: '%s' ]"
                                     .format(s)
@@ -118,7 +118,7 @@ internal object GQLResultPathParser : (String) -> Either<IllegalArgumentExceptio
                         }
                         else -> {
                             val index: Int? =
-                                s.substring(firstStartBracketIndex + 1, firstEndBrackedIndex)
+                                s.substring(firstStartBracketIndex + 1, firstEndBracketIndex)
                                     .toIntOrNull()
                             when {
                                 index == null -> {
