@@ -4,6 +4,7 @@ import java.util.stream.Stream
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.PersistentList
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toPersistentList
 
 /**
  * @author smccarron
@@ -25,5 +26,9 @@ object PersistentListExtensions {
 
     fun <T> Stream<out T>.reduceToImmutableList(): ImmutableList<T> {
         return this.reduceToPersistentList()
+    }
+
+    fun IntArray.toPersistentList(): PersistentList<Int> {
+        return this.asSequence().toPersistentList()
     }
 }

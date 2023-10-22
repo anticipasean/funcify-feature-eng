@@ -1,10 +1,14 @@
 package funcify.feature.schema.path.result
 
 import arrow.core.Option
-import arrow.core.identity
+import funcify.feature.schema.path.operation.GQLOperationPath
+import funcify.feature.tools.container.attempt.Try
+import funcify.feature.tools.extensions.PersistentListExtensions.toPersistentList
 import graphql.execution.ResultPath
 import java.net.URI
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toPersistentList
 
 /**
  * @author smccarron
@@ -33,22 +37,35 @@ interface GQLResultPath : Comparable<GQLResultPath> {
             return GQLResultPathComparator
         }
 
+        @JvmStatic
+        fun parse(pathAsString: String): Try<GQLResultPath> {
+            return GQLResultPathParser.invoke(pathAsString)
+        }
+
         /** @throws IllegalArgumentException if not in correct format */
         @JvmStatic
         fun parseOrThrow(pathAsString: String): GQLResultPath {
-            return GQLResultPathParser.invoke(pathAsString)
-                .fold({ iae: IllegalArgumentException -> throw iae }, ::identity)
+            return GQLResultPathParser.invoke(pathAsString).orElseThrow()
         }
 
         @JvmStatic
         fun parseOrNull(pathAsString: String): GQLResultPath? {
-            return GQLResultPathParser.invoke(pathAsString)
-                .fold({ _: IllegalArgumentException -> null }, ::identity)
+            return GQLResultPathParser.invoke(pathAsString).orNull()
         }
 
         @JvmStatic
         fun fromNativeResultPath(nativePath: ResultPath): GQLResultPath {
             return NativeToSchemaResultPathTransformer.invoke(nativePath)
+        }
+
+        @JvmStatic
+        fun fromOperationPath(operationPath: GQLOperationPath): Try<GQLResultPath> {
+            return OperationToSchemaResultPathTransformer.invoke(operationPath)
+        }
+
+        @JvmStatic
+        fun fromOperationPathOrThrow(operationPath: GQLOperationPath): GQLResultPath {
+            return OperationToSchemaResultPathTransformer.invoke(operationPath).orElseThrow()
         }
     }
 
@@ -70,9 +87,9 @@ interface GQLResultPath : Comparable<GQLResultPath> {
 
         fun scheme(scheme: String): Builder
 
-        fun appendNamedSegment(name: String): Builder {
+        fun appendNameSegment(name: String): Builder {
             return if (name.isNotBlank()) {
-                appendElementSegment(NamedSegment(name = name.trim()))
+                appendElementSegment(NameSegment(name = name.trim()))
             } else {
                 this
             }
@@ -80,54 +97,86 @@ interface GQLResultPath : Comparable<GQLResultPath> {
 
         fun prependNamedSegment(name: String): Builder {
             return if (name.isNotBlank()) {
-                prependElementSegment(NamedSegment(name = name.trim()))
+                prependElementSegment(NameSegment(name = name.trim()))
             } else {
                 this
             }
         }
 
-        fun namedSegment(name: String): Builder {
-            return appendNamedSegment(name)
+        fun nameSegment(name: String): Builder {
+            return appendNameSegment(name)
         }
 
-        fun appendNamedListSegment(name: String, index: Int): Builder {
-            return if (name.isNotBlank() && index >= 0) {
-                appendElementSegment(NamedListSegment(name = name.trim(), index = index))
-            } else {
-                this
-            }
-        }
-
-        fun prependNamedListSegment(name: String, index: Int): Builder {
-            return if (name.isNotBlank() && index >= 0) {
-                prependElementSegment(NamedListSegment(name = name.trim(), index = index))
-            } else {
-                this
-            }
-        }
-
-        fun namedListSegment(name: String, index: Int): Builder {
-            return appendNamedListSegment(name, index)
-        }
-
-        fun appendUnnamedListSegment(index: Int): Builder {
+        fun appendListSegment(name: String, index: Int): Builder {
             return if (index >= 0) {
-                appendElementSegment(UnnamedListSegment(index = index))
+                appendElementSegment(
+                    ListSegment(name = name.trim(), indices = persistentListOf(index))
+                )
             } else {
                 this
             }
         }
 
-        fun prependUnnamedListSegment(index: Int): Builder {
+        fun prependListSegment(name: String, index: Int): Builder {
             return if (index >= 0) {
-                prependElementSegment(UnnamedListSegment(index = index))
+                prependElementSegment(
+                    ListSegment(name = name.trim(), indices = persistentListOf(index))
+                )
             } else {
                 this
             }
         }
 
-        fun unnamedListSegment(index: Int): Builder {
-            return appendUnnamedListSegment(index)
+        fun listSegment(name: String, index: Int): Builder {
+            return appendListSegment(name, index)
+        }
+
+        fun appendNestedListSegment(name: String, vararg index: Int): Builder {
+            return if (index.isNotEmpty() && index.all { i: Int -> i >= 0 }) {
+                appendElementSegment(
+                    ListSegment(name = name.trim(), indices = index.toPersistentList())
+                )
+            } else {
+                this
+            }
+        }
+
+        fun prependNestedListSegment(name: String, vararg index: Int): Builder {
+            return if (index.isNotEmpty() && index.all { i: Int -> i >= 0 }) {
+                prependElementSegment(
+                    ListSegment(name = name.trim(), indices = index.toPersistentList())
+                )
+            } else {
+                this
+            }
+        }
+
+        fun nestedListSegment(name: String, vararg index: Int): Builder {
+            return appendNestedListSegment(name, *index)
+        }
+
+        fun appendNestedListSegment(name: String, indices: List<Int>): Builder {
+            return if (indices.isNotEmpty() && indices.all { i: Int -> i >= 0 }) {
+                appendElementSegment(
+                    ListSegment(name = name.trim(), indices = indices.toPersistentList())
+                )
+            } else {
+                this
+            }
+        }
+
+        fun prependNestedListSegment(name: String, indices: List<Int>): Builder {
+            return if (indices.isNotEmpty() && indices.all { i: Int -> i >= 0 }) {
+                prependElementSegment(
+                    ListSegment(name = name.trim(), indices = indices.toPersistentList())
+                )
+            } else {
+                this
+            }
+        }
+
+        fun nestedListSegment(name: String, indices: List<Int>): Builder {
+            return appendNestedListSegment(name, indices)
         }
 
         fun prependElementSegment(vararg elementSegment: ElementSegment): Builder

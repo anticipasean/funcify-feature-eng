@@ -1,34 +1,45 @@
 package funcify.feature.schema.path.result
 
-import arrow.core.Either
-import arrow.core.left
-import arrow.core.right
+import funcify.feature.tools.container.attempt.Try
+import funcify.feature.tools.extensions.StringExtensions.flatten
 import java.net.URI
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ConcurrentMap
+import kotlinx.collections.immutable.PersistentList
+import kotlinx.collections.immutable.toPersistentList
 
 /**
  * @author smccarron
  * @created 2023-10-19
  */
-internal object GQLResultPathParser : (String) -> Either<IllegalArgumentException, GQLResultPath> {
+internal object GQLResultPathParser : (String) -> Try<GQLResultPath> {
 
-    override fun invoke(pathAsString: String): Either<IllegalArgumentException, GQLResultPath> {
+    private val cache: ConcurrentMap<String, Try<GQLResultPath>> = ConcurrentHashMap()
+
+    override fun invoke(pathAsString: String): Try<GQLResultPath> {
+        return cache.computeIfAbsent(pathAsString) { s: String -> parseResultPathFromString(s) }
+    }
+
+    private fun parseResultPathFromString(pathAsString: String): Try<GQLResultPath> {
         return try {
             val uri: URI = URI.create(pathAsString)
             if (GQLResultPath.GQL_RESULT_PATH_SCHEME != uri.scheme) {
-                IllegalArgumentException(
+                Try.failure {
+                    IllegalArgumentException(
                         "scheme of uri does not match expected scheme [ expected: %s, actual: %s ]"
                             .format(GQLResultPath.GQL_RESULT_PATH_SCHEME, uri.scheme)
                     )
-                    .left()
+                }
             } else {
-                GQLResultPath.of(appendPathSegmentsToBuilder(uri.path)).right()
+                Try.success(GQLResultPath.of(appendPathSegmentsToBuilder(uri.path)))
             }
         } catch (t: Throwable) {
-            IllegalArgumentException(
+            Try.failure {
+                IllegalArgumentException(
                     "unable to create %s from string: [ type: %s, message: %s ]"
                         .format(GQLResultPath::class.simpleName, t::class.simpleName, t.message)
                 )
-                .left()
+            }
         }
     }
 
@@ -48,103 +59,56 @@ internal object GQLResultPathParser : (String) -> Either<IllegalArgumentExceptio
     }
 
     private fun convertStringToElementSegment(): (String) -> ElementSegment {
-        return { s: String ->
-            val firstStartBracketIndex: Int = s.indexOf('[')
+        return { segmentString: String ->
+            val firstBracketIndex: Int = segmentString.indexOf('[')
             when {
-                firstStartBracketIndex == 0 -> {
-                    val firstEndBracketIndex: Int = s.indexOf(']', startIndex = 1)
-                    when {
-                        firstEndBracketIndex < 0 -> {
-                            throw IllegalArgumentException(
-                                "start bracket for index within %s not closed with end bracket: [ segment_string: '%s' ]"
-                                    .format(ElementSegment::class.simpleName, s)
-                            )
-                        }
-                        firstEndBracketIndex == 1 -> {
-                            throw IllegalArgumentException(
-                                "no index has been specified within start and end brackets: [ segment_string: '%s' ]"
-                                    .format(s)
-                            )
-                        }
-                        firstEndBracketIndex < s.length - 1 -> {
-                            throw IllegalArgumentException(
-                                "contains text after end bracket: [ segment_string: '%s' ]"
-                                    .format(s)
-                            )
-                        }
-                        else -> {
-                            val index: Int? = s.substring(1, firstEndBracketIndex).toIntOrNull()
+                firstBracketIndex >= 0 -> {
+                    segmentString
+                        .substring(firstBracketIndex)
+                        .splitToSequence('[')
+                        .drop(1)
+                        .map { s: String ->
+                            val endBracketIndex: Int = s.indexOf(']')
                             when {
-                                index == null -> {
+                                endBracketIndex < 0 -> {
                                     throw IllegalArgumentException(
-                                        "integral index value could not be parsed from: [ segment_string: '%s' ]"
+                                        """segment contains unterminated 
+                                        |list index declaration (=> no end bracket i.e. ']') 
+                                        |[ actual: '%s' ]"""
                                             .format(s)
+                                            .flatten()
                                     )
                                 }
-                                index < 0 -> {
+                                endBracketIndex < s.length - 1 -> {
                                     throw IllegalArgumentException(
-                                        "index value less than zero extracted for [ segment_string: '%s' ]"
+                                        """segment contains characters after end bracket 
+                                            |of index value declaration [ actual: '%s' ]"""
                                             .format(s)
+                                            .flatten()
                                     )
                                 }
                                 else -> {
-                                    UnnamedListSegment(index = index)
+                                    s.substring(startIndex = 0, endIndex = endBracketIndex)
                                 }
                             }
                         }
-                    }
-                }
-                firstStartBracketIndex > 0 -> {
-                    val firstEndBracketIndex: Int =
-                        s.indexOf(']', startIndex = firstStartBracketIndex + 1)
-                    when {
-                        firstEndBracketIndex < 0 -> {
-                            throw IllegalArgumentException(
-                                "start bracket for index within %s not closed with end bracket: [ segment_string: '%s' ]"
-                                    .format(ElementSegment::class.simpleName, s)
+                        .map { s: String ->
+                            s.toIntOrNull()
+                                ?: throw IllegalArgumentException(
+                                    "value between brackets not parseable as %s [ actual: '%s' ]"
+                                        .format(Int::class.simpleName, s)
+                                )
+                        }
+                        .toPersistentList()
+                        .let { indices: PersistentList<Int> ->
+                            ListSegment(
+                                name = segmentString.substring(0, firstBracketIndex).trimEnd(),
+                                indices = indices
                             )
                         }
-                        firstEndBracketIndex == firstStartBracketIndex + 1 -> {
-                            throw IllegalArgumentException(
-                                "no index has been specified within start and end brackets: [ segment_string: '%s' ]"
-                                    .format(s)
-                            )
-                        }
-                        firstEndBracketIndex < s.length - 1 -> {
-                            throw IllegalArgumentException(
-                                "contains text after end bracket: [ segment_string: '%s' ]"
-                                    .format(s)
-                            )
-                        }
-                        else -> {
-                            val index: Int? =
-                                s.substring(firstStartBracketIndex + 1, firstEndBracketIndex)
-                                    .toIntOrNull()
-                            when {
-                                index == null -> {
-                                    throw IllegalArgumentException(
-                                        "integral index value could not be parsed from: [ segment_string: '%s' ]"
-                                            .format(s)
-                                    )
-                                }
-                                index < 0 -> {
-                                    throw IllegalArgumentException(
-                                        "index value less than zero extracted for [ segment_string: '%s' ]"
-                                            .format(s)
-                                    )
-                                }
-                                else -> {
-                                    NamedListSegment(
-                                        name = s.substring(0, firstStartBracketIndex).trimEnd(),
-                                        index = index
-                                    )
-                                }
-                            }
-                        }
-                    }
                 }
                 else -> {
-                    NamedSegment(name = s)
+                    NameSegment(name = segmentString)
                 }
             }
         }

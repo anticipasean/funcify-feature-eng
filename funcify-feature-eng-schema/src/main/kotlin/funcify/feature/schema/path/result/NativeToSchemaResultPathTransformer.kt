@@ -3,6 +3,8 @@ package funcify.feature.schema.path.result
 import graphql.execution.ResultPath
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentMap
+import kotlinx.collections.immutable.PersistentList
+import kotlinx.collections.immutable.persistentListOf
 
 internal object NativeToSchemaResultPathTransformer : (ResultPath) -> GQLResultPath {
 
@@ -18,41 +20,72 @@ internal object NativeToSchemaResultPathTransformer : (ResultPath) -> GQLResultP
         nativePath: ResultPath?
     ): (GQLResultPath.Builder) -> GQLResultPath.Builder {
         return { builder: GQLResultPath.Builder ->
-            prependEachSegmentUntilRootResultPathReached(builder, nativePath)
+            prependEachSegmentUntilRootResultPathReached(builder, nativePath, null)
         }
     }
 
     private tailrec fun prependEachSegmentUntilRootResultPathReached(
         b: GQLResultPath.Builder,
-        rp: ResultPath?
+        rp: ResultPath?,
+        indexSegmentsEncountered: PersistentList<Int>?
     ): GQLResultPath.Builder {
-        return when {
-            rp == null || rp.isRootPath -> {
-                b
-            }
-            rp.isNamedSegment -> {
-                prependEachSegmentUntilRootResultPathReached(
-                    b.prependNamedSegment(rp.segmentName),
-                    rp.parent
-                )
-            }
-            else -> {
-                val parentOfPath: ResultPath? = rp.parent
-                when {
-                    parentOfPath == null || parentOfPath.isRootPath -> {
-                        b.prependUnnamedListSegment(rp.segmentIndex)
-                    }
-                    parentOfPath.isNamedSegment -> {
-                        prependEachSegmentUntilRootResultPathReached(
-                            b.prependNamedListSegment(parentOfPath.segmentName, rp.segmentIndex),
-                            parentOfPath.parent
-                        )
+        return when (rp) {
+            null -> {
+                when (indexSegmentsEncountered) {
+                    null -> {
+                        b
                     }
                     else -> {
-                        prependEachSegmentUntilRootResultPathReached(
-                            b.prependUnnamedListSegment(rp.segmentIndex),
-                            parentOfPath
-                        )
+                        b.prependNestedListSegment("", indexSegmentsEncountered)
+                    }
+                }
+            }
+            else -> {
+                when (indexSegmentsEncountered) {
+                    null -> {
+                        when {
+                            rp.isRootPath -> {
+                                b
+                            }
+                            rp.isNamedSegment -> {
+                                prependEachSegmentUntilRootResultPathReached(
+                                    b.prependNamedSegment(rp.segmentName),
+                                    rp.parent,
+                                    null
+                                )
+                            }
+                            else -> {
+                                prependEachSegmentUntilRootResultPathReached(
+                                    b,
+                                    rp.parent,
+                                    persistentListOf(rp.segmentIndex)
+                                )
+                            }
+                        }
+                    }
+                    else -> {
+                        when {
+                            rp.isRootPath -> {
+                                b.prependNestedListSegment("", indexSegmentsEncountered)
+                            }
+                            rp.isNamedSegment -> {
+                                prependEachSegmentUntilRootResultPathReached(
+                                    b.prependNestedListSegment(
+                                        rp.segmentName,
+                                        indexSegmentsEncountered
+                                    ),
+                                    rp.parent,
+                                    null
+                                )
+                            }
+                            else -> {
+                                prependEachSegmentUntilRootResultPathReached(
+                                    b,
+                                    rp.parent,
+                                    indexSegmentsEncountered.add(0, rp.segmentIndex)
+                                )
+                            }
+                        }
                     }
                 }
             }

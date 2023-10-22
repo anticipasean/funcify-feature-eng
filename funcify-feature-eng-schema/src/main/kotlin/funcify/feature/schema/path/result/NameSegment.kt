@@ -4,7 +4,7 @@ package funcify.feature.schema.path.result
  * @author smccarron
  * @created 2023-10-19
  */
-data class NamedSegment(val name: String) : ElementSegment {
+data class NameSegment(val name: String) : ElementSegment {
 
     init {
         require(name.isNotBlank()) { "name may not be blank" }

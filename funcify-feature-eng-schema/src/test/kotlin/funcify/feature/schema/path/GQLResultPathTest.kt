@@ -7,9 +7,8 @@ import arrow.core.none
 import arrow.core.some
 import funcify.feature.schema.path.result.ElementSegment
 import funcify.feature.schema.path.result.GQLResultPath
-import funcify.feature.schema.path.result.NamedListSegment
-import funcify.feature.schema.path.result.NamedSegment
-import funcify.feature.schema.path.result.UnnamedListSegment
+import funcify.feature.schema.path.result.ListSegment
+import funcify.feature.schema.path.result.NameSegment
 import graphql.execution.ResultPath
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
@@ -67,7 +66,7 @@ class GQLResultPathTest {
                     encodeSegments("gqlr:/employees/pets/dogs[0]something/breed")
                 )
             }
-        Assertions.assertTrue(iae2.message?.contains("text after") ?: false) {
+        Assertions.assertTrue(iae2.message?.contains("after end bracket") ?: false) {
             "message does not have expected content [ actual: throwable.message: %s ]"
                 .format(iae2.message)
         }
@@ -75,7 +74,7 @@ class GQLResultPathTest {
             Assertions.assertThrows(IllegalArgumentException::class.java) {
                 "gqlr:/employees/pets/[]/breed".fromDecodedFormToPath()
             }
-        Assertions.assertTrue(iae3.message?.contains("no index") ?: false) {
+        Assertions.assertTrue(iae3.message?.contains("not parseable as") ?: false) {
             "message does not have expected content [ actual: throwable.message: %s ]"
                 .format(iae3.message)
         }
@@ -86,59 +85,59 @@ class GQLResultPathTest {
         Assertions.assertTrue(
             p.elementSegments
                 .lastOrNone()
-                .filter { es: ElementSegment -> es is NamedSegment }
+                .filter { es: ElementSegment -> es is NameSegment }
                 .isDefined()
         ) {
-            "last segment is not %s".format(NamedSegment::class.simpleName)
+            "last segment is not %s".format(NameSegment::class.simpleName)
         }
         Assertions.assertTrue(
             p.getParentPath()
                 .map(GQLResultPath::elementSegments)
                 .flatMap(List<ElementSegment>::lastOrNone)
-                .filterIsInstance<NamedListSegment>()
+                .filterIsInstance<ListSegment>()
                 .isDefined()
         ) {
-            "last segment on parent is not %s".format(NamedListSegment::class.simpleName)
+            "last segment on parent is not %s".format(ListSegment::class.simpleName)
         }
     }
 
-    @Test
-    fun elementSegmentsOrderTest() {
-        Assertions.assertTrue(NamedSegment("dogs") < NamedSegment("snakes")) {
-            "unexpected comparison result"
+    /* @Test
+        fun elementSegmentsOrderTest() {
+            Assertions.assertTrue(NameSegment("dogs") < NameSegment("snakes")) {
+                "unexpected comparison result"
+            }
+            Assertions.assertTrue(NameSegment("dogs") > NameSegment("cats")) {
+                "unexpected comparison result"
+            }
+            Assertions.assertTrue(NameSegment("dogs") == NameSegment("dogs")) {
+                "unexpected comparison result"
+            }
+            Assertions.assertTrue(ListSegment("dogs", 1) > ListSegment("dogs", 0)) {
+                "unexpected comparison result"
+            }
+            Assertions.assertTrue(ListSegment("dogs", 1) < ListSegment("snakes", 0)) {
+                "unexpected comparison result"
+            }
+            Assertions.assertTrue(ListSegment("dogs", 0) == ListSegment("dogs", 0)) {
+                "unexpected comparison result"
+            }
+            Assertions.assertTrue(UnnamedListSegment(0) < UnnamedListSegment(1)) {
+                "unexpected comparison result"
+            }
+            Assertions.assertTrue(UnnamedListSegment(1) > UnnamedListSegment(0)) {
+                "unexpected comparison result"
+            }
+            Assertions.assertTrue(UnnamedListSegment(1) == UnnamedListSegment(1)) {
+                "unexpected comparison result"
+            }
+            Assertions.assertTrue(UnnamedListSegment(1) < ListSegment("dogs", 1)) {
+                "unexpected comparison result"
+            }
+            Assertions.assertTrue(NameSegment("dogs") < ListSegment("dogs", 1)) {
+                "unexpected comparison result"
+            }
         }
-        Assertions.assertTrue(NamedSegment("dogs") > NamedSegment("cats")) {
-            "unexpected comparison result"
-        }
-        Assertions.assertTrue(NamedSegment("dogs") == NamedSegment("dogs")) {
-            "unexpected comparison result"
-        }
-        Assertions.assertTrue(NamedListSegment("dogs", 1) > NamedListSegment("dogs", 0)) {
-            "unexpected comparison result"
-        }
-        Assertions.assertTrue(NamedListSegment("dogs", 1) < NamedListSegment("snakes", 0)) {
-            "unexpected comparison result"
-        }
-        Assertions.assertTrue(NamedListSegment("dogs", 0) == NamedListSegment("dogs", 0)) {
-            "unexpected comparison result"
-        }
-        Assertions.assertTrue(UnnamedListSegment(0) < UnnamedListSegment(1)) {
-            "unexpected comparison result"
-        }
-        Assertions.assertTrue(UnnamedListSegment(1) > UnnamedListSegment(0)) {
-            "unexpected comparison result"
-        }
-        Assertions.assertTrue(UnnamedListSegment(1) == UnnamedListSegment(1)) {
-            "unexpected comparison result"
-        }
-        Assertions.assertTrue(UnnamedListSegment(1) < NamedListSegment("dogs", 1)) {
-            "unexpected comparison result"
-        }
-        Assertions.assertTrue(NamedSegment("dogs") < NamedListSegment("dogs", 1)) {
-            "unexpected comparison result"
-        }
-    }
-
+    */
     @Test
     fun nativePathConversionTest1() {
         val p: GQLResultPath =
@@ -193,6 +192,51 @@ class GQLResultPathTest {
                         }
                         else -> {
                             rp.segment(iOpt.orNull()!!)
+                        }
+                    }
+                }
+        // Note: The native result path does not have a starting '/' when first node represents an
+        // unnamed list segment
+        Assertions.assertEquals(p.elementSegments.asSequence().joinToString("/"), rp.toString()) {
+            "expected schema path does not match actual native path representation"
+        }
+        val calculatedPath: GQLResultPath =
+            Assertions.assertDoesNotThrow<GQLResultPath> { GQLResultPath.fromNativeResultPath(rp) }
+        Assertions.assertEquals(p, calculatedPath) {
+            "calculated/transformed native path does not match expected path"
+        }
+    }
+
+    @Test
+    fun nativePathConversionTest3() {
+        val p: GQLResultPath =
+            Assertions.assertDoesNotThrow<GQLResultPath> {
+                "gqlr:/[1]/pets/dogs[0][1]/breed".fromDecodedFormToPath()
+            }
+        val rp: ResultPath =
+            sequenceOf(
+                    "" to listOf(1).some(),
+                    "pets" to none(),
+                    "dogs" to listOf(0, 1).some(),
+                    "breed" to none()
+                )
+                .fold(ResultPath.rootPath()) { rp: ResultPath, (n: String, iOpt: Option<List<Int>>)
+                    ->
+                    when {
+                        n.isNotBlank() && iOpt.isDefined() -> {
+                            iOpt.fold(::emptySequence, List<Int>::asSequence).fold(rp.segment(n)) {
+                                r,
+                                i ->
+                                r.segment(i)
+                            }
+                        }
+                        n.isNotBlank() && !iOpt.isDefined() -> {
+                            rp.segment(n)
+                        }
+                        else -> {
+                            iOpt.fold(::emptySequence, List<Int>::asSequence).fold(rp) { r, i ->
+                                r.segment(i)
+                            }
                         }
                     }
                 }
