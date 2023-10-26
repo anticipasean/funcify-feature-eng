@@ -25,7 +25,6 @@ internal data class DefaultGraphQLSingleRequestSession(
     override val rawGraphQLRequest: RawGraphQLRequest,
     override val rawInputContext: Option<RawInputContext>,
     override val preparsedDocumentEntry: Option<PreparsedDocumentEntry>,
-    override val processedQueryVariables: ImmutableMap<String, Any?>,
     override val requestMaterializationGraph: Option<RequestMaterializationGraph>,
     override val dispatchedRequestMaterializationGraph:
         Option<DispatchedRequestMaterializationGraph>,
@@ -44,7 +43,6 @@ internal data class DefaultGraphQLSingleRequestSession(
                 rawGraphQLRequest = rawGraphQLRequest,
                 rawInputContext = none(),
                 preparsedDocumentEntry = none(),
-                processedQueryVariables = persistentMapOf(),
                 requestMaterializationGraph = none(),
                 dispatchedRequestMaterializationGraph = none(),
                 serializedGraphQLResponse = none()
@@ -57,8 +55,6 @@ internal data class DefaultGraphQLSingleRequestSession(
             private var rawInputContext: Option<RawInputContext> = currentSession.rawInputContext,
             private var preparsedDocumentEntry: Option<PreparsedDocumentEntry> =
                 currentSession.preparsedDocumentEntry,
-            private var processedQueryVariables: ImmutableMap<String, Any?> =
-                currentSession.processedQueryVariables,
             private var requestMaterializationGraph: Option<RequestMaterializationGraph> =
                 currentSession.requestMaterializationGraph,
             private var dispatchedRequestMaterializationGraph:
@@ -82,13 +78,6 @@ internal data class DefaultGraphQLSingleRequestSession(
                 preparsedDocumentEntry: PreparsedDocumentEntry
             ): Builder {
                 this.preparsedDocumentEntry = preparsedDocumentEntry.toOption()
-                return this
-            }
-
-            override fun processedQueryVariables(
-                processedQueryVariables: Map<String, Any?>
-            ): Builder {
-                this.processedQueryVariables = processedQueryVariables.toPersistentMap()
                 return this
             }
 
@@ -120,7 +109,6 @@ internal data class DefaultGraphQLSingleRequestSession(
                     rawGraphQLRequest = rawGraphQLRequest,
                     rawInputContext = rawInputContext,
                     preparsedDocumentEntry = preparsedDocumentEntry,
-                    processedQueryVariables = processedQueryVariables,
                     requestMaterializationGraph = requestMaterializationGraph,
                     dispatchedRequestMaterializationGraph = dispatchedRequestMaterializationGraph,
                     serializedGraphQLResponse = serializedGraphQLResponse

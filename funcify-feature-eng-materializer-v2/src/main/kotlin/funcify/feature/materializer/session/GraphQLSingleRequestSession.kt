@@ -41,8 +41,6 @@ interface GraphQLSingleRequestSession : MaterializationSession {
 
     val preparsedDocumentEntry: Option<PreparsedDocumentEntry>
 
-    val processedQueryVariables: ImmutableMap<String, Any?>
-
     val requestMaterializationGraph: Option<RequestMaterializationGraph>
 
     val dispatchedRequestMaterializationGraph: Option<DispatchedRequestMaterializationGraph>
@@ -58,8 +56,6 @@ interface GraphQLSingleRequestSession : MaterializationSession {
         fun rawInputContext(rawInputContext: RawInputContext): Builder
 
         fun preparsedDocumentEntry(preparsedDocumentEntry: PreparsedDocumentEntry): Builder
-
-        fun processedQueryVariables(processedQueryVariables: Map<String, Any?>): Builder
 
         fun requestMaterializationGraph(
             requestMaterializationGraph: RequestMaterializationGraph

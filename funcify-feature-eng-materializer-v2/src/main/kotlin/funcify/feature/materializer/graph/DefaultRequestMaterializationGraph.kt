@@ -39,6 +39,7 @@ import kotlinx.collections.immutable.toPersistentMap
  * @created 2023-09-21
  */
 internal data class DefaultRequestMaterializationGraph(
+    override val operationName: Option<String>,
     override val preparsedDocumentEntry: PreparsedDocumentEntry,
     override val requestGraph: DirectedPersistentGraph<GQLOperationPath, QueryComponentContext, MaterializationEdge>,
     override val passThruColumns: ImmutableSet<String>,

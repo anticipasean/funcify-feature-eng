@@ -21,6 +21,8 @@ import kotlinx.collections.immutable.ImmutableSet
  */
 interface RequestMaterializationGraph {
 
+    val operationName: Option<String>
+
     val preparsedDocumentEntry: PreparsedDocumentEntry
 
     val requestGraph:

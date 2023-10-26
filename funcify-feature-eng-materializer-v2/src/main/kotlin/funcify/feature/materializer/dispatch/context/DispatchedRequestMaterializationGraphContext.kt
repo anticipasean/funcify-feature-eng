@@ -4,9 +4,12 @@ import arrow.core.Option
 import com.fasterxml.jackson.databind.JsonNode
 import funcify.feature.materializer.graph.RequestMaterializationGraph
 import funcify.feature.materializer.input.RawInputContext
+import funcify.feature.materializer.model.MaterializationMetamodel
+import funcify.feature.materializer.request.RawGraphQLRequest
 import funcify.feature.schema.path.operation.GQLOperationPath
 import funcify.feature.schema.tracking.TrackableValue
 import funcify.feature.schema.tracking.TrackableValue.PlannedValue
+import graphql.execution.CoercedVariables
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableMap
 import reactor.core.publisher.Mono
@@ -17,9 +20,13 @@ import reactor.core.publisher.Mono
  */
 interface DispatchedRequestMaterializationGraphContext {
 
+    val rawGraphQLRequest: RawGraphQLRequest
+
+    val materializationMetamodel: MaterializationMetamodel
+
     val requestMaterializationGraph: RequestMaterializationGraph
 
-    val variables: ImmutableMap<String, JsonNode>
+    val coercedVariables: CoercedVariables
 
     val rawInputContext: Option<RawInputContext>
 
@@ -41,13 +48,17 @@ interface DispatchedRequestMaterializationGraphContext {
 
     interface Builder {
 
+        fun rawGraphQLRequest(rawGraphQLRequest: RawGraphQLRequest): Builder
+
+        fun materializationMetamodel(materializationMetamodel: MaterializationMetamodel): Builder
+
         fun requestMaterializationGraph(
             requestMaterializationGraph: RequestMaterializationGraph
         ): Builder
 
-        fun variables(variables: Map<String, JsonNode>): Builder
-
         fun rawInputContext(rawInputContext: RawInputContext): Builder
+
+        fun coercedVariables(coercedVariables: CoercedVariables): Builder
 
         fun addMaterializedArgument(path: GQLOperationPath, jsonValue: JsonNode): Builder
 

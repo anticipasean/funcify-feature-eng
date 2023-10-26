@@ -11,8 +11,11 @@ import funcify.feature.error.ServiceError
 import funcify.feature.materializer.dispatch.context.DispatchedRequestMaterializationGraphContext.Builder
 import funcify.feature.materializer.graph.RequestMaterializationGraph
 import funcify.feature.materializer.input.RawInputContext
+import funcify.feature.materializer.model.MaterializationMetamodel
+import funcify.feature.materializer.request.RawGraphQLRequest
 import funcify.feature.schema.path.operation.GQLOperationPath
 import funcify.feature.schema.tracking.TrackableValue
+import graphql.execution.CoercedVariables
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.PersistentMap
@@ -33,11 +36,13 @@ internal class DefaultDispatchedRequestMaterializationGraphContextFactory :
         internal class DefaultBuilder(
             private val existingContext: DefaultDispatchedRequestMaterializationGraphContext? =
                 null,
+            private var rawGraphQLRequest: RawGraphQLRequest? = existingContext?.rawGraphQLRequest,
+            private var materializationMetamodel: MaterializationMetamodel? =
+                existingContext?.materializationMetamodel,
             private var requestMaterializationGraph: RequestMaterializationGraph? =
                 existingContext?.requestMaterializationGraph,
-            private val variables: PersistentMap.Builder<String, JsonNode> =
-                existingContext?.variables?.toPersistentMap()?.builder()
-                    ?: persistentMapOf<String, JsonNode>().builder(),
+            private var coercedVariables: CoercedVariables =
+                existingContext?.coercedVariables ?: CoercedVariables.emptyVariables(),
             private var rawInputContext: RawInputContext? =
                 existingContext?.rawInputContext?.orNull(),
             private val materializedArgumentsByPath:
@@ -75,13 +80,20 @@ internal class DefaultDispatchedRequestMaterializationGraphContextFactory :
                     ?: persistentMapOf<String, JsonNode>().builder()
         ) : Builder {
 
+            override fun rawGraphQLRequest(rawGraphQLRequest: RawGraphQLRequest): Builder =
+                this.apply { this.rawGraphQLRequest = rawGraphQLRequest }
+
+            override fun materializationMetamodel(
+                materializationMetamodel: MaterializationMetamodel
+            ): Builder = this.apply { this.materializationMetamodel = materializationMetamodel }
+
             override fun requestMaterializationGraph(
                 requestMaterializationGraph: RequestMaterializationGraph
             ): Builder =
                 this.apply { this.requestMaterializationGraph = requestMaterializationGraph }
 
-            override fun variables(variables: Map<String, JsonNode>): Builder =
-                this.apply { this.variables.putAll(variables) }
+            override fun coercedVariables(coercedVariables: CoercedVariables): Builder =
+                this.apply { this.coercedVariables = coercedVariables }
 
             override fun rawInputContext(rawInputContext: RawInputContext): Builder =
                 this.apply { this.rawInputContext = rawInputContext }
@@ -173,12 +185,20 @@ internal class DefaultDispatchedRequestMaterializationGraphContextFactory :
 
             override fun build(): DispatchedRequestMaterializationGraphContext {
                 return eagerEffect<String, DispatchedRequestMaterializationGraphContext> {
+                        ensureNotNull(rawGraphQLRequest) {
+                            "%s not provided".format(RawGraphQLRequest::class.simpleName)
+                        }
+                        ensureNotNull(materializationMetamodel) {
+                            "%s not provided".format(MaterializationMetamodel::class.simpleName)
+                        }
                         ensureNotNull(requestMaterializationGraph) {
                             "%s not provided".format(RequestMaterializationGraph::class.simpleName)
                         }
                         DefaultDispatchedRequestMaterializationGraphContext(
+                            rawGraphQLRequest = rawGraphQLRequest!!,
+                            materializationMetamodel = materializationMetamodel!!,
                             requestMaterializationGraph = requestMaterializationGraph!!,
-                            variables = variables.build(),
+                            coercedVariables = coercedVariables,
                             rawInputContext = rawInputContext.toOption(),
                             materializedArgumentsByPath = materializedArgumentsByPath.build(),
                             transformerPublishersByPath = transformerPublishersByPath.build(),
@@ -203,8 +223,10 @@ internal class DefaultDispatchedRequestMaterializationGraphContextFactory :
         }
 
         internal class DefaultDispatchedRequestMaterializationGraphContext(
+            override val rawGraphQLRequest: RawGraphQLRequest,
+            override val materializationMetamodel: MaterializationMetamodel,
             override val requestMaterializationGraph: RequestMaterializationGraph,
-            override val variables: ImmutableMap<String, JsonNode>,
+            override val coercedVariables: CoercedVariables,
             override val rawInputContext: Option<RawInputContext>,
             override val materializedArgumentsByPath: ImmutableMap<GQLOperationPath, JsonNode>,
             override val transformerPublishersByPath:
@@ -217,7 +239,7 @@ internal class DefaultDispatchedRequestMaterializationGraphContextFactory :
                 >,
             override val featureCalculatorPublishersByPath:
                 ImmutableMap<GQLOperationPath, ImmutableList<Mono<TrackableValue<JsonNode>>>>,
-            override val passThruColumns: ImmutableMap<String, JsonNode>
+            override val passThruColumns: ImmutableMap<String, JsonNode>,
         ) : DispatchedRequestMaterializationGraphContext {
 
             override fun update(

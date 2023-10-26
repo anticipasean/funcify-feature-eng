@@ -2,6 +2,7 @@ package funcify.feature.materializer.dispatch
 
 import arrow.core.*
 import com.fasterxml.jackson.databind.JsonNode
+import com.fasterxml.jackson.databind.node.JsonNodeFactory
 import funcify.feature.error.ServiceError
 import funcify.feature.graph.line.DirectedLine
 import funcify.feature.materializer.dispatch.context.DefaultDispatchedRequestMaterializationGraphContextFactory
@@ -12,6 +13,8 @@ import funcify.feature.materializer.graph.RequestMaterializationGraph
 import funcify.feature.materializer.graph.component.QueryComponentContext.FieldArgumentComponentContext
 import funcify.feature.materializer.graph.component.QueryComponentContext.SelectedFieldComponentContext
 import funcify.feature.materializer.input.RawInputContext
+import funcify.feature.materializer.model.MaterializationMetamodel
+import funcify.feature.materializer.request.RawGraphQLRequest
 import funcify.feature.materializer.session.GraphQLSingleRequestSession
 import funcify.feature.schema.dataelement.DataElementCallable
 import funcify.feature.schema.feature.FeatureCalculatorCallable
@@ -23,7 +26,9 @@ import funcify.feature.schema.tracking.TrackableValueFactory
 import funcify.feature.schema.transformer.TransformerCallable
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
+import funcify.feature.tools.extensions.OptionExtensions.toOption
 import funcify.feature.tools.extensions.PairExtensions.bimap
+import funcify.feature.tools.extensions.SequenceExtensions.firstOrNone
 import funcify.feature.tools.extensions.StreamExtensions.recurseBreadthFirst
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.extensions.TryExtensions.failure
@@ -32,7 +37,14 @@ import funcify.feature.tools.extensions.TryExtensions.successIfDefined
 import funcify.feature.tools.extensions.TryExtensions.tryFold
 import funcify.feature.tools.extensions.TryExtensions.tryReduce
 import funcify.feature.tools.json.JsonMapper
-import funcify.feature.tools.json.MappingTarget.Companion.toKotlinObject
+import graphql.GraphQLContext
+import graphql.execution.CoercedVariables
+import graphql.execution.RawVariables
+import graphql.execution.ValuesResolver
+import graphql.language.Definition
+import graphql.language.Document
+import graphql.language.NullValue
+import graphql.language.OperationDefinition
 import graphql.language.Value
 import graphql.language.VariableReference
 import graphql.schema.GraphQLArgument
@@ -105,66 +117,106 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                     null -> {
                         dispatchedRequestMaterializationGraphContextFactory
                             .builder()
+                            .rawGraphQLRequest(session.rawGraphQLRequest)
+                            .materializationMetamodel(session.materializationMetamodel)
                             .requestMaterializationGraph(requestMaterializationGraph)
-                            .variables(extractVariablesFromSession(session).orElseThrow())
                             .build()
                     }
                     else -> {
                         dispatchedRequestMaterializationGraphContextFactory
                             .builder()
+                            .rawGraphQLRequest(session.rawGraphQLRequest)
+                            .materializationMetamodel(session.materializationMetamodel)
                             .requestMaterializationGraph(requestMaterializationGraph)
                             .rawInputContext(ric)
-                            .variables(extractVariablesFromSession(session).orElseThrow())
                             .build()
                     }
                 }
             }
-            .flatMap(extractPassThruColumnsWithinContext())
+            .flatMap(coerceVariablesAndExtractPassThruColumnsWithinContext())
             .flatMap(dispatchAllTransformerCallablesWithinContext())
             .flatMap(dispatchAllDataElementCallablesWithinContext())
             .flatMap(dispatchAllFeatureCalculatorCallablesWithinContext())
             .map(createDispatchedRequestMaterializationGraphFromContext())
     }
 
-    private fun extractVariablesFromSession(
-        session: GraphQLSingleRequestSession
-    ): Try<Map<String, JsonNode>> {
-        // TODO: Consider whether these must first be converted into GraphQL Value<*>s via
-        // CoercedVariables mechanism before serialization into JSON
-        return jsonMapper
-            .fromKotlinObject<Map<String, Any?>>(session.rawGraphQLRequest.variables)
-            .toKotlinObject<Map<String, JsonNode>>()
-            .mapFailure { t: Throwable ->
-                ServiceError.of(
-                    "unable to successfully convert variables into json values map [ message: %s ]",
-                    t.message
-                )
-            }
-    }
-
-    private fun <C> extractPassThruColumnsWithinContext():
+    private fun <C> coerceVariablesAndExtractPassThruColumnsWithinContext():
         (C) -> Mono<out DispatchedRequestMaterializationGraphContext> where
     C : DispatchedRequestMaterializationGraphContext {
         return { drmgc: DispatchedRequestMaterializationGraphContext ->
-            drmgc.requestMaterializationGraph.passThruColumns
-                .asSequence()
-                .map { c: String ->
-                    drmgc.variables
-                        .getOrNone(c)
-                        .map { jn: JsonNode -> c to jn }
-                        .successIfDefined {
-                            ServiceError.of(
-                                "passthru_column [ %s ] expected but not found in variables set",
-                                c
-                            )
+            coerceVariablesFromSession(
+                    drmgc.rawGraphQLRequest,
+                    drmgc.materializationMetamodel,
+                    drmgc.requestMaterializationGraph
+                )
+                .zip(
+                    drmgc.requestMaterializationGraph.passThruColumns
+                        .asSequence()
+                        .map { c: String ->
+                            drmgc.rawInputContext
+                                .flatMap { ric: RawInputContext -> ric.get(c) }
+                                .map { jn: JsonNode -> c to jn }
+                                .successIfDefined {
+                                    ServiceError.of(
+                                        "passthru_column [ %s ] expected but not found in raw_input_context set",
+                                        c
+                                    )
+                                }
                         }
-                }
-                .tryFold(persistentMapOf<String, JsonNode>(), PersistentMap<String, JsonNode>::plus)
-                .map { pm: PersistentMap<String, JsonNode> ->
-                    drmgc.update { addAllPassThruColumns(pm) }
+                        .tryFold(
+                            persistentMapOf<String, JsonNode>(),
+                            PersistentMap<String, JsonNode>::plus
+                        )
+                ) { cv: CoercedVariables, ptc: PersistentMap<String, JsonNode> ->
+                    drmgc.update {
+                        coercedVariables(cv)
+                        addAllPassThruColumns(ptc)
+                    }
                 }
                 .toMono()
         }
+    }
+
+    private fun coerceVariablesFromSession(
+        rawGraphQLRequest: RawGraphQLRequest,
+        materializationMetamodel: MaterializationMetamodel,
+        requestMaterializationGraph: RequestMaterializationGraph,
+    ): Try<CoercedVariables> {
+        return Try.attempt { RawVariables.of(rawGraphQLRequest.variables) }
+            .map { rv: RawVariables ->
+                ValuesResolver.coerceVariableValues(
+                    materializationMetamodel.materializationGraphQLSchema,
+                    requestMaterializationGraph.operationName
+                        .flatMap { on: String ->
+                            requestMaterializationGraph.preparsedDocumentEntry.document
+                                .getOperationDefinition(on)
+                                .toOption()
+                        }
+                        .orElse {
+                            requestMaterializationGraph.preparsedDocumentEntry.document
+                                .toOption()
+                                .mapNotNull(Document::getDefinitions)
+                                .map(List<Definition<*>>::asSequence)
+                                .fold(::emptySequence, ::identity)
+                                .filterIsInstance<OperationDefinition>()
+                                .firstOrNone()
+                        }
+                        .mapNotNull { od: OperationDefinition -> od.variableDefinitions }
+                        .fold(::emptyList, ::identity),
+                    rv,
+                    GraphQLContext.getDefault(),
+                    rawGraphQLRequest.locale
+                )
+            }
+            .mapFailure { t: Throwable ->
+                ServiceError.builder()
+                    .message(
+                        "error occurred when coercing variables into %s",
+                        Value::class.qualifiedName
+                    )
+                    .cause(t)
+                    .build()
+            }
     }
 
     private fun <C> dispatchAllTransformerCallablesWithinContext():
@@ -198,71 +250,7 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                 context.requestMaterializationGraph.requestGraph
                     .edgesFromPoint(path)
                     .asSequence()
-                    .map { (l: DirectedLine<GQLOperationPath>, e: MaterializationEdge) ->
-                        if (!l.destinationPoint.refersToArgument()) {
-                            ServiceError.of(
-                                    "dependent [ %s ] for transformer_source [ path: %s ] is not an argument",
-                                    l.destinationPoint,
-                                    path
-                                )
-                                .failure()
-                        } else {
-                            when (e) {
-                                MaterializationEdge.DIRECT_ARGUMENT_VALUE_PROVIDED,
-                                MaterializationEdge.DEFAULT_ARGUMENT_VALUE_PROVIDED -> {
-                                    context.requestMaterializationGraph.requestGraph
-                                        .get(l.destinationPoint)
-                                        .toOption()
-                                        .filterIsInstance<FieldArgumentComponentContext>()
-                                        .flatMap { facc: FieldArgumentComponentContext ->
-                                            GraphQLValueToJsonNodeConverter.invoke(
-                                                    facc.argument.value
-                                                )
-                                                .map { jn: JsonNode ->
-                                                    Triple(facc.path, facc.argument.name, jn)
-                                                }
-                                        }
-                                        .successIfDefined {
-                                            ServiceError.of(
-                                                "unable to extract direct or default argument.value as json for argument [ path: %s ]",
-                                                l.destinationPoint
-                                            )
-                                        }
-                                }
-                                MaterializationEdge.VARIABLE_VALUE_PROVIDED -> {
-                                    context.requestMaterializationGraph.requestGraph
-                                        .get(l.destinationPoint)
-                                        .toOption()
-                                        .filterIsInstance<FieldArgumentComponentContext>()
-                                        .flatMap { facc: FieldArgumentComponentContext ->
-                                            facc.argument.value
-                                                .toOption()
-                                                .filterIsInstance<VariableReference>()
-                                                .map { vr: VariableReference -> vr.name }
-                                                .flatMap { n: String ->
-                                                    context.variables.getOrNone(n)
-                                                }
-                                                .map { jn: JsonNode ->
-                                                    Triple(facc.path, facc.argument.name, jn)
-                                                }
-                                        }
-                                        .successIfDefined {
-                                            ServiceError.of(
-                                                "unable to extract argument value for [ path: %s ]",
-                                                l.destinationPoint
-                                            )
-                                        }
-                                }
-                                else -> {
-                                    ServiceError.of(
-                                            "strategy for determining argument value for [ path: %s ] not available",
-                                            path
-                                        )
-                                        .failure()
-                                }
-                            }
-                        }
-                    }
+                    .map(extractArgumentPathNameValueTripleForTransformerEdge(context, path))
                     .tryFold(
                         persistentMapOf<GQLOperationPath, JsonNode>() to
                             persistentMapOf<String, JsonNode>()
@@ -282,6 +270,82 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                         }
                     }
                     .orElseThrow()
+            }
+        }
+    }
+
+    private fun extractArgumentPathNameValueTripleForTransformerEdge(
+        context: DispatchedRequestMaterializationGraphContext,
+        transformerSourcePath: GQLOperationPath,
+    ): (Pair<DirectedLine<GQLOperationPath>, MaterializationEdge>) -> Try<
+            Triple<GQLOperationPath, String, JsonNode>
+        > {
+        return { (l: DirectedLine<GQLOperationPath>, e: MaterializationEdge) ->
+            if (!l.destinationPoint.refersToArgument()) {
+                ServiceError.of(
+                        "dependent [ %s ] for transformer_source [ path: %s ] is not an argument",
+                        l.destinationPoint,
+                        transformerSourcePath
+                    )
+                    .failure()
+            } else {
+                when (e) {
+                    MaterializationEdge.DIRECT_ARGUMENT_VALUE_PROVIDED,
+                    MaterializationEdge.DEFAULT_ARGUMENT_VALUE_PROVIDED, -> {
+                        context.requestMaterializationGraph.requestGraph
+                            .get(l.destinationPoint)
+                            .toOption()
+                            .filterIsInstance<FieldArgumentComponentContext>()
+                            .flatMap { facc: FieldArgumentComponentContext ->
+                                GraphQLValueToJsonNodeConverter.invoke(facc.argument.value).map {
+                                    jn: JsonNode ->
+                                    Triple(facc.path, facc.argument.name, jn)
+                                }
+                            }
+                            .successIfDefined {
+                                ServiceError.of(
+                                    "unable to extract direct or default argument.value as json for argument [ path: %s ]",
+                                    l.destinationPoint
+                                )
+                            }
+                    }
+                    MaterializationEdge.VARIABLE_VALUE_PROVIDED -> {
+                        context.requestMaterializationGraph.requestGraph
+                            .get(l.destinationPoint)
+                            .toOption()
+                            .filterIsInstance<FieldArgumentComponentContext>()
+                            .flatMap { facc: FieldArgumentComponentContext ->
+                                facc.argument.value
+                                    .toOption()
+                                    .filterIsInstance<VariableReference>()
+                                    .mapNotNull { vr: VariableReference -> vr.name }
+                                    .map { n: String ->
+                                        context.coercedVariables
+                                            .get(n)
+                                            .toOption()
+                                            .filterIsInstance<Value<*>>()
+                                            .flatMap(GraphQLValueToJsonNodeConverter)
+                                            .getOrElse { JsonNodeFactory.instance.nullNode() }
+                                    }
+                                    .map { jn: JsonNode ->
+                                        Triple(facc.path, facc.argument.name, jn)
+                                    }
+                            }
+                            .successIfDefined {
+                                ServiceError.of(
+                                    "unable to extract argument value for [ path: %s ]",
+                                    l.destinationPoint
+                                )
+                            }
+                    }
+                    else -> {
+                        ServiceError.of(
+                                "strategy for determining argument value for [ path: %s ] not available",
+                                transformerSourcePath
+                            )
+                            .failure()
+                    }
+                }
             }
         }
     }
@@ -355,7 +419,14 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                                         }
                                         .filterIsInstance<VariableReference>()
                                         .map { vr: VariableReference -> vr.name }
-                                        .flatMap { n: String -> context.variables.getOrNone(n) }
+                                        .map { n: String ->
+                                            context.coercedVariables
+                                                .get(n)
+                                                .toOption()
+                                                .filterIsInstance<Value<*>>()
+                                                .getOrElse { NullValue.of() }
+                                        }
+                                        .flatMap(GraphQLValueToJsonNodeConverter)
                                         .map { jn: JsonNode -> l.destinationPoint to jn }
                                         .successIfDefined {
                                             ServiceError.of(
@@ -731,7 +802,13 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                                         }
                                         .filterIsInstance<VariableReference>()
                                         .map { vr: VariableReference -> vr.name }
-                                        .flatMap { n: String -> context.variables.getOrNone(n) }
+                                        .flatMap { n: String ->
+                                            context.coercedVariables
+                                                .get(n)
+                                                .toOption()
+                                                .filterIsInstance<Value<*>>()
+                                                .flatMap(GraphQLValueToJsonNodeConverter)
+                                        }
                                 }
                                 .map { jn: JsonNode -> p to Mono.just(jn) }
                                 .successIfDefined {

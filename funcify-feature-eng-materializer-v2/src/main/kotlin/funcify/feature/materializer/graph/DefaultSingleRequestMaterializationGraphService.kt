@@ -499,6 +499,7 @@ internal class DefaultSingleRequestMaterializationGraphService(
             when (context) {
                 is StandardQuery -> {
                     DefaultRequestMaterializationGraph(
+                        operationName = context.operationName.toOption().filter(String::isNotBlank),
                         preparsedDocumentEntry = PreparsedDocumentEntry(context.document),
                         requestGraph = context.requestGraph,
                         passThruColumns = context.passThroughColumns,
@@ -547,6 +548,7 @@ internal class DefaultSingleRequestMaterializationGraphService(
         }.let { se: ServiceError ->
             Mono.just(
                 DefaultRequestMaterializationGraph(
+                    operationName = none(),
                     preparsedDocumentEntry = PreparsedDocumentEntry(listOf()),
                     requestGraph =
                         PersistentGraphFactory.defaultFactory().builder().directed().build(),
