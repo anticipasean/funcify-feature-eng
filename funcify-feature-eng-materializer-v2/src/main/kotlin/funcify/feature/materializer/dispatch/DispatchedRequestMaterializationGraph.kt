@@ -2,6 +2,7 @@ package funcify.feature.materializer.dispatch
 
 import com.fasterxml.jackson.databind.JsonNode
 import funcify.feature.schema.path.operation.GQLOperationPath
+import funcify.feature.schema.path.result.GQLResultPath
 import funcify.feature.schema.tracking.TrackableValue
 import funcify.feature.schema.tracking.TrackableValue.PlannedValue
 import kotlinx.collections.immutable.ImmutableList
@@ -16,15 +17,12 @@ interface DispatchedRequestMaterializationGraph {
 
     val materializedArgumentsByPath: ImmutableMap<GQLOperationPath, JsonNode>
 
-    val transformerPublishersByPath: ImmutableMap<GQLOperationPath, Mono<JsonNode>>
+    val transformerPublishersByPath: ImmutableMap<GQLResultPath, Mono<JsonNode>>
 
-    val dataElementPublishersByPath: ImmutableMap<GQLOperationPath, Mono<JsonNode>>
-
-    val plannedFeatureValuesByPath:
-        ImmutableMap<GQLOperationPath, ImmutableList<PlannedValue<JsonNode>>>
+    val dataElementPublishersByPath: ImmutableMap<GQLResultPath, Mono<JsonNode>>
 
     val featureCalculatorPublishersByPath:
-        ImmutableMap<GQLOperationPath, ImmutableList<Mono<TrackableValue<JsonNode>>>>
+        ImmutableMap<GQLResultPath, ImmutableList<Mono<TrackableValue<JsonNode>>>>
 
     val passThruColumns: ImmutableMap<String, JsonNode>
 }

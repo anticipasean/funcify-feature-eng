@@ -14,6 +14,7 @@ import funcify.feature.materializer.input.RawInputContext
 import funcify.feature.materializer.model.MaterializationMetamodel
 import funcify.feature.materializer.request.RawGraphQLRequest
 import funcify.feature.schema.path.operation.GQLOperationPath
+import funcify.feature.schema.path.result.GQLResultPath
 import funcify.feature.schema.tracking.TrackableValue
 import graphql.execution.CoercedVariables
 import kotlinx.collections.immutable.ImmutableList
@@ -50,13 +51,17 @@ internal class DefaultDispatchedRequestMaterializationGraphContextFactory :
                 existingContext?.materializedArgumentsByPath?.toPersistentMap()?.builder()
                     ?: persistentMapOf<GQLOperationPath, JsonNode>().builder(),
             private val transformerPublishersByPath:
+                PersistentMap.Builder<GQLResultPath, Mono<JsonNode>> =
+                existingContext?.transformerPublishersByResultPath?.toPersistentMap()?.builder()
+                    ?: persistentMapOf<GQLResultPath, Mono<JsonNode>>().builder(),
+            private val dataElementPublishersByOperationPath:
                 PersistentMap.Builder<GQLOperationPath, Mono<JsonNode>> =
-                existingContext?.transformerPublishersByPath?.toPersistentMap()?.builder()
+                existingContext?.dataElementPublishersByOperationPath?.toPersistentMap()?.builder()
                     ?: persistentMapOf<GQLOperationPath, Mono<JsonNode>>().builder(),
-            private val dataElementPublishersByPath:
-                PersistentMap.Builder<GQLOperationPath, Mono<JsonNode>> =
-                existingContext?.dataElementPublishersByPath?.toPersistentMap()?.builder()
-                    ?: persistentMapOf<GQLOperationPath, Mono<JsonNode>>().builder(),
+            private val dataElementPublishersByResultPath:
+                PersistentMap.Builder<GQLResultPath, Mono<JsonNode>> =
+                existingContext?.dataElementPublishersByResultPath?.toPersistentMap()?.builder()
+                    ?: persistentMapOf<GQLResultPath, Mono<JsonNode>>().builder(),
             private val plannedFeatureValuesByPath:
                 PersistentMap.Builder<
                     GQLOperationPath, ImmutableList<TrackableValue.PlannedValue<JsonNode>>
@@ -66,13 +71,28 @@ internal class DefaultDispatchedRequestMaterializationGraphContextFactory :
                             GQLOperationPath, ImmutableList<TrackableValue.PlannedValue<JsonNode>>
                         >()
                         .builder(),
-            private val featureCalculatorPublishersByPath:
+            private val featureCalculatorPublishersByOperationPath:
                 PersistentMap.Builder<
                     GQLOperationPath, ImmutableList<Mono<TrackableValue<JsonNode>>>
                 > =
-                existingContext?.featureCalculatorPublishersByPath?.toPersistentMap()?.builder()
+                existingContext
+                    ?.featureCalculatorPublishersByOperationPath
+                    ?.toPersistentMap()
+                    ?.builder()
                     ?: persistentMapOf<
                             GQLOperationPath, ImmutableList<Mono<TrackableValue<JsonNode>>>
+                        >()
+                        .builder(),
+            private val featureCalculatorPublishersByResultPath:
+                PersistentMap.Builder<
+                    GQLResultPath, ImmutableList<Mono<TrackableValue<JsonNode>>>
+                > =
+                existingContext
+                    ?.featureCalculatorPublishersByResultPath
+                    ?.toPersistentMap()
+                    ?.builder()
+                    ?: persistentMapOf<
+                            GQLResultPath, ImmutableList<Mono<TrackableValue<JsonNode>>>
                         >()
                         .builder(),
             private val passThruColumns: PersistentMap.Builder<String, JsonNode> =
@@ -107,23 +127,35 @@ internal class DefaultDispatchedRequestMaterializationGraphContextFactory :
                 pathJsonValuePairs: Map<GQLOperationPath, JsonNode>
             ): Builder = this.apply { this.materializedArgumentsByPath.putAll(pathJsonValuePairs) }
 
-            override fun addTransformerPublisher(
-                path: GQLOperationPath,
+            override fun addTransformerPublisherForResultPath(
+                path: GQLResultPath,
                 publisher: Mono<JsonNode>,
             ): Builder = this.apply { this.transformerPublishersByPath.put(path, publisher) }
 
-            override fun addAllTransformerPublishers(
-                pathPublisherPairs: Map<GQLOperationPath, Mono<JsonNode>>
+            override fun addAllTransformerPublishersForResultPaths(
+                pathPublisherPairs: Map<GQLResultPath, Mono<JsonNode>>
             ): Builder = this.apply { this.transformerPublishersByPath.putAll(pathPublisherPairs) }
 
-            override fun addDataElementPublisher(
+            override fun addDataElementPublisherForOperationPath(
                 path: GQLOperationPath,
                 publisher: Mono<JsonNode>,
-            ): Builder = this.apply { this.dataElementPublishersByPath.put(path, publisher) }
+            ): Builder =
+                this.apply { this.dataElementPublishersByOperationPath.put(path, publisher) }
 
-            override fun addAllDataElementPublishers(
+            override fun addAllDataElementPublishersForOperationPaths(
                 pathPublisherPairs: Map<GQLOperationPath, Mono<JsonNode>>
-            ): Builder = this.apply { this.dataElementPublishersByPath.putAll(pathPublisherPairs) }
+            ): Builder =
+                this.apply { this.dataElementPublishersByOperationPath.putAll(pathPublisherPairs) }
+
+            override fun addDataElementPublisherForResultPath(
+                path: GQLResultPath,
+                publisher: Mono<JsonNode>,
+            ): Builder = this.apply { this.dataElementPublishersByResultPath.put(path, publisher) }
+
+            override fun addAllDataElementPublishersForResultPaths(
+                pathPublisherPairs: Map<GQLResultPath, Mono<JsonNode>>
+            ): Builder =
+                this.apply { this.dataElementPublishersByResultPath.putAll(pathPublisherPairs) }
 
             override fun addPlannedFeatureValue(
                 path: GQLOperationPath,
@@ -139,30 +171,65 @@ internal class DefaultDispatchedRequestMaterializationGraphContextFactory :
                     )
                 }
 
-            override fun addFeatureCalculatorPublisher(
+            override fun addFeatureCalculatorPublisherForOperationPath(
                 path: GQLOperationPath,
                 publisher: Mono<TrackableValue<JsonNode>>,
             ): Builder =
                 this.apply {
-                    this.featureCalculatorPublishersByPath.put(
+                    this.featureCalculatorPublishersByOperationPath.put(
                         path,
-                        this.featureCalculatorPublishersByPath
+                        this.featureCalculatorPublishersByOperationPath
                             .getOrElse(path, ::persistentListOf)
                             .toPersistentList()
                             .add(publisher)
                     )
                 }
 
-            override fun addAllFeatureCalculatorPublishers(
+            override fun addAllFeatureCalculatorPublishersForOperationPaths(
                 pathPublisherPairs: Map<GQLOperationPath, List<Mono<TrackableValue<JsonNode>>>>
             ): Builder =
                 this.apply {
-                    pathPublisherPairs.foldLeft(this.featureCalculatorPublishersByPath) {
+                    pathPublisherPairs.foldLeft(this.featureCalculatorPublishersByOperationPath) {
                         builder:
                             PersistentMap.Builder<
                                 GQLOperationPath, ImmutableList<Mono<TrackableValue<JsonNode>>>
                             >,
                         (key: GQLOperationPath, value: List<Mono<TrackableValue<JsonNode>>>) ->
+                        builder.put(
+                            key,
+                            builder
+                                .getOrElse(key, ::persistentListOf)
+                                .toPersistentList()
+                                .addAll(value)
+                        )
+                        builder
+                    }
+                }
+
+            override fun addFeatureCalculatorPublisherForResultPath(
+                path: GQLResultPath,
+                publisher: Mono<TrackableValue<JsonNode>>,
+            ): Builder =
+                this.apply {
+                    this.featureCalculatorPublishersByResultPath.put(
+                        path,
+                        this.featureCalculatorPublishersByResultPath
+                            .getOrElse(path, ::persistentListOf)
+                            .toPersistentList()
+                            .add(publisher)
+                    )
+                }
+
+            override fun addAllFeatureCalculatorPublishersForResultPaths(
+                pathPublisherPairs: Map<GQLResultPath, List<Mono<TrackableValue<JsonNode>>>>
+            ): Builder =
+                this.apply {
+                    pathPublisherPairs.foldLeft(this.featureCalculatorPublishersByResultPath) {
+                        builder:
+                            PersistentMap.Builder<
+                                GQLResultPath, ImmutableList<Mono<TrackableValue<JsonNode>>>
+                            >,
+                        (key: GQLResultPath, value: List<Mono<TrackableValue<JsonNode>>>) ->
                         builder.put(
                             key,
                             builder
@@ -201,11 +268,16 @@ internal class DefaultDispatchedRequestMaterializationGraphContextFactory :
                             coercedVariables = coercedVariables,
                             rawInputContext = rawInputContext.toOption(),
                             materializedArgumentsByPath = materializedArgumentsByPath.build(),
-                            transformerPublishersByPath = transformerPublishersByPath.build(),
-                            dataElementPublishersByPath = dataElementPublishersByPath.build(),
+                            transformerPublishersByResultPath = transformerPublishersByPath.build(),
+                            dataElementPublishersByOperationPath =
+                                dataElementPublishersByOperationPath.build(),
+                            dataElementPublishersByResultPath =
+                                dataElementPublishersByResultPath.build(),
                             plannedFeatureValuesByPath = plannedFeatureValuesByPath.build(),
-                            featureCalculatorPublishersByPath =
-                                featureCalculatorPublishersByPath.build(),
+                            featureCalculatorPublishersByOperationPath =
+                                featureCalculatorPublishersByOperationPath.build(),
+                            featureCalculatorPublishersByResultPath =
+                            featureCalculatorPublishersByResultPath.build(),
                             passThruColumns = passThruColumns.build(),
                         )
                     }
@@ -229,16 +301,20 @@ internal class DefaultDispatchedRequestMaterializationGraphContextFactory :
             override val coercedVariables: CoercedVariables,
             override val rawInputContext: Option<RawInputContext>,
             override val materializedArgumentsByPath: ImmutableMap<GQLOperationPath, JsonNode>,
-            override val transformerPublishersByPath:
+            override val transformerPublishersByResultPath:
+                ImmutableMap<GQLResultPath, Mono<JsonNode>>,
+            override val dataElementPublishersByOperationPath:
                 ImmutableMap<GQLOperationPath, Mono<JsonNode>>,
-            override val dataElementPublishersByPath:
-                ImmutableMap<GQLOperationPath, Mono<JsonNode>>,
+            override val dataElementPublishersByResultPath:
+                ImmutableMap<GQLResultPath, Mono<JsonNode>>,
             override val plannedFeatureValuesByPath:
                 ImmutableMap<
                     GQLOperationPath, ImmutableList<TrackableValue.PlannedValue<JsonNode>>
                 >,
-            override val featureCalculatorPublishersByPath:
+            override val featureCalculatorPublishersByOperationPath:
                 ImmutableMap<GQLOperationPath, ImmutableList<Mono<TrackableValue<JsonNode>>>>,
+            override val featureCalculatorPublishersByResultPath:
+            ImmutableMap<GQLResultPath, ImmutableList<Mono<TrackableValue<JsonNode>>>>,
             override val passThruColumns: ImmutableMap<String, JsonNode>,
         ) : DispatchedRequestMaterializationGraphContext {
 
