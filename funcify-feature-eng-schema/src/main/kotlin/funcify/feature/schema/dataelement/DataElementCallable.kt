@@ -5,7 +5,6 @@ import funcify.feature.schema.path.operation.GQLOperationPath
 import graphql.language.Field
 import graphql.language.Value
 import graphql.schema.FieldCoordinates
-import graphql.schema.GraphQLArgument
 import graphql.schema.GraphQLFieldDefinition
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.ImmutableSet
@@ -23,12 +22,36 @@ interface DataElementCallable : (ImmutableMap<GQLOperationPath, JsonNode>) -> Mo
 
     val domainGraphQLFieldDefinition: GraphQLFieldDefinition
 
-    //val argumentsByPath: ImmutableMap<GQLOperationPath, GraphQLArgument>
+    // val argumentsByPath: ImmutableMap<GQLOperationPath, GraphQLArgument>
 
-    //val selectionsByPath: ImmutableMap<GQLOperationPath, GraphQLFieldDefinition>
+    // val selectionsByPath: ImmutableMap<GQLOperationPath, GraphQLFieldDefinition>
 
     val selections: ImmutableSet<GQLOperationPath>
 
+    /**
+     * Takes argument values by path rather than by name as arguments vector may include those on
+     * descendent fields on the domain field
+     *
+     * Example:
+     * ```
+     * query ($myDomainArgumentValue: ID, $myDomainChildField2ArgumentValue: String){
+     *   dataElement {
+     *     myDomainField(myDomainArgument: $myDomainArgumentValue) {
+     *       myDomainChildField1
+     *       myDomainChildField2(myDomainArgument: $myDomainChildField2ArgumentValue) {
+     *         myDomainGrandChildField1
+     *       }
+     *     }
+     *   }
+     * }
+     *
+     * arguments.keys expected:
+     *   - "gqlo:/dataElement/myDomainField?myDomainArgument"
+     *   - "gqlo:/dataElement/myDomainField/myDomainChildField2?myDomainArgument"
+     * ```
+     * Both arguments share the same _name_, but do not share the same path and may not share the same value
+     *
+     */
     override fun invoke(arguments: ImmutableMap<GQLOperationPath, JsonNode>): Mono<JsonNode>
 
     interface Builder {
