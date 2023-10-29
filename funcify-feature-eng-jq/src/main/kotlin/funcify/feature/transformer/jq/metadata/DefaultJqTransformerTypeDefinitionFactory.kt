@@ -2,6 +2,7 @@ package funcify.feature.transformer.jq.metadata
 
 import funcify.feature.error.ServiceError
 import funcify.feature.tools.container.attempt.Try
+import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.transformer.jq.JqTransformer
 import funcify.feature.transformer.jq.JqTransformerTypeDefinitionFactory
 import funcify.feature.transformer.jq.env.JqTransformerTypeDefinitionEnvironment
@@ -18,12 +19,21 @@ import graphql.language.TypeDefinition
 import graphql.language.TypeName
 import graphql.schema.idl.TypeDefinitionRegistry
 import java.util.*
+import org.slf4j.Logger
 
 internal object DefaultJqTransformerTypeDefinitionFactory : JqTransformerTypeDefinitionFactory {
+
+    private val logger: Logger = loggerFor<DefaultJqTransformerTypeDefinitionFactory>()
 
     override fun createTypeDefinitionRegistry(
         environment: JqTransformerTypeDefinitionEnvironment
     ): Try<TypeDefinitionRegistry> {
+        if (logger.isDebugEnabled) {
+            logger.debug(
+                "create_type_definition_registry: [ environment.transformer_source_name: {} ]",
+                environment.transformerSourceName
+            )
+        }
         return environment.jqTransformers
             .asSequence()
             .map { t: JqTransformer ->

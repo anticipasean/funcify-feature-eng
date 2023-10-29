@@ -37,7 +37,7 @@ class JqTransformerYamlReader(
     }
 
     override fun readTransformers(resource: ClassPathResource): Mono<out List<JqTransformer>> {
-        logger.info("read_metadata: [ resource.path: {} ]", resource.path)
+        logger.info("read_transformers: [ resource.path: {} ]", resource.path)
         return Try.success(resource)
             .filter(ClassPathResource::exists) { c: ClassPathResource ->
                 ServiceError.of("resource.path does not exist [ path: %s ]", c.path)

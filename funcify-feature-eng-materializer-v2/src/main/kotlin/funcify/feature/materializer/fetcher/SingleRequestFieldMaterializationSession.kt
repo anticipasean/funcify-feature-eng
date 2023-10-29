@@ -6,6 +6,7 @@ import arrow.core.toOption
 import funcify.feature.materializer.model.MaterializationMetamodel
 import funcify.feature.materializer.session.GraphQLSingleRequestSession
 import funcify.feature.materializer.session.MaterializationSession
+import funcify.feature.schema.path.result.GQLResultPath
 import graphql.GraphQLContext
 import graphql.language.Field
 import graphql.schema.DataFetchingEnvironment
@@ -37,6 +38,8 @@ interface SingleRequestFieldMaterializationSession : MaterializationSession {
     override val materializationMetamodel: MaterializationMetamodel
         get() = singleRequestSession.materializationMetamodel
 
+    val gqlResultPath: GQLResultPath
+
     val graphQLContext: GraphQLContext
         get() = dataFetchingEnvironment.graphQlContext
 
@@ -50,19 +53,8 @@ interface SingleRequestFieldMaterializationSession : MaterializationSession {
         get() = dataFetchingEnvironment.fieldType
 
     val parentImplementingType: Option<GraphQLImplementingType>
-        get() {
-            return dataFetchingEnvironment.parentType
-                .toOption()
-                .mapNotNull(GraphQLTypeUtil::unwrapAll)
-                .filterIsInstance<GraphQLImplementingType>()
-        }
 
     val fieldCoordinates: Option<FieldCoordinates>
-        get() {
-            return parentImplementingType.map(GraphQLImplementingType::getName).map { tn: String ->
-                FieldCoordinates.coordinates(tn, this.field.name)
-            }
-        }
 
     fun update(transformer: Builder.() -> Builder): SingleRequestFieldMaterializationSession
 

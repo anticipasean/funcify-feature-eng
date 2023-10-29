@@ -54,6 +54,10 @@ internal class DefaultJqTransformerSource(
             private var transformerGraphQLFieldDefinition: GraphQLFieldDefinition? = null
         ) : TransformerCallable.Builder {
 
+            companion object {
+                private val logger: Logger = loggerFor<DefaultJqTransformerCallableBuilder>()
+            }
+
             override fun selectTransformer(
                 coordinates: FieldCoordinates,
                 path: GQLOperationPath,
@@ -66,6 +70,13 @@ internal class DefaultJqTransformerSource(
                 }
 
             override fun build(): TransformerCallable {
+                if (logger.isDebugEnabled) {
+                    logger.debug(
+                        "build: [ source.name: {}, transformer.field_coordinates: {} ]",
+                        sourceName,
+                        transformerFieldCoordinates
+                    )
+                }
                 return eagerEffect<String, TransformerCallable> {
                         ensureNotNull(transformerFieldCoordinates) {
                             "transformer_field_coordinates not provided"

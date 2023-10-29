@@ -6,7 +6,7 @@ import arrow.core.some
 import com.fasterxml.jackson.databind.JsonNode
 import funcify.feature.error.ServiceError
 import funcify.feature.schema.sdl.SDLDefinitionsSetExtractor
-import funcify.feature.tools.extensions.LoggerExtensions
+import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.transformer.jq.JqTransformer
 import funcify.feature.transformer.jq.JqTransformerSource
@@ -33,13 +33,12 @@ internal class YamlResourceJqTransformerSourceProvider(
 ) : JqTransformerSourceProvider {
 
     companion object {
-        private val logger: Logger =
-            LoggerExtensions.loggerFor<YamlResourceJqTransformerSourceProvider>()
+        private val logger: Logger = loggerFor<YamlResourceJqTransformerSourceProvider>()
+        private const val METHOD_TAG: String = "get_latest_transformer_source"
     }
 
     override fun getLatestSource(): Mono<out JqTransformerSource> {
-        val methodTag: String = "get_latest_transformer_source"
-        logger.info("$methodTag: [ name: {} ]", name)
+        logger.info("$METHOD_TAG: [ name: {} ]", name)
         return jqTransformerReader
             .readTransformers(yamlClassPathResource)
             .flatMap { jts: List<JqTransformer> ->
@@ -81,9 +80,15 @@ internal class YamlResourceJqTransformerSourceProvider(
                     }
                     .toMono()
             }
+            .doOnNext { jts: JqTransformerSource ->
+                logger.debug(
+                    "$METHOD_TAG: [ status: success ][ jq_transformer_source.jq_transformers_by_name.keys: {} ]",
+                    jts.jqTransformersByName.keys.asSequence().joinToString(", ", "{ ", " }")
+                )
+            }
             .doOnError { t: Throwable ->
                 logger.error(
-                    "$methodTag: [ status: failed ][ type: {}, message/json: {} ]",
+                    "$METHOD_TAG: [ status: failed ][ type: {}, message/json: {} ]",
                     t::class.qualifiedName,
                     t.some()
                         .filterIsInstance<ServiceError>()
