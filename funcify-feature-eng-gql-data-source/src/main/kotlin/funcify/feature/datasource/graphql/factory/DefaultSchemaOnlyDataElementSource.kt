@@ -39,8 +39,17 @@ internal class DefaultSchemaOnlyDataElementSource(
     companion object {
         private class SchemaOnlyDataElementSourceCallableBuilder :
             BaseDataElementCallableBuilder<SchemaOnlyDataElementSourceCallableBuilder>() {
+            companion object {
+                private val logger: Logger = loggerFor<SchemaOnlyDataElementSourceCallable>()
+            }
 
             override fun build(): DataElementCallable {
+                if (logger.isDebugEnabled) {
+                    logger.debug(
+                        "build: [ domain_field_coordinates: {} ]",
+                        this.domainFieldCoordinates
+                    )
+                }
                 return eagerEffect<String, SchemaOnlyDataElementSourceCallable> {
                         ensureNotNull(domainFieldCoordinates) {
                             "domain_field_coordinates not provided"

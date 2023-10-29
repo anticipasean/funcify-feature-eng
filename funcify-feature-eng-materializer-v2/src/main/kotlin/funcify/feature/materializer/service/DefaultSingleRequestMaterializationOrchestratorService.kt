@@ -1,12 +1,17 @@
 package funcify.feature.materializer.service
 
+import com.fasterxml.jackson.databind.JsonNode
 import funcify.feature.error.ServiceError
 import funcify.feature.materializer.dispatch.DispatchedRequestMaterializationGraph
 import funcify.feature.materializer.fetcher.SingleRequestFieldMaterializationSession
 import funcify.feature.naming.StandardNamingConventions
+import funcify.feature.schema.path.result.GQLResultPath
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
+import funcify.feature.tools.extensions.MonoExtensions.widen
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.json.JsonMapper
+import graphql.schema.FieldCoordinates
+import java.util.*
 import org.slf4j.Logger
 import reactor.core.publisher.Mono
 
@@ -66,9 +71,54 @@ internal class DefaultSingleRequestMaterializationOrchestratorService(
         dispatchedRequestMaterializationGraph: DispatchedRequestMaterializationGraph
     ): Mono<Any?> {
         return when {
+            selectedFieldRefersToDataElementOrTransformerElementType(session) -> {
+                Mono.fromSupplier<Map<String, JsonNode>>(Collections::emptyMap).widen()
+            }
+            selectedFieldRefersToFeaturesElementType(session) -> {
+                Mono.fromSupplier<List<JsonNode>>(Collections::emptyList).widen()
+            }
             else -> {
                 Mono.error { ServiceError.of("not yet implemented materialization logic") }
             }
         }
+    }
+
+    private fun selectedFieldRefersToDataElementOrTransformerElementType(
+        session: SingleRequestFieldMaterializationSession
+    ): Boolean {
+        return GQLResultPath.fromNativeResultPath(
+                session.dataFetchingEnvironment.executionStepInfo.path
+            )
+            .let { rp: GQLResultPath ->
+                rp.getParentPath().filter { pp: GQLResultPath -> pp.isRoot() }.isDefined() &&
+                    session.fieldCoordinates
+                        .filter { fc: FieldCoordinates ->
+                            fc ==
+                                session.materializationMetamodel.featureEngineeringModel
+                                    .dataElementFieldCoordinates ||
+                                fc ==
+                                    session.materializationMetamodel.featureEngineeringModel
+                                        .transformerFieldCoordinates
+                        }
+                        .isDefined()
+            }
+    }
+
+    private fun selectedFieldRefersToFeaturesElementType(
+        session: SingleRequestFieldMaterializationSession
+    ): Boolean {
+        return GQLResultPath.fromNativeResultPath(
+                session.dataFetchingEnvironment.executionStepInfo.path
+            )
+            .let { rp: GQLResultPath ->
+                rp.getParentPath().filter { pp: GQLResultPath -> pp.isRoot() }.isDefined() &&
+                    session.fieldCoordinates
+                        .filter { fc: FieldCoordinates ->
+                            fc ==
+                                session.materializationMetamodel.featureEngineeringModel
+                                    .featureFieldCoordinates
+                        }
+                        .isDefined()
+            }
     }
 }

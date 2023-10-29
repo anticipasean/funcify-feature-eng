@@ -42,8 +42,8 @@ schema {
 
 type Query {
     show(showId: ID): Show
-    director(name: String!): Director
-    actor(name: String!): Actor
+    director(name: String! @alias(name: "director_name")): Director
+    actor(name: String! @alias(name: "actor_name")): Actor
 }
 
 interface Show @subtyping(strategy: SUBTYPE_FIELD_VALUE, discriminatorFieldName: "type") {

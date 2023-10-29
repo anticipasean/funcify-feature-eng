@@ -73,6 +73,10 @@ interface GQLResultPath : Comparable<GQLResultPath> {
 
     val elementSegments: ImmutableList<ElementSegment>
 
+    fun isRoot(): Boolean {
+        return elementSegments.isEmpty()
+    }
+
     fun toURI(): URI
 
     fun transform(mapper: Builder.() -> Builder): GQLResultPath

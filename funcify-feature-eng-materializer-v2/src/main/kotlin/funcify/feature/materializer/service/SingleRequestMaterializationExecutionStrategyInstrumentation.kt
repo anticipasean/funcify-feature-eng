@@ -1,10 +1,9 @@
 package funcify.feature.materializer.service
 
-import com.fasterxml.jackson.databind.JsonNode
-import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.databind.node.JsonNodeFactory
 import funcify.feature.error.ServiceError
-import funcify.feature.materializer.session.GraphQLSingleRequestSession
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
+import funcify.feature.tools.json.JsonMapper
 import graphql.ExecutionResult
 import graphql.execution.ExecutionContext
 import graphql.execution.instrumentation.ExecutionStrategyInstrumentationContext
@@ -12,22 +11,22 @@ import graphql.execution.instrumentation.Instrumentation
 import graphql.execution.instrumentation.InstrumentationContext
 import graphql.execution.instrumentation.InstrumentationState
 import graphql.execution.instrumentation.parameters.InstrumentationExecuteOperationParameters
-import graphql.language.OperationDefinition
 import java.util.concurrent.CompletableFuture
-import kotlinx.collections.immutable.PersistentMap
-import kotlinx.collections.immutable.toPersistentMap
 import org.slf4j.Logger
 
 /**
  * @author smccarron
  * @created 2023-07-27
  */
-internal class SingleRequestMaterializationExecutionStrategyInstrumentation() : Instrumentation {
+internal class SingleRequestMaterializationExecutionStrategyInstrumentation(
+    private val jsonMapper: JsonMapper
+) : Instrumentation {
 
     companion object {
         private val logger: Logger =
             loggerFor<SingleRequestMaterializationExecutionStrategyInstrumentation>()
-        private class MaterializationInstrumentationContext :
+
+        private class MaterializationInstrumentationContext(private val jsonMapper: JsonMapper) :
             ExecutionStrategyInstrumentationContext {
 
             override fun onDispatched(result: CompletableFuture<ExecutionResult>?) {
@@ -38,7 +37,9 @@ internal class SingleRequestMaterializationExecutionStrategyInstrumentation() : 
                 logger.debug(
                     "on_completed: [ execution_result: {}, error: [ type: {}, message: {} ] ]",
                     result?.toSpecification()?.let { m: Map<String, Any?> ->
-                        ObjectMapper().valueToTree<JsonNode>(m)
+                        jsonMapper.fromKotlinObject(m).toJsonNode().orElseGet {
+                            JsonNodeFactory.instance.nullNode()
+                        }
                     },
                     t?.run { this::class }?.simpleName,
                     t?.message
@@ -65,36 +66,9 @@ internal class SingleRequestMaterializationExecutionStrategyInstrumentation() : 
                 )
             }
             else -> {
-                //updateSessionWithOperationDefinitionAndProcessedVariables(ec)
+                // updateSessionWithOperationDefinitionAndProcessedVariables(ec)
             }
         }
-        return MaterializationInstrumentationContext()
-    }
-
-    private fun updateSessionWithOperationDefinitionAndProcessedVariables(
-        executionContext: ExecutionContext
-    ): ExecutionContext {
-        return when (val od: OperationDefinition? = executionContext.operationDefinition) {
-            null -> {
-                executionContext
-            }
-            else -> {
-                val processedVariables: PersistentMap<String, Any?> =
-                    (executionContext.coercedVariables?.toMap() ?: emptyMap()).toPersistentMap()
-                executionContext.graphQLContext
-                    .getOrEmpty<GraphQLSingleRequestSession>(
-                        GraphQLSingleRequestSession.GRAPHQL_SINGLE_REQUEST_SESSION_KEY
-                    )
-                    .ifPresent { s: GraphQLSingleRequestSession ->
-                        executionContext.graphQLContext.put(
-                            GraphQLSingleRequestSession.GRAPHQL_SINGLE_REQUEST_SESSION_KEY,
-                            s.update {
-                                processedQueryVariables(processedVariables)
-                            }
-                        )
-                    }
-                executionContext
-            }
-        }
+        return MaterializationInstrumentationContext(jsonMapper)
     }
 }

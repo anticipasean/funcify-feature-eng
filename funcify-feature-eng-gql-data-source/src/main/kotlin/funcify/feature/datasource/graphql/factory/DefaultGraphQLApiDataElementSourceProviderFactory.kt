@@ -125,7 +125,7 @@ internal class DefaultGraphQLApiDataElementSourceProviderFactory(
                     loggerFor<DefaultServiceAndSchemaBackedDataElementSourceProvider>()
             }
 
-            override fun getLatestSource(): Mono<GraphQLApiDataElementSource> {
+            override fun getLatestSource(): Mono<out GraphQLApiDataElementSource> {
                 logger.info("get_latest_data_element_source: [ name: {} ]", name)
                 return metadataProvider
                     .provideTypeDefinitionRegistry(schemaClassPathResource)
@@ -154,7 +154,7 @@ internal class DefaultGraphQLApiDataElementSourceProviderFactory(
                     loggerFor<DefaultServiceBackedDataElementSourceProvider>()
             }
 
-            override fun getLatestSource(): Mono<GraphQLApiDataElementSource> {
+            override fun getLatestSource(): Mono<out GraphQLApiDataElementSource> {
                 logger.info("get_latest_data_element_source: [ name: {} ]", name)
                 return metadataProvider
                     .provideTypeDefinitionRegistry(graphQLApiService)
@@ -184,7 +184,7 @@ internal class DefaultGraphQLApiDataElementSourceProviderFactory(
                     loggerFor<DefaultSchemaBackedDataElementSourceProvider>()
             }
 
-            override fun getLatestSource(): Mono<GraphQLApiDataElementSource> {
+            override fun getLatestSource(): Mono<out GraphQLApiDataElementSource> {
                 logger.info("get_latest_data_element_source: [ name: {} ]", name)
                 return metadataProvider
                     .provideTypeDefinitionRegistry(schemaClassPathResource)
@@ -199,7 +199,6 @@ internal class DefaultGraphQLApiDataElementSourceProviderFactory(
                     }
             }
         }
-
     }
 
     override fun builder(): GraphQLApiDataElementSourceProvider.Builder {
@@ -209,5 +208,4 @@ internal class DefaultGraphQLApiDataElementSourceProviderFactory(
                 CompositeTypeDefinitionRegistryFilter(typeDefinitionRegistryFilters)
         )
     }
-
 }

@@ -309,8 +309,8 @@ class MaterializerConfiguration {
     }
 
     @Bean
-    fun singleRequestMaterializationExecutionStrategyInstrumentation(): Instrumentation {
-        return SingleRequestMaterializationExecutionStrategyInstrumentation()
+    fun singleRequestMaterializationExecutionStrategyInstrumentation(jsonMapper: JsonMapper): Instrumentation {
+        return SingleRequestMaterializationExecutionStrategyInstrumentation(jsonMapper)
     }
 
     @ConditionalOnMissingBean(value = [GraphQLSingleRequestSessionCoordinator::class])
