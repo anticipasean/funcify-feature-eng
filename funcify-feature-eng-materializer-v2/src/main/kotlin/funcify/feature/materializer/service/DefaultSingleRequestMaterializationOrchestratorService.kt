@@ -1,16 +1,23 @@
 package funcify.feature.materializer.service
 
 import arrow.core.filterIsInstance
+import arrow.core.getOrNone
 import arrow.core.lastOrNone
+import arrow.core.orElse
+import arrow.core.toOption
 import com.fasterxml.jackson.databind.JsonNode
 import funcify.feature.error.ServiceError
 import funcify.feature.materializer.dispatch.DispatchedRequestMaterializationGraph
 import funcify.feature.materializer.fetcher.SingleRequestFieldMaterializationSession
 import funcify.feature.naming.StandardNamingConventions
+import funcify.feature.schema.json.JsonNodeToStandardValueConverter
 import funcify.feature.schema.path.result.GQLResultPath
+import funcify.feature.schema.path.result.ListSegment
 import funcify.feature.schema.path.result.NameSegment
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.MonoExtensions.widen
+import funcify.feature.tools.extensions.OptionExtensions.toMono
+import funcify.feature.tools.extensions.SequenceExtensions.firstOrNone
 import funcify.feature.tools.extensions.SequenceExtensions.flatMapOptions
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.json.JsonMapper
@@ -91,6 +98,9 @@ internal class DefaultSingleRequestMaterializationOrchestratorService(
             selectedFieldRefersToFeaturesElementType(session) -> {
                 Mono.fromSupplier<List<JsonNode>>(Collections::emptyList).widen()
             }
+            selectedFieldUnderDataElementElementType(session) -> {
+                extractDataElementValueFromSource(session)
+            }
             else -> {
                 Mono.error { ServiceError.of("not yet implemented materialization logic") }
             }
@@ -170,5 +180,92 @@ internal class DefaultSingleRequestMaterializationOrchestratorService(
                             .featureFieldCoordinates
                 }
                 .isDefined()
+    }
+
+    private fun selectedFieldUnderDataElementElementType(
+        session: SingleRequestFieldMaterializationSession
+    ): Boolean {
+        return session.gqlResultPath.elementSegments.size > 1 &&
+            session.fieldCoordinates
+                .filter { fc: FieldCoordinates ->
+                    session.materializationMetamodel.fieldCoordinatesAvailableUnderPath.invoke(
+                        fc,
+                        session.materializationMetamodel.dataElementElementTypePath
+                    )
+                }
+                .isDefined()
+    }
+
+    private fun extractDataElementValueFromSource(
+        session: SingleRequestFieldMaterializationSession
+    ): Mono<Any?> {
+        return when {
+            currentSourceValueIsInstanceOf<Map<String, JsonNode>>(session) -> {
+                session.dataFetchingEnvironment
+                    .getSource<Map<String, JsonNode>>()
+                    .toOption()
+                    .flatMap { m: Map<String, JsonNode> ->
+                        m.getOrNone(session.field.resultKey)
+                            .orElse {
+                                session.fieldCoordinates
+                                    .filter { fc: FieldCoordinates ->
+                                        fc.fieldName != session.field.resultKey
+                                    }
+                                    .flatMap { fc: FieldCoordinates -> m.getOrNone(fc.fieldName) }
+                            }
+                            .orElse {
+                                session.fieldCoordinates.flatMap { fc: FieldCoordinates ->
+                                    session.materializationMetamodel.aliasCoordinatesRegistry
+                                        .getAllAliasesForField(fc)
+                                        .asSequence()
+                                        .firstOrNone { n: String -> n in m }
+                                        .flatMap { n: String -> m.getOrNone(n) }
+                                }
+                            }
+                    }
+                    .flatMap { jn: JsonNode ->
+                        JsonNodeToStandardValueConverter.invoke(jn, session.fieldOutputType)
+                    }
+                    .toMono()
+                    .widen()
+            }
+            currentSourceValueIsInstanceOf<List<JsonNode>>(session) -> {
+                session.dataFetchingEnvironment
+                    .getSource<List<JsonNode>>()
+                    .toOption()
+                    .flatMap { jns: List<JsonNode> ->
+                        session.gqlResultPath.elementSegments
+                            .lastOrNone()
+                            .filterIsInstance<ListSegment>()
+                            .flatMap { ls: ListSegment -> ls.indices.lastOrNone() }
+                            .filter { i: Int -> i in jns.indices }
+                            .mapNotNull { i: Int -> jns.get(i) }
+                    }
+                    .flatMap { jn: JsonNode ->
+                        JsonNodeToStandardValueConverter.invoke(jn, session.fieldOutputType)
+                    }
+                    .toMono()
+                    .widen()
+            }
+            currentSourceValueIsInstanceOf<JsonNode>(session) -> {
+                session.dataFetchingEnvironment
+                    .getSource<JsonNode>()
+                    .toOption()
+                    .flatMap { jn: JsonNode ->
+                        JsonNodeToStandardValueConverter.invoke(jn, session.fieldOutputType)
+                    }
+                    .toMono()
+                    .widen()
+            }
+            else -> {
+                Mono.error {
+                    ServiceError.of(
+                        "could not find value for [ path: %s ] under source [ %s ]",
+                        session.gqlResultPath,
+                        session.dataFetchingEnvironment.getSource()
+                    )
+                }
+            }
+        }
     }
 }

@@ -10,7 +10,6 @@ import java.util.stream.Stream
 import org.apache.commons.csv.CSVFormat
 import org.apache.commons.csv.CSVParser
 import org.apache.commons.csv.CSVRecord
-import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
 import org.springframework.boot.builder.SpringApplicationBuilder
@@ -91,7 +90,14 @@ class StreamTest {
                     Assertions.assertDoesNotThrow<JsonNode> {
                         objectMapper.readTree(outputMessage.payload)
                     }
-                assertThat(resultNode).isEqualTo(JsonNodeFactory.instance.textNode("Hello"))
+                Assertions.assertEquals(JsonNodeFactory.instance.textNode("Hello"), resultNode) {
+                    "actual_result_node: %s"
+                        .format(
+                            ObjectMapper()
+                                .writerWithDefaultPrettyPrinter()
+                                .writeValueAsString(resultNode)
+                        )
+                }
             }
     }
 }
