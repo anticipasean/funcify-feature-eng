@@ -1,6 +1,8 @@
 package funcify.feature.materializer.service
 
-import com.fasterxml.jackson.databind.node.JsonNodeFactory
+import arrow.core.filterIsInstance
+import arrow.core.getOrNone
+import arrow.core.identity
 import funcify.feature.error.ServiceError
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.json.JsonMapper
@@ -35,11 +37,16 @@ internal class SingleRequestMaterializationExecutionStrategyInstrumentation(
 
             override fun onCompleted(result: ExecutionResult?, t: Throwable?) {
                 logger.debug(
-                    "on_completed: [ execution_result: {}, error: [ type: {}, message: {} ] ]",
+                    "on_completed: [ execution_result.keys: {}, execution_result.data.keys: {}, error: [ type: {}, message: {} ] ]",
                     result?.toSpecification()?.let { m: Map<String, Any?> ->
-                        jsonMapper.fromKotlinObject(m).toJsonNode().orElseGet {
-                            JsonNodeFactory.instance.nullNode()
-                        }
+                        m.keys.asSequence().joinToString(", ", "{ ", " }")
+                    },
+                    result?.toSpecification()?.let { m: Map<String, Any?> ->
+                        m.getOrNone("data")
+                            .filterIsInstance<Map<String, Any?>>()
+                            .fold(::emptyMap, ::identity)
+                            .keys
+                            .joinToString(", ", "{ ", " }")
                     },
                     t?.run { this::class }?.simpleName,
                     t?.message
