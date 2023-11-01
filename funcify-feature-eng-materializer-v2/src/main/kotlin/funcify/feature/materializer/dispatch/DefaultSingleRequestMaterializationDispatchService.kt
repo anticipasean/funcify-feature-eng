@@ -67,6 +67,8 @@ internal class DefaultSingleRequestMaterializationDispatchService(
 
     companion object {
         private val logger: Logger = loggerFor<DefaultSingleRequestMaterializationDispatchService>()
+        private const val METHOD_TAG: String =
+            "dispatch_requests_in_materialization_graph_in_session"
         private const val DEFAULT_EXTERNAL_CALL_TIMEOUT_SECONDS: Int = 4
         private val DEFAULT_EXTERNAL_CALL_TIMEOUT_DURATION: Duration =
             Duration.ofSeconds(DEFAULT_EXTERNAL_CALL_TIMEOUT_SECONDS.toLong())
@@ -75,28 +77,28 @@ internal class DefaultSingleRequestMaterializationDispatchService(
     override fun dispatchRequestsInMaterializationGraphInSession(
         session: GraphQLSingleRequestSession
     ): Mono<out GraphQLSingleRequestSession> {
-        logger.info(
-            "dispatch_requests_in_materialization_graph_in_session: [ session.session_id: ${session.sessionId} ]"
-        )
+        logger.info("$METHOD_TAG: [ session.session_id: ${session.sessionId} ]")
         return when (
-            val requestMaterializationGraph: RequestMaterializationGraph? =
-                session.requestMaterializationGraph.orNull()
-        ) {
-            null -> {
-                Mono.error<GraphQLSingleRequestSession> {
-                    ServiceError.of(
-                        "request_materialization_graph has not been defined in session [ session.session_id: {} ]",
-                        session.sessionId
+                val requestMaterializationGraph: RequestMaterializationGraph? =
+                    session.requestMaterializationGraph.orNull()
+            ) {
+                null -> {
+                    Mono.error<GraphQLSingleRequestSession> {
+                        ServiceError.of(
+                            "request_materialization_graph has not been defined in session [ session.session_id: {} ]",
+                            session.sessionId
+                        )
+                    }
+                }
+                else -> {
+                    dispatchRequestsForCallablesInMaterializationGraph(
+                        session,
+                        requestMaterializationGraph
                     )
                 }
             }
-            else -> {
-                dispatchRequestsForCallablesInMaterializationGraph(
-                    session,
-                    requestMaterializationGraph
-                )
-            }
-        }
+            .doOnNext(dispatchedRequestMaterializationGraphSuccessLogger())
+            .doOnError(dispatchedRequestMaterializationGraphFailureLogger())
     }
 
     private fun dispatchRequestsForCallablesInMaterializationGraph(
@@ -1095,6 +1097,27 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                 dataElementPublishersByPath = drmgc.dataElementPublishersByResultPath,
                 featureCalculatorPublishersByPath = drmgc.featureCalculatorPublishersByResultPath,
                 passThruColumns = drmgc.passThruColumns,
+            )
+        }
+    }
+
+    private fun dispatchedRequestMaterializationGraphSuccessLogger():
+        (GraphQLSingleRequestSession) -> Unit {
+        return { _: GraphQLSingleRequestSession ->
+            logger.info("${METHOD_TAG}: [ status: successful ]")
+        }
+    }
+
+    private fun dispatchedRequestMaterializationGraphFailureLogger(): (Throwable) -> Unit {
+        return { t: Throwable ->
+            logger.info(
+                "${METHOD_TAG}: [ status: failed ][ type: {}, message: {} ]",
+                t.toOption()
+                    .filterIsInstance<ServiceError>()
+                    .and(ServiceError::class.simpleName.toOption())
+                    .orElse { t::class.simpleName.toOption() }
+                    .getOrElse { "<NA>" },
+                t.message
             )
         }
     }

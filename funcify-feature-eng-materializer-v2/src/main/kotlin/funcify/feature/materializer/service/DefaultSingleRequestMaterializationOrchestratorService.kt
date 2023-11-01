@@ -2,6 +2,7 @@ package funcify.feature.materializer.service
 
 import arrow.core.filterIsInstance
 import arrow.core.getOrNone
+import arrow.core.identity
 import arrow.core.lastOrNone
 import arrow.core.orElse
 import arrow.core.toOption
@@ -29,6 +30,7 @@ import kotlinx.collections.immutable.plus
 import org.slf4j.Logger
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
+import reactor.core.publisher.Mono.empty
 
 internal class DefaultSingleRequestMaterializationOrchestratorService(
     private val jsonMapper: JsonMapper,
@@ -100,6 +102,9 @@ internal class DefaultSingleRequestMaterializationOrchestratorService(
             }
             selectedFieldUnderDataElementElementType(session) -> {
                 extractDataElementValueFromSource(session)
+            }
+            selectedFieldUnderTransformerElementType(session) -> {
+                getTransformerPublisher(session, dispatchedRequestMaterializationGraph)
             }
             else -> {
                 Mono.error { ServiceError.of("not yet implemented materialization logic") }
@@ -265,6 +270,43 @@ internal class DefaultSingleRequestMaterializationOrchestratorService(
                         session.dataFetchingEnvironment.getSource()
                     )
                 }
+            }
+        }
+    }
+
+    private fun selectedFieldUnderTransformerElementType(
+        session: SingleRequestFieldMaterializationSession
+    ): Boolean {
+        return session.gqlResultPath.elementSegments.size > 1 &&
+            session.fieldCoordinates
+                .filter { fc: FieldCoordinates ->
+                    session.materializationMetamodel.fieldCoordinatesAvailableUnderPath.invoke(
+                        fc,
+                        session.materializationMetamodel.transformerElementTypePath
+                    )
+                }
+                .isDefined()
+    }
+
+    private fun getTransformerPublisher(
+        session: SingleRequestFieldMaterializationSession,
+        dispatchedRequestMaterializationGraph: DispatchedRequestMaterializationGraph
+    ): Mono<Any?> {
+        return when {
+            session.gqlResultPath in
+                dispatchedRequestMaterializationGraph.transformerPublishersByPath -> {
+                dispatchedRequestMaterializationGraph.transformerPublishersByPath
+                    .getOrNone(session.gqlResultPath)
+                    .map { tp: Mono<JsonNode> ->
+                        tp.flatMap { jn: JsonNode ->
+                            JsonNodeToStandardValueConverter.invoke(jn, session.fieldOutputType)
+                                .toMono()
+                        }
+                    }
+                    .fold(::empty, ::identity)
+            }
+            else -> {
+                Mono.fromSupplier<Map<String, Any?>>(::persistentMapOf).widen()
             }
         }
     }

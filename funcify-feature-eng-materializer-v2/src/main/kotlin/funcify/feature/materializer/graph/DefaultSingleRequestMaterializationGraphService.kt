@@ -1,7 +1,9 @@
 package funcify.feature.materializer.graph
 
+import arrow.core.filterIsInstance
 import arrow.core.getOrElse
 import arrow.core.none
+import arrow.core.orElse
 import arrow.core.some
 import arrow.core.toOption
 import com.google.common.cache.CacheBuilder
@@ -70,6 +72,7 @@ internal class DefaultSingleRequestMaterializationGraphService(
 
     companion object {
         private val logger: Logger = loggerFor<DefaultSingleRequestMaterializationGraphService>()
+        private const val METHOD_TAG: String = "create_request_materialization_graph_for_session"
     }
 
     private val requestMaterializationGraphCache:
@@ -83,36 +86,55 @@ internal class DefaultSingleRequestMaterializationGraphService(
     override fun createRequestMaterializationGraphForSession(
         session: GraphQLSingleRequestSession
     ): Mono<out GraphQLSingleRequestSession> {
-        logger.debug(
-            "create_request_materialization_graph_for_session: [ session.session_id: ${session.sessionId} ]"
-        )
+        logger.debug("$METHOD_TAG: [ session.session_id: ${session.sessionId} ]")
         return when {
-            session.requestMaterializationGraph.isDefined() -> {
-                Mono.just(session)
-            }
-            else -> {
-                Mono.defer { createRequestMaterializationGraphCacheKeyForSession(session) }
-                    .flatMap { rmgck: RequestMaterializationGraphCacheKey ->
-                        when (
-                            val existingGraph: RequestMaterializationGraph? =
-                                requestMaterializationGraphCache[rmgck]
-                        ) {
-                            null -> {
-                                calculateRequestMaterializationGraphForSession(rmgck, session)
-                                    .doOnNext { calculatedGraph: RequestMaterializationGraph ->
-                                        requestMaterializationGraphCache[rmgck] = calculatedGraph
-                                    }
-                                    .map { calculatedGraph: RequestMaterializationGraph ->
+                session.requestMaterializationGraph.isDefined() -> {
+                    Mono.just(session)
+                }
+                else -> {
+                    Mono.defer { createRequestMaterializationGraphCacheKeyForSession(session) }
+                        .flatMap { rmgck: RequestMaterializationGraphCacheKey ->
+                            when (
+                                val existingGraph: RequestMaterializationGraph? =
+                                    requestMaterializationGraphCache[rmgck]
+                            ) {
+                                null -> {
+                                    calculateRequestMaterializationGraphForSession(rmgck, session)
+                                        .doOnNext { calculatedGraph: RequestMaterializationGraph ->
+                                            requestMaterializationGraphCache[rmgck] =
+                                                calculatedGraph
+                                        }
+                                        .map { calculatedGraph: RequestMaterializationGraph ->
+                                            when (
+                                                val e: ServiceError? =
+                                                    calculatedGraph.processingError.orNull()
+                                            ) {
+                                                null -> {
+                                                    session.update {
+                                                        preparsedDocumentEntry(
+                                                            calculatedGraph.preparsedDocumentEntry
+                                                        )
+                                                        requestMaterializationGraph(calculatedGraph)
+                                                    }
+                                                }
+                                                else -> {
+                                                    throw e
+                                                }
+                                            }
+                                        }
+                                }
+                                else -> {
+                                    Mono.fromCallable {
                                         when (
                                             val e: ServiceError? =
-                                                calculatedGraph.processingError.orNull()
+                                                existingGraph.processingError.orNull()
                                         ) {
                                             null -> {
                                                 session.update {
                                                     preparsedDocumentEntry(
-                                                        calculatedGraph.preparsedDocumentEntry
+                                                        existingGraph.preparsedDocumentEntry
                                                     )
-                                                    requestMaterializationGraph(calculatedGraph)
+                                                    requestMaterializationGraph(existingGraph)
                                                 }
                                             }
                                             else -> {
@@ -120,31 +142,13 @@ internal class DefaultSingleRequestMaterializationGraphService(
                                             }
                                         }
                                     }
-                            }
-                            else -> {
-                                Mono.fromCallable {
-                                    when (
-                                        val e: ServiceError? =
-                                            existingGraph.processingError.orNull()
-                                    ) {
-                                        null -> {
-                                            session.update {
-                                                preparsedDocumentEntry(
-                                                    existingGraph.preparsedDocumentEntry
-                                                )
-                                                requestMaterializationGraph(existingGraph)
-                                            }
-                                        }
-                                        else -> {
-                                            throw e
-                                        }
-                                    }
                                 }
                             }
                         }
-                    }
+                }
             }
-        }
+            .doOnNext(requestMaterializationGraphSuccessLogger())
+            .doOnError(requestMaterializationGraphFailureLogger())
     }
 
     private fun createRequestMaterializationGraphCacheKeyForSession(
@@ -560,6 +564,26 @@ internal class DefaultSingleRequestMaterializationGraphService(
                     featureJsonValuePublisherByPath = persistentMapOf(),
                     processingError = se.some()
                 )
+            )
+        }
+    }
+
+    private fun requestMaterializationGraphSuccessLogger(): (GraphQLSingleRequestSession) -> Unit {
+        return { _: GraphQLSingleRequestSession ->
+            logger.info("${METHOD_TAG}: [ status: successful ]")
+        }
+    }
+
+    private fun requestMaterializationGraphFailureLogger(): (Throwable) -> Unit {
+        return { t: Throwable ->
+            logger.info(
+                "${METHOD_TAG}: [ status: failed ][ type: {}, message: {} ]",
+                t.toOption()
+                    .filterIsInstance<ServiceError>()
+                    .and(ServiceError::class.simpleName.toOption())
+                    .orElse { t::class.simpleName.toOption() }
+                    .getOrElse { "<NA>" },
+                t.message
             )
         }
     }
