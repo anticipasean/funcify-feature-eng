@@ -1,13 +1,8 @@
 package funcify.feature.transformer.jq.jackson
 
-import arrow.core.filterIsInstance
-import arrow.core.getOrElse
-import arrow.core.orElse
-import arrow.core.toOption
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.node.ArrayNode
-import com.fasterxml.jackson.databind.node.ContainerNode
 import com.fasterxml.jackson.databind.node.JsonNodeFactory
 import com.fasterxml.jackson.databind.node.ObjectNode
 import com.fasterxml.jackson.module.jsonSchema.JsonSchema
@@ -52,7 +47,7 @@ internal class DefaultJacksonJqTransformer(
         return Mono.fromSupplier {
                 convertIntoScalarNodeIfInputSchemaImpliesUnaryScalarOperation(input)
             }
-            .map { j: JsonNode -> validateInputNodeBeforeExpressionEvaluation(j) }
+            .map { j: JsonNode -> validateInputNodeBeforeJsonQueryEvaluation(j) }
             .flatMapMany { j: JsonNode -> createResultPublisherFromJsonQueryEvaluation(j) }
             .doOnNext { jn: JsonNode? ->
                 if (logger.isDebugEnabled) {
@@ -69,46 +64,33 @@ internal class DefaultJacksonJqTransformer(
     private fun convertIntoScalarNodeIfInputSchemaImpliesUnaryScalarOperation(
         inputNode: JsonNode
     ): JsonNode {
-        return when (inputNode) {
-            !is ContainerNode<*> -> {
+        return when {
+            // TODO: Consider whether input schema type
+            // [com.fasterxml.jackson.module.jsonSchema.types.AnySchema] warrant keeping
+            // input_node as-is
+            inputSchema.isArraySchema || inputSchema.isObjectSchema -> {
                 inputNode
             }
+            inputNode is ArrayNode && inputNode.size() == 1 -> {
+                inputNode.get(0)
+            }
+            inputNode is ObjectNode && inputNode.size() == 1 -> {
+                inputNode.elements().next()
+            }
             else -> {
-                when {
-                    // TODO: Consider whether input schema type
-                    // [com.fasterxml.jackson.module.jsonSchema.types.AnySchema] warrant keeping
-                    // input_node as-is
-                    inputSchema.isArraySchema || inputSchema.isObjectSchema -> {
-                        inputNode
-                    }
-                    else -> {
-                        inputNode
-                            .toOption()
-                            .filterIsInstance<ArrayNode>()
-                            .filter { an: ArrayNode -> an.size() == 1 }
-                            .map { an: ArrayNode -> an.get(0) }
-                            .orElse {
-                                inputNode
-                                    .toOption()
-                                    .filterIsInstance<ObjectNode>()
-                                    .filter { on: ObjectNode -> on.size() == 1 }
-                                    .mapNotNull { on: ObjectNode -> on.elements().next() }
-                            }
-                            .getOrElse { inputNode }
-                    }
-                }
+                inputNode
             }
         }
     }
 
-    private fun validateInputNodeBeforeExpressionEvaluation(j: JsonNode): JsonNode {
+    private fun validateInputNodeBeforeJsonQueryEvaluation(inputNode: JsonNode): JsonNode {
         return try {
-            if (inputValidationSchema.validInstance(j)) {
-                j
+            if (inputValidationSchema.validInstance(inputNode)) {
+                inputNode
             } else {
                 throw ServiceError.of(
                     "input_node [ %s ] flagged as invalid per input_schema [ %s ]",
-                    j,
+                    inputNode,
                     inputSchemaAsNode
                 )
             }
@@ -131,10 +113,12 @@ internal class DefaultJacksonJqTransformer(
      * Should have nullable [JsonNode] content type because underlying Java API may return that, so
      * it should be handled
      */
-    private fun createResultPublisherFromJsonQueryEvaluation(j: JsonNode): Flux<JsonNode?> {
+    private fun createResultPublisherFromJsonQueryEvaluation(
+        inputNode: JsonNode
+    ): Flux<out JsonNode?> {
         return Flux.create<JsonNode?> { s: FluxSink<JsonNode?> ->
             try {
-                jsonQuery.apply(Scope.newChildScope(rootScope), j, s::next)
+                jsonQuery.apply(Scope.newChildScope(rootScope), inputNode, s::next)
                 s.complete()
             } catch (t: Throwable) {
                 s.error(
