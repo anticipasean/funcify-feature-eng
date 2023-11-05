@@ -78,30 +78,38 @@ internal class DefaultSingleRequestMaterializationDispatchService(
         session: GraphQLSingleRequestSession
     ): Mono<out GraphQLSingleRequestSession> {
         logger.info("$METHOD_TAG: [ session.session_id: ${session.sessionId} ]")
-        return when (
-                val requestMaterializationGraph: RequestMaterializationGraph? =
-                    session.requestMaterializationGraph.orNull()
-            ) {
-                null -> {
-                    Mono.error<GraphQLSingleRequestSession> {
-                        ServiceError.of(
-                            "request_materialization_graph has not been defined in session [ session.session_id: {} ]",
-                            session.sessionId
+        return Mono.defer {
+                when (
+                    val requestMaterializationGraph: RequestMaterializationGraph? =
+                        session.requestMaterializationGraph.orNull()
+                ) {
+                    null -> {
+                        requestMaterializationGraphNotDefinedInSessionErrorPublisher(session)
+                    }
+                    else -> {
+                        dispatchRequestsForCallablesInRequestMaterializationGraph(
+                            session,
+                            requestMaterializationGraph
                         )
                     }
-                }
-                else -> {
-                    dispatchRequestsForCallablesInMaterializationGraph(
-                        session,
-                        requestMaterializationGraph
-                    )
                 }
             }
             .doOnNext(dispatchedRequestMaterializationGraphSuccessLogger())
             .doOnError(dispatchedRequestMaterializationGraphFailureLogger())
     }
 
-    private fun dispatchRequestsForCallablesInMaterializationGraph(
+    private fun requestMaterializationGraphNotDefinedInSessionErrorPublisher(
+        session: GraphQLSingleRequestSession
+    ): Mono<GraphQLSingleRequestSession> {
+        return Mono.error {
+            ServiceError.of(
+                "request_materialization_graph has not been defined in session [ session.session_id: {} ]",
+                session.sessionId
+            )
+        }
+    }
+
+    private fun dispatchRequestsForCallablesInRequestMaterializationGraph(
         session: GraphQLSingleRequestSession,
         requestMaterializationGraph: RequestMaterializationGraph,
     ): Mono<out GraphQLSingleRequestSession> {
@@ -479,18 +487,15 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                             .get(path)
                             .toOption()
                             .filterIsInstance<SelectedFieldComponentContext>()
-                            .zip(context.rawInputContext)
-                            .flatMap {
-                                (
-                                    sfcc: SelectedFieldComponentContext,
-                                    ric: RawInputContext,
-                                ),
-                                ->
-                                ric.get(sfcc.fieldCoordinates.fieldName).map { jn: JsonNode ->
-                                    sfcc.fieldCoordinates.fieldName to jn
+                            .flatMap { sfcc: SelectedFieldComponentContext ->
+                                context.rawInputContext.flatMap { ric: RawInputContext ->
+                                    // TODO: Add lookup by alias here to for raw_input_context if
+                                    // decided worthwhile
+                                    ric.get(sfcc.fieldCoordinates.fieldName).map { jn: JsonNode ->
+                                        Triple(path, sfcc.fieldCoordinates.fieldName, jn)
+                                    }
                                 }
                             }
-                            .map { (n: String, jn: JsonNode) -> Triple(path, n, jn) }
                             .successIfDefined {
                                 ServiceError.of(
                                     "raw_input_context does not contain value for key [ field_name: %s ]",
@@ -529,6 +534,13 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                     c: DispatchedRequestMaterializationGraphContext,
                     (p: GQLOperationPath, fcc: FeatureCalculatorCallable) ->
                     dispatchFeatureCalculatorCallable(c, p, fcc)
+                }
+                .doOnNext { c: DispatchedRequestMaterializationGraphContext ->
+                    logger.debug(
+                        "feature_calculator_callables created: operation_paths: {}, result_paths: {}",
+                        c.featureCalculatorPublishersByOperationPath.keys,
+                        c.featureCalculatorPublishersByResultPath.keys
+                    )
                 }
         }
     }
@@ -685,11 +697,17 @@ internal class DefaultSingleRequestMaterializationDispatchService(
         path: GQLOperationPath,
         featureCalculatorCallable: FeatureCalculatorCallable
     ): Try<TrackableValue.PlannedValue<JsonNode>> {
+        val CREATE_TV_METHOD_TAG: String = "create_trackable_json_value_for_feature_calculation"
         val dependentArgPaths: ImmutableSet<GQLOperationPath> =
             context.requestMaterializationGraph.featureArgumentDependenciesSetByPathAndIndex.invoke(
                 path,
                 argumentGroupIndex
             )
+        logger.debug(
+            "${CREATE_TV_METHOD_TAG}: [ path: {}, dependent_args: {} ]",
+            path,
+            dependentArgPaths
+        )
         return when {
             dependentArgPaths.isEmpty() &&
                 featureCalculatorCallable.argumentsByPath.isNotEmpty() -> {
@@ -751,6 +769,25 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                     .flatMap { b: TrackableValue.PlannedValue.Builder ->
                         b.buildForInstanceOf<JsonNode>()
                     }
+                    .peek(
+                        { tv: TrackableValue.PlannedValue<JsonNode> ->
+                            logger.info(
+                                "${CREATE_TV_METHOD_TAG}: [ status: successful ][ trackable_value: {} ]",
+                                tv
+                            )
+                        },
+                        { t: Throwable ->
+                            logger.info(
+                                "${CREATE_TV_METHOD_TAG}: [ status: failed ][ type: {}, message: {} ]",
+                                t.toOption()
+                                    .filterIsInstance<ServiceError>()
+                                    .and(ServiceError::class.simpleName.toOption())
+                                    .orElse { t::class.simpleName.toOption() }
+                                    .getOrElse { "<NA>" },
+                                t.message
+                            )
+                        }
+                    )
             }
         }
     }

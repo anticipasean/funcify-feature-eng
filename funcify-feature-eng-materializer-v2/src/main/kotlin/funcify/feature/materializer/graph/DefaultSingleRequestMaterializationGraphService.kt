@@ -13,8 +13,8 @@ import funcify.feature.graph.line.Line
 import funcify.feature.materializer.graph.component.DefaultQueryComponentContextFactory
 import funcify.feature.materializer.graph.component.QueryComponentContext
 import funcify.feature.materializer.graph.component.QueryComponentContextFactory
+import funcify.feature.materializer.graph.connector.LazyStandardQueryTraverser
 import funcify.feature.materializer.graph.connector.StandardQueryConnector
-import funcify.feature.materializer.graph.connector.StandardQueryTraverser
 import funcify.feature.materializer.graph.connector.TabularQueryDocumentCreator
 import funcify.feature.materializer.graph.context.DefaultRequestMaterializationGraphContextFactory
 import funcify.feature.materializer.graph.context.RequestMaterializationGraphContext
@@ -404,7 +404,7 @@ internal class DefaultSingleRequestMaterializationGraphService(
                 when (context) {
                     is StandardQuery -> {
                         val connector = StandardQueryConnector
-                        StandardQueryTraverser.invoke(context).fold(context) {
+                        LazyStandardQueryTraverser.invoke(context).fold(context) {
                             sq: StandardQuery,
                             qcc: QueryComponentContext ->
                             when (qcc) {

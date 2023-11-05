@@ -192,7 +192,11 @@ internal class DefaultJqTransformerSource(
             }
 
             override fun invoke(arguments: ImmutableMap<String, JsonNode>): Mono<JsonNode> {
-                logger.info("{}: [ arguments.keys: {} ]", METHOD_TAG, arguments.keys)
+                logger.info(
+                    "{}: [ arguments.keys: {} ]",
+                    METHOD_TAG,
+                    arguments.keys.asSequence().joinToString(", ", "{ ", " }")
+                )
                 return Flux.merge(
                         argumentsByName
                             .asSequence()

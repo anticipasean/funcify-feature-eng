@@ -15,6 +15,7 @@ import funcify.feature.tools.container.attempt.Try.Companion.filterInstanceOf
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.extensions.TryExtensions.successIfNonNull
 import graphql.schema.GraphQLOutputType
+import graphql.schema.GraphQLTypeUtil
 import java.time.Instant
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.ImmutableSet
@@ -117,7 +118,8 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
                     graphQLOutputType == null -> {
                         Try.failure(
                             ServiceError.of(
-                                """graphql_output_type must be provided for planned_value""".flatten()
+                                """graphql_output_type must be provided for planned_value"""
+                                    .flatten()
                             )
                         )
                     }
@@ -183,7 +185,8 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
                     graphQLOutputType == null -> {
                         Try.failure(
                             ServiceError.of(
-                                """graphql_output_type must be provided for calculated_value""".flatten()
+                                """graphql_output_type must be provided for calculated_value"""
+                                    .flatten()
                             )
                         )
                     }
@@ -231,8 +234,7 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
                             .map(CalculatedValue<V>::contextualParameters)
                     }
                     .map { m -> m.toPersistentMap().builder() }
-                    .orNull()
-                    ?: persistentMapOf<String, JsonNode>().builder(),
+                    .orNull() ?: persistentMapOf<String, JsonNode>().builder(),
             override var graphQLOutputType: GraphQLOutputType? =
                 existingPlannedValue
                     .toOption()
@@ -328,7 +330,8 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
                     graphQLOutputType == null -> {
                         Try.failure(
                             ServiceError.of(
-                                """graphql_output_type must be provided for tracked_value""".flatten()
+                                """graphql_output_type must be provided for tracked_value"""
+                                    .flatten()
                             )
                         )
                     }
@@ -390,6 +393,24 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
                     .filterInstanceOf<TrackableValue<V>>()
                     .orElseGet { this }
             }
+
+            override fun toString(): String {
+                return buildString {
+                    append(PlannedValue::class.simpleName)
+                    append('(')
+                    append("operation_path:${operationPath}")
+                    append(',')
+                    append(
+                        contextualParameters
+                            .asSequence()
+                            .map { (n: String, j: JsonNode) -> "${n}:${j}" }
+                            .joinToString(",", "contextual_parameters:{", "}")
+                    )
+                    append(',')
+                    append("graphql_output_type:${GraphQLTypeUtil.simplePrint(graphQLOutputType)}")
+                    append(')')
+                }
+            }
         }
 
         internal data class DefaultCalculatedValue<V>(
@@ -425,6 +446,27 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
                     .filterInstanceOf<TrackableValue<V>>()
                     .orElse(this)
             }
+
+            override fun toString(): String {
+                return buildString {
+                    append(CalculatedValue::class.simpleName)
+                    append('(')
+                    append("operation_path:${operationPath}")
+                    append(',')
+                    append(
+                        contextualParameters
+                            .asSequence()
+                            .map { (n: String, j: JsonNode) -> "${n}:${j}" }
+                            .joinToString(",", "contextual_parameters:{", "}")
+                    )
+                    append(',')
+                    append("graphql_output_type:${GraphQLTypeUtil.simplePrint(graphQLOutputType)}")
+                    append(',')
+                    append("calculated_value:${calculatedValue},")
+                    append("calculated_timestamp:${calculatedTimestamp}")
+                    append(')')
+                }
+            }
         }
 
         internal data class DefaultTrackedValue<V>(
@@ -456,6 +498,31 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
                     )
                     .build()
                     .orElse(this)
+            }
+
+            override fun toString(): String {
+                return buildString {
+                    append(TrackedValue::class.simpleName)
+                    append('(')
+                    append("operation_path:${operationPath}")
+                    append(',')
+                    append(
+                        contextualParameters
+                            .asSequence()
+                            .map { (n: String, j: JsonNode) -> "${n}:${j}" }
+                            .joinToString(",", "contextual_parameters:{", "}")
+                    )
+                    append(',')
+                    append("canonical_path:${canonicalPath}")
+                    append(',')
+                    append(referencePaths.asSequence().joinToString(",", "reference_paths:{", "}"))
+                    append(',')
+                    append("graphql_output_type:${GraphQLTypeUtil.simplePrint(graphQLOutputType)}")
+                    append(',')
+                    append("tracked_value:${trackedValue},")
+                    append("value_at_timestamp:${valueAtTimestamp}")
+                    append(')')
+                }
             }
         }
     }

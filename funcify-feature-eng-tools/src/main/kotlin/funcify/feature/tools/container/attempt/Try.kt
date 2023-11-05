@@ -47,6 +47,7 @@ sealed interface Try<out S> : Iterable<S> {
                 Failure<S>(throwable)
             }
         }
+
         @JvmStatic
         fun <S> success(successfulResult: S): Try<S> {
             return nullableSuccess(successfulResult)
@@ -859,7 +860,8 @@ sealed interface Try<out S> : Iterable<S> {
                     successObserver.invoke(result)
                     success<S>(result)
                 } catch (t: Throwable) {
-                    failure<S>(t)
+                    // ignore any throwable that occurs within peek
+                    success<S>(result)
                 }
             },
             { throwable: Throwable ->
@@ -867,7 +869,8 @@ sealed interface Try<out S> : Iterable<S> {
                     failureObserver.invoke(throwable)
                     failure<S>(throwable)
                 } catch (t: Throwable) {
-                    failure<S>(t)
+                    // ignore any throwable that occurs within peek
+                    failure<S>(throwable)
                 }
             }
         )

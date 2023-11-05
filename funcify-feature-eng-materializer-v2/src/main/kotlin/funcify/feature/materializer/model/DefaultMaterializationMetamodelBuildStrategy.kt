@@ -122,7 +122,7 @@ internal class DefaultMaterializationMetamodelBuildStrategy :
                 )
                 logger.debug(
                     "data_element_paths_by_field_argument_name: {}",
-                    mmf.dataElementPathsByFieldArgumentName.asSequence().joinToString("\n") {
+                    mmf.dataElementPathsByFieldArgumentName.asSequence().joinToString("{\n", ",\n", " }") {
                         (fn, ps) ->
                         "${fn}: ${ps.asSequence().joinToString(", ")}"
                     }

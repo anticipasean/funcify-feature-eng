@@ -25,6 +25,7 @@ import funcify.feature.tools.json.JsonMapper
 import graphql.schema.FieldCoordinates
 import java.util.*
 import kotlinx.collections.immutable.PersistentMap
+import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.plus
 import org.slf4j.Logger
@@ -95,16 +96,27 @@ internal class DefaultSingleRequestMaterializationOrchestratorService(
                 )
             }
             selectedFieldRefersToTransformerElementType(session) -> {
-                Mono.fromSupplier<Map<String, JsonNode>>(Collections::emptyMap).widen()
+                Mono.fromSupplier<Map<String, JsonNode>>(::persistentMapOf).widen()
             }
             selectedFieldRefersToFeaturesElementType(session) -> {
-                Mono.fromSupplier<List<JsonNode>>(Collections::emptyList).widen()
+                Mono.fromSupplier<List<JsonNode>>(::persistentListOf).widen()
             }
             selectedFieldUnderDataElementElementType(session) -> {
                 extractDataElementValueFromSource(session)
             }
             selectedFieldUnderTransformerElementType(session) -> {
-                getTransformerPublisher(session, dispatchedRequestMaterializationGraph)
+                getTransformerPublisherForGQLResultPath(
+                    session,
+                    dispatchedRequestMaterializationGraph
+                )
+            }
+            selectedFieldUnderFeaturesElementType(session) -> {
+                Mono.error {
+                    ServiceError.of(
+                        "features extraction not yet supported: [ path: %s ]",
+                        session.gqlResultPath
+                    )
+                }
             }
             else -> {
                 Mono.error { ServiceError.of("not yet implemented materialization logic") }
@@ -288,7 +300,7 @@ internal class DefaultSingleRequestMaterializationOrchestratorService(
                 .isDefined()
     }
 
-    private fun getTransformerPublisher(
+    private fun getTransformerPublisherForGQLResultPath(
         session: SingleRequestFieldMaterializationSession,
         dispatchedRequestMaterializationGraph: DispatchedRequestMaterializationGraph
     ): Mono<Any?> {
@@ -309,5 +321,19 @@ internal class DefaultSingleRequestMaterializationOrchestratorService(
                 Mono.fromSupplier<Map<String, Any?>>(::persistentMapOf).widen()
             }
         }
+    }
+
+    private fun selectedFieldUnderFeaturesElementType(
+        session: SingleRequestFieldMaterializationSession
+    ): Boolean {
+        return session.gqlResultPath.elementSegments.size > 1 &&
+            session.fieldCoordinates
+                .filter { fc: FieldCoordinates ->
+                    session.materializationMetamodel.fieldCoordinatesAvailableUnderPath.invoke(
+                        fc,
+                        session.materializationMetamodel.featureElementTypePath
+                    )
+                }
+                .isDefined()
     }
 }

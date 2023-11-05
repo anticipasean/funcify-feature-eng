@@ -26,6 +26,7 @@ import graphql.language.*
 import graphql.schema.GraphQLInterfaceType
 import graphql.schema.GraphQLList
 import graphql.schema.GraphQLNonNull
+import graphql.schema.GraphQLObjectType
 import graphql.schema.GraphQLType
 import graphql.schema.GraphQLTypeUtil
 import graphql.schema.TypeResolver
@@ -52,6 +53,7 @@ internal class SubtypingDirectiveInterfaceSubtypeResolverFactory :
 
     companion object {
         private val logger: Logger = loggerFor<SubtypingDirectiveInterfaceSubtypeResolverFactory>()
+        private const val TYPE_RESOLVER_METHOD_TAG: String = "resolve_object_type"
         private const val STRATEGY_ARGUMENT_NAME: String = "strategy"
         private const val DISCRIMINATOR_FIELD_NAME_ARGUMENT_NAME: String = "discriminatorFieldName"
         private const val FIELD_NAME_ARGUMENT_NAME: String = "fieldName"
@@ -517,7 +519,8 @@ internal class SubtypingDirectiveInterfaceSubtypeResolverFactory :
     ): TypeResolver {
         return TypeResolver { env: TypeResolutionEnvironment ->
             logger.info(
-                "resolve_object_type: [ env.field.name: {}, env.fieldType: {} ]",
+                "$TYPE_RESOLVER_METHOD_TAG: [ strategy: {}, env.field.name: {}, env.fieldType: {} ]",
+                FIELD_NAME_SUBTYPING_STRATEGY_ENUM_VALUE,
                 env.field.name,
                 GraphQLTypeUtil.simplePrint(env.fieldType)
             )
@@ -547,6 +550,7 @@ internal class SubtypingDirectiveInterfaceSubtypeResolverFactory :
                         GraphQLTypeUtil.simplePrint(env.fieldType)
                     )
                 }
+                .peek(successLogger(), failureLogger())
                 .orElseThrow()
         }
     }
@@ -556,9 +560,12 @@ internal class SubtypingDirectiveInterfaceSubtypeResolverFactory :
     ): TypeResolver {
         return TypeResolver { env: TypeResolutionEnvironment ->
             logger.info(
-                "resolve_object_type: [ env.field.name: {}, env.fieldType: {}, env.object: {} ]",
+                "$TYPE_RESOLVER_METHOD_TAG: [ strategy: {}, env.field.name: {}, env.field_type: {}, env.object: {} ]",
+                FIELD_VALUE_SUBTYPING_STRATEGY_ENUM_VALUE,
                 env.field.name,
                 GraphQLTypeUtil.simplePrint(env.fieldType),
+                // TODO: Remove after application has reached deployable state in order to avoid
+                // printing large objects into the logs slowing down processing
                 env.getObject()
             )
             env.fieldType
@@ -606,7 +613,31 @@ internal class SubtypingDirectiveInterfaceSubtypeResolverFactory :
                         GraphQLTypeUtil.simplePrint(env.fieldType)
                     )
                 }
+                .peek(successLogger(), failureLogger())
                 .orElseThrow()
+        }
+    }
+
+    private fun successLogger(): (GraphQLObjectType) -> Unit {
+        return { got: GraphQLObjectType ->
+            logger.info(
+                "${TYPE_RESOLVER_METHOD_TAG}: [ status: successful ][ resolved_object_type.name: {} ]",
+                got.name
+            )
+        }
+    }
+
+    private fun failureLogger(): (Throwable) -> Unit {
+        return { t: Throwable ->
+            logger.error(
+                "${TYPE_RESOLVER_METHOD_TAG}: [ status: failed ][ type: {}, message: {} ]",
+                t.toOption()
+                    .filterIsInstance<ServiceError>()
+                    .and(ServiceError::class.simpleName.toOption())
+                    .orElse { t::class.simpleName.toOption() }
+                    .getOrElse { "<NA>" },
+                t.message
+            )
         }
     }
 }
