@@ -2,7 +2,9 @@ package funcify.feature.stream
 
 import arrow.core.filterIsInstance
 import arrow.core.foldLeft
+import arrow.core.getOrElse
 import arrow.core.identity
+import arrow.core.orElse
 import arrow.core.toOption
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
@@ -11,6 +13,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode
 import com.fasterxml.jackson.databind.node.TextNode
 import funcify.feature.datasource.graphql.GraphQLApiDataElementSourceProvider
 import funcify.feature.datasource.graphql.GraphQLApiDataElementSourceProviderFactory
+import funcify.feature.error.ServiceError
 import funcify.feature.file.FileRegistryFeatureCalculatorProvider
 import funcify.feature.file.FileRegistryFeatureCalculatorProviderFactory
 import funcify.feature.materializer.input.RawInputContext
@@ -251,7 +254,11 @@ class StreamFunctions {
                             .doOnError { t: Throwable ->
                                 logger.error(
                                     "materialize_features: [ status: failed ][ type: {}, message: {} ]",
-                                    t::class.qualifiedName,
+                                    t.toOption()
+                                        .filterIsInstance<ServiceError>()
+                                        .and(ServiceError::class.simpleName.toOption())
+                                        .orElse { t::class.simpleName.toOption() }
+                                        .getOrElse { "<NA>" },
                                     t.message,
                                     t
                                 )

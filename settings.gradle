@@ -4,7 +4,7 @@ pluginManagement {
     }
 }
 rootProject.name = 'funcify-feature-eng'
-include('funcify-feature-eng-beam')
+//include('funcify-feature-eng-beam')
 include('funcify-feature-eng-common')
 include('funcify-feature-eng-file-registry')
 include('funcify-feature-eng-gql-data-source')

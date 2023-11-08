@@ -698,7 +698,7 @@ internal object LazyStandardQueryTraverser : (StandardQuery) -> Iterable<QueryCo
                     is FragmentSpread -> {
                         fragmentDefinitionsByName
                             .getOrNone(s.name)
-                            .map { fd: FragmentDefinition -> fd.selectionSet }
+                            .mapNotNull(FragmentDefinition::getSelectionSet)
                             .mapNotNull(SelectionSet::getSelections)
                             .fold(::emptySequence, List<Selection<*>>::asSequence)
                             .map(Selection<*>::left)
