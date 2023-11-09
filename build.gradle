@@ -70,6 +70,69 @@ ext.mainKotlinSubProjects = subprojects.findAll { Project p ->
     }
 }
 
+def Action<org.gradle.api.artifacts.Configuration> projectWideConfigurationConstraintsAction = { org.gradle.api.artifacts.Configuration c ->
+    c.resolutionStrategy { org.gradle.api.artifacts.ResolutionStrategy rs ->
+        /**
+         * Issue: "Unable to load io.netty.resolver.dns.macos.MacOSDnsServerAddressStreamProvider,
+         * fallback to system defaults. This may result in incorrect DNS resolutions on MacOS."
+         * Solution: osx-aarch_64 classified version of Netty
+         * https://repo1.maven.org/maven2/io/netty/netty-resolver-dns-native-macos/4.1.58.Final/
+         *
+         * Upgrade all netty deps to same higher version that support aarch_64 Apple's M1 chip
+         * with a different classifier dns resolver for native MacOS: aarch_64 instead of x86_64
+         * if building on a MacOS. Otherwise, use default version specified by io.projectreactor group
+         */
+        rs.dependencySubstitution { org.gradle.api.artifacts.DependencySubstitutions dss ->
+            dss.all { org.gradle.api.artifacts.DependencySubstitution ds ->
+                if (ds.requested instanceof org.gradle.api.artifacts.component.ModuleComponentSelector &&
+                        ds.requested.group == "io.netty" &&
+                        ds.requested.module == "netty-resolver-dns-native-macos" &&
+                        org.gradle.nativeplatform.platform.internal.DefaultNativePlatform.currentOperatingSystem.isMacOsX() &&
+                        org.gradle.nativeplatform.platform.internal.DefaultNativePlatform.currentArchitecture.name == 'aarch64') {
+                    ds.useTarget("io.netty:netty-resolver-dns-native-macos:${nettyVersion}:osx-aarch_64")
+                    ds.artifactSelection { org.gradle.api.artifacts.ArtifactSelectionDetails asd ->
+                        asd.selectArtifact("jar", "jar", "osx-aarch_64")
+                    }
+                }
+                if (ds.requested instanceof org.gradle.api.artifacts.component.ModuleComponentSelector &&
+                        ds.requested.group == "io.netty" &&
+                        ds.requested.module == "netty-transport-native-epoll" &&
+                        org.gradle.nativeplatform.platform.internal.DefaultNativePlatform.currentArchitecture.name == 'aarch64') {
+                    ds.useTarget("io.netty:netty-transport-native-epoll:${nettyVersion}:linux-aarch_64")
+                    ds.artifactSelection { org.gradle.api.artifacts.ArtifactSelectionDetails asd ->
+                        asd.selectArtifact("jar", "jar", "linux-aarch_64")
+                    }
+                }
+            }
+        }
+        rs.eachDependency { org.gradle.api.artifacts.DependencyResolveDetails d ->
+            // gcp pubsub 4.5.0 uses spring-boot 3.0.6 => Update spring-boot version
+            if (d.requested.group == 'org.springframework.boot') {
+                d.useVersion(springBootPluginVersion)
+            }
+            // gcp stream-binder 4.5.0 uses spring-framework 6.0.9 => Update springframework version
+            if (d.requested.group == 'org.springframework') {
+                d.useVersion(springFrameworkVersion)
+            }
+            if (d.requested.group == 'org.reactivestreams') {
+                d.useVersion(reactiveStreamsVersion)
+            }
+            if (d.requested.group == 'org.junit.jupiter') {
+                d.useVersion(jUnitJupiterVersion)
+            }
+            if (d.requested.group == 'org.junit.platform') {
+                d.useVersion(jUnitPlatformVersion)
+            }
+            if (d.requested.group.startsWith('com.fasterxml.jackson.')) {
+                d.useVersion(jacksonVersion)
+            }
+            if (d.requested.group == 'io.netty') {
+                d.useVersion(nettyVersion)
+            }
+        }
+    }
+}
+
 configure(sharedGraphQLDefinitionKotlinProjects) {
     apply plugin: 'idea'
     apply plugin: 'org.jetbrains.kotlin.jvm'
@@ -108,60 +171,7 @@ configure(sharedToolsKotlinProjects) {
     sourceCompatibility = sourceCompatibility
     targetCompatibility = targetCompatibility
     configurations {
-        configureEach { org.gradle.api.artifacts.Configuration c ->
-            c.resolutionStrategy { org.gradle.api.artifacts.ResolutionStrategy rs ->
-                /**
-                 * Issue: "Unable to load io.netty.resolver.dns.macos.MacOSDnsServerAddressStreamProvider,
-                 * fallback to system defaults. This may result in incorrect DNS resolutions on MacOS."
-                 * Solution: osx-aarch_64 classified version of Netty
-                 * https://repo1.maven.org/maven2/io/netty/netty-resolver-dns-native-macos/4.1.58.Final/
-                 *
-                 * Upgrade all netty deps to same higher version that support aarch_64 Apple's M1 chip
-                 * with a different classifier dns resolver for native MacOS: aarch_64 instead of x86_64
-                 * if building on a MacOS. Otherwise, use default version specified by io.projectreactor group
-                 */
-                rs.dependencySubstitution { org.gradle.api.artifacts.DependencySubstitutions dss ->
-                    dss.all { org.gradle.api.artifacts.DependencySubstitution ds ->
-                        if (ds.requested instanceof org.gradle.api.artifacts.component.ModuleComponentSelector &&
-                                ds.requested.group == "io.netty" &&
-                                ds.requested.module == "netty-resolver-dns-native-macos" &&
-                                org.gradle.nativeplatform.platform.internal.DefaultNativePlatform.currentOperatingSystem.isMacOsX() &&
-                                org.gradle.nativeplatform.platform.internal.DefaultNativePlatform.currentArchitecture.name == 'aarch64') {
-                            ds.useTarget("io.netty:netty-resolver-dns-native-macos:${nettyVersion}:osx-aarch_64")
-                            ds.artifactSelection { org.gradle.api.artifacts.ArtifactSelectionDetails asd ->
-                                asd.selectArtifact("jar", "jar", "osx-aarch_64")
-                            }
-                        }
-                        if (ds.requested instanceof org.gradle.api.artifacts.component.ModuleComponentSelector &&
-                                ds.requested.group == "io.netty" &&
-                                ds.requested.module == "netty-transport-native-epoll" &&
-                                org.gradle.nativeplatform.platform.internal.DefaultNativePlatform.currentArchitecture.name == 'aarch64') {
-                            ds.useTarget("io.netty:netty-transport-native-epoll:${nettyVersion}:linux-aarch_64")
-                            ds.artifactSelection { org.gradle.api.artifacts.ArtifactSelectionDetails asd ->
-                                asd.selectArtifact("jar", "jar", "linux-aarch_64")
-                            }
-                        }
-                    }
-                }
-                rs.eachDependency { org.gradle.api.artifacts.DependencyResolveDetails d ->
-                    if (d.requested.group == 'org.reactivestreams') {
-                        d.useVersion(reactiveStreamsVersion)
-                    }
-                    if (d.requested.group == 'org.junit.jupiter') {
-                        d.useVersion(jUnitJupiterVersion)
-                    }
-                    if (d.requested.group == 'org.junit.platform') {
-                        d.useVersion(jUnitPlatformVersion)
-                    }
-                    if (d.requested.group.startsWith('com.fasterxml.jackson.')) {
-                        d.useVersion(jacksonVersion)
-                    }
-                    if (d.requested.group == 'io.netty') {
-                        d.useVersion(nettyVersion)
-                    }
-                }
-            }
-        }
+        configureEach(projectWideConfigurationConstraintsAction)
         kotlinDeps {
             dependencies {
                 implementation("org.jetbrains.kotlin:kotlin-stdlib:${kotlinVersion}")
@@ -211,57 +221,13 @@ configure(apacheBeamSubProjects) {
     apply plugin: 'org.jetbrains.kotlin.plugin.spring'
 
     configurations {
+        configureEach(projectWideConfigurationConstraintsAction)
         configureEach { org.gradle.api.artifacts.Configuration c ->
             c.resolutionStrategy { org.gradle.api.artifacts.ResolutionStrategy rs ->
-                /**
-                 * Issue: "Unable to load io.netty.resolver.dns.macos.MacOSDnsServerAddressStreamProvider,
-                 * fallback to system defaults. This may result in incorrect DNS resolutions on MacOS."
-                 * Solution: osx-aarch_64 classified version of Netty
-                 * https://repo1.maven.org/maven2/io/netty/netty-resolver-dns-native-macos/4.1.58.Final/
-                 *
-                 * Upgrade all netty deps to same higher version that support aarch_64 Apple's M1 chip
-                 * with a different classifier dns resolver for native MacOS: aarch_64 instead of x86_64
-                 * if building on a MacOS. Otherwise, use default version specified by io.projectreactor group
-                 */
-                rs.dependencySubstitution { org.gradle.api.artifacts.DependencySubstitutions dss ->
-                    dss.all { org.gradle.api.artifacts.DependencySubstitution ds ->
-                        if (ds.requested instanceof org.gradle.api.artifacts.component.ModuleComponentSelector &&
-                                ds.requested.group == "io.netty" &&
-                                ds.requested.module == "netty-resolver-dns-native-macos" &&
-                                org.gradle.nativeplatform.platform.internal.DefaultNativePlatform.currentOperatingSystem.isMacOsX() &&
-                                org.gradle.nativeplatform.platform.internal.DefaultNativePlatform.currentArchitecture.name == 'aarch64') {
-                            ds.useTarget("io.netty:netty-resolver-dns-native-macos:${nettyVersion}:osx-aarch_64")
-                            ds.artifactSelection { org.gradle.api.artifacts.ArtifactSelectionDetails asd ->
-                                asd.selectArtifact("jar", "jar", "osx-aarch_64")
-                            }
-                        }
-                        if (ds.requested instanceof org.gradle.api.artifacts.component.ModuleComponentSelector &&
-                                ds.requested.group == "io.netty" &&
-                                ds.requested.module == "netty-transport-native-epoll" &&
-                                org.gradle.nativeplatform.platform.internal.DefaultNativePlatform.currentArchitecture.name == 'aarch64') {
-                            ds.useTarget("io.netty:netty-transport-native-epoll:${nettyVersion}:linux-aarch_64")
-                            ds.artifactSelection { org.gradle.api.artifacts.ArtifactSelectionDetails asd ->
-                                asd.selectArtifact("jar", "jar", "linux-aarch_64")
-                            }
-                        }
-                    }
-                }
                 rs.eachDependency { org.gradle.api.artifacts.DependencyResolveDetails d ->
                     if (d.requested.group == 'org.xerial.snappy' && d.requested.name == 'snappy-java') {
                         // versions [1.1.8.3, 1.1.8.4] have support for Mac.aarch64 but lack ZappyOutputStream implementations
                         d.useVersion("1.1.8.2")
-                    }
-                    if (d.requested.group == 'org.junit.jupiter') {
-                        d.useVersion(jUnitJupiterVersion)
-                    }
-                    if (d.requested.group == 'org.junit.platform') {
-                        d.useVersion(jUnitPlatformVersion)
-                    }
-                    if (d.requested.group.startsWith('com.fasterxml.jackson.')) {
-                        d.useVersion(jacksonVersion)
-                    }
-                    if (d.requested.group == 'io.netty') {
-                        d.useVersion(nettyVersion)
                     }
                 }
             }
@@ -351,68 +317,7 @@ configure(streamSubProjects) {
     apply plugin: 'org.jetbrains.kotlin.plugin.spring'
 
     configurations {
-        configureEach { org.gradle.api.artifacts.Configuration c ->
-            c.resolutionStrategy { org.gradle.api.artifacts.ResolutionStrategy rs ->
-                /**
-                 * Issue: "Unable to load io.netty.resolver.dns.macos.MacOSDnsServerAddressStreamProvider,
-                 * fallback to system defaults. This may result in incorrect DNS resolutions on MacOS."
-                 * Solution: osx-aarch_64 classified version of Netty
-                 * https://repo1.maven.org/maven2/io/netty/netty-resolver-dns-native-macos/4.1.58.Final/
-                 *
-                 * Upgrade all netty deps to same higher version that support aarch_64 Apple's M1 chip
-                 * with a different classifier dns resolver for native MacOS: aarch_64 instead of x86_64
-                 * if building on a MacOS. Otherwise, use default version specified by io.projectreactor group
-                 */
-                rs.dependencySubstitution { org.gradle.api.artifacts.DependencySubstitutions dss ->
-                    dss.all { org.gradle.api.artifacts.DependencySubstitution ds ->
-                        if (ds.requested instanceof org.gradle.api.artifacts.component.ModuleComponentSelector &&
-                                ds.requested.group == "io.netty" &&
-                                ds.requested.module == "netty-resolver-dns-native-macos" &&
-                                org.gradle.nativeplatform.platform.internal.DefaultNativePlatform.currentOperatingSystem.isMacOsX() &&
-                                org.gradle.nativeplatform.platform.internal.DefaultNativePlatform.currentArchitecture.name == 'aarch64') {
-                            ds.useTarget("io.netty:netty-resolver-dns-native-macos:${nettyVersion}:osx-aarch_64")
-                            ds.artifactSelection { org.gradle.api.artifacts.ArtifactSelectionDetails asd ->
-                                asd.selectArtifact("jar", "jar", "osx-aarch_64")
-                            }
-                        }
-                        if (ds.requested instanceof org.gradle.api.artifacts.component.ModuleComponentSelector &&
-                                ds.requested.group == "io.netty" &&
-                                ds.requested.module == "netty-transport-native-epoll" &&
-                                org.gradle.nativeplatform.platform.internal.DefaultNativePlatform.currentArchitecture.name == 'aarch64') {
-                            ds.useTarget("io.netty:netty-transport-native-epoll:${nettyVersion}:linux-aarch_64")
-                            ds.artifactSelection { org.gradle.api.artifacts.ArtifactSelectionDetails asd ->
-                                asd.selectArtifact("jar", "jar", "linux-aarch_64")
-                            }
-                        }
-                    }
-                }
-                rs.eachDependency { org.gradle.api.artifacts.DependencyResolveDetails d ->
-                    // gcp pubsub 4.5.0 uses spring-boot 3.0.6 => Update spring-boot version
-                    if (d.requested.group == 'org.springframework.boot') {
-                        d.useVersion(springBootPluginVersion)
-                    }
-                    // gcp stream-binder 4.5.0 uses spring-framework 6.0.9 => Update springframework version
-                    if (d.requested.group == 'org.springframework') {
-                        d.useVersion(springFrameworkVersion)
-                    }
-                    if (d.requested.group == 'org.reactivestreams') {
-                        d.useVersion(reactiveStreamsVersion)
-                    }
-                    if (d.requested.group == 'org.junit.jupiter') {
-                        d.useVersion(jUnitJupiterVersion)
-                    }
-                    if (d.requested.group == 'org.junit.platform') {
-                        d.useVersion(jUnitPlatformVersion)
-                    }
-                    if (d.requested.group.startsWith('com.fasterxml.jackson.')) {
-                        d.useVersion(jacksonVersion)
-                    }
-                    if (d.requested.group == 'io.netty') {
-                        d.useVersion(nettyVersion)
-                    }
-                }
-            }
-        }
+        configureEach(projectWideConfigurationConstraintsAction)
         kotlinDeps {
             dependencies {
                 implementation("org.jetbrains.kotlin:kotlin-stdlib:${kotlinVersion}")
@@ -498,68 +403,7 @@ configure(materializerProjects) {
     apply plugin: 'org.jetbrains.kotlin.plugin.spring'
 
     configurations {
-        configureEach { org.gradle.api.artifacts.Configuration c ->
-            c.resolutionStrategy { org.gradle.api.artifacts.ResolutionStrategy rs ->
-                /**
-                 * Issue: "Unable to load io.netty.resolver.dns.macos.MacOSDnsServerAddressStreamProvider,
-                 * fallback to system defaults. This may result in incorrect DNS resolutions on MacOS."
-                 * Solution: osx-aarch_64 classified version of Netty
-                 * https://repo1.maven.org/maven2/io/netty/netty-resolver-dns-native-macos/4.1.58.Final/
-                 *
-                 * Upgrade all netty deps to same higher version that support aarch_64 Apple's M1 chip
-                 * with a different classifier dns resolver for native MacOS: aarch_64 instead of x86_64
-                 * if building on a MacOS. Otherwise, use default version specified by io.projectreactor group
-                 */
-                rs.dependencySubstitution { org.gradle.api.artifacts.DependencySubstitutions dss ->
-                    dss.all { org.gradle.api.artifacts.DependencySubstitution ds ->
-                        if (ds.requested instanceof org.gradle.api.artifacts.component.ModuleComponentSelector &&
-                                ds.requested.group == "io.netty" &&
-                                ds.requested.module == "netty-resolver-dns-native-macos" &&
-                                org.gradle.nativeplatform.platform.internal.DefaultNativePlatform.currentOperatingSystem.isMacOsX() &&
-                                org.gradle.nativeplatform.platform.internal.DefaultNativePlatform.currentArchitecture.name == 'aarch64') {
-                            ds.useTarget("io.netty:netty-resolver-dns-native-macos:${nettyVersion}:osx-aarch_64")
-                            ds.artifactSelection { org.gradle.api.artifacts.ArtifactSelectionDetails asd ->
-                                asd.selectArtifact("jar", "jar", "osx-aarch_64")
-                            }
-                        }
-                        if (ds.requested instanceof org.gradle.api.artifacts.component.ModuleComponentSelector &&
-                                ds.requested.group == "io.netty" &&
-                                ds.requested.module == "netty-transport-native-epoll" &&
-                                org.gradle.nativeplatform.platform.internal.DefaultNativePlatform.currentArchitecture.name == 'aarch64') {
-                            ds.useTarget("io.netty:netty-transport-native-epoll:${nettyVersion}:linux-aarch_64")
-                            ds.artifactSelection { org.gradle.api.artifacts.ArtifactSelectionDetails asd ->
-                                asd.selectArtifact("jar", "jar", "linux-aarch_64")
-                            }
-                        }
-                    }
-                }
-                rs.eachDependency { org.gradle.api.artifacts.DependencyResolveDetails d ->
-                    // gcp pubsub 4.5.0 uses spring-boot 3.0.6 => Update spring-boot version
-                    if (d.requested.group == 'org.springframework.boot') {
-                        d.useVersion(springBootPluginVersion)
-                    }
-                    // gcp stream-binder 4.5.0 uses spring-framework 6.0.9 => Update springframework version
-                    if (d.requested.group == 'org.springframework') {
-                        d.useVersion(springFrameworkVersion)
-                    }
-                    if (d.requested.group == 'org.reactivestreams') {
-                        d.useVersion(reactiveStreamsVersion)
-                    }
-                    if (d.requested.group == 'org.junit.jupiter') {
-                        d.useVersion(jUnitJupiterVersion)
-                    }
-                    if (d.requested.group == 'org.junit.platform') {
-                        d.useVersion(jUnitPlatformVersion)
-                    }
-                    if (d.requested.group.startsWith('com.fasterxml.jackson.')) {
-                        d.useVersion(jacksonVersion)
-                    }
-                    if (d.requested.group == 'io.netty') {
-                        d.useVersion(nettyVersion)
-                    }
-                }
-            }
-        }
+        configureEach(projectWideConfigurationConstraintsAction)
         kotlinDeps {
             dependencies {
                 implementation("org.jetbrains.kotlin:kotlin-stdlib:${kotlinVersion}")
@@ -634,57 +478,7 @@ configure(mainKotlinSubProjects) {
     apply plugin: 'org.jetbrains.kotlin.plugin.spring'
 
     configurations {
-        configureEach { org.gradle.api.artifacts.Configuration c ->
-            c.resolutionStrategy { org.gradle.api.artifacts.ResolutionStrategy rs ->
-                /**
-                 * Issue: "Unable to load io.netty.resolver.dns.macos.MacOSDnsServerAddressStreamProvider,
-                 * fallback to system defaults. This may result in incorrect DNS resolutions on MacOS."
-                 * Solution: osx-aarch_64 classified version of Netty
-                 * https://repo1.maven.org/maven2/io/netty/netty-resolver-dns-native-macos/4.1.58.Final/
-                 *
-                 * Upgrade all netty deps to same higher version that support aarch_64 Apple's M1 chip
-                 * with a different classifier dns resolver for native MacOS: aarch_64 instead of x86_64
-                 * if building on a MacOS. Otherwise, use default version specified by io.projectreactor group
-                 */
-                rs.dependencySubstitution { org.gradle.api.artifacts.DependencySubstitutions dss ->
-                    dss.all { org.gradle.api.artifacts.DependencySubstitution ds ->
-                        if (ds.requested instanceof org.gradle.api.artifacts.component.ModuleComponentSelector &&
-                                ds.requested.group == "io.netty" &&
-                                ds.requested.module == "netty-resolver-dns-native-macos" &&
-                                org.gradle.nativeplatform.platform.internal.DefaultNativePlatform.currentOperatingSystem.isMacOsX() &&
-                                org.gradle.nativeplatform.platform.internal.DefaultNativePlatform.currentArchitecture.name == 'aarch64') {
-                            ds.useTarget("io.netty:netty-resolver-dns-native-macos:${nettyVersion}:osx-aarch_64")
-                            ds.artifactSelection { org.gradle.api.artifacts.ArtifactSelectionDetails asd ->
-                                asd.selectArtifact("jar", "jar", "osx-aarch_64")
-                            }
-                        }
-                        if (ds.requested instanceof org.gradle.api.artifacts.component.ModuleComponentSelector &&
-                                ds.requested.group == "io.netty" &&
-                                ds.requested.module == "netty-transport-native-epoll" &&
-                                org.gradle.nativeplatform.platform.internal.DefaultNativePlatform.currentArchitecture.name == 'aarch64') {
-                            ds.useTarget("io.netty:netty-transport-native-epoll:${nettyVersion}:linux-aarch_64")
-                            ds.artifactSelection { org.gradle.api.artifacts.ArtifactSelectionDetails asd ->
-                                asd.selectArtifact("jar", "jar", "linux-aarch_64")
-                            }
-                        }
-                    }
-                }
-                rs.eachDependency { org.gradle.api.artifacts.DependencyResolveDetails d ->
-                    if (d.requested.group == 'org.junit.jupiter') {
-                        d.useVersion(jUnitJupiterVersion)
-                    }
-                    if (d.requested.group == 'org.junit.platform') {
-                        d.useVersion(jUnitPlatformVersion)
-                    }
-                    if (d.requested.group.startsWith('com.fasterxml.jackson.')) {
-                        d.useVersion(jacksonVersion)
-                    }
-                    if (d.requested.group == 'io.netty') {
-                        d.useVersion(nettyVersion)
-                    }
-                }
-            }
-        }
+        configureEach(projectWideConfigurationConstraintsAction)
         kotlinDeps {
             dependencies {
                 implementation("org.jetbrains.kotlin:kotlin-stdlib:${kotlinVersion}")
