@@ -56,7 +56,7 @@ interface Show @subtyping(strategy: SUBTYPE_FIELD_VALUE, discriminatorFieldName:
     audienceSuitabilityRating: String! @alias(name: "rating")
     productionCountry: String! @alias(name: "country")
     genres: [String!]! @alias(name: "listedIn")
-    dateAdded: Date!
+    dateAdded: Date! @last_updated
 }
 
 type Movie implements Show @discriminator(fieldValue: "Movie") {

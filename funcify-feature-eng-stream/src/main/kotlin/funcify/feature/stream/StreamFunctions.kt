@@ -29,7 +29,6 @@ import graphql.ExecutionResult
 import graphql.GraphQL
 import graphql.introspection.IntrospectionQuery
 import graphql.schema.GraphQLSchema
-import java.util.concurrent.CompletableFuture
 import org.dataloader.BatchLoaderEnvironment
 import org.dataloader.DataLoader
 import org.dataloader.DataLoaderFactory
@@ -47,6 +46,7 @@ import org.springframework.messaging.Message
 import org.springframework.messaging.support.GenericMessage
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
+import java.util.concurrent.CompletableFuture
 
 /**
  * @author smccarron
@@ -264,12 +264,22 @@ class StreamFunctions {
                                 )
                             }
                             .onErrorResume { t: Throwable ->
-                                Mono.just(
+                                Mono.fromSupplier {
                                     JsonNodeFactory.instance
                                         .objectNode()
-                                        .put("errorType", t::class.simpleName)
-                                        .put("message", t.message)
-                                )
+                                        .putNull("data")
+                                        .set<ObjectNode>(
+                                            "errors",
+                                            JsonNodeFactory.instance
+                                                .arrayNode(1)
+                                                .add(
+                                                    JsonNodeFactory.instance
+                                                        .objectNode()
+                                                        .put("errorType", t::class.simpleName)
+                                                        .put("message", t.message)
+                                                )
+                                        )
+                                }
                             }
                     }
                     .map { jn: JsonNode -> GenericMessage<JsonNode>(jn, m.headers) }
