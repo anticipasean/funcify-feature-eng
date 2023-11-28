@@ -1,12 +1,11 @@
 package funcify.feature.materializer.graph.context
 
-import funcify.feature.materializer.graph.target.TabularQueryTarget
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableSet
 
-interface TabularQuery : RequestMaterializationGraphContext, TabularQueryTarget {
+interface TabularQuery : RequestMaterializationGraphContext {
 
-    override val outputColumnNames: ImmutableSet<String>
+    val outputColumnNames: ImmutableSet<String>
 
     val unhandledOutputColumnNames: ImmutableList<String>
 

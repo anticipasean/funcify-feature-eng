@@ -1,17 +1,16 @@
 package funcify.feature.materializer.graph.context
 
-import funcify.feature.materializer.graph.target.StandardQueryTarget
 import graphql.language.Document
 
-interface StandardQuery : RequestMaterializationGraphContext, StandardQueryTarget {
+interface StandardQuery : RequestMaterializationGraphContext {
 
-    override val operationName: String
+    val operationName: String
 
-    override val document: Document
+    val document: Document
 
     fun update(transformer: Builder.() -> Builder): StandardQuery
 
-    interface Builder: RequestMaterializationGraphContext.Builder<Builder> {
+    interface Builder : RequestMaterializationGraphContext.Builder<Builder> {
 
         fun operationName(operationName: String): Builder
 
