@@ -1,8 +1,13 @@
 scalar Date
 scalar JSON
 
-"Indicates a different name that the corresponding argument or field_definition may have"
-directive @alias(name: String! = "") repeatable on FIELD_DEFINITION | INPUT_FIELD_DEFINITION | ARGUMENT_DEFINITION
+"""
+Indicates a different name that
+the corresponding argument or field_definition
+may have when specified as a field_name
+in an "output" variable
+"""
+directive @alias(name: String! = "") repeatable on FIELD_DEFINITION | ARGUMENT_DEFINITION | INPUT_FIELD_DEFINITION
 
 directive @discriminator(
     "Field name that is unique to this subtype of the @subtyping annotated interface if SUBTYPE_FIELD_NAME strategy is selected"
@@ -24,15 +29,29 @@ directive @last_updated on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
 
 "Indicates how an interface type may be resolved into an object type"
 directive @subtyping(
-    strategy: SubtypingStrategy! = SUBTYPE_FIELD_NAME,
-    "Name of field on parent interface that will have one of the @discriminator-directive values, required if SUBTYPE_FIELD_VALUE strategy is selected"
-    discriminatorFieldName: String
+    """
+    Name of field on parent interface
+    that will have one of the @discriminator-directive
+    values, required if SUBTYPE_FIELD_VALUE strategy is selected
+    """
+    discriminatorFieldName: String,
+    strategy: SubtypingStrategy! = SUBTYPE_FIELD_NAME
 ) on INTERFACE
 
 enum SubtypingStrategy {
-    "@discriminator directive on annotated object subtype contains the name of the field unique to the subtype to be used to select that subtype when resolving parent interface type"
+    """
+    @discriminator directive on annotated object subtype
+    contains the name of the field
+    unique to the subtype to be used to select
+    that subtype when resolving parent interface type
+    """
     SUBTYPE_FIELD_NAME
-    "@discriminator directive on annotated object subtype contains the value of the field unique to the subtype to be used to select that subtype when resolving parent interface type"
+    """
+    @discriminator directive on annotated object subtype
+    contains the value of the field
+    unique to the subtype to be used to select
+    that subtype when resolving parent interface type
+    """
     SUBTYPE_FIELD_VALUE
 }
 

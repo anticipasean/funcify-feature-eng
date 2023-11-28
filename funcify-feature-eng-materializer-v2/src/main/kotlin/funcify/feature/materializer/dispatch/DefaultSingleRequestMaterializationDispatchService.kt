@@ -2,7 +2,6 @@ package funcify.feature.materializer.dispatch
 
 import arrow.core.*
 import com.fasterxml.jackson.databind.JsonNode
-import com.fasterxml.jackson.databind.PropertyNamingStrategies.SnakeCaseStrategy
 import com.fasterxml.jackson.databind.node.JsonNodeFactory
 import funcify.feature.error.ServiceError
 import funcify.feature.graph.line.DirectedLine
@@ -17,7 +16,6 @@ import funcify.feature.materializer.input.RawInputContext
 import funcify.feature.materializer.model.MaterializationMetamodel
 import funcify.feature.materializer.request.RawGraphQLRequest
 import funcify.feature.materializer.session.GraphQLSingleRequestSession
-import funcify.feature.naming.StandardNamingConventions
 import funcify.feature.schema.dataelement.DataElementCallable
 import funcify.feature.schema.dataelement.DomainSpecifiedDataElementSource
 import funcify.feature.schema.feature.FeatureCalculatorCallable
@@ -703,7 +701,8 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                                 }
                             }
                     }
-                    .count() > 0 -> {
+                    .findAny()
+                    .isPresent -> {
                     1
                 }
                 Stream.of(p2)
@@ -731,7 +730,8 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                                 }
                             }
                     }
-                    .count() > 0 -> {
+                    .findAny()
+                    .isPresent -> {
                     -1
                 }
                 else -> {
@@ -910,8 +910,8 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                     context.requestMaterializationGraph.requestGraph
                         .get(featurePath, p)
                         .toPersistentSet()
-                when {
-                    edges.isEmpty() -> {
+                when (edges.size) {
+                    0 -> {
                         ServiceError.of(
                                 "edge not found for [ feature_path: %s, argument_path: %s ]",
                                 featurePath,
@@ -919,16 +919,16 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                             )
                             .failure()
                     }
-                    edges.size > 1 -> {
+                    1 -> {
+                        Try.fromOption(edges.firstOrNone()).map { e: MaterializationEdge -> p to e }
+                    }
+                    else -> {
                         ServiceError.of(
                                 "more than one edge found for [ feature_path: %s, argument_path: %s ]",
                                 featurePath,
                                 p
                             )
                             .failure()
-                    }
-                    else -> {
-                        Try.fromOption(edges.firstOrNone()).map { e: MaterializationEdge -> p to e }
                     }
                 }
             }
