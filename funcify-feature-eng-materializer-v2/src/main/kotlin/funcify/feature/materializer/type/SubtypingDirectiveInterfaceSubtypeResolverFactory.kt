@@ -11,7 +11,13 @@ import arrow.core.toOption
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.node.ObjectNode
 import funcify.feature.directive.DiscriminatorDirective
+import funcify.feature.directive.DiscriminatorDirective.FIELD_NAME_INPUT_VALUE_DEFINITION_NAME
+import funcify.feature.directive.DiscriminatorDirective.FIELD_VALUE_INPUT_VALUE_DEFINITION_NAME
 import funcify.feature.directive.SubtypingDirective
+import funcify.feature.directive.SubtypingDirective.DISCRIMINATOR_FIELD_NAME_INPUT_VALUE_DEFINITION_NAME
+import funcify.feature.directive.SubtypingDirective.FIELD_NAME_SUBTYPING_STRATEGY_ENUM_VALUE
+import funcify.feature.directive.SubtypingDirective.FIELD_VALUE_SUBTYPING_STRATEGY_ENUM_VALUE
+import funcify.feature.directive.SubtypingDirective.STRATEGY_INPUT_VALUE_DEFINITION_NAME
 import funcify.feature.error.ServiceError
 import funcify.feature.schema.json.GraphQLValueToJsonNodeConverter
 import funcify.feature.tools.container.attempt.Try
@@ -54,12 +60,6 @@ internal class SubtypingDirectiveInterfaceSubtypeResolverFactory :
     companion object {
         private val logger: Logger = loggerFor<SubtypingDirectiveInterfaceSubtypeResolverFactory>()
         private const val TYPE_RESOLVER_METHOD_TAG: String = "resolve_object_type"
-        private const val STRATEGY_ARGUMENT_NAME: String = "strategy"
-        private const val DISCRIMINATOR_FIELD_NAME_ARGUMENT_NAME: String = "discriminatorFieldName"
-        private const val FIELD_NAME_ARGUMENT_NAME: String = "fieldName"
-        private const val FIELD_VALUE_ARGUMENT_NAME: String = "fieldValue"
-        private const val FIELD_NAME_SUBTYPING_STRATEGY_ENUM_VALUE: String = "SUBTYPE_FIELD_NAME"
-        private const val FIELD_VALUE_SUBTYPING_STRATEGY_ENUM_VALUE: String = "SUBTYPE_FIELD_VALUE"
 
         private class GraphQLNodeTraversalVisitor(private val nodeVisitor: NodeVisitor) :
             TraverserVisitorStub<Node<*>>() {
@@ -122,7 +122,7 @@ internal class SubtypingDirectiveInterfaceSubtypeResolverFactory :
             ) {
                 when (
                     val strategyName: String =
-                        (node.getArgument(STRATEGY_ARGUMENT_NAME)?.value as? EnumValue
+                        (node.getArgument(STRATEGY_INPUT_VALUE_DEFINITION_NAME)?.value as? EnumValue
                                 ?: EnumValue(FIELD_NAME_SUBTYPING_STRATEGY_ENUM_VALUE))
                             .name
                 ) {
@@ -147,14 +147,18 @@ internal class SubtypingDirectiveInterfaceSubtypeResolverFactory :
                             .filterIsInstance<InterfaceTypeDefinition>()
                             .zip(
                                 node
-                                    .getArgument(DISCRIMINATOR_FIELD_NAME_ARGUMENT_NAME)
+                                    .getArgument(
+                                        DISCRIMINATOR_FIELD_NAME_INPUT_VALUE_DEFINITION_NAME
+                                    )
                                     .toOption()
                                     .map(Argument::getValue)
                                     .filterIsInstance<StringValue>()
                                     .mapNotNull(StringValue::getValue)
                                     .filter(String::isNotBlank),
                                 node
-                                    .getArgument(DISCRIMINATOR_FIELD_NAME_ARGUMENT_NAME)
+                                    .getArgument(
+                                        DISCRIMINATOR_FIELD_NAME_INPUT_VALUE_DEFINITION_NAME
+                                    )
                                     .toOption()
                                     .map(Argument::getValue)
                                     .filterIsInstance<StringValue>()
@@ -196,7 +200,9 @@ internal class SubtypingDirectiveInterfaceSubtypeResolverFactory :
                                 val message: String =
                                     if (
                                         node
-                                            .getArgument(DISCRIMINATOR_FIELD_NAME_ARGUMENT_NAME)
+                                            .getArgument(
+                                                DISCRIMINATOR_FIELD_NAME_INPUT_VALUE_DEFINITION_NAME
+                                            )
                                             ?.value is NullValue
                                     ) {
                                         """argument "%s" not supplied for [ strategy: %s ] 
@@ -204,7 +210,7 @@ internal class SubtypingDirectiveInterfaceSubtypeResolverFactory :
                                         |[ interface.name: %s ]"""
                                             .flatten()
                                             .format(
-                                                DISCRIMINATOR_FIELD_NAME_ARGUMENT_NAME,
+                                                DISCRIMINATOR_FIELD_NAME_INPUT_VALUE_DEFINITION_NAME,
                                                 FIELD_VALUE_SUBTYPING_STRATEGY_ENUM_VALUE,
                                                 SubtypingDirective.name,
                                                 interfaceTypeName
@@ -216,7 +222,7 @@ internal class SubtypingDirectiveInterfaceSubtypeResolverFactory :
                                         |[ interface.name: %s ]"""
                                             .flatten()
                                             .format(
-                                                DISCRIMINATOR_FIELD_NAME_ARGUMENT_NAME,
+                                                DISCRIMINATOR_FIELD_NAME_INPUT_VALUE_DEFINITION_NAME,
                                                 FIELD_VALUE_SUBTYPING_STRATEGY_ENUM_VALUE,
                                                 SubtypingDirective.name,
                                                 interfaceTypeName
@@ -270,7 +276,7 @@ internal class SubtypingDirectiveInterfaceSubtypeResolverFactory :
                             .filterIsInstance<ObjectTypeDefinition>()
                             .zip(
                                 node
-                                    .getArgument(FIELD_NAME_ARGUMENT_NAME)
+                                    .getArgument(FIELD_NAME_INPUT_VALUE_DEFINITION_NAME)
                                     .toOption()
                                     .map(Argument::getValue)
                                     .filterIsInstance<StringValue>()
@@ -309,15 +315,16 @@ internal class SubtypingDirectiveInterfaceSubtypeResolverFactory :
                                         .getOrElse { "<NA>" }
                                 val message: String =
                                     if (
-                                        node.getArgument(FIELD_NAME_ARGUMENT_NAME)?.value
-                                            is NullValue
+                                        node
+                                            .getArgument(FIELD_NAME_INPUT_VALUE_DEFINITION_NAME)
+                                            ?.value is NullValue
                                     ) {
                                         """null value supplied for 
                                         |argument "%s" on @%s 
                                         |directive on [ object.name: %s ]"""
                                             .flatten()
                                             .format(
-                                                FIELD_NAME_ARGUMENT_NAME,
+                                                FIELD_NAME_INPUT_VALUE_DEFINITION_NAME,
                                                 DiscriminatorDirective.name,
                                                 objectTypeName
                                             )
@@ -328,7 +335,7 @@ internal class SubtypingDirectiveInterfaceSubtypeResolverFactory :
                                         |field_definition.name on [ object.name: %s ]"""
                                             .flatten()
                                             .format(
-                                                FIELD_NAME_ARGUMENT_NAME,
+                                                FIELD_NAME_INPUT_VALUE_DEFINITION_NAME,
                                                 DiscriminatorDirective.name,
                                                 objectTypeName
                                             )
@@ -352,7 +359,7 @@ internal class SubtypingDirectiveInterfaceSubtypeResolverFactory :
                             .filterIsInstance<ObjectTypeDefinition>()
                             .zip(
                                 node
-                                    .getArgument(FIELD_VALUE_ARGUMENT_NAME)
+                                    .getArgument(FIELD_VALUE_INPUT_VALUE_DEFINITION_NAME)
                                     .toOption()
                                     .map(Argument::getValue)
                                     .flatMap(GraphQLValueToJsonNodeConverter)
@@ -384,7 +391,7 @@ internal class SubtypingDirectiveInterfaceSubtypeResolverFactory :
                                         |directive on [ object %s ]"""
                                         .flatten()
                                         .format(
-                                            FIELD_VALUE_ARGUMENT_NAME,
+                                            FIELD_VALUE_INPUT_VALUE_DEFINITION_NAME,
                                             DiscriminatorDirective.name,
                                             objectTypeName
                                         )

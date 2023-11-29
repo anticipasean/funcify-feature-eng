@@ -2,9 +2,25 @@ package funcify.feature.directive
 
 import graphql.Scalars
 import graphql.introspection.Introspection
-import graphql.language.*
+import graphql.language.Description
+import graphql.language.DirectiveDefinition
+import graphql.language.DirectiveLocation
+import graphql.language.EnumTypeDefinition
+import graphql.language.EnumValue
+import graphql.language.EnumValueDefinition
+import graphql.language.InputValueDefinition
+import graphql.language.NonNullType
+import graphql.language.SourceLocation
+import graphql.language.TypeName
 
 object SubtypingDirective : MaterializationDirective {
+
+    const val STRATEGY_INPUT_VALUE_DEFINITION_NAME: String = "strategy"
+    const val STRATEGY_INPUT_OBJECT_TYPE_DEFINITION_NAME: String = "SubtypingStrategy"
+    const val FIELD_NAME_SUBTYPING_STRATEGY_ENUM_VALUE: String = "SUBTYPE_FIELD_NAME"
+    const val FIELD_VALUE_SUBTYPING_STRATEGY_ENUM_VALUE: String = "SUBTYPE_FIELD_VALUE"
+    const val DISCRIMINATOR_FIELD_NAME_INPUT_VALUE_DEFINITION_NAME: String =
+        "discriminatorFieldName"
 
     override val name: String = "subtyping"
 
@@ -22,17 +38,21 @@ object SubtypingDirective : MaterializationDirective {
     override val inputValueDefinitions: List<InputValueDefinition> by lazy {
         val propertyDescription: String =
             """Name of field on parent interface 
-                |that will have one of the @discriminator-directive 
-                |values, required if SUBTYPE_FIELD_VALUE strategy is selected"""
+                |that will have one of the @%s-directive 
+                |values, required if %s strategy is selected"""
+                .format(DiscriminatorDirective.name, FIELD_VALUE_SUBTYPING_STRATEGY_ENUM_VALUE)
                 .trimMargin()
         listOf(
             InputValueDefinition.newInputValueDefinition()
-                .name("strategy")
-                .type(NonNullType.newNonNullType(TypeName("SubtypingStrategy")).build())
-                .defaultValue(EnumValue.of("SUBTYPE_FIELD_NAME"))
+                .name(STRATEGY_INPUT_VALUE_DEFINITION_NAME)
+                .type(
+                    NonNullType.newNonNullType(TypeName(STRATEGY_INPUT_OBJECT_TYPE_DEFINITION_NAME))
+                        .build()
+                )
+                .defaultValue(EnumValue.of(FIELD_NAME_SUBTYPING_STRATEGY_ENUM_VALUE))
                 .build(),
             InputValueDefinition.newInputValueDefinition()
-                .name("discriminatorFieldName")
+                .name(DISCRIMINATOR_FIELD_NAME_INPUT_VALUE_DEFINITION_NAME)
                 .type(TypeName.newTypeName(Scalars.GraphQLString.name).build())
                 .description(
                     Description(
@@ -47,24 +67,26 @@ object SubtypingDirective : MaterializationDirective {
 
     override val referencedEnumTypeDefinitions: List<EnumTypeDefinition> by lazy {
         val subtypeFieldNameDescription: String =
-            """@discriminator directive on annotated object subtype 
+            """@%s directive on annotated object subtype 
                 |contains the name of the field 
                 |unique to the subtype to be used to select 
                 |that subtype when resolving parent interface type"""
+                .format(DiscriminatorDirective.name)
                 .trimMargin()
         val subtypeFieldValueDescription: String =
-            """@discriminator directive on annotated object subtype 
+            """@%s directive on annotated object subtype 
                 |contains the value of the field 
                 |unique to the subtype to be used to select 
                 |that subtype when resolving parent interface type"""
+                .format(DiscriminatorDirective.name)
                 .trimMargin()
         listOf(
             EnumTypeDefinition.newEnumTypeDefinition()
-                .name("SubtypingStrategy")
+                .name(STRATEGY_INPUT_OBJECT_TYPE_DEFINITION_NAME)
                 .enumValueDefinitions(
                     listOf(
                         EnumValueDefinition.newEnumValueDefinition()
-                            .name("SUBTYPE_FIELD_NAME")
+                            .name(FIELD_NAME_SUBTYPING_STRATEGY_ENUM_VALUE)
                             .description(
                                 Description(
                                     subtypeFieldNameDescription,
@@ -74,7 +96,7 @@ object SubtypingDirective : MaterializationDirective {
                             )
                             .build(),
                         EnumValueDefinition.newEnumValueDefinition()
-                            .name("SUBTYPE_FIELD_VALUE")
+                            .name(FIELD_VALUE_SUBTYPING_STRATEGY_ENUM_VALUE)
                             .description(
                                 Description(
                                     subtypeFieldValueDescription,

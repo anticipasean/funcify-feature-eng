@@ -42,7 +42,7 @@ class SchemaConfiguration {
     @ConditionalOnMissingBean(value = [MaterializationDirectiveRegistry::class])
     @Bean
     fun materializationDirectiveRegistry(): MaterializationDirectiveRegistry {
-        return MaterializationDirectiveRegistry.standardRegistry()
+        return MaterializationDirectiveRegistry.createStandardRegistry()
     }
 
     @ConditionalOnMissingBean(value = [ModelLimits::class])
@@ -58,7 +58,7 @@ class SchemaConfiguration {
         return UnsupportedDirectivesTypeDefinitionRegistryFilter(
             materializationDirectiveRegistry =
                 materializationDirectiveRegistryProvider.getIfAvailable {
-                    MaterializationDirectiveRegistry.standardRegistry()
+                    MaterializationDirectiveRegistry.createStandardRegistry()
                 }
         )
     }
@@ -77,7 +77,7 @@ class SchemaConfiguration {
                 },
             materializationDirectiveRegistry =
                 materializationDirectiveRegistryProvider.getIfAvailable {
-                    MaterializationDirectiveRegistry.standardRegistry()
+                    MaterializationDirectiveRegistry.createStandardRegistry()
                 },
             modelLimits = modelLimitsProvider.getIfAvailable { DefaultModelLimits() }
         )

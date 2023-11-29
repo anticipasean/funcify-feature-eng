@@ -25,7 +25,7 @@ object type definition that represents
 the latest timestamp
 
 """
-directive @last_updated on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
+directive @lastUpdated on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
 
 "Indicates how an interface type may be resolved into an object type"
 directive @subtyping(
@@ -75,7 +75,7 @@ interface Show @subtyping(strategy: SUBTYPE_FIELD_VALUE, discriminatorFieldName:
     audienceSuitabilityRating: String! @alias(name: "rating")
     productionCountry: String! @alias(name: "country")
     genres: [String!]! @alias(name: "listedIn")
-    dateAdded: Date! @last_updated
+    dateAdded: Date! @lastUpdated
 }
 
 type Movie implements Show @discriminator(fieldValue: "Movie") {

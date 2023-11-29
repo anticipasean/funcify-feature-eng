@@ -10,7 +10,7 @@ import graphql.language.SourceLocation
 
 object LastUpdatedDirective : MaterializationDirective {
 
-    override val name: String = "last_updated"
+    override val name: String = "lastUpdated"
 
     override val description: String =
         """Indicates temporal field represents latest datetime 

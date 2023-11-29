@@ -14,7 +14,7 @@ import graphql.language.TypeName
 
 object TransformDirective : MaterializationDirective {
 
-    const val FIELD_COORDINATES_INPUT_OBJECT_TYPE_NAME: String = "FieldCoordinates"
+    const val FIELD_COORDINATES_INPUT_OBJECT_TYPE_DEFINITION_NAME: String = "FieldCoordinates"
     const val COORDINATES_INPUT_VALUE_DEFINITION_NAME: String = "coordinates"
     const val TYPE_NAME_INPUT_VALUE_DEFINITION_NAME: String = "typeName"
     const val FIELD_NAME_INPUT_VALUE_DEFINITION_NAME: String = "fieldName"
@@ -46,7 +46,7 @@ object TransformDirective : MaterializationDirective {
         val fieldNameDescription: String = "name of the field definition found on object type"
         sequenceOf(
                 InputObjectTypeDefinition.newInputObjectDefinition()
-                    .name(FIELD_COORDINATES_INPUT_OBJECT_TYPE_NAME)
+                    .name(FIELD_COORDINATES_INPUT_OBJECT_TYPE_DEFINITION_NAME)
                     .description(
                         Description(
                             coordinatesDescription,
@@ -102,7 +102,7 @@ object TransformDirective : MaterializationDirective {
                     .type(
                         NonNullType.newNonNullType()
                             .type(
-                                TypeName.newTypeName(FIELD_COORDINATES_INPUT_OBJECT_TYPE_NAME)
+                                TypeName.newTypeName(FIELD_COORDINATES_INPUT_OBJECT_TYPE_DEFINITION_NAME)
                                     .build()
                             )
                             .build()

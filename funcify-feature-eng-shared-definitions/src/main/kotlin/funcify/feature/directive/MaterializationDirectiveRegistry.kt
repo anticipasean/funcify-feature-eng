@@ -16,11 +16,13 @@ interface MaterializationDirectiveRegistry {
 
     companion object {
 
-        fun emptyRegistry(): MaterializationDirectiveRegistry {
+        @JvmStatic
+        fun createEmptyRegistry(): MaterializationDirectiveRegistry {
             return DefaultMaterializationDirectiveRegistry()
         }
 
-        fun customRegistry(
+        @JvmStatic
+        fun createCustomRegistryFrom(
             materializationDirectives: Iterable<MaterializationDirective>
         ): MaterializationDirectiveRegistry {
             return DefaultMaterializationDirectiveRegistry(
@@ -32,20 +34,18 @@ interface MaterializationDirectiveRegistry {
             )
         }
 
-        fun standardRegistry(): MaterializationDirectiveRegistry {
-            return DefaultMaterializationDirectiveRegistry(
+        @JvmStatic
+        fun createStandardRegistry(): MaterializationDirectiveRegistry {
+            return createCustomRegistryFrom(
                 sequenceOf(
-                    AliasDirective,
-                    LastUpdatedDirective,
-                    SubtypingDirective,
-                    DiscriminatorDirective,
-                    TransformDirective
+                        AliasDirective,
+                        LastUpdatedDirective,
+                        SubtypingDirective,
+                        DiscriminatorDirective,
+                        TransformDirective,
+                        EntityKeyDirective
                     )
-                    .fold(sortedMapOf(Comparator.naturalOrder())) {
-                        mdByName: SortedMap<String, MaterializationDirective>,
-                        md: MaterializationDirective ->
-                        mdByName.apply { put(md.name, md) }
-                    }
+                    .asIterable()
             )
         }
     }
