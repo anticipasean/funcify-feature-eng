@@ -67,8 +67,8 @@ internal class LastUpdatedTemporalAttributeRegistryComposer {
                 if (parentNodeTemporalTypeName.isEmpty()) {
                     return
                 }
-                val lastUpdatedTemporalAttributeRegistry: LastUpdatedTemporalAttributeRegistry =
-                    context.getNewAccumulate<LastUpdatedTemporalAttributeRegistry>()
+                val lastUpdatedCoordinatesRegistry: LastUpdatedCoordinatesRegistry =
+                    context.getNewAccumulate<LastUpdatedCoordinatesRegistry>()
                 val sp: GQLOperationPath =
                     when (context.parentNode) {
                         is FieldDefinition -> {
@@ -147,22 +147,22 @@ internal class LastUpdatedTemporalAttributeRegistryComposer {
                         sp
                     )
                 }
-                val updatedRegistry: LastUpdatedTemporalAttributeRegistry =
+                val updatedRegistry: LastUpdatedCoordinatesRegistry =
                     when (context.parentNode) {
                         is FieldDefinition -> {
-                            lastUpdatedTemporalAttributeRegistry
+                            lastUpdatedCoordinatesRegistry
                                 .registerSchematicPathAsMappingToLastUpdatedTemporalAttributeVertex(
                                     sp
                                 )
                         }
                         is InputValueDefinition -> {
-                            lastUpdatedTemporalAttributeRegistry
+                            lastUpdatedCoordinatesRegistry
                                 .registerSchematicPathAsMappingToLastUpdatedTemporalAttributeVertex(
                                     sp
                                 )
                         }
                         else -> {
-                            lastUpdatedTemporalAttributeRegistry
+                            lastUpdatedCoordinatesRegistry
                         }
                     }
                 context.setAccumulate(updatedRegistry)
@@ -199,9 +199,9 @@ internal class LastUpdatedTemporalAttributeRegistryComposer {
         }
     }
 
-    fun createLastUpdatedTemporalAttributeRegistry(
+    fun createLastUpdatedCoordinatesRegistry(
         typeDefinitionRegistry: TypeDefinitionRegistry
-    ): Option<LastUpdatedTemporalAttributeRegistry> {
+    ): Option<LastUpdatedCoordinatesRegistry> {
         logger.info(
             """create_last_updated_temporal_attribute_registry: 
             |[ type_definition_registry.parse_order.in_order.size: {}, 
@@ -224,12 +224,12 @@ internal class LastUpdatedTemporalAttributeRegistryComposer {
                 Traverser.breadthFirst<Node<*>>(
                         nodeTraversalFunction(typeDefinitionRegistry),
                         null,
-                        LastUpdatedTemporalAttributeRegistry.newRegistry()
+                        LastUpdatedCoordinatesRegistry.newRegistry()
                     )
                     .traverse(otd, GraphQLNodeTraversalVisitor(LastUpdatedDirectiveVisitor()))
                     .toOption()
                     .mapNotNull(TraverserResult::getAccumulatedResult)
-                    .filterIsInstance<LastUpdatedTemporalAttributeRegistry>()
+                    .filterIsInstance<LastUpdatedCoordinatesRegistry>()
             }
     }
 

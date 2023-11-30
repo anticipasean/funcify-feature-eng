@@ -12,8 +12,6 @@ import funcify.feature.schema.Source
 import funcify.feature.schema.context.FeatureEngineeringModelBuildContext
 import funcify.feature.schema.dataelement.DataElementSource
 import funcify.feature.schema.dataelement.DataElementSourceProvider
-import funcify.feature.schema.directive.temporal.LastUpdatedTemporalAttributeRegistry
-import funcify.feature.schema.directive.temporal.LastUpdatedTemporalAttributeRegistryComposer
 import funcify.feature.schema.feature.FeatureCalculator
 import funcify.feature.schema.feature.FeatureCalculatorProvider
 import funcify.feature.schema.limit.ModelLimits
@@ -24,11 +22,9 @@ import funcify.feature.tools.container.attempt.Failure
 import funcify.feature.tools.container.attempt.Success
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
-import funcify.feature.tools.extensions.MonoExtensions.widen
 import funcify.feature.tools.extensions.OptionExtensions.toOption
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.extensions.TryExtensions.failure
-import funcify.feature.tools.extensions.TryExtensions.successIfDefined
 import graphql.GraphQLError
 import graphql.language.*
 import graphql.schema.FieldCoordinates
@@ -83,7 +79,6 @@ internal class DefaultFeatureEngineeringModelBuildStrategy(
             .flatMap(validateSourceProviders())
             .flatMap(extractSourcesFromSourceProviders())
             .flatMap(createTypeDefinitionRegistryFromSources())
-            .flatMap(createLastUpdatedTemporalAttributeRegistryFromTypeDefinitionRegistry())
             .map { ctx: FeatureEngineeringModelBuildContext ->
                 DefaultFeatureEngineeringModel(
                     transformerFieldCoordinates =
@@ -113,8 +108,6 @@ internal class DefaultFeatureEngineeringModelBuildStrategy(
                     featureCalculatorsByName = ctx.featureCalculatorsByName.toPersistentMap(),
                     typeDefinitionRegistry = ctx.typeDefinitionRegistry,
                     scalarTypeRegistry = scalarTypeRegistry,
-                    entityRegistry = ctx.entityRegistry,
-                    lastUpdatedTemporalAttributeRegistry = ctx.lastUpdatedTemporalAttributeRegistry,
                     // TODO: Incorporate scanning on added sources to limit one that would exceed
                     // max op depth from being included
                     modelLimits = modelLimits
@@ -339,9 +332,8 @@ internal class DefaultFeatureEngineeringModelBuildStrategy(
                     when (val possibleError: Option<GraphQLError> = tdr.add(sd).toOption()) {
                         is Some<GraphQLError> -> {
                             val message: String =
-                                "%s.source_sdl_definitions: [ validation: failed ]".format(
-                                    sourceTypeName
-                                )
+                                "%s.source_sdl_definitions: [ validation: failed ]"
+                                    .format(sourceTypeName)
                             when (val e: GraphQLError = possibleError.value) {
                                 is Throwable -> {
                                     ServiceError.builder().message(message).cause(e).build()
@@ -931,26 +923,6 @@ internal class DefaultFeatureEngineeringModelBuildStrategy(
                     context.update { typeDefinitionRegistry(tdr) }
                 }
                 .toMono()
-        }
-    }
-
-    private fun createLastUpdatedTemporalAttributeRegistryFromTypeDefinitionRegistry():
-        (FeatureEngineeringModelBuildContext) -> Mono<out FeatureEngineeringModelBuildContext> {
-        return { context: FeatureEngineeringModelBuildContext ->
-            LastUpdatedTemporalAttributeRegistryComposer()
-                .createLastUpdatedTemporalAttributeRegistry(context.typeDefinitionRegistry)
-                .successIfDefined {
-                    ServiceError.of(
-                        """unable to create last_updated_temporal_attribute_registry 
-                        |from type_definition_registry; 
-                        |query_object_type_definition not found"""
-                            .flatten()
-                    )
-                }
-                .toMono()
-                .map { lutapr: LastUpdatedTemporalAttributeRegistry ->
-                    context.update { lastUpdatedTemporalAttributePathRegistry(lutapr) }
-                }
         }
     }
 

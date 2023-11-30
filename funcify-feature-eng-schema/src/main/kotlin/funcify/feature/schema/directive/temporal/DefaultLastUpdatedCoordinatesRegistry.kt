@@ -17,21 +17,21 @@ import funcify.feature.schema.path.operation.GQLOperationPath
 import funcify.feature.tools.extensions.OptionExtensions.recurse
 import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentMap
 import funcify.feature.tools.extensions.SequenceExtensions.flatMapOptions
-import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.ConcurrentMap
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.PersistentSet
 import kotlinx.collections.immutable.persistentSetOf
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ConcurrentMap
 
 /**
  * @author smccarron
  * @created 2022-07-25
  */
-internal data class DefaultLastUpdatedTemporalAttributeRegistry(
+internal data class DefaultLastUpdatedCoordinatesRegistry(
     private val lastUpdatedTemporalAttributePathsSet: PersistentSet<GQLOperationPath> =
         persistentSetOf()
-) : LastUpdatedTemporalAttributeRegistry {
+) : LastUpdatedCoordinatesRegistry {
 
     private val lastUpdatedTemporalAttributePathByParentPath:
         PersistentMap<GQLOperationPath, GQLOperationPath> by lazy {
@@ -85,8 +85,8 @@ internal data class DefaultLastUpdatedTemporalAttributeRegistry(
 
     override fun registerSchematicPathAsMappingToLastUpdatedTemporalAttributeVertex(
         path: GQLOperationPath
-    ): LastUpdatedTemporalAttributeRegistry {
-        return DefaultLastUpdatedTemporalAttributeRegistry(
+    ): LastUpdatedCoordinatesRegistry {
+        return DefaultLastUpdatedCoordinatesRegistry(
             lastUpdatedTemporalAttributePathsSet = lastUpdatedTemporalAttributePathsSet.add(path)
         )
     }

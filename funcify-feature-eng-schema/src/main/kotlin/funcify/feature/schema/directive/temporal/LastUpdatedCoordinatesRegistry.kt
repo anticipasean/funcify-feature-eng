@@ -8,19 +8,19 @@ import kotlinx.collections.immutable.ImmutableSet
  * @author smccarron
  * @created 2022-07-25
  */
-interface LastUpdatedTemporalAttributeRegistry {
+interface LastUpdatedCoordinatesRegistry {
 
     companion object {
 
         @JvmStatic
-        fun newRegistry(): LastUpdatedTemporalAttributeRegistry {
-            return DefaultLastUpdatedTemporalAttributeRegistry()
+        fun newRegistry(): LastUpdatedCoordinatesRegistry {
+            return DefaultLastUpdatedCoordinatesRegistry()
         }
     }
 
     fun registerSchematicPathAsMappingToLastUpdatedTemporalAttributeVertex(
         path: GQLOperationPath
-    ): LastUpdatedTemporalAttributeRegistry
+    ): LastUpdatedCoordinatesRegistry
 
     fun pathBelongsToLastUpdatedTemporalAttributeVertex(path: GQLOperationPath): Boolean
 

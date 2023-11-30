@@ -3,8 +3,6 @@ package funcify.feature.schema
 import funcify.feature.scalar.registry.ScalarTypeRegistry
 import funcify.feature.schema.dataelement.DataElementSource
 import funcify.feature.schema.dataelement.DataElementSourceProvider
-import funcify.feature.schema.directive.identifier.EntityRegistry
-import funcify.feature.schema.directive.temporal.LastUpdatedTemporalAttributeRegistry
 import funcify.feature.schema.feature.FeatureCalculator
 import funcify.feature.schema.feature.FeatureCalculatorProvider
 import funcify.feature.schema.feature.FeatureJsonValuePublisher
@@ -33,10 +31,6 @@ interface FeatureEngineeringModel {
     val typeDefinitionRegistry: TypeDefinitionRegistry
 
     val scalarTypeRegistry: ScalarTypeRegistry
-
-    val entityRegistry: EntityRegistry
-
-    val lastUpdatedTemporalAttributeRegistry: LastUpdatedTemporalAttributeRegistry
 
     val dataElementSourcesByName: ImmutableMap<String, DataElementSource>
 

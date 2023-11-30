@@ -24,7 +24,7 @@ import org.slf4j.LoggerFactory
  * @author smccarron
  * @created 2023-07-19
  */
-class LastUpdatedTemporalAttributeRegistryTest {
+class LastUpdatedCoordinatesRegistryTest {
 
     companion object {
         /**
@@ -127,11 +127,11 @@ class LastUpdatedTemporalAttributeRegistryTest {
                 }
                 .orElseThrow()
         }
-        val lastUpdatedRegistryOpt: Option<LastUpdatedTemporalAttributeRegistry> =
+        val lastUpdatedRegistryOpt: Option<LastUpdatedCoordinatesRegistry> =
             LastUpdatedTemporalAttributeRegistryComposer()
-                .createLastUpdatedTemporalAttributeRegistry(tdr)
+                .createLastUpdatedCoordinatesRegistry(tdr)
         Assertions.assertTrue(lastUpdatedRegistryOpt.isDefined())
-        val lastUpdatedRegistry: LastUpdatedTemporalAttributeRegistry =
+        val lastUpdatedRegistry: LastUpdatedCoordinatesRegistry =
             lastUpdatedRegistryOpt.orNull()!!
         Assertions.assertTrue(
             lastUpdatedRegistry.pathBelongsToLastUpdatedTemporalAttributeVertex(

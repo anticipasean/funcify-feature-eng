@@ -2,8 +2,6 @@ package funcify.feature.schema.context
 
 import funcify.feature.schema.dataelement.DataElementSource
 import funcify.feature.schema.dataelement.DataElementSourceProvider
-import funcify.feature.schema.directive.identifier.EntityRegistry
-import funcify.feature.schema.directive.temporal.LastUpdatedTemporalAttributeRegistry
 import funcify.feature.schema.feature.FeatureCalculator
 import funcify.feature.schema.feature.FeatureCalculatorProvider
 import funcify.feature.schema.feature.FeatureJsonValuePublisher
@@ -50,10 +48,6 @@ interface FeatureEngineeringModelBuildContext {
     val featureCalculatorsByName: ImmutableMap<String, FeatureCalculator>
 
     val typeDefinitionRegistry: TypeDefinitionRegistry
-
-    val entityRegistry: EntityRegistry
-
-    val lastUpdatedTemporalAttributeRegistry: LastUpdatedTemporalAttributeRegistry
 
     fun update(transformer: Builder.() -> Builder): FeatureEngineeringModelBuildContext
 
@@ -131,12 +125,6 @@ interface FeatureEngineeringModelBuildContext {
 
         fun addFeatureJsonValuePublisher(
             featureJsonValuePublisher: FeatureJsonValuePublisher
-        ): Builder
-
-        fun entityRegistry(entityRegistry: EntityRegistry): Builder
-
-        fun lastUpdatedTemporalAttributePathRegistry(
-            lastUpdatedTemporalAttributeRegistry: LastUpdatedTemporalAttributeRegistry
         ): Builder
 
         fun build(): FeatureEngineeringModelBuildContext

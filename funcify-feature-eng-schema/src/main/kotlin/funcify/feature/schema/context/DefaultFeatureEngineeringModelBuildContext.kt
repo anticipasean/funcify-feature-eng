@@ -3,8 +3,6 @@ package funcify.feature.schema.context
 import funcify.feature.schema.context.FeatureEngineeringModelBuildContext.Builder
 import funcify.feature.schema.dataelement.DataElementSource
 import funcify.feature.schema.dataelement.DataElementSourceProvider
-import funcify.feature.schema.directive.identifier.EntityRegistry
-import funcify.feature.schema.directive.temporal.LastUpdatedTemporalAttributeRegistry
 import funcify.feature.schema.feature.FeatureCalculator
 import funcify.feature.schema.feature.FeatureCalculatorProvider
 import funcify.feature.schema.feature.FeatureJsonValuePublisher
@@ -32,9 +30,7 @@ internal data class DefaultFeatureEngineeringModelBuildContext(
     override val transformerSourcesByName: PersistentMap<String, TransformerSource>,
     override val dataElementSourcesByName: PersistentMap<String, DataElementSource>,
     override val featureCalculatorsByName: PersistentMap<String, FeatureCalculator>,
-    override val typeDefinitionRegistry: TypeDefinitionRegistry,
-    override val entityRegistry: EntityRegistry,
-    override val lastUpdatedTemporalAttributeRegistry: LastUpdatedTemporalAttributeRegistry,
+    override val typeDefinitionRegistry: TypeDefinitionRegistry
 ) : FeatureEngineeringModelBuildContext {
 
     companion object {
@@ -52,10 +48,7 @@ internal data class DefaultFeatureEngineeringModelBuildContext(
                 transformerSourcesByName = persistentMapOf(),
                 dataElementSourcesByName = persistentMapOf(),
                 featureCalculatorsByName = persistentMapOf(),
-                typeDefinitionRegistry = TypeDefinitionRegistry(),
-                entityRegistry = EntityRegistry.newRegistry(),
-                lastUpdatedTemporalAttributeRegistry =
-                    LastUpdatedTemporalAttributeRegistry.newRegistry()
+                typeDefinitionRegistry = TypeDefinitionRegistry()
             )
         }
 
@@ -79,9 +72,7 @@ internal data class DefaultFeatureEngineeringModelBuildContext(
             private val transformerSourcesByName: PersistentMap.Builder<String, TransformerSource>,
             private val dataElementSourcesByName: PersistentMap.Builder<String, DataElementSource>,
             private val featureCalculatorsByName: PersistentMap.Builder<String, FeatureCalculator>,
-            private var typeDefinitionRegistry: TypeDefinitionRegistry,
-            private var entityRegistry: EntityRegistry,
-            private var lastUpdatedTemporalAttributeRegistry: LastUpdatedTemporalAttributeRegistry,
+            private var typeDefinitionRegistry: TypeDefinitionRegistry
         ) : Builder {
 
             override fun addTransformerSourceProvider(
@@ -159,18 +150,6 @@ internal data class DefaultFeatureEngineeringModelBuildContext(
                 return this
             }
 
-            override fun entityRegistry(entityRegistry: EntityRegistry): Builder {
-                this.entityRegistry = entityRegistry
-                return this
-            }
-
-            override fun lastUpdatedTemporalAttributePathRegistry(
-                lastUpdatedTemporalAttributeRegistry: LastUpdatedTemporalAttributeRegistry
-            ): Builder {
-                this.lastUpdatedTemporalAttributeRegistry = lastUpdatedTemporalAttributeRegistry
-                return this
-            }
-
             override fun build(): FeatureEngineeringModelBuildContext {
                 return DefaultFeatureEngineeringModelBuildContext(
                     transformerSourceProviders = transformerSourceProviders.build(),
@@ -184,9 +163,7 @@ internal data class DefaultFeatureEngineeringModelBuildContext(
                     transformerSourcesByName = transformerSourcesByName.build(),
                     dataElementSourcesByName = dataElementSourcesByName.build(),
                     featureCalculatorsByName = featureCalculatorsByName.build(),
-                    typeDefinitionRegistry = typeDefinitionRegistry,
-                    entityRegistry = entityRegistry,
-                    lastUpdatedTemporalAttributeRegistry = lastUpdatedTemporalAttributeRegistry
+                    typeDefinitionRegistry = typeDefinitionRegistry
                 )
             }
         }
@@ -211,9 +188,7 @@ internal data class DefaultFeatureEngineeringModelBuildContext(
                     transformerSourcesByName = this.transformerSourcesByName.builder(),
                     dataElementSourcesByName = this.dataElementSourcesByName.builder(),
                     featureCalculatorsByName = this.featureCalculatorsByName.builder(),
-                    typeDefinitionRegistry = this.typeDefinitionRegistry,
-                    entityRegistry = this.entityRegistry,
-                    lastUpdatedTemporalAttributeRegistry = this.lastUpdatedTemporalAttributeRegistry
+                    typeDefinitionRegistry = this.typeDefinitionRegistry
                 )
             )
             .build()

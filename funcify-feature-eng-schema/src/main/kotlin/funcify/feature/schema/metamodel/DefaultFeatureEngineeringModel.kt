@@ -4,8 +4,6 @@ import funcify.feature.scalar.registry.ScalarTypeRegistry
 import funcify.feature.schema.FeatureEngineeringModel
 import funcify.feature.schema.dataelement.DataElementSource
 import funcify.feature.schema.dataelement.DataElementSourceProvider
-import funcify.feature.schema.directive.identifier.EntityRegistry
-import funcify.feature.schema.directive.temporal.LastUpdatedTemporalAttributeRegistry
 import funcify.feature.schema.feature.FeatureCalculator
 import funcify.feature.schema.feature.FeatureCalculatorProvider
 import funcify.feature.schema.feature.FeatureJsonValuePublisher
@@ -34,7 +32,5 @@ internal data class DefaultFeatureEngineeringModel(
     override val featureCalculatorsByName: PersistentMap<String, FeatureCalculator>,
     override val scalarTypeRegistry: ScalarTypeRegistry,
     override val typeDefinitionRegistry: TypeDefinitionRegistry,
-    override val entityRegistry: EntityRegistry,
-    override val lastUpdatedTemporalAttributeRegistry: LastUpdatedTemporalAttributeRegistry,
     override val modelLimits: ModelLimits,
 ) : FeatureEngineeringModel
