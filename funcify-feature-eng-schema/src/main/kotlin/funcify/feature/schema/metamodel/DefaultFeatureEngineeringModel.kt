@@ -4,7 +4,6 @@ import funcify.feature.scalar.registry.ScalarTypeRegistry
 import funcify.feature.schema.FeatureEngineeringModel
 import funcify.feature.schema.dataelement.DataElementSource
 import funcify.feature.schema.dataelement.DataElementSourceProvider
-import funcify.feature.schema.directive.alias.AttributeAliasRegistry
 import funcify.feature.schema.directive.identifier.EntityRegistry
 import funcify.feature.schema.directive.temporal.LastUpdatedTemporalAttributeRegistry
 import funcify.feature.schema.feature.FeatureCalculator

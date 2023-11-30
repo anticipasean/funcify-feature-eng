@@ -120,12 +120,13 @@ class AliasCoordinatesRegistryTest {
                     |scalar DateTime
                     """
                 .trimMargin()
+
         @JvmStatic
         @BeforeAll
         internal fun setUp() {
             (LoggerFactory.getILoggerFactory() as? ch.qos.logback.classic.LoggerContext)?.let {
                 lc: ch.qos.logback.classic.LoggerContext ->
-                lc.getLogger(AttributeAliasRegistryComposer::class.java.packageName)?.let {
+                lc.getLogger(AliasCoordinatesRegistry::class.java.packageName)?.let {
                     l: ch.qos.logback.classic.Logger ->
                     l.level = Level.DEBUG
                 }
