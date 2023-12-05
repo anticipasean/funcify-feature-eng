@@ -2,6 +2,7 @@ package funcify.feature.schema.directive.temporal
 
 import arrow.core.Option
 import funcify.feature.schema.path.operation.GQLOperationPath
+import graphql.schema.FieldCoordinates
 import kotlinx.collections.immutable.ImmutableSet
 
 /**
@@ -18,21 +19,18 @@ interface LastUpdatedCoordinatesRegistry {
         }
     }
 
-    fun registerSchematicPathAsMappingToLastUpdatedTemporalAttributeVertex(
-        path: GQLOperationPath
+    fun registerLastUpdatedField(
+        path: GQLOperationPath,
+        coordinates: FieldCoordinates
     ): LastUpdatedCoordinatesRegistry
 
-    fun pathBelongsToLastUpdatedTemporalAttributeVertex(path: GQLOperationPath): Boolean
+    fun pathBelongsToLastUpdatedField(path: GQLOperationPath): Boolean
 
-    fun getAllPathsBelongingToLastUpdatedTemporalAttributeVertices(): ImmutableSet<GQLOperationPath>
+    fun getAllPathsBelongingToLastUpdatedFields(): ImmutableSet<GQLOperationPath>
 
-    fun pathBelongsToLastUpdatedTemporalAttributeParentVertex(path: GQLOperationPath): Boolean
+    fun pathBelongsToParentOfLastUpdatedField(path: GQLOperationPath): Boolean
 
-    fun getLastUpdatedTemporalAttributeChildPathOfParentPath(
+    fun findNearestLastUpdatedField(
         path: GQLOperationPath
-    ): Option<GQLOperationPath>
-
-    fun findNearestLastUpdatedTemporalAttributePathRelative(
-        path: GQLOperationPath
-    ): Option<GQLOperationPath>
+    ): Option<Pair<GQLOperationPath, FieldCoordinates>>
 }

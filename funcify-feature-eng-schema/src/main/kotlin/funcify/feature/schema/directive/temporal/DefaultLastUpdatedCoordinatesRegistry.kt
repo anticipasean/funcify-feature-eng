@@ -1,7 +1,9 @@
 package funcify.feature.schema.directive.temporal
 
 import arrow.core.Option
+import arrow.core.foldLeft
 import arrow.core.getOrNone
+import arrow.core.lastOrNone
 import arrow.core.left
 import arrow.core.none
 import arrow.core.orElse
@@ -13,14 +15,23 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.node.ArrayNode
 import com.fasterxml.jackson.databind.node.JsonNodeFactory
 import com.fasterxml.jackson.databind.node.ObjectNode
+import funcify.feature.schema.path.operation.AliasedFieldSegment
+import funcify.feature.schema.path.operation.FieldSegment
+import funcify.feature.schema.path.operation.FragmentSpreadSegment
 import funcify.feature.schema.path.operation.GQLOperationPath
+import funcify.feature.schema.path.operation.InlineFragmentSegment
+import funcify.feature.schema.path.operation.SelectedField
+import funcify.feature.schema.path.operation.SelectionSegment
 import funcify.feature.tools.extensions.OptionExtensions.recurse
 import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentMap
 import funcify.feature.tools.extensions.SequenceExtensions.flatMapOptions
+import graphql.schema.FieldCoordinates
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.PersistentSet
-import kotlinx.collections.immutable.persistentSetOf
+import kotlinx.collections.immutable.persistentMapOf
+import kotlinx.collections.immutable.plus
+import kotlinx.collections.immutable.toPersistentSet
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentMap
 
@@ -29,41 +40,48 @@ import java.util.concurrent.ConcurrentMap
  * @created 2022-07-25
  */
 internal data class DefaultLastUpdatedCoordinatesRegistry(
-    private val lastUpdatedTemporalAttributePathsSet: PersistentSet<GQLOperationPath> =
-        persistentSetOf()
+    private val lastUpdatedCoordinatesByPath: PersistentMap<GQLOperationPath, FieldCoordinates> =
+        persistentMapOf()
 ) : LastUpdatedCoordinatesRegistry {
 
-    private val lastUpdatedTemporalAttributePathByParentPath:
+    private val lastUpdatedFieldPathsSet: PersistentSet<GQLOperationPath> by lazy {
+        lastUpdatedCoordinatesByPath.keys.toPersistentSet()
+    }
+
+    private val lastUpdatedFieldPathByParentPath:
         PersistentMap<GQLOperationPath, GQLOperationPath> by lazy {
-        lastUpdatedTemporalAttributePathsSet
+        lastUpdatedCoordinatesByPath
             .asSequence()
-            .map { attrPath -> attrPath.getParentPath().map { pp -> pp to attrPath } }
+            .map { (path: GQLOperationPath, _: FieldCoordinates) ->
+                path.getParentPath().map { pp: GQLOperationPath -> pp to path }
+            }
             .flatMapOptions()
             .reducePairsToPersistentMap()
     }
 
     private val nearestLastUpdatedTemporalAttributeRelativeMemoizer:
         (GQLOperationPath) -> Option<GQLOperationPath> by lazy {
-        val cache: ConcurrentMap<GQLOperationPath, GQLOperationPath> = ConcurrentHashMap()
-        ({ path: GQLOperationPath ->
-            cache
-                .computeIfAbsent(path, nearestLastUpdatedTemporalAttributeRelativeCalculator())
-                .toOption()
-        })
+        val cache: ConcurrentMap<GQLOperationPath, GQLOperationPath> = ConcurrentHashMap();
+        { path: GQLOperationPath ->
+            cache.computeIfAbsent(path, nearestLastUpdatedFieldRelativeCalculator()).toOption()
+        }
     }
 
     private val computedStringForm: String by lazy {
         sequenceOf<Pair<String, JsonNode>>(
-                "last_updated_temporal_attribute_paths" to
-                    lastUpdatedTemporalAttributePathsSet.fold(
-                        JsonNodeFactory.instance.arrayNode(
-                            lastUpdatedTemporalAttributePathsSet.size
+                "last_updated_coordinates_by_path" to
+                    lastUpdatedCoordinatesByPath.foldLeft(
+                        JsonNodeFactory.instance.arrayNode(lastUpdatedCoordinatesByPath.size)
+                    ) { an: ArrayNode, (sp: GQLOperationPath, fc: FieldCoordinates) ->
+                        an.add(
+                            JsonNodeFactory.instance
+                                .objectNode()
+                                .put("path", sp.toString())
+                                .put("coordinates", fc.toString())
                         )
-                    ) { an: ArrayNode, sp: GQLOperationPath ->
-                        an.add(sp.toString())
                     },
-                "last_updated_temporal_attribute_path_by_parent_path" to
-                    lastUpdatedTemporalAttributePathByParentPath.asSequence().fold(
+                "last_updated_field_path_by_parent_path" to
+                    lastUpdatedFieldPathByParentPath.asSequence().fold(
                         JsonNodeFactory.instance.objectNode()
                     ) { on: ObjectNode, (pp: GQLOperationPath, cp: GQLOperationPath) ->
                         on.put(pp.toString(), cp.toString())
@@ -83,72 +101,79 @@ internal data class DefaultLastUpdatedCoordinatesRegistry(
         return computedStringForm
     }
 
-    override fun registerSchematicPathAsMappingToLastUpdatedTemporalAttributeVertex(
-        path: GQLOperationPath
+    override fun pathBelongsToLastUpdatedField(path: GQLOperationPath): Boolean {
+        return path in lastUpdatedFieldPathsSet
+    }
+
+    override fun getAllPathsBelongingToLastUpdatedFields(): ImmutableSet<GQLOperationPath> {
+        return lastUpdatedFieldPathsSet
+    }
+
+    override fun pathBelongsToParentOfLastUpdatedField(path: GQLOperationPath): Boolean {
+        return path in lastUpdatedFieldPathByParentPath
+    }
+
+    override fun registerLastUpdatedField(
+        path: GQLOperationPath,
+        coordinates: FieldCoordinates
     ): LastUpdatedCoordinatesRegistry {
+        require(!path.isRoot() && path.refersToSelection()) {
+            "path must refer to a field, not an argument or directive"
+        }
+        require(
+            path.selection
+                .lastOrNone()
+                .map { ss: SelectionSegment ->
+                    when (ss) {
+                        is AliasedFieldSegment -> ss
+                        is FieldSegment -> ss
+                        is FragmentSpreadSegment -> ss.selectedField
+                        is InlineFragmentSegment -> ss.selectedField
+                    }
+                }
+                .filter { sf: SelectedField ->
+                    when (sf) {
+                        is AliasedFieldSegment -> false
+                        is FieldSegment -> sf.fieldName == coordinates.fieldName
+                    }
+                }
+                .isDefined()
+        ) {
+            "path does not refer to same field referenced in coordinates"
+        }
         return DefaultLastUpdatedCoordinatesRegistry(
-            lastUpdatedTemporalAttributePathsSet = lastUpdatedTemporalAttributePathsSet.add(path)
+            lastUpdatedCoordinatesByPath = lastUpdatedCoordinatesByPath.plus(path to coordinates)
         )
     }
 
-    override fun pathBelongsToLastUpdatedTemporalAttributeVertex(path: GQLOperationPath): Boolean {
-        return path in lastUpdatedTemporalAttributePathsSet
-    }
-
-    override fun getAllPathsBelongingToLastUpdatedTemporalAttributeVertices():
-        ImmutableSet<GQLOperationPath> {
-        return lastUpdatedTemporalAttributePathsSet
-    }
-
-    override fun pathBelongsToLastUpdatedTemporalAttributeParentVertex(
+    override fun findNearestLastUpdatedField(
         path: GQLOperationPath
-    ): Boolean {
-        return path in lastUpdatedTemporalAttributePathByParentPath
+    ): Option<Pair<GQLOperationPath, FieldCoordinates>> {
+        return nearestLastUpdatedTemporalAttributeRelativeMemoizer.invoke(path).flatMap {
+            p: GQLOperationPath ->
+            lastUpdatedCoordinatesByPath.getOrNone(p).map { fc: FieldCoordinates -> p to fc }
+        }
     }
 
-    override fun getLastUpdatedTemporalAttributeChildPathOfParentPath(
-        path: GQLOperationPath
-    ): Option<GQLOperationPath> {
-        return lastUpdatedTemporalAttributePathByParentPath.getOrNone(path)
-    }
-
-    override fun findNearestLastUpdatedTemporalAttributePathRelative(
-        path: GQLOperationPath
-    ): Option<GQLOperationPath> {
-        return nearestLastUpdatedTemporalAttributeRelativeMemoizer(path)
-    }
-
-    private fun nearestLastUpdatedTemporalAttributeRelativeCalculator():
+    private fun nearestLastUpdatedFieldRelativeCalculator():
         (GQLOperationPath) -> GQLOperationPath? {
         return { path: GQLOperationPath ->
             when {
                 path.isRoot() -> {
                     none()
-                } // closest relative is itself
-                path in lastUpdatedTemporalAttributePathsSet -> {
+                }
+                path in lastUpdatedFieldPathsSet -> {
                     path.some()
                 }
                 else -> {
-                    path
-                        .some()
-                        .filter { p -> p.argument.isEmpty() && p.directive.isEmpty() }
-                        .orElse { path.transform { clearArgument().clearDirective() }.some() }
-                        .recurse { p ->
-                            p.getParentPath()
-                                .flatMap { pp
-                                    -> // sibling if parent is the same, cousin if grandparent is
-                                    // the
-                                    // same,
-                                    // etc.
-                                    lastUpdatedTemporalAttributePathByParentPath[pp].toOption()
-                                }
-                                .fold(
-                                    { p.getParentPath().map { pp -> pp.left() } },
-                                    { lastUpdatedTemporalAttributePath ->
-                                        lastUpdatedTemporalAttributePath.right().some()
-                                    }
-                                )
-                        }
+                    Option(path).recurse { p: GQLOperationPath ->
+                        p.getParentPath()
+                            .filter { pp: GQLOperationPath ->
+                                pp in lastUpdatedFieldPathByParentPath
+                            }
+                            .map(GQLOperationPath::right)
+                            .orElse { p.getParentPath().map(GQLOperationPath::left) }
+                    }
                 }
             }.orNull()
         }

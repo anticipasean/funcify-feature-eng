@@ -1,6 +1,5 @@
 package funcify.feature.schema.directive.temporal
 
-import arrow.core.Option
 import arrow.core.filterIsInstance
 import arrow.core.getOrElse
 import arrow.core.toOption
@@ -13,8 +12,11 @@ import funcify.feature.schema.path.operation.GQLOperationPath
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.OptionExtensions.toOption
 import graphql.GraphQLError
+import graphql.schema.FieldCoordinates
+import graphql.schema.GraphQLSchema
 import graphql.schema.idl.SchemaParser
 import graphql.schema.idl.TypeDefinitionRegistry
+import graphql.schema.idl.UnExecutableSchemaGenerator
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
@@ -45,7 +47,7 @@ class LastUpdatedCoordinatesRegistryTest {
             |      minStarScore: Int = 0
             |    ): [Review]
             |    artwork(limits: ImageLimits): [Image]
-            |    added: Date @last_updated
+            |    added: Date @lastUpdated
             |}
             |
             |input TitleFormat {
@@ -55,7 +57,7 @@ class LastUpdatedCoordinatesRegistryTest {
             |type Review {
             |    username: String
             |    starScore: Int
-            |    submittedDate: DateTime @last_updated
+            |    submittedDate: DateTime @lastUpdated
             |}
             |
             |type Image {
@@ -85,13 +87,16 @@ class LastUpdatedCoordinatesRegistryTest {
             |scalar Date
             """
                 .trimMargin()
+
         @JvmStatic
         @BeforeAll
         internal fun setUp() {
             (LoggerFactory.getILoggerFactory() as? ch.qos.logback.classic.LoggerContext)?.let {
                 lc: ch.qos.logback.classic.LoggerContext ->
-                lc.getLogger(LastUpdatedTemporalAttributeRegistryComposer::class.java.packageName)
-                    ?.let { l: ch.qos.logback.classic.Logger -> l.level = Level.DEBUG }
+                lc.getLogger(LastUpdatedCoordinatesRegistry::class.java.packageName)?.let {
+                    l: ch.qos.logback.classic.Logger ->
+                    l.level = Level.DEBUG
+                }
             }
         }
     }
@@ -127,30 +132,38 @@ class LastUpdatedCoordinatesRegistryTest {
                 }
                 .orElseThrow()
         }
-        val lastUpdatedRegistryOpt: Option<LastUpdatedCoordinatesRegistry> =
-            LastUpdatedTemporalAttributeRegistryComposer()
-                .createLastUpdatedCoordinatesRegistry(tdr)
-        Assertions.assertTrue(lastUpdatedRegistryOpt.isDefined())
+        val graphQLSchema: GraphQLSchema =
+            Assertions.assertDoesNotThrow<GraphQLSchema> {
+                UnExecutableSchemaGenerator.makeUnExecutableSchema(tdr)
+            }
         val lastUpdatedRegistry: LastUpdatedCoordinatesRegistry =
-            lastUpdatedRegistryOpt.orNull()!!
+            Assertions.assertDoesNotThrow<LastUpdatedCoordinatesRegistry> {
+                LastUpdatedCoordinatesRegistryCreator.createLastUpdatedCoordinatesRegistryFor(
+                        graphQLSchema,
+                        GQLOperationPath.parseOrThrow("gqlo:/shows"),
+                        FieldCoordinates.coordinates("Query", "shows")
+                    )
+                    .orElseThrow()
+            }
+        //println("registry: %s".format(lastUpdatedRegistry))
         Assertions.assertTrue(
-            lastUpdatedRegistry.pathBelongsToLastUpdatedTemporalAttributeVertex(
-                GQLOperationPath.parseOrThrow("mlfs:/shows/reviews/submittedDate")
+            lastUpdatedRegistry.pathBelongsToLastUpdatedField(
+                GQLOperationPath.parseOrThrow("gqlo:/shows/reviews/submittedDate")
             )
         )
         Assertions.assertTrue(
-            lastUpdatedRegistry.pathBelongsToLastUpdatedTemporalAttributeParentVertex(
-                GQLOperationPath.parseOrThrow("mlfs:/shows/reviews")
+            lastUpdatedRegistry.pathBelongsToParentOfLastUpdatedField(
+                GQLOperationPath.parseOrThrow("gqlo:/shows/reviews")
             )
         )
         Assertions.assertTrue(
-            lastUpdatedRegistry.pathBelongsToLastUpdatedTemporalAttributeVertex(
-                GQLOperationPath.parseOrThrow("mlfs:/shows/added")
+            lastUpdatedRegistry.pathBelongsToLastUpdatedField(
+                GQLOperationPath.parseOrThrow("gqlo:/shows/added")
             )
         )
         Assertions.assertTrue(
-            lastUpdatedRegistry.pathBelongsToLastUpdatedTemporalAttributeParentVertex(
-                GQLOperationPath.parseOrThrow("mlfs:/shows")
+            lastUpdatedRegistry.pathBelongsToParentOfLastUpdatedField(
+                GQLOperationPath.parseOrThrow("gqlo:/shows")
             )
         )
     }
