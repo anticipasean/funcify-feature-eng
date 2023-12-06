@@ -1,10 +1,12 @@
 package funcify.feature.schema.directive.temporal
 
+import arrow.core.Option
 import arrow.core.filterIsInstance
 import arrow.core.getOrElse
 import arrow.core.toOption
 import funcify.feature.directive.LastUpdatedDirective
 import funcify.feature.error.ServiceError
+import funcify.feature.schema.limit.ModelLimits
 import funcify.feature.schema.path.operation.GQLOperationPath
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.container.attempt.Try.Companion.filterInstanceOf
@@ -12,11 +14,13 @@ import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.extensions.TryExtensions.successIfDefined
 import funcify.feature.tools.extensions.TryExtensions.successIfNonNull
+import graphql.introspection.Introspection
 import graphql.scalars.ExtendedScalars
 import graphql.schema.FieldCoordinates
 import graphql.schema.GraphQLFieldDefinition
 import graphql.schema.GraphQLFieldsContainer
 import graphql.schema.GraphQLInterfaceType
+import graphql.schema.GraphQLNamedSchemaElement
 import graphql.schema.GraphQLObjectType
 import graphql.schema.GraphQLScalarType
 import graphql.schema.GraphQLSchema
@@ -32,6 +36,7 @@ import graphql.util.TraverserVisitor
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.persistentMapOf
 import org.slf4j.Logger
+import java.util.*
 
 object LastUpdatedCoordinatesRegistryCreator {
 
@@ -39,6 +44,7 @@ object LastUpdatedCoordinatesRegistryCreator {
     private val logger: Logger = loggerFor<LastUpdatedCoordinatesRegistryCreator>()
 
     fun createLastUpdatedCoordinatesRegistryFor(
+        modelLimits: ModelLimits,
         graphQLSchema: GraphQLSchema,
         path: GQLOperationPath,
         fieldCoordinates: FieldCoordinates
@@ -56,19 +62,11 @@ object LastUpdatedCoordinatesRegistryCreator {
                 )
             }
             .flatMap { gfc: GraphQLFieldsContainer ->
-                graphql.introspection.Introspection.getFieldDef(
-                        graphQLSchema,
-                        gfc,
-                        fieldCoordinates.fieldName
-                    )
-                    .toOption()
-                    .successIfDefined {
-                        ServiceError.of(
-                            "%s not found for field_coordinates [ %s ]",
-                            GraphQLFieldDefinition::class.simpleName,
-                            fieldCoordinates
-                        )
-                    }
+                findGraphQLFieldDefinitionForContainerAndCoordinates(
+                    graphQLSchema,
+                    gfc,
+                    fieldCoordinates
+                )
             }
             .flatMap { gfd: GraphQLFieldDefinition ->
                 gfd.type
@@ -84,28 +82,67 @@ object LastUpdatedCoordinatesRegistryCreator {
                     }
             }
             .flatMap { gfc: GraphQLFieldsContainer ->
-                Traverser.depthFirst<GraphQLSchemaElement>(
-                        nodeTraversalFunction(graphQLSchema),
-                        path,
-                        LastUpdatedCoordinatesContext(
-                            lastUpdatedCoordinatesByPath = persistentMapOf()
-                        )
-                    )
-                    .traverse(
-                        gfc,
-                        LastUpdatedCoordinatesTraverserVisitor(LastUpdatedCoordinatesVisitor())
-                    )
-                    .successIfNonNull {
-                        ServiceError.of(
-                            "%s not returned for traversal",
-                            TraverserResult::class.simpleName
-                        )
-                    }
-                    .map(TraverserResult::getAccumulatedResult)
-                    .filterInstanceOf<LastUpdatedCoordinatesContext>()
+                traverseContainerLookingForLastUpdatedDirectiveAnnotatedElements(
+                    modelLimits,
+                    graphQLSchema,
+                    path,
+                    gfc
+                )
             }
             .map(LastUpdatedCoordinatesContext::lastUpdatedCoordinatesByPath)
             .map(::DefaultLastUpdatedCoordinatesRegistry)
+    }
+
+    private fun findGraphQLFieldDefinitionForContainerAndCoordinates(
+        graphQLSchema: GraphQLSchema,
+        graphQLFieldsContainer: GraphQLFieldsContainer,
+        fieldCoordinates: FieldCoordinates,
+    ): Try<GraphQLFieldDefinition> {
+        return Try.attemptNullable({
+            Introspection.getFieldDef(
+                graphQLSchema,
+                graphQLFieldsContainer,
+                fieldCoordinates.fieldName
+            )
+        }) {
+            ServiceError.of(
+                "%s not found for field_coordinates [ %s ]",
+                GraphQLFieldDefinition::class.simpleName,
+                fieldCoordinates
+            )
+        }
+    }
+
+    private fun traverseContainerLookingForLastUpdatedDirectiveAnnotatedElements(
+        modelLimits: ModelLimits,
+        graphQLSchema: GraphQLSchema,
+        path: GQLOperationPath,
+        graphQLFieldsContainer: GraphQLFieldsContainer,
+    ): Try<LastUpdatedCoordinatesContext> {
+        val backRefQueue: Deque<Pair<GQLOperationPath, GraphQLFieldsContainer>> = LinkedList()
+        return Traverser.breadthFirst<GraphQLSchemaElement>(
+                nodeTraversalFunction(graphQLSchema),
+                path,
+                LastUpdatedCoordinatesContext(lastUpdatedCoordinatesByPath = persistentMapOf())
+            )
+            .traverse(
+                graphQLFieldsContainer,
+                LastUpdatedCoordinatesTraverserVisitor(
+                    LastUpdatedCoordinatesVisitor(backRefQueue = backRefQueue)
+                )
+            )
+            .successIfNonNull {
+                ServiceError.of("%s not returned for traversal", TraverserResult::class.simpleName)
+            }
+            .map(TraverserResult::getAccumulatedResult)
+            .filterInstanceOf<LastUpdatedCoordinatesContext>()
+            .map(
+                gatherLastUpdatedCoordinatesUntilMaximumOperationDepth(
+                    modelLimits,
+                    graphQLSchema,
+                    backRefQueue
+                )
+            )
     }
 
     private fun nodeTraversalFunction(
@@ -136,6 +173,40 @@ object LastUpdatedCoordinatesRegistryCreator {
         }
     }
 
+    private fun gatherLastUpdatedCoordinatesUntilMaximumOperationDepth(
+        modelLimits: ModelLimits,
+        graphQLSchema: GraphQLSchema,
+        backRefQueue: Deque<Pair<GQLOperationPath, GraphQLFieldsContainer>>
+    ): (LastUpdatedCoordinatesContext) -> LastUpdatedCoordinatesContext {
+        return { context: LastUpdatedCoordinatesContext ->
+            var c: LastUpdatedCoordinatesContext = context
+            while (
+                backRefQueue.isNotEmpty() &&
+                    backRefQueue.peekFirst().first.level() < modelLimits.maximumOperationDepth
+            ) {
+                val (p: GQLOperationPath, gfc: GraphQLFieldsContainer) = backRefQueue.pollFirst()
+                c =
+                    Traverser.depthFirst(nodeTraversalFunction(graphQLSchema), p, c)
+                        .traverse(
+                            gfc,
+                            LastUpdatedCoordinatesTraverserVisitor(
+                                LastUpdatedCoordinatesVisitor(backRefQueue)
+                            )
+                        )
+                        .successIfNonNull {
+                            ServiceError.of(
+                                "%s not returned for traversal",
+                                TraverserResult::class.simpleName
+                            )
+                        }
+                        .map(TraverserResult::getAccumulatedResult)
+                        .filterInstanceOf<LastUpdatedCoordinatesContext>()
+                        .orElseThrow()
+            }
+            c
+        }
+    }
+
     private data class LastUpdatedCoordinatesContext(
         val lastUpdatedCoordinatesByPath: PersistentMap<GQLOperationPath, FieldCoordinates>
     )
@@ -157,7 +228,9 @@ object LastUpdatedCoordinatesRegistryCreator {
         }
     }
 
-    private class LastUpdatedCoordinatesVisitor : GraphQLTypeVisitorStub() {
+    private class LastUpdatedCoordinatesVisitor(
+        private val backRefQueue: Deque<Pair<GQLOperationPath, GraphQLFieldsContainer>>
+    ) : GraphQLTypeVisitorStub() {
         companion object {
             private val logger: Logger = loggerFor<LastUpdatedCoordinatesVisitor>()
         }
@@ -167,7 +240,7 @@ object LastUpdatedCoordinatesRegistryCreator {
             context: TraverserContext<GraphQLSchemaElement>
         ): TraversalControl {
             logger.debug("visit_graphql_field_definition: [ node.name: {} ]", node.name)
-            if (node.allAppliedDirectivesByName.containsKey(LastUpdatedDirective.name)) {
+            if (node.hasAppliedDirective(LastUpdatedDirective.name)) {
                 addLastUpdatedAnnotatedElementToRegistry(node, context)
             } else {
                 val p: GQLOperationPath = createPathFromContext(node, context)
@@ -350,6 +423,38 @@ object LastUpdatedCoordinatesRegistryCreator {
                 .orElseThrow { _: Throwable ->
                     ServiceError.of("parent_path has not been set as variable in traverser_context")
                 }
+        }
+
+        override fun visitBackRef(
+            context: TraverserContext<GraphQLSchemaElement>
+        ): TraversalControl {
+            logger.debug(
+                "visit_back_ref: [ context.parent_node[type,name]: { {}, {} }, context.this_node[type,name]: { {}, {} } ]",
+                context.parentNode::class.simpleName,
+                context.parentNode
+                    .toOption()
+                    .filterIsInstance<GraphQLNamedSchemaElement>()
+                    .map(GraphQLNamedSchemaElement::getName)
+                    .getOrElse { "<NA>" },
+                context.thisNode()::class.simpleName,
+                context
+                    .thisNode()
+                    .toOption()
+                    .filterIsInstance<GraphQLNamedSchemaElement>()
+                    .map(GraphQLNamedSchemaElement::getName)
+                    .getOrElse { "<NA>" }
+            )
+            Option.catch { extractParentPathContextVariableOrThrow(context) }
+                .zip(
+                    context.parentNode.toOption().filterIsInstance<GraphQLFieldDefinition>(),
+                    context.thisNode().toOption().filterIsInstance<GraphQLFieldsContainer>(),
+                    ::Triple
+                )
+                .tap { t: Triple<GQLOperationPath, GraphQLFieldDefinition, GraphQLFieldsContainer>
+                    ->
+                    backRefQueue.offerLast(t.first to t.third)
+                }
+            return TraversalControl.CONTINUE
         }
     }
 }

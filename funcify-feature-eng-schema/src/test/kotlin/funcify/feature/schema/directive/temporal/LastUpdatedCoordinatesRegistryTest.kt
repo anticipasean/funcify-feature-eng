@@ -8,6 +8,7 @@ import funcify.feature.directive.AliasDirective
 import funcify.feature.directive.LastUpdatedDirective
 import funcify.feature.directive.MaterializationDirective
 import funcify.feature.error.ServiceError
+import funcify.feature.schema.limit.ModelLimits
 import funcify.feature.schema.path.operation.GQLOperationPath
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.OptionExtensions.toOption
@@ -55,7 +56,7 @@ class LastUpdatedCoordinatesRegistryTest {
             |}
             |
             |type Review {
-            |    username: String
+            |    user: User
             |    starScore: Int
             |    submittedDate: DateTime @lastUpdated
             |}
@@ -81,6 +82,11 @@ class LastUpdatedCoordinatesRegistryTest {
             |    GB
             |    MB
             |    KB
+            |}
+            |
+            |type User {
+            |    name: String!
+            |    reviews: [Review!]!
             |}
             |
             |scalar DateTime
@@ -139,6 +145,7 @@ class LastUpdatedCoordinatesRegistryTest {
         val lastUpdatedRegistry: LastUpdatedCoordinatesRegistry =
             Assertions.assertDoesNotThrow<LastUpdatedCoordinatesRegistry> {
                 LastUpdatedCoordinatesRegistryCreator.createLastUpdatedCoordinatesRegistryFor(
+                        ModelLimits.getDefault(),
                         graphQLSchema,
                         GQLOperationPath.parseOrThrow("gqlo:/shows"),
                         FieldCoordinates.coordinates("Query", "shows")

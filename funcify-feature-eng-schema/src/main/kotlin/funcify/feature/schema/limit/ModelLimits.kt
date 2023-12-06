@@ -14,6 +14,12 @@ interface ModelLimits {
         const val REQUIRED_MINIMUM_OPERATION_DEPTH: Int = 3
 
         const val DEFAULT_MAXIMUM_OPERATION_DEPTH: Int = 7
+
+        private val DEFAULT_INSTANCE: ModelLimits = DefaultModelLimits()
+
+        fun getDefault(): ModelLimits {
+            return DEFAULT_INSTANCE
+        }
     }
 
     /**
