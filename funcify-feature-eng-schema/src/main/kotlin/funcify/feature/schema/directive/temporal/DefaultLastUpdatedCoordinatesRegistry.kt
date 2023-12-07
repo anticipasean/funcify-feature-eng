@@ -5,8 +5,6 @@ import arrow.core.foldLeft
 import arrow.core.getOrNone
 import arrow.core.lastOrNone
 import arrow.core.left
-import arrow.core.none
-import arrow.core.orElse
 import arrow.core.right
 import arrow.core.some
 import arrow.core.toOption
@@ -160,22 +158,30 @@ internal data class DefaultLastUpdatedCoordinatesRegistry(
         return { path: GQLOperationPath ->
             when {
                 path.isRoot() -> {
-                    none()
+                    null
                 }
                 path in lastUpdatedFieldPathsSet -> {
-                    path.some()
+                    path
                 }
                 else -> {
-                    Option(path).recurse { p: GQLOperationPath ->
-                        p.getParentPath()
-                            .filter { pp: GQLOperationPath ->
-                                pp in lastUpdatedFieldPathByParentPath
+                    Option(path)
+                        .recurse { p: GQLOperationPath ->
+                            p.getParentPath().flatMap { pp: GQLOperationPath ->
+                                when {
+                                    pp in lastUpdatedFieldPathByParentPath -> {
+                                        lastUpdatedFieldPathByParentPath
+                                            .getOrNone(pp)
+                                            .map(GQLOperationPath::right)
+                                    }
+                                    else -> {
+                                        pp.some().map(GQLOperationPath::left)
+                                    }
+                                }
                             }
-                            .map(GQLOperationPath::right)
-                            .orElse { p.getParentPath().map(GQLOperationPath::left) }
-                    }
+                        }
+                        .orNull()
                 }
-            }.orNull()
+            }
         }
     }
 }
