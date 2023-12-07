@@ -2,6 +2,7 @@ package funcify.feature.schema.directive.temporal
 
 import arrow.core.filterIsInstance
 import arrow.core.getOrElse
+import arrow.core.some
 import arrow.core.toOption
 import ch.qos.logback.classic.Level
 import funcify.feature.directive.AliasDirective
@@ -173,5 +174,35 @@ class LastUpdatedCoordinatesRegistryTest {
                 GQLOperationPath.parseOrThrow("gqlo:/shows")
             )
         )
+        Assertions.assertEquals(
+            lastUpdatedRegistry.findNearestLastUpdatedField(
+                GQLOperationPath.parseOrThrow("gqlo:/shows/releaseYear")
+            ),
+            (GQLOperationPath.parseOrThrow("gqlo:/shows/added") to
+                    FieldCoordinates.coordinates("Show", "added"))
+                .some()
+        ) {
+            "sibling of path expected but not found"
+        }
+        Assertions.assertEquals(
+            lastUpdatedRegistry.findNearestLastUpdatedField(
+                GQLOperationPath.parseOrThrow("gqlo:/shows/reviews/starScore")
+            ),
+            (GQLOperationPath.parseOrThrow("gqlo:/shows/reviews/submittedDate") to
+                    FieldCoordinates.coordinates("Review", "submittedDate"))
+                .some()
+        ) {
+            "sibling of path expected but not found"
+        }
+        Assertions.assertEquals(
+            lastUpdatedRegistry.findNearestLastUpdatedField(
+                GQLOperationPath.parseOrThrow("gqlo:/shows/reviews/user/reviews/starScore")
+            ),
+            (GQLOperationPath.parseOrThrow("gqlo:/shows/reviews/user/reviews/submittedDate") to
+                    FieldCoordinates.coordinates("Review", "submittedDate"))
+                .some()
+        ) {
+            "sibling of path expected but not found"
+        }
     }
 }
