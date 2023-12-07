@@ -1,5 +1,6 @@
 package funcify.feature.schema.dataelement
 
+import funcify.feature.schema.directive.temporal.LastUpdatedCoordinatesRegistry
 import funcify.feature.schema.path.operation.GQLOperationPath
 import graphql.schema.FieldCoordinates
 import graphql.schema.GraphQLArgument
@@ -32,6 +33,8 @@ interface DomainSpecifiedDataElementSource {
 
     val dataElementSource: DataElementSource
 
+    val lastUpdatedCoordinatesRegistry: LastUpdatedCoordinatesRegistry
+
     interface Builder {
 
         fun domainFieldCoordinates(domainFieldCoordinates: FieldCoordinates): Builder
@@ -55,6 +58,10 @@ interface DomainSpecifiedDataElementSource {
         ): Builder
 
         fun dataElementSource(dataElementSource: DataElementSource): Builder
+
+        fun lastUpdatedCoordinatesRegistry(
+            lastUpdatedCoordinatesRegistry: LastUpdatedCoordinatesRegistry
+        ): Builder
 
         fun build(): DomainSpecifiedDataElementSource
     }

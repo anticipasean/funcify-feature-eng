@@ -33,10 +33,10 @@ import graphql.util.Traverser
 import graphql.util.TraverserContext
 import graphql.util.TraverserResult
 import graphql.util.TraverserVisitor
+import java.util.*
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.persistentMapOf
 import org.slf4j.Logger
-import java.util.*
 
 object LastUpdatedCoordinatesRegistryCreator {
 
@@ -151,10 +151,7 @@ object LastUpdatedCoordinatesRegistryCreator {
         return { e: GraphQLSchemaElement ->
             when (e) {
                 is GraphQLInterfaceType -> {
-                    e.fieldDefinitions
-                        .asSequence()
-                        .plus(graphQLSchema.getImplementations(e))
-                        .toList()
+                    graphQLSchema.getImplementations(e)
                 }
                 is GraphQLObjectType -> {
                     e.fieldDefinitions

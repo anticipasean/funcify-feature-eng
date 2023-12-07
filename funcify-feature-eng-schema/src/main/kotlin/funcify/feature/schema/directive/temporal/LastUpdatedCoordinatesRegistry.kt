@@ -14,7 +14,7 @@ interface LastUpdatedCoordinatesRegistry {
     companion object {
 
         @JvmStatic
-        fun newRegistry(): LastUpdatedCoordinatesRegistry {
+        fun createRegistry(): LastUpdatedCoordinatesRegistry {
             return DefaultLastUpdatedCoordinatesRegistry()
         }
     }

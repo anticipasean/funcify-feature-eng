@@ -10,6 +10,7 @@ import arrow.core.lastOrNone
 import funcify.feature.error.ServiceError
 import funcify.feature.schema.dataelement.DataElementSource
 import funcify.feature.schema.dataelement.DomainSpecifiedDataElementSource
+import funcify.feature.schema.directive.temporal.LastUpdatedCoordinatesRegistry
 import funcify.feature.schema.path.operation.FieldSegment
 import funcify.feature.schema.path.operation.GQLOperationPath
 import funcify.feature.tools.extensions.OptionExtensions.sequence
@@ -30,6 +31,7 @@ internal data class DefaultDomainSpecifiedDataElementSource(
     override val argumentsByName: ImmutableMap<String, GraphQLArgument>,
     override val argumentsWithDefaultValuesByName: ImmutableMap<String, GraphQLArgument>,
     override val dataElementSource: DataElementSource,
+    override val lastUpdatedCoordinatesRegistry: LastUpdatedCoordinatesRegistry
 ) : DomainSpecifiedDataElementSource {
 
     override val argumentPathsByName: ImmutableMap<String, GQLOperationPath> by lazy {
@@ -75,6 +77,7 @@ internal data class DefaultDomainSpecifiedDataElementSource(
                 PersistentMap.Builder<String, GraphQLArgument> =
                 persistentMapOf<String, GraphQLArgument>().builder(),
             private var dataElementSource: DataElementSource? = null,
+            private var lastUpdatedCoordinatesRegistry: LastUpdatedCoordinatesRegistry? = null
         ) : DomainSpecifiedDataElementSource.Builder {
 
             override fun domainFieldCoordinates(
@@ -130,6 +133,11 @@ internal data class DefaultDomainSpecifiedDataElementSource(
             ): DomainSpecifiedDataElementSource.Builder =
                 this.apply { this.dataElementSource = dataElementSource }
 
+            override fun lastUpdatedCoordinatesRegistry(
+                lastUpdatedCoordinatesRegistry: LastUpdatedCoordinatesRegistry
+            ): DomainSpecifiedDataElementSource.Builder =
+                this.apply { this.lastUpdatedCoordinatesRegistry = lastUpdatedCoordinatesRegistry }
+
             override fun build(): DomainSpecifiedDataElementSource {
                 return eagerEffect<String, DomainSpecifiedDataElementSource> {
                         ensureNotNull(domainFieldCoordinates) { "domainFieldCoordinates is null" }
@@ -139,7 +147,9 @@ internal data class DefaultDomainSpecifiedDataElementSource(
                         ensure(domainFieldCoordinates!!.fieldName == domainFieldDefinition!!.name) {
                             "domain_field_coordinates.field_name does not match domain_field_definition.name"
                         }
-                        ensure(!domainPath!!.containsAliasForField()) { "domain_path cannot be aliased" }
+                        ensure(!domainPath!!.containsAliasForField()) {
+                            "domain_path cannot be aliased"
+                        }
                         ensure(
                             domainPath!!
                                 .selection
@@ -152,6 +162,9 @@ internal data class DefaultDomainSpecifiedDataElementSource(
                         ) {
                             "domain_path[-1].field_name does not match domain_field_coordinates.field_name"
                         }
+                        ensureNotNull(lastUpdatedCoordinatesRegistry) {
+                            "last_updated_coordinates_registry is null"
+                        }
                         DefaultDomainSpecifiedDataElementSource(
                             domainFieldCoordinates = domainFieldCoordinates!!,
                             domainPath = domainPath!!,
@@ -160,7 +173,8 @@ internal data class DefaultDomainSpecifiedDataElementSource(
                             argumentsByName = argumentsByName.build(),
                             argumentsWithDefaultValuesByName =
                                 argumentsWithDefaultValuesByName.build(),
-                            dataElementSource = dataElementSource!!
+                            dataElementSource = dataElementSource!!,
+                            lastUpdatedCoordinatesRegistry = lastUpdatedCoordinatesRegistry!!
                         )
                     }
                     .fold(

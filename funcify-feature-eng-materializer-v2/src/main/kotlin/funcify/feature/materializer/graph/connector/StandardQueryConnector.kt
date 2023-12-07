@@ -114,7 +114,7 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
             }
             // Case 3: Subdomain Data Element Argument
             else -> {
-                TODO("subdomain domain element arguments not yet handled")
+                throw ServiceError.of("subdomain domain element arguments not yet handled")
             }
         }
     }
@@ -1331,12 +1331,7 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
                 )
             }
             else -> {
-                connectorContext.update(
-                    connectSelectedDataElementFieldToDomainDataElementField(
-                        connectorContext,
-                        selectedFieldComponentContext
-                    )
-                )
+                connectSubdomainDataElementField(connectorContext, selectedFieldComponentContext)
             }
         }
     }
@@ -1383,6 +1378,22 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
                     selectedFieldComponentContext.path
                 )
         }
+    }
+
+    private fun connectSubdomainDataElementField(
+        connectorContext: StandardQuery,
+        selectedFieldComponentContext: SelectedFieldComponentContext,
+    ): StandardQuery {
+        logger.debug(
+            "connect_subdomain_data_element_field: [ selected_field_component_context.path: {} ]",
+            selectedFieldComponentContext.path
+        )
+        return connectorContext.update(
+            connectSelectedDataElementFieldToDomainDataElementField(
+                connectorContext,
+                selectedFieldComponentContext
+            )
+        )
     }
 
     private fun connectSelectedDataElementFieldToDomainDataElementField(

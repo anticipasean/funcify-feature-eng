@@ -10,6 +10,8 @@ import funcify.feature.error.ServiceError
 import funcify.feature.schema.FeatureEngineeringModel
 import funcify.feature.schema.dataelement.DataElementSource
 import funcify.feature.schema.dataelement.DomainSpecifiedDataElementSource
+import funcify.feature.schema.directive.temporal.LastUpdatedCoordinatesRegistry
+import funcify.feature.schema.directive.temporal.LastUpdatedCoordinatesRegistryCreator
 import funcify.feature.schema.path.operation.GQLOperationPath
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
@@ -19,7 +21,16 @@ import funcify.feature.tools.extensions.SequenceExtensions.flatMapOptions
 import graphql.language.FieldDefinition
 import graphql.language.ObjectTypeDefinition
 import graphql.language.SDLDefinition
-import graphql.schema.*
+import graphql.schema.FieldCoordinates
+import graphql.schema.GraphQLArgument
+import graphql.schema.GraphQLFieldDefinition
+import graphql.schema.GraphQLFieldsContainer
+import graphql.schema.GraphQLObjectType
+import graphql.schema.GraphQLSchema
+import graphql.schema.GraphQLSchemaElement
+import graphql.schema.GraphQLTypeUtil
+import graphql.schema.GraphQLTypeVisitor
+import graphql.schema.GraphQLTypeVisitorStub
 import graphql.util.TraversalControl
 import graphql.util.Traverser
 import graphql.util.TraverserContext
@@ -99,7 +110,16 @@ internal object DomainSpecifiedDataElementSourceCreator :
                             .mapNotNull(TraverserResult::getAccumulatedResult)
                             .filterIsInstance<DomainSpecifiedDataElementSource.Builder>()
                             .map { b: DomainSpecifiedDataElementSource.Builder ->
-                                Try.attempt { b.build() }
+                                LastUpdatedCoordinatesRegistryCreator
+                                    .createLastUpdatedCoordinatesRegistryFor(
+                                        featureEngineeringModel.modelLimits,
+                                        graphQLSchema,
+                                        p,
+                                        FieldCoordinates.coordinates(gfc.name, fd.name)
+                                    )
+                                    .map { lucr: LastUpdatedCoordinatesRegistry ->
+                                        b.lastUpdatedCoordinatesRegistry(lucr).build()
+                                    }
                             }
                             .getOrElse {
                                 Try.failure(
