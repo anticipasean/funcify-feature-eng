@@ -2,10 +2,10 @@ package funcify.feature.schema.directive.alias
 
 import arrow.core.filterIsInstance
 import arrow.core.getOrElse
+import arrow.core.orElse
 import arrow.core.toOption
 import funcify.feature.directive.AliasDirective
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
-import funcify.feature.tools.extensions.SequenceExtensions.firstOrNone
 import graphql.schema.*
 import graphql.util.TraversalControl
 import graphql.util.Traverser
@@ -51,12 +51,10 @@ object AliasCoordinatesRegistryCreator : (GraphQLSchema) -> AliasCoordinatesRegi
                     e.fieldDefinitions
                 }
                 is GraphQLInterfaceType -> {
-                    sequenceOf(e.fieldDefinitions, graphQLSchema.getImplementations(e))
-                        .flatten()
-                        .toList()
+                    graphQLSchema.getImplementations(e)
                 }
                 is GraphQLFieldDefinition -> {
-                    sequenceOf(e.appliedDirectives, e.arguments)
+                    sequenceOf(e.arguments)
                         .flatten()
                         .plus(
                             e.type
@@ -66,9 +64,6 @@ object AliasCoordinatesRegistryCreator : (GraphQLSchema) -> AliasCoordinatesRegi
                                 .fold(::emptySequence, ::sequenceOf)
                         )
                         .toList()
-                }
-                is GraphQLArgument -> {
-                    e.appliedDirectives
                 }
                 else -> {
                     emptyList()
@@ -93,8 +88,6 @@ object AliasCoordinatesRegistryCreator : (GraphQLSchema) -> AliasCoordinatesRegi
     private class AliasCoordinatesRegistryElementVisitor() : GraphQLTypeVisitorStub() {
 
         companion object {
-            private const val ALIAS_ARGUMENT_NAME: String =
-                AliasDirective.NAME_INPUT_VALUE_DEFINITION_NAME
             private val logger: Logger = loggerFor<AliasCoordinatesRegistryElementVisitor>()
         }
 
@@ -113,25 +106,25 @@ object AliasCoordinatesRegistryCreator : (GraphQLSchema) -> AliasCoordinatesRegi
                 node.name
             )
             if (
-                context
-                    .toOption()
-                    .mapNotNull(TraverserContext<GraphQLSchemaElement>::getParentContext)
-                    .mapNotNull(TraverserContext<GraphQLSchemaElement>::getParentNode)
-                    .filterIsInstance<GraphQLInterfaceType>()
-                    .map(GraphQLInterfaceType::getFieldDefinitions)
-                    .fold(::emptySequence, List<GraphQLFieldDefinition>::asSequence)
-                    .firstOrNone { fd: GraphQLFieldDefinition -> fd.name == node.name }
-                    .mapNotNull { fd: GraphQLFieldDefinition ->
-                        fd.getAppliedDirective(AliasDirective.name)
-                    }
-                    .isDefined()
+                node.hasAppliedDirective(AliasDirective.name) ||
+                    context.parentContext.parentNode
+                        .toOption()
+                        .filterIsInstance<GraphQLInterfaceType>()
+                        .mapNotNull { git: GraphQLInterfaceType ->
+                            git.getFieldDefinition(node.name)
+                        }
+                        .map { gfd: GraphQLFieldDefinition ->
+                            gfd.getAppliedDirectives(AliasDirective.name)
+                        }
+                        .filter(List<GraphQLAppliedDirective>::isNotEmpty)
+                        .isDefined()
             ) {
-                updateAliasCoordinatesRegistryWithAliasForFieldOnAncestorInterface(node, context)
+                updateAliasCoordinatesRegistryWithAliasForFieldDefinition(node, context)
             }
             return TraversalControl.CONTINUE
         }
 
-        private fun updateAliasCoordinatesRegistryWithAliasForFieldOnAncestorInterface(
+        private fun updateAliasCoordinatesRegistryWithAliasForFieldDefinition(
             node: GraphQLFieldDefinition,
             context: TraverserContext<GraphQLSchemaElement>,
         ) {
@@ -139,114 +132,79 @@ object AliasCoordinatesRegistryCreator : (GraphQLSchema) -> AliasCoordinatesRegi
                 is GraphQLInterfaceType -> {
                     when (val parentNode = context.parentNode) {
                         is GraphQLObjectType -> {
-                            when (
-                                val fieldDefOnGrandParentNode: GraphQLFieldDefinition? =
-                                    grandParentNode.getField(node.name)
-                            ) {
-                                null -> {}
-                                else -> {
-                                    val appliedDirective: GraphQLAppliedDirective =
-                                        fieldDefOnGrandParentNode.getAppliedDirective(
-                                            AliasDirective.name
-                                        )
-                                    val name: String =
-                                        appliedDirective
-                                            .getArgument(
-                                                AliasDirective.NAME_INPUT_VALUE_DEFINITION_NAME
-                                            )
-                                            ?.getValue<String?>()
-                                            ?: ""
-                                    if (name.isNotBlank()) {
-                                        val fc: FieldCoordinates =
-                                            FieldCoordinates.coordinates(parentNode, node)
-                                        val acr: AliasCoordinatesRegistry =
-                                            context.getCurrentAccumulate()
-                                        context.setAccumulate(acr.registerFieldWithAlias(fc, name))
-                                    }
+                            val fcs: List<FieldCoordinates> =
+                                if (grandParentNode.getFieldDefinition(node.name) != null) {
+                                    listOf(
+                                        FieldCoordinates.coordinates(
+                                            grandParentNode.name,
+                                            node.name
+                                        ),
+                                        FieldCoordinates.coordinates(parentNode.name, node.name)
+                                    )
+                                } else {
+                                    listOf(FieldCoordinates.coordinates(parentNode.name, node.name))
                                 }
-                            }
+                            grandParentNode
+                                .getFieldDefinition(node.name)
+                                .toOption()
+                                .map { gfd: GraphQLFieldDefinition ->
+                                    gfd.getAppliedDirectives(AliasDirective.name)
+                                }
+                                .filter(List<GraphQLAppliedDirective>::isNotEmpty)
+                                .orElse {
+                                    node.getAppliedDirectives(AliasDirective.name).toOption()
+                                }
+                                .map(List<GraphQLAppliedDirective>::asSequence)
+                                .getOrElse { emptySequence() }
+                                .fold(context.getCurrentAccumulate<AliasCoordinatesRegistry>()) {
+                                    acr: AliasCoordinatesRegistry,
+                                    gad: GraphQLAppliedDirective ->
+                                    val aliasArgument: GraphQLAppliedDirectiveArgument =
+                                        gad.getArgument(
+                                            AliasDirective.NAME_INPUT_VALUE_DEFINITION_NAME
+                                        )
+                                    aliasArgument
+                                        .getValue<String>()
+                                        .toOption()
+                                        .filter(String::isNotBlank)
+                                        .map { alias: String ->
+                                            fcs.fold(acr) {
+                                                acr1: AliasCoordinatesRegistry,
+                                                fc: FieldCoordinates ->
+                                                acr1.registerFieldWithAlias(fc, alias)
+                                            }
+                                        }
+                                        .getOrElse { acr }
+                                }
+                                .let { acr: AliasCoordinatesRegistry -> context.setAccumulate(acr) }
                         }
                     }
                 }
-            }
-        }
-
-        override fun visitGraphQLAppliedDirective(
-            node: GraphQLAppliedDirective,
-            context: TraverserContext<GraphQLSchemaElement>,
-        ): TraversalControl {
-            logger.debug(
-                "visit_graphql_applied_directive: [ parent_node [ name: {}, type: {} ], node.name: {} ]",
-                context.parentNode
-                    .toOption()
-                    .filterIsInstance<GraphQLNamedSchemaElement>()
-                    .map(GraphQLNamedSchemaElement::getName)
-                    .getOrElse { "<NA>" },
-                context.parentNode.run { this::class }.simpleName.toOption().getOrElse { "<NA>" },
-                node.name
-            )
-            if (AliasDirective.name == node.name) {
-                when (context.parentNode) {
-                    is GraphQLFieldDefinition -> {
-                        updateAliasCoordinatesRegistryWithAliasForField(node, context)
-                    }
-                    is GraphQLArgument -> {
-                        updateAliasCoordinatesRegistryWithAliasForFieldArgument(node, context)
-                    }
-                }
-            }
-            return TraversalControl.CONTINUE
-        }
-
-        private fun updateAliasCoordinatesRegistryWithAliasForField(
-            node: GraphQLAppliedDirective,
-            context: TraverserContext<GraphQLSchemaElement>
-        ) {
-            when (val grandParentNode = context.parentContext?.parentNode) {
-                is GraphQLFieldsContainer -> {
-                    val name: String =
-                        node.getArgument(ALIAS_ARGUMENT_NAME)?.getValue<String?>() ?: ""
-                    if (name.isNotBlank()) {
-                        when (val parentNode = context.parentNode) {
-                            is GraphQLFieldDefinition -> {
-                                val fc: FieldCoordinates =
-                                    FieldCoordinates.coordinates(grandParentNode, parentNode)
-                                val acr: AliasCoordinatesRegistry = context.getCurrentAccumulate()
-                                context.setAccumulate(acr.registerFieldWithAlias(fc, name))
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        private fun updateAliasCoordinatesRegistryWithAliasForFieldArgument(
-            node: GraphQLAppliedDirective,
-            context: TraverserContext<GraphQLSchemaElement>
-        ) {
-            when (val greatGrandParentNode = context.parentContext?.parentContext?.parentNode) {
-                is GraphQLFieldsContainer -> {
-                    val name: String =
-                        node.getArgument(ALIAS_ARGUMENT_NAME)?.getValue<String?>() ?: ""
-                    if (name.isNotBlank()) {
-                        when (val grandParentNode = context.parentContext?.parentNode) {
-                            is GraphQLFieldDefinition -> {
-                                when (val parentNode = context.parentNode) {
-                                    is GraphQLArgument -> {
-                                        val fc: FieldCoordinates =
-                                            FieldCoordinates.coordinates(
-                                                greatGrandParentNode,
-                                                grandParentNode
-                                            )
-                                        val argName: String = parentNode.name
-                                        val acr: AliasCoordinatesRegistry =
-                                            context.getCurrentAccumulate()
-                                        context.setAccumulate(
-                                            acr.registerFieldArgumentWithAlias(fc to argName, name)
+                else -> {
+                    when (val parentNode: GraphQLSchemaElement = context.parentNode) {
+                        is GraphQLObjectType -> {
+                            val fc: FieldCoordinates =
+                                FieldCoordinates.coordinates(parentNode.name, node.name)
+                            node
+                                .getAppliedDirectives(AliasDirective.name)
+                                .asSequence()
+                                .fold(context.getCurrentAccumulate<AliasCoordinatesRegistry>()) {
+                                    acr: AliasCoordinatesRegistry,
+                                    gad: GraphQLAppliedDirective ->
+                                    val aliasArgument: GraphQLAppliedDirectiveArgument =
+                                        gad.getArgument(
+                                            AliasDirective.NAME_INPUT_VALUE_DEFINITION_NAME
                                         )
-                                    }
+                                    aliasArgument
+                                        .getValue<String>()
+                                        .toOption()
+                                        .filter(String::isNotBlank)
+                                        .map { alias: String ->
+                                            acr.registerFieldWithAlias(fc, alias)
+                                        }
+                                        .getOrElse { acr }
                                 }
-                            }
+                                .let { acr: AliasCoordinatesRegistry -> context.setAccumulate(acr) }
                         }
                     }
                 }
@@ -268,30 +226,28 @@ object AliasCoordinatesRegistryCreator : (GraphQLSchema) -> AliasCoordinatesRegi
                 node.name
             )
             if (
-                context
-                    .toOption()
-                    .mapNotNull(TraverserContext<GraphQLSchemaElement>::getParentContext)
-                    .mapNotNull(TraverserContext<GraphQLSchemaElement>::getParentContext)
-                    .mapNotNull(TraverserContext<GraphQLSchemaElement>::getParentNode)
-                    .filterIsInstance<GraphQLInterfaceType>()
-                    .zip(
-                        context
-                            .toOption()
-                            .mapNotNull(TraverserContext<GraphQLSchemaElement>::getParentNode)
-                            .filterIsInstance<GraphQLFieldDefinition>()
-                    )
-                    .flatMap { (git: GraphQLInterfaceType, gfd: GraphQLFieldDefinition) ->
-                        git.toOption()
-                            .map(GraphQLInterfaceType::getFieldDefinitions)
-                            .fold(::emptySequence, List<GraphQLFieldDefinition>::asSequence)
-                            .firstOrNone { fd: GraphQLFieldDefinition -> fd.name == gfd.name }
-                            .mapNotNull { fd: GraphQLFieldDefinition -> fd.getArgument(node.name) }
-                            .mapNotNull { ga: GraphQLArgument ->
-                                ga.getAppliedDirectives(AliasDirective.name)
-                            }
-                            .filter(List<GraphQLAppliedDirective>::isNotEmpty)
-                    }
-                    .isDefined()
+                node.hasAppliedDirective(AliasDirective.name) ||
+                    context.parentContext
+                        ?.parentContext
+                        ?.parentNode
+                        .toOption()
+                        .filterIsInstance<GraphQLInterfaceType>()
+                        .flatMap { git: GraphQLInterfaceType ->
+                            context.parentNode
+                                .toOption()
+                                .filterIsInstance<GraphQLFieldDefinition>()
+                                .mapNotNull { gfd: GraphQLFieldDefinition ->
+                                    git.getFieldDefinition(gfd.name)
+                                }
+                                .mapNotNull { gfd: GraphQLFieldDefinition ->
+                                    gfd.getArgument(node.name)
+                                }
+                                .map { ga: GraphQLArgument ->
+                                    ga.getAppliedDirectives(AliasDirective.name)
+                                }
+                                .filter(List<GraphQLAppliedDirective>::isNotEmpty)
+                        }
+                        .isDefined()
             ) {
                 updateAliasCoordinatesRegistryWithAliasForFieldArgumentOnAncestorInterface(
                     node,
@@ -311,59 +267,120 @@ object AliasCoordinatesRegistryCreator : (GraphQLSchema) -> AliasCoordinatesRegi
                         is GraphQLObjectType -> {
                             when (val parentNode = context.parentNode) {
                                 is GraphQLFieldDefinition -> {
-                                    val correspondingInterfaceFieldDef: GraphQLFieldDefinition? =
-                                        greatGrandParentNode.getFieldDefinition(parentNode.name)
-                                    val correspondingInterfaceFieldArg: GraphQLArgument? =
-                                        correspondingInterfaceFieldDef?.getArgument(node.name)
-                                    val correspondingInterfaceFieldArgAliasDirectives:
-                                        List<GraphQLAppliedDirective> =
-                                        correspondingInterfaceFieldArg?.getAppliedDirectives(
-                                            AliasDirective.name
-                                        )
-                                            ?: emptyList()
-                                    if (
-                                        correspondingInterfaceFieldDef != null &&
-                                            correspondingInterfaceFieldArg != null &&
-                                            correspondingInterfaceFieldArgAliasDirectives
-                                                .isNotEmpty()
-                                    ) {
-                                        val fc: FieldCoordinates =
-                                            FieldCoordinates.coordinates(
-                                                grandParentNode,
-                                                parentNode
-                                            )
-                                        val argName: String = parentNode.name
-                                        val acr: AliasCoordinatesRegistry =
-                                            context.getCurrentAccumulate()
-                                        context.setAccumulate(
-                                            correspondingInterfaceFieldArgAliasDirectives
-                                                .asSequence()
-                                                .filter { gad: GraphQLAppliedDirective ->
-                                                    (gad.getArgument(ALIAS_ARGUMENT_NAME)
-                                                            ?.getValue<String?>()
-                                                            ?: "")
-                                                        .isNotBlank()
-                                                }
-                                                .mapNotNull { gad: GraphQLAppliedDirective ->
-                                                    gad.getArgument(ALIAS_ARGUMENT_NAME)
-                                                        .getValue<String>()
-                                                }
-                                                .fold(acr) {
-                                                    a: AliasCoordinatesRegistry,
-                                                    alias: String ->
-                                                    a.registerFieldArgumentWithAlias(
-                                                        fc to argName,
-                                                        alias
-                                                    )
-                                                }
-                                        )
-                                    }
+                                    updateAliasCoordinatesRegistryWithAliasForFieldArgumentOnGreatGrandParentInterface(
+                                        greatGrandParentNode,
+                                        grandParentNode,
+                                        parentNode,
+                                        node,
+                                        context
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+                else -> {
+                    when (val grandParentNode = context.parentContext?.parentNode) {
+                        is GraphQLObjectType -> {
+                            when (val parentNode = context.parentNode) {
+                                is GraphQLFieldDefinition -> {
+                                    updateAliasCoordinatesRegistryWithAliasForFieldArgumentOnGrandParentObject(
+                                        grandParentNode,
+                                        parentNode,
+                                        node,
+                                        context
+                                    )
                                 }
                             }
                         }
                     }
                 }
             }
+        }
+
+        private fun updateAliasCoordinatesRegistryWithAliasForFieldArgumentOnGreatGrandParentInterface(
+            greatGrandParentNode: GraphQLInterfaceType,
+            grandParentNode: GraphQLObjectType,
+            parentNode: GraphQLFieldDefinition,
+            node: GraphQLArgument,
+            context: TraverserContext<GraphQLSchemaElement>,
+        ) {
+            val fcLocs: List<Pair<FieldCoordinates, String>> =
+                if (greatGrandParentNode.getFieldDefinition(parentNode.name) != null) {
+                    listOf(
+                        FieldCoordinates.coordinates(greatGrandParentNode.name, parentNode.name) to
+                            node.name,
+                        FieldCoordinates.coordinates(grandParentNode.name, parentNode.name) to
+                            node.name
+                    )
+                } else {
+                    listOf(
+                        FieldCoordinates.coordinates(grandParentNode.name, parentNode.name) to
+                            node.name
+                    )
+                }
+            greatGrandParentNode
+                .getFieldDefinition(parentNode.name)
+                .toOption()
+                .mapNotNull { gfd: GraphQLFieldDefinition -> gfd.getArgument(node.name) }
+                .map { ga: GraphQLArgument -> ga.getAppliedDirectives(AliasDirective.name) }
+                .filter(List<GraphQLAppliedDirective>::isNotEmpty)
+                .orElse { node.getAppliedDirectives(AliasDirective.name).toOption() }
+                .map(List<GraphQLAppliedDirective>::asSequence)
+                .getOrElse { emptySequence() }
+                .fold(context.getCurrentAccumulate<AliasCoordinatesRegistry>()) {
+                    acr: AliasCoordinatesRegistry,
+                    gad: GraphQLAppliedDirective ->
+                    val aliasArgument: GraphQLAppliedDirectiveArgument =
+                        gad.getArgument(AliasDirective.NAME_INPUT_VALUE_DEFINITION_NAME)
+                    aliasArgument
+                        .getValue<String>()
+                        .toOption()
+                        .filter(String::isNotBlank)
+                        .map { alias: String ->
+                            fcLocs.fold(acr) {
+                                acr1: AliasCoordinatesRegistry,
+                                faLoc: Pair<FieldCoordinates, String> ->
+                                acr1.registerFieldArgumentWithAlias(faLoc, alias)
+                            }
+                        }
+                        .getOrElse { acr }
+                }
+                .let { acr: AliasCoordinatesRegistry -> context.setAccumulate(acr) }
+        }
+
+        private fun updateAliasCoordinatesRegistryWithAliasForFieldArgumentOnGrandParentObject(
+            grandParentNode: GraphQLObjectType,
+            parentNode: GraphQLFieldDefinition,
+            node: GraphQLArgument,
+            context: TraverserContext<GraphQLSchemaElement>,
+        ) {
+            val fcLocs: List<Pair<FieldCoordinates, String>> =
+                listOf(
+                    FieldCoordinates.coordinates(grandParentNode.name, parentNode.name) to node.name
+                )
+            node
+                .getAppliedDirectives(AliasDirective.name)
+                .asSequence()
+                .fold(context.getCurrentAccumulate<AliasCoordinatesRegistry>()) {
+                    acr: AliasCoordinatesRegistry,
+                    gad: GraphQLAppliedDirective ->
+                    val aliasArgument: GraphQLAppliedDirectiveArgument =
+                        gad.getArgument(AliasDirective.NAME_INPUT_VALUE_DEFINITION_NAME)
+                    aliasArgument
+                        .getValue<String>()
+                        .toOption()
+                        .filter(String::isNotBlank)
+                        .map { alias: String ->
+                            fcLocs.fold(acr) {
+                                acr1: AliasCoordinatesRegistry,
+                                faLoc: Pair<FieldCoordinates, String> ->
+                                acr1.registerFieldArgumentWithAlias(faLoc, alias)
+                            }
+                        }
+                        .getOrElse { acr }
+                }
+                .let { acr: AliasCoordinatesRegistry -> context.setAccumulate(acr) }
         }
     }
 }

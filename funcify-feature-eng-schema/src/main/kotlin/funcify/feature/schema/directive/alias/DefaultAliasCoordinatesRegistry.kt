@@ -4,6 +4,8 @@ import arrow.core.getOrElse
 import arrow.core.getOrNone
 import arrow.core.identity
 import com.fasterxml.jackson.databind.JsonNode
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.databind.ObjectWriter
 import com.fasterxml.jackson.databind.node.ArrayNode
 import com.fasterxml.jackson.databind.node.JsonNodeFactory
 import com.fasterxml.jackson.databind.node.ObjectNode
@@ -87,7 +89,7 @@ internal data class DefaultAliasCoordinatesRegistry(
             }
     }
 
-    private val internedStringRep: String by lazy { internedJsonRep.toString() }
+    private val internedStringRep: String by lazy { ObjectMapper().writerWithDefaultPrettyPrinter().writeValueAsString(internedJsonRep) }
 
     override fun toString(): String {
         return internedStringRep

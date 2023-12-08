@@ -171,30 +171,31 @@ class AliasCoordinatesRegistryTest {
             }
         val aliasCoordinatesRegistry: AliasCoordinatesRegistry =
             AliasCoordinatesRegistryCreator.invoke(graphQLSchema)
+
         val expectedFieldAliasesJSON: String =
             """
-        |[{
-        |  "typeName" : "Query",
-        |  "fieldName" : "shows",
-        |  "aliases" : [ "programs" ]
-        |}, {
-        |  "typeName" : "Show",
-        |  "fieldName" : "id",
-        |  "aliases" : [ "showId" ]
-        |}, {
-        |  "typeName" : "Movie",
-        |  "fieldName" : "id",
-        |  "aliases" : [ "showId" ]
-        |}, {
-        |  "typeName" : "TVShow",
-        |  "fieldName" : "id",
-        |  "aliases" : [ "showId" ]
-        |}, {
-        |  "typeName" : "Review",
-        |  "fieldName" : "username",
-        |  "aliases" : [ "reviewerName" ]
-        |}]
-        """
+            |[{
+            |  "typeName" : "Query",
+            |  "fieldName" : "shows",
+            |  "aliases" : [ "programs" ]
+            |}, {
+            |  "typeName" : "Show",
+            |  "fieldName" : "id",
+            |  "aliases" : [ "showId" ]
+            |}, {
+            |  "typeName" : "Movie",
+            |  "fieldName" : "id",
+            |  "aliases" : [ "showId" ]
+            |}, {
+            |  "typeName" : "TVShow",
+            |  "fieldName" : "id",
+            |  "aliases" : [ "showId" ]
+            |}, {
+            |  "typeName" : "Review",
+            |  "fieldName" : "username",
+            |  "aliases" : [ "reviewerName" ]
+            |}]
+            """
                 .trimMargin()
         val expectedFieldAliasesJsonNode: JsonNode =
             Assertions.assertDoesNotThrow<JsonNode> {
@@ -221,23 +222,23 @@ class AliasCoordinatesRegistryTest {
             }
         val expectedFieldArgumentAliasesJSON: String =
             """
-        |[{
-        |  "typeName" : "Show",
-        |  "fieldName" : "reviews",
-        |  "argumentName" : "minStarScore",
-        |  "aliases" : [ "minimumStarScore" ]
-        |}, {
-        |  "typeName" : "Movie",
-        |  "fieldName" : "reviews",
-        |  "argumentName" : "reviews",
-        |  "aliases" : [ "minimumStarScore" ]
-        |}, {
-        |  "typeName" : "TVShow",
-        |  "fieldName" : "reviews",
-        |  "argumentName" : "reviews",
-        |  "aliases" : [ "minimumStarScore" ]
-        |}]
-        """
+            |[{
+            |  "typeName" : "Show",
+            |  "fieldName" : "reviews",
+            |  "argumentName" : "minStarScore",
+            |  "aliases" : [ "minimumStarScore" ]
+            |}, {
+            |  "typeName" : "Movie",
+            |  "fieldName" : "reviews",
+            |  "argumentName" : "minStarScore",
+            |  "aliases" : [ "minimumStarScore" ]
+            |}, {
+            |  "typeName" : "TVShow",
+            |  "fieldName" : "reviews",
+            |  "argumentName" : "minStarScore",
+            |  "aliases" : [ "minimumStarScore" ]
+            |}]
+            """
                 .trimMargin()
         val expectedFieldArgumentAliasesJsonNode: JsonNode =
             Assertions.assertDoesNotThrow<JsonNode> {
