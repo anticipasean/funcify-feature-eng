@@ -32,5 +32,5 @@ interface LastUpdatedCoordinatesRegistry {
 
     fun findNearestLastUpdatedField(
         path: GQLOperationPath
-    ): Option<Pair<GQLOperationPath, FieldCoordinates>>
+    ): Option<Pair<GQLOperationPath, ImmutableSet<FieldCoordinates>>>
 }

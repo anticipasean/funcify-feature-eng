@@ -3,11 +3,17 @@ package funcify.feature.schema.directive.temporal
 import arrow.core.Option
 import arrow.core.filterIsInstance
 import arrow.core.getOrElse
+import arrow.core.lastOrNone
 import arrow.core.toOption
 import funcify.feature.directive.LastUpdatedDirective
 import funcify.feature.error.ServiceError
 import funcify.feature.schema.limit.ModelLimits
+import funcify.feature.schema.path.operation.AliasedFieldSegment
+import funcify.feature.schema.path.operation.FieldSegment
+import funcify.feature.schema.path.operation.FragmentSpreadSegment
 import funcify.feature.schema.path.operation.GQLOperationPath
+import funcify.feature.schema.path.operation.InlineFragmentSegment
+import funcify.feature.schema.path.operation.SelectionSegment
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.container.attempt.Try.Companion.filterInstanceOf
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
@@ -33,10 +39,12 @@ import graphql.util.Traverser
 import graphql.util.TraverserContext
 import graphql.util.TraverserResult
 import graphql.util.TraverserVisitor
-import java.util.*
 import kotlinx.collections.immutable.PersistentMap
+import kotlinx.collections.immutable.PersistentSet
 import kotlinx.collections.immutable.persistentMapOf
+import kotlinx.collections.immutable.persistentSetOf
 import org.slf4j.Logger
+import java.util.*
 
 object LastUpdatedCoordinatesRegistryCreator {
 
@@ -50,17 +58,10 @@ object LastUpdatedCoordinatesRegistryCreator {
         fieldCoordinates: FieldCoordinates
     ): Try<LastUpdatedCoordinatesRegistry> {
         logger.info("{}: [ path: {}, field_coordinates: {} ]", METHOD_TAG, path, fieldCoordinates)
-        return graphQLSchema
-            .getType(fieldCoordinates.typeName)
-            .toOption()
-            .filterIsInstance<GraphQLFieldsContainer>()
-            .successIfDefined {
-                ServiceError.of(
-                    "%s not found for type_name in [ field_coordinates: %s ]",
-                    GraphQLFieldsContainer::class.simpleName,
-                    fieldCoordinates
-                )
-            }
+        return findGraphQLFieldsContainerCorrespondingToFieldCoordinates(
+                graphQLSchema,
+                fieldCoordinates
+            )
             .flatMap { gfc: GraphQLFieldsContainer ->
                 findGraphQLFieldDefinitionForContainerAndCoordinates(
                     graphQLSchema,
@@ -81,16 +82,34 @@ object LastUpdatedCoordinatesRegistryCreator {
                         )
                     }
             }
-            .flatMap { gfc: GraphQLFieldsContainer ->
+            .zip(assessWhetherPathCorrespondsToFieldCoordinates(path, fieldCoordinates))
+            .flatMap { (gfc: GraphQLFieldsContainer, p: GQLOperationPath) ->
                 traverseContainerLookingForLastUpdatedDirectiveAnnotatedElements(
                     modelLimits,
                     graphQLSchema,
-                    path,
+                    p,
                     gfc
                 )
             }
             .map(LastUpdatedCoordinatesContext::lastUpdatedCoordinatesByPath)
             .map(::DefaultLastUpdatedCoordinatesRegistry)
+    }
+
+    private fun findGraphQLFieldsContainerCorrespondingToFieldCoordinates(
+        graphQLSchema: GraphQLSchema,
+        fieldCoordinates: FieldCoordinates,
+    ): Try<GraphQLFieldsContainer> {
+        return graphQLSchema
+            .getType(fieldCoordinates.typeName)
+            .toOption()
+            .filterIsInstance<GraphQLFieldsContainer>()
+            .successIfDefined {
+                ServiceError.of(
+                    "%s not found for type_name in [ field_coordinates: %s ]",
+                    GraphQLFieldsContainer::class.simpleName,
+                    fieldCoordinates
+                )
+            }
     }
 
     private fun findGraphQLFieldDefinitionForContainerAndCoordinates(
@@ -111,6 +130,44 @@ object LastUpdatedCoordinatesRegistryCreator {
                 fieldCoordinates
             )
         }
+    }
+
+    private fun assessWhetherPathCorrespondsToFieldCoordinates(
+        path: GQLOperationPath,
+        fieldCoordinates: FieldCoordinates,
+    ): Try<GQLOperationPath> {
+        return Try.success(path)
+            .filter(GQLOperationPath::refersToSelection) { p: GQLOperationPath ->
+                ServiceError.of("path [ %s ] does not refer to field selection", p)
+            }
+            .filter({ p: GQLOperationPath ->
+                p.selection
+                    .lastOrNone()
+                    .filter { ss: SelectionSegment ->
+                        when (ss) {
+                            is AliasedFieldSegment -> {
+                                ss.fieldName == fieldCoordinates.fieldName
+                            }
+                            is FieldSegment -> {
+                                ss.fieldName == fieldCoordinates.fieldName
+                            }
+                            is InlineFragmentSegment -> {
+                                ss.typeName == fieldCoordinates.typeName &&
+                                    ss.selectedField.fieldName == fieldCoordinates.fieldName
+                            }
+                            is FragmentSpreadSegment -> {
+                                false
+                            }
+                        }
+                    }
+                    .isDefined()
+            }) { p: GQLOperationPath ->
+                ServiceError.of(
+                    "path [ %s ] does not correspond to field_coordinates [ %s ]",
+                    p,
+                    fieldCoordinates
+                )
+            }
     }
 
     private fun traverseContainerLookingForLastUpdatedDirectiveAnnotatedElements(
@@ -205,7 +262,8 @@ object LastUpdatedCoordinatesRegistryCreator {
     }
 
     private data class LastUpdatedCoordinatesContext(
-        val lastUpdatedCoordinatesByPath: PersistentMap<GQLOperationPath, FieldCoordinates>
+        val lastUpdatedCoordinatesByPath:
+            PersistentMap<GQLOperationPath, PersistentSet<FieldCoordinates>>
     )
 
     private class LastUpdatedCoordinatesTraverserVisitor(
@@ -237,7 +295,20 @@ object LastUpdatedCoordinatesRegistryCreator {
             context: TraverserContext<GraphQLSchemaElement>
         ): TraversalControl {
             logger.debug("visit_graphql_field_definition: [ node.name: {} ]", node.name)
-            if (node.hasAppliedDirective(LastUpdatedDirective.name)) {
+            if (
+                node.hasAppliedDirective(LastUpdatedDirective.name) ||
+                    context.parentContext
+                        ?.parentNode
+                        .toOption()
+                        .filterIsInstance<GraphQLInterfaceType>()
+                        .mapNotNull { git: GraphQLInterfaceType ->
+                            git.getFieldDefinition(node.name)
+                        }
+                        .filter { gfd: GraphQLFieldDefinition ->
+                            gfd.hasAppliedDirective(LastUpdatedDirective.name)
+                        }
+                        .isDefined()
+            ) {
                 addLastUpdatedAnnotatedElementToRegistry(node, context)
             } else {
                 val p: GQLOperationPath = createPathFromContext(node, context)
@@ -271,7 +342,8 @@ object LastUpdatedCoordinatesRegistryCreator {
                         GraphQLTypeUtil.simplePrint(node.type)
                     )
                 }
-                context.parentContext.parentNode
+                context.parentContext
+                    ?.parentNode
                     .toOption()
                     .filterIsInstance<GraphQLInterfaceType>()
                     .filter { git: GraphQLInterfaceType ->
@@ -286,7 +358,8 @@ object LastUpdatedCoordinatesRegistryCreator {
                     throw ServiceError.of(
                         "more than one field on %s [ name: %s ] is annotated with @%s directive",
                         GraphQLInterfaceType::class.simpleName,
-                        context.parentContext.parentNode
+                        context.parentContext
+                            ?.parentNode
                             .toOption()
                             .filterIsInstance<GraphQLInterfaceType>()
                             .map(GraphQLInterfaceType::getName)
@@ -321,41 +394,38 @@ object LastUpdatedCoordinatesRegistryCreator {
                     val p: GQLOperationPath = createPathFromContext(node, context)
                     context.setVar(GQLOperationPath::class.java, p)
                     val c: LastUpdatedCoordinatesContext = context.getCurrentAccumulate()
-                    val gfc: GraphQLFieldsContainer =
-                        when {
-                            context.parentContext.parentNode
-                                .toOption()
-                                .filterIsInstance<GraphQLInterfaceType>()
-                                .filter { git: GraphQLInterfaceType ->
-                                    git.getFieldDefinition(node.name) != null
-                                }
-                                .isDefined() -> {
-                                context.parentContext.parentNode as GraphQLFieldsContainer
+                    val fcs: Sequence<FieldCoordinates> =
+                        context.parentContext
+                            ?.parentNode
+                            .toOption()
+                            .filterIsInstance<GraphQLInterfaceType>()
+                            .filter { git: GraphQLInterfaceType ->
+                                git.getFieldDefinition(node.name)
+                                    .toOption()
+                                    .filter { gfd: GraphQLFieldDefinition ->
+                                        gfd.hasAppliedDirective(LastUpdatedDirective.name)
+                                    }
+                                    .isDefined()
                             }
-                            context.parentNode
-                                .toOption()
-                                .filterIsInstance<GraphQLObjectType>()
-                                .filter { got: GraphQLObjectType ->
-                                    got.getFieldDefinition(node.name) != null
-                                }
-                                .isDefined() -> {
-                                context.parentNode as GraphQLFieldsContainer
+                            .fold(::emptySequence, ::sequenceOf)
+                            .plus(
+                                context.parentNode
+                                    .toOption()
+                                    .filterIsInstance<GraphQLObjectType>()
+                                    .filter { got: GraphQLObjectType ->
+                                        got.getFieldDefinition(node.name) != null
+                                    }
+                                    .fold(::emptySequence, ::sequenceOf)
+                            )
+                            .map { gfc: GraphQLFieldsContainer ->
+                                FieldCoordinates.coordinates(gfc, node.name)
                             }
-                            else -> {
-                                throw ServiceError.of(
-                                    "unexpected traversal: parent is not %s containing field by name [ node: %s ]",
-                                    GraphQLObjectType::class.qualifiedName,
-                                    node.name
-                                )
-                            }
-                        }
                     context.setAccumulate(
                         c.copy(
                             lastUpdatedCoordinatesByPath =
-                                c.lastUpdatedCoordinatesByPath.put(
-                                    p,
-                                    FieldCoordinates.coordinates(gfc, node.name)
-                                )
+                                fcs.fold(c.lastUpdatedCoordinatesByPath) { lucp, fc ->
+                                    lucp.put(p, lucp.getOrElse(p, ::persistentSetOf).add(fc))
+                                }
                         )
                     )
                 }

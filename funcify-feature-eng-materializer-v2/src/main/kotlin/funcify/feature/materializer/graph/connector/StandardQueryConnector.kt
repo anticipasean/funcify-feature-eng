@@ -1388,12 +1388,98 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
             "connect_subdomain_data_element_field: [ selected_field_component_context.path: {} ]",
             selectedFieldComponentContext.path
         )
-        return connectorContext.update(
-            connectSelectedDataElementFieldToDomainDataElementField(
-                connectorContext,
-                selectedFieldComponentContext
-            )
-        )
+        return Try.success(connectorContext)
+            .map { sq: StandardQuery ->
+                connectLastUpdatedDataElementFieldRelatedToSubdomainDataElementField(
+                    sq,
+                    selectedFieldComponentContext
+                )
+            }
+            .map { sq: StandardQuery ->
+                connectorContext.update(
+                    connectSelectedDataElementFieldToDomainDataElementField(
+                        sq,
+                        selectedFieldComponentContext
+                    )
+                )
+            }
+            .orElseThrow()
+    }
+
+    private fun connectLastUpdatedDataElementFieldRelatedToSubdomainDataElementField(
+        connectorContext: StandardQuery,
+        selectedFieldComponentContext: SelectedFieldComponentContext
+    ): StandardQuery {
+        return selectedFieldComponentContext.path
+            .getParentPath()
+            .flatMap { pp: GQLOperationPath ->
+                if (pp in connectorContext.dataElementCallableBuildersByPath) {
+                    connectorContext.requestGraph
+                        .get(pp)
+                        .toOption()
+                        .filterIsInstance<SelectedFieldComponentContext>()
+                } else {
+                    connectorContext.requestGraph
+                        .successorVertices(pp)
+                        .firstOrNone()
+                        .map { (_: GQLOperationPath, qcc: QueryComponentContext) -> qcc }
+                        .filterIsInstance<SelectedFieldComponentContext>()
+                }
+            }
+            .filter { sfcc: SelectedFieldComponentContext ->
+                sfcc.fieldCoordinates in
+                    connectorContext.materializationMetamodel
+                        .domainSpecifiedDataElementSourceByCoordinates
+            }
+            .flatMap { sfcc: SelectedFieldComponentContext ->
+                connectorContext.materializationMetamodel
+                    .domainSpecifiedDataElementSourceByCoordinates
+                    .getOrNone(sfcc.fieldCoordinates)
+                    .flatMap { dsdes: DomainSpecifiedDataElementSource ->
+                        dsdes.lastUpdatedCoordinatesRegistry
+                            .findNearestLastUpdatedField(
+                                selectedFieldComponentContext.canonicalPath
+                            )
+                            .filter { (_: GQLOperationPath, fcs: Set<FieldCoordinates>) ->
+                                selectedFieldComponentContext.fieldCoordinates !in fcs
+                            }
+                            .map { (p: GQLOperationPath, fcs: Set<FieldCoordinates>) ->
+                                Triple(
+                                    dsdes.domainPath.transform {
+                                        appendSelections(
+                                            p.selection.drop(dsdes.domainPath.selection.size)
+                                        )
+                                    },
+                                    p,
+                                    fcs
+                                )
+                            }
+                    }
+                    .flatMap {
+                        (p: GQLOperationPath, cp: GQLOperationPath, fcs: Set<FieldCoordinates>) ->
+                        fcs.asSequence()
+                            .firstOrNone { fc: FieldCoordinates ->
+                                sfcc.fieldCoordinates.typeName == fc.typeName
+                            }
+                            .orElse { fcs.firstOrNone() }
+                            .map { fc: FieldCoordinates ->
+                                connectorContext.queryComponentContextFactory
+                                    .selectedFieldComponentContextBuilder()
+                                    .field(Field.newField().name(fc.fieldName).build())
+                                    .fieldCoordinates(fc)
+                                    .path(p)
+                                    .canonicalPath(cp)
+                                    .build()
+                            }
+                    }
+            }
+            .filter { sfcc: SelectedFieldComponentContext ->
+                !connectorContext.requestGraph.contains(sfcc.path)
+            }
+            .map { sfcc: SelectedFieldComponentContext ->
+                connectSelectedField(connectorContext, sfcc)
+            }
+            .getOrElse { connectorContext }
     }
 
     private fun connectSelectedDataElementFieldToDomainDataElementField(

@@ -114,7 +114,7 @@ internal object DomainSpecifiedDataElementSourceCreator :
                                     .createLastUpdatedCoordinatesRegistryFor(
                                         featureEngineeringModel.modelLimits,
                                         graphQLSchema,
-                                        p,
+                                        p.transform { appendField(fd.name) },
                                         FieldCoordinates.coordinates(gfc.name, fd.name)
                                     )
                                     .map { lucr: LastUpdatedCoordinatesRegistry ->

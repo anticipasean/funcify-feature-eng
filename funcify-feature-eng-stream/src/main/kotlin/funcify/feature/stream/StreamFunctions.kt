@@ -74,7 +74,6 @@ class StreamFunctions {
                 |                name
                 |            }
                 |            audienceSuitabilityRating
-                |            dateAdded
                 |            ...TVShowFragment
                 |            ...MovieFragment
                 |        }

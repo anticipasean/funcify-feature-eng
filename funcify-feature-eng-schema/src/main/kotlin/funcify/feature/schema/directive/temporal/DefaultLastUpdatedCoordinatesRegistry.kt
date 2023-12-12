@@ -24,21 +24,22 @@ import funcify.feature.tools.extensions.OptionExtensions.recurse
 import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentMap
 import funcify.feature.tools.extensions.SequenceExtensions.flatMapOptions
 import graphql.schema.FieldCoordinates
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ConcurrentMap
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.PersistentSet
 import kotlinx.collections.immutable.persistentMapOf
-import kotlinx.collections.immutable.plus
+import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toPersistentSet
-import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.ConcurrentMap
 
 /**
  * @author smccarron
  * @created 2022-07-25
  */
 internal data class DefaultLastUpdatedCoordinatesRegistry(
-    private val lastUpdatedCoordinatesByPath: PersistentMap<GQLOperationPath, FieldCoordinates> =
+    private val lastUpdatedCoordinatesByPath:
+        PersistentMap<GQLOperationPath, PersistentSet<FieldCoordinates>> =
         persistentMapOf()
 ) : LastUpdatedCoordinatesRegistry {
 
@@ -50,7 +51,7 @@ internal data class DefaultLastUpdatedCoordinatesRegistry(
         PersistentMap<GQLOperationPath, GQLOperationPath> by lazy {
         lastUpdatedCoordinatesByPath
             .asSequence()
-            .map { (path: GQLOperationPath, _: FieldCoordinates) ->
+            .map { (path: GQLOperationPath, _: PersistentSet<FieldCoordinates>) ->
                 path.getParentPath().map { pp: GQLOperationPath -> pp to path }
             }
             .flatMapOptions()
@@ -70,12 +71,20 @@ internal data class DefaultLastUpdatedCoordinatesRegistry(
                 "last_updated_coordinates_by_path" to
                     lastUpdatedCoordinatesByPath.foldLeft(
                         JsonNodeFactory.instance.arrayNode(lastUpdatedCoordinatesByPath.size)
-                    ) { an: ArrayNode, (sp: GQLOperationPath, fc: FieldCoordinates) ->
+                    ) { an: ArrayNode, (sp: GQLOperationPath, fcs: PersistentSet<FieldCoordinates>)
+                        ->
                         an.add(
                             JsonNodeFactory.instance
                                 .objectNode()
                                 .put("path", sp.toString())
-                                .put("coordinates", fc.toString())
+                                .set<ObjectNode>(
+                                    "coordinates",
+                                    fcs.fold(JsonNodeFactory.instance.arrayNode(fcs.size)) {
+                                        an1: ArrayNode,
+                                        fc: FieldCoordinates ->
+                                        an1.add(fc.toString())
+                                    }
+                                )
                         )
                     },
                 "last_updated_field_path_by_parent_path" to
@@ -140,16 +149,22 @@ internal data class DefaultLastUpdatedCoordinatesRegistry(
             "path does not refer to same field referenced in coordinates"
         }
         return DefaultLastUpdatedCoordinatesRegistry(
-            lastUpdatedCoordinatesByPath = lastUpdatedCoordinatesByPath.plus(path to coordinates)
+            lastUpdatedCoordinatesByPath =
+                lastUpdatedCoordinatesByPath.put(
+                    path,
+                    lastUpdatedCoordinatesByPath.getOrElse(path, ::persistentSetOf).add(coordinates)
+                )
         )
     }
 
     override fun findNearestLastUpdatedField(
         path: GQLOperationPath
-    ): Option<Pair<GQLOperationPath, FieldCoordinates>> {
+    ): Option<Pair<GQLOperationPath, ImmutableSet<FieldCoordinates>>> {
         return nearestLastUpdatedTemporalAttributeRelativeMemoizer.invoke(path).flatMap {
             p: GQLOperationPath ->
-            lastUpdatedCoordinatesByPath.getOrNone(p).map { fc: FieldCoordinates -> p to fc }
+            lastUpdatedCoordinatesByPath.getOrNone(p).map { fcs: ImmutableSet<FieldCoordinates> ->
+                p to fcs
+            }
         }
     }
 

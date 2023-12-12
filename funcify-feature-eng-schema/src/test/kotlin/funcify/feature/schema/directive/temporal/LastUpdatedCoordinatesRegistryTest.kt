@@ -19,6 +19,8 @@ import graphql.schema.GraphQLSchema
 import graphql.schema.idl.SchemaParser
 import graphql.schema.idl.TypeDefinitionRegistry
 import graphql.schema.idl.UnExecutableSchemaGenerator
+import kotlinx.collections.immutable.PersistentSet
+import kotlinx.collections.immutable.persistentSetOf
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
@@ -153,7 +155,7 @@ class LastUpdatedCoordinatesRegistryTest {
                     )
                     .orElseThrow()
             }
-        //println("registry: %s".format(lastUpdatedRegistry))
+        // println("registry: %s".format(lastUpdatedRegistry))
         Assertions.assertTrue(
             lastUpdatedRegistry.pathBelongsToLastUpdatedField(
                 GQLOperationPath.parseOrThrow("gqlo:/shows/reviews/submittedDate")
@@ -174,12 +176,15 @@ class LastUpdatedCoordinatesRegistryTest {
                 GQLOperationPath.parseOrThrow("gqlo:/shows")
             )
         )
+        val setMaker: (FieldCoordinates) -> PersistentSet<FieldCoordinates> = { fc ->
+            persistentSetOf(fc)
+        }
         Assertions.assertEquals(
             lastUpdatedRegistry.findNearestLastUpdatedField(
                 GQLOperationPath.parseOrThrow("gqlo:/shows/releaseYear")
             ),
             (GQLOperationPath.parseOrThrow("gqlo:/shows/added") to
-                    FieldCoordinates.coordinates("Show", "added"))
+                    setMaker(FieldCoordinates.coordinates("Show", "added")))
                 .some()
         ) {
             "sibling of path expected but not found"
@@ -189,7 +194,7 @@ class LastUpdatedCoordinatesRegistryTest {
                 GQLOperationPath.parseOrThrow("gqlo:/shows/reviews/starScore")
             ),
             (GQLOperationPath.parseOrThrow("gqlo:/shows/reviews/submittedDate") to
-                    FieldCoordinates.coordinates("Review", "submittedDate"))
+                    setMaker(FieldCoordinates.coordinates("Review", "submittedDate")))
                 .some()
         ) {
             "sibling of path expected but not found"
@@ -199,7 +204,7 @@ class LastUpdatedCoordinatesRegistryTest {
                 GQLOperationPath.parseOrThrow("gqlo:/shows/reviews/user/reviews/starScore")
             ),
             (GQLOperationPath.parseOrThrow("gqlo:/shows/reviews/user/reviews/submittedDate") to
-                    FieldCoordinates.coordinates("Review", "submittedDate"))
+                    setMaker(FieldCoordinates.coordinates("Review", "submittedDate")))
                 .some()
         ) {
             "sibling of path expected but not found"
