@@ -48,6 +48,7 @@ internal data class DefaultRequestMaterializationGraph(
     override val featureJsonValueStoreByPath: ImmutableMap<GQLOperationPath, FeatureJsonValueStore>,
     override val featureCalculatorCallablesByPath: ImmutableMap<GQLOperationPath, FeatureCalculatorCallable>,
     override val featureJsonValuePublisherByPath: ImmutableMap<GQLOperationPath, FeatureJsonValuePublisher>,
+    override val lastUpdatedDataElementPathsByDataElementPath: ImmutableMap<GQLOperationPath, GQLOperationPath>,
     override val processingError: Option<ServiceError>,
 ) : RequestMaterializationGraph {
 

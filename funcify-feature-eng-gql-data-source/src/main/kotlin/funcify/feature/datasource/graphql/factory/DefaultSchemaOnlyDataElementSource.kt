@@ -45,6 +45,7 @@ internal class DefaultSchemaOnlyDataElementSource(
     companion object {
         private class SchemaOnlyDataElementSourceCallableBuilder :
             BaseDataElementCallableBuilder<SchemaOnlyDataElementSourceCallableBuilder>() {
+
             companion object {
                 private val logger: Logger = loggerFor<SchemaOnlyDataElementSourceCallable>()
             }
@@ -162,9 +163,6 @@ internal class DefaultSchemaOnlyDataElementSource(
             override val domainPath: GQLOperationPath,
             override val domainGraphQLFieldDefinition: GraphQLFieldDefinition,
             override val selections: ImmutableSet<GQLOperationPath>,
-            // override val argumentsByPath: ImmutableMap<GQLOperationPath, GraphQLArgument>,
-            // override val selectionsByPath: ImmutableMap<GQLOperationPath,
-            // GraphQLFieldDefinition>,
             private val selectedField: Option<Field>,
             private val directivePathSelections: ImmutableSet<GQLOperationPath>,
             private val directivePathSelectionsWithValues: ImmutableMap<GQLOperationPath, Value<*>>,

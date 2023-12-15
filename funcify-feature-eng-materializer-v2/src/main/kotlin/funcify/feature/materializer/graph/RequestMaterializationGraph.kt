@@ -40,6 +40,8 @@ interface RequestMaterializationGraph {
 
     val featureJsonValuePublisherByPath: ImmutableMap<GQLOperationPath, FeatureJsonValuePublisher>
 
+    val lastUpdatedDataElementPathsByDataElementPath: ImmutableMap<GQLOperationPath, GQLOperationPath>
+
     val featureArgumentGroupsByPath:
         (GQLOperationPath) -> ImmutableList<ImmutableMap<String, GQLOperationPath>>
 

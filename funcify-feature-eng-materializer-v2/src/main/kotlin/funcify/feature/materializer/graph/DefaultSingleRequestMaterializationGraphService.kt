@@ -39,12 +39,6 @@ import graphql.execution.preparsed.PreparsedDocumentEntry
 import graphql.language.AstPrinter
 import graphql.language.Document
 import graphql.validation.ValidationError
-import java.time.Duration
-import java.util.*
-import java.util.concurrent.ConcurrentMap
-import kotlin.reflect.KClass
-import kotlin.reflect.KType
-import kotlin.reflect.full.isSuperclassOf
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.persistentSetOf
@@ -52,6 +46,12 @@ import kotlinx.collections.immutable.plus
 import kotlinx.collections.immutable.toPersistentSet
 import org.slf4j.Logger
 import reactor.core.publisher.Mono
+import java.time.Duration
+import java.util.*
+import java.util.concurrent.ConcurrentMap
+import kotlin.reflect.KClass
+import kotlin.reflect.KType
+import kotlin.reflect.full.isSuperclassOf
 
 /**
  * @author smccarron
@@ -394,7 +394,7 @@ internal class DefaultSingleRequestMaterializationGraphService(
 
     /** Specifies which graphql.validation.rules.* member to have applied */
     private fun graphQLDocumentValidationRulesToApplyCondition(): (Class<*>) -> Boolean {
-        return { c: Class<*> -> true }
+        return { _: Class<*> -> true }
     }
 
     private fun traverseNodesWithinContextCreatingGraphComponents(
@@ -522,6 +522,8 @@ internal class DefaultSingleRequestMaterializationGraphService(
                         featureJsonValueStoreByPath = persistentMapOf(),
                         featureCalculatorCallablesByPath = context.featureCalculatorCallablesByPath,
                         featureJsonValuePublisherByPath = persistentMapOf(),
+                        lastUpdatedDataElementPathsByDataElementPath =
+                            context.lastUpdatedDataElementPathsByDataElementPath,
                         processingError = none()
                     )
                 }
@@ -562,6 +564,7 @@ internal class DefaultSingleRequestMaterializationGraphService(
                     featureJsonValueStoreByPath = persistentMapOf(),
                     featureCalculatorCallablesByPath = persistentMapOf(),
                     featureJsonValuePublisherByPath = persistentMapOf(),
+                    lastUpdatedDataElementPathsByDataElementPath = persistentMapOf(),
                     processingError = se.some()
                 )
             )

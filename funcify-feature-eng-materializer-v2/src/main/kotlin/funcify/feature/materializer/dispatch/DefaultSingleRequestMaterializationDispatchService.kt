@@ -754,7 +754,7 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                 c: DispatchedRequestMaterializationGraphContext,
                 (argGroupIndex: Int, argGroup: ImmutableMap<String, GQLOperationPath>) ->
                 logger.debug(
-                    "feature_argument_groups: [ path: {}, argument_group_index: {}, argument_group: {} ]",
+                    "feature_argument_groups: [ path: {}, arg_group_index: {}, arg_group: {} ]",
                     path,
                     argGroupIndex,
                     argGroup.asSequence().joinToString(", ", "{ ", " } ") { (n, p) -> "${n}: ${p}" }
@@ -808,8 +808,9 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                 argumentGroupIndex
             )
         logger.debug(
-            "${CREATE_TV_METHOD_TAG}: [ path: {}, dependent_args: {} ]",
+            "${CREATE_TV_METHOD_TAG}: [ path: {}, arg_group: {}, dependent_args: {} ]",
             path,
+            argumentGroup,
             dependentArgPaths
         )
         return when {
@@ -860,18 +861,16 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                                     .map { name: String -> name to jn }
                             }
                     }
-                    .tryFold(
+                    .tryFold(persistentMapOf(), PersistentMap<String, JsonNode>::plus)
+                    .flatMap { m: PersistentMap<String, JsonNode> ->
                         trackableValueFactory
                             .builder()
                             .graphQLOutputType(
                                 featureCalculatorCallable.featureGraphQLFieldDefinition.type
                             )
                             .operationPath(featureCalculatorCallable.featurePath)
-                    ) { b: TrackableValue.PlannedValue.Builder, (n: String, jn: JsonNode) ->
-                        b.addContextualParameter(n, jn)
-                    }
-                    .flatMap { b: TrackableValue.PlannedValue.Builder ->
-                        b.buildForInstanceOf<JsonNode>()
+                            .addAllContextualParameters(m)
+                            .buildForInstanceOf<JsonNode>()
                     }
                     .peek(
                         { tv: TrackableValue.PlannedValue<JsonNode> ->

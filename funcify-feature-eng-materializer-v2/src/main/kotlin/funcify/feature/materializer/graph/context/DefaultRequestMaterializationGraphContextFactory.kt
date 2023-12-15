@@ -16,13 +16,23 @@ import funcify.feature.schema.path.operation.GQLOperationPath
 import funcify.feature.schema.transformer.TransformerCallable
 import graphql.language.Document
 import graphql.schema.FieldCoordinates
-import kotlinx.collections.immutable.*
+import kotlinx.collections.immutable.ImmutableSet
+import kotlinx.collections.immutable.PersistentList
+import kotlinx.collections.immutable.PersistentMap
+import kotlinx.collections.immutable.PersistentSet
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.persistentMapOf
+import kotlinx.collections.immutable.persistentSetOf
+import kotlinx.collections.immutable.toPersistentList
+import kotlinx.collections.immutable.toPersistentMap
+import kotlinx.collections.immutable.toPersistentSet
 
 internal object DefaultRequestMaterializationGraphContextFactory :
     RequestMaterializationGraphContextFactory {
 
     internal abstract class DefaultGraphContextBaseBuilder<
-        B : RequestMaterializationGraphContext.Builder<B>>(
+        B : RequestMaterializationGraphContext.Builder<B>
+    >(
         protected open val existingGraphContext: RequestMaterializationGraphContext? = null,
         protected open var materializationMetamodel: MaterializationMetamodel? =
             existingGraphContext?.materializationMetamodel,
@@ -64,6 +74,12 @@ internal object DefaultRequestMaterializationGraphContextFactory :
             PersistentMap.Builder<GQLOperationPath, FeatureCalculatorCallable> =
             existingGraphContext?.featureCalculatorCallablesByPath?.toPersistentMap()?.builder()
                 ?: persistentMapOf<GQLOperationPath, FeatureCalculatorCallable>().builder(),
+        protected open val lastUpdatedDataElementPathsByDataElementPath:
+            PersistentMap.Builder<GQLOperationPath, GQLOperationPath> =
+            existingGraphContext
+                ?.lastUpdatedDataElementPathsByDataElementPath
+                ?.toPersistentMap()
+                ?.builder() ?: persistentMapOf<GQLOperationPath, GQLOperationPath>().builder()
     ) : RequestMaterializationGraphContext.Builder<B> {
 
         companion object {
@@ -112,7 +128,10 @@ internal object DefaultRequestMaterializationGraphContextFactory :
             path: GQLOperationPath
         ): B =
             this.applyOnBuilder {
-                if (canonicalPath.refersToSelectionOnFragmentSpread() || canonicalPath.containsAliasForField()) {
+                if (
+                    canonicalPath.refersToSelectionOnFragmentSpread() ||
+                        canonicalPath.containsAliasForField()
+                ) {
                     throw ServiceError.of(
                         "canonical_path input should not refer to alias or fragment_spread"
                     )
@@ -154,6 +173,17 @@ internal object DefaultRequestMaterializationGraphContextFactory :
         ): B =
             this.applyOnBuilder {
                 this.featureCalculatorCallablesByPath.put(path, featureCalculatorCallable)
+            }
+
+        override fun putLastUpdatedDataElementPathForDataElementPath(
+            dataElementPath: GQLOperationPath,
+            lastUpdatedDataElementPath: GQLOperationPath
+        ): B =
+            this.applyOnBuilder {
+                this.lastUpdatedDataElementPathsByDataElementPath.put(
+                    dataElementPath,
+                    lastUpdatedDataElementPath
+                )
             }
 
         override fun queryComponentContextFactory(
@@ -202,6 +232,8 @@ internal object DefaultRequestMaterializationGraphContextFactory :
                         dataElementCallableBuildersByPath =
                             dataElementCallableBuildersByPath.build(),
                         featureCalculatorCallablesByPath = featureCalculatorCallablesByPath.build(),
+                        lastUpdatedDataElementPathsByDataElementPath =
+                            lastUpdatedDataElementPathsByDataElementPath.build(),
                         queryComponentContextFactory = queryComponentContextFactory!!,
                         operationName = operationName!!,
                         document = document!!,
@@ -241,6 +273,8 @@ internal object DefaultRequestMaterializationGraphContextFactory :
             PersistentMap<GQLOperationPath, DataElementCallable.Builder>,
         override val featureCalculatorCallablesByPath:
             PersistentMap<GQLOperationPath, FeatureCalculatorCallable>,
+        override val lastUpdatedDataElementPathsByDataElementPath:
+            PersistentMap<GQLOperationPath, GQLOperationPath>,
         override val queryComponentContextFactory: QueryComponentContextFactory,
         override val operationName: String,
         override val document: Document,
@@ -302,6 +336,8 @@ internal object DefaultRequestMaterializationGraphContextFactory :
                         dataElementCallableBuildersByPath =
                             dataElementCallableBuildersByPath.build(),
                         featureCalculatorCallablesByPath = featureCalculatorCallablesByPath.build(),
+                        lastUpdatedDataElementPathsByDataElementPath =
+                            lastUpdatedDataElementPathsByDataElementPath.build(),
                         queryComponentContextFactory = queryComponentContextFactory!!,
                         outputColumnNames = outputColumnNames.build(),
                         unhandledOutputColumnNames = unhandledColumnNames.build()
@@ -341,6 +377,8 @@ internal object DefaultRequestMaterializationGraphContextFactory :
             PersistentMap<GQLOperationPath, DataElementCallable.Builder>,
         override val featureCalculatorCallablesByPath:
             PersistentMap<GQLOperationPath, FeatureCalculatorCallable>,
+        override val lastUpdatedDataElementPathsByDataElementPath:
+            PersistentMap<GQLOperationPath, GQLOperationPath>,
         override val queryComponentContextFactory: QueryComponentContextFactory,
         override val outputColumnNames: PersistentSet<String>,
         override val unhandledOutputColumnNames: PersistentList<String>

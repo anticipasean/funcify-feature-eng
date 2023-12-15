@@ -10,7 +10,6 @@ import funcify.feature.schema.feature.FeatureCalculatorCallable
 import funcify.feature.schema.path.operation.GQLOperationPath
 import funcify.feature.schema.transformer.TransformerCallable
 import graphql.schema.FieldCoordinates
-import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.ImmutableSet
 
@@ -45,6 +44,8 @@ interface RequestMaterializationGraphContext {
         ImmutableMap<GQLOperationPath, DataElementCallable.Builder>
 
     val featureCalculatorCallablesByPath: ImmutableMap<GQLOperationPath, FeatureCalculatorCallable>
+
+    val lastUpdatedDataElementPathsByDataElementPath: ImmutableMap<GQLOperationPath, GQLOperationPath>
 
     val queryComponentContextFactory: QueryComponentContextFactory
 
@@ -90,9 +91,13 @@ interface RequestMaterializationGraphContext {
             featureCalculatorCallable: FeatureCalculatorCallable
         ): B
 
+        fun putLastUpdatedDataElementPathForDataElementPath(
+            dataElementPath: GQLOperationPath,
+            lastUpdatedDataElementPath: GQLOperationPath
+        ): B
+
         fun queryComponentContextFactory(
             queryComponentContextFactory: QueryComponentContextFactory
         ): B
-
     }
 }

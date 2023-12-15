@@ -1396,7 +1396,7 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
                 )
             }
             .map { sq: StandardQuery ->
-                connectorContext.update(
+                sq.update(
                     connectSelectedDataElementFieldToDomainDataElementField(
                         sq,
                         selectedFieldComponentContext
@@ -1412,29 +1412,29 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
     ): StandardQuery {
         return selectedFieldComponentContext.path
             .getParentPath()
-            .flatMap { pp: GQLOperationPath ->
-                if (pp in connectorContext.dataElementCallableBuildersByPath) {
+            .flatMap { selectedFieldParentPath: GQLOperationPath ->
+                if (selectedFieldParentPath in connectorContext.dataElementCallableBuildersByPath) {
                     connectorContext.requestGraph
-                        .get(pp)
+                        .get(selectedFieldParentPath)
                         .toOption()
                         .filterIsInstance<SelectedFieldComponentContext>()
                 } else {
                     connectorContext.requestGraph
-                        .successorVertices(pp)
+                        .successorVertices(selectedFieldParentPath)
                         .firstOrNone()
                         .map { (_: GQLOperationPath, qcc: QueryComponentContext) -> qcc }
                         .filterIsInstance<SelectedFieldComponentContext>()
                 }
             }
-            .filter { sfcc: SelectedFieldComponentContext ->
-                sfcc.fieldCoordinates in
+            .filter { lastUpdatedFieldDomainContext: SelectedFieldComponentContext ->
+                lastUpdatedFieldDomainContext.fieldCoordinates in
                     connectorContext.materializationMetamodel
                         .domainSpecifiedDataElementSourceByCoordinates
             }
-            .flatMap { sfcc: SelectedFieldComponentContext ->
+            .flatMap { lastUpdatedFieldDomainContext: SelectedFieldComponentContext ->
                 connectorContext.materializationMetamodel
                     .domainSpecifiedDataElementSourceByCoordinates
-                    .getOrNone(sfcc.fieldCoordinates)
+                    .getOrNone(lastUpdatedFieldDomainContext.fieldCoordinates)
                     .flatMap { dsdes: DomainSpecifiedDataElementSource ->
                         dsdes.lastUpdatedCoordinatesRegistry
                             .findNearestLastUpdatedField(
@@ -1459,7 +1459,8 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
                         (p: GQLOperationPath, cp: GQLOperationPath, fcs: Set<FieldCoordinates>) ->
                         fcs.asSequence()
                             .firstOrNone { fc: FieldCoordinates ->
-                                sfcc.fieldCoordinates.typeName == fc.typeName
+                                lastUpdatedFieldDomainContext.fieldCoordinates.typeName ==
+                                    fc.typeName
                             }
                             .orElse { fcs.firstOrNone() }
                             .map { fc: FieldCoordinates ->
@@ -1473,11 +1474,28 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
                             }
                     }
             }
-            .filter { sfcc: SelectedFieldComponentContext ->
-                !connectorContext.requestGraph.contains(sfcc.path)
-            }
-            .map { sfcc: SelectedFieldComponentContext ->
-                connectSelectedField(connectorContext, sfcc)
+            .map { lastUpdatedFieldContext: SelectedFieldComponentContext ->
+                when {
+                    !connectorContext.requestGraph.contains(lastUpdatedFieldContext.path) -> {
+                        connectSelectedField(
+                            connectorContext.update {
+                                putLastUpdatedDataElementPathForDataElementPath(
+                                    selectedFieldComponentContext.path,
+                                    lastUpdatedFieldContext.path
+                                )
+                            },
+                            lastUpdatedFieldContext
+                        )
+                    }
+                    else -> {
+                        connectorContext.update {
+                            putLastUpdatedDataElementPathForDataElementPath(
+                                selectedFieldComponentContext.path,
+                                lastUpdatedFieldContext.path
+                            )
+                        }
+                    }
+                }
             }
             .getOrElse { connectorContext }
     }
