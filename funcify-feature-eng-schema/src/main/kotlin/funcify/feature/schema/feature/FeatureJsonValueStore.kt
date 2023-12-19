@@ -14,5 +14,5 @@ interface FeatureJsonValueStore {
 
     fun retrieveFromStore(
         plannedValue: TrackableValue.PlannedValue<JsonNode>
-    ): Mono<TrackableValue<JsonNode>>
+    ): Mono<out TrackableValue<JsonNode>>
 }

@@ -12,5 +12,7 @@ interface FeatureJsonValuePublisher {
 
     val name: String
 
-    fun publishToStore(featureJsonValue: TrackableValue<JsonNode>): Mono<TrackableValue<JsonNode>>
+    fun publishToStore(
+        featureJsonValue: TrackableValue<JsonNode>
+    ): Mono<out TrackableValue<JsonNode>>
 }

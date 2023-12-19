@@ -19,6 +19,8 @@ import funcify.feature.materializer.session.GraphQLSingleRequestSession
 import funcify.feature.schema.dataelement.DataElementCallable
 import funcify.feature.schema.dataelement.DomainSpecifiedDataElementSource
 import funcify.feature.schema.feature.FeatureCalculatorCallable
+import funcify.feature.schema.feature.FeatureJsonValuePublisher
+import funcify.feature.schema.feature.FeatureJsonValueStore
 import funcify.feature.schema.json.GraphQLValueToJsonNodeConverter
 import funcify.feature.schema.json.JsonNodeValueExtractionByOperationPath
 import funcify.feature.schema.path.operation.GQLOperationPath
@@ -775,12 +777,42 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                             featureCalculatorCallable
                         )
                     ) {
-                        tv: TrackableValue.PlannedValue<JsonNode>,
+                        pv: TrackableValue.PlannedValue<JsonNode>,
                         ap: ImmutableMap<GQLOperationPath, Mono<JsonNode>> ->
                         val featurePublisher: Mono<TrackableValue<JsonNode>> =
-                            featureCalculatorCallable.invoke(tv, ap).cache()
+                            context.requestMaterializationGraph.featureJsonValueStoreByPath
+                                .getOrNone(path)
+                                .map { fjvs: FeatureJsonValueStore ->
+                                    fjvs
+                                        .retrieveFromStore(pv)
+                                        .flatMap { tv: TrackableValue<JsonNode> ->
+                                            when (tv) {
+                                                is TrackableValue.PlannedValue -> {
+                                                    featureCalculatorCallable.invoke(tv, ap)
+                                                }
+                                                is TrackableValue.CalculatedValue -> {
+                                                    Mono.just(tv)
+                                                }
+                                                is TrackableValue.TrackedValue -> {
+                                                    Mono.just(tv)
+                                                }
+                                            }
+                                        }
+                                        .cache()
+                                }
+                                .getOrElse { featureCalculatorCallable.invoke(pv, ap).cache() }
+                                .doOnNext { tv: TrackableValue<JsonNode> ->
+                                    context.requestMaterializationGraph
+                                        .featureJsonValuePublisherByPath
+                                        .getOrNone(path)
+                                        .map { fjvp: FeatureJsonValuePublisher ->
+                                            // TODO: Perform last_updated timestamp calculation to
+                                            // transition from calculated to tracked
+                                            fjvp.publishToStore(tv)
+                                        }
+                                }
                         c.update {
-                            addPlannedFeatureValue(path, tv)
+                            addPlannedFeatureValue(path, pv)
                             addFeatureCalculatorPublisherForOperationPath(path, featurePublisher)
                             addFeatureCalculatorPublisherForResultPath(
                                 GQLResultPath.fromOperationPathOrThrow(path),
