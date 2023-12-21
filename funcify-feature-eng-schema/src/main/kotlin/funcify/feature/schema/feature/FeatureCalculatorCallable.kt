@@ -29,7 +29,7 @@ interface FeatureCalculatorCallable :
 
     val argumentsByPath: ImmutableMap<GQLOperationPath, GraphQLArgument>
 
-    val transformerCallablesByPath: ImmutableMap<GQLOperationPath, TransformerCallable>
+    val transformerCallable: TransformerCallable
 
     override fun invoke(
         trackableFeatureValue: TrackableValue<JsonNode>,
@@ -44,7 +44,7 @@ interface FeatureCalculatorCallable :
             graphQLFieldDefinition: GraphQLFieldDefinition
         ): Builder
 
-        fun addTransformerCallable(transformerCallable: TransformerCallable): Builder
+        fun setTransformerCallable(transformerCallable: TransformerCallable): Builder
 
         fun build(): FeatureCalculatorCallable
     }

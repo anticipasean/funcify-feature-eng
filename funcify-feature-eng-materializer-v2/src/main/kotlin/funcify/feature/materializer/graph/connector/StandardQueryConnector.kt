@@ -1793,7 +1793,7 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
                 )
                 .putFeatureCalculatorCallableForPath(
                     selectedFieldComponentContext.path,
-                    fcb.addTransformerCallable(tc).build()
+                    fcb.setTransformerCallable(tc).build()
                 )
                 .putConnectedFieldPathForCoordinates(
                     selectedFieldComponentContext.fieldCoordinates,

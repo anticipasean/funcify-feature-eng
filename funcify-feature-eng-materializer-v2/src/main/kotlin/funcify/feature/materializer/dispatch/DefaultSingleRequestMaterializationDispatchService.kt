@@ -57,12 +57,12 @@ import graphql.schema.GraphQLFieldDefinition
 import graphql.schema.GraphQLFieldsContainer
 import graphql.schema.GraphQLTypeUtil
 import graphql.schema.InputValueWithState
+import java.time.Duration
+import java.util.stream.Stream
 import kotlinx.collections.immutable.*
 import org.slf4j.Logger
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
-import java.time.Duration
-import java.util.stream.Stream
 
 internal class DefaultSingleRequestMaterializationDispatchService(
     private val jsonMapper: JsonMapper,
@@ -801,13 +801,21 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                                         .cache()
                                 }
                                 .getOrElse { featureCalculatorCallable.invoke(pv, ap).cache() }
-                                .doOnNext { tv: TrackableValue<JsonNode> ->
+                                .doOnNext { calculatedValue: TrackableValue<JsonNode> ->
                                     context.requestMaterializationGraph
                                         .featureJsonValuePublisherByPath
                                         .getOrNone(path)
-                                        .map { fjvp: FeatureJsonValuePublisher ->
+                                        .zip(
+                                            calculatedValue
+                                                .toOption()
+                                                .filter(TrackableValue<JsonNode>::isTracked)
+                                        ) {
+                                            fjvp: FeatureJsonValuePublisher,
+                                            tv: TrackableValue<JsonNode> ->
                                             // TODO: Perform last_updated timestamp calculation to
                                             // transition from calculated to tracked
+                                            // TODO: Place subscription to publisher on separate
+                                            // thread pool
                                             fjvp.publishToStore(tv)
                                         }
                                 }

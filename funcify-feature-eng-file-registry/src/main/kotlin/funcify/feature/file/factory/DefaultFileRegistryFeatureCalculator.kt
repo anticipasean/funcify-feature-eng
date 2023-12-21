@@ -18,9 +18,7 @@ import graphql.schema.FieldCoordinates
 import graphql.schema.GraphQLArgument
 import graphql.schema.GraphQLFieldDefinition
 import kotlinx.collections.immutable.ImmutableMap
-import kotlinx.collections.immutable.PersistentList
 import kotlinx.collections.immutable.PersistentSet
-import kotlinx.collections.immutable.persistentListOf
 import org.slf4j.Logger
 import reactor.core.publisher.Mono
 
@@ -35,8 +33,7 @@ internal class DefaultFileRegistryFeatureCalculator(
             private var featureFieldCoordinates: FieldCoordinates? = null,
             private var featurePath: GQLOperationPath? = null,
             private var featureGraphQLFieldDefinition: GraphQLFieldDefinition? = null,
-            private val transformerCallables: PersistentList.Builder<TransformerCallable> =
-                persistentListOf<TransformerCallable>().builder()
+            private var transformerCallable: TransformerCallable? = null
         ) : FeatureCalculatorCallable.Builder {
 
             override fun selectFeature(
@@ -50,10 +47,10 @@ internal class DefaultFileRegistryFeatureCalculator(
                     featureGraphQLFieldDefinition = graphQLFieldDefinition
                 }
 
-            override fun addTransformerCallable(
+            override fun setTransformerCallable(
                 transformerCallable: TransformerCallable
             ): FeatureCalculatorCallable.Builder =
-                this.apply { transformerCallables.add(transformerCallable) }
+                this.apply { this.transformerCallable = transformerCallable }
 
             override fun build(): FeatureCalculatorCallable {
                 return eagerEffect<String, FeatureCalculatorCallable> {
@@ -64,16 +61,12 @@ internal class DefaultFileRegistryFeatureCalculator(
                         ensureNotNull(featureGraphQLFieldDefinition) {
                             "feature_graphql_field_definition not provided"
                         }
+                        ensureNotNull(transformerCallable) { "transformer_callable not provided" }
                         DefaultFeatureCalculatorCallable(
                             featureCoordinates = featureFieldCoordinates!!,
                             featurePath = featurePath!!,
                             featureGraphQLFieldDefinition = featureGraphQLFieldDefinition!!,
-                            transformerCallablesByPath =
-                                transformerCallables
-                                    .build()
-                                    .asSequence()
-                                    .map { tc: TransformerCallable -> tc.transformerPath to tc }
-                                    .reducePairsToPersistentMap()
+                            transformerCallable = transformerCallable!!
                         )
                     }
                     .fold(
@@ -93,8 +86,7 @@ internal class DefaultFileRegistryFeatureCalculator(
             override val featureCoordinates: FieldCoordinates,
             override val featurePath: GQLOperationPath,
             override val featureGraphQLFieldDefinition: GraphQLFieldDefinition,
-            override val transformerCallablesByPath:
-                ImmutableMap<GQLOperationPath, TransformerCallable>
+            override val transformerCallable: TransformerCallable
         ) : FeatureCalculatorCallable {
 
             override val argumentsByName: ImmutableMap<String, GraphQLArgument> by lazy {
@@ -124,7 +116,13 @@ internal class DefaultFileRegistryFeatureCalculator(
                 trackableFeatureValue: TrackableValue<JsonNode>,
                 arguments: ImmutableMap<GQLOperationPath, Mono<JsonNode>>,
             ): Mono<TrackableValue<JsonNode>> {
-                logger.info("{}: []", METHOD_TAG)
+                logger.info(
+                    "{}: [ feature_coordinates: {}, trackable_feature_value: {}, arguments.keys: {} ]",
+                    METHOD_TAG,
+                    featureCoordinates,
+                    trackableFeatureValue,
+                    arguments.keys.asSequence().joinToString(", ", "{ ", " }")
+                )
                 return Mono.error { ServiceError.of("$METHOD_TAG not yet implemented") }
             }
         }

@@ -14,6 +14,4 @@ data class DefaultDispatchedRequestMaterializationGraph(
     override val dataElementPublishersByPath: ImmutableMap<GQLResultPath, Mono<JsonNode>>,
     override val featureCalculatorPublishersByPath: ImmutableMap<GQLResultPath, ImmutableList<Mono<TrackableValue<JsonNode>>>>,
     override val passThruColumns: ImmutableMap<String, JsonNode>
-                                                       ): DispatchedRequestMaterializationGraph {
-
-}
+) : DispatchedRequestMaterializationGraph {}
