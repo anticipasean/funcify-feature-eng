@@ -11,7 +11,10 @@ import funcify.feature.materializer.graph.context.StandardQuery
 import funcify.feature.materializer.model.MaterializationMetamodel
 import funcify.feature.schema.dataelement.DataElementCallable
 import funcify.feature.schema.dataelement.DomainSpecifiedDataElementSource
+import funcify.feature.schema.feature.FeatureCalculator
 import funcify.feature.schema.feature.FeatureCalculatorCallable
+import funcify.feature.schema.feature.FeatureJsonValuePublisher
+import funcify.feature.schema.feature.FeatureJsonValueStore
 import funcify.feature.schema.feature.FeatureSpecifiedFeatureCalculator
 import funcify.feature.schema.path.operation.GQLOperationPath
 import funcify.feature.schema.transformer.TransformerCallable
@@ -1800,6 +1803,31 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
                     selectedFieldComponentContext.canonicalPath,
                     selectedFieldComponentContext.path
                 )
+            fsfc.featureCalculator.featureStoreName
+                .toOption()
+                .filterNot(FeatureCalculator.FEATURE_STORE_NOT_PROVIDED::equals)
+                .flatMap { storeName: String ->
+                    connectorContext.materializationMetamodel.featureEngineeringModel
+                        .featureJsonValueStoresByName
+                        .getOrNone(storeName)
+                }
+                .fold({ sqb }) { fjvs: FeatureJsonValueStore ->
+                    sqb.putFeatureJsonValueStoreForPath(selectedFieldComponentContext.path, fjvs)
+                }
+            fsfc.featureCalculator.featurePublisherName
+                .toOption()
+                .filterNot(FeatureCalculator.FEATURE_PUBLISHER_NOT_PROVIDED::equals)
+                .flatMap { publisherName: String ->
+                    connectorContext.materializationMetamodel.featureEngineeringModel
+                        .featureJsonValuePublishersByName
+                        .getOrNone(publisherName)
+                }
+                .fold({ sqb }) { fjvp: FeatureJsonValuePublisher ->
+                    sqb.putFeatureJsonValuePublisherForPath(
+                        selectedFieldComponentContext.path,
+                        fjvp
+                    )
+                }
         }
     }
 }

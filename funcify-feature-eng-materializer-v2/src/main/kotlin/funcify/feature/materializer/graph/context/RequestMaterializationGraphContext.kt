@@ -7,6 +7,8 @@ import funcify.feature.materializer.graph.component.QueryComponentContextFactory
 import funcify.feature.materializer.model.MaterializationMetamodel
 import funcify.feature.schema.dataelement.DataElementCallable
 import funcify.feature.schema.feature.FeatureCalculatorCallable
+import funcify.feature.schema.feature.FeatureJsonValuePublisher
+import funcify.feature.schema.feature.FeatureJsonValueStore
 import funcify.feature.schema.path.operation.GQLOperationPath
 import funcify.feature.schema.transformer.TransformerCallable
 import graphql.schema.FieldCoordinates
@@ -45,7 +47,12 @@ interface RequestMaterializationGraphContext {
 
     val featureCalculatorCallablesByPath: ImmutableMap<GQLOperationPath, FeatureCalculatorCallable>
 
-    val lastUpdatedDataElementPathsByDataElementPath: ImmutableMap<GQLOperationPath, GQLOperationPath>
+    val featureJsonValueStoresByPath: ImmutableMap<GQLOperationPath, FeatureJsonValueStore>
+
+    val featureJsonValuePublishersByPath: ImmutableMap<GQLOperationPath, FeatureJsonValuePublisher>
+
+    val lastUpdatedDataElementPathsByDataElementPath:
+        ImmutableMap<GQLOperationPath, GQLOperationPath>
 
     val queryComponentContextFactory: QueryComponentContextFactory
 
@@ -89,6 +96,16 @@ interface RequestMaterializationGraphContext {
         fun putFeatureCalculatorCallableForPath(
             path: GQLOperationPath,
             featureCalculatorCallable: FeatureCalculatorCallable
+        ): B
+
+        fun putFeatureJsonValueStoreForPath(
+            path: GQLOperationPath,
+            featureJsonValueStore: FeatureJsonValueStore
+        ): B
+
+        fun putFeatureJsonValuePublisherForPath(
+            path: GQLOperationPath,
+            featureJsonValuePublisher: FeatureJsonValuePublisher
         ): B
 
         fun putLastUpdatedDataElementPathForDataElementPath(

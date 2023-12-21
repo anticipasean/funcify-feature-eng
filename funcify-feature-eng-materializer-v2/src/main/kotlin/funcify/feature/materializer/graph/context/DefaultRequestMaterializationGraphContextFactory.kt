@@ -12,6 +12,8 @@ import funcify.feature.materializer.model.MaterializationMetamodel
 import funcify.feature.naming.StandardNamingConventions
 import funcify.feature.schema.dataelement.DataElementCallable
 import funcify.feature.schema.feature.FeatureCalculatorCallable
+import funcify.feature.schema.feature.FeatureJsonValuePublisher
+import funcify.feature.schema.feature.FeatureJsonValueStore
 import funcify.feature.schema.path.operation.GQLOperationPath
 import funcify.feature.schema.transformer.TransformerCallable
 import graphql.language.Document
@@ -74,6 +76,14 @@ internal object DefaultRequestMaterializationGraphContextFactory :
             PersistentMap.Builder<GQLOperationPath, FeatureCalculatorCallable> =
             existingGraphContext?.featureCalculatorCallablesByPath?.toPersistentMap()?.builder()
                 ?: persistentMapOf<GQLOperationPath, FeatureCalculatorCallable>().builder(),
+        protected open val featureJsonValueStoresByPath:
+            PersistentMap.Builder<GQLOperationPath, FeatureJsonValueStore> =
+            existingGraphContext?.featureJsonValueStoresByPath?.toPersistentMap()?.builder()
+                ?: persistentMapOf<GQLOperationPath, FeatureJsonValueStore>().builder(),
+        protected open val featureJsonValuePublishersByPath:
+            PersistentMap.Builder<GQLOperationPath, FeatureJsonValuePublisher> =
+            existingGraphContext?.featureJsonValuePublishersByPath?.toPersistentMap()?.builder()
+                ?: persistentMapOf<GQLOperationPath, FeatureJsonValuePublisher>().builder(),
         protected open val lastUpdatedDataElementPathsByDataElementPath:
             PersistentMap.Builder<GQLOperationPath, GQLOperationPath> =
             existingGraphContext
@@ -175,6 +185,22 @@ internal object DefaultRequestMaterializationGraphContextFactory :
                 this.featureCalculatorCallablesByPath.put(path, featureCalculatorCallable)
             }
 
+        override fun putFeatureJsonValueStoreForPath(
+            path: GQLOperationPath,
+            featureJsonValueStore: FeatureJsonValueStore
+        ): B =
+            this.applyOnBuilder {
+                this.featureJsonValueStoresByPath.put(path, featureJsonValueStore)
+            }
+
+        override fun putFeatureJsonValuePublisherForPath(
+            path: GQLOperationPath,
+            featureJsonValuePublisher: FeatureJsonValuePublisher
+        ): B =
+            this.applyOnBuilder {
+                this.featureJsonValuePublishersByPath.put(path, featureJsonValuePublisher)
+            }
+
         override fun putLastUpdatedDataElementPathForDataElementPath(
             dataElementPath: GQLOperationPath,
             lastUpdatedDataElementPath: GQLOperationPath
@@ -232,6 +258,8 @@ internal object DefaultRequestMaterializationGraphContextFactory :
                         dataElementCallableBuildersByPath =
                             dataElementCallableBuildersByPath.build(),
                         featureCalculatorCallablesByPath = featureCalculatorCallablesByPath.build(),
+                        featureJsonValueStoresByPath = featureJsonValueStoresByPath.build(),
+                        featureJsonValuePublishersByPath = featureJsonValuePublishersByPath.build(),
                         lastUpdatedDataElementPathsByDataElementPath =
                             lastUpdatedDataElementPathsByDataElementPath.build(),
                         queryComponentContextFactory = queryComponentContextFactory!!,
@@ -273,6 +301,10 @@ internal object DefaultRequestMaterializationGraphContextFactory :
             PersistentMap<GQLOperationPath, DataElementCallable.Builder>,
         override val featureCalculatorCallablesByPath:
             PersistentMap<GQLOperationPath, FeatureCalculatorCallable>,
+        override val featureJsonValueStoresByPath:
+            PersistentMap<GQLOperationPath, FeatureJsonValueStore>,
+        override val featureJsonValuePublishersByPath:
+            PersistentMap<GQLOperationPath, FeatureJsonValuePublisher>,
         override val lastUpdatedDataElementPathsByDataElementPath:
             PersistentMap<GQLOperationPath, GQLOperationPath>,
         override val queryComponentContextFactory: QueryComponentContextFactory,
@@ -336,6 +368,8 @@ internal object DefaultRequestMaterializationGraphContextFactory :
                         dataElementCallableBuildersByPath =
                             dataElementCallableBuildersByPath.build(),
                         featureCalculatorCallablesByPath = featureCalculatorCallablesByPath.build(),
+                        featureJsonValueStoresByPath = featureJsonValueStoresByPath.build(),
+                        featureJsonValuePublishersByPath = featureJsonValuePublishersByPath.build(),
                         lastUpdatedDataElementPathsByDataElementPath =
                             lastUpdatedDataElementPathsByDataElementPath.build(),
                         queryComponentContextFactory = queryComponentContextFactory!!,
@@ -377,6 +411,10 @@ internal object DefaultRequestMaterializationGraphContextFactory :
             PersistentMap<GQLOperationPath, DataElementCallable.Builder>,
         override val featureCalculatorCallablesByPath:
             PersistentMap<GQLOperationPath, FeatureCalculatorCallable>,
+        override val featureJsonValueStoresByPath:
+            PersistentMap<GQLOperationPath, FeatureJsonValueStore>,
+        override val featureJsonValuePublishersByPath:
+            PersistentMap<GQLOperationPath, FeatureJsonValuePublisher>,
         override val lastUpdatedDataElementPathsByDataElementPath:
             PersistentMap<GQLOperationPath, GQLOperationPath>,
         override val queryComponentContextFactory: QueryComponentContextFactory,

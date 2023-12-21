@@ -57,7 +57,7 @@ internal class DefaultSingleRequestMaterializationOrchestratorService(
             |env.execution_step_info.path: ${session.dataFetchingEnvironment.executionStepInfo.path}, 
             |field.name: ${session.field.name}, 
             |field_coordinates: ${session.fieldCoordinates.orNull()}, 
-            |source: ${session.dataFetchingEnvironment.getSource<Any?>()}
+            |source: ${session.dataFetchingEnvironment.getSource<Any?>()} 
             |]"""
                 .flatten()
         )
