@@ -7,6 +7,7 @@ import arrow.core.lastOrNone
 import arrow.core.orElse
 import arrow.core.toOption
 import com.fasterxml.jackson.databind.JsonNode
+import com.fasterxml.jackson.databind.PropertyNamingStrategies.SnakeCaseStrategy
 import funcify.feature.error.ServiceError
 import funcify.feature.materializer.dispatch.DispatchedRequestMaterializationGraph
 import funcify.feature.materializer.fetcher.SingleRequestFieldMaterializationSession
@@ -24,6 +25,8 @@ import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.json.JsonMapper
 import graphql.schema.FieldCoordinates
 import java.util.*
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ConcurrentMap
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentMapOf
@@ -40,6 +43,12 @@ internal class DefaultSingleRequestMaterializationOrchestratorService(
     companion object {
         private val logger: Logger =
             loggerFor<DefaultSingleRequestMaterializationOrchestratorService>()
+
+        private val snakeCaseTranslator: (String) -> String by lazy {
+            val snakeCaseStrategy: SnakeCaseStrategy = SnakeCaseStrategy()
+            val cache: ConcurrentMap<String, String> = ConcurrentHashMap();
+            { name: String -> cache.computeIfAbsent(name, snakeCaseStrategy::translate) }
+        }
 
         private inline fun <reified T> currentSourceValueIsInstanceOf(
             session: SingleRequestFieldMaterializationSession
@@ -145,7 +154,7 @@ internal class DefaultSingleRequestMaterializationOrchestratorService(
         dispatchedRequestMaterializationGraph: DispatchedRequestMaterializationGraph,
     ): Mono<Any?> {
         // Implicitly depends on dataelement element type being non-list type
-        return Flux.fromIterable(
+        return Flux.mergeSequential(
                 dispatchedRequestMaterializationGraph.dataElementPublishersByPath
                     .asSequence()
                     .filter { (rp: GQLResultPath, _: Mono<out JsonNode>) ->
@@ -162,7 +171,6 @@ internal class DefaultSingleRequestMaterializationOrchestratorService(
                     .flatMapOptions()
                     .asIterable()
             )
-            .flatMap { dep: Mono<out Pair<String, JsonNode>> -> dep }
             .reduce(persistentMapOf<String, JsonNode>(), PersistentMap<String, JsonNode>::plus)
             .widen()
     }
@@ -238,6 +246,12 @@ internal class DefaultSingleRequestMaterializationOrchestratorService(
                                         .firstOrNone { n: String -> n in m }
                                         .flatMap { n: String -> m.getOrNone(n) }
                                 }
+                            }
+                            .orElse {
+                                session.field.resultKey
+                                    .toOption()
+                                    .mapNotNull(snakeCaseTranslator)
+                                    .flatMap { n: String -> m.getOrNone(n) }
                             }
                     }
                     .flatMap { jn: JsonNode ->

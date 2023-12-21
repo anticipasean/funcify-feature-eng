@@ -57,12 +57,12 @@ import graphql.schema.GraphQLFieldDefinition
 import graphql.schema.GraphQLFieldsContainer
 import graphql.schema.GraphQLTypeUtil
 import graphql.schema.InputValueWithState
-import java.time.Duration
-import java.util.stream.Stream
 import kotlinx.collections.immutable.*
 import org.slf4j.Logger
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
+import java.time.Duration
+import java.util.stream.Stream
 
 internal class DefaultSingleRequestMaterializationDispatchService(
     private val jsonMapper: JsonMapper,
@@ -1093,6 +1093,11 @@ internal class DefaultSingleRequestMaterializationDispatchService(
         argumentPath: GQLOperationPath,
         argumentGroupIndex: Int,
     ): Try<Pair<GQLOperationPath, Mono<JsonNode>>> {
+        logger.debug(
+            "create_argument_publisher_for_dependent_data_element_or_feature: [ argument_path: {}, argument_group_index: {} ]",
+            argumentPath,
+            argumentGroupIndex
+        )
         return context.requestMaterializationGraph.requestGraph
             .edgesFromPointAsStream(argumentPath)
             .filter { (l: DirectedLine<GQLOperationPath>, e: MaterializationEdge) ->
@@ -1173,6 +1178,11 @@ internal class DefaultSingleRequestMaterializationDispatchService(
         lineFromDataElementFieldToItsSource: DirectedLine<GQLOperationPath>,
         argumentPath: GQLOperationPath,
     ): Try<Pair<GQLOperationPath, Mono<JsonNode>>> {
+        logger.debug(
+            "create_argument_publisher_for_dependent_data_element: [ line: {}, argument_path: {} ]",
+            lineFromDataElementFieldToItsSource,
+            argumentPath
+        )
         return context.dataElementPublishersByOperationPath
             .get(lineFromDataElementFieldToItsSource.destinationPoint)
             .toOption()
@@ -1200,6 +1210,11 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                                     .toList()
                             )
                         }
+                    logger.debug(
+                        "create_argument_publisher_for_dependent_data_element: [ child_path: {}, jn: {} ]",
+                        childPath,
+                        jn
+                    )
                     // TODO: Support of array indexing on subnodes necessary
                     JsonNodeValueExtractionByOperationPath.invoke(jn, childPath)
                         .successIfDefined {
