@@ -8,25 +8,27 @@ import arrow.core.orElse
 import arrow.core.toOption
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.PropertyNamingStrategies.SnakeCaseStrategy
+import com.fasterxml.jackson.databind.node.JsonNodeFactory
 import funcify.feature.error.ServiceError
 import funcify.feature.materializer.dispatch.DispatchedRequestMaterializationGraph
 import funcify.feature.materializer.fetcher.SingleRequestFieldMaterializationSession
 import funcify.feature.naming.StandardNamingConventions
+import funcify.feature.schema.json.GQLResultValuesToJsonNodeConverter
 import funcify.feature.schema.json.JsonNodeToStandardValueConverter
 import funcify.feature.schema.path.result.GQLResultPath
 import funcify.feature.schema.path.result.ListSegment
 import funcify.feature.schema.path.result.NameSegment
+import funcify.feature.schema.tracking.TrackableValue
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.MonoExtensions.widen
 import funcify.feature.tools.extensions.OptionExtensions.toMono
+import funcify.feature.tools.extensions.PairExtensions.bimap
+import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentMap
 import funcify.feature.tools.extensions.SequenceExtensions.firstOrNone
 import funcify.feature.tools.extensions.SequenceExtensions.flatMapOptions
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.json.JsonMapper
 import graphql.schema.FieldCoordinates
-import java.util.*
-import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.ConcurrentMap
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentMapOf
@@ -35,6 +37,9 @@ import org.slf4j.Logger
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.core.publisher.Mono.empty
+import java.util.*
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ConcurrentMap
 
 internal class DefaultSingleRequestMaterializationOrchestratorService(
     private val jsonMapper: JsonMapper,
@@ -205,6 +210,117 @@ internal class DefaultSingleRequestMaterializationOrchestratorService(
                             .featureFieldCoordinates
                 }
                 .isDefined()
+    }
+
+    private fun createFeatureElementTypePublisher(
+        session: SingleRequestFieldMaterializationSession,
+        dispatchedRequestMaterializationGraph: DispatchedRequestMaterializationGraph
+    ): Mono<Any?> {
+        // Assumption: All feature_calculator_publishers_by_path.values have at least one entry
+        // within their List<Mono<JsonNode>>
+        // Extract first value from each, assessing the max list size value in the process
+        // Use maxSize value to create other feature blobs
+        return Flux.fromIterable(
+                dispatchedRequestMaterializationGraph.featureCalculatorPublishersByPath.asIterable()
+            )
+            .reduce(persistentMapOf<GQLResultPath, Mono<TrackableValue<JsonNode>>>() to 0) {
+                firstFpsMaxSizePair,
+                (rp: GQLResultPath, fps: List<Mono<TrackableValue<JsonNode>>>) ->
+                firstFpsMaxSizePair.bimap(
+                    { fps1 -> fps1.put(rp, fps.get(0)) },
+                    { ms: Int -> maxOf(ms, fps.size) }
+                )
+            }
+            .flatMap { (firstFps: Map<GQLResultPath, Mono<TrackableValue<JsonNode>>>, maxSize: Int)
+                ->
+                when (maxSize) {
+                    0 -> {
+                        Mono.empty<List<JsonNode>>()
+                    }
+                    1 -> {
+                        convertFeaturePublishersByPathIntoJsonNodePublisher(firstFps).map(::listOf)
+                    }
+                    else -> {
+                        (1 until maxSize)
+                            .asSequence()
+                            .map { i: Int ->
+                                dispatchedRequestMaterializationGraph
+                                    .featureCalculatorPublishersByPath
+                                    .asSequence()
+                                    .flatMap {
+                                        (
+                                            rp: GQLResultPath,
+                                            fps: List<Mono<TrackableValue<JsonNode>>>) ->
+                                        when {
+                                            fps.getOrNull(i) != null -> {
+                                                sequenceOf(rp to fps.get(i))
+                                            }
+                                            else -> {
+                                                emptySequence()
+                                            }
+                                        }
+                                    }
+                                    .reducePairsToPersistentMap()
+                            }
+                            .map { fpsByPath: Map<GQLResultPath, Mono<TrackableValue<JsonNode>>> ->
+                                convertFeaturePublishersByPathIntoJsonNodePublisher(fpsByPath)
+                            }
+                            .let { jvps: Sequence<Mono<out JsonNode>> ->
+                                Flux.mergeSequential(
+                                        sequenceOf(
+                                                convertFeaturePublishersByPathIntoJsonNodePublisher(
+                                                    firstFps
+                                                )
+                                            )
+                                            .plus(jvps)
+                                            .asIterable()
+                                    )
+                                    .collectList()
+                            }
+                    }
+                }
+            }
+    }
+
+    private fun convertFeaturePublishersByPathIntoJsonNodePublisher(
+        featurePublishersByPath: Map<GQLResultPath, Mono<TrackableValue<JsonNode>>>
+    ): Mono<out JsonNode> {
+        return Flux.merge(
+                featurePublishersByPath
+                    .asSequence()
+                    .map { (rp: GQLResultPath, fp: Mono<TrackableValue<JsonNode>>) ->
+                        fp.flatMap { tv: TrackableValue<JsonNode> ->
+                            when {
+                                tv.isPlanned() -> {
+                                    Mono.error {
+                                        ServiceError.of(
+                                            "feature [ path: %s ] has not been calculated",
+                                            tv.operationPath
+                                        )
+                                    }
+                                }
+                                else -> {
+                                    Mono.just(
+                                        rp to
+                                            tv.fold(
+                                                { pv -> JsonNodeFactory.instance.nullNode() },
+                                                { cv -> cv.calculatedValue },
+                                                { tkv -> tkv.trackedValue }
+                                            )
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    .asIterable()
+            )
+            .reduce(
+                persistentMapOf<GQLResultPath, JsonNode>(),
+                PersistentMap<GQLResultPath, JsonNode>::plus
+            )
+            .map { resultValuesByPath: PersistentMap<GQLResultPath, JsonNode> ->
+                GQLResultValuesToJsonNodeConverter.invoke(resultValuesByPath)
+            }
     }
 
     private fun selectedFieldUnderDataElementElementType(
