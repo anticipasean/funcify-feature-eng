@@ -30,7 +30,6 @@ import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.json.JsonMapper
 import graphql.schema.FieldCoordinates
 import kotlinx.collections.immutable.PersistentMap
-import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.plus
 import org.slf4j.Logger
@@ -113,7 +112,7 @@ internal class DefaultSingleRequestMaterializationOrchestratorService(
                 Mono.fromSupplier<Map<String, JsonNode>>(::persistentMapOf).widen()
             }
             selectedFieldRefersToFeaturesElementType(session) -> {
-                Mono.fromSupplier<List<JsonNode>>(::persistentListOf).widen()
+                createFeatureElementTypePublisher(session, dispatchedRequestMaterializationGraph)
             }
             selectedFieldUnderDataElementElementType(session) -> {
                 extractDataElementValueFromSource(session)
@@ -241,7 +240,7 @@ internal class DefaultSingleRequestMaterializationOrchestratorService(
                         convertFeaturePublishersByPathIntoJsonNodePublisher(firstFps).map(::listOf)
                     }
                     else -> {
-                        (1 until maxSize)
+                        (0 until maxSize)
                             .asSequence()
                             .map { i: Int ->
                                 dispatchedRequestMaterializationGraph

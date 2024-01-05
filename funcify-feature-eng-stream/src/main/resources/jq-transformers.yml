@@ -8,8 +8,6 @@
 - name: list_size
   input_schema:
     type: array
-    items:
-      type: any
   output_schema:
     type: integer
   expression: "arrays | length"

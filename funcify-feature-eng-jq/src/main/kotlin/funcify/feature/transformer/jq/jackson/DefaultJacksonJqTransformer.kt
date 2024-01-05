@@ -65,10 +65,13 @@ internal class DefaultJacksonJqTransformer(
         inputNode: JsonNode
     ): JsonNode {
         return when {
+            inputSchema.isArraySchema && inputNode is ObjectNode && inputNode.size() == 1 -> {
+                inputNode.elements().next()
+            }
             // TODO: Consider whether input schema type
             // [com.fasterxml.jackson.module.jsonSchema.types.AnySchema] warrant keeping
             // input_node as-is
-            inputSchema.isArraySchema || inputSchema.isObjectSchema -> {
+            inputSchema.isObjectSchema -> {
                 inputNode
             }
             inputNode is ArrayNode && inputNode.size() == 1 -> {

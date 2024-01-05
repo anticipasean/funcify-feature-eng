@@ -1,6 +1,15 @@
 package funcify.feature.schema.sdl
 
-import arrow.core.*
+import arrow.core.Either
+import arrow.core.Option
+import arrow.core.compose
+import arrow.core.identity
+import arrow.core.left
+import arrow.core.none
+import arrow.core.orElse
+import arrow.core.right
+import arrow.core.some
+import arrow.core.toOption
 import com.fasterxml.jackson.databind.jsonFormatVisitors.JsonFormatTypes
 import com.fasterxml.jackson.databind.jsonFormatVisitors.JsonValueFormat
 import com.fasterxml.jackson.module.jsonSchema.JsonSchema
@@ -156,6 +165,30 @@ object JsonSchemaToNullableSDLTypeComposer : (JsonSchema) -> Type<*> {
                                 .map { _: Array<JsonSchema> ->
                                     // The array schema has an items schema that spans more than one
                                     // element_type
+                                    context.compositionFunction
+                                        .invoke(
+                                            NonNullType.newNonNullType(
+                                                    ListType.newListType(
+                                                            TypeName.newTypeName(
+                                                                    ExtendedScalars.Json.name
+                                                                )
+                                                                .build()
+                                                        )
+                                                        .build()
+                                                )
+                                                .build()
+                                        )
+                                        .right()
+                                }
+                        }
+                        .orElse {
+                            innerSchema
+                                .asArraySchema()
+                                .toOption()
+                                .filter { a: ArraySchema -> a.items == null }
+                                .map { _: ArraySchema ->
+                                    // The array schema has as null items schema, so "any" type is
+                                    // accepted
                                     context.compositionFunction
                                         .invoke(
                                             NonNullType.newNonNullType(
