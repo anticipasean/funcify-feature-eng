@@ -131,8 +131,9 @@ internal class DefaultFileRegistryFeatureCalculator(
                 arguments: ImmutableMap<GQLOperationPath, Mono<JsonNode>>,
             ): Mono<TrackableValue<JsonNode>> {
                 logger.info(
-                    "{}: [ feature_coordinates: {}, trackable_feature_value: {}, arguments.keys: {} ]",
+                    "{}: [ feature_path: {}, feature_coordinates: {}, trackable_feature_value: {}, arguments.keys: {} ]",
                     METHOD_TAG,
+                    featurePath,
                     featureCoordinates,
                     trackableFeatureValue,
                     arguments.keys.asSequence().joinToString(", ", "{ ", " }")
@@ -159,6 +160,10 @@ internal class DefaultFileRegistryFeatureCalculator(
                         PersistentMap<String, JsonNode>::plus
                     )
                     .flatMap { materializedArgs: PersistentMap<String, JsonNode> ->
+                        logger.debug(
+                            "calculate_feature_value: [ materialized_args: {} ]",
+                            materializedArgs
+                        )
                         transformerCallable.invoke(materializedArgs)
                     }
                     .map { jn: JsonNode ->
@@ -203,6 +208,16 @@ internal class DefaultFileRegistryFeatureCalculator(
                 argumentPath: GQLOperationPath,
                 graphQLArgument: GraphQLArgument,
             ): Mono<Pair<String, JsonNode>> {
+                logger.debug(
+                    """pair_feature_field_argument_with_input_argument: 
+                        |[ input_args.keys: {}, 
+                        |arg_path: {}, 
+                        |arg.name: {} ]"""
+                        .flatten(),
+                    inputArguments.keys,
+                    argumentPath,
+                    graphQLArgument.name
+                )
                 return when (argumentPath) {
                     in inputArguments -> {
                         inputArguments[argumentPath]!!.map { jv: JsonNode ->

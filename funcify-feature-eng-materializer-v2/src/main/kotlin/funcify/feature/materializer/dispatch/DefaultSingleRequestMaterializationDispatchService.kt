@@ -57,12 +57,12 @@ import graphql.schema.GraphQLFieldDefinition
 import graphql.schema.GraphQLFieldsContainer
 import graphql.schema.GraphQLTypeUtil
 import graphql.schema.InputValueWithState
+import java.time.Duration
+import java.util.stream.Stream
 import kotlinx.collections.immutable.*
 import org.slf4j.Logger
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
-import java.time.Duration
-import java.util.stream.Stream
 
 internal class DefaultSingleRequestMaterializationDispatchService(
     private val jsonMapper: JsonMapper,
@@ -570,6 +570,14 @@ internal class DefaultSingleRequestMaterializationDispatchService(
         domainDataElementJSON: JsonNode,
         dataElementArgumentPath: GQLOperationPath
     ): Try<Triple<GQLOperationPath, String, JsonNode>> {
+        logger.debug(
+            """extract_field_value_for_data_element_argument_in_raw_input_json: 
+                |[ domain_data_element_field_coordinates: {}, 
+                |data_element_argument_path: {} ]"""
+                .flatten(),
+            domainDataElementFieldCoordinates,
+            dataElementArgumentPath
+        )
         return context.requestMaterializationGraph.requestGraph
             .get(dataElementArgumentPath)
             .toOption()
@@ -1094,7 +1102,10 @@ internal class DefaultSingleRequestMaterializationDispatchService(
         argumentGroupIndex: Int,
     ): Try<Pair<GQLOperationPath, Mono<JsonNode>>> {
         logger.debug(
-            "create_argument_publisher_for_dependent_data_element_or_feature: [ argument_path: {}, argument_group_index: {} ]",
+            """create_argument_publisher_for_dependent_data_element_or_feature: 
+                |[ argument_path: {}, 
+                |argument_group_index: {} ]"""
+                .flatten(),
             argumentPath,
             argumentGroupIndex
         )
@@ -1184,8 +1195,7 @@ internal class DefaultSingleRequestMaterializationDispatchService(
             argumentPath
         )
         return context.dataElementPublishersByOperationPath
-            .get(lineFromDataElementFieldToItsSource.destinationPoint)
-            .toOption()
+            .getOrNone(lineFromDataElementFieldToItsSource.destinationPoint)
             .successIfDefined {
                 ServiceError.of(
                     """dependent data_element source [ path: %s ] not found 
@@ -1197,6 +1207,11 @@ internal class DefaultSingleRequestMaterializationDispatchService(
             }
             .map { dep: Mono<JsonNode> ->
                 dep.flatMap { jn: JsonNode ->
+                    logger.debug(
+                        "value published for [ line: {}, value: {} ]",
+                        lineFromDataElementFieldToItsSource,
+                        jn
+                    )
                     val childPath: GQLOperationPath =
                         GQLOperationPath.of {
                             selections(
