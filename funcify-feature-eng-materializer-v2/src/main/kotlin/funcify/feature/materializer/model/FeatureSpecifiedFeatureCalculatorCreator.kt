@@ -1,6 +1,8 @@
 package funcify.feature.materializer.model
 
+import arrow.core.Either
 import arrow.core.None
+import arrow.core.Option
 import arrow.core.filterIsInstance
 import arrow.core.getOrElse
 import arrow.core.getOrNone
@@ -17,6 +19,7 @@ import funcify.feature.schema.feature.FeatureSpecifiedFeatureCalculator
 import funcify.feature.schema.json.GraphQLValueToJsonNodeConverter
 import funcify.feature.schema.path.operation.GQLOperationPath
 import funcify.feature.tools.container.attempt.Try
+import funcify.feature.tools.container.attempt.Try.Companion.filterInstanceOf
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.OptionExtensions.sequence
 import funcify.feature.tools.extensions.OptionExtensions.toOption
@@ -29,6 +32,7 @@ import graphql.language.FieldDefinition
 import graphql.language.ImplementingTypeDefinition
 import graphql.language.InterfaceTypeDefinition
 import graphql.language.ObjectTypeDefinition
+import graphql.language.TypeDefinition
 import graphql.language.TypeName
 import graphql.language.Value
 import graphql.schema.FieldCoordinates
@@ -70,26 +74,18 @@ internal object FeatureSpecifiedFeatureCalculatorCreator :
         featureEngineeringModel: FeatureEngineeringModel,
         graphQLSchema: GraphQLSchema
     ): Iterable<FeatureSpecifiedFeatureCalculator> {
-        logger.info("{}: [ ]", METHOD_TAG)
+        logger.info(
+            "{}: [ feature_calculators_by_name.size: {} ]",
+            METHOD_TAG,
+            featureEngineeringModel.featureCalculatorsByName.size
+        )
         return graphQLSchema.queryType
             .toOption()
             .flatMap { got: GraphQLObjectType ->
-                when {
-                    got.name == featureEngineeringModel.featureFieldCoordinates.typeName -> {
-                        got.getFieldDefinition(
-                                featureEngineeringModel.featureFieldCoordinates.fieldName
-                            )
-                            .toOption()
-                            .map { gfd: GraphQLFieldDefinition ->
-                                GQLOperationPath.getRootPath().transform {
-                                    appendField(gfd.name)
-                                } to gfd
-                            }
-                    }
-                    else -> {
-                        none()
-                    }
-                }
+                extractFeatureElementTypePathAndDefinitionFromQueryObjectType(
+                    featureEngineeringModel,
+                    got
+                )
             }
             .flatMap { (p: GQLOperationPath, fd: GraphQLFieldDefinition) ->
                 GraphQLTypeUtil.unwrapAll(fd.type)
@@ -98,36 +94,17 @@ internal object FeatureSpecifiedFeatureCalculatorCreator :
                     .map { gfc: GraphQLFieldsContainer -> p to gfc }
             }
             .fold(::emptySequence) { (p: GQLOperationPath, gfc: GraphQLFieldsContainer) ->
-                val fcByFieldDefName: PersistentMap<String, FeatureCalculator> =
-                    extractFeatureCalculatorByFieldDefinitionNameMapFromFeatureEngineeringModel(
-                        featureEngineeringModel
-                    )
-                Traverser.breadthFirst(
-                        schemaElementTraversalFunction(graphQLSchema),
+                traverseFeatureElementTypeCreatingFeatureSpecifiedFeatureCalculators(
+                        featureEngineeringModel,
+                        graphQLSchema,
                         p,
-                        FeatureSpecifiedFeatureCalculatorContext(
-                            featureCalculatorsByName = fcByFieldDefName,
-                            featureSpecifiedFeatureCalculators = persistentListOf()
-                        )
+                        gfc
                     )
-                    .traverse(
-                        gfc,
-                        SchemaElementTraverserVisitor(
-                            graphQLTypeVisitor = FeatureSpecifiedFeatureCalculatorVisitor()
-                        )
-                    )
-                    .toOption()
-                    .mapNotNull(TraverserResult::getAccumulatedResult)
-                    .filterIsInstance<FeatureSpecifiedFeatureCalculatorContext>()
-                    .successIfDefined {
-                        ServiceError.of("context instance failed to be passed back from visitor")
-                    }
-                    .map { c: FeatureSpecifiedFeatureCalculatorContext ->
-                        c.featureSpecifiedFeatureCalculators.asSequence()
-                    }
-                    .peekIfFailure { t: Throwable ->
+                    .peek({ _: Sequence<FeatureSpecifiedFeatureCalculator> ->
+                        logger.debug("{}: [ status: successful ]", METHOD_TAG)
+                    }) { t: Throwable ->
                         logger.warn(
-                            "{}: [ status: error occurred ][ type: {}, json/message: {} ]",
+                            "{}: [ status: failed ][ type: {}, json/message: {} ]",
                             METHOD_TAG,
                             t::class.simpleName,
                             t.toOption()
@@ -142,10 +119,62 @@ internal object FeatureSpecifiedFeatureCalculatorCreator :
             .asIterable()
     }
 
+    private fun extractFeatureElementTypePathAndDefinitionFromQueryObjectType(
+        fem: FeatureEngineeringModel,
+        queryObjectType: GraphQLObjectType,
+    ): Option<Pair<GQLOperationPath, GraphQLFieldDefinition>> {
+        return when {
+            queryObjectType.name == fem.featureFieldCoordinates.typeName -> {
+                queryObjectType
+                    .getFieldDefinition(fem.featureFieldCoordinates.fieldName)
+                    .toOption()
+                    .map { gfd: GraphQLFieldDefinition ->
+                        GQLOperationPath.getRootPath().transform { appendField(gfd.name) } to gfd
+                    }
+            }
+            else -> {
+                none()
+            }
+        }
+    }
+
+    private fun traverseFeatureElementTypeCreatingFeatureSpecifiedFeatureCalculators(
+        fem: FeatureEngineeringModel,
+        gs: GraphQLSchema,
+        featureElementPath: GQLOperationPath,
+        featureElementTypeFieldsContainer: GraphQLFieldsContainer,
+    ): Try<Sequence<FeatureSpecifiedFeatureCalculator>> {
+        val fcByFieldDefName: PersistentMap<String, FeatureCalculator> =
+            extractFeatureCalculatorByFieldDefinitionNameMapFromFeatureEngineeringModel(fem)
+        return Try.attemptNullable({
+                Traverser.breadthFirst(
+                        schemaElementTraversalFunction(gs),
+                        featureElementPath,
+                        FeatureSpecifiedFeatureCalculatorContext(
+                            featureCalculatorsByName = fcByFieldDefName,
+                            featureSpecifiedFeatureCalculators = persistentListOf()
+                        )
+                    )
+                    .traverse(
+                        featureElementTypeFieldsContainer,
+                        SchemaElementTraverserVisitor(
+                            graphQLTypeVisitor = FeatureSpecifiedFeatureCalculatorVisitor()
+                        )
+                    )
+            }) {
+                ServiceError.of("context instance failed to be passed back from visitor")
+            }
+            .map(TraverserResult::getAccumulatedResult)
+            .filterInstanceOf<FeatureSpecifiedFeatureCalculatorContext>()
+            .map { c: FeatureSpecifiedFeatureCalculatorContext ->
+                c.featureSpecifiedFeatureCalculators.asSequence()
+            }
+    }
+
     private fun extractFeatureCalculatorByFieldDefinitionNameMapFromFeatureEngineeringModel(
-        featureEngineeringModel: FeatureEngineeringModel
+        fem: FeatureEngineeringModel
     ): PersistentMap<String, FeatureCalculator> {
-        return featureEngineeringModel.featureCalculatorsByName.values
+        return fem.featureCalculatorsByName.values
             .asSequence()
             .flatMap { fc: FeatureCalculator ->
                 val tdr: TypeDefinitionRegistry =
@@ -155,48 +184,60 @@ internal object FeatureSpecifiedFeatureCalculatorCreator :
                     .filterIsInstance<ObjectTypeDefinition>()
                     .sequence()
                     .recurseBreadthFirst { itd: ImplementingTypeDefinition<*> ->
-                        when (itd) {
-                            is InterfaceTypeDefinition -> {
-                                tdr.getImplementationsOf(itd)
-                                    .asSequence()
-                                    .map(ObjectTypeDefinition::left)
-                            }
-                            is ObjectTypeDefinition -> {
-                                itd.fieldDefinitions.asSequence().flatMap { fd: FieldDefinition ->
-                                    when {
-                                        fd.inputValueDefinitions.isNotEmpty() -> {
-                                            sequenceOf(fd.name.right())
-                                        }
-                                        else -> {
-                                            TypeUtil.unwrapAll(fd.type)
-                                                .toOption()
-                                                .flatMap { tn: TypeName ->
-                                                    tdr.getType(tn).toOption()
-                                                }
-                                                .filterIsInstance<ImplementingTypeDefinition<*>>()
-                                                .map(ImplementingTypeDefinition<*>::left)
-                                                .sequence()
-                                        }
-                                    }
-                                }
-                            }
-                            else -> {
-                                emptySequence()
-                            }
-                        }
+                        shiftLeftImplementingTypeDefinitionsSelectRightFeatureNames(itd, tdr)
                     }
                     .map { name: String -> name to fc }
             }
             .reducePairsToPersistentMap()
     }
 
+    private fun shiftLeftImplementingTypeDefinitionsSelectRightFeatureNames(
+        itd: ImplementingTypeDefinition<*>,
+        tdr: TypeDefinitionRegistry,
+    ): Sequence<Either<ImplementingTypeDefinition<*>, String>> {
+        return when (itd) {
+            is InterfaceTypeDefinition -> {
+                tdr.getImplementationsOf(itd).asSequence().map(ObjectTypeDefinition::left)
+            }
+            is ObjectTypeDefinition -> {
+                itd.fieldDefinitions.asSequence().flatMap { fd: FieldDefinition ->
+                    when {
+                        fd.inputValueDefinitions.isNotEmpty() -> {
+                            sequenceOf(fd.name.right())
+                        }
+                        TypeUtil.unwrapAll(fd.type)
+                            .toOption()
+                            .flatMap { tn: TypeName -> tdr.getType(tn).toOption() }
+                            .filterNot { td: TypeDefinition<*> ->
+                                td is ImplementingTypeDefinition<*>
+                            }
+                            .isDefined() -> {
+                            sequenceOf(fd.name.right())
+                        }
+                        else -> {
+                            TypeUtil.unwrapAll(fd.type)
+                                .toOption()
+                                .flatMap { tn: TypeName -> tdr.getType(tn).toOption() }
+                                .filterIsInstance<ImplementingTypeDefinition<*>>()
+                                .map(ImplementingTypeDefinition<*>::left)
+                                .sequence()
+                        }
+                    }
+                }
+            }
+            else -> {
+                emptySequence()
+            }
+        }
+    }
+
     private fun schemaElementTraversalFunction(
-        graphQLSchema: GraphQLSchema
+        gs: GraphQLSchema
     ): (GraphQLSchemaElement) -> List<GraphQLSchemaElement> {
         return { e: GraphQLSchemaElement ->
             when (e) {
                 is GraphQLInterfaceType -> {
-                    graphQLSchema.getImplementations(e)
+                    gs.getImplementations(e)
                 }
                 is GraphQLObjectType -> {
                     e.fieldDefinitions
@@ -251,7 +292,13 @@ internal object FeatureSpecifiedFeatureCalculatorCreator :
         ): TraversalControl {
             logger.debug("visit_graphql_field_definition: [ node.name: {} ]", node.name)
             val p: GQLOperationPath = createPathFromContext(node, context)
-            if (node.arguments.isNotEmpty()) {
+            if (
+                !node.type
+                    .toOption()
+                    .mapNotNull(GraphQLTypeUtil::unwrapAll)
+                    .filterIsInstance<GraphQLImplementingType>()
+                    .isDefined()
+            ) {
                 updateContextWithFeatureGraphQLFieldDefinition(context, p, node)
             }
             context.setVar(GQLOperationPath::class.java, p)
