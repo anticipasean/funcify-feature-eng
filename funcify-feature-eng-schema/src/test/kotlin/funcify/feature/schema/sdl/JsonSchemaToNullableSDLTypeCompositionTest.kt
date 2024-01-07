@@ -13,6 +13,7 @@ import graphql.language.NonNullType
 import graphql.language.Type
 import graphql.language.TypeName
 import graphql.scalars.ExtendedScalars
+import graphql.schema.idl.TypeUtil
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
 
@@ -129,6 +130,41 @@ class JsonSchemaToNullableSDLTypeCompositionTest {
         Assertions.assertEquals(
             TypeName.newTypeName(ExtendedScalars.DateTime.name).build().toString(),
             sdlType.toString()
+        ) {
+            "calculated sdl type does not match expected sdl type"
+        }
+    }
+
+    @Test
+    fun anyOrEmptyElementTypeListTypeTest() {
+        val anyTypeListSchema: String =
+            """
+            |{
+            | "type": "array"
+            |}
+            """
+                .trimMargin()
+        val arraySchema: JsonSchema =
+            Assertions.assertDoesNotThrow<JsonSchema> {
+                objectMapper.readValue<JsonSchema>(anyTypeListSchema)
+            }
+        Assertions.assertInstanceOf(ArraySchema::class.java, arraySchema)
+        val sdlType: Type<*> =
+            Assertions.assertDoesNotThrow<Type<*>> {
+                JsonSchemaToNullableSDLTypeComposer.invoke(arraySchema)
+            }
+        // Expected: "[JSON]!"
+        Assertions.assertEquals(
+            TypeUtil.simplePrint(
+                NonNullType.newNonNullType(
+                        ListType.newListType(
+                                TypeName.newTypeName(ExtendedScalars.Json.name).build()
+                            )
+                            .build()
+                    )
+                    .build()
+            ),
+            TypeUtil.simplePrint(sdlType)
         ) {
             "calculated sdl type does not match expected sdl type"
         }
