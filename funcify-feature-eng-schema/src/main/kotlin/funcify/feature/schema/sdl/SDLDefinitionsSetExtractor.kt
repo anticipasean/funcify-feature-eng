@@ -1,22 +1,25 @@
 package funcify.feature.schema.sdl
 
+import funcify.feature.tools.extensions.PersistentSetExtensions.reduceToPersistentSet
 import graphql.language.SDLDefinition
 import graphql.schema.idl.TypeDefinitionRegistry
+import java.util.*
+import java.util.stream.Stream
+import java.util.stream.StreamSupport
 import kotlinx.collections.immutable.PersistentSet
-import kotlinx.collections.immutable.persistentSetOf
 
 object SDLDefinitionsSetExtractor : (TypeDefinitionRegistry) -> PersistentSet<SDLDefinition<*>> {
 
     override fun invoke(
         typeDefinitionRegistry: TypeDefinitionRegistry
     ): PersistentSet<SDLDefinition<*>> {
-        return sequenceOf<Iterable<SDLDefinition<*>>>(
-                typeDefinitionRegistry.types().values,
-                typeDefinitionRegistry.directiveDefinitions.values,
-                typeDefinitionRegistry.scalars().values
-            )
-            .plus(
-                sequenceOf<Map<String, List<SDLDefinition<*>>>>(
+        return Stream.concat(
+                Stream.of<Iterable<SDLDefinition<*>>>(
+                    typeDefinitionRegistry.types().values,
+                    typeDefinitionRegistry.directiveDefinitions.values,
+                    typeDefinitionRegistry.scalars().values
+                ),
+                Stream.of<Map<String, List<SDLDefinition<*>>>>(
                         typeDefinitionRegistry.inputObjectTypeExtensions(),
                         typeDefinitionRegistry.interfaceTypeExtensions(),
                         typeDefinitionRegistry.objectTypeExtensions(),
@@ -24,9 +27,27 @@ object SDLDefinitionsSetExtractor : (TypeDefinitionRegistry) -> PersistentSet<SD
                         typeDefinitionRegistry.enumTypeExtensions(),
                         typeDefinitionRegistry.scalarTypeExtensions()
                     )
-                    .flatMap(Map<String, List<SDLDefinition<*>>>::values)
+                    .map(Map<String, List<SDLDefinition<*>>>::values)
+                    .flatMap(iterableToStream<List<SDLDefinition<*>>>())
             )
-            .flatMap(Iterable<SDLDefinition<*>>::asSequence)
-            .fold(persistentSetOf<SDLDefinition<*>>(), PersistentSet<SDLDefinition<*>>::add)
+            .parallel()
+            .flatMap(iterableToStream<SDLDefinition<*>>())
+            .reduceToPersistentSet()
+    }
+
+    private fun <T> iterableToStream(): (Iterable<T>) -> Stream<out T> {
+        return { i: Iterable<T> ->
+            when (i) {
+                is Collection<T> -> {
+                    i.stream()
+                }
+                else -> {
+                    StreamSupport.stream(
+                        Spliterators.spliteratorUnknownSize(i.iterator(), 0),
+                        false
+                    )
+                }
+            }
+        }
     }
 }
