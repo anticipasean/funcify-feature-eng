@@ -4,7 +4,6 @@ import funcify.feature.materializer.fetcher.SingleRequestFieldMaterializationSes
 import reactor.core.publisher.Mono
 
 /**
- *
  * @author smccarron
  * @created 2022-08-29
  */
@@ -13,5 +12,5 @@ interface SingleRequestMaterializationOrchestratorService :
 
     override fun materializeValueInSession(
         session: SingleRequestFieldMaterializationSession
-    ): Mono<Any>
+    ): Mono<Any?>
 }

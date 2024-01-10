@@ -5,7 +5,6 @@ import graphql.ExecutionResult
 import reactor.core.publisher.Mono
 
 /**
- *
  * @author smccarron
  * @created 2022-10-24
  */
@@ -14,5 +13,5 @@ interface SingleRequestMaterializationExecutionResultPostprocessingService :
 
     override fun postprocessExecutionResultWithExtensions(
         executionResult: ExecutionResult
-    ): Mono<GraphQLSingleRequestSession>
+    ): Mono<out GraphQLSingleRequestSession>
 }

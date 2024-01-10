@@ -3,10 +3,8 @@ package funcify.feature.materializer.response
 import arrow.core.Option
 import com.fasterxml.jackson.databind.JsonNode
 import graphql.ExecutionResult
-import kotlinx.collections.immutable.ImmutableMap
 
 /**
- *
  * @author smccarron
  * @created 2/13/22
  */

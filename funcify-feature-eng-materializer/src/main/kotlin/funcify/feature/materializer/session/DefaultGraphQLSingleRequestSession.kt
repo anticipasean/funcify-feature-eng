@@ -4,87 +4,95 @@ import arrow.core.Option
 import arrow.core.none
 import arrow.core.some
 import arrow.core.toOption
-import funcify.feature.materializer.phase.RequestDispatchMaterializationPhase
-import funcify.feature.materializer.phase.RequestParameterMaterializationGraphPhase
+import funcify.feature.materializer.dispatch.DispatchedRequestMaterializationGraph
+import funcify.feature.materializer.graph.RequestMaterializationGraph
+import funcify.feature.materializer.input.RawInputContext
+import funcify.feature.materializer.model.MaterializationMetamodel
 import funcify.feature.materializer.request.RawGraphQLRequest
 import funcify.feature.materializer.response.SerializedGraphQLResponse
-import funcify.feature.materializer.schema.MaterializationMetamodel
 import funcify.feature.materializer.session.GraphQLSingleRequestSession.Builder
-import graphql.language.Document
-import graphql.language.OperationDefinition
+import graphql.execution.preparsed.PreparsedDocumentEntry
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.toPersistentMap
 
 /**
- *
  * @author smccarron
  * @created 2/20/22
  */
 internal data class DefaultGraphQLSingleRequestSession(
     override val materializationMetamodel: MaterializationMetamodel,
     override val rawGraphQLRequest: RawGraphQLRequest,
-    override val document: Option<Document> = none(),
-    override val operationDefinition: Option<OperationDefinition> = none(),
-    override val processedQueryVariables: ImmutableMap<String, Any?> = persistentMapOf(),
-    override val requestParameterMaterializationGraphPhase:
-        Option<RequestParameterMaterializationGraphPhase> =
-        none(),
-    override val requestDispatchMaterializationGraphPhase:
-        Option<RequestDispatchMaterializationPhase> =
-        none(),
-    override val serializedGraphQLResponse: Option<SerializedGraphQLResponse> = none(),
+    override val rawInputContext: Option<RawInputContext>,
+    override val preparsedDocumentEntry: Option<PreparsedDocumentEntry>,
+    override val requestMaterializationGraph: Option<RequestMaterializationGraph>,
+    override val dispatchedRequestMaterializationGraph:
+        Option<DispatchedRequestMaterializationGraph>,
+    override val serializedGraphQLResponse: Option<SerializedGraphQLResponse>,
 ) : GraphQLSingleRequestSession {
 
     companion object {
 
+        @JvmStatic
+        fun createInitial(
+            materializationMetamodel: MaterializationMetamodel,
+            rawGraphQLRequest: RawGraphQLRequest
+        ): GraphQLSingleRequestSession {
+            return DefaultGraphQLSingleRequestSession(
+                materializationMetamodel = materializationMetamodel,
+                rawGraphQLRequest = rawGraphQLRequest,
+                rawInputContext = none(),
+                preparsedDocumentEntry = none(),
+                requestMaterializationGraph = none(),
+                dispatchedRequestMaterializationGraph = none(),
+                serializedGraphQLResponse = none()
+            )
+        }
+
         internal data class DefaultBuilder(
             private val currentSession: DefaultGraphQLSingleRequestSession,
-            private var document: Option<Document> = currentSession.document,
-            private var operationDefinition: Option<OperationDefinition> =
-                currentSession.operationDefinition,
-            private var processedQueryVariables: ImmutableMap<String, Any?> =
-                currentSession.processedQueryVariables,
-            private var requestParameterMaterializationGraphPhase:
-                Option<RequestParameterMaterializationGraphPhase> =
-                currentSession.requestParameterMaterializationGraphPhase,
-            private var requestDispatchMaterializationGraphPhase:
-                Option<RequestDispatchMaterializationPhase> =
-                currentSession.requestDispatchMaterializationGraphPhase,
+            private var rawGraphQLRequest: RawGraphQLRequest = currentSession.rawGraphQLRequest,
+            private var rawInputContext: Option<RawInputContext> = currentSession.rawInputContext,
+            private var preparsedDocumentEntry: Option<PreparsedDocumentEntry> =
+                currentSession.preparsedDocumentEntry,
+            private var requestMaterializationGraph: Option<RequestMaterializationGraph> =
+                currentSession.requestMaterializationGraph,
+            private var dispatchedRequestMaterializationGraph:
+                Option<DispatchedRequestMaterializationGraph> =
+                currentSession.dispatchedRequestMaterializationGraph,
             private var serializedGraphQLResponse: Option<SerializedGraphQLResponse> =
                 currentSession.serializedGraphQLResponse
         ) : Builder {
 
-            override fun document(document: Document): Builder {
-                this.document = document.toOption()
+            override fun rawGraphQLRequest(rawGraphQLRequest: RawGraphQLRequest): Builder {
+                this.rawGraphQLRequest = rawGraphQLRequest
                 return this
             }
 
-            override fun operationDefinition(operationDefinition: OperationDefinition): Builder {
-                this.operationDefinition = operationDefinition.toOption()
+            override fun rawInputContext(rawInputContext: RawInputContext): Builder {
+                this.rawInputContext = rawInputContext.toOption()
                 return this
             }
 
-            override fun processedQueryVariables(
-                processedQueryVariables: Map<String, Any?>
+            override fun preparsedDocumentEntry(
+                preparsedDocumentEntry: PreparsedDocumentEntry
             ): Builder {
-                this.processedQueryVariables = processedQueryVariables.toPersistentMap()
+                this.preparsedDocumentEntry = preparsedDocumentEntry.toOption()
                 return this
             }
 
-            override fun requestParameterMaterializationGraphPhase(
-                requestParameterMaterializationGraphPhase: RequestParameterMaterializationGraphPhase
+            override fun requestMaterializationGraph(
+                requestMaterializationGraph: RequestMaterializationGraph
             ): Builder {
-                this.requestParameterMaterializationGraphPhase =
-                    requestParameterMaterializationGraphPhase.toOption()
+                this.requestMaterializationGraph = requestMaterializationGraph.toOption()
                 return this
             }
 
-            override fun requestDispatchMaterializationPhase(
-                requestDispatchMaterializationPhase: RequestDispatchMaterializationPhase
+            override fun dispatchedRequestMaterializationGraph(
+                dispatchedRequestMaterializationGraph: DispatchedRequestMaterializationGraph
             ): Builder {
-                this.requestDispatchMaterializationGraphPhase =
-                    requestDispatchMaterializationPhase.toOption()
+                this.dispatchedRequestMaterializationGraph =
+                    dispatchedRequestMaterializationGraph.toOption()
                 return this
             }
 
@@ -96,14 +104,13 @@ internal data class DefaultGraphQLSingleRequestSession(
             }
 
             override fun build(): GraphQLSingleRequestSession {
-                return currentSession.copy(
-                    document = document,
-                    operationDefinition = operationDefinition,
-                    processedQueryVariables = processedQueryVariables,
-                    requestParameterMaterializationGraphPhase =
-                        requestParameterMaterializationGraphPhase,
-                    requestDispatchMaterializationGraphPhase =
-                        requestDispatchMaterializationGraphPhase,
+                return DefaultGraphQLSingleRequestSession(
+                    materializationMetamodel = currentSession.materializationMetamodel,
+                    rawGraphQLRequest = rawGraphQLRequest,
+                    rawInputContext = rawInputContext,
+                    preparsedDocumentEntry = preparsedDocumentEntry,
+                    requestMaterializationGraph = requestMaterializationGraph,
+                    dispatchedRequestMaterializationGraph = dispatchedRequestMaterializationGraph,
                     serializedGraphQLResponse = serializedGraphQLResponse
                 )
             }

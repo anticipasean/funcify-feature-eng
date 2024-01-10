@@ -1,29 +1,27 @@
 package funcify.feature.materializer.session
 
 import arrow.core.Option
-import funcify.feature.materializer.phase.RequestDispatchMaterializationPhase
-import funcify.feature.materializer.phase.RequestParameterMaterializationGraphPhase
+import funcify.feature.materializer.dispatch.DispatchedRequestMaterializationGraph
+import funcify.feature.materializer.graph.RequestMaterializationGraph
+import funcify.feature.materializer.input.RawInputContext
+import funcify.feature.materializer.model.MaterializationMetamodel
 import funcify.feature.materializer.request.RawGraphQLRequest
 import funcify.feature.materializer.response.SerializedGraphQLResponse
-import funcify.feature.materializer.schema.MaterializationMetamodel
-import funcify.feature.materializer.threadlocal.ThreadLocalContextKey
-import funcify.feature.schema.MetamodelGraph
-import graphql.language.Document
-import graphql.language.OperationDefinition
+import funcify.feature.schema.FeatureEngineeringModel
+import graphql.execution.preparsed.PreparsedDocumentEntry
 import graphql.schema.GraphQLSchema
 import java.util.*
 import kotlinx.collections.immutable.ImmutableMap
 
 /**
- *
  * @author smccarron
  * @created 2/19/22
  */
 interface GraphQLSingleRequestSession : MaterializationSession {
 
     companion object {
-        val GRAPHQL_SINGLE_REQUEST_SESSION_KEY: ThreadLocalContextKey<GraphQLSingleRequestSession> =
-            ThreadLocalContextKey.of(GraphQLSingleRequestSession::class.qualifiedName + ".SESSION")
+        val GRAPHQL_SINGLE_REQUEST_SESSION_KEY: String =
+            GraphQLSingleRequestSession::class.qualifiedName + ".SESSION"
     }
 
     override val sessionId: UUID
@@ -31,23 +29,21 @@ interface GraphQLSingleRequestSession : MaterializationSession {
 
     override val materializationMetamodel: MaterializationMetamodel
 
-    val metamodelGraph: MetamodelGraph
-        get() = materializationMetamodel.metamodelGraph
+    val featureEngineeringModel: FeatureEngineeringModel
+        get() = materializationMetamodel.featureEngineeringModel
 
     val materializationSchema: GraphQLSchema
         get() = materializationMetamodel.materializationGraphQLSchema
 
     val rawGraphQLRequest: RawGraphQLRequest
 
-    val document: Option<Document>
+    val rawInputContext: Option<RawInputContext>
 
-    val operationDefinition: Option<OperationDefinition>
+    val preparsedDocumentEntry: Option<PreparsedDocumentEntry>
 
-    val processedQueryVariables: ImmutableMap<String, Any?>
+    val requestMaterializationGraph: Option<RequestMaterializationGraph>
 
-    val requestParameterMaterializationGraphPhase: Option<RequestParameterMaterializationGraphPhase>
-
-    val requestDispatchMaterializationGraphPhase: Option<RequestDispatchMaterializationPhase>
+    val dispatchedRequestMaterializationGraph: Option<DispatchedRequestMaterializationGraph>
 
     val serializedGraphQLResponse: Option<SerializedGraphQLResponse>
 
@@ -55,18 +51,18 @@ interface GraphQLSingleRequestSession : MaterializationSession {
 
     interface Builder {
 
-        fun document(document: Document): Builder
+        fun rawGraphQLRequest(rawGraphQLRequest: RawGraphQLRequest): Builder
 
-        fun operationDefinition(operationDefinition: OperationDefinition): Builder
+        fun rawInputContext(rawInputContext: RawInputContext): Builder
 
-        fun processedQueryVariables(processedQueryVariables: Map<String, Any?>): Builder
+        fun preparsedDocumentEntry(preparsedDocumentEntry: PreparsedDocumentEntry): Builder
 
-        fun requestParameterMaterializationGraphPhase(
-            requestParameterMaterializationGraphPhase: RequestParameterMaterializationGraphPhase
+        fun requestMaterializationGraph(
+            requestMaterializationGraph: RequestMaterializationGraph
         ): Builder
 
-        fun requestDispatchMaterializationPhase(
-            requestDispatchMaterializationPhase: RequestDispatchMaterializationPhase
+        fun dispatchedRequestMaterializationGraph(
+            dispatchedRequestMaterializationGraph: DispatchedRequestMaterializationGraph
         ): Builder
 
         fun serializedGraphQLResponse(serializedGraphQLResponse: SerializedGraphQLResponse): Builder

@@ -3,7 +3,6 @@ package funcify.feature.materializer.session
 import reactor.core.publisher.Mono
 
 /**
- *
  * @author smccarron
  * @created 2/19/22
  */

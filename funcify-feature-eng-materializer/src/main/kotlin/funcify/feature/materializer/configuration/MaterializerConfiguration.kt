@@ -1,145 +1,73 @@
 package funcify.feature.materializer.configuration
 
-import arrow.core.getOrElse
-import arrow.core.toOption
-import funcify.feature.datasource.graphql.GraphQLApiDataElementSource
-import funcify.feature.datasource.graphql.metadata.alias.GraphQLApiDataSourceAliasProvider
-import funcify.feature.datasource.graphql.metadata.identifier.GraphQLApiDataSourceEntityIdentifiersProvider
-import funcify.feature.datasource.graphql.metadata.temporal.GraphQLApiDataSourceLastUpdatedAttributeProvider
-import funcify.feature.datasource.rest.RestApiDataElementSource
-import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionCreationContextFactory
-import funcify.feature.datasource.sdl.SchematicVertexSDLDefinitionImplementationStrategy
-import funcify.feature.error.FeatureEngCommonException
-import funcify.feature.materializer.context.document.DefaultColumnarDocumentContextFactory
-import funcify.feature.materializer.context.graph.DefaultMaterializationGraphContextFactory
-import funcify.feature.materializer.context.publishing.DefaultTrackableValuePublishingContextFactory
-import funcify.feature.materializer.error.MaterializerErrorResponse
-import funcify.feature.materializer.error.MaterializerException
+import funcify.feature.materializer.dispatch.DefaultSingleRequestMaterializationDispatchService
+import funcify.feature.materializer.dispatch.SingleRequestMaterializationDispatchService
+import funcify.feature.materializer.document.DefaultMaterializationPreparsedDocumentProvider
+import funcify.feature.materializer.document.MaterializationPreparsedDocumentProvider
 import funcify.feature.materializer.fetcher.DefaultSingleRequestFieldMaterializationDataFetcherFactory
-import funcify.feature.materializer.fetcher.SingleRequestFieldMaterializationDataFetcherFactory
+import funcify.feature.materializer.graph.DefaultSingleRequestMaterializationGraphService
+import funcify.feature.materializer.graph.SingleRequestMaterializationGraphService
+import funcify.feature.materializer.input.DefaultSingleRequestRawInputContextExtractor
+import funcify.feature.materializer.input.SingleRequestRawInputContextExtractor
+import funcify.feature.materializer.model.DefaultMaterializationMetamodelBuildStrategy
+import funcify.feature.materializer.model.DefaultMaterializationMetamodelFactory
+import funcify.feature.materializer.model.MaterializationMetamodel
+import funcify.feature.materializer.model.MaterializationMetamodelBuildStrategy
+import funcify.feature.materializer.model.MaterializationMetamodelFactory
 import funcify.feature.materializer.request.DefaultRawGraphQLRequestFactory
 import funcify.feature.materializer.request.RawGraphQLRequestFactory
 import funcify.feature.materializer.response.DefaultSerializedGraphQLResponseFactory
+import funcify.feature.materializer.response.DefaultSingleRequestMaterializationTabularResponsePostprocessingService
 import funcify.feature.materializer.response.SerializedGraphQLResponseFactory
+import funcify.feature.materializer.response.SingleRequestMaterializationTabularResponsePostprocessingService
 import funcify.feature.materializer.schema.DefaultMaterializationGraphQLSchemaFactory
-import funcify.feature.materializer.schema.DefaultMaterializationMetamodel
 import funcify.feature.materializer.schema.DefaultMaterializationMetamodelBroker
 import funcify.feature.materializer.schema.MaterializationGraphQLSchemaFactory
 import funcify.feature.materializer.schema.MaterializationMetamodelBroker
-import funcify.feature.materializer.schema.edge.DefaultRequestParameterEdgeFactory
-import funcify.feature.materializer.service.*
+import funcify.feature.materializer.service.DefaultGraphQLSingleRequestMaterializationQueryExecutionStrategy
+import funcify.feature.materializer.service.DefaultSingleRequestMaterializationExecutionResultPostprocessingService
+import funcify.feature.materializer.service.DefaultSingleRequestMaterializationOrchestratorService
+import funcify.feature.materializer.service.GraphQLSingleRequestExecutor
+import funcify.feature.materializer.service.GraphQLSingleRequestMaterializationQueryExecutionStrategy
+import funcify.feature.materializer.service.SingleRequestMaterializationExecutionResultPostprocessingService
+import funcify.feature.materializer.service.SingleRequestMaterializationExecutionStrategyInstrumentation
+import funcify.feature.materializer.service.SingleRequestMaterializationOrchestratorService
+import funcify.feature.materializer.service.SpringGraphQLSingleRequestExecutor
 import funcify.feature.materializer.session.DefaultGraphQLSingleRequestSessionCoordinator
 import funcify.feature.materializer.session.DefaultGraphQLSingleRequestSessionFactory
 import funcify.feature.materializer.session.GraphQLSingleRequestSessionCoordinator
 import funcify.feature.materializer.session.GraphQLSingleRequestSessionFactory
+import funcify.feature.materializer.type.MaterializationInterfaceSubtypeResolverFactory
+import funcify.feature.materializer.type.SubtypingDirectiveInterfaceSubtypeResolverFactory
+import funcify.feature.materializer.wiring.DefaultMaterializationGraphQLWiringFactory
+import funcify.feature.materializer.wiring.MaterializationGraphQLWiringFactory
 import funcify.feature.scalar.registry.ScalarTypeRegistry
-import funcify.feature.schema.MetamodelGraph
-import funcify.feature.schema.factory.MetamodelGraphCreationContext
-import funcify.feature.schema.factory.MetamodelGraphFactory
-import funcify.feature.schema.strategy.SchematicVertexGraphRemappingStrategy
+import funcify.feature.schema.FeatureEngineeringModel
 import funcify.feature.schema.tracking.TrackableValueFactory
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
-import funcify.feature.tools.extensions.MonoExtensions.toTry
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.json.JsonMapper
-import graphql.execution.ExecutionStrategy
+import graphql.execution.DataFetcherResult
+import graphql.execution.instrumentation.Instrumentation
+import graphql.schema.DataFetcherFactory
 import graphql.schema.GraphQLSchema
 import graphql.schema.idl.SchemaPrinter
+import java.util.concurrent.CompletionStage
 import org.slf4j.Logger
 import org.springframework.beans.factory.ObjectProvider
-import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 
+/**
+ * @author smccarron
+ * @created 2023-07-21
+ */
 @Configuration
 class MaterializerConfiguration {
 
     companion object {
         private val logger: Logger = loggerFor<MaterializerConfiguration>()
-    }
-
-    @Bean
-    fun metamodelGraph(
-        metamodelGraphFactory: MetamodelGraphFactory,
-        graphQLApiDataSources: ObjectProvider<GraphQLApiDataElementSource>,
-        graphQLApiDataSourceAliasProviders: ObjectProvider<GraphQLApiDataSourceAliasProvider>,
-        graphQLApiDataSourceLastUpdatedAttributeProviders:
-            ObjectProvider<GraphQLApiDataSourceLastUpdatedAttributeProvider>,
-        graphQLApiDataSourceEntityIdentifiersProviders:
-            ObjectProvider<GraphQLApiDataSourceEntityIdentifiersProvider>,
-        restApiDataSources: ObjectProvider<RestApiDataElementSource>,
-        schematicVertexGraphRemappingStrategyProvider:
-            ObjectProvider<SchematicVertexGraphRemappingStrategy<MetamodelGraphCreationContext>>
-    ): MetamodelGraph {
-        return sequenceOf(graphQLApiDataSources, restApiDataSources)
-            .flatMap { dsProvider -> dsProvider }
-            .fold(metamodelGraphFactory.builder()) { builder, ds ->
-                when (ds) {
-                    is GraphQLApiDataElementSource -> {
-                        graphQLApiDataSourceEntityIdentifiersProviders.fold(
-                            graphQLApiDataSourceLastUpdatedAttributeProviders.fold(
-                                graphQLApiDataSourceAliasProviders.fold(
-                                    builder.addDataSource(ds)
-                                ) { bldr, prov ->
-                                    bldr.addAttributeAliasProviderForDataSource(prov, ds)
-                                }
-                            ) { bldr, prov ->
-                                bldr.addLastUpdatedAttributeProviderForDataSource(prov, ds)
-                            }
-                        ) { bldr, prov ->
-                            bldr.addEntityIdentifiersProviderForDataSource(prov, ds)
-                        }
-                    }
-                    // break out any other datasource specific providers into separate cases or
-                    // create generic function to add the other providers when support for them
-                    // starts
-                    else -> {
-                        builder.addDataSource(ds)
-                    }
-                }
-            }
-            .let { builder: MetamodelGraph.Builder ->
-                schematicVertexGraphRemappingStrategyProvider.fold(builder) { bldr, strategy ->
-                    builder.addRemappingStrategyForPostProcessingSchematicVertices(strategy)
-                }
-            }
-            .build()
-            .doOnNext { mmg: MetamodelGraph ->
-                val firstVertexPath: String =
-                    mmg.toOption()
-                        .filter { m -> m.pathBasedGraph.vertices.size > 0 }
-                        .map { m -> m.pathBasedGraph.vertices[0].path.toString() }
-                        .getOrElse { "<NA>" }
-                logger.info(
-                    """metamodel_graph: [ status: success ] 
-                            |[ metamodel_graph [ vertices.size: ${mmg.pathBasedGraph.vertices.size}, 
-                            |vertices[0].path: $firstVertexPath ] ]
-                            |"""
-                        .flatten()
-                )
-            }
-            .doOnError { t: Throwable ->
-                logger.error(
-                    """metamodel_graph: [ status: failed ] 
-                    |[ message: ${t.message} ]
-                    |"""
-                        .flatten(),
-                    t
-                )
-            }
-            .toTry()
-            .orElseThrow { t: Throwable ->
-                when (t) {
-                    is FeatureEngCommonException -> t
-                    else -> {
-                        MaterializerException(
-                            MaterializerErrorResponse.METAMODEL_GRAPH_CREATION_ERROR,
-                            t
-                        )
-                    }
-                }
-            }
     }
 
     @ConditionalOnMissingBean(value = [RawGraphQLRequestFactory::class])
@@ -154,151 +82,89 @@ class MaterializerConfiguration {
         return DefaultSerializedGraphQLResponseFactory()
     }
 
-    @ConditionalOnMissingBean(value = [MaterializationGraphQLSchemaFactory::class])
+    @ConditionalOnMissingBean(value = [SingleRequestMaterializationOrchestratorService::class])
     @Bean
-    fun materializationGraphQLSchemaFactory(
+    fun singleRequestMaterializationOrchestratorService(
+        jsonMapper: JsonMapper
+    ): SingleRequestMaterializationOrchestratorService {
+        return DefaultSingleRequestMaterializationOrchestratorService(jsonMapper = jsonMapper)
+    }
+
+    @ConditionalOnMissingBean(value = [SingleRequestMaterializationGraphService::class])
+    @Bean
+    fun singleRequestMaterializationGraphService(): SingleRequestMaterializationGraphService {
+        return DefaultSingleRequestMaterializationGraphService()
+    }
+
+    @ConditionalOnMissingBean(value = [SingleRequestMaterializationDispatchService::class])
+    @Bean
+    fun singleRequestMaterializationDispatchService(
         jsonMapper: JsonMapper,
-        scalarTypeRegistryProvider: ObjectProvider<ScalarTypeRegistry>,
-        sdlDefinitionCreationContextFactory: SchematicVertexSDLDefinitionCreationContextFactory,
-        sdlDefinitionImplementationStrategyProvider:
-            ObjectProvider<SchematicVertexSDLDefinitionImplementationStrategy>,
-        materializationGraphQLWiringFactory: MaterializationGraphQLWiringFactory
-    ): MaterializationGraphQLSchemaFactory {
-        return DefaultMaterializationGraphQLSchemaFactory(
+        trackableValueFactory: TrackableValueFactory
+    ): SingleRequestMaterializationDispatchService {
+        return DefaultSingleRequestMaterializationDispatchService(
             jsonMapper = jsonMapper,
-            scalarTypeRegistry =
-                scalarTypeRegistryProvider.getIfAvailable {
-                    ScalarTypeRegistry.materializationRegistry()
-                },
-            sdlDefinitionCreationContextFactory = sdlDefinitionCreationContextFactory,
-            sdlDefinitionImplementationStrategies =
-                sdlDefinitionImplementationStrategyProvider.toList(),
-            materializationGraphQLWiringFactory = materializationGraphQLWiringFactory
+            trackableValueFactory = trackableValueFactory
         )
     }
 
-    @ConditionalOnMissingBean(value = [MaterializationGraphQLWiringFactory::class])
+    @ConditionalOnMissingBean(value = [DataFetcherFactory::class])
     @Bean
-    fun materializationGraphQLWiringFactory(
-        metamodelGraph: MetamodelGraph,
-        scalarTypeRegistryProvider: ObjectProvider<ScalarTypeRegistry>,
-        singleRequestFieldMaterializationDataFetcherFactory:
-            SingleRequestFieldMaterializationDataFetcherFactory
-    ): MaterializationGraphQLWiringFactory {
-        return DefaultMaterializationGraphQLWiringFactory(
-            scalarTypeRegistry =
-                scalarTypeRegistryProvider.getIfAvailable {
-                    ScalarTypeRegistry.materializationRegistry()
-                },
-            singleRequestFieldMaterializationDataFetcherFactory =
-                singleRequestFieldMaterializationDataFetcherFactory
-        )
-    }
-
-    @ConditionalOnMissingBean(value = [SingleRequestFieldMaterializationDataFetcherFactory::class])
-    @Bean
-    fun singleRequestFieldMaterializationDataFetcherFactory(
+    fun dataFetcherFactory(
         singleRequestMaterializationOrchestratorService:
-            SingleRequestMaterializationOrchestratorService
-    ): SingleRequestFieldMaterializationDataFetcherFactory {
+            SingleRequestMaterializationOrchestratorService,
+    ): DataFetcherFactory<CompletionStage<out DataFetcherResult<Any?>>> {
         return DefaultSingleRequestFieldMaterializationDataFetcherFactory(
             singleRequestMaterializationOrchestratorService =
                 singleRequestMaterializationOrchestratorService
         )
     }
 
-    @ConditionalOnMissingBean(value = [SingleRequestMaterializationGraphService::class])
+    @ConditionalOnMissingBean(value = [MaterializationInterfaceSubtypeResolverFactory::class])
     @Bean
-    fun singleRequestMaterializationGraphService(
-        jsonMapper: JsonMapper
-    ): SingleRequestMaterializationGraphService {
-        return DefaultSingleRequestMaterializationGraphService(
-            materializationGraphContextFactory = DefaultMaterializationGraphContextFactory(),
-            materializationGraphConnector =
-                DefaultMaterializationGraphConnector(
-                    jsonMapper = jsonMapper,
-                    requestParameterEdgeFactory = DefaultRequestParameterEdgeFactory()
-                )
+    fun materializationInterfaceSubtypeResolverFactory():
+        MaterializationInterfaceSubtypeResolverFactory {
+        return SubtypingDirectiveInterfaceSubtypeResolverFactory()
+    }
+
+    @ConditionalOnMissingBean(value = [MaterializationGraphQLWiringFactory::class])
+    @Bean
+    fun materializationGraphQLWiringFactory(
+        scalarTypeRegistryProvider: ObjectProvider<ScalarTypeRegistry>,
+        dataFetcherFactory: DataFetcherFactory<CompletionStage<out DataFetcherResult<Any?>>>,
+        materializationInterfaceSubtypeResolverFactory:
+            MaterializationInterfaceSubtypeResolverFactory,
+    ): MaterializationGraphQLWiringFactory {
+        return DefaultMaterializationGraphQLWiringFactory(
+            scalarTypeRegistry =
+                scalarTypeRegistryProvider.getIfAvailable {
+                    ScalarTypeRegistry.materializationRegistry()
+                },
+            dataFetcherFactory = dataFetcherFactory,
+            materializationInterfaceSubtypeResolverFactory =
+                materializationInterfaceSubtypeResolverFactory,
         )
     }
 
-    @ConditionalOnMissingBean(value = [SingleRequestMaterializationDispatchService::class])
+    @ConditionalOnMissingBean(value = [MaterializationGraphQLSchemaFactory::class])
     @Bean
-    fun singleRequestMaterializationDispatchService(
-        schematicPathBasedJsonRetrievalFunctionFactory:
-            SchematicPathBasedJsonRetrievalFunctionFactory,
-        trackableValueFactory: TrackableValueFactory,
-        materializedTrackableValuePublishingService: MaterializedTrackableValuePublishingService
-    ): SingleRequestMaterializationDispatchService {
-        return DefaultSingleRequestMaterializationDispatchService(
-            schematicPathBasedJsonRetrievalFunctionFactory =
-                schematicPathBasedJsonRetrievalFunctionFactory,
-            trackableValueFactory = trackableValueFactory,
-            materializedTrackableValuePublishingService =
-                materializedTrackableValuePublishingService
-        )
-    }
-
-    @ConditionalOnMissingBean(value = [MaterializedTrackableValuePublishingService::class])
-    @Bean
-    fun materializedTrackableValuePublishingService(
-        jsonMapper: JsonMapper,
-        trackableJsonValuePublisherProvider: ObjectProvider<TrackableJsonValuePublisherProvider>
-    ): MaterializedTrackableValuePublishingService {
-        return DefaultMaterializedTrackableValuePublishingService(
-            jsonMapper = jsonMapper,
-            publishingContextFactory = DefaultTrackableValuePublishingContextFactory(),
-            trackableJsonValuePublisherProvider =
-                trackableJsonValuePublisherProvider.getIfAvailable {
-                    TrackableJsonValuePublisherProvider.NO_OP_PROVIDER
-                }
-        )
-    }
-
-    @ConditionalOnMissingBean(value = [SingleRequestMaterializationOrchestratorService::class])
-    @Bean
-    fun singleRequestMaterializationOrchestratorService(
-        jsonMapper: JsonMapper,
-        materializedTrackableValuePublishingService: MaterializedTrackableValuePublishingService
-    ): SingleRequestMaterializationOrchestratorService {
-        return DefaultSingleRequestMaterializationOrchestratorService(jsonMapper = jsonMapper)
-    }
-
-    @ConditionalOnMissingBean(
-        value = [SingleRequestMaterializationColumnarDocumentPreprocessingService::class]
-    )
-    @Bean
-    fun singleRequestMaterializationColumnarDocumentPreprocessingService(
-        jsonMapper: JsonMapper
-    ): SingleRequestMaterializationColumnarDocumentPreprocessingService {
-        return DefaultSingleRequestMaterializationColumnarDocumentPreprocessingService(
-            jsonMapper = jsonMapper,
-            columnarDocumentContextFactory = DefaultColumnarDocumentContextFactory()
-        )
-    }
-
-    @ConditionalOnMissingBean(value = [MaterializationPreparsedDocumentProvider::class])
-    @Bean
-    fun materializationPreparsedDocumentProvider(
-        jsonMapper: JsonMapper,
-        singleRequestMaterializationColumnarDocumentPreprocessingService:
-            SingleRequestMaterializationColumnarDocumentPreprocessingService
-    ): MaterializationPreparsedDocumentProvider {
-        return DefaultMaterializationPreparsedDocumentProvider(
-            jsonMapper = jsonMapper,
-            singleRequestMaterializationColumnarDocumentPreprocessingService =
-                singleRequestMaterializationColumnarDocumentPreprocessingService
+    fun materializationGraphQLSchemaFactory(
+        scalarTypeRegistryProvider: ObjectProvider<ScalarTypeRegistry>,
+        materializationGraphQLWiringFactory: MaterializationGraphQLWiringFactory
+    ): MaterializationGraphQLSchemaFactory {
+        return DefaultMaterializationGraphQLSchemaFactory(
+            materializationGraphQLWiringFactory = materializationGraphQLWiringFactory
         )
     }
 
     @ConditionalOnMissingBean(value = [GraphQLSchema::class])
     @Bean
     fun materializationGraphQLSchema(
-        metamodelGraph: MetamodelGraph,
+        featureEngineeringModel: FeatureEngineeringModel,
         materializationGraphQLSchemaFactory: MaterializationGraphQLSchemaFactory
     ): GraphQLSchema {
         return materializationGraphQLSchemaFactory
-            .createGraphQLSchemaFromMetamodelGraph(metamodelGraph)
+            .createGraphQLSchemaFromMetamodel(featureEngineeringModel)
             .peek(
                 { gs: GraphQLSchema ->
                     logger.info(
@@ -317,89 +183,157 @@ class MaterializerConfiguration {
             .orElseThrow()
     }
 
+    @ConditionalOnMissingBean(value = [MaterializationMetamodelBuildStrategy::class])
+    @Bean
+    fun materializationMetamodelBuildStrategy(): MaterializationMetamodelBuildStrategy {
+        return DefaultMaterializationMetamodelBuildStrategy()
+    }
+
+    @ConditionalOnMissingBean(value = [MaterializationMetamodelFactory::class])
+    @Bean
+    fun materializationMetamodelFactory(
+        materializationMetamodelBuildStrategy: MaterializationMetamodelBuildStrategy
+    ): MaterializationMetamodelFactory {
+        return DefaultMaterializationMetamodelFactory(
+            materializationMetamodelBuildStrategy = materializationMetamodelBuildStrategy
+        )
+    }
+
+    @ConditionalOnMissingBean(value = [MaterializationMetamodel::class])
+    @Bean
+    fun materializationMetamodel(
+        featureEngineeringModel: FeatureEngineeringModel,
+        materializationGraphQLSchema: GraphQLSchema,
+        materializationMetamodelFactory: MaterializationMetamodelFactory
+    ): MaterializationMetamodel {
+        return materializationMetamodelFactory
+            .builder()
+            .featureEngineeringModel(featureEngineeringModel)
+            .materializationGraphQLSchema(materializationGraphQLSchema)
+            .build()
+            .doOnNext { mm: MaterializationMetamodel ->
+                logger.debug("build_materialization_metamodel: [ status: successful ]")
+            }
+            .doOnError { t: Throwable ->
+                logger.error(
+                    "build_materialization_metamodel: [ status: failed ][ type: {}, message: {} ]",
+                    t::class.simpleName,
+                    t.message
+                )
+            }
+            .toFuture()
+            .join()
+    }
+
     @ConditionalOnMissingBean(value = [MaterializationMetamodelBroker::class])
     @Bean
     fun materializationMetamodelBroker(
-        metamodelGraph: MetamodelGraph,
-        materializationGraphQLSchema: GraphQLSchema
+        materializationMetamodel: MaterializationMetamodel
     ): MaterializationMetamodelBroker {
         val broker: MaterializationMetamodelBroker = DefaultMaterializationMetamodelBroker()
-        broker.pushNewMaterializationMetamodel(
-            DefaultMaterializationMetamodel(
-                metamodelGraph = metamodelGraph,
-                materializationGraphQLSchema = materializationGraphQLSchema
-            )
-        )
+        broker.pushNewMaterializationMetamodel(materializationMetamodel)
         return broker
     }
 
+    @ConditionalOnMissingBean(value = [SingleRequestRawInputContextExtractor::class])
+    @Bean
+    fun singleRequestRawInputContextExtractor(
+        jsonMapper: JsonMapper
+    ): SingleRequestRawInputContextExtractor {
+        return DefaultSingleRequestRawInputContextExtractor(jsonMapper = jsonMapper)
+    }
+
+    @ConditionalOnMissingBean(value = [GraphQLSingleRequestSessionFactory::class])
     @Bean
     fun graphQLSingleRequestSessionFactory(
-        materializationMetamodelBroker: MaterializationMetamodelBroker
+        materializationMetamodelBroker: MaterializationMetamodelBroker,
+        singleRequestRawInputContextExtractor: SingleRequestRawInputContextExtractor
     ): GraphQLSingleRequestSessionFactory {
         return DefaultGraphQLSingleRequestSessionFactory(
-            materializationMetamodelBroker = materializationMetamodelBroker
+            materializationMetamodelBroker = materializationMetamodelBroker,
+            singleRequestRawInputContextExtractor = singleRequestRawInputContextExtractor,
         )
     }
 
+    @ConditionalOnMissingBean(value = [MaterializationPreparsedDocumentProvider::class])
+    @Bean
+    fun materializationPreparsedDocumentProvider(
+        jsonMapper: JsonMapper,
+        singleRequestMaterializationGraphService: SingleRequestMaterializationGraphService,
+        singleRequestMaterializationDispatchService: SingleRequestMaterializationDispatchService
+    ): MaterializationPreparsedDocumentProvider {
+        return DefaultMaterializationPreparsedDocumentProvider(
+            jsonMapper = jsonMapper,
+            singleRequestMaterializationGraphService = singleRequestMaterializationGraphService,
+            singleRequestMaterializationDispatchService =
+                singleRequestMaterializationDispatchService
+        )
+    }
+
+    @ConditionalOnMissingBean(
+        value = [SingleRequestMaterializationTabularResponsePostprocessingService::class]
+    )
+    @Bean
+    fun singleRequestMaterializationTabularResponsePostprocessingService(
+        jsonMapper: JsonMapper,
+        serializedGraphQLResponseFactory: SerializedGraphQLResponseFactory
+    ): SingleRequestMaterializationTabularResponsePostprocessingService {
+        return DefaultSingleRequestMaterializationTabularResponsePostprocessingService(
+            jsonMapper = jsonMapper,
+            serializedGraphQLResponseFactory = serializedGraphQLResponseFactory
+        )
+    }
+
+    @ConditionalOnMissingBean(
+        value = [SingleRequestMaterializationExecutionResultPostprocessingService::class]
+    )
+    @Bean
+    fun singleRequestMaterializationExecutionResultPostprocessingService(
+        serializedGraphQLResponseFactory: SerializedGraphQLResponseFactory,
+        singleRequestMaterializationTabularResponsePostprocessingService:
+            SingleRequestMaterializationTabularResponsePostprocessingService
+    ): SingleRequestMaterializationExecutionResultPostprocessingService {
+        return DefaultSingleRequestMaterializationExecutionResultPostprocessingService(
+            serializedGraphQLResponseFactory = serializedGraphQLResponseFactory,
+            singleRequestMaterializationTabularResponsePostprocessingService =
+                singleRequestMaterializationTabularResponsePostprocessingService
+        )
+    }
+
+    @ConditionalOnMissingBean(
+        value = [GraphQLSingleRequestMaterializationQueryExecutionStrategy::class]
+    )
+    @Bean
+    fun queryAsyncExecutionStrategy(): GraphQLSingleRequestMaterializationQueryExecutionStrategy {
+        return DefaultGraphQLSingleRequestMaterializationQueryExecutionStrategy()
+    }
+
+    @Bean
+    fun singleRequestMaterializationExecutionStrategyInstrumentation(jsonMapper: JsonMapper): Instrumentation {
+        return SingleRequestMaterializationExecutionStrategyInstrumentation(jsonMapper)
+    }
+
+    @ConditionalOnMissingBean(value = [GraphQLSingleRequestSessionCoordinator::class])
     @Bean
     fun graphQLSingleRequestSessionCoordinator(
         materializationPreparsedDocumentProvider: MaterializationPreparsedDocumentProvider,
-        materializationQueryExecutionStrategy:
-            GraphQLSingleRequestMaterializationQueryExecutionStrategy,
+        instrumentation: Instrumentation,
+        queryAsyncExecutionStrategy: GraphQLSingleRequestMaterializationQueryExecutionStrategy,
         singleRequestMaterializationExecutionResultPostprocessingService:
             SingleRequestMaterializationExecutionResultPostprocessingService,
         serializedGraphQLResponseFactory: SerializedGraphQLResponseFactory,
     ): GraphQLSingleRequestSessionCoordinator {
         return DefaultGraphQLSingleRequestSessionCoordinator(
             materializationPreparsedDocumentProvider = materializationPreparsedDocumentProvider,
-            queryExecutionStrategy = materializationQueryExecutionStrategy,
+            queryAsyncExecutionStrategy = queryAsyncExecutionStrategy,
+            instrumentation = instrumentation,
             singleRequestMaterializationExecutionResultPostprocessingService =
                 singleRequestMaterializationExecutionResultPostprocessingService,
             serializedGraphQLResponseFactory = serializedGraphQLResponseFactory
         )
     }
 
-    @Bean
-    fun singleRequestMaterializationColumnarResponsePostprocessingService(
-        jsonMapper: JsonMapper,
-        serializedGraphQLResponseFactory: SerializedGraphQLResponseFactory
-    ): SingleRequestMaterializationColumnarResponsePostprocessingService {
-        return DefaultSingleRequestMaterializationColumnarResponsePostprocessingService(
-            jsonMapper = jsonMapper,
-            serializedGraphQLResponseFactory = serializedGraphQLResponseFactory
-        )
-    }
-
-    @Bean
-    fun singleRequestMaterializationExecutionResultPostprocessingService(
-        serializedGraphQLResponseFactory: SerializedGraphQLResponseFactory,
-        singleRequestMaterializationColumnarResponsePostprocessingService:
-            SingleRequestMaterializationColumnarResponsePostprocessingService
-    ): SingleRequestMaterializationExecutionResultPostprocessingService {
-        return DefaultSingleRequestMaterializationExecutionResultPostprocessingService(
-            serializedGraphQLResponseFactory = serializedGraphQLResponseFactory,
-            singleRequestMaterializationColumnarResponsePostprocessingService =
-                singleRequestMaterializationColumnarResponsePostprocessingService
-        )
-    }
-
-    @ConditionalOnMissingBean(value = [ExecutionStrategy::class])
-    @Bean
-    fun graphQLSingleRequestMaterializationQueryExecutionStrategy(
-        @Value("\${feature-eng-service.graphql.execution-strategy-timeout-millis:-1}")
-        globalExecutionStrategyTimeoutSeconds: Long,
-        singleRequestMaterializationGraphService: SingleRequestMaterializationGraphService,
-        singleRequestMaterializationDispatchService: SingleRequestMaterializationDispatchService
-    ): GraphQLSingleRequestMaterializationQueryExecutionStrategy {
-        return DefaultGraphQLSingleRequestMaterializationQueryExecutionStrategy(
-            globalExecutionStrategyTimeoutMilliseconds = globalExecutionStrategyTimeoutSeconds,
-            singleRequestMaterializationGraphService = singleRequestMaterializationGraphService,
-            singleRequestMaterializationPreprocessingService =
-                singleRequestMaterializationDispatchService
-        )
-    }
-
+    @ConditionalOnMissingBean(value = [GraphQLSingleRequestExecutor::class])
     @Bean
     fun springGraphQLSingleRequestExecutor(
         graphQLSingleRequestSessionFactory: GraphQLSingleRequestSessionFactory,

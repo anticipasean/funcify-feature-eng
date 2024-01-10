@@ -15,7 +15,6 @@ import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.toPersistentList
 
 /**
- *
  * @author smccarron
  * @created 2022-10-23
  */
@@ -28,7 +27,8 @@ internal class DefaultColumnarDocumentContextFactory : ColumnarDocumentContextFa
                 persistentListOf<String>().builder(),
             private var parameterValuesByPath: PersistentMap.Builder<GQLOperationPath, JsonNode> =
                 persistentMapOf<GQLOperationPath, JsonNode>().builder(),
-            private var sourceIndexPathsByFieldName: PersistentMap.Builder<String, GQLOperationPath> =
+            private var sourceIndexPathsByFieldName:
+                PersistentMap.Builder<String, GQLOperationPath> =
                 persistentMapOf<String, GQLOperationPath>().builder(),
             private var queryComposerFunction:
                 Option<(ImmutableMap<GQLOperationPath, JsonNode>) -> OperationDefinition> =

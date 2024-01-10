@@ -58,7 +58,7 @@ ext.streamSubProjects = subprojects.findAll { Project p ->
     p.name.endsWith("-stream")
 }
 ext.materializerProjects = subprojects.findAll { Project p ->
-    p.name.endsWith("-materializer") || p.name.endsWith("-materializer-v2")
+    p.name.endsWith("-materializer")
 }
 ext.mainKotlinSubProjects = subprojects.findAll { Project p ->
     [ext.sharedGraphQLDefinitionKotlinProjects,

@@ -2,7 +2,6 @@ package funcify.feature.materializer.context.document
 
 import arrow.core.Option
 import com.fasterxml.jackson.databind.JsonNode
-import funcify.feature.materializer.threadlocal.ThreadLocalContextKey
 import funcify.feature.schema.path.operation.GQLOperationPath
 import graphql.language.Document
 import graphql.language.OperationDefinition
@@ -11,7 +10,6 @@ import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.PersistentMap
 
 /**
- *
  * @author smccarron
  * @created 2022-10-22
  */
@@ -19,10 +17,8 @@ interface ColumnarDocumentContext {
 
     companion object {
 
-        val COLUMNAR_DOCUMENT_CONTEXT_KEY: ThreadLocalContextKey<ColumnarDocumentContext> =
-            ThreadLocalContextKey.of(
-                ColumnarDocumentContext::class.qualifiedName + ".COLUMNAR_DOCUMENT_CONTEXT"
-            )
+        val COLUMNAR_DOCUMENT_CONTEXT_KEY: String =
+            ColumnarDocumentContext::class.qualifiedName + ".COLUMNAR_DOCUMENT_CONTEXT"
     }
 
     val expectedFieldNames: ImmutableList<String>

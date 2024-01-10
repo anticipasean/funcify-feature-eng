@@ -4,13 +4,12 @@ import arrow.core.filterIsInstance
 import arrow.core.getOrElse
 import arrow.core.getOrNone
 import arrow.core.toOption
+import funcify.feature.error.ServiceError
 import funcify.feature.materializer.context.document.ColumnarDocumentContext
-import funcify.feature.materializer.error.MaterializerErrorResponse
-import funcify.feature.materializer.error.MaterializerException
 import funcify.feature.materializer.response.SerializedGraphQLResponseFactory
+import funcify.feature.materializer.response.SingleRequestMaterializationTabularResponsePostprocessingService
 import funcify.feature.materializer.session.GraphQLSingleRequestSession
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
-import funcify.feature.tools.extensions.MonoExtensions.widen
 import funcify.feature.tools.extensions.TryExtensions.successIfDefined
 import graphql.ExecutionResult
 import graphql.ExecutionResultImpl
@@ -18,14 +17,13 @@ import org.slf4j.Logger
 import reactor.core.publisher.Mono
 
 /**
- *
  * @author smccarron
  * @created 2022-10-24
  */
 internal class DefaultSingleRequestMaterializationExecutionResultPostprocessingService(
     private val serializedGraphQLResponseFactory: SerializedGraphQLResponseFactory,
-    private val singleRequestMaterializationColumnarResponsePostprocessingService:
-        SingleRequestMaterializationColumnarResponsePostprocessingService
+    private val singleRequestMaterializationTabularResponsePostprocessingService:
+        SingleRequestMaterializationTabularResponsePostprocessingService
 ) : SingleRequestMaterializationExecutionResultPostprocessingService {
 
     companion object {
@@ -35,15 +33,21 @@ internal class DefaultSingleRequestMaterializationExecutionResultPostprocessingS
 
     override fun postprocessExecutionResultWithExtensions(
         executionResult: ExecutionResult
-    ): Mono<GraphQLSingleRequestSession> {
+    ): Mono<out GraphQLSingleRequestSession> {
         logger.info(
-            "postprocess_execution_result: [ execution_result: { is_data_present: {}, extensions.size: {} } ]",
+            "postprocess_execution_result: [ execution_result: { is_data_present: {}, extensions.size: {}, extensions.keys: {} } ]",
             executionResult.isDataPresent,
             executionResult
                 .toOption()
                 .mapNotNull(ExecutionResult::getExtensions)
                 .map(Map<Any?, Any?>::size)
-                .getOrElse { -1 }
+                .getOrElse { -1 },
+            executionResult
+                .toOption()
+                .mapNotNull(ExecutionResult::getExtensions)
+                .map(Map<Any?, Any?>::keys)
+                .getOrElse { emptySet() }
+                .joinToString(", ")
         )
         return when {
             executionResult.extensions == null -> {
@@ -60,12 +64,12 @@ internal class DefaultSingleRequestMaterializationExecutionResultPostprocessingS
                             .filterIsInstance<ColumnarDocumentContext>()
                     )
                     .toMono()
-                    .flatMap { (session, columnarDocumentContext) ->
-                        singleRequestMaterializationColumnarResponsePostprocessingService
-                            .postprocessColumnarExecutionResult(
+                    .flatMap { (s: GraphQLSingleRequestSession, cdc: ColumnarDocumentContext) ->
+                        singleRequestMaterializationTabularResponsePostprocessingService
+                            .postprocessTabularExecutionResult(
                                 createExecutionResultWithoutExtensions(executionResult),
-                                columnarDocumentContext,
-                                session
+                                cdc,
+                                s
                             )
                     }
             }
@@ -87,13 +91,11 @@ internal class DefaultSingleRequestMaterializationExecutionResultPostprocessingS
                     }
                     .successIfDefined(sessionNotFoundWithinDeclaredExtensionsExceptionSupplier())
                     .toMono()
-                    .widen()
             }
         }
     }
 
     /**
-     *
      * Remove extensions provided upstream since these are not expected to be part of the published
      * API and serializable
      */
@@ -111,19 +113,16 @@ internal class DefaultSingleRequestMaterializationExecutionResultPostprocessingS
     }
 
     private fun <T> createNoExtensionsOnExecutionResultErrorPublisher(): Mono<T> {
-        return Mono.error { ->
-            MaterializerException(
-                MaterializerErrorResponse.UNEXPECTED_ERROR,
+        return Mono.error {
+            ServiceError.of(
                 "no extensions were passed into execution_result in query_execution_strategy"
             )
         }
     }
 
-    private fun sessionNotFoundWithinDeclaredExtensionsExceptionSupplier():
-        () -> MaterializerException {
+    private fun sessionNotFoundWithinDeclaredExtensionsExceptionSupplier(): () -> ServiceError {
         return { ->
-            MaterializerException(
-                MaterializerErrorResponse.UNEXPECTED_ERROR,
+            ServiceError.of(
                 "session [ type: %s ] not found within extensions for execution_result".format(
                     GraphQLSingleRequestSession::class.qualifiedName
                 )
