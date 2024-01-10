@@ -28,6 +28,7 @@ internal data class DefaultSingleRequestFieldMaterializationSession(
             private var dataFetchingEnvironment: DataFetchingEnvironment? =
                 existingSession?.dataFetchingEnvironment
         ) : Builder {
+
             override fun singleRequestSession(
                 singleRequestSession: GraphQLSingleRequestSession
             ): Builder {

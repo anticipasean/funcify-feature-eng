@@ -25,6 +25,7 @@ import funcify.feature.schema.json.GraphQLValueToJsonNodeConverter
 import funcify.feature.schema.json.JsonNodeValueExtractionByOperationPath
 import funcify.feature.schema.path.operation.GQLOperationPath
 import funcify.feature.schema.path.result.GQLResultPath
+import funcify.feature.schema.path.result.NameSegment
 import funcify.feature.schema.tracking.TrackableValue
 import funcify.feature.schema.tracking.TrackableValueFactory
 import funcify.feature.schema.transformer.TransformerCallable
@@ -57,12 +58,12 @@ import graphql.schema.GraphQLFieldDefinition
 import graphql.schema.GraphQLFieldsContainer
 import graphql.schema.GraphQLTypeUtil
 import graphql.schema.InputValueWithState
-import java.time.Duration
-import java.util.stream.Stream
 import kotlinx.collections.immutable.*
 import org.slf4j.Logger
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
+import java.time.Duration
+import java.util.stream.Stream
 
 internal class DefaultSingleRequestMaterializationDispatchService(
     private val jsonMapper: JsonMapper,
@@ -788,7 +789,7 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                         pv: TrackableValue.PlannedValue<JsonNode>,
                         ap: ImmutableMap<GQLOperationPath, Mono<JsonNode>> ->
                         val featurePublisher: Mono<TrackableValue<JsonNode>> =
-                            context.requestMaterializationGraph.featureJsonValueStoreByPath
+                            c.requestMaterializationGraph.featureJsonValueStoreByPath
                                 .getOrNone(path)
                                 .map { fjvs: FeatureJsonValueStore ->
                                     fjvs
@@ -810,8 +811,7 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                                 }
                                 .getOrElse { featureCalculatorCallable.invoke(pv, ap).cache() }
                                 .doOnNext { calculatedValue: TrackableValue<JsonNode> ->
-                                    context.requestMaterializationGraph
-                                        .featureJsonValuePublisherByPath
+                                    c.requestMaterializationGraph.featureJsonValuePublisherByPath
                                         .getOrNone(path)
                                         .zip(
                                             calculatedValue
@@ -827,13 +827,28 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                                             fjvp.publishToStore(tv)
                                         }
                                 }
+                        val rp: GQLResultPath =
+                            GQLResultPath.fromOperationPathOrThrow(path).let { rp: GQLResultPath ->
+                                GQLResultPath.of {
+                                    appendListSegment(
+                                        rp.elementSegments
+                                            .firstOrNone()
+                                            .filterIsInstance<NameSegment>()
+                                            .map(NameSegment::name)
+                                            .getOrElse {
+                                                c.materializationMetamodel.featureEngineeringModel
+                                                    .featureFieldCoordinates
+                                                    .fieldName
+                                            },
+                                        argGroupIndex
+                                    )
+                                    appendElementSegments(rp.elementSegments.drop(1))
+                                }
+                            }
                         c.update {
                             addPlannedFeatureValue(path, pv)
                             addFeatureCalculatorPublisherForOperationPath(path, featurePublisher)
-                            addFeatureCalculatorPublisherForResultPath(
-                                GQLResultPath.fromOperationPathOrThrow(path),
-                                featurePublisher
-                            )
+                            addFeatureCalculatorPublisherForResultPath(rp, featurePublisher)
                         }
                     }
                     .orElseThrow()

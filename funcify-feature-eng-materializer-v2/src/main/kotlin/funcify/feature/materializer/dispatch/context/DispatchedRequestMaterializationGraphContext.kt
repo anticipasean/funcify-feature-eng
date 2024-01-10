@@ -46,7 +46,7 @@ interface DispatchedRequestMaterializationGraphContext {
         ImmutableMap<GQLOperationPath, ImmutableList<Mono<TrackableValue<JsonNode>>>>
 
     val featureCalculatorPublishersByResultPath:
-        ImmutableMap<GQLResultPath, ImmutableList<Mono<TrackableValue<JsonNode>>>>
+        ImmutableMap<GQLResultPath, Mono<TrackableValue<JsonNode>>>
 
     val passThruColumns: ImmutableMap<String, JsonNode>
 
@@ -119,7 +119,7 @@ interface DispatchedRequestMaterializationGraphContext {
         ): Builder
 
         fun addAllFeatureCalculatorPublishersForResultPaths(
-            pathPublisherPairs: Map<GQLResultPath, List<Mono<TrackableValue<JsonNode>>>>
+            pathPublisherPairs: Map<GQLResultPath, Mono<TrackableValue<JsonNode>>>
         ): Builder
 
         fun addPassThruColumn(columnName: String, columnValue: JsonNode): Builder
