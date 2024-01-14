@@ -30,7 +30,7 @@ interface GraphQLApiService {
 
     fun executeSingleQuery(
         query: String,
-        variables: Map<String, Any> = mapOf(),
+        variables: Map<String, Any?> = mapOf(),
         operationName: String? = null
     ): Mono<JsonNode>
 

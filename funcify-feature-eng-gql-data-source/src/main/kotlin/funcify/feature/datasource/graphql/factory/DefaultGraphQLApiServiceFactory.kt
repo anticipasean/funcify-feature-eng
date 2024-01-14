@@ -164,15 +164,15 @@ internal class DefaultGraphQLApiServiceFactory(
 
                 override fun executeSingleQuery(
                     query: String,
-                    variables: Map<String, Any>,
+                    variables: Map<String, Any?>,
                     operationName: String?
                 ): Mono<JsonNode> {
                     logger.debug(
                         """execute_single_query: 
-                    |[ query.length: ${query.length}, 
-                    |variables.size: ${variables.size}, 
-                    |operation_name: $operationName ]
-                    |"""
+                        |[ query.length: ${query.length}, 
+                        |variables.size: ${variables.size}, 
+                        |operation_name: $operationName ]
+                        |"""
                             .flatten()
                     )
                     val queryBodySupplierMono: Mono<ObjectNode> =

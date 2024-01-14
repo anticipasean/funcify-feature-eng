@@ -1,4 +1,4 @@
-package funcify.feature.datasource.graphql.factory
+package funcify.feature.datasource.graphql.source.callable
 
 import funcify.feature.schema.dataelement.DataElementCallable
 import funcify.feature.schema.path.operation.GQLOperationPath

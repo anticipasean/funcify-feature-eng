@@ -7,6 +7,8 @@ import funcify.feature.datasource.graphql.GraphQLApiDataElementSourceProviderFac
 import funcify.feature.datasource.graphql.GraphQLApiService
 import funcify.feature.datasource.graphql.metadata.provider.GraphQLApiSchemaFileMetadataProvider
 import funcify.feature.datasource.graphql.metadata.provider.GraphQLApiServiceMetadataProvider
+import funcify.feature.datasource.graphql.source.DefaultSchemaOnlyDataElementSource
+import funcify.feature.datasource.graphql.source.DefaultServiceBackedDataElementSource
 import funcify.feature.error.ServiceError
 import funcify.feature.schema.sdl.CompositeTypeDefinitionRegistryFilter
 import funcify.feature.schema.sdl.SDLDefinitionsSetExtractor

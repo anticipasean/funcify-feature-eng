@@ -7,6 +7,7 @@ import funcify.feature.file.FileRegistryFeatureCalculator
 import funcify.feature.file.FileRegistryFeatureCalculatorProvider
 import funcify.feature.file.FileRegistryFeatureCalculatorProviderFactory
 import funcify.feature.file.metadata.FileRegistryMetadataProvider
+import funcify.feature.file.source.DefaultFileRegistryFeatureCalculator
 import funcify.feature.schema.sdl.SDLDefinitionsSetExtractor
 import funcify.feature.schema.sdl.TypeDefinitionRegistryFilter
 import funcify.feature.tools.container.attempt.Try
