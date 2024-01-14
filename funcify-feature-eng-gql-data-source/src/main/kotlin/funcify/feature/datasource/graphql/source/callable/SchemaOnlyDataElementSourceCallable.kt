@@ -63,26 +63,29 @@ internal class SchemaOnlyDataElementSourceCallable(
                         arguments
                             .asSequence()
                             .firstOrNone { (p: GQLOperationPath, _: JsonNode) ->
-                                p.selection
-                                    .lastOrNone()
-                                    .map { ss: SelectionSegment ->
-                                        when (ss) {
-                                            is AliasedFieldSegment -> {
-                                                ss.fieldName
-                                            }
-                                            is FieldSegment -> {
-                                                ss.fieldName
-                                            }
-                                            is FragmentSpreadSegment -> {
-                                                ss.selectedField.fieldName
-                                            }
-                                            is InlineFragmentSegment -> {
-                                                ss.selectedField.fieldName
+                                p.refersToSelection() &&
+                                    p.selection
+                                        .lastOrNone()
+                                        .map { ss: SelectionSegment ->
+                                            when (ss) {
+                                                is AliasedFieldSegment -> {
+                                                    ss.fieldName
+                                                }
+                                                is FieldSegment -> {
+                                                    ss.fieldName
+                                                }
+                                                is FragmentSpreadSegment -> {
+                                                    ss.selectedField.fieldName
+                                                }
+                                                is InlineFragmentSegment -> {
+                                                    ss.selectedField.fieldName
+                                                }
                                             }
                                         }
-                                    }
-                                    .filter { fn: String -> fn == domainFieldCoordinates.fieldName }
-                                    .isDefined()
+                                        .filter { fn: String ->
+                                            fn == domainFieldCoordinates.fieldName
+                                        }
+                                        .isDefined()
                             }
                             .map { (_: GQLOperationPath, jn: JsonNode) -> jn }
                             .successIfDefined {

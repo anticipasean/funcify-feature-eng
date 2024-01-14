@@ -59,63 +59,8 @@ internal class ServiceBackedDataElementSourceCallable(
                             domainFieldCoordinates
                         )
                     }
-                    arguments
-                        .asSequence()
-                        .firstOrNone { (p: GQLOperationPath, _: JsonNode) ->
-                            p.selection
-                                .lastOrNone()
-                                .map { ss: SelectionSegment ->
-                                    when (ss) {
-                                        is AliasedFieldSegment -> {
-                                            ss.fieldName
-                                        }
-                                        is FieldSegment -> {
-                                            ss.fieldName
-                                        }
-                                        is FragmentSpreadSegment -> {
-                                            ss.selectedField.fieldName
-                                        }
-                                        is InlineFragmentSegment -> {
-                                            ss.selectedField.fieldName
-                                        }
-                                    }
-                                }
-                                .filter { fn: String -> fn == domainFieldCoordinates.fieldName }
-                                .isDefined()
-                        }
-                        .isDefined() -> {
-                        arguments
-                            .asSequence()
-                            .firstOrNone { (p: GQLOperationPath, _: JsonNode) ->
-                                p.selection
-                                    .lastOrNone()
-                                    .map { ss: SelectionSegment ->
-                                        when (ss) {
-                                            is AliasedFieldSegment -> {
-                                                ss.fieldName
-                                            }
-                                            is FieldSegment -> {
-                                                ss.fieldName
-                                            }
-                                            is FragmentSpreadSegment -> {
-                                                ss.selectedField.fieldName
-                                            }
-                                            is InlineFragmentSegment -> {
-                                                ss.selectedField.fieldName
-                                            }
-                                        }
-                                    }
-                                    .filter { fn: String -> fn == domainFieldCoordinates.fieldName }
-                                    .isDefined()
-                            }
-                            .map { (_: GQLOperationPath, jn: JsonNode) -> jn }
-                            .successIfDefined {
-                                ServiceError.of(
-                                    "unable to find value for path matching domain field name [ domain_field_coordinates: %s ]",
-                                    domainFieldCoordinates
-                                )
-                            }
-                            .orElseThrow()
+                    hasArgumentMatchingDomainFieldOfDataElementSource(arguments) -> {
+                        extractArgumentValueMatchingDomainFieldOfDataElementSource(arguments)
                     }
                     else -> {
                         throw ServiceError.of("unhandled case")
@@ -123,5 +68,74 @@ internal class ServiceBackedDataElementSourceCallable(
                 }
             }
             .cache()
+    }
+
+    private fun hasArgumentMatchingDomainFieldOfDataElementSource(
+        arguments: ImmutableMap<GQLOperationPath, JsonNode>
+    ): Boolean {
+        return arguments
+            .asSequence()
+            .firstOrNone { (p: GQLOperationPath, _: JsonNode) ->
+                p.refersToSelection() &&
+                    p.selection
+                        .lastOrNone()
+                        .map { ss: SelectionSegment ->
+                            when (ss) {
+                                is AliasedFieldSegment -> {
+                                    ss.fieldName
+                                }
+                                is FieldSegment -> {
+                                    ss.fieldName
+                                }
+                                is FragmentSpreadSegment -> {
+                                    ss.selectedField.fieldName
+                                }
+                                is InlineFragmentSegment -> {
+                                    ss.selectedField.fieldName
+                                }
+                            }
+                        }
+                        .filter { fn: String -> fn == domainFieldCoordinates.fieldName }
+                        .isDefined()
+            }
+            .isDefined()
+    }
+
+    private fun extractArgumentValueMatchingDomainFieldOfDataElementSource(
+        arguments: ImmutableMap<GQLOperationPath, JsonNode>
+    ): JsonNode {
+        return arguments
+            .asSequence()
+            .firstOrNone { (p: GQLOperationPath, _: JsonNode) ->
+                p.refersToSelection() &&
+                    p.selection
+                        .lastOrNone()
+                        .map { ss: SelectionSegment ->
+                            when (ss) {
+                                is AliasedFieldSegment -> {
+                                    ss.fieldName
+                                }
+                                is FieldSegment -> {
+                                    ss.fieldName
+                                }
+                                is FragmentSpreadSegment -> {
+                                    ss.selectedField.fieldName
+                                }
+                                is InlineFragmentSegment -> {
+                                    ss.selectedField.fieldName
+                                }
+                            }
+                        }
+                        .filter { fn: String -> fn == domainFieldCoordinates.fieldName }
+                        .isDefined()
+            }
+            .map { (_: GQLOperationPath, jn: JsonNode) -> jn }
+            .successIfDefined {
+                ServiceError.of(
+                    "unable to find value for path matching domain field name [ domain_field_coordinates: %s ]",
+                    domainFieldCoordinates
+                )
+            }
+            .orElseThrow()
     }
 }
