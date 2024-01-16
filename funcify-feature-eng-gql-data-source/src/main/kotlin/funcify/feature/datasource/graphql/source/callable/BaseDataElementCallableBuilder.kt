@@ -1,11 +1,10 @@
 package funcify.feature.datasource.graphql.source.callable
 
 import funcify.feature.schema.dataelement.DataElementCallable
+import funcify.feature.schema.dataelement.DomainSpecifiedDataElementSource
 import funcify.feature.schema.path.operation.GQLOperationPath
 import graphql.language.Field
 import graphql.language.Value
-import graphql.schema.FieldCoordinates
-import graphql.schema.GraphQLFieldDefinition
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.PersistentSet
 import kotlinx.collections.immutable.persistentMapOf
@@ -17,11 +16,7 @@ import kotlinx.collections.immutable.persistentSetOf
  */
 internal abstract class BaseDataElementCallableBuilder<B : DataElementCallable.Builder>(
     protected val existingCallable: DataElementCallable? = null,
-    protected var domainFieldCoordinates: FieldCoordinates? =
-        existingCallable?.domainFieldCoordinates,
-    protected var domainPath: GQLOperationPath? = existingCallable?.domainPath,
-    protected var domainGraphQLFieldDefinition: GraphQLFieldDefinition? =
-        existingCallable?.domainGraphQLFieldDefinition,
+    protected var domainSpecifiedDataElementSource: DomainSpecifiedDataElementSource? = null,
     protected var fieldSelection: Field? = null,
     protected var fieldPathSelections: PersistentSet.Builder<GQLOperationPath> =
         persistentSetOf<GQLOperationPath>().builder(),
@@ -40,14 +35,10 @@ internal abstract class BaseDataElementCallableBuilder<B : DataElementCallable.B
     }
 
     override fun selectDomain(
-        coordinates: FieldCoordinates,
-        path: GQLOperationPath,
-        graphQLFieldDefinition: GraphQLFieldDefinition,
+        domainSpecifiedDataElementSource: DomainSpecifiedDataElementSource
     ): B =
         this.applyToBuilder {
-            this.domainFieldCoordinates = coordinates
-            this.domainPath = path
-            this.domainGraphQLFieldDefinition = graphQLFieldDefinition
+            this.domainSpecifiedDataElementSource = domainSpecifiedDataElementSource
         }
 
     override fun selectFieldWithinDomain(field: Field): B =

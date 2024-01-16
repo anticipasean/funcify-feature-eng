@@ -4,18 +4,16 @@ import arrow.core.continuations.eagerEffect
 import arrow.core.continuations.ensureNotNull
 import arrow.core.filterIsInstance
 import arrow.core.identity
-import arrow.core.lastOrNone
 import arrow.core.toOption
 import funcify.feature.error.ServiceError
 import funcify.feature.schema.dataelement.DataElementCallable
-import funcify.feature.schema.path.operation.FieldSegment
+import funcify.feature.schema.dataelement.DomainSpecifiedDataElementSource
 import funcify.feature.schema.path.operation.GQLOperationPath
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import graphql.language.Field
 import graphql.language.Selection
 import graphql.language.SelectionSet
-import graphql.schema.FieldCoordinates
 import graphql.schema.GraphQLFieldDefinition
 import graphql.schema.GraphQLFieldsContainer
 import graphql.schema.GraphQLTypeUtil
@@ -30,38 +28,14 @@ internal class ServiceBackedDataElementSourceCallableBuilder() :
 
     override fun build(): DataElementCallable {
         if (logger.isDebugEnabled) {
-            logger.debug("build: [ domain_field_coordinates: {} ]", this.domainFieldCoordinates)
+            logger.debug(
+                "build: [ domain_field_coordinates: {} ]",
+                this.domainSpecifiedDataElementSource?.domainFieldCoordinates
+            )
         }
         return eagerEffect<String, ServiceBackedDataElementSourceCallable> {
-                ensureNotNull(domainFieldCoordinates) { "domain_field_coordinates not provided" }
-                ensureNotNull(domainPath) { "domain_path not provided" }
-                ensureNotNull(domainGraphQLFieldDefinition) {
-                    "domain_graphql_field_definition not provided"
-                }
-                ensure(
-                    domainFieldCoordinates
-                        .toOption()
-                        .filter { fc: FieldCoordinates ->
-                            fc.fieldName == domainGraphQLFieldDefinition!!.name
-                        }
-                        .isDefined()
-                ) {
-                    "domain_field_coordinates.field_name does not match domain_graphql_field_definition.name"
-                }
-                ensure(
-                    domainFieldCoordinates
-                        .toOption()
-                        .flatMap { fc: FieldCoordinates ->
-                            domainPath!!
-                                .selection
-                                .lastOrNone()
-                                .filterIsInstance<FieldSegment>()
-                                .map(FieldSegment::fieldName)
-                                .filter { fn: String -> fc.fieldName == fn }
-                        }
-                        .isDefined()
-                ) {
-                    "domain_field_coordinates.field_name does not match last selection of domain_path"
+                ensureNotNull(domainSpecifiedDataElementSource) {
+                    "domain_specified_data_element_source has not been provided"
                 }
                 ensure(fieldSelection != null || fieldPathSelections.isNotEmpty()) {
                     "neither a selected_field nor field_path_selections have been provided"
@@ -70,8 +44,14 @@ internal class ServiceBackedDataElementSourceCallableBuilder() :
                     fieldSelection == null ||
                         fieldSelection
                             .toOption()
-                            .filter { f: Field -> f.name == domainFieldCoordinates!!.fieldName }
-                            .zip(domainGraphQLFieldDefinition.toOption())
+                            .zip(
+                                domainSpecifiedDataElementSource
+                                    .toOption()
+                                    .map(DomainSpecifiedDataElementSource::domainFieldDefinition)
+                            )
+                            .filter { (f: Field, gfd: GraphQLFieldDefinition) ->
+                                f.name == gfd.name
+                            }
                             .flatMap { (f: Field, gfd: GraphQLFieldDefinition) ->
                                 f.toOption()
                                     .mapNotNull(Field::getSelectionSet)
@@ -94,15 +74,13 @@ internal class ServiceBackedDataElementSourceCallableBuilder() :
                 }
                 ensure(
                     fieldPathSelections.asSequence().all { p: GQLOperationPath ->
-                        p.isDescendentTo(domainPath!!)
+                        p.isDescendentTo(domainSpecifiedDataElementSource!!.domainPath)
                     }
                 ) {
                     "not all field_path_selections belong within domain path"
                 }
                 ServiceBackedDataElementSourceCallable(
-                    domainFieldCoordinates = domainFieldCoordinates!!,
-                    domainPath = domainPath!!,
-                    domainGraphQLFieldDefinition = domainGraphQLFieldDefinition!!,
+                    domainSpecifiedDataElementSource = domainSpecifiedDataElementSource!!,
                     selections = fieldPathSelections.build(),
                     selectedField = fieldSelection.toOption(),
                     directivePathSelections = directivePathSelections.build(),

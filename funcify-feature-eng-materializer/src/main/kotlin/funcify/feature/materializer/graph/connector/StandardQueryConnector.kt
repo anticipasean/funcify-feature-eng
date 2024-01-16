@@ -1356,13 +1356,7 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
                         )
                     }
                     .map { dsdes: DomainSpecifiedDataElementSource ->
-                        dsdes.dataElementSource
-                            .builder()
-                            .selectDomain(
-                                dsdes.domainFieldCoordinates,
-                                dsdes.domainPath,
-                                dsdes.domainFieldDefinition
-                            )
+                        dsdes.dataElementSource.builder().selectDomain(dsdes)
                     }
                     .orElseThrow()
             sqb.requestGraph(

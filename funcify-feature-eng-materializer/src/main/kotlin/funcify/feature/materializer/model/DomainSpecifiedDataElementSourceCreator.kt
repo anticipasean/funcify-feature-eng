@@ -22,7 +22,6 @@ import graphql.language.FieldDefinition
 import graphql.language.ObjectTypeDefinition
 import graphql.language.SDLDefinition
 import graphql.schema.FieldCoordinates
-import graphql.schema.GraphQLArgument
 import graphql.schema.GraphQLFieldDefinition
 import graphql.schema.GraphQLFieldsContainer
 import graphql.schema.GraphQLObjectType
@@ -164,16 +163,7 @@ internal object DomainSpecifiedDataElementSourceCreator :
 
     private fun fieldDefinitionTraversalFunction():
         (GraphQLSchemaElement) -> List<GraphQLSchemaElement> {
-        return { e: GraphQLSchemaElement ->
-            when (e) {
-                is GraphQLFieldDefinition -> {
-                    e.arguments
-                }
-                else -> {
-                    emptyList<GraphQLSchemaElement>()
-                }
-            }
-        }
+        return { e: GraphQLSchemaElement -> emptyList() }
     }
 
     private class SchemaElementTraverserVisitor(
@@ -226,31 +216,6 @@ internal object DomainSpecifiedDataElementSourceCreator :
                 .orElseThrow { _: Throwable ->
                     ServiceError.of("parent_path has not been set as variable in traverser_context")
                 }
-        }
-
-        override fun visitGraphQLArgument(
-            node: GraphQLArgument,
-            context: TraverserContext<GraphQLSchemaElement>
-        ): TraversalControl {
-            logger.debug("visit_graphql_argument: [ node.name: {} ]", node.name)
-            // TODO: If later found that most of this work can be done through lazily initiated
-            // properties, then switch over
-            val p: GQLOperationPath =
-                extractParentPathContextVariableOrThrow(context).transform { argument(node.name) }
-            val b: DomainSpecifiedDataElementSource.Builder =
-                context.getCurrentAccumulate<DomainSpecifiedDataElementSource.Builder>()
-            if (node.hasSetDefaultValue()) {
-                context.setAccumulate(
-                    b.putArgumentForPath(p, node)
-                        .putArgumentForName(node.name, node)
-                        .putArgumentsWithDefaultValuesForName(node.name, node)
-                )
-            } else {
-                context.setAccumulate(
-                    b.putArgumentForPath(p, node).putArgumentForName(node.name, node)
-                )
-            }
-            return TraversalControl.CONTINUE
         }
     }
 }

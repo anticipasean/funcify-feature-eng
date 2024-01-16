@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.JsonNode
 import funcify.feature.error.ServiceError
 import funcify.feature.naming.StandardNamingConventions
 import funcify.feature.schema.dataelement.DataElementCallable
+import funcify.feature.schema.dataelement.DomainSpecifiedDataElementSource
 import funcify.feature.schema.path.operation.AliasedFieldSegment
 import funcify.feature.schema.path.operation.FieldSegment
 import funcify.feature.schema.path.operation.FragmentSpreadSegment
@@ -17,17 +18,13 @@ import funcify.feature.tools.extensions.SequenceExtensions.firstOrNone
 import funcify.feature.tools.extensions.TryExtensions.successIfDefined
 import graphql.language.Field
 import graphql.language.Value
-import graphql.schema.FieldCoordinates
-import graphql.schema.GraphQLFieldDefinition
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.ImmutableSet
 import org.slf4j.Logger
 import reactor.core.publisher.Mono
 
 internal class SchemaOnlyDataElementSourceCallable(
-    override val domainFieldCoordinates: FieldCoordinates,
-    override val domainPath: GQLOperationPath,
-    override val domainGraphQLFieldDefinition: GraphQLFieldDefinition,
+    override val domainSpecifiedDataElementSource: DomainSpecifiedDataElementSource,
     override val selections: ImmutableSet<GQLOperationPath>,
     private val selectedField: Option<Field>,
     private val directivePathSelections: ImmutableSet<GQLOperationPath>,

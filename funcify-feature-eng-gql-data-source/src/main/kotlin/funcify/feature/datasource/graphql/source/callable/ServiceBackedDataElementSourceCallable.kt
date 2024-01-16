@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.JsonNode
 import funcify.feature.error.ServiceError
 import funcify.feature.naming.StandardNamingConventions
 import funcify.feature.schema.dataelement.DataElementCallable
+import funcify.feature.schema.dataelement.DomainSpecifiedDataElementSource
 import funcify.feature.schema.path.operation.AliasedFieldSegment
 import funcify.feature.schema.path.operation.FieldSegment
 import funcify.feature.schema.path.operation.FragmentSpreadSegment
@@ -17,17 +18,13 @@ import funcify.feature.tools.extensions.SequenceExtensions.firstOrNone
 import funcify.feature.tools.extensions.TryExtensions.successIfDefined
 import graphql.language.Field
 import graphql.language.Value
-import graphql.schema.FieldCoordinates
-import graphql.schema.GraphQLFieldDefinition
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.ImmutableSet
 import org.slf4j.Logger
 import reactor.core.publisher.Mono
 
 internal class ServiceBackedDataElementSourceCallable(
-    override val domainFieldCoordinates: FieldCoordinates,
-    override val domainPath: GQLOperationPath,
-    override val domainGraphQLFieldDefinition: GraphQLFieldDefinition,
+    override val domainSpecifiedDataElementSource: DomainSpecifiedDataElementSource,
     override val selections: ImmutableSet<GQLOperationPath>,
     private val selectedField: Option<Field>,
     private val directivePathSelections: ImmutableSet<GQLOperationPath>,
@@ -50,20 +47,22 @@ internal class ServiceBackedDataElementSourceCallable(
             arguments.keys.asSequence().joinToString(", ", "{ ", " }"),
             selections.joinToString(", ", "{ ", " }")
         )
-        return Mono.fromCallable {
+        return Mono.defer {
                 when {
                     arguments.isEmpty() -> {
-                        throw ServiceError.of(
-                            "no arguments have been provided to %s instance responsible for [ domain_field_coordinates: %s ]",
-                            ServiceBackedDataElementSourceCallable::class.simpleName,
-                            domainFieldCoordinates
-                        )
+                        Mono.error {
+                            ServiceError.of(
+                                "no arguments have been provided to %s instance responsible for [ domain_field_coordinates: %s ]",
+                                ServiceBackedDataElementSourceCallable::class.simpleName,
+                                domainFieldCoordinates
+                            )
+                        }
                     }
                     hasArgumentMatchingDomainFieldOfDataElementSource(arguments) -> {
                         extractArgumentValueMatchingDomainFieldOfDataElementSource(arguments)
                     }
                     else -> {
-                        throw ServiceError.of("unhandled case")
+                        createAndDispatchCallToGraphQLApiBasedOnSelections(arguments)
                     }
                 }
             }
@@ -103,7 +102,7 @@ internal class ServiceBackedDataElementSourceCallable(
 
     private fun extractArgumentValueMatchingDomainFieldOfDataElementSource(
         arguments: ImmutableMap<GQLOperationPath, JsonNode>
-    ): JsonNode {
+    ): Mono<out JsonNode> {
         return arguments
             .asSequence()
             .firstOrNone { (p: GQLOperationPath, _: JsonNode) ->
@@ -136,6 +135,18 @@ internal class ServiceBackedDataElementSourceCallable(
                     domainFieldCoordinates
                 )
             }
-            .orElseThrow()
+            .toMono()
+    }
+
+    private fun createAndDispatchCallToGraphQLApiBasedOnSelections(
+        arguments: ImmutableMap<GQLOperationPath, JsonNode>
+    ): Mono<out JsonNode> {
+        return TODO()
+        // domainSpecifiedDataElementSource.argumentsByPath.asSequence().map { (ap:
+        // GQLOperationPath, ga: GraphQLArgument) ->
+        //    arguments.getOrNone(ap).flatMap { av: JsonNode ->
+        //
+        //    }
+        // }
     }
 }

@@ -16,11 +16,16 @@ import reactor.core.publisher.Mono
  */
 interface DataElementCallable : (ImmutableMap<GQLOperationPath, JsonNode>) -> Mono<JsonNode> {
 
+    val domainSpecifiedDataElementSource: DomainSpecifiedDataElementSource
+
     val domainFieldCoordinates: FieldCoordinates
+        get() = domainSpecifiedDataElementSource.domainFieldCoordinates
 
     val domainPath: GQLOperationPath
+        get() = domainSpecifiedDataElementSource.domainPath
 
     val domainGraphQLFieldDefinition: GraphQLFieldDefinition
+        get() = domainSpecifiedDataElementSource.domainFieldDefinition
 
     // val argumentsByPath: ImmutableMap<GQLOperationPath, GraphQLArgument>
 
@@ -49,17 +54,16 @@ interface DataElementCallable : (ImmutableMap<GQLOperationPath, JsonNode>) -> Mo
      *   - "gqlo:/dataElement/myDomainField?myDomainArgument"
      *   - "gqlo:/dataElement/myDomainField/myDomainChildField2?myDomainArgument"
      * ```
-     * Both arguments share the same _name_, but do not share the same path and may not share the same value
      *
+     * Both arguments share the same _name_, but do not share the same path and may not share the
+     * same value
      */
     override fun invoke(arguments: ImmutableMap<GQLOperationPath, JsonNode>): Mono<JsonNode>
 
     interface Builder {
 
         fun selectDomain(
-            coordinates: FieldCoordinates,
-            path: GQLOperationPath,
-            graphQLFieldDefinition: GraphQLFieldDefinition
+            domainSpecifiedDataElementSource: DomainSpecifiedDataElementSource
         ): Builder
 
         fun selectFieldWithinDomain(field: Field): Builder

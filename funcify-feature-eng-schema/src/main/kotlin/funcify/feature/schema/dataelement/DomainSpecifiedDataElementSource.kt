@@ -43,20 +43,6 @@ interface DomainSpecifiedDataElementSource {
 
         fun domainFieldDefinition(domainFieldDefinition: GraphQLFieldDefinition): Builder
 
-        fun putArgumentForPath(path: GQLOperationPath, argument: GraphQLArgument): Builder
-
-        fun putAllPathArguments(pathArgumentPairs: Map<GQLOperationPath, GraphQLArgument>): Builder
-
-        fun putArgumentForName(name: String, argument: GraphQLArgument): Builder
-
-        fun putAllNameArguments(nameArgumentPairs: Map<String, GraphQLArgument>): Builder
-
-        fun putArgumentsWithDefaultValuesForName(name: String, argument: GraphQLArgument): Builder
-
-        fun putAllNameArgumentsWithDefaultValues(
-            nameArgumentPairs: Map<String, GraphQLArgument>
-        ): Builder
-
         fun dataElementSource(dataElementSource: DataElementSource): Builder
 
         fun lastUpdatedCoordinatesRegistry(
