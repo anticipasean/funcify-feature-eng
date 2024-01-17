@@ -5,6 +5,7 @@ import funcify.feature.schema.path.operation.GQLOperationPath
 import graphql.schema.FieldCoordinates
 import graphql.schema.GraphQLArgument
 import graphql.schema.GraphQLFieldDefinition
+import graphql.schema.GraphQLSchema
 import kotlinx.collections.immutable.ImmutableMap
 
 /**
@@ -27,11 +28,15 @@ interface DomainSpecifiedDataElementSource {
 
     val argumentsWithDefaultValuesByName: ImmutableMap<String, GraphQLArgument>
 
+    val argumentsWithDefaultValuesByPath: ImmutableMap<GQLOperationPath, GraphQLArgument>
+
     val argumentsWithoutDefaultValuesByName: ImmutableMap<String, GraphQLArgument>
 
     val argumentsWithoutDefaultValuesByPath: ImmutableMap<GQLOperationPath, GraphQLArgument>
 
     val dataElementSource: DataElementSource
+
+    val graphQLSchema: GraphQLSchema
 
     val lastUpdatedCoordinatesRegistry: LastUpdatedCoordinatesRegistry
 
@@ -44,6 +49,8 @@ interface DomainSpecifiedDataElementSource {
         fun domainFieldDefinition(domainFieldDefinition: GraphQLFieldDefinition): Builder
 
         fun dataElementSource(dataElementSource: DataElementSource): Builder
+
+        fun graphQLSchema(graphQLSchema: GraphQLSchema): Builder
 
         fun lastUpdatedCoordinatesRegistry(
             lastUpdatedCoordinatesRegistry: LastUpdatedCoordinatesRegistry

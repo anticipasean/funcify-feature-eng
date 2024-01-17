@@ -1,6 +1,5 @@
 package funcify.feature.datasource.graphql.source.callable
 
-import arrow.core.Option
 import arrow.core.lastOrNone
 import com.fasterxml.jackson.databind.JsonNode
 import funcify.feature.error.ServiceError
@@ -16,7 +15,6 @@ import funcify.feature.schema.path.operation.SelectionSegment
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.SequenceExtensions.firstOrNone
 import funcify.feature.tools.extensions.TryExtensions.successIfDefined
-import graphql.language.Field
 import graphql.language.Value
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.ImmutableSet
@@ -26,7 +24,6 @@ import reactor.core.publisher.Mono
 internal class SchemaOnlyDataElementSourceCallable(
     override val domainSpecifiedDataElementSource: DomainSpecifiedDataElementSource,
     override val selections: ImmutableSet<GQLOperationPath>,
-    private val selectedField: Option<Field>,
     private val directivePathSelections: ImmutableSet<GQLOperationPath>,
     private val directivePathSelectionsWithValues: ImmutableMap<GQLOperationPath, Value<*>>,
 ) : DataElementCallable {

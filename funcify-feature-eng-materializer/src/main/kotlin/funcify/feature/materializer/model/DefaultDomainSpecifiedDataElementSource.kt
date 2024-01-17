@@ -7,6 +7,7 @@ import arrow.core.getOrElse
 import arrow.core.getOrNone
 import arrow.core.identity
 import arrow.core.lastOrNone
+import arrow.core.toOption
 import funcify.feature.error.ServiceError
 import funcify.feature.schema.dataelement.DataElementSource
 import funcify.feature.schema.dataelement.DomainSpecifiedDataElementSource
@@ -19,6 +20,7 @@ import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPer
 import graphql.schema.FieldCoordinates
 import graphql.schema.GraphQLArgument
 import graphql.schema.GraphQLFieldDefinition
+import graphql.schema.GraphQLSchema
 import kotlinx.collections.immutable.ImmutableMap
 
 internal data class DefaultDomainSpecifiedDataElementSource(
@@ -26,6 +28,7 @@ internal data class DefaultDomainSpecifiedDataElementSource(
     override val domainPath: GQLOperationPath,
     override val domainFieldDefinition: GraphQLFieldDefinition,
     override val dataElementSource: DataElementSource,
+    override val graphQLSchema: GraphQLSchema,
     override val lastUpdatedCoordinatesRegistry: LastUpdatedCoordinatesRegistry
 ) : DomainSpecifiedDataElementSource {
 
@@ -49,6 +52,14 @@ internal data class DefaultDomainSpecifiedDataElementSource(
             .filter(GraphQLArgument::hasSetDefaultValue)
             .map { ga: GraphQLArgument -> ga.name to ga }
             .reducePairsToPersistentMap()
+    }
+
+    override val argumentsWithDefaultValuesByPath:
+        ImmutableMap<GQLOperationPath, GraphQLArgument> by lazy {
+        argumentsByPath
+            .asSequence()
+            .filter { (p: GQLOperationPath, a: GraphQLArgument) -> a.hasSetDefaultValue() }
+            .reduceEntriesToPersistentMap()
     }
 
     override val argumentPathsByName: ImmutableMap<String, GQLOperationPath> by lazy {
@@ -87,6 +98,7 @@ internal data class DefaultDomainSpecifiedDataElementSource(
             private var domainPath: GQLOperationPath? = null,
             private var domainFieldDefinition: GraphQLFieldDefinition? = null,
             private var dataElementSource: DataElementSource? = null,
+            private var graphQLSchema: GraphQLSchema? = null,
             private var lastUpdatedCoordinatesRegistry: LastUpdatedCoordinatesRegistry? = null
         ) : DomainSpecifiedDataElementSource.Builder {
 
@@ -110,6 +122,11 @@ internal data class DefaultDomainSpecifiedDataElementSource(
             ): DomainSpecifiedDataElementSource.Builder =
                 this.apply { this.dataElementSource = dataElementSource }
 
+            override fun graphQLSchema(
+                graphQLSchema: GraphQLSchema
+            ): DomainSpecifiedDataElementSource.Builder =
+                this.apply { this.graphQLSchema = graphQLSchema }
+
             override fun lastUpdatedCoordinatesRegistry(
                 lastUpdatedCoordinatesRegistry: LastUpdatedCoordinatesRegistry
             ): DomainSpecifiedDataElementSource.Builder =
@@ -121,6 +138,7 @@ internal data class DefaultDomainSpecifiedDataElementSource(
                         ensureNotNull(domainPath) { "domainPath is null" }
                         ensureNotNull(domainFieldDefinition) { "domainFieldDefinition is null" }
                         ensureNotNull(dataElementSource) { "dataElementSource is null" }
+                        ensureNotNull(graphQLSchema) { "graphQLSchema is null" }
                         ensure(domainFieldCoordinates!!.fieldName == domainFieldDefinition!!.name) {
                             "domain_field_coordinates.field_name does not match domain_field_definition.name"
                         }
@@ -128,8 +146,10 @@ internal data class DefaultDomainSpecifiedDataElementSource(
                             "domain_path cannot be aliased"
                         }
                         ensure(
-                            domainPath!!
-                                .selection
+                            domainPath
+                                .toOption()
+                                .map(GQLOperationPath::selection)
+                                .getOrElse(::emptyList)
                                 .lastOrNone()
                                 .filterIsInstance<FieldSegment>()
                                 .map { fs: FieldSegment ->
@@ -139,6 +159,12 @@ internal data class DefaultDomainSpecifiedDataElementSource(
                         ) {
                             "domain_path[-1].field_name does not match domain_field_coordinates.field_name"
                         }
+                        ensure(
+                            graphQLSchema!!.getFieldDefinition(domainFieldCoordinates) ==
+                                domainFieldDefinition
+                        ) {
+                            "graphql_schema.get_field_definition(domain_field_coordinates) not equal to domain_field_definition"
+                        }
                         ensureNotNull(lastUpdatedCoordinatesRegistry) {
                             "last_updated_coordinates_registry is null"
                         }
@@ -147,6 +173,7 @@ internal data class DefaultDomainSpecifiedDataElementSource(
                             domainPath = domainPath!!,
                             domainFieldDefinition = domainFieldDefinition!!,
                             dataElementSource = dataElementSource!!,
+                            graphQLSchema = graphQLSchema!!,
                             lastUpdatedCoordinatesRegistry = lastUpdatedCoordinatesRegistry!!
                         )
                     }

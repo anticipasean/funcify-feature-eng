@@ -3,7 +3,6 @@ package funcify.feature.datasource.graphql.source.callable
 import funcify.feature.schema.dataelement.DataElementCallable
 import funcify.feature.schema.dataelement.DomainSpecifiedDataElementSource
 import funcify.feature.schema.path.operation.GQLOperationPath
-import graphql.language.Field
 import graphql.language.Value
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.PersistentSet
@@ -17,7 +16,6 @@ import kotlinx.collections.immutable.persistentSetOf
 internal abstract class BaseDataElementCallableBuilder<B : DataElementCallable.Builder>(
     protected val existingCallable: DataElementCallable? = null,
     protected var domainSpecifiedDataElementSource: DomainSpecifiedDataElementSource? = null,
-    protected var fieldSelection: Field? = null,
     protected var fieldPathSelections: PersistentSet.Builder<GQLOperationPath> =
         persistentSetOf<GQLOperationPath>().builder(),
     protected var directivePathSelections: PersistentSet.Builder<GQLOperationPath> =
@@ -40,9 +38,6 @@ internal abstract class BaseDataElementCallableBuilder<B : DataElementCallable.B
         this.applyToBuilder {
             this.domainSpecifiedDataElementSource = domainSpecifiedDataElementSource
         }
-
-    override fun selectFieldWithinDomain(field: Field): B =
-        this.applyToBuilder { this.fieldSelection = field }
 
     override fun selectPathWithinDomain(path: GQLOperationPath): B =
         this.applyToBuilder {

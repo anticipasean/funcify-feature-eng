@@ -1,32 +1,43 @@
 package funcify.feature.datasource.graphql.source.callable
 
-import arrow.core.Option
+import arrow.core.filterIsInstance
+import arrow.core.getOrNone
 import arrow.core.lastOrNone
+import arrow.core.toOption
 import com.fasterxml.jackson.databind.JsonNode
+import funcify.feature.datasource.graphql.ServiceBackedDataElementSource
 import funcify.feature.error.ServiceError
 import funcify.feature.naming.StandardNamingConventions
 import funcify.feature.schema.dataelement.DataElementCallable
 import funcify.feature.schema.dataelement.DomainSpecifiedDataElementSource
+import funcify.feature.schema.json.GraphQLValueToJsonNodeConverter
 import funcify.feature.schema.path.operation.AliasedFieldSegment
 import funcify.feature.schema.path.operation.FieldSegment
 import funcify.feature.schema.path.operation.FragmentSpreadSegment
 import funcify.feature.schema.path.operation.GQLOperationPath
 import funcify.feature.schema.path.operation.InlineFragmentSegment
 import funcify.feature.schema.path.operation.SelectionSegment
+import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.SequenceExtensions.firstOrNone
+import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.extensions.TryExtensions.successIfDefined
-import graphql.language.Field
+import funcify.feature.tools.extensions.TryExtensions.tryFold
 import graphql.language.Value
+import graphql.schema.GraphQLArgument
+import graphql.schema.InputValueWithState
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.ImmutableSet
+import kotlinx.collections.immutable.PersistentMap
+import kotlinx.collections.immutable.persistentMapOf
+import kotlinx.collections.immutable.plus
 import org.slf4j.Logger
 import reactor.core.publisher.Mono
 
 internal class ServiceBackedDataElementSourceCallable(
     override val domainSpecifiedDataElementSource: DomainSpecifiedDataElementSource,
+    private val serviceBackedDataElementSource: ServiceBackedDataElementSource,
     override val selections: ImmutableSet<GQLOperationPath>,
-    private val selectedField: Option<Field>,
     private val directivePathSelections: ImmutableSet<GQLOperationPath>,
     private val directivePathSelectionsWithValues: ImmutableMap<GQLOperationPath, Value<*>>,
 ) : DataElementCallable {
@@ -141,12 +152,53 @@ internal class ServiceBackedDataElementSourceCallable(
     private fun createAndDispatchCallToGraphQLApiBasedOnSelections(
         arguments: ImmutableMap<GQLOperationPath, JsonNode>
     ): Mono<out JsonNode> {
-        return TODO()
-        // domainSpecifiedDataElementSource.argumentsByPath.asSequence().map { (ap:
-        // GQLOperationPath, ga: GraphQLArgument) ->
-        //    arguments.getOrNone(ap).flatMap { av: JsonNode ->
-        //
-        //    }
-        // }
+        return domainSpecifiedDataElementSource.argumentsByPath
+            .asSequence()
+            .map { (ap: GQLOperationPath, ga: GraphQLArgument) ->
+                when {
+                    ap in arguments -> {
+                        arguments
+                            .getOrNone(ap)
+                            .map { av: JsonNode -> ga.name to av }
+                            .successIfDefined {
+                                ServiceError.of(
+                                    "argument expected but not found at path [ path: %s ]",
+                                    ap
+                                )
+                            }
+                    }
+                    ga.hasSetDefaultValue() -> {
+                        ga.argumentDefaultValue
+                            .toOption()
+                            .filter(InputValueWithState::isLiteral)
+                            .mapNotNull(InputValueWithState::getValue)
+                            .filterIsInstance<Value<*>>()
+                            .flatMap(GraphQLValueToJsonNodeConverter)
+                            .map { av: JsonNode -> ga.name to av }
+                            .successIfDefined {
+                                ServiceError.of(
+                                    "argument default value [ name: %s ] is not literal",
+                                    ga.name
+                                )
+                            }
+                    }
+                    else -> {
+                        Try.failure<Pair<String, JsonNode>> {
+                            ServiceError.of(
+                                """argument without default value [ name: %s ] 
+                                |not provided for 
+                                |domain data element callable [ domain_path: %s ]"""
+                                    .flatten(),
+                                ga.name,
+                                domainSpecifiedDataElementSource.domainPath
+                            )
+                        }
+                    }
+                }
+            }
+            .tryFold(persistentMapOf<String, JsonNode>(), PersistentMap<String, JsonNode>::plus)
+            .flatMap { args: PersistentMap<String, JsonNode> ->
+
+            }
     }
 }

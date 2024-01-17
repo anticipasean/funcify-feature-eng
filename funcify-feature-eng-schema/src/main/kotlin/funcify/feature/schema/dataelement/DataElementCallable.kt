@@ -66,8 +66,6 @@ interface DataElementCallable : (ImmutableMap<GQLOperationPath, JsonNode>) -> Mo
             domainSpecifiedDataElementSource: DomainSpecifiedDataElementSource
         ): Builder
 
-        fun selectFieldWithinDomain(field: Field): Builder
-
         fun selectPathWithinDomain(path: GQLOperationPath): Builder
 
         fun selectDirectivePathWithValueWithinDomain(
