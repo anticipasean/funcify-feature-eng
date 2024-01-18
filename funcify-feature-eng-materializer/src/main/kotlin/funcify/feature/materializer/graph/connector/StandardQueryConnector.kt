@@ -174,12 +174,11 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
                             connectorContext.materializationMetamodel
                                 .domainSpecifiedDataElementSourceByCoordinates
                                 .getOrNone(faLoc.first)
-                                .map(
-                                    DomainSpecifiedDataElementSource::
-                                        argumentsWithDefaultValuesByName
-                                )
+                                .map(DomainSpecifiedDataElementSource::domainArgumentsByName)
                                 .flatMap { awdvn: ImmutableMap<String, GraphQLArgument> ->
-                                    awdvn.getOrNone(fieldArgumentComponentContext.argument.name)
+                                    awdvn
+                                        .getOrNone(fieldArgumentComponentContext.argument.name)
+                                        .filter { ga: GraphQLArgument -> ga.hasSetDefaultValue() }
                                 }
                                 .filter { ga: GraphQLArgument ->
                                     fieldArgumentComponentContext.argument.value ==
@@ -225,7 +224,7 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
                                 .getOrNone(faLoc.first)
                                 .map(
                                     DomainSpecifiedDataElementSource::
-                                        argumentsWithoutDefaultValuesByName
+                                        domainArgumentsWithoutDefaultValuesByName
                                 )
                                 .filter { awdvn: ImmutableMap<String, GraphQLArgument> ->
                                     awdvn.containsKey(a.name)
@@ -248,7 +247,7 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
                                 .getOrNone(faLoc.first)
                                 .map(
                                     DomainSpecifiedDataElementSource::
-                                        argumentsWithDefaultValuesByName
+                                        domainArgumentsWithDefaultValuesByName
                                 )
                                 .flatMap { awdvn: ImmutableMap<String, GraphQLArgument> ->
                                     awdvn.getOrNone(a.name)
@@ -271,7 +270,7 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
                                 .getOrNone(faLoc.first)
                                 .map(
                                     DomainSpecifiedDataElementSource::
-                                        argumentsWithDefaultValuesByName
+                                        domainArgumentsWithDefaultValuesByName
                                 )
                                 .filter { awodvn: ImmutableMap<String, GraphQLArgument> ->
                                     awodvn.containsKey(a.name)
@@ -1035,7 +1034,7 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
                         connectSelectedField(sq, domainDataElementFieldContext)
                     }
                     .map { sq: StandardQuery ->
-                        dsdes.argumentsByPath.asSequence().fold(sq) {
+                        dsdes.allArgumentsByPath.asSequence().fold(sq) {
                             sq1: StandardQuery,
                             (p: GQLOperationPath, a: GraphQLArgument) ->
                             val facc: FieldArgumentComponentContext =

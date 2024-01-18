@@ -39,12 +39,12 @@ import graphql.util.Traverser
 import graphql.util.TraverserContext
 import graphql.util.TraverserResult
 import graphql.util.TraverserVisitor
+import java.util.*
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.PersistentSet
 import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.persistentSetOf
 import org.slf4j.Logger
-import java.util.*
 
 object LastUpdatedCoordinatesRegistryCreator {
 
@@ -240,7 +240,7 @@ object LastUpdatedCoordinatesRegistryCreator {
             ) {
                 val (p: GQLOperationPath, gfc: GraphQLFieldsContainer) = backRefQueue.pollFirst()
                 c =
-                    Traverser.depthFirst(nodeTraversalFunction(graphQLSchema), p, c)
+                    Traverser.breadthFirst(nodeTraversalFunction(graphQLSchema), p, c)
                         .traverse(
                             gfc,
                             LastUpdatedCoordinatesTraverserVisitor(
@@ -286,6 +286,7 @@ object LastUpdatedCoordinatesRegistryCreator {
     private class LastUpdatedCoordinatesVisitor(
         private val backRefQueue: Deque<Pair<GQLOperationPath, GraphQLFieldsContainer>>
     ) : GraphQLTypeVisitorStub() {
+
         companion object {
             private val logger: Logger = loggerFor<LastUpdatedCoordinatesVisitor>()
         }

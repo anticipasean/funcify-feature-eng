@@ -243,7 +243,7 @@ internal class DefaultMaterializationMetamodelBuildStrategy :
                         m.domainSpecifiedDataElementSourceByPath.values
                             .asSequence()
                             .flatMap { dsdes: DomainSpecifiedDataElementSource ->
-                                dsdes.argumentsByPath.asSequence().map {
+                                dsdes.allArgumentsByPath.asSequence().map {
                                     (p: GQLOperationPath, a: GraphQLArgument) ->
                                     a.name to p
                                 }

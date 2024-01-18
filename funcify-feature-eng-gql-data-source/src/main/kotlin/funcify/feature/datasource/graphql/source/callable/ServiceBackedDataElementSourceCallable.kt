@@ -152,7 +152,7 @@ internal class ServiceBackedDataElementSourceCallable(
     private fun createAndDispatchCallToGraphQLApiBasedOnSelections(
         arguments: ImmutableMap<GQLOperationPath, JsonNode>
     ): Mono<out JsonNode> {
-        return domainSpecifiedDataElementSource.argumentsByPath
+        return domainSpecifiedDataElementSource.allArgumentsByPath
             .asSequence()
             .map { (ap: GQLOperationPath, ga: GraphQLArgument) ->
                 when {
@@ -197,8 +197,7 @@ internal class ServiceBackedDataElementSourceCallable(
                 }
             }
             .tryFold(persistentMapOf<String, JsonNode>(), PersistentMap<String, JsonNode>::plus)
-            .flatMap { args: PersistentMap<String, JsonNode> ->
-
-            }
+            .map { args: PersistentMap<String, JsonNode> -> Mono.empty<JsonNode>() }
+            .orElseGet { Mono.empty() }
     }
 }

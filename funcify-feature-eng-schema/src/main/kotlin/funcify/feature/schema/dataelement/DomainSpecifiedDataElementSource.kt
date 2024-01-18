@@ -20,25 +20,35 @@ interface DomainSpecifiedDataElementSource {
 
     val domainFieldDefinition: GraphQLFieldDefinition
 
-    val argumentsByPath: ImmutableMap<GQLOperationPath, GraphQLArgument>
+    val domainArgumentsByPath: ImmutableMap<GQLOperationPath, GraphQLArgument>
 
-    val argumentsByName: ImmutableMap<String, GraphQLArgument>
+    val domainArgumentsByName: ImmutableMap<String, GraphQLArgument>
 
-    val argumentPathsByName: ImmutableMap<String, GQLOperationPath>
+    val domainArgumentPathsByName: ImmutableMap<String, GQLOperationPath>
 
-    val argumentsWithDefaultValuesByName: ImmutableMap<String, GraphQLArgument>
+    val domainArgumentsWithDefaultValuesByPath: ImmutableMap<GQLOperationPath, GraphQLArgument>
 
-    val argumentsWithDefaultValuesByPath: ImmutableMap<GQLOperationPath, GraphQLArgument>
+    val domainArgumentsWithDefaultValuesByName: ImmutableMap<String, GraphQLArgument>
 
-    val argumentsWithoutDefaultValuesByName: ImmutableMap<String, GraphQLArgument>
+    val domainArgumentsWithoutDefaultValuesByPath: ImmutableMap<GQLOperationPath, GraphQLArgument>
 
-    val argumentsWithoutDefaultValuesByPath: ImmutableMap<GQLOperationPath, GraphQLArgument>
+    val domainArgumentsWithoutDefaultValuesByName: ImmutableMap<String, GraphQLArgument>
+
+    val allArgumentsByPath: ImmutableMap<GQLOperationPath, GraphQLArgument>
+
+    val allArgumentsWithDefaultValuesByPath: ImmutableMap<GQLOperationPath, GraphQLArgument>
+
+    val allArgumentsWithoutDefaultValuesByPath: ImmutableMap<GQLOperationPath, GraphQLArgument>
 
     val dataElementSource: DataElementSource
 
     val graphQLSchema: GraphQLSchema
 
     val lastUpdatedCoordinatesRegistry: LastUpdatedCoordinatesRegistry
+
+    fun findPathsForRequiredArgumentsForSelections(
+        selections: Set<GQLOperationPath>
+    ): Set<GQLOperationPath>
 
     interface Builder {
 
@@ -47,6 +57,11 @@ interface DomainSpecifiedDataElementSource {
         fun domainPath(domainPath: GQLOperationPath): Builder
 
         fun domainFieldDefinition(domainFieldDefinition: GraphQLFieldDefinition): Builder
+
+        fun putArgumentForPathWithinDomain(
+            argumentPath: GQLOperationPath,
+            graphQLArgument: GraphQLArgument
+        ): Builder
 
         fun dataElementSource(dataElementSource: DataElementSource): Builder
 

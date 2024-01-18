@@ -394,7 +394,7 @@ internal class TabularQueryDocumentCreator(
                             cb.addPassthruRawInputContextKey(k)
                         }
                         else -> {
-                            dsdes.argumentsWithoutDefaultValuesByPath
+                            dsdes.allArgumentsWithoutDefaultValuesByPath
                                 .asSequence()
                                 .map { (ap: GQLOperationPath, ga: GraphQLArgument) ->
                                     ga.name to ap
@@ -489,7 +489,7 @@ internal class TabularQueryDocumentCreator(
                                     .domainSpecifiedDataElementSourceByCoordinates
                                     .getOrNone(fc)
                                     .flatMap { dsdes: DomainSpecifiedDataElementSource ->
-                                        dsdes.argumentPathsByName.getOrNone(argName)
+                                        dsdes.domainArgumentPathsByName.getOrNone(argName)
                                     }
                             }
                             .flatMapOptions()
@@ -536,7 +536,7 @@ internal class TabularQueryDocumentCreator(
                             // Must provide all arguments or at least those lacking default
                             // argument values
                             // TODO: Convert to cacheable operation
-                            dsdes.argumentsWithoutDefaultValuesByPath.asSequence().all {
+                            dsdes.allArgumentsWithoutDefaultValuesByPath.asSequence().all {
                                 (p: GQLOperationPath, _: GraphQLArgument) ->
                                 argPathsSet.contains(p)
                             }

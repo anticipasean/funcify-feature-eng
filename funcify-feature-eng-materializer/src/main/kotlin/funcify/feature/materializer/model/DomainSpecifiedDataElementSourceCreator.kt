@@ -1,5 +1,6 @@
 package funcify.feature.materializer.model
 
+import arrow.core.Option
 import arrow.core.filterIsInstance
 import arrow.core.getOrElse
 import arrow.core.getOrNone
@@ -12,19 +13,25 @@ import funcify.feature.schema.dataelement.DataElementSource
 import funcify.feature.schema.dataelement.DomainSpecifiedDataElementSource
 import funcify.feature.schema.directive.temporal.LastUpdatedCoordinatesRegistry
 import funcify.feature.schema.directive.temporal.LastUpdatedCoordinatesRegistryCreator
+import funcify.feature.schema.limit.ModelLimits
 import funcify.feature.schema.path.operation.GQLOperationPath
 import funcify.feature.tools.container.attempt.Try
+import funcify.feature.tools.container.attempt.Try.Companion.filterInstanceOf
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentMap
 import funcify.feature.tools.extensions.SequenceExtensions.firstOrNone
 import funcify.feature.tools.extensions.SequenceExtensions.flatMapOptions
+import funcify.feature.tools.extensions.TryExtensions.successIfDefined
+import funcify.feature.tools.extensions.TryExtensions.successIfNonNull
 import graphql.language.FieldDefinition
 import graphql.language.ObjectTypeDefinition
 import graphql.language.SDLDefinition
 import graphql.schema.FieldCoordinates
+import graphql.schema.GraphQLArgument
 import graphql.schema.GraphQLFieldDefinition
 import graphql.schema.GraphQLFieldsContainer
 import graphql.schema.GraphQLInterfaceType
+import graphql.schema.GraphQLNamedSchemaElement
 import graphql.schema.GraphQLObjectType
 import graphql.schema.GraphQLSchema
 import graphql.schema.GraphQLSchemaElement
@@ -37,6 +44,7 @@ import graphql.util.Traverser
 import graphql.util.TraverserContext
 import graphql.util.TraverserResult
 import graphql.util.TraverserVisitor
+import java.util.*
 import kotlinx.collections.immutable.ImmutableMap
 import org.slf4j.Logger
 
@@ -92,28 +100,29 @@ internal object DomainSpecifiedDataElementSourceCreator :
                     }
                     .flatMapOptions()
                     .map { (fd: GraphQLFieldDefinition, des: DataElementSource) ->
-                        Traverser.breadthFirst(
-                                schemaElementTraversalFunction(graphQLSchema),
+                        val backRefQueue: Deque<Pair<GQLOperationPath, GraphQLFieldsContainer>> =
+                            LinkedList()
+                        traverseFieldDefinitionsUnderDomainAddingArgumentsToBuilder(
+                                graphQLSchema,
                                 p,
-                                DefaultDomainSpecifiedDataElementSource.builder()
-                                    .graphQLSchema(graphQLSchema)
-                                    .domainFieldCoordinates(
-                                        FieldCoordinates.coordinates(gfc.name, fd.name)
-                                    )
-                                    .domainFieldDefinition(fd)
-                                    .domainPath(p.transform { appendField(fd.name) })
-                                    .dataElementSource(des)
-                            )
-                            .traverse(
+                                gfc,
                                 fd,
-                                SchemaElementTraverserVisitor(
-                                    graphQLTypeVisitor = DomainSpecifiedDataElementSourceVisitor()
+                                des,
+                                backRefQueue
+                            )
+                            .successIfDefined {
+                                ServiceError.of(
+                                    "builder instance failed to be passed back from visitor"
+                                )
+                            }
+                            .map(
+                                gatherArgumentsUntilMaximumOperationDepth(
+                                    featureEngineeringModel.modelLimits,
+                                    graphQLSchema,
+                                    backRefQueue
                                 )
                             )
-                            .toOption()
-                            .mapNotNull(TraverserResult::getAccumulatedResult)
-                            .filterIsInstance<DomainSpecifiedDataElementSource.Builder>()
-                            .map { b: DomainSpecifiedDataElementSource.Builder ->
+                            .flatMap { b: DomainSpecifiedDataElementSource.Builder ->
                                 LastUpdatedCoordinatesRegistryCreator
                                     .createLastUpdatedCoordinatesRegistryFor(
                                         featureEngineeringModel.modelLimits,
@@ -124,13 +133,6 @@ internal object DomainSpecifiedDataElementSourceCreator :
                                     .map { lucr: LastUpdatedCoordinatesRegistry ->
                                         b.lastUpdatedCoordinatesRegistry(lucr).build()
                                     }
-                            }
-                            .getOrElse {
-                                Try.failure(
-                                    ServiceError.of(
-                                        "builder instance failed to be passed back from visitor"
-                                    )
-                                )
                             }
                             .peekIfFailure { t: Throwable ->
                                 logger.warn(
@@ -166,6 +168,42 @@ internal object DomainSpecifiedDataElementSourceCreator :
             .reducePairsToPersistentMap()
     }
 
+    private fun traverseFieldDefinitionsUnderDomainAddingArgumentsToBuilder(
+        graphQLSchema: GraphQLSchema,
+        parentPath: GQLOperationPath,
+        parentFieldsContainer: GraphQLFieldsContainer,
+        domainDataElementFieldDefinition: GraphQLFieldDefinition,
+        dataElementSourceForDomainField: DataElementSource,
+        backRefQueue: Deque<Pair<GQLOperationPath, GraphQLFieldsContainer>>,
+    ): Option<DomainSpecifiedDataElementSource.Builder> {
+        return Traverser.breadthFirst(
+                schemaElementTraversalFunction(graphQLSchema),
+                parentPath,
+                DefaultDomainSpecifiedDataElementSource.builder()
+                    .graphQLSchema(graphQLSchema)
+                    .domainFieldCoordinates(
+                        FieldCoordinates.coordinates(
+                            parentFieldsContainer.name,
+                            domainDataElementFieldDefinition.name
+                        )
+                    )
+                    .domainFieldDefinition(domainDataElementFieldDefinition)
+                    .domainPath(
+                        parentPath.transform { appendField(domainDataElementFieldDefinition.name) }
+                    )
+                    .dataElementSource(dataElementSourceForDomainField)
+            )
+            .traverse(
+                domainDataElementFieldDefinition,
+                SchemaElementTraverserVisitor(
+                    graphQLTypeVisitor = DomainSpecifiedDataElementSourceVisitor(backRefQueue)
+                )
+            )
+            .toOption()
+            .mapNotNull(TraverserResult::getAccumulatedResult)
+            .filterIsInstance<DomainSpecifiedDataElementSource.Builder>()
+    }
+
     private fun schemaElementTraversalFunction(
         gs: GraphQLSchema
     ): (GraphQLSchemaElement) -> List<GraphQLSchemaElement> {
@@ -194,6 +232,40 @@ internal object DomainSpecifiedDataElementSourceCreator :
         }
     }
 
+    private fun gatherArgumentsUntilMaximumOperationDepth(
+        modelLimits: ModelLimits,
+        graphQLSchema: GraphQLSchema,
+        backRefQueue: Deque<Pair<GQLOperationPath, GraphQLFieldsContainer>>
+    ): (DomainSpecifiedDataElementSource.Builder) -> DomainSpecifiedDataElementSource.Builder {
+        return { builder: DomainSpecifiedDataElementSource.Builder ->
+            var b: DomainSpecifiedDataElementSource.Builder = builder
+            while (
+                backRefQueue.isNotEmpty() &&
+                    backRefQueue.peekFirst().first.level() < modelLimits.maximumOperationDepth
+            ) {
+                val (p: GQLOperationPath, gfc: GraphQLFieldsContainer) = backRefQueue.pollFirst()
+                b =
+                    Traverser.breadthFirst(schemaElementTraversalFunction(graphQLSchema), p, b)
+                        .traverse(
+                            gfc,
+                            SchemaElementTraverserVisitor(
+                                DomainSpecifiedDataElementSourceVisitor(backRefQueue)
+                            )
+                        )
+                        .successIfNonNull {
+                            ServiceError.of(
+                                "%s not returned for traversal",
+                                TraverserResult::class.simpleName
+                            )
+                        }
+                        .map(TraverserResult::getAccumulatedResult)
+                        .filterInstanceOf<DomainSpecifiedDataElementSource.Builder>()
+                        .orElseThrow()
+            }
+            b
+        }
+    }
+
     private class SchemaElementTraverserVisitor(
         private val graphQLTypeVisitor: GraphQLTypeVisitor
     ) : TraverserVisitor<GraphQLSchemaElement> {
@@ -211,7 +283,10 @@ internal object DomainSpecifiedDataElementSourceCreator :
         }
     }
 
-    private class DomainSpecifiedDataElementSourceVisitor : GraphQLTypeVisitorStub() {
+    private class DomainSpecifiedDataElementSourceVisitor(
+        private val backRefQueue: Deque<Pair<GQLOperationPath, GraphQLFieldsContainer>>
+    ) : GraphQLTypeVisitorStub() {
+
         companion object {
             private val logger: Logger = loggerFor<DomainSpecifiedDataElementSourceVisitor>()
         }
@@ -224,8 +299,13 @@ internal object DomainSpecifiedDataElementSourceCreator :
             val p: GQLOperationPath = createPathFromContext(node, context)
             val b: DomainSpecifiedDataElementSource.Builder =
                 context.getCurrentAccumulate<DomainSpecifiedDataElementSource.Builder>()
-            if(node.arguments.isNotEmpty()) {
-                
+            if (node.arguments.isNotEmpty()) {
+                node.arguments
+                    .asSequence()
+                    .map { ga: GraphQLArgument -> p.transform { argument(ga.name) } to ga }
+                    .forEach { (p: GQLOperationPath, ga: GraphQLArgument) ->
+                        b.putArgumentForPathWithinDomain(p, ga)
+                    }
             }
             context.setAccumulate(b)
             context.setVar(GQLOperationPath::class.java, p)
@@ -290,6 +370,38 @@ internal object DomainSpecifiedDataElementSourceCreator :
                 .orElseThrow { _: Throwable ->
                     ServiceError.of("parent_path has not been set as variable in traverser_context")
                 }
+        }
+
+        override fun visitBackRef(
+            context: TraverserContext<GraphQLSchemaElement>
+        ): TraversalControl {
+            logger.debug(
+                "visit_back_ref: [ context.parent_node[type,name]: { {}, {} }, context.this_node[type,name]: { {}, {} } ]",
+                context.parentNode::class.simpleName,
+                context.parentNode
+                    .toOption()
+                    .filterIsInstance<GraphQLNamedSchemaElement>()
+                    .map(GraphQLNamedSchemaElement::getName)
+                    .getOrElse { "<NA>" },
+                context.thisNode()::class.simpleName,
+                context
+                    .thisNode()
+                    .toOption()
+                    .filterIsInstance<GraphQLNamedSchemaElement>()
+                    .map(GraphQLNamedSchemaElement::getName)
+                    .getOrElse { "<NA>" }
+            )
+            Option.catch { extractParentPathContextVariableOrThrow(context) }
+                .zip(
+                    context.parentNode.toOption().filterIsInstance<GraphQLFieldDefinition>(),
+                    context.thisNode().toOption().filterIsInstance<GraphQLFieldsContainer>(),
+                    ::Triple
+                )
+                .tap { t: Triple<GQLOperationPath, GraphQLFieldDefinition, GraphQLFieldsContainer>
+                    ->
+                    backRefQueue.offerLast(t.first to t.third)
+                }
+            return TraversalControl.CONTINUE
         }
     }
 }

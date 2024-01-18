@@ -168,7 +168,7 @@ internal object TabularQueryTraverser : (TabularQuery) -> Iterable<QueryComponen
                                     .domainSpecifiedDataElementSourceByCoordinates
                                     .getOrNone(fc)
                                     .flatMap { dsdes: DomainSpecifiedDataElementSource ->
-                                        dsdes.argumentPathsByName.getOrNone(argName)
+                                        dsdes.domainArgumentPathsByName.getOrNone(argName)
                                     }
                             }
                             .flatMapOptions()
@@ -211,7 +211,7 @@ internal object TabularQueryTraverser : (TabularQuery) -> Iterable<QueryComponen
                             // Must provide all arguments or at least those lacking default
                             // argument values
                             // TODO: Convert to cacheable operation
-                            dsdes.argumentsWithoutDefaultValuesByPath.asSequence().all {
+                            dsdes.allArgumentsWithoutDefaultValuesByPath.asSequence().all {
                                 (p: GQLOperationPath, _: GraphQLArgument) ->
                                 argPathsSet.contains(p)
                             }
@@ -555,7 +555,7 @@ internal object TabularQueryTraverser : (TabularQuery) -> Iterable<QueryComponen
                                             .build()
                                     )
                                     .plus(
-                                        dsdes.argumentsByPath.asSequence().map {
+                                        dsdes.allArgumentsByPath.asSequence().map {
                                             (ap: GQLOperationPath, ga: GraphQLArgument) ->
                                             tabularQuery.queryComponentContextFactory
                                                 .fieldArgumentComponentContextBuilder()
