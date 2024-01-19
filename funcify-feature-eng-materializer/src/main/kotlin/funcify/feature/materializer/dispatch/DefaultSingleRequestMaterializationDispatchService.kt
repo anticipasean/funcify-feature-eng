@@ -404,17 +404,29 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                 context.requestMaterializationGraph.requestGraph
                     .edgesFromPoint(path)
                     .asSequence()
-                    .flatMap(extractArgumentNamePathValueTripleForDataElementEdge(path, context))
-                    .tryFold(persistentMapOf<GQLOperationPath, JsonNode>()) {
-                        pm,
-                        (p: GQLOperationPath, n: String, jn: JsonNode) ->
-                        pm.put(p, jn)
+                    .flatMap(
+                        extractArgumentRuntimeCanonicalPathValueTripleForDataElementEdge(
+                            path,
+                            context
+                        )
+                    )
+                    .tryFold(
+                        persistentMapOf<GQLOperationPath, JsonNode>() to
+                            persistentMapOf<GQLOperationPath, JsonNode>()
+                    ) { maps, (p: GQLOperationPath, cp: GQLOperationPath, jn: JsonNode) ->
+                        maps.bimap(
+                            { argsByRuntimePath -> argsByRuntimePath.put(p, jn) },
+                            { argsByCanonicalPath -> argsByCanonicalPath.put(cp, jn) }
+                        )
                     }
-                    .map { m: PersistentMap<GQLOperationPath, JsonNode> ->
+                    .map {
+                        (
+                            argsByRuntimePath: PersistentMap<GQLOperationPath, JsonNode>,
+                            argsByCanonicalPath: PersistentMap<GQLOperationPath, JsonNode>) ->
                         val dataElementPublisher: Mono<JsonNode> =
-                            dataElementCallable.invoke(m).cache()
+                            dataElementCallable.invoke(argsByCanonicalPath).cache()
                         context.update {
-                            addAllMaterializedArguments(m)
+                            addAllMaterializedArguments(argsByRuntimePath)
                             addDataElementPublisherForOperationPath(path, dataElementPublisher)
                             addDataElementPublisherForResultPath(
                                 GQLResultPath.fromOperationPathOrThrow(path),
@@ -427,11 +439,11 @@ internal class DefaultSingleRequestMaterializationDispatchService(
         }
     }
 
-    private fun extractArgumentNamePathValueTripleForDataElementEdge(
+    private fun extractArgumentRuntimeCanonicalPathValueTripleForDataElementEdge(
         path: GQLOperationPath,
         context: DispatchedRequestMaterializationGraphContext,
     ): (Pair<DirectedLine<GQLOperationPath>, MaterializationEdge>) -> Sequence<
-            Try<Triple<GQLOperationPath, String, JsonNode>>
+            Try<Triple<GQLOperationPath, GQLOperationPath, JsonNode>>
         > {
         return { (l: DirectedLine<GQLOperationPath>, e: MaterializationEdge) ->
             if (!l.destinationPoint.refersToArgument()) {
@@ -453,10 +465,9 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                                 .filterIsInstance<FieldArgumentComponentContext>()
                                 .flatMap { facc: FieldArgumentComponentContext ->
                                     GraphQLValueToJsonNodeConverter.invoke(facc.argument.value)
-                                        .map { jn: JsonNode -> facc.argument.name to jn }
-                                }
-                                .map { (n: String, jn: JsonNode) ->
-                                    Triple(l.destinationPoint, n, jn)
+                                        .map { jn: JsonNode ->
+                                            Triple(facc.path, facc.canonicalPath, jn)
+                                        }
                                 }
                                 .successIfDefined {
                                     ServiceError.of(
@@ -485,10 +496,9 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                                                 .getOrElse { NullValue.of() }
                                         }
                                         .flatMap(GraphQLValueToJsonNodeConverter)
-                                        .map { jn: JsonNode -> facc.argument.name to jn }
-                                }
-                                .map { (n: String, jn: JsonNode) ->
-                                    Triple(l.destinationPoint, n, jn)
+                                        .map { jn: JsonNode ->
+                                            Triple(facc.path, facc.canonicalPath, jn)
+                                        }
                                 }
                                 .successIfDefined {
                                     ServiceError.of(
@@ -499,7 +509,7 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                         )
                     }
                     MaterializationEdge.RAW_INPUT_VALUE_PROVIDED -> {
-                        extractArgumentNamePathValueTripleForRawInputValueProvidedDataElementEdge(
+                        extractArgumentRuntimeCanonicalPathValueTripleForRawInputValueProvidedDataElementEdge(
                             context,
                             path,
                             l.destinationPoint
@@ -519,11 +529,11 @@ internal class DefaultSingleRequestMaterializationDispatchService(
         }
     }
 
-    private fun extractArgumentNamePathValueTripleForRawInputValueProvidedDataElementEdge(
+    private fun extractArgumentRuntimeCanonicalPathValueTripleForRawInputValueProvidedDataElementEdge(
         context: DispatchedRequestMaterializationGraphContext,
         domainDataElementPath: GQLOperationPath,
         dataElementArgumentPath: GQLOperationPath,
-    ): Sequence<Try<Triple<GQLOperationPath, String, JsonNode>>> {
+    ): Sequence<Try<Triple<GQLOperationPath, GQLOperationPath, JsonNode>>> {
         return context.requestMaterializationGraph.requestGraph
             .get(domainDataElementPath)
             .toOption()
@@ -541,7 +551,7 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                         // TODO: Add lookup by alias here to for raw_input_context
                         // if decided worthwhile
                         ric.get(sfcc.fieldCoordinates.fieldName).map { jn: JsonNode ->
-                            Triple(domainDataElementPath, sfcc.fieldCoordinates.fieldName, jn)
+                            Triple(domainDataElementPath, sfcc.canonicalPath, jn)
                         }
                     }
                     .successIfDefined {
@@ -550,7 +560,7 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                             sfcc.fieldCoordinates
                         )
                     }
-                    .map { t: Triple<GQLOperationPath, String, JsonNode> ->
+                    .map { t: Triple<GQLOperationPath, GQLOperationPath, JsonNode> ->
                         sequenceOf(
                             Try.success(t),
                             extractFieldValueForDataElementArgumentInRawInputJSON(
@@ -570,7 +580,7 @@ internal class DefaultSingleRequestMaterializationDispatchService(
         domainDataElementFieldCoordinates: FieldCoordinates,
         domainDataElementJSON: JsonNode,
         dataElementArgumentPath: GQLOperationPath
-    ): Try<Triple<GQLOperationPath, String, JsonNode>> {
+    ): Try<Triple<GQLOperationPath, GQLOperationPath, JsonNode>> {
         logger.debug(
             """extract_field_value_for_data_element_argument_in_raw_input_json: 
                 |[ domain_data_element_field_coordinates: {}, 
@@ -594,7 +604,7 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                 context.materializationMetamodel.domainSpecifiedDataElementSourceByCoordinates
                     .getOrNone(domainDataElementFieldCoordinates)
                     .flatMap { dsdes: DomainSpecifiedDataElementSource ->
-                        dsdes.argumentsByName.getOrNone(facc.argument.name).flatMap {
+                        dsdes.allArgumentsByPath.getOrNone(facc.canonicalPath).flatMap {
                             ga: GraphQLArgument ->
                             dsdes.domainFieldDefinition.type
                                 .toOption()
@@ -620,7 +630,7 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                                         GQLOperationPath.of { field(gfd.name) }
                                     )
                                 }
-                                .map { jn: JsonNode -> Triple(facc.path, ga.name, jn) }
+                                .map { jn: JsonNode -> Triple(facc.path, facc.canonicalPath, jn) }
                         }
                     }
                     .successIfDefined {

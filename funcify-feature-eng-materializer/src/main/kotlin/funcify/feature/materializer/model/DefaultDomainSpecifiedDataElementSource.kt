@@ -239,6 +239,8 @@ internal data class DefaultDomainSpecifiedDataElementSource(
         return requiredArgsSetCachingCalculator.invoke(selections)
     }
 
+    // TODO: Consider whether definition of required arg needs to be limited to non-nullable data
+    // typed args without default values (optional arg definition would then be expanded)
     private val requiredArgsSetCachingCalculator:
         (Set<GQLOperationPath>) -> Set<GQLOperationPath> by lazy {
         val argPathsByParentPath: PersistentMap<GQLOperationPath, PersistentSet<GQLOperationPath>> =
@@ -254,12 +256,12 @@ internal data class DefaultDomainSpecifiedDataElementSource(
         { selections: Set<GQLOperationPath> ->
             cache.computeIfAbsent(
                 selections.toPersistentSet(),
-                requiredArgsCalculation(domainPath, argPathsByParentPath)
+                argumentSelectionCalculation(domainPath, argPathsByParentPath)
             )
         }
     }
 
-    private fun requiredArgsCalculation(
+    private fun argumentSelectionCalculation(
         domainPath: GQLOperationPath,
         argPathsByParentPath: PersistentMap<GQLOperationPath, PersistentSet<GQLOperationPath>>
     ): (Set<GQLOperationPath>) -> Set<GQLOperationPath> {
@@ -274,19 +276,47 @@ internal data class DefaultDomainSpecifiedDataElementSource(
                         .getOrElse(::persistentSetOf)
                         .builder()
                 ) {
-                    requiredArgs: PersistentSet.Builder<GQLOperationPath>,
+                    selectedArgumentPaths: PersistentSet.Builder<GQLOperationPath>,
                     selection: GQLOperationPath ->
                     var p: GQLOperationPath = selection
                     while (!p.isRoot() && p !in visitedPaths) {
-                        requiredArgs.addAll(
+                        selectedArgumentPaths.addAll(
                             argPathsByParentPath.getOrNone(p).getOrElse(::persistentSetOf)
                         )
                         visitedPaths.add(p)
                         p = p.getParentPath().getOrElse(GQLOperationPath::getRootPath)
                     }
-                    requiredArgs
+                    selectedArgumentPaths
                 }
                 .build()
+        }
+    }
+
+    override fun findPathsForOptionalArgumentsForSelections(
+        selections: Set<GQLOperationPath>
+    ): Set<GQLOperationPath> {
+        return optionalArgsSetCachingCalculator.invoke(selections)
+    }
+
+    // TODO: Consider whether definition of optional arg needs to be expanded such that nullable
+    // data typed args are considered
+    private val optionalArgsSetCachingCalculator:
+        (Set<GQLOperationPath>) -> Set<GQLOperationPath> by lazy {
+        val argPathsByParentPath: PersistentMap<GQLOperationPath, PersistentSet<GQLOperationPath>> =
+            allArgumentsByPath
+                .asSequence()
+                .filter { (_: GQLOperationPath, ga: GraphQLArgument) -> ga.hasSetDefaultValue() }
+                .flatMap { (p: GQLOperationPath, _: GraphQLArgument) ->
+                    p.getParentPath().map { pp: GQLOperationPath -> pp to p }.sequence()
+                }
+                .reducePairsToPersistentSetValueMap()
+        val cache: ConcurrentMap<Set<GQLOperationPath>, Set<GQLOperationPath>> =
+            ConcurrentHashMap();
+        { selections: Set<GQLOperationPath> ->
+            cache.computeIfAbsent(
+                selections.toPersistentSet(),
+                argumentSelectionCalculation(domainPath, argPathsByParentPath)
+            )
         }
     }
 }

@@ -1537,7 +1537,7 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
                         parentPath,
                         connectorContext.dataElementCallableBuildersByPath
                             .get(parentPath)!!
-                            .selectPathWithinDomain(selectedFieldComponentContext.path)
+                            .selectPathWithinDomain(selectedFieldComponentContext.canonicalPath)
                     )
                     .putConnectedFieldPathForCoordinates(
                         selectedFieldComponentContext.fieldCoordinates,
@@ -1568,7 +1568,7 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
                     .putDataElementCallableBuilderForPath(
                         domainPath,
                         connectorContext.dataElementCallableBuildersByPath[domainPath]!!
-                            .selectPathWithinDomain(selectedFieldComponentContext.path)
+                            .selectPathWithinDomain(selectedFieldComponentContext.canonicalPath)
                     )
                     .putConnectedFieldPathForCoordinates(
                         selectedFieldComponentContext.fieldCoordinates,

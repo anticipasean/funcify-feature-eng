@@ -50,6 +50,10 @@ interface DomainSpecifiedDataElementSource {
         selections: Set<GQLOperationPath>
     ): Set<GQLOperationPath>
 
+    fun findPathsForOptionalArgumentsForSelections(
+        selections: Set<GQLOperationPath>
+    ): Set<GQLOperationPath>
+
     interface Builder {
 
         fun domainFieldCoordinates(domainFieldCoordinates: FieldCoordinates): Builder
