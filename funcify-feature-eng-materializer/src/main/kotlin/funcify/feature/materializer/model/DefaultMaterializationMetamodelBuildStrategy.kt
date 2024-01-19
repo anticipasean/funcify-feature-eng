@@ -17,6 +17,7 @@ import graphql.schema.FieldCoordinates
 import graphql.schema.GraphQLArgument
 import graphql.schema.GraphQLNamedSchemaElement
 import graphql.schema.GraphQLSchemaElement
+import graphql.schema.GraphQLTypeUtil
 import kotlinx.collections.immutable.ImmutableSet
 import org.slf4j.Logger
 import reactor.core.publisher.Mono
@@ -108,6 +109,23 @@ internal class DefaultMaterializationMetamodelBuildStrategy :
                     }
                 )
                 logger.debug(
+                    "domain_specified_data_element_sources_by_coordinates.argument_sets: {}",
+                    mmf.domainSpecifiedDataElementSourcesByCoordinates.asSequence().joinToString(
+                        "\n"
+                    ) { (fc, dsdes) ->
+                        "${fc}: %s"
+                            .format(
+                                dsdes.allArgumentsByPath
+                                    .asSequence()
+                                    .sortedBy(Map.Entry<GQLOperationPath, GraphQLArgument>::key)
+                                    .map { (p, ga) ->
+                                        "{ $p: (${ga.name}: ${GraphQLTypeUtil.simplePrint(ga.type)}) }"
+                                    }
+                                    .joinToString(", ")
+                            )
+                    }
+                )
+                logger.debug(
                     "data_element_field_coordinates_by_name: {}",
                     mmf.dataElementFieldCoordinatesByFieldName.asSequence().joinToString("\n") {
                         (fn, fcs) ->
@@ -122,8 +140,11 @@ internal class DefaultMaterializationMetamodelBuildStrategy :
                 )
                 logger.debug(
                     "data_element_paths_by_field_argument_name: {}",
-                    mmf.dataElementPathsByFieldArgumentName.asSequence().joinToString("{\n", ",\n", " }") {
-                        (fn, ps) ->
+                    mmf.dataElementPathsByFieldArgumentName.asSequence().joinToString(
+                        "{\n",
+                        ",\n",
+                        " }"
+                    ) { (fn, ps) ->
                         "${fn}: ${ps.asSequence().joinToString(", ")}"
                     }
                 )

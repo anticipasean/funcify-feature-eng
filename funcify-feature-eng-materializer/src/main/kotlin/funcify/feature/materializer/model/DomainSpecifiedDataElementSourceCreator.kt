@@ -44,9 +44,9 @@ import graphql.util.Traverser
 import graphql.util.TraverserContext
 import graphql.util.TraverserResult
 import graphql.util.TraverserVisitor
-import java.util.*
 import kotlinx.collections.immutable.ImmutableMap
 import org.slf4j.Logger
+import java.util.*
 
 internal object DomainSpecifiedDataElementSourceCreator :
     (FeatureEngineeringModel, GraphQLSchema) -> Iterable<DomainSpecifiedDataElementSource> {
@@ -342,6 +342,9 @@ internal object DomainSpecifiedDataElementSourceCreator :
                 else -> {
                     when (val parent: GraphQLSchemaElement? = context.parentNode) {
                         is GraphQLObjectType -> {
+                            p.transform { appendField(node.name) }
+                        }
+                        null -> {
                             p.transform { appendField(node.name) }
                         }
                         else -> {
