@@ -8,7 +8,7 @@ import com.google.common.cache.CacheBuilder
 import funcify.feature.error.ServiceError
 import funcify.feature.materializer.dispatch.SingleRequestMaterializationDispatchService
 import funcify.feature.materializer.graph.SingleRequestMaterializationGraphService
-import funcify.feature.materializer.session.GraphQLSingleRequestSession
+import funcify.feature.materializer.session.request.GraphQLSingleRequestSession
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.SequenceExtensions.firstOrNone
@@ -22,12 +22,12 @@ import graphql.language.Definition
 import graphql.language.Document
 import graphql.language.NamedNode
 import graphql.language.OperationDefinition
+import org.slf4j.Logger
+import reactor.core.publisher.Mono
 import java.time.Duration
 import java.util.*
 import java.util.concurrent.ConcurrentMap
 import java.util.stream.Collectors
-import org.slf4j.Logger
-import reactor.core.publisher.Mono
 
 /**
  * @author smccarron

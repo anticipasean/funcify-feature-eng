@@ -3,7 +3,7 @@ package funcify.feature.materializer.request
 import arrow.core.foldLeft
 import com.fasterxml.jackson.databind.node.JsonNodeFactory
 import com.fasterxml.jackson.databind.node.ObjectNode
-import funcify.feature.materializer.request.DefaultRawGraphQLRequestFactory.Companion.DefaultRawGraphQLRequestBuilder
+import funcify.feature.materializer.request.factory.DefaultRawGraphQLRequestFactory.Companion.DefaultRawGraphQLRequestBuilder
 import graphql.execution.ExecutionId
 import java.net.URI
 import java.security.Principal

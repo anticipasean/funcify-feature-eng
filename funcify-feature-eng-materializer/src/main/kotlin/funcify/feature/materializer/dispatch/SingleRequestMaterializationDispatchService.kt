@@ -1,6 +1,6 @@
 package funcify.feature.materializer.dispatch
 
-import funcify.feature.materializer.session.GraphQLSingleRequestSession
+import funcify.feature.materializer.session.request.GraphQLSingleRequestSession
 import reactor.core.publisher.Mono
 
 /**

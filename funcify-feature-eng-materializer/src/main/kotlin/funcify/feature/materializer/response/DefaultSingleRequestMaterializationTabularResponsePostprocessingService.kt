@@ -6,7 +6,8 @@ import com.fasterxml.jackson.databind.node.JsonNodeFactory
 import com.fasterxml.jackson.databind.node.ObjectNode
 import funcify.feature.error.ServiceError
 import funcify.feature.materializer.context.document.ColumnarDocumentContext
-import funcify.feature.materializer.session.GraphQLSingleRequestSession
+import funcify.feature.materializer.response.factory.SerializedGraphQLResponseFactory
+import funcify.feature.materializer.session.request.GraphQLSingleRequestSession
 import funcify.feature.schema.json.JsonNodeSchematicPathToValueMappingExtractor
 import funcify.feature.schema.path.operation.GQLOperationPath
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor

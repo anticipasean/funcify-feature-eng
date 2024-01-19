@@ -16,11 +16,11 @@ import funcify.feature.datasource.graphql.GraphQLApiDataElementSourceProviderFac
 import funcify.feature.error.ServiceError
 import funcify.feature.file.FileRegistryFeatureCalculatorProvider
 import funcify.feature.file.FileRegistryFeatureCalculatorProviderFactory
-import funcify.feature.materializer.input.RawInputContext
+import funcify.feature.materializer.executor.GraphQLSingleRequestExecutor
+import funcify.feature.materializer.input.context.RawInputContext
 import funcify.feature.materializer.request.RawGraphQLRequest
-import funcify.feature.materializer.request.RawGraphQLRequestFactory
+import funcify.feature.materializer.request.factory.RawGraphQLRequestFactory
 import funcify.feature.materializer.response.SerializedGraphQLResponse
-import funcify.feature.materializer.service.GraphQLSingleRequestExecutor
 import funcify.feature.schema.path.operation.GQLOperationPath
 import funcify.feature.transformer.jq.JqTransformerSourceProvider
 import funcify.feature.transformer.jq.JqTransformerSourceProviderFactory

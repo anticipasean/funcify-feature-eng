@@ -3,7 +3,7 @@ package funcify.feature.materializer.dispatch.context
 import arrow.core.Option
 import com.fasterxml.jackson.databind.JsonNode
 import funcify.feature.materializer.graph.RequestMaterializationGraph
-import funcify.feature.materializer.input.RawInputContext
+import funcify.feature.materializer.input.context.RawInputContext
 import funcify.feature.materializer.model.MaterializationMetamodel
 import funcify.feature.materializer.request.RawGraphQLRequest
 import funcify.feature.schema.path.operation.GQLOperationPath

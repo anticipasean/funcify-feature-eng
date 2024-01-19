@@ -1,8 +1,8 @@
 package funcify.feature.spring.configuration
 
+import funcify.feature.materializer.executor.GraphQLSingleRequestExecutor
 import funcify.feature.materializer.request.GraphQLExecutionInputCustomizer
-import funcify.feature.materializer.request.RawGraphQLRequestFactory
-import funcify.feature.materializer.service.GraphQLSingleRequestExecutor
+import funcify.feature.materializer.request.factory.RawGraphQLRequestFactory
 import funcify.feature.spring.configuration.SpringGraphQLWebFluxConfiguration.Companion.GraphiQlResourceHints
 import funcify.feature.spring.router.GraphQLWebFluxHandlerFunction
 import funcify.feature.spring.router.GraphiQLWebFluxHandlerFunction

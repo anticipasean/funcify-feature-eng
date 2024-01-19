@@ -1,7 +1,7 @@
 package funcify.feature.materializer.response
 
 import funcify.feature.materializer.context.document.ColumnarDocumentContext
-import funcify.feature.materializer.session.GraphQLSingleRequestSession
+import funcify.feature.materializer.session.request.GraphQLSingleRequestSession
 import graphql.ExecutionResult
 import reactor.core.publisher.Mono
 

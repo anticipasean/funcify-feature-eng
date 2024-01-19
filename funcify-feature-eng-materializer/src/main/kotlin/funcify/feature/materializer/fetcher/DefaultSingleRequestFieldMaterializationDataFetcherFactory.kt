@@ -1,18 +1,16 @@
 package funcify.feature.materializer.fetcher
 
-import funcify.feature.materializer.service.SingleRequestMaterializationOrchestratorService
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import graphql.execution.DataFetcherResult
 import graphql.schema.DataFetcher
 import graphql.schema.DataFetcherFactoryEnvironment
 import graphql.schema.GraphQLTypeUtil
-import org.slf4j.Logger
 import java.util.concurrent.CompletionStage
+import org.slf4j.Logger
 
 internal class DefaultSingleRequestFieldMaterializationDataFetcherFactory(
-    private val singleRequestMaterializationOrchestratorService:
-        SingleRequestMaterializationOrchestratorService
+    private val singleRequestFieldValueMaterializer: SingleRequestFieldValueMaterializer
 ) : SingleRequestFieldMaterializationDataFetcherFactory {
 
     companion object {
@@ -32,7 +30,7 @@ internal class DefaultSingleRequestFieldMaterializationDataFetcherFactory(
                 .flatten()
         )
         return SingleRequestMaterializationDataFetcher<Any?>(
-            singleRequestMaterializationOrchestratorService
+            singleRequestFieldValueMaterializer = singleRequestFieldValueMaterializer
         )
     }
 }

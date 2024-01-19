@@ -10,7 +10,7 @@ import com.fasterxml.jackson.databind.JsonNode
 import funcify.feature.error.ServiceError
 import funcify.feature.materializer.dispatch.context.DispatchedRequestMaterializationGraphContext.Builder
 import funcify.feature.materializer.graph.RequestMaterializationGraph
-import funcify.feature.materializer.input.RawInputContext
+import funcify.feature.materializer.input.context.RawInputContext
 import funcify.feature.materializer.model.MaterializationMetamodel
 import funcify.feature.materializer.request.RawGraphQLRequest
 import funcify.feature.schema.path.operation.GQLOperationPath

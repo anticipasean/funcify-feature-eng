@@ -12,10 +12,10 @@ import funcify.feature.materializer.graph.MaterializationEdge
 import funcify.feature.materializer.graph.RequestMaterializationGraph
 import funcify.feature.materializer.graph.component.QueryComponentContext.FieldArgumentComponentContext
 import funcify.feature.materializer.graph.component.QueryComponentContext.SelectedFieldComponentContext
-import funcify.feature.materializer.input.RawInputContext
+import funcify.feature.materializer.input.context.RawInputContext
 import funcify.feature.materializer.model.MaterializationMetamodel
 import funcify.feature.materializer.request.RawGraphQLRequest
-import funcify.feature.materializer.session.GraphQLSingleRequestSession
+import funcify.feature.materializer.session.request.GraphQLSingleRequestSession
 import funcify.feature.schema.dataelement.DataElementCallable
 import funcify.feature.schema.dataelement.DomainSpecifiedDataElementSource
 import funcify.feature.schema.feature.FeatureCalculatorCallable

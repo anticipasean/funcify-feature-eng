@@ -1,10 +1,21 @@
 package funcify.feature.materializer.configuration
 
+import funcify.feature.materializer.coordinator.DefaultGraphQLSingleRequestSessionCoordinator
+import funcify.feature.materializer.coordinator.GraphQLSingleRequestSessionCoordinator
 import funcify.feature.materializer.dispatch.DefaultSingleRequestMaterializationDispatchService
 import funcify.feature.materializer.dispatch.SingleRequestMaterializationDispatchService
 import funcify.feature.materializer.document.DefaultMaterializationPreparsedDocumentProvider
 import funcify.feature.materializer.document.MaterializationPreparsedDocumentProvider
+import funcify.feature.materializer.executor.DefaultGraphQLSingleRequestMaterializationQueryExecutionStrategy
+import funcify.feature.materializer.executor.DefaultSingleRequestMaterializationExecutionResultPostprocessingService
+import funcify.feature.materializer.executor.GraphQLSingleRequestExecutor
+import funcify.feature.materializer.executor.GraphQLSingleRequestMaterializationQueryExecutionStrategy
+import funcify.feature.materializer.executor.SingleRequestMaterializationExecutionResultPostprocessingService
+import funcify.feature.materializer.executor.SingleRequestMaterializationExecutionStrategyInstrumentation
+import funcify.feature.materializer.executor.SpringGraphQLSingleRequestExecutor
 import funcify.feature.materializer.fetcher.DefaultSingleRequestFieldMaterializationDataFetcherFactory
+import funcify.feature.materializer.fetcher.DefaultSingleRequestFieldValueMaterializer
+import funcify.feature.materializer.fetcher.SingleRequestFieldValueMaterializer
 import funcify.feature.materializer.graph.DefaultSingleRequestMaterializationGraphService
 import funcify.feature.materializer.graph.SingleRequestMaterializationGraphService
 import funcify.feature.materializer.input.DefaultSingleRequestRawInputContextExtractor
@@ -14,29 +25,18 @@ import funcify.feature.materializer.model.DefaultMaterializationMetamodelFactory
 import funcify.feature.materializer.model.MaterializationMetamodel
 import funcify.feature.materializer.model.MaterializationMetamodelBuildStrategy
 import funcify.feature.materializer.model.MaterializationMetamodelFactory
-import funcify.feature.materializer.request.DefaultRawGraphQLRequestFactory
-import funcify.feature.materializer.request.RawGraphQLRequestFactory
-import funcify.feature.materializer.response.DefaultSerializedGraphQLResponseFactory
+import funcify.feature.materializer.request.factory.DefaultRawGraphQLRequestFactory
+import funcify.feature.materializer.request.factory.RawGraphQLRequestFactory
 import funcify.feature.materializer.response.DefaultSingleRequestMaterializationTabularResponsePostprocessingService
-import funcify.feature.materializer.response.SerializedGraphQLResponseFactory
 import funcify.feature.materializer.response.SingleRequestMaterializationTabularResponsePostprocessingService
+import funcify.feature.materializer.response.factory.DefaultSerializedGraphQLResponseFactory
+import funcify.feature.materializer.response.factory.SerializedGraphQLResponseFactory
 import funcify.feature.materializer.schema.DefaultMaterializationGraphQLSchemaFactory
 import funcify.feature.materializer.schema.DefaultMaterializationMetamodelBroker
 import funcify.feature.materializer.schema.MaterializationGraphQLSchemaFactory
 import funcify.feature.materializer.schema.MaterializationMetamodelBroker
-import funcify.feature.materializer.service.DefaultGraphQLSingleRequestMaterializationQueryExecutionStrategy
-import funcify.feature.materializer.service.DefaultSingleRequestMaterializationExecutionResultPostprocessingService
-import funcify.feature.materializer.service.DefaultSingleRequestMaterializationOrchestratorService
-import funcify.feature.materializer.service.GraphQLSingleRequestExecutor
-import funcify.feature.materializer.service.GraphQLSingleRequestMaterializationQueryExecutionStrategy
-import funcify.feature.materializer.service.SingleRequestMaterializationExecutionResultPostprocessingService
-import funcify.feature.materializer.service.SingleRequestMaterializationExecutionStrategyInstrumentation
-import funcify.feature.materializer.service.SingleRequestMaterializationOrchestratorService
-import funcify.feature.materializer.service.SpringGraphQLSingleRequestExecutor
-import funcify.feature.materializer.session.DefaultGraphQLSingleRequestSessionCoordinator
-import funcify.feature.materializer.session.DefaultGraphQLSingleRequestSessionFactory
-import funcify.feature.materializer.session.GraphQLSingleRequestSessionCoordinator
-import funcify.feature.materializer.session.GraphQLSingleRequestSessionFactory
+import funcify.feature.materializer.session.factory.DefaultGraphQLSingleRequestSessionFactory
+import funcify.feature.materializer.session.factory.GraphQLSingleRequestSessionFactory
 import funcify.feature.materializer.type.MaterializationInterfaceSubtypeResolverFactory
 import funcify.feature.materializer.type.SubtypingDirectiveInterfaceSubtypeResolverFactory
 import funcify.feature.materializer.wiring.DefaultMaterializationGraphQLWiringFactory
@@ -82,12 +82,12 @@ class MaterializerConfiguration {
         return DefaultSerializedGraphQLResponseFactory()
     }
 
-    @ConditionalOnMissingBean(value = [SingleRequestMaterializationOrchestratorService::class])
+    @ConditionalOnMissingBean(value = [SingleRequestFieldValueMaterializer::class])
     @Bean
-    fun singleRequestMaterializationOrchestratorService(
+    fun singleRequestFieldValueMaterializer(
         jsonMapper: JsonMapper
-    ): SingleRequestMaterializationOrchestratorService {
-        return DefaultSingleRequestMaterializationOrchestratorService(jsonMapper = jsonMapper)
+    ): SingleRequestFieldValueMaterializer {
+        return DefaultSingleRequestFieldValueMaterializer(jsonMapper = jsonMapper)
     }
 
     @ConditionalOnMissingBean(value = [SingleRequestMaterializationGraphService::class])
@@ -111,12 +111,10 @@ class MaterializerConfiguration {
     @ConditionalOnMissingBean(value = [DataFetcherFactory::class])
     @Bean
     fun dataFetcherFactory(
-        singleRequestMaterializationOrchestratorService:
-            SingleRequestMaterializationOrchestratorService,
+        singleRequestMaterializationOrchestratorService: SingleRequestFieldValueMaterializer,
     ): DataFetcherFactory<CompletionStage<out DataFetcherResult<Any?>>> {
         return DefaultSingleRequestFieldMaterializationDataFetcherFactory(
-            singleRequestMaterializationOrchestratorService =
-                singleRequestMaterializationOrchestratorService
+            singleRequestFieldValueMaterializer = singleRequestMaterializationOrchestratorService
         )
     }
 
@@ -309,7 +307,9 @@ class MaterializerConfiguration {
     }
 
     @Bean
-    fun singleRequestMaterializationExecutionStrategyInstrumentation(jsonMapper: JsonMapper): Instrumentation {
+    fun singleRequestMaterializationExecutionStrategyInstrumentation(
+        jsonMapper: JsonMapper
+    ): Instrumentation {
         return SingleRequestMaterializationExecutionStrategyInstrumentation(jsonMapper)
     }
 

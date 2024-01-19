@@ -5,8 +5,8 @@ import arrow.core.getOrElse
 import arrow.core.none
 import arrow.core.toOption
 import funcify.feature.error.ServiceError
-import funcify.feature.materializer.service.SingleRequestMaterializationOrchestratorService
-import funcify.feature.materializer.session.GraphQLSingleRequestSession
+import funcify.feature.materializer.session.field.DefaultSingleRequestFieldMaterializationSession
+import funcify.feature.materializer.session.request.GraphQLSingleRequestSession
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import graphql.ErrorType
@@ -15,14 +15,13 @@ import graphql.GraphqlErrorBuilder
 import graphql.execution.DataFetcherResult
 import graphql.schema.DataFetchingEnvironment
 import graphql.schema.GraphQLTypeUtil
-import java.util.concurrent.CompletableFuture
-import java.util.concurrent.CompletionStage
 import org.slf4j.Logger
 import reactor.core.publisher.Mono
+import java.util.concurrent.CompletableFuture
+import java.util.concurrent.CompletionStage
 
 internal class SingleRequestMaterializationDataFetcher<R>(
-    private val singleRequestMaterializationOrchestratorService:
-        SingleRequestMaterializationOrchestratorService
+    private val singleRequestFieldValueMaterializer: SingleRequestFieldValueMaterializer
 ) : AsyncResultDataFetcher<R> {
 
     companion object {
@@ -50,20 +49,20 @@ internal class SingleRequestMaterializationDataFetcher<R>(
                 environment.graphQlContext
                     .getOrEmpty<GraphQLSingleRequestSession>(
                         GraphQLSingleRequestSession.GRAPHQL_SINGLE_REQUEST_SESSION_KEY
-                    )
+                                                            )
                     .isEmpty -> {
                 createSingleRequestSessionMissingErrorFuture()
             }
             else -> {
                 foldResultPublisherIntoDataFetcherResult<R>(
                     environment,
-                    singleRequestMaterializationOrchestratorService.materializeValueInSession(
+                    singleRequestFieldValueMaterializer.materializeValueForFieldInSession(
                         DefaultSingleRequestFieldMaterializationSession(
                             dataFetchingEnvironment = environment,
                             singleRequestSession =
                                 environment.graphQlContext.get<GraphQLSingleRequestSession>(
                                     GraphQLSingleRequestSession.GRAPHQL_SINGLE_REQUEST_SESSION_KEY
-                                )
+                                                                                           )
                         )
                     )
                 )

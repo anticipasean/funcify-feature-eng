@@ -11,11 +11,11 @@ import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.node.ArrayNode
 import com.fasterxml.jackson.databind.node.JsonNodeFactory
 import funcify.feature.error.ServiceError
+import funcify.feature.materializer.executor.GraphQLSingleRequestExecutor
 import funcify.feature.materializer.request.GraphQLExecutionInputCustomizer
 import funcify.feature.materializer.request.RawGraphQLRequest
-import funcify.feature.materializer.request.RawGraphQLRequestFactory
+import funcify.feature.materializer.request.factory.RawGraphQLRequestFactory
 import funcify.feature.materializer.response.SerializedGraphQLResponse
-import funcify.feature.materializer.service.GraphQLSingleRequestExecutor
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.container.attempt.Try.Companion.filterInstanceOf
 import funcify.feature.tools.container.attempt.Try.Companion.flatMapFailure
@@ -29,7 +29,6 @@ import funcify.feature.tools.extensions.ThrowableExtensions.possiblyNestedHeadSt
 import funcify.feature.tools.json.JsonMapper
 import graphql.GraphQLError
 import graphql.execution.AbortExecutionException
-import java.util.*
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.toPersistentList
@@ -44,6 +43,7 @@ import org.springframework.web.reactive.function.server.ServerResponse
 import reactor.core.publisher.Mono
 import reactor.core.publisher.Timed
 import reactor.core.scheduler.Schedulers
+import java.util.*
 
 /**
  * @author smccarron
