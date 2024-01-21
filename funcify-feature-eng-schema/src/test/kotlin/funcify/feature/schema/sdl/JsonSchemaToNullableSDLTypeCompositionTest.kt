@@ -6,6 +6,7 @@ import com.fasterxml.jackson.module.jsonSchema.types.ArraySchema
 import com.fasterxml.jackson.module.jsonSchema.types.StringSchema
 import com.fasterxml.jackson.module.kotlin.readValue
 import funcify.feature.json.JsonObjectMappingConfiguration
+import funcify.feature.schema.sdl.type.JsonSchemaToNullableSDLTypeComposer
 import funcify.feature.tools.json.JsonMapper
 import graphql.Scalars
 import graphql.language.ListType

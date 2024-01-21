@@ -1,9 +1,8 @@
-package funcify.feature.file.metadata
+package funcify.feature.file.metadata.provider
 
 import funcify.feature.error.ServiceError
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
-import funcify.feature.tools.extensions.MonoExtensions.widen
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import graphql.schema.idl.SchemaParser
 import graphql.schema.idl.TypeDefinitionRegistry

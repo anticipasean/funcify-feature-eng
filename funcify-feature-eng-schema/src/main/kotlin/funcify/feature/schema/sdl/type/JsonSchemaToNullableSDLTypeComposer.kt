@@ -1,4 +1,4 @@
-package funcify.feature.schema.sdl
+package funcify.feature.schema.sdl.type
 
 import arrow.core.Either
 import arrow.core.Option

@@ -1,4 +1,4 @@
-package funcify.feature.schema.sdl
+package funcify.feature.schema.sdl.type
 
 import arrow.core.Either
 import arrow.core.Option
@@ -22,8 +22,7 @@ import graphql.schema.GraphQLNonNull
 import graphql.schema.GraphQLOutputType
 import graphql.schema.GraphQLType
 
-// TODO: Create tests for composing nullable sdl_types
-object GraphQLNullableSDLTypeComposer : (GraphQLType) -> Type<*> {
+object GraphQLNonNullableSDLTypeComposer : (GraphQLType) -> Type<*> {
 
     private data class TypeCompositionContext(
         val outerGraphQLType: GraphQLType,
@@ -33,7 +32,7 @@ object GraphQLNullableSDLTypeComposer : (GraphQLType) -> Type<*> {
     )
 
     private val typeComposingRecursiveFunction:
-        (TypeCompositionContext) -> Option<Either<TypeCompositionContext, Type<*>>> by lazy {
+                (TypeCompositionContext) -> Option<Either<TypeCompositionContext, Type<*>>> by lazy {
         { context: TypeCompositionContext ->
             val innerGraphQLType: GraphQLType =
                 context.innerGraphQLType.orNull() ?: context.outerGraphQLType
@@ -41,7 +40,9 @@ object GraphQLNullableSDLTypeComposer : (GraphQLType) -> Type<*> {
                 /** Make base type non-nullable if source has it specified as such */
                 context.compositionLevel == 0 && innerGraphQLType is GraphQLNonNull -> {
                     context.compositionFunction
-                        .compose<Type<*>, Type<*>, Type<*>> { t: Type<*> -> t }
+                        .compose<Type<*>, Type<*>, Type<*>> { t: Type<*> ->
+                            NonNullType.newNonNullType().type(t).build()
+                        }
                         .left()
                         .mapLeft { compFunc ->
                             context.copy(
@@ -74,7 +75,12 @@ object GraphQLNullableSDLTypeComposer : (GraphQLType) -> Type<*> {
                 }
                 context.compositionLevel == 0 && innerGraphQLType is GraphQLNamedType -> {
                     context.compositionFunction
-                        .invoke(TypeName.newTypeName(innerGraphQLType.name).build())
+                        .invoke(
+                            NonNullType.newNonNullType(
+                                    TypeName.newTypeName(innerGraphQLType.name).build()
+                                )
+                                .build()
+                        )
                         .right()
                         .some()
                 }
@@ -162,10 +168,10 @@ object GraphQLNullableSDLTypeComposer : (GraphQLType) -> Type<*> {
                 "output_type"
             }
         return ServiceError.of(
-            """graphql_field_definition.${inputOrOutputType} 
-                |[ type.to_string: 
+            """graphql_field_definition.${inputOrOutputType} [ type.to_string: 
                 |$graphQLInputOrOutputType ] 
-                |does not have name for use in SDL type creation"""
+                |does not have name for use in SDL type creation
+                |"""
                 .flatten()
         )
     }

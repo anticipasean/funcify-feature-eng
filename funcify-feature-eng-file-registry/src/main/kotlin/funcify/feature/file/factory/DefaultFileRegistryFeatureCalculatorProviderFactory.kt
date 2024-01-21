@@ -6,10 +6,10 @@ import funcify.feature.error.ServiceError
 import funcify.feature.file.FileRegistryFeatureCalculator
 import funcify.feature.file.FileRegistryFeatureCalculatorProvider
 import funcify.feature.file.FileRegistryFeatureCalculatorProviderFactory
-import funcify.feature.file.metadata.FileRegistryMetadataProvider
+import funcify.feature.file.metadata.provider.FileRegistryMetadataProvider
 import funcify.feature.file.source.DefaultFileRegistryFeatureCalculator
 import funcify.feature.schema.sdl.SDLDefinitionsSetExtractor
-import funcify.feature.schema.sdl.TypeDefinitionRegistryFilter
+import funcify.feature.schema.sdl.transformer.TypeDefinitionRegistryTransformer
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.container.attempt.Try.Companion.success
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
@@ -25,17 +25,15 @@ import reactor.core.publisher.Mono
  * @created 2023-08-16
  */
 internal class DefaultFileRegistryFeatureCalculatorProviderFactory(
-    private val classpathResourceRegistryMetadataProvider:
-        FileRegistryMetadataProvider<ClassPathResource>,
-    private val typeDefinitionRegistryFilter: TypeDefinitionRegistryFilter
+    private val classpathResourceRegistryMetadataProvider: FileRegistryMetadataProvider<ClassPathResource>,
+    private val typeDefinitionRegistryTransformer: TypeDefinitionRegistryTransformer
 ) : FileRegistryFeatureCalculatorProviderFactory {
 
     companion object {
 
         internal class DefaultBuilder(
-            private val classpathResourceRegistryMetadataProvider:
-                FileRegistryMetadataProvider<ClassPathResource>,
-            private val typeDefinitionRegistryFilter: TypeDefinitionRegistryFilter,
+            private val classpathResourceRegistryMetadataProvider: FileRegistryMetadataProvider<ClassPathResource>,
+            private val typeDefinitionRegistryTransformer: TypeDefinitionRegistryTransformer,
             private var name: String? = null,
             private var schemaClasspathResource: ClassPathResource? = null
         ) : FileRegistryFeatureCalculatorProvider.Builder {
@@ -55,7 +53,7 @@ internal class DefaultFileRegistryFeatureCalculatorProviderFactory(
                         DefaultFileRegistryFeatureCalculatorProvider(
                             classpathResourceRegistryMetadataProvider =
                                 classpathResourceRegistryMetadataProvider,
-                            typeDefinitionRegistryFilter = typeDefinitionRegistryFilter,
+                            typeDefinitionRegistryTransformer = typeDefinitionRegistryTransformer,
                             name = name!!,
                             graphQLSchemaClasspathResource = schemaClasspathResource!!
                         )
@@ -78,9 +76,8 @@ internal class DefaultFileRegistryFeatureCalculatorProviderFactory(
         }
 
         internal data class DefaultFileRegistryFeatureCalculatorProvider(
-            private val classpathResourceRegistryMetadataProvider:
-                FileRegistryMetadataProvider<ClassPathResource>,
-            private val typeDefinitionRegistryFilter: TypeDefinitionRegistryFilter,
+            private val classpathResourceRegistryMetadataProvider: FileRegistryMetadataProvider<ClassPathResource>,
+            private val typeDefinitionRegistryTransformer: TypeDefinitionRegistryTransformer,
             override val name: String,
             private val graphQLSchemaClasspathResource: ClassPathResource
         ) : FileRegistryFeatureCalculatorProvider {
@@ -95,7 +92,7 @@ internal class DefaultFileRegistryFeatureCalculatorProviderFactory(
                 return classpathResourceRegistryMetadataProvider
                     .provideTypeDefinitionRegistry(graphQLSchemaClasspathResource)
                     .flatMap { tdr: TypeDefinitionRegistry ->
-                        typeDefinitionRegistryFilter.filter(tdr).toMono()
+                        typeDefinitionRegistryTransformer.transform(tdr).toMono()
                     }
                     .map { tdr: TypeDefinitionRegistry ->
                         DefaultFileRegistryFeatureCalculator(
@@ -105,14 +102,12 @@ internal class DefaultFileRegistryFeatureCalculatorProviderFactory(
                     }
             }
         }
-
     }
 
     override fun builder(): FileRegistryFeatureCalculatorProvider.Builder {
         return DefaultBuilder(
             classpathResourceRegistryMetadataProvider = classpathResourceRegistryMetadataProvider,
-            typeDefinitionRegistryFilter = typeDefinitionRegistryFilter,
+            typeDefinitionRegistryTransformer = typeDefinitionRegistryTransformer,
         )
     }
-
 }

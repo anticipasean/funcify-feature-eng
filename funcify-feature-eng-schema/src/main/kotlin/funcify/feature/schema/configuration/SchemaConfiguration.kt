@@ -12,7 +12,7 @@ import funcify.feature.schema.feature.FeatureJsonValuePublisher
 import funcify.feature.schema.feature.FeatureJsonValueStore
 import funcify.feature.schema.limit.DefaultModelLimits
 import funcify.feature.schema.limit.ModelLimits
-import funcify.feature.schema.sdl.UnsupportedDirectivesTypeDefinitionRegistryFilter
+import funcify.feature.schema.sdl.transformer.UnsupportedDirectivesTypeDefinitionRegistryTransformer
 import funcify.feature.schema.strategy.DefaultFeatureEngineeringModelBuildStrategy
 import funcify.feature.schema.tracking.DefaultTrackableValueFactory
 import funcify.feature.schema.tracking.TrackableValueFactory
@@ -54,8 +54,8 @@ class SchemaConfiguration {
     @Bean
     fun unsupportedDirectivesTypeDefinitionRegistryFilter(
         materializationDirectiveRegistryProvider: ObjectProvider<MaterializationDirectiveRegistry>,
-    ): UnsupportedDirectivesTypeDefinitionRegistryFilter {
-        return UnsupportedDirectivesTypeDefinitionRegistryFilter(
+    ): UnsupportedDirectivesTypeDefinitionRegistryTransformer {
+        return UnsupportedDirectivesTypeDefinitionRegistryTransformer(
             materializationDirectiveRegistry =
                 materializationDirectiveRegistryProvider.getIfAvailable {
                     MaterializationDirectiveRegistry.createStandardRegistry()

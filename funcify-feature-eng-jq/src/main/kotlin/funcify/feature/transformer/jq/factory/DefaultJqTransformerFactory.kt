@@ -4,7 +4,7 @@ import arrow.core.continuations.eagerEffect
 import arrow.core.continuations.ensureNotNull
 import com.fasterxml.jackson.module.jsonSchema.JsonSchema
 import funcify.feature.error.ServiceError
-import funcify.feature.schema.sdl.JsonSchemaToNullableSDLTypeComposer
+import funcify.feature.schema.sdl.type.JsonSchemaToNullableSDLTypeComposer
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flatten

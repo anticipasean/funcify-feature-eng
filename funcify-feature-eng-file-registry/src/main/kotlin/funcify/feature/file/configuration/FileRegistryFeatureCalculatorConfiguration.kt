@@ -2,11 +2,11 @@ package funcify.feature.file.configuration
 
 import funcify.feature.file.FileRegistryFeatureCalculatorProviderFactory
 import funcify.feature.file.factory.DefaultFileRegistryFeatureCalculatorProviderFactory
-import funcify.feature.file.metadata.FeatureGraphQLSchemaClasspathResourceMetadataProvider
-import funcify.feature.file.metadata.FileRegistryMetadataProvider
-import funcify.feature.file.metadata.filter.TransformAnnotatedFeatureDefinitionsFilter
-import funcify.feature.schema.sdl.CompositeTypeDefinitionRegistryFilter
-import funcify.feature.schema.sdl.TypeDefinitionRegistryFilter
+import funcify.feature.file.metadata.provider.FeatureGraphQLSchemaClasspathResourceMetadataProvider
+import funcify.feature.file.metadata.provider.FileRegistryMetadataProvider
+import funcify.feature.file.metadata.transformer.TransformAnnotatedFeatureDefinitionsTransformer
+import funcify.feature.schema.sdl.transformer.CompositeTypeDefinitionRegistryTransformer
+import funcify.feature.schema.sdl.transformer.TypeDefinitionRegistryTransformer
 import org.springframework.beans.factory.ObjectProvider
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.context.annotation.Bean
@@ -21,27 +21,25 @@ import org.springframework.core.io.ClassPathResource
 class FileRegistryFeatureCalculatorConfiguration {
 
     @Bean
-    fun classpathResourceFileRegistryMetadataProvider():
-        FileRegistryMetadataProvider<ClassPathResource> {
+    fun classpathResourceFileRegistryMetadataProvider(): FileRegistryMetadataProvider<ClassPathResource> {
         return FeatureGraphQLSchemaClasspathResourceMetadataProvider()
     }
 
     @ConditionalOnMissingBean(value = [FileRegistryFeatureCalculatorProviderFactory::class])
     @Bean
     fun fileRegistryFeatureCalculatorProviderFactory(
-        classpathResourceFileRegistryMetadataProvider:
-            FileRegistryMetadataProvider<ClassPathResource>,
-        typeDefinitionRegistryFilterProvider: ObjectProvider<TypeDefinitionRegistryFilter>
+        classpathResourceFileRegistryMetadataProvider: FileRegistryMetadataProvider<ClassPathResource>,
+        typeDefinitionRegistryTransformerProvider: ObjectProvider<TypeDefinitionRegistryTransformer>
     ): FileRegistryFeatureCalculatorProviderFactory {
         return DefaultFileRegistryFeatureCalculatorProviderFactory(
             classpathResourceRegistryMetadataProvider =
                 classpathResourceFileRegistryMetadataProvider,
-            typeDefinitionRegistryFilter =
-                CompositeTypeDefinitionRegistryFilter(
-                    typeDefinitionRegistryFilters =
-                        typeDefinitionRegistryFilterProvider
+            typeDefinitionRegistryTransformer =
+                CompositeTypeDefinitionRegistryTransformer(
+                    typeDefinitionRegistryTransformers =
+                        typeDefinitionRegistryTransformerProvider
                             .asSequence()
-                            .plus(TransformAnnotatedFeatureDefinitionsFilter())
+                            .plus(TransformAnnotatedFeatureDefinitionsTransformer())
                             .toList()
                 )
         )

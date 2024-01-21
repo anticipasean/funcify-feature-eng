@@ -1,4 +1,4 @@
-package funcify.feature.schema.sdl
+package funcify.feature.schema.sdl.transformer
 
 import funcify.feature.directive.MaterializationDirectiveRegistry
 import funcify.feature.error.ServiceError
@@ -16,16 +16,17 @@ import org.slf4j.Logger
  * @author smccarron
  * @created 2023-07-23
  */
-class UnsupportedDirectivesTypeDefinitionRegistryFilter(
+class UnsupportedDirectivesTypeDefinitionRegistryTransformer(
     private val materializationDirectiveRegistry: MaterializationDirectiveRegistry
-) : TypeDefinitionRegistryFilter {
+) : TypeDefinitionRegistryTransformer {
 
     companion object {
         private const val QUERY_OBJECT_TYPE_NAME: String = "Query"
-        private val logger: Logger = loggerFor<UnsupportedDirectivesTypeDefinitionRegistryFilter>()
+        private val logger: Logger =
+            loggerFor<UnsupportedDirectivesTypeDefinitionRegistryTransformer>()
     }
 
-    override fun filter(
+    override fun transform(
         typeDefinitionRegistry: TypeDefinitionRegistry
     ): Result<TypeDefinitionRegistry> {
         if (logger.isDebugEnabled) {

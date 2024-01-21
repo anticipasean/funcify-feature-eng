@@ -1,8 +1,8 @@
-package funcify.feature.datasource.graphql.metadata.filter
+package funcify.feature.datasource.graphql.metadata.transformer
 
 import arrow.core.getOrElse
 import funcify.feature.error.ServiceError
-import funcify.feature.schema.sdl.TypeDefinitionRegistryFilter
+import funcify.feature.schema.sdl.transformer.TypeDefinitionRegistryTransformer
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.OptionExtensions.toOption
 import graphql.GraphQLError
@@ -16,14 +16,16 @@ import org.slf4j.Logger
  * @author smccarron
  * @created 2023-06-29
  */
-class InternalQueryExcludingTypeDefinitionRegistryFilter() : TypeDefinitionRegistryFilter {
+class InternalQueryExcludingTypeDefinitionRegistryTransformer() :
+    TypeDefinitionRegistryTransformer {
 
     companion object {
         private const val QUERY_OBJECT_TYPE_NAME = "Query"
-        private val logger: Logger = loggerFor<InternalQueryExcludingTypeDefinitionRegistryFilter>()
+        private val logger: Logger =
+            loggerFor<InternalQueryExcludingTypeDefinitionRegistryTransformer>()
     }
 
-    override fun filter(
+    override fun transform(
         typeDefinitionRegistry: TypeDefinitionRegistry
     ): Result<TypeDefinitionRegistry> {
         if (logger.isDebugEnabled) {

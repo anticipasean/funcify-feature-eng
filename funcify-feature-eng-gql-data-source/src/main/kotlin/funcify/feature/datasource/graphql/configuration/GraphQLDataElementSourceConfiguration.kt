@@ -4,10 +4,8 @@ import funcify.feature.datasource.graphql.GraphQLApiDataElementSourceProviderFac
 import funcify.feature.datasource.graphql.GraphQLApiServiceFactory
 import funcify.feature.datasource.graphql.factory.DefaultGraphQLApiDataElementSourceProviderFactory
 import funcify.feature.datasource.graphql.factory.DefaultGraphQLApiServiceFactory
-import funcify.feature.datasource.graphql.metadata.filter.InternalQueryExcludingTypeDefinitionRegistryFilter
-import funcify.feature.schema.sdl.UnsupportedDirectivesTypeDefinitionRegistryFilter
-import funcify.feature.directive.MaterializationDirectiveRegistry
-import funcify.feature.schema.sdl.TypeDefinitionRegistryFilter
+import funcify.feature.datasource.graphql.metadata.transformer.InternalQueryExcludingTypeDefinitionRegistryTransformer
+import funcify.feature.schema.sdl.transformer.TypeDefinitionRegistryTransformer
 import funcify.feature.tools.json.JsonMapper
 import org.springframework.beans.factory.ObjectProvider
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
@@ -39,19 +37,19 @@ class GraphQLDataElementSourceConfiguration {
 
     @Bean
     fun internalQueryExcludingTypeDefinitionRegistryFilter():
-        InternalQueryExcludingTypeDefinitionRegistryFilter {
-        return InternalQueryExcludingTypeDefinitionRegistryFilter()
+        InternalQueryExcludingTypeDefinitionRegistryTransformer {
+        return InternalQueryExcludingTypeDefinitionRegistryTransformer()
     }
 
     @ConditionalOnMissingBean(value = [GraphQLApiDataElementSourceProviderFactory::class])
     @Bean
     fun graphQLApiDataElementSourceProviderFactory(
         jsonMapper: JsonMapper,
-        typeDefinitionRegistryFilterProvider: ObjectProvider<TypeDefinitionRegistryFilter>
+        typeDefinitionRegistryTransformerProvider: ObjectProvider<TypeDefinitionRegistryTransformer>
     ): GraphQLApiDataElementSourceProviderFactory {
         return DefaultGraphQLApiDataElementSourceProviderFactory(
             jsonMapper = jsonMapper,
-            typeDefinitionRegistryFilters = typeDefinitionRegistryFilterProvider.toList()
+            typeDefinitionRegistryTransformers = typeDefinitionRegistryTransformerProvider.toList()
         )
     }
 }

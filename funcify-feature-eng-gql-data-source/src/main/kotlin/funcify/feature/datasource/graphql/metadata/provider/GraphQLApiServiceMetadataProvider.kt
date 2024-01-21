@@ -106,7 +106,7 @@ internal class GraphQLApiServiceMetadataProvider(private val jsonMapper: JsonMap
             .map { sdlDefinitions: PersistentList<SDLDefinition<*>> ->
                 TypeDefinitionRegistry().apply {
                     addAll(sdlDefinitions).ifPresent { gqlerror: GraphQLError ->
-                        ServiceError.builder()
+                        throw ServiceError.builder()
                             .message("error during type_definition_registry creation")
                             .cause(gqlerror as? Throwable)
                             .build()

@@ -1,4 +1,4 @@
-package funcify.feature.file.metadata.filter
+package funcify.feature.file.metadata.transformer
 
 import arrow.core.filterIsInstance
 import arrow.core.getOrElse
@@ -6,14 +6,24 @@ import arrow.core.toOption
 import funcify.feature.directive.TransformDirective
 import funcify.feature.error.ServiceError
 import funcify.feature.file.FileRegistryFeatureCalculator
-import funcify.feature.schema.sdl.TypeDefinitionRegistryFilter
+import funcify.feature.schema.sdl.transformer.TypeDefinitionRegistryTransformer
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.OptionExtensions.toOption
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.extensions.TryExtensions.failure
 import funcify.feature.tools.extensions.TryExtensions.successIfDefined
-import graphql.language.*
+import graphql.language.FieldDefinition
+import graphql.language.ImplementingTypeDefinition
+import graphql.language.InputValueDefinition
+import graphql.language.InterfaceTypeDefinition
+import graphql.language.Node
+import graphql.language.NodeVisitor
+import graphql.language.NodeVisitorStub
+import graphql.language.ObjectTypeDefinition
+import graphql.language.TypeDefinition
+import graphql.language.TypeName
+import graphql.language.UnionTypeDefinition
 import graphql.schema.idl.TypeDefinitionRegistry
 import graphql.schema.idl.TypeUtil
 import graphql.util.TraversalControl
@@ -29,14 +39,16 @@ import org.slf4j.Logger
  * @author smccarron
  * @created 2023-08-18
  */
-class TransformAnnotatedFeatureDefinitionsFilter : TypeDefinitionRegistryFilter {
+class TransformAnnotatedFeatureDefinitionsTransformer : TypeDefinitionRegistryTransformer {
 
     companion object {
         private const val QUERY_OBJECT_TYPE_NAME: String = "Query"
-        private val logger: Logger = loggerFor<TransformAnnotatedFeatureDefinitionsFilter>()
+        private val logger: Logger = loggerFor<TransformAnnotatedFeatureDefinitionsTransformer>()
+
         private data class TransformAnnotatedFeatureDefinitionFilterContext(
             val errors: PersistentList<ServiceError>
         )
+
         private class TransformAnnotatedFeatureDefinitionTraverserVisitor(
             private val nodeVisitor: NodeVisitor
         ) : TraverserVisitor<Node<*>> {
@@ -49,7 +61,8 @@ class TransformAnnotatedFeatureDefinitionsFilter : TypeDefinitionRegistryFilter 
                 return TraversalControl.CONTINUE
             }
         }
-        private class TransformAnnotatedFeatureDefinitionVisitor() : NodeVisitorStub() {
+
+        private class TransformAnnotatedFeatureDefinitionVisitor : NodeVisitorStub() {
 
             override fun visitInterfaceTypeDefinition(
                 node: InterfaceTypeDefinition,
@@ -151,7 +164,7 @@ class TransformAnnotatedFeatureDefinitionsFilter : TypeDefinitionRegistryFilter 
         }
     }
 
-    override fun filter(
+    override fun transform(
         typeDefinitionRegistry: TypeDefinitionRegistry
     ): Result<TypeDefinitionRegistry> {
         logger.debug(

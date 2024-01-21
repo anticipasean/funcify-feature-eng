@@ -1,4 +1,4 @@
-package funcify.feature.schema.sdl
+package funcify.feature.schema.sdl.transformer
 
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import graphql.schema.idl.TypeDefinitionRegistry
@@ -8,28 +8,29 @@ import org.slf4j.Logger
  * @author smccarron
  * @created 2023-06-30
  */
-class CompositeTypeDefinitionRegistryFilter(
-    private val typeDefinitionRegistryFilters: List<TypeDefinitionRegistryFilter> = listOf()
-) : TypeDefinitionRegistryFilter {
+class CompositeTypeDefinitionRegistryTransformer(
+    private val typeDefinitionRegistryTransformers: List<TypeDefinitionRegistryTransformer> =
+        listOf()
+) : TypeDefinitionRegistryTransformer {
 
     companion object {
-        private val logger: Logger = loggerFor<CompositeTypeDefinitionRegistryFilter>()
+        private val logger: Logger = loggerFor<CompositeTypeDefinitionRegistryTransformer>()
     }
 
-    override fun filter(
+    override fun transform(
         typeDefinitionRegistry: TypeDefinitionRegistry
     ): Result<TypeDefinitionRegistry> {
         logger.debug(
             "filter: [ type_definition_registry.types.size: {} ]",
             typeDefinitionRegistry.types().size
         )
-        return typeDefinitionRegistryFilters.fold(Result.success(typeDefinitionRegistry)) {
+        return typeDefinitionRegistryTransformers.fold(Result.success(typeDefinitionRegistry)) {
             r: Result<TypeDefinitionRegistry>,
-            f: TypeDefinitionRegistryFilter ->
+            f: TypeDefinitionRegistryTransformer ->
             try {
                 when {
                     r.isSuccess -> {
-                        f.filter(r.getOrThrow())
+                        f.transform(r.getOrThrow())
                     }
                     else -> {
                         r

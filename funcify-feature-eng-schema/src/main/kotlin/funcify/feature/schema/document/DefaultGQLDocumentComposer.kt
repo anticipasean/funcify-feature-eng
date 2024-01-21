@@ -21,7 +21,7 @@ import funcify.feature.schema.path.operation.GQLOperationPath
 import funcify.feature.schema.path.operation.InlineFragmentSegment
 import funcify.feature.schema.path.operation.SelectedField
 import funcify.feature.schema.path.operation.SelectionSegment
-import funcify.feature.schema.sdl.GraphQLNullableSDLTypeComposer
+import funcify.feature.schema.sdl.type.GraphQLNullableSDLTypeComposer
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.FunctionExtensions.compose
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
@@ -66,10 +66,6 @@ import graphql.schema.GraphQLSchema
 import graphql.schema.GraphQLType
 import graphql.schema.GraphQLTypeUtil
 import graphql.schema.InputValueWithState
-import java.time.Instant
-import java.util.*
-import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.ConcurrentMap
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.PersistentList
 import kotlinx.collections.immutable.PersistentMap
@@ -80,6 +76,10 @@ import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toPersistentList
 import kotlinx.collections.immutable.toPersistentMap
 import org.slf4j.Logger
+import java.time.Instant
+import java.util.*
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ConcurrentMap
 
 /**
  * @author smccarron
