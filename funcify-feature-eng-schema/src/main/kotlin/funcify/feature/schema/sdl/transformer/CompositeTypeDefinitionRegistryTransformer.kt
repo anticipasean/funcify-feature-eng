@@ -24,21 +24,29 @@ class CompositeTypeDefinitionRegistryTransformer(
             "filter: [ type_definition_registry.types.size: {} ]",
             typeDefinitionRegistry.types().size
         )
-        return typeDefinitionRegistryTransformers.fold(Result.success(typeDefinitionRegistry)) {
-            r: Result<TypeDefinitionRegistry>,
-            f: TypeDefinitionRegistryTransformer ->
-            try {
-                when {
-                    r.isSuccess -> {
-                        f.transform(r.getOrThrow())
-                    }
-                    else -> {
-                        r
-                    }
+        return typeDefinitionRegistryTransformers
+            .asSequence()
+            .sortedBy { tdrt: TypeDefinitionRegistryTransformer ->
+                when (tdrt) {
+                    is OrderedTypeDefinitionRegistryTransformer -> tdrt.order
+                    else -> 0
                 }
-            } catch (t: Throwable) {
-                Result.failure(t)
             }
-        }
+            .fold(Result.success(typeDefinitionRegistry)) {
+                r: Result<TypeDefinitionRegistry>,
+                f: TypeDefinitionRegistryTransformer ->
+                try {
+                    when {
+                        r.isSuccess -> {
+                            f.transform(r.getOrThrow())
+                        }
+                        else -> {
+                            r
+                        }
+                    }
+                } catch (t: Throwable) {
+                    Result.failure(t)
+                }
+            }
     }
 }

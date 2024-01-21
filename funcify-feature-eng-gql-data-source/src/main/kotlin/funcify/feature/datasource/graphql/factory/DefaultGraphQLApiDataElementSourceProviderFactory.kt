@@ -1,6 +1,7 @@
 package funcify.feature.datasource.graphql.factory
 
 import arrow.core.continuations.eagerEffect
+import arrow.core.continuations.ensureNotNull
 import funcify.feature.datasource.graphql.GraphQLApiDataElementSource
 import funcify.feature.datasource.graphql.GraphQLApiDataElementSourceProvider
 import funcify.feature.datasource.graphql.GraphQLApiDataElementSourceProviderFactory
@@ -69,7 +70,7 @@ internal class DefaultGraphQLApiDataElementSourceProviderFactory(
                     )
                 }
                 return eagerEffect<String, GraphQLApiDataElementSourceProvider> {
-                        ensure(name != null) { "name of data_element_source not provided" }
+                        ensureNotNull(name) { "name of data_element_source not provided" }
                         ensure(service != null || schemaClassPathResource != null) {
                             "neither a service instance nor a classpath resource mapping to a graphql schema has been provided"
                         }
