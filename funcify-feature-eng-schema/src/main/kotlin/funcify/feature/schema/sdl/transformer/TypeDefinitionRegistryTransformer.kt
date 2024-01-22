@@ -1,6 +1,8 @@
 package funcify.feature.schema.sdl.transformer
 
 import graphql.schema.idl.TypeDefinitionRegistry
+import reactor.core.publisher.Mono
+import reactor.core.publisher.Mono.just
 
 /**
  * @author smccarron
@@ -10,10 +12,8 @@ fun interface TypeDefinitionRegistryTransformer {
 
     companion object {
         val INCLUDE_ALL_DEFINITIONS: TypeDefinitionRegistryTransformer =
-            TypeDefinitionRegistryTransformer { tdr: TypeDefinitionRegistry ->
-                Result.success(tdr)
-            }
+            TypeDefinitionRegistryTransformer(::just)
     }
 
-    fun transform(typeDefinitionRegistry: TypeDefinitionRegistry): Result<TypeDefinitionRegistry>
+    fun transform(typeDefinitionRegistry: TypeDefinitionRegistry): Mono<out TypeDefinitionRegistry>
 }

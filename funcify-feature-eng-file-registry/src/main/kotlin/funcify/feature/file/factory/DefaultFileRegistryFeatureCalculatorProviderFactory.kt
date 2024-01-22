@@ -9,13 +9,16 @@ import funcify.feature.file.FileRegistryFeatureCalculatorProviderFactory
 import funcify.feature.file.metadata.provider.FileRegistryMetadataProvider
 import funcify.feature.file.source.DefaultFileRegistryFeatureCalculator
 import funcify.feature.schema.sdl.SDLDefinitionsSetExtractor
+import funcify.feature.schema.sdl.transformer.CompositeTypeDefinitionRegistryTransformer
 import funcify.feature.schema.sdl.transformer.TypeDefinitionRegistryTransformer
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.container.attempt.Try.Companion.success
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
-import funcify.feature.tools.extensions.ResultExtensions.toMono
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import graphql.schema.idl.TypeDefinitionRegistry
+import kotlinx.collections.immutable.PersistentList
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toPersistentList
 import org.slf4j.Logger
 import org.springframework.core.io.ClassPathResource
 import reactor.core.publisher.Mono
@@ -25,15 +28,20 @@ import reactor.core.publisher.Mono
  * @created 2023-08-16
  */
 internal class DefaultFileRegistryFeatureCalculatorProviderFactory(
-    private val classpathResourceRegistryMetadataProvider: FileRegistryMetadataProvider<ClassPathResource>,
-    private val typeDefinitionRegistryTransformer: TypeDefinitionRegistryTransformer
+    private val classpathResourceRegistryMetadataProvider:
+        FileRegistryMetadataProvider<ClassPathResource>,
+    private val typeDefinitionRegistryTransformers: List<TypeDefinitionRegistryTransformer> =
+        listOf()
 ) : FileRegistryFeatureCalculatorProviderFactory {
 
     companion object {
 
         internal class DefaultBuilder(
-            private val classpathResourceRegistryMetadataProvider: FileRegistryMetadataProvider<ClassPathResource>,
-            private val typeDefinitionRegistryTransformer: TypeDefinitionRegistryTransformer,
+            private val classpathResourceRegistryMetadataProvider:
+                FileRegistryMetadataProvider<ClassPathResource>,
+            private val typeDefinitionRegistryTransformers:
+                PersistentList.Builder<TypeDefinitionRegistryTransformer> =
+                persistentListOf<TypeDefinitionRegistryTransformer>().builder(),
             private var name: String? = null,
             private var schemaClasspathResource: ClassPathResource? = null
         ) : FileRegistryFeatureCalculatorProvider.Builder {
@@ -46,6 +54,13 @@ internal class DefaultFileRegistryFeatureCalculatorProviderFactory(
             ): FileRegistryFeatureCalculatorProvider.Builder =
                 this.apply { this.schemaClasspathResource = schemaClasspathResource }
 
+            override fun addTypeDefinitionRegistryTransformer(
+                typeDefinitionRegistryTransformer: TypeDefinitionRegistryTransformer
+            ): FileRegistryFeatureCalculatorProvider.Builder =
+                this.apply {
+                    this.typeDefinitionRegistryTransformers.add(typeDefinitionRegistryTransformer)
+                }
+
             override fun build(): Try<FileRegistryFeatureCalculatorProvider> {
                 return eagerEffect<String, FileRegistryFeatureCalculatorProvider> {
                         ensureNotNull(name) { "name is null" }
@@ -53,7 +68,10 @@ internal class DefaultFileRegistryFeatureCalculatorProviderFactory(
                         DefaultFileRegistryFeatureCalculatorProvider(
                             classpathResourceRegistryMetadataProvider =
                                 classpathResourceRegistryMetadataProvider,
-                            typeDefinitionRegistryTransformer = typeDefinitionRegistryTransformer,
+                            typeDefinitionRegistryTransformer =
+                                CompositeTypeDefinitionRegistryTransformer(
+                                    typeDefinitionRegistryTransformers.build()
+                                ),
                             name = name!!,
                             graphQLSchemaClasspathResource = schemaClasspathResource!!
                         )
@@ -76,7 +94,8 @@ internal class DefaultFileRegistryFeatureCalculatorProviderFactory(
         }
 
         internal data class DefaultFileRegistryFeatureCalculatorProvider(
-            private val classpathResourceRegistryMetadataProvider: FileRegistryMetadataProvider<ClassPathResource>,
+            private val classpathResourceRegistryMetadataProvider:
+                FileRegistryMetadataProvider<ClassPathResource>,
             private val typeDefinitionRegistryTransformer: TypeDefinitionRegistryTransformer,
             override val name: String,
             private val graphQLSchemaClasspathResource: ClassPathResource
@@ -92,7 +111,7 @@ internal class DefaultFileRegistryFeatureCalculatorProviderFactory(
                 return classpathResourceRegistryMetadataProvider
                     .provideTypeDefinitionRegistry(graphQLSchemaClasspathResource)
                     .flatMap { tdr: TypeDefinitionRegistry ->
-                        typeDefinitionRegistryTransformer.transform(tdr).toMono()
+                        typeDefinitionRegistryTransformer.transform(tdr)
                     }
                     .map { tdr: TypeDefinitionRegistry ->
                         DefaultFileRegistryFeatureCalculator(
@@ -107,7 +126,8 @@ internal class DefaultFileRegistryFeatureCalculatorProviderFactory(
     override fun builder(): FileRegistryFeatureCalculatorProvider.Builder {
         return DefaultBuilder(
             classpathResourceRegistryMetadataProvider = classpathResourceRegistryMetadataProvider,
-            typeDefinitionRegistryTransformer = typeDefinitionRegistryTransformer,
+            typeDefinitionRegistryTransformers =
+                typeDefinitionRegistryTransformers.toPersistentList().builder()
         )
     }
 }

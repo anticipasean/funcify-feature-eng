@@ -5,7 +5,6 @@ import funcify.feature.file.factory.DefaultFileRegistryFeatureCalculatorProvider
 import funcify.feature.file.metadata.provider.FeatureGraphQLSchemaClasspathResourceMetadataProvider
 import funcify.feature.file.metadata.provider.FileRegistryMetadataProvider
 import funcify.feature.file.metadata.transformer.TransformAnnotatedFeatureDefinitionsTransformer
-import funcify.feature.schema.sdl.transformer.CompositeTypeDefinitionRegistryTransformer
 import funcify.feature.schema.sdl.transformer.TypeDefinitionRegistryTransformer
 import org.springframework.beans.factory.ObjectProvider
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
@@ -21,27 +20,23 @@ import org.springframework.core.io.ClassPathResource
 class FileRegistryFeatureCalculatorConfiguration {
 
     @Bean
-    fun classpathResourceFileRegistryMetadataProvider(): FileRegistryMetadataProvider<ClassPathResource> {
+    fun classpathResourceFileRegistryMetadataProvider():
+        FileRegistryMetadataProvider<ClassPathResource> {
         return FeatureGraphQLSchemaClasspathResourceMetadataProvider()
     }
 
     @ConditionalOnMissingBean(value = [FileRegistryFeatureCalculatorProviderFactory::class])
     @Bean
     fun fileRegistryFeatureCalculatorProviderFactory(
-        classpathResourceFileRegistryMetadataProvider: FileRegistryMetadataProvider<ClassPathResource>,
+        classpathResourceFileRegistryMetadataProvider:
+            FileRegistryMetadataProvider<ClassPathResource>,
         typeDefinitionRegistryTransformerProvider: ObjectProvider<TypeDefinitionRegistryTransformer>
     ): FileRegistryFeatureCalculatorProviderFactory {
         return DefaultFileRegistryFeatureCalculatorProviderFactory(
             classpathResourceRegistryMetadataProvider =
                 classpathResourceFileRegistryMetadataProvider,
-            typeDefinitionRegistryTransformer =
-                CompositeTypeDefinitionRegistryTransformer(
-                    typeDefinitionRegistryTransformers =
-                        typeDefinitionRegistryTransformerProvider
-                            .asSequence()
-                            .plus(TransformAnnotatedFeatureDefinitionsTransformer())
-                            .toList()
-                )
+            typeDefinitionRegistryTransformers =
+                listOf(TransformAnnotatedFeatureDefinitionsTransformer())
         )
     }
 }

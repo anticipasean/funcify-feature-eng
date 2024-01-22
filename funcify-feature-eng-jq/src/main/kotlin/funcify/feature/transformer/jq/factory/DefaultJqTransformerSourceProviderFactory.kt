@@ -27,6 +27,7 @@ internal class DefaultJqTransformerSourceProviderFactory(
 ) : JqTransformerSourceProviderFactory {
 
     companion object {
+
         internal class DefaultBuilder(
             private val jsonMapper: JsonMapper,
             private val jqTransformerFactory: JqTransformerFactory,

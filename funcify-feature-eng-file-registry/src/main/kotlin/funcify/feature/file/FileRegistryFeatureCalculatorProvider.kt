@@ -1,16 +1,17 @@
 package funcify.feature.file
 
 import funcify.feature.schema.feature.FeatureCalculatorProvider
+import funcify.feature.schema.sdl.transformer.TypeDefinitionRegistryTransformer
 import funcify.feature.tools.container.attempt.Try
 import org.springframework.core.io.ClassPathResource
 import reactor.core.publisher.Mono
 
 /**
- *
  * @author smccarron
  * @created 2023-08-16
  */
-interface FileRegistryFeatureCalculatorProvider : FeatureCalculatorProvider<FileRegistryFeatureCalculator> {
+interface FileRegistryFeatureCalculatorProvider :
+    FeatureCalculatorProvider<FileRegistryFeatureCalculator> {
 
     override val name: String
 
@@ -22,8 +23,10 @@ interface FileRegistryFeatureCalculatorProvider : FeatureCalculatorProvider<File
 
         fun graphQLSchemaClasspathResource(schemaClasspathResource: ClassPathResource): Builder
 
+        fun addTypeDefinitionRegistryTransformer(
+            typeDefinitionRegistryTransformer: TypeDefinitionRegistryTransformer
+        ): Builder
+
         fun build(): Try<FileRegistryFeatureCalculatorProvider>
-
     }
-
 }

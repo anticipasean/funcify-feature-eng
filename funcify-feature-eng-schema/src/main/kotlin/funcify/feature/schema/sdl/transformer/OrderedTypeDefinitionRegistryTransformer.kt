@@ -2,6 +2,7 @@ package funcify.feature.schema.sdl.transformer
 
 import graphql.schema.idl.TypeDefinitionRegistry
 import org.springframework.core.Ordered
+import reactor.core.publisher.Mono
 
 /**
  * @author smccarron
@@ -15,5 +16,5 @@ interface OrderedTypeDefinitionRegistryTransformer : TypeDefinitionRegistryTrans
 
     override fun transform(
         typeDefinitionRegistry: TypeDefinitionRegistry
-    ): Result<TypeDefinitionRegistry>
+    ): Mono<out TypeDefinitionRegistry>
 }

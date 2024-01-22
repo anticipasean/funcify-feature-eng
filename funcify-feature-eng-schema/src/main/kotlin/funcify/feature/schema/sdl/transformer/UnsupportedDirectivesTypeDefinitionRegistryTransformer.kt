@@ -5,12 +5,14 @@ import funcify.feature.error.ServiceError
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flatten
+import funcify.feature.tools.extensions.TryExtensions.foldIntoTry
 import graphql.language.DirectiveDefinition
 import graphql.language.EnumTypeDefinition
 import graphql.language.InputObjectTypeDefinition
 import graphql.language.SDLNamedDefinition
 import graphql.schema.idl.TypeDefinitionRegistry
 import org.slf4j.Logger
+import reactor.core.publisher.Mono
 
 /**
  * @author smccarron
@@ -28,10 +30,10 @@ class UnsupportedDirectivesTypeDefinitionRegistryTransformer(
 
     override fun transform(
         typeDefinitionRegistry: TypeDefinitionRegistry
-    ): Result<TypeDefinitionRegistry> {
+    ): Mono<out TypeDefinitionRegistry> {
         if (logger.isDebugEnabled) {
             logger.debug(
-                "filter: [ type_definition_registry.directive_definitions.name: {} ]",
+                "transform: [ type_definition_registry.directive_definitions.name: {} ]",
                 typeDefinitionRegistry.directiveDefinitions.keys.asSequence().joinToString(", ")
             )
         }
@@ -44,7 +46,7 @@ class UnsupportedDirectivesTypeDefinitionRegistryTransformer(
                 ->
                 name !in supportedDirectiveDefinitionNamesSet
             } -> {
-                Result.failure<TypeDefinitionRegistry>(
+                Try.failure<TypeDefinitionRegistry>(
                     ServiceError.of(
                         "unsupported directive_definitions found in type_definition_registry: [ names: %s ]",
                         typeDefinitionRegistry.directiveDefinitions.keys
@@ -78,34 +80,29 @@ class UnsupportedDirectivesTypeDefinitionRegistryTransformer(
                             materializationDirectiveRegistry
                                 .getReferencedInputObjectTypeDefinitionWithName(sd.name) != null
                     }
-                    .fold(Try.success(typeDefinitionRegistry)) {
-                        tdrAttempt: Try<TypeDefinitionRegistry>,
+                    .foldIntoTry(typeDefinitionRegistry) {
+                        tdr: TypeDefinitionRegistry,
                         sd: SDLNamedDefinition<*> ->
-                        tdrAttempt.flatMap { tdr: TypeDefinitionRegistry ->
-                            Try.attempt {
-                                    tdr.remove(sd)
-                                    tdr
-                                }
-                                .mapFailure { t: Throwable ->
-                                    ServiceError.builder()
-                                        .message(
-                                            """error occurred when removing sdl_definition related to a 
-                                            |materialization_directive
-                                            |[ name: %s ] 
-                                            |from type_definition_registry"""
-                                                .flatten()
-                                                .format(sd.name)
-                                        )
-                                        .cause(t)
-                                        .build()
-                                }
+                        try {
+                            tdr.apply { remove(sd) }
+                        } catch (e: Exception) {
+                            throw ServiceError.builder()
+                                .message(
+                                    """error occurred when removing sdl_definition related to a 
+                                    |materialization_directive
+                                    |[ name: %s ] 
+                                    |from type_definition_registry"""
+                                        .flatten()
+                                        .format(sd.name)
+                                )
+                                .cause(e)
+                                .build()
                         }
                     }
-                    .toResult()
             }
             else -> {
-                Result.success(typeDefinitionRegistry)
+                Try.success(typeDefinitionRegistry)
             }
-        }
+        }.toMono()
     }
 }

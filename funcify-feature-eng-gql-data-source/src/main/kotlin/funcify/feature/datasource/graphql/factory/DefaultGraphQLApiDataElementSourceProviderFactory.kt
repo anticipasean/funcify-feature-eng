@@ -16,9 +16,11 @@ import funcify.feature.schema.sdl.transformer.CompositeTypeDefinitionRegistryTra
 import funcify.feature.schema.sdl.transformer.TypeDefinitionRegistryTransformer
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
-import funcify.feature.tools.extensions.ResultExtensions.toMono
 import funcify.feature.tools.json.JsonMapper
 import graphql.schema.idl.TypeDefinitionRegistry
+import kotlinx.collections.immutable.PersistentList
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toPersistentList
 import org.slf4j.Logger
 import org.springframework.core.io.ClassPathResource
 import reactor.core.publisher.Mono
@@ -32,7 +34,9 @@ internal class DefaultGraphQLApiDataElementSourceProviderFactory(
     companion object {
 
         internal class DefaultBuilder(
-            private val typeDefinitionRegistryTransformer: TypeDefinitionRegistryTransformer,
+            private val typeDefinitionRegistryTransformers:
+                PersistentList.Builder<TypeDefinitionRegistryTransformer> =
+                persistentListOf<TypeDefinitionRegistryTransformer>().builder(),
             private val jsonMapper: JsonMapper,
             private var name: String? = null,
             private var service: GraphQLApiService? = null,
@@ -43,24 +47,24 @@ internal class DefaultGraphQLApiDataElementSourceProviderFactory(
                 private val logger: Logger = loggerFor<DefaultBuilder>()
             }
 
-            override fun name(name: String): GraphQLApiDataElementSourceProvider.Builder {
-                this.name = name
-                return this
-            }
+            override fun name(name: String): GraphQLApiDataElementSourceProvider.Builder =
+                this.apply { this.name = name }
 
             override fun graphQLApiService(
                 service: GraphQLApiService
-            ): GraphQLApiDataElementSourceProvider.Builder {
-                this.service = service
-                return this
-            }
+            ): GraphQLApiDataElementSourceProvider.Builder = this.apply { this.service = service }
 
             override fun graphQLSchemaClasspathResource(
                 schemaClassPathResource: ClassPathResource
-            ): GraphQLApiDataElementSourceProvider.Builder {
-                this.schemaClassPathResource = schemaClassPathResource
-                return this
-            }
+            ): GraphQLApiDataElementSourceProvider.Builder =
+                this.apply { this.schemaClassPathResource = schemaClassPathResource }
+
+            override fun addTypeDefinitionRegistryTransformer(
+                typeDefinitionRegistryTransformer: TypeDefinitionRegistryTransformer
+            ): GraphQLApiDataElementSourceProvider.Builder =
+                this.apply {
+                    this.typeDefinitionRegistryTransformers.add(typeDefinitionRegistryTransformer)
+                }
 
             override fun build(): Try<GraphQLApiDataElementSourceProvider> {
                 if (logger.isDebugEnabled) {
@@ -74,6 +78,11 @@ internal class DefaultGraphQLApiDataElementSourceProviderFactory(
                         ensure(service != null || schemaClassPathResource != null) {
                             "neither a service instance nor a classpath resource mapping to a graphql schema has been provided"
                         }
+                        val typeDefinitionRegistryTransformer: TypeDefinitionRegistryTransformer =
+                            CompositeTypeDefinitionRegistryTransformer(
+                                typeDefinitionRegistryTransformers =
+                                    typeDefinitionRegistryTransformers.build()
+                            )
                         when {
                             schemaClassPathResource != null && service != null -> {
                                 DefaultServiceAndSchemaBackedDataElementSourceProvider(
@@ -137,7 +146,7 @@ internal class DefaultGraphQLApiDataElementSourceProviderFactory(
                 return metadataProvider
                     .provideTypeDefinitionRegistry(schemaClassPathResource)
                     .flatMap { tdr: TypeDefinitionRegistry ->
-                        typeDefinitionRegistryTransformer.transform(tdr).toMono()
+                        typeDefinitionRegistryTransformer.transform(tdr)
                     }
                     .map { tdr: TypeDefinitionRegistry ->
                         DefaultServiceBackedDataElementSource(
@@ -166,7 +175,7 @@ internal class DefaultGraphQLApiDataElementSourceProviderFactory(
                 return metadataProvider
                     .provideTypeDefinitionRegistry(graphQLApiService)
                     .flatMap { td: TypeDefinitionRegistry ->
-                        typeDefinitionRegistryTransformer.transform(td).toMono()
+                        typeDefinitionRegistryTransformer.transform(td)
                     }
                     .map { tdr: TypeDefinitionRegistry ->
                         DefaultServiceBackedDataElementSource(
@@ -196,7 +205,7 @@ internal class DefaultGraphQLApiDataElementSourceProviderFactory(
                 return metadataProvider
                     .provideTypeDefinitionRegistry(schemaClassPathResource)
                     .flatMap { tdr: TypeDefinitionRegistry ->
-                        typeDefinitionRegistryTransformer.transform(tdr).toMono()
+                        typeDefinitionRegistryTransformer.transform(tdr)
                     }
                     .map { tdr: TypeDefinitionRegistry ->
                         DefaultSchemaOnlyDataElementSource(
@@ -211,8 +220,8 @@ internal class DefaultGraphQLApiDataElementSourceProviderFactory(
     override fun builder(): GraphQLApiDataElementSourceProvider.Builder {
         return DefaultBuilder(
             jsonMapper = jsonMapper,
-            typeDefinitionRegistryTransformer =
-                CompositeTypeDefinitionRegistryTransformer(typeDefinitionRegistryTransformers)
+            typeDefinitionRegistryTransformers =
+                typeDefinitionRegistryTransformers.toPersistentList().builder()
         )
     }
 }

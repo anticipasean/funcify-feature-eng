@@ -4,15 +4,15 @@ import funcify.feature.tools.container.async.KFuture
 import funcify.feature.tools.container.attempt.Success
 import funcify.feature.tools.container.attempt.Try
 import java.util.concurrent.CompletableFuture
+import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 
 object MonoExtensions {
 
     private val NULL_RESULT_EXCEPTION: IllegalArgumentException by lazy {
         IllegalArgumentException(
-            "%s.result must be non-null but given result is null".format(
-                Success::class.qualifiedName
-            )
+            "%s.result must be non-null but given result is null"
+                .format(Success::class.qualifiedName)
         )
     }
 
@@ -67,5 +67,34 @@ object MonoExtensions {
     fun <N : W, W> Mono<out N>.widen(): Mono<W> {
         @Suppress("UNCHECKED_CAST") //
         return this as Mono<W>
+    }
+
+    inline fun <reified T, reified R> Sequence<T>?.foldIntoMono(
+        initial: R,
+        crossinline accumulator: (R, T) -> R
+    ): Mono<out R> {
+        return Flux.fromIterable(this?.asIterable() ?: emptyList()).reduce(initial) { r: R, t: T ->
+            accumulator.invoke(r, t)
+        }
+    }
+
+    inline fun <reified T, reified R> Sequence<T>?.foldMapIntoMono(
+        initial: R,
+        crossinline accumulator: (R, T) -> Mono<out R>
+    ): Mono<out R> {
+        return (this ?: emptySequence()).fold(Mono.just(initial)) { rPub: Mono<out R>, t: T ->
+            rPub.flatMap { r: R -> accumulator.invoke(r, t) }
+        }
+    }
+
+    inline fun <reified T> Mono<out Mono<out T>>?.flatten(): Mono<out T> {
+        return when {
+            this == null -> {
+                Mono.empty<T>()
+            }
+            else -> {
+                this.flatMap { tPub: Mono<out T> -> tPub }
+            }
+        }
     }
 }

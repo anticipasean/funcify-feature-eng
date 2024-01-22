@@ -34,6 +34,7 @@ import graphql.util.TraverserVisitor
 import kotlinx.collections.immutable.PersistentList
 import kotlinx.collections.immutable.persistentListOf
 import org.slf4j.Logger
+import reactor.core.publisher.Mono
 
 /**
  * @author smccarron
@@ -166,9 +167,9 @@ class TransformAnnotatedFeatureDefinitionsTransformer : TypeDefinitionRegistryTr
 
     override fun transform(
         typeDefinitionRegistry: TypeDefinitionRegistry
-    ): Result<TypeDefinitionRegistry> {
+    ): Mono<out TypeDefinitionRegistry> {
         logger.debug(
-            "filter: [ type_definition_registry.types.size: {} ]",
+            "transform: [ type_definition_registry.types.size: {} ]",
             typeDefinitionRegistry.types().size
         )
         return typeDefinitionRegistry
@@ -211,7 +212,7 @@ class TransformAnnotatedFeatureDefinitionsTransformer : TypeDefinitionRegistryTr
                     Try.success(typeDefinitionRegistry)
                 }
             }
-            .toResult()
+            .toMono()
     }
 
     private fun nodeTraversalFunction(

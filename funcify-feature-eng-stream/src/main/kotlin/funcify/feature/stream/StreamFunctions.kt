@@ -13,6 +13,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode
 import com.fasterxml.jackson.databind.node.TextNode
 import funcify.feature.datasource.graphql.GraphQLApiDataElementSourceProvider
 import funcify.feature.datasource.graphql.GraphQLApiDataElementSourceProviderFactory
+import funcify.feature.datasource.graphql.metadata.transformer.InternalQueryExcludingTypeDefinitionRegistryTransformer
 import funcify.feature.error.ServiceError
 import funcify.feature.file.FileRegistryFeatureCalculatorProvider
 import funcify.feature.file.FileRegistryFeatureCalculatorProviderFactory
@@ -139,6 +140,9 @@ class StreamFunctions {
             .builder()
             .name("netflix_shows")
             .graphQLSchemaClasspathResource(graphQLSchemaFile)
+            .addTypeDefinitionRegistryTransformer(
+                InternalQueryExcludingTypeDefinitionRegistryTransformer()
+            )
             .build()
             .peek(
                 { p: GraphQLApiDataElementSourceProvider ->
