@@ -797,8 +797,8 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                         )
                     ) {
                         pv: TrackableValue.PlannedValue<JsonNode>,
-                        ap: ImmutableMap<GQLOperationPath, Mono<JsonNode>> ->
-                        val featurePublisher: Mono<TrackableValue<JsonNode>> =
+                        ap: ImmutableMap<GQLOperationPath, Mono<out JsonNode>> ->
+                        val featurePublisher: Mono<out TrackableValue<JsonNode>> =
                             c.requestMaterializationGraph.featureJsonValueStoreByPath
                                 .getOrNone(path)
                                 .map { fjvs: FeatureJsonValueStore ->
@@ -974,7 +974,7 @@ internal class DefaultSingleRequestMaterializationDispatchService(
         argumentGroup: ImmutableMap<String, GQLOperationPath>,
         featurePath: GQLOperationPath,
         featureCalculatorCallable: FeatureCalculatorCallable
-    ): Try<ImmutableMap<GQLOperationPath, Mono<JsonNode>>> {
+    ): Try<ImmutableMap<GQLOperationPath, Mono<out JsonNode>>> {
         return argumentGroup
             .asSequence()
             .map { (n: String, p: GQLOperationPath) ->
@@ -1004,8 +1004,8 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                     }
                 }
             }
-            .tryFold(persistentMapOf<GQLOperationPath, Mono<JsonNode>>()) {
-                pm: PersistentMap<GQLOperationPath, Mono<JsonNode>>,
+            .tryFold(persistentMapOf<GQLOperationPath, Mono<out JsonNode>>()) {
+                pm: PersistentMap<GQLOperationPath, Mono<out JsonNode>>,
                 (p: GQLOperationPath, e: MaterializationEdge) ->
                 when (e) {
                         MaterializationEdge.DEFAULT_ARGUMENT_VALUE_PROVIDED -> {
@@ -1116,7 +1116,7 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                                 .failure()
                         }
                     }
-                    .map { ppp: Pair<GQLOperationPath, Mono<JsonNode>> -> pm.plus(ppp) }
+                    .map { ppp: Pair<GQLOperationPath, Mono<out JsonNode>> -> pm.plus(ppp) }
                     .orElseThrow()
             }
     }
@@ -1125,7 +1125,7 @@ internal class DefaultSingleRequestMaterializationDispatchService(
         context: DispatchedRequestMaterializationGraphContext,
         argumentPath: GQLOperationPath,
         argumentGroupIndex: Int,
-    ): Try<Pair<GQLOperationPath, Mono<JsonNode>>> {
+    ): Try<Pair<GQLOperationPath, Mono<out JsonNode>>> {
         logger.debug(
             """create_argument_publisher_for_dependent_data_element_or_feature: 
                 |[ argument_path: {}, 
@@ -1213,7 +1213,7 @@ internal class DefaultSingleRequestMaterializationDispatchService(
         context: DispatchedRequestMaterializationGraphContext,
         lineFromDataElementFieldToItsSource: DirectedLine<GQLOperationPath>,
         argumentPath: GQLOperationPath,
-    ): Try<Pair<GQLOperationPath, Mono<JsonNode>>> {
+    ): Try<Pair<GQLOperationPath, Mono<out JsonNode>>> {
         logger.debug(
             "create_argument_publisher_for_dependent_data_element: [ line: {}, argument_path: {} ]",
             lineFromDataElementFieldToItsSource,
@@ -1230,7 +1230,7 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                     lineFromDataElementFieldToItsSource.destinationPoint
                 )
             }
-            .map { dep: Mono<JsonNode> ->
+            .map { dep: Mono<out JsonNode> ->
                 dep.flatMap { jn: JsonNode ->
                     logger.debug(
                         "value published for [ line: {}, value: {} ]",
@@ -1270,26 +1270,26 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                         .toMono()
                 }
             }
-            .map { dep: Mono<JsonNode> -> argumentPath to dep }
+            .map { dep: Mono<out JsonNode> -> argumentPath to dep }
     }
 
     private fun createArgumentPublisherForDependentFeature(
         context: DispatchedRequestMaterializationGraphContext,
         argumentPath: GQLOperationPath,
         argumentGroupIndex: Int,
-    ): Try<Pair<GQLOperationPath, Mono<JsonNode>>> {
+    ): Try<Pair<GQLOperationPath, Mono<out JsonNode>>> {
         return context.featureCalculatorPublishersByOperationPath
             .getOrNone(argumentPath)
-            .filter { fps: ImmutableList<Mono<TrackableValue<JsonNode>>> ->
+            .filter { fps: ImmutableList<Mono<out TrackableValue<JsonNode>>> ->
                 // TODO: Figure out the correct index to fetch
                 // from dependent
                 // feature list of trackable value publishers
                 argumentGroupIndex in fps.indices
             }
-            .map { fps: ImmutableList<Mono<TrackableValue<JsonNode>>> ->
+            .map { fps: ImmutableList<Mono<out TrackableValue<JsonNode>>> ->
                 fps.get(argumentGroupIndex)
             }
-            .map { fp: Mono<TrackableValue<JsonNode>> ->
+            .map { fp: Mono<out TrackableValue<JsonNode>> ->
                 fp.flatMap { tv: TrackableValue<JsonNode> ->
                     when (tv) {
                         is TrackableValue.PlannedValue<JsonNode> -> {
@@ -1311,7 +1311,7 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                     }
                 }
             }
-            .map { fp: Mono<JsonNode> -> argumentPath to fp }
+            .map { fp: Mono<out JsonNode> -> argumentPath to fp }
             .successIfDefined {
                 ServiceError.of(
                     """dependent feature value [ %s ] not found 

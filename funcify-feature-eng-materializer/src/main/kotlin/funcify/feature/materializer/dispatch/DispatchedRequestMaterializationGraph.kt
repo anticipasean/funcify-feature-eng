@@ -15,12 +15,12 @@ interface DispatchedRequestMaterializationGraph {
 
     val materializedArgumentsByPath: ImmutableMap<GQLOperationPath, JsonNode>
 
-    val transformerPublishersByPath: ImmutableMap<GQLResultPath, Mono<JsonNode>>
+    val transformerPublishersByPath: ImmutableMap<GQLResultPath, Mono<out JsonNode>>
 
-    val dataElementPublishersByPath: ImmutableMap<GQLResultPath, Mono<JsonNode>>
+    val dataElementPublishersByPath: ImmutableMap<GQLResultPath, Mono<out JsonNode>>
 
     val featureCalculatorPublishersByPath:
-        ImmutableMap<GQLResultPath, Mono<TrackableValue<JsonNode>>>
+        ImmutableMap<GQLResultPath, Mono<out TrackableValue<JsonNode>>>
 
     val passThruColumns: ImmutableMap<String, JsonNode>
 }

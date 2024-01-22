@@ -4,6 +4,7 @@ import funcify.feature.datasource.graphql.GraphQLApiDataElementSourceProviderFac
 import funcify.feature.datasource.graphql.GraphQLApiServiceFactory
 import funcify.feature.datasource.graphql.factory.DefaultGraphQLApiDataElementSourceProviderFactory
 import funcify.feature.datasource.graphql.factory.DefaultGraphQLApiServiceFactory
+import funcify.feature.schema.sdl.transformer.TypeDefinitionRegistryTransformer
 import funcify.feature.tools.json.JsonMapper
 import org.springframework.beans.factory.ObjectProvider
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
@@ -37,7 +38,11 @@ class GraphQLDataElementSourceConfiguration {
     @Bean
     fun graphQLApiDataElementSourceProviderFactory(
         jsonMapper: JsonMapper,
+        typeDefinitionRegistryTransformerProvider: ObjectProvider<TypeDefinitionRegistryTransformer>
     ): GraphQLApiDataElementSourceProviderFactory {
-        return DefaultGraphQLApiDataElementSourceProviderFactory(jsonMapper = jsonMapper)
+        return DefaultGraphQLApiDataElementSourceProviderFactory(
+            jsonMapper = jsonMapper,
+            typeDefinitionRegistryTransformers = typeDefinitionRegistryTransformerProvider.toList()
+        )
     }
 }

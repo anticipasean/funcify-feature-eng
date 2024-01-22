@@ -34,9 +34,6 @@ import graphql.language.SelectionSet
 import graphql.schema.FieldCoordinates
 import graphql.schema.GraphQLImplementingType
 import graphql.schema.GraphQLTypeUtil
-import java.util.*
-import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.ConcurrentMap
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentMapOf
@@ -46,6 +43,9 @@ import org.slf4j.Logger
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.core.publisher.Mono.empty
+import java.util.*
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ConcurrentMap
 
 internal class DefaultSingleRequestFieldValueMaterializer(
     private val jsonMapper: JsonMapper,
@@ -220,7 +220,7 @@ internal class DefaultSingleRequestFieldValueMaterializer(
         return Flux.merge(
                 dispatchedRequestMaterializationGraph.featureCalculatorPublishersByPath
                     .asSequence()
-                    .map { (rp: GQLResultPath, fp: Mono<TrackableValue<JsonNode>>) ->
+                    .map { (rp: GQLResultPath, fp: Mono<out TrackableValue<JsonNode>>) ->
                         fp.flatMap { tv: TrackableValue<JsonNode> ->
                             when {
                                 tv.isPlanned() -> {
@@ -455,7 +455,7 @@ internal class DefaultSingleRequestFieldValueMaterializer(
                 dispatchedRequestMaterializationGraph.transformerPublishersByPath -> {
                 dispatchedRequestMaterializationGraph.transformerPublishersByPath
                     .getOrNone(session.gqlResultPath)
-                    .map { tp: Mono<JsonNode> ->
+                    .map { tp: Mono<out JsonNode> ->
                         tp.flatMap { jn: JsonNode ->
                             JsonNodeToStandardValueConverter.invoke(jn, session.fieldOutputType)
                                 .toMono()

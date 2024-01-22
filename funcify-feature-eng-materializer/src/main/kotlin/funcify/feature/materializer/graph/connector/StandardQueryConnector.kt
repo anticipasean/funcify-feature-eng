@@ -1633,14 +1633,7 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
                 )
                 .putTransformerCallableForPath(
                     selectedFieldComponentContext.path,
-                    tsts.transformerSource
-                        .builder()
-                        .selectTransformer(
-                            tsts.transformerFieldCoordinates,
-                            tsts.transformerPath,
-                            tsts.transformerFieldDefinition
-                        )
-                        .build()
+                    tsts.transformerSource.builder().selectTransformer(tsts).build()
                 )
                 .putConnectedFieldPathForCoordinates(
                     selectedFieldComponentContext.fieldCoordinates,
@@ -1749,13 +1742,7 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
                     }
                     .orElseThrow()
             val fcb: FeatureCalculatorCallable.Builder =
-                fsfc.featureCalculator
-                    .builder()
-                    .selectFeature(
-                        fsfc.featureFieldCoordinates,
-                        fsfc.featurePath,
-                        fsfc.featureFieldDefinition
-                    )
+                fsfc.featureCalculator.builder().selectFeature(fsfc)
             val tc: TransformerCallable =
                 connectorContext.materializationMetamodel
                     .transformerSpecifiedTransformerSourcesByCoordinates
@@ -1768,14 +1755,7 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
                         )
                     }
                     .map { tsts: TransformerSpecifiedTransformerSource ->
-                        tsts.transformerSource
-                            .builder()
-                            .selectTransformer(
-                                tsts.transformerFieldCoordinates,
-                                tsts.transformerPath,
-                                tsts.transformerFieldDefinition
-                            )
-                            .build()
+                        tsts.transformerSource.builder().selectTransformer(tsts).build()
                     }
                     .orElseThrow()
             sqb.requestGraph(

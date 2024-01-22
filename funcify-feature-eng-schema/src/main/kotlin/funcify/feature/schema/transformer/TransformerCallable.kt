@@ -12,26 +12,34 @@ import reactor.core.publisher.Mono
  * @author smccarron
  * @created 2023-08-01
  */
-interface TransformerCallable : (ImmutableMap<String, JsonNode>) -> Mono<JsonNode> {
+interface TransformerCallable : (ImmutableMap<String, JsonNode>) -> Mono<out JsonNode> {
+
+    val transformerSpecifiedTransformerSource: TransformerSpecifiedTransformerSource
 
     val transformerFieldCoordinates: FieldCoordinates
+        get() = transformerSpecifiedTransformerSource.transformerFieldCoordinates
 
     val transformerPath: GQLOperationPath
+        get() = transformerSpecifiedTransformerSource.transformerPath
 
     val transformerGraphQLFieldDefinition: GraphQLFieldDefinition
+        get() = transformerSpecifiedTransformerSource.transformerFieldDefinition
 
     val argumentsByName: ImmutableMap<String, GraphQLArgument>
+        get() = transformerSpecifiedTransformerSource.argumentsByName
 
     val argumentsByPath: ImmutableMap<GQLOperationPath, GraphQLArgument>
+        get() = transformerSpecifiedTransformerSource.argumentsByPath
 
-    override fun invoke(arguments: ImmutableMap<String, JsonNode>): Mono<JsonNode>
+    val defaultArgumentValuesByName: ImmutableMap<String, JsonNode>
+        get() = transformerSpecifiedTransformerSource.defaultArgumentValuesByName
+
+    override fun invoke(arguments: ImmutableMap<String, JsonNode>): Mono<out JsonNode>
 
     interface Builder {
 
         fun selectTransformer(
-            coordinates: FieldCoordinates,
-            path: GQLOperationPath,
-            graphQLFieldDefinition: GraphQLFieldDefinition
+            transformerSpecifiedTransformerSource: TransformerSpecifiedTransformerSource
         ): Builder
 
         fun build(): TransformerCallable

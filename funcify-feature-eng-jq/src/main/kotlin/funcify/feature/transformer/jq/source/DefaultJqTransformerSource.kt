@@ -16,7 +16,6 @@ internal class DefaultJqTransformerSource(
 ) : JqTransformerSource {
 
     override fun builder(): TransformerCallable.Builder {
-        return DefaultJqTransformerCallableBuilder(name, jqTransformersByName)
+        return DefaultJqTransformerCallableBuilder(jqTransformersByName = jqTransformersByName)
     }
-
 }

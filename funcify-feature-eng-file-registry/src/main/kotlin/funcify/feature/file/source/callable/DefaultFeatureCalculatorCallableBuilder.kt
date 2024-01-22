@@ -5,28 +5,18 @@ import arrow.core.continuations.ensureNotNull
 import arrow.core.identity
 import funcify.feature.error.ServiceError
 import funcify.feature.schema.feature.FeatureCalculatorCallable
-import funcify.feature.schema.path.operation.GQLOperationPath
+import funcify.feature.schema.feature.FeatureSpecifiedFeatureCalculator
 import funcify.feature.schema.transformer.TransformerCallable
-import graphql.schema.FieldCoordinates
-import graphql.schema.GraphQLFieldDefinition
 
 internal class DefaultFeatureCalculatorCallableBuilder(
-    private var featureFieldCoordinates: FieldCoordinates? = null,
-    private var featurePath: GQLOperationPath? = null,
-    private var featureGraphQLFieldDefinition: GraphQLFieldDefinition? = null,
+    private var featureSpecifiedFeatureCalculator: FeatureSpecifiedFeatureCalculator? = null,
     private var transformerCallable: TransformerCallable? = null
 ) : FeatureCalculatorCallable.Builder {
 
     override fun selectFeature(
-        coordinates: FieldCoordinates,
-        path: GQLOperationPath,
-        graphQLFieldDefinition: GraphQLFieldDefinition,
+        featureSpecifiedFeatureCalculator: FeatureSpecifiedFeatureCalculator
     ): FeatureCalculatorCallable.Builder =
-        this.apply {
-            featureFieldCoordinates = coordinates
-            featurePath = path
-            featureGraphQLFieldDefinition = graphQLFieldDefinition
-        }
+        this.apply { this.featureSpecifiedFeatureCalculator = featureSpecifiedFeatureCalculator }
 
     override fun setTransformerCallable(
         transformerCallable: TransformerCallable
@@ -35,16 +25,12 @@ internal class DefaultFeatureCalculatorCallableBuilder(
 
     override fun build(): FeatureCalculatorCallable {
         return eagerEffect<String, FeatureCalculatorCallable> {
-                ensureNotNull(featureFieldCoordinates) { "feature_field_coordinates not provided" }
-                ensureNotNull(featurePath) { "feature_path not provided" }
-                ensureNotNull(featureGraphQLFieldDefinition) {
-                    "feature_graphql_field_definition not provided"
+                ensureNotNull(featureSpecifiedFeatureCalculator) {
+                    "feature_specified_feature_calculator not provided"
                 }
                 ensureNotNull(transformerCallable) { "transformer_callable not provided" }
                 DefaultFeatureCalculatorCallable(
-                    featureCoordinates = featureFieldCoordinates!!,
-                    featurePath = featurePath!!,
-                    featureGraphQLFieldDefinition = featureGraphQLFieldDefinition!!,
+                    featureSpecifiedFeatureCalculator = featureSpecifiedFeatureCalculator!!,
                     transformerCallable = transformerCallable!!
                 )
             }

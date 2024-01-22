@@ -6,13 +6,18 @@ import arrow.core.filterIsInstance
 import arrow.core.getOrElse
 import arrow.core.identity
 import arrow.core.lastOrNone
+import arrow.core.toOption
+import com.fasterxml.jackson.databind.JsonNode
 import funcify.feature.error.ServiceError
+import funcify.feature.schema.json.GraphQLValueToJsonNodeConverter
 import funcify.feature.schema.path.operation.FieldSegment
 import funcify.feature.schema.path.operation.GQLOperationPath
 import funcify.feature.schema.transformer.TransformerSource
 import funcify.feature.schema.transformer.TransformerSpecifiedTransformerSource
 import funcify.feature.tools.extensions.PersistentMapExtensions.reduceEntriesToPersistentMap
 import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentMap
+import funcify.feature.tools.extensions.SequenceExtensions.flatMapOptions
+import graphql.language.Value
 import graphql.schema.FieldCoordinates
 import graphql.schema.GraphQLArgument
 import graphql.schema.GraphQLFieldDefinition
@@ -35,6 +40,7 @@ internal data class DefaultTransformerSpecifiedTransformerSource(
             .map { a: GraphQLArgument -> a.name to a }
             .reducePairsToPersistentMap()
     }
+
     override val argumentsByPath: ImmutableMap<GQLOperationPath, GraphQLArgument> by lazy {
         argumentsByName
             .asSequence()
@@ -43,18 +49,21 @@ internal data class DefaultTransformerSpecifiedTransformerSource(
             }
             .reducePairsToPersistentMap()
     }
+
     override val argumentPathsByName: ImmutableMap<String, GQLOperationPath> by lazy {
         argumentsByPath
             .asSequence()
             .map { (p: GQLOperationPath, a: GraphQLArgument) -> a.name to p }
             .reducePairsToPersistentMap()
     }
+
     override val argumentsWithDefaultValuesByName: ImmutableMap<String, GraphQLArgument> by lazy {
         argumentsByName
             .asSequence()
             .filter { (_: String, a: GraphQLArgument) -> a.hasSetDefaultValue() }
             .reduceEntriesToPersistentMap()
     }
+
     override val argumentsWithoutDefaultValuesByName:
         ImmutableMap<String, GraphQLArgument> by lazy {
         argumentsByName
@@ -62,6 +71,7 @@ internal data class DefaultTransformerSpecifiedTransformerSource(
             .filter { (_: String, a: GraphQLArgument) -> !a.hasSetDefaultValue() }
             .reduceEntriesToPersistentMap()
     }
+
     override val argumentsWithoutDefaultValuesByPath:
         ImmutableMap<GQLOperationPath, GraphQLArgument> by lazy {
         argumentsByPath
@@ -69,6 +79,21 @@ internal data class DefaultTransformerSpecifiedTransformerSource(
             .filter { (_: GQLOperationPath, a: GraphQLArgument) -> !a.hasSetDefaultValue() }
             .reduceEntriesToPersistentMap()
     }
+
+    override val defaultArgumentValuesByName: ImmutableMap<String, JsonNode> by lazy {
+        argumentsWithDefaultValuesByName
+            .asSequence()
+            .map { (n: String, a: GraphQLArgument) ->
+                a.argumentDefaultValue
+                    .toOption()
+                    .filterIsInstance<Value<*>>()
+                    .flatMap(GraphQLValueToJsonNodeConverter)
+                    .map { jn: JsonNode -> n to jn }
+            }
+            .flatMapOptions()
+            .reducePairsToPersistentMap()
+    }
+
     companion object {
 
         fun builder(): TransformerSpecifiedTransformerSource.Builder {

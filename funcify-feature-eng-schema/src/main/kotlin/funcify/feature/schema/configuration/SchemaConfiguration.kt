@@ -51,6 +51,9 @@ class SchemaConfiguration {
         return DefaultModelLimits()
     }
 
+    // TODO: Determine whether this logic belongs within the [FeatureEngineeringModelBuildStrategy]
+    // or as is currently, run on each source type_definition_registry definition set before it is
+    // shared with said build strategy
     @Bean
     fun unsupportedDirectivesTypeDefinitionRegistryFilter(
         materializationDirectiveRegistryProvider: ObjectProvider<MaterializationDirectiveRegistry>,

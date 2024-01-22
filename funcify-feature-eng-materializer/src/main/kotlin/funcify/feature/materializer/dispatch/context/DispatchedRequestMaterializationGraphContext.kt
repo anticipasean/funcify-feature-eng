@@ -33,20 +33,20 @@ interface DispatchedRequestMaterializationGraphContext {
 
     val materializedArgumentsByPath: ImmutableMap<GQLOperationPath, JsonNode>
 
-    val transformerPublishersByResultPath: ImmutableMap<GQLResultPath, Mono<JsonNode>>
+    val transformerPublishersByResultPath: ImmutableMap<GQLResultPath, Mono<out JsonNode>>
 
-    val dataElementPublishersByOperationPath: ImmutableMap<GQLOperationPath, Mono<JsonNode>>
+    val dataElementPublishersByOperationPath: ImmutableMap<GQLOperationPath, Mono<out JsonNode>>
 
-    val dataElementPublishersByResultPath: ImmutableMap<GQLResultPath, Mono<JsonNode>>
+    val dataElementPublishersByResultPath: ImmutableMap<GQLResultPath, Mono<out JsonNode>>
 
     val plannedFeatureValuesByPath:
         ImmutableMap<GQLOperationPath, ImmutableList<PlannedValue<JsonNode>>>
 
     val featureCalculatorPublishersByOperationPath:
-        ImmutableMap<GQLOperationPath, ImmutableList<Mono<TrackableValue<JsonNode>>>>
+        ImmutableMap<GQLOperationPath, ImmutableList<Mono<out TrackableValue<JsonNode>>>>
 
     val featureCalculatorPublishersByResultPath:
-        ImmutableMap<GQLResultPath, Mono<TrackableValue<JsonNode>>>
+        ImmutableMap<GQLResultPath, Mono<out TrackableValue<JsonNode>>>
 
     val passThruColumns: ImmutableMap<String, JsonNode>
 
@@ -74,29 +74,29 @@ interface DispatchedRequestMaterializationGraphContext {
 
         fun addTransformerPublisherForResultPath(
             path: GQLResultPath,
-            publisher: Mono<JsonNode>
+            publisher: Mono<out JsonNode>
         ): Builder
 
         fun addAllTransformerPublishersForResultPaths(
-            pathPublisherPairs: Map<GQLResultPath, Mono<JsonNode>>
+            pathPublisherPairs: Map<GQLResultPath, Mono<out JsonNode>>
         ): Builder
 
         fun addDataElementPublisherForOperationPath(
             path: GQLOperationPath,
-            publisher: Mono<JsonNode>
+            publisher: Mono<out JsonNode>
         ): Builder
 
         fun addAllDataElementPublishersForOperationPaths(
-            pathPublisherPairs: Map<GQLOperationPath, Mono<JsonNode>>
+            pathPublisherPairs: Map<GQLOperationPath, Mono<out JsonNode>>
         ): Builder
 
         fun addDataElementPublisherForResultPath(
             path: GQLResultPath,
-            publisher: Mono<JsonNode>
+            publisher: Mono<out JsonNode>
         ): Builder
 
         fun addAllDataElementPublishersForResultPaths(
-            pathPublisherPairs: Map<GQLResultPath, Mono<JsonNode>>
+            pathPublisherPairs: Map<GQLResultPath, Mono<out JsonNode>>
         ): Builder
 
         fun addPlannedFeatureValue(
@@ -106,20 +106,20 @@ interface DispatchedRequestMaterializationGraphContext {
 
         fun addFeatureCalculatorPublisherForOperationPath(
             path: GQLOperationPath,
-            publisher: Mono<TrackableValue<JsonNode>>
+            publisher: Mono<out TrackableValue<JsonNode>>
         ): Builder
 
         fun addAllFeatureCalculatorPublishersForOperationPaths(
-            pathPublisherPairs: Map<GQLOperationPath, List<Mono<TrackableValue<JsonNode>>>>
+            pathPublisherPairs: Map<GQLOperationPath, List<Mono<out TrackableValue<JsonNode>>>>
         ): Builder
 
         fun addFeatureCalculatorPublisherForResultPath(
             path: GQLResultPath,
-            publisher: Mono<TrackableValue<JsonNode>>
+            publisher: Mono<out TrackableValue<JsonNode>>
         ): Builder
 
         fun addAllFeatureCalculatorPublishersForResultPaths(
-            pathPublisherPairs: Map<GQLResultPath, Mono<TrackableValue<JsonNode>>>
+            pathPublisherPairs: Map<GQLResultPath, Mono<out TrackableValue<JsonNode>>>
         ): Builder
 
         fun addPassThruColumn(columnName: String, columnValue: JsonNode): Builder

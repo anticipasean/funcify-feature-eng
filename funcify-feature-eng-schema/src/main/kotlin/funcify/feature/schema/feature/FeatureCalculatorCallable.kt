@@ -15,33 +15,38 @@ import reactor.core.publisher.Mono
  * @created 2023-08-01
  */
 interface FeatureCalculatorCallable :
-    (TrackableValue<JsonNode>, ImmutableMap<GQLOperationPath, Mono<JsonNode>>) -> Mono<
-            TrackableValue<JsonNode>
+    (TrackableValue<JsonNode>, ImmutableMap<GQLOperationPath, Mono<out JsonNode>>) -> Mono<
+            out TrackableValue<JsonNode>
         > {
 
+    val featureSpecifiedFeatureCalculator: FeatureSpecifiedFeatureCalculator
+
     val featureCoordinates: FieldCoordinates
+        get() = featureSpecifiedFeatureCalculator.featureFieldCoordinates
 
     val featurePath: GQLOperationPath
+        get() = featureSpecifiedFeatureCalculator.featurePath
 
     val featureGraphQLFieldDefinition: GraphQLFieldDefinition
+        get() = featureSpecifiedFeatureCalculator.featureFieldDefinition
 
     val argumentsByName: ImmutableMap<String, GraphQLArgument>
+        get() = featureSpecifiedFeatureCalculator.argumentsByName
 
     val argumentsByPath: ImmutableMap<GQLOperationPath, GraphQLArgument>
+        get() = featureSpecifiedFeatureCalculator.argumentsByPath
 
     val transformerCallable: TransformerCallable
 
     override fun invoke(
         trackableFeatureValue: TrackableValue<JsonNode>,
-        arguments: ImmutableMap<GQLOperationPath, Mono<JsonNode>>
-    ): Mono<TrackableValue<JsonNode>>
+        arguments: ImmutableMap<GQLOperationPath, Mono<out JsonNode>>
+    ): Mono<out TrackableValue<JsonNode>>
 
     interface Builder {
 
         fun selectFeature(
-            coordinates: FieldCoordinates,
-            path: GQLOperationPath,
-            graphQLFieldDefinition: GraphQLFieldDefinition
+            featureSpecifiedFeatureCalculator: FeatureSpecifiedFeatureCalculator
         ): Builder
 
         fun setTransformerCallable(transformerCallable: TransformerCallable): Builder

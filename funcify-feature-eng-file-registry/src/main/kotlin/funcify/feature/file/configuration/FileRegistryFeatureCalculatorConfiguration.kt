@@ -36,7 +36,10 @@ class FileRegistryFeatureCalculatorConfiguration {
             classpathResourceRegistryMetadataProvider =
                 classpathResourceFileRegistryMetadataProvider,
             typeDefinitionRegistryTransformers =
-                listOf(TransformAnnotatedFeatureDefinitionsTransformer())
+                typeDefinitionRegistryTransformerProvider
+                    .asSequence()
+                    .plus(TransformAnnotatedFeatureDefinitionsTransformer())
+                    .toList()
         )
     }
 }

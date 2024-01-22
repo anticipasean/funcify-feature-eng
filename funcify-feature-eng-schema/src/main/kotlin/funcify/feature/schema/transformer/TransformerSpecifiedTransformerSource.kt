@@ -1,5 +1,6 @@
 package funcify.feature.schema.transformer
 
+import com.fasterxml.jackson.databind.JsonNode
 import funcify.feature.schema.path.operation.GQLOperationPath
 import graphql.schema.FieldCoordinates
 import graphql.schema.GraphQLArgument
@@ -29,6 +30,8 @@ interface TransformerSpecifiedTransformerSource {
     val argumentsWithoutDefaultValuesByName: ImmutableMap<String, GraphQLArgument>
 
     val argumentsWithoutDefaultValuesByPath: ImmutableMap<GQLOperationPath, GraphQLArgument>
+
+    val defaultArgumentValuesByName: ImmutableMap<String, JsonNode>
 
     val transformerSource: TransformerSource
 
