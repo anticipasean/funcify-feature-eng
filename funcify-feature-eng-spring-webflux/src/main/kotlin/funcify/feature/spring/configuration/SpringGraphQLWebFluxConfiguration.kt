@@ -59,6 +59,7 @@ class SpringGraphQLWebFluxConfiguration {
         rawGraphQLRequestFactory: RawGraphQLRequestFactory,
         graphQLExecutionInputCustomizerProvider: ObjectProvider<GraphQLExecutionInputCustomizer>,
     ): RouterFunction<ServerResponse> {
+        logger.info("graphql_web_flux_router_function: [ enabling graphql endpoint ]")
         return RouterFunctions.route()
             .POST(
                 graphQlProperties.path,
@@ -83,7 +84,7 @@ class SpringGraphQLWebFluxConfiguration {
     fun graphiQLWebFluxRouterFunction(
         graphQlProperties: GraphQlProperties
     ): RouterFunction<ServerResponse> {
-        logger.info("enabling graphiql")
+        logger.info("graphiql_web_flux_router_function: [ enabling graphiql endpoint ]")
         return RouterFunctions.route()
             .GET(
                 graphQlProperties.graphiql.path,
