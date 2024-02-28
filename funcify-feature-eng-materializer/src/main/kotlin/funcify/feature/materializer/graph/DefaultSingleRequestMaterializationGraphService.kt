@@ -52,6 +52,7 @@ import kotlinx.collections.immutable.plus
 import kotlinx.collections.immutable.toPersistentSet
 import org.slf4j.Logger
 import reactor.core.publisher.Mono
+import java.util.concurrent.TimeUnit
 
 /**
  * @author smccarron
@@ -78,7 +79,7 @@ internal class DefaultSingleRequestMaterializationGraphService(
     private val requestMaterializationGraphCache:
         ConcurrentMap<RequestMaterializationGraphCacheKey, RequestMaterializationGraph> by lazy {
         CacheBuilder.newBuilder()
-            .expireAfterWrite(Duration.ofHours(24))
+            .expireAfterWrite(24L, TimeUnit.HOURS)
             .build<RequestMaterializationGraphCacheKey, RequestMaterializationGraph>()
             .asMap()
     }

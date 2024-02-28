@@ -12,7 +12,7 @@ import org.slf4j.Logger
 import org.springframework.aot.hint.RuntimeHints
 import org.springframework.aot.hint.RuntimeHintsRegistrar
 import org.springframework.beans.factory.ObjectProvider
-import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication.Type
 import org.springframework.boot.autoconfigure.graphql.GraphQlCorsProperties
@@ -79,7 +79,11 @@ class SpringGraphQLWebFluxConfiguration {
             .build()
     }
 
-    @ConditionalOnExpression("\${spring.graphql.graphiql.enabled} == true")
+    @ConditionalOnProperty(
+        name = ["spring.graphql.graphiql.enabled"],
+        havingValue = "true",
+        matchIfMissing = true
+    )
     @Bean
     fun graphiQLWebFluxRouterFunction(
         graphQlProperties: GraphQlProperties

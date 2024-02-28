@@ -11,9 +11,10 @@ import funcify.feature.schema.feature.FeatureJsonValueStore
 import funcify.feature.schema.limit.ModelLimits
 import funcify.feature.schema.transformer.TransformerSource
 import funcify.feature.schema.transformer.TransformerSourceProvider
+import graphql.language.SDLDefinition
 import graphql.schema.FieldCoordinates
-import graphql.schema.idl.TypeDefinitionRegistry
 import kotlinx.collections.immutable.PersistentMap
+import kotlinx.collections.immutable.PersistentSet
 
 internal data class DefaultFeatureEngineeringModel(
     override val transformerFieldCoordinates: FieldCoordinates,
@@ -31,6 +32,6 @@ internal data class DefaultFeatureEngineeringModel(
     override val transformerSourcesByName: PersistentMap<String, TransformerSource>,
     override val featureCalculatorsByName: PersistentMap<String, FeatureCalculator>,
     override val scalarTypeRegistry: ScalarTypeRegistry,
-    override val typeDefinitionRegistry: TypeDefinitionRegistry,
+    override val modelDefinitions: PersistentSet<SDLDefinition<*>>,
     override val modelLimits: ModelLimits,
 ) : FeatureEngineeringModel

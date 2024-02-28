@@ -13,7 +13,6 @@ import com.fasterxml.jackson.databind.node.ObjectNode
 import com.fasterxml.jackson.databind.node.TextNode
 import funcify.feature.datasource.graphql.GraphQLApiDataElementSourceProvider
 import funcify.feature.datasource.graphql.GraphQLApiDataElementSourceProviderFactory
-import funcify.feature.datasource.graphql.metadata.transformer.InternalQueryExcludingTypeDefinitionRegistryTransformer
 import funcify.feature.error.ServiceError
 import funcify.feature.file.FileRegistryFeatureCalculatorProvider
 import funcify.feature.file.FileRegistryFeatureCalculatorProviderFactory
@@ -30,6 +29,7 @@ import graphql.ExecutionResult
 import graphql.GraphQL
 import graphql.introspection.IntrospectionQuery
 import graphql.schema.GraphQLSchema
+import java.util.concurrent.CompletableFuture
 import org.dataloader.BatchLoaderEnvironment
 import org.dataloader.DataLoader
 import org.dataloader.DataLoaderFactory
@@ -47,7 +47,6 @@ import org.springframework.messaging.Message
 import org.springframework.messaging.support.GenericMessage
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
-import java.util.concurrent.CompletableFuture
 
 /**
  * @author smccarron
@@ -140,9 +139,6 @@ class StreamFunctions {
             .builder()
             .name("netflix_shows")
             .graphQLSchemaClasspathResource(graphQLSchemaFile)
-            .addTypeDefinitionRegistryTransformer(
-                InternalQueryExcludingTypeDefinitionRegistryTransformer()
-            )
             .build()
             .peek(
                 { p: GraphQLApiDataElementSourceProvider ->

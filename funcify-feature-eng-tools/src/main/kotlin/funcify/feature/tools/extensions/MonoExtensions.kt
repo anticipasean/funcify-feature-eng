@@ -97,4 +97,31 @@ object MonoExtensions {
             }
         }
     }
+
+    /**
+     * Cast required here due to apparent incompatibility with Java and Kotlin type systems on this
+     * onErrorResume function parameter signature:
+     * ```
+     * Function<? super Throwable, ? extends Mono<? extends T>> fallback
+     * ```
+     */
+    fun <T> Mono<out T>.flatMapError(transformer: (Throwable) -> Mono<out T>): Mono<out T> {
+        return this.onErrorResume { t: Throwable ->
+            @Suppress("UNCHECKED_CAST")
+            transformer.invoke(t) as Mono<Nothing>
+        }
+    }
+
+    fun <T> Mono<out T>.filter(
+        condition: (T) -> Boolean,
+        onConditionUnmet: (T) -> Throwable
+    ): Mono<out T> {
+        return this.flatMap { t: T ->
+            if (condition.invoke(t)) {
+                Mono.just(t)
+            } else {
+                Mono.error(onConditionUnmet(t))
+            }
+        }
+    }
 }

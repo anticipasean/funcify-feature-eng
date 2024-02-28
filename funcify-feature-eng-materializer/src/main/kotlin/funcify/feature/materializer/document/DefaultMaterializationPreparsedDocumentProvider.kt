@@ -27,6 +27,7 @@ import reactor.core.publisher.Mono
 import java.time.Duration
 import java.util.*
 import java.util.concurrent.ConcurrentMap
+import java.util.concurrent.TimeUnit
 import java.util.stream.Collectors
 
 /**
@@ -47,7 +48,7 @@ internal class DefaultMaterializationPreparsedDocumentProvider(
     private val cache:
         ConcurrentMap<PreparsedDocumentEntryCacheKey, PreparsedDocumentEntry> by lazy {
         CacheBuilder.newBuilder()
-            .expireAfterWrite(Duration.ofHours(24))
+            .expireAfterWrite(24L, TimeUnit.HOURS)
             .build<PreparsedDocumentEntryCacheKey, PreparsedDocumentEntry>()
             .asMap()
     }

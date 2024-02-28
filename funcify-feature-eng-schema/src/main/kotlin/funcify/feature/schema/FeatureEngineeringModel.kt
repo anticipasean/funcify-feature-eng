@@ -10,9 +10,11 @@ import funcify.feature.schema.feature.FeatureJsonValueStore
 import funcify.feature.schema.limit.ModelLimits
 import funcify.feature.schema.transformer.TransformerSource
 import funcify.feature.schema.transformer.TransformerSourceProvider
+import graphql.language.SDLDefinition
 import graphql.schema.FieldCoordinates
 import graphql.schema.idl.TypeDefinitionRegistry
 import kotlinx.collections.immutable.ImmutableMap
+import kotlinx.collections.immutable.ImmutableSet
 import reactor.core.publisher.Mono
 
 /**
@@ -27,8 +29,7 @@ interface FeatureEngineeringModel {
 
     val featureFieldCoordinates: FieldCoordinates
 
-    /** Dangerous because this object is mutable */
-    val typeDefinitionRegistry: TypeDefinitionRegistry
+    val modelDefinitions: ImmutableSet<SDLDefinition<*>>
 
     val scalarTypeRegistry: ScalarTypeRegistry
 

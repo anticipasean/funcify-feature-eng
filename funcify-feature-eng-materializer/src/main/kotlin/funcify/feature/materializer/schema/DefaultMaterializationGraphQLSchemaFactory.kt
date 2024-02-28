@@ -12,6 +12,7 @@ import graphql.language.TypeName
 import graphql.schema.GraphQLSchema
 import graphql.schema.idl.RuntimeWiring
 import graphql.schema.idl.SchemaGenerator
+import graphql.schema.idl.TypeDefinitionRegistry
 import org.slf4j.Logger
 
 internal class DefaultMaterializationGraphQLSchemaFactory(
@@ -26,10 +27,12 @@ internal class DefaultMaterializationGraphQLSchemaFactory(
     override fun createGraphQLSchemaFromMetamodel(
         featureEngineeringModel: FeatureEngineeringModel
     ): Try<GraphQLSchema> {
+        val tdr: TypeDefinitionRegistry =
+            TypeDefinitionRegistry().apply { addAll(featureEngineeringModel.modelDefinitions) }
         logger.info(
-            """create_graphql_schema_from_metamodel: [ Query.field_definitions.name: {} ]""".flatten(),
-            featureEngineeringModel.typeDefinitionRegistry
-                .getType(
+            """create_graphql_schema_from_metamodel: [ Query.field_definitions.name: {} ]"""
+                .flatten(),
+            tdr.getType(
                     TypeName.newTypeName(QUERY_OBJECT_TYPE_NAME).build(),
                     ObjectTypeDefinition::class.java
                 )
@@ -42,7 +45,7 @@ internal class DefaultMaterializationGraphQLSchemaFactory(
         return Try.attempt {
                 SchemaGenerator()
                     .makeExecutableSchema(
-                        featureEngineeringModel.typeDefinitionRegistry,
+                        tdr,
                         RuntimeWiring.newRuntimeWiring()
                             .wiringFactory(materializationGraphQLWiringFactory)
                             .build()

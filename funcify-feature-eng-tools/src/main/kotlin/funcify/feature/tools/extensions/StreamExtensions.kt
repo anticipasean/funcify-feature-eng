@@ -2,6 +2,8 @@ package funcify.feature.tools.extensions
 
 import arrow.core.Either
 import arrow.core.Option
+import funcify.feature.tools.extensions.CollectorsExtensions.toPersistentList
+import funcify.feature.tools.extensions.CollectorsExtensions.toPersistentSet
 import funcify.feature.tools.extensions.FunctionExtensions.andThen
 import funcify.feature.tools.spliterator.BreadthFirstEitherRecursiveSpliterator
 import funcify.feature.tools.spliterator.DepthFirstEitherRecursiveSpliterator
@@ -10,6 +12,10 @@ import java.util.*
 import java.util.stream.Collectors
 import java.util.stream.Stream
 import java.util.stream.StreamSupport
+import kotlinx.collections.immutable.PersistentList
+import kotlinx.collections.immutable.PersistentMap
+import kotlinx.collections.immutable.PersistentSet
+import kotlinx.collections.immutable.persistentMapOf
 
 object StreamExtensions {
 
@@ -29,7 +35,7 @@ object StreamExtensions {
     }
 
     fun <L, R> Stream<out L>.recurseBreadthFirst(
-        function: (L) -> Stream<out Either<L, R>>
+        function: (L) -> Stream<out Either<L, R>>,
     ): Stream<out R> {
         return this.flatMap { l: L ->
             StreamSupport.stream(
@@ -44,7 +50,7 @@ object StreamExtensions {
     }
 
     fun <L, R> Stream<out L>.recurseDepthFirst(
-        function: (L) -> Stream<out Either<L, R>>
+        function: (L) -> Stream<out Either<L, R>>,
     ): Stream<out R> {
         return this.flatMap { l: L ->
             StreamSupport.stream(
@@ -66,12 +72,7 @@ object StreamExtensions {
         Stream<out Map<K, V>> {
         return StreamSupport.stream(
             MultiValueMapSingleValueEntryCombinationsSpliterator(
-                this.collect(
-                    Collectors.groupingBy(
-                        Map.Entry<K, V>::key,
-                        Collectors.mapping(Map.Entry<K, V>::value, Collectors.toList())
-                    )
-                )
+                this.groupIntoMap(Map.Entry<K, V>::key, Map.Entry<K, V>::value)
             ),
             false
         )
@@ -80,14 +81,50 @@ object StreamExtensions {
     fun <K, V> Stream<out Pair<K, V>>.singleValueMapCombinationsFromPairs(): Stream<out Map<K, V>> {
         return StreamSupport.stream(
             MultiValueMapSingleValueEntryCombinationsSpliterator(
-                this.collect(
-                    Collectors.groupingBy(
-                        Pair<K, V>::first,
-                        Collectors.mapping(Pair<K, V>::second, Collectors.toList())
-                    )
-                )
+                this.groupIntoMap(Pair<K, V>::first, Pair<K, V>::second)
             ),
             false
         )
+    }
+
+    fun <T, K, V> Stream<T>.groupIntoMap(
+        keySelector: (T) -> K,
+        valueSelector: (T) -> V,
+    ): MutableMap<K, MutableList<V>> {
+        return this.collect(
+            Collectors.groupingBy(
+                keySelector,
+                ::mutableMapOf,
+                Collectors.mapping(valueSelector, Collectors.toList())
+            )
+        )
+    }
+
+    fun <T, K, V> Stream<T>.groupIntoPersistentMap(
+        keySelector: (T) -> K,
+        valueSelector: (T) -> V,
+    ): PersistentMap<K, PersistentList<V>> {
+        return this.collect(
+                Collectors.groupingBy(
+                    keySelector,
+                    { persistentMapOf<K, PersistentList<V>>().builder() },
+                    Collectors.mapping(valueSelector, toPersistentList())
+                )
+            )
+            .build()
+    }
+
+    fun <T, K, V> Stream<T>.groupIntoPersistentSet(
+        keySelector: (T) -> K,
+        valueSelector: (T) -> V,
+    ): PersistentMap<K, PersistentSet<V>> {
+        return this.collect(
+                Collectors.groupingBy(
+                    keySelector,
+                    { persistentMapOf<K, PersistentSet<V>>().builder() },
+                    Collectors.mapping(valueSelector, toPersistentSet())
+                )
+            )
+            .build()
     }
 }

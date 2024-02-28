@@ -5,17 +5,18 @@ import funcify.feature.datasource.graphql.GraphQLApiServiceFactory
 import funcify.feature.naming.StandardNamingConventions
 import funcify.feature.tool.validation.ValidTimeZone
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
-import javax.validation.constraints.NotBlank
-import javax.validation.constraints.NotEmpty
-import kotlin.reflect.KClass
+import funcify.feature.tools.extensions.TryExtensions.tryFold
+import kotlinx.collections.immutable.PersistentList
 import kotlinx.collections.immutable.persistentListOf
 import org.slf4j.Logger
 import org.springframework.beans.factory.InitializingBean
 import org.springframework.boot.context.properties.ConfigurationProperties
-import org.springframework.boot.context.properties.bind.ConstructorBinding
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.validation.annotation.Validated
+import javax.validation.constraints.NotBlank
+import javax.validation.constraints.NotEmpty
+import kotlin.reflect.KClass
 
 /**
  * @author smccarron
@@ -24,9 +25,7 @@ import org.springframework.validation.annotation.Validated
 @Validated
 @Configuration
 @ConfigurationProperties(prefix = "funcify-feature-eng")
-data class FeatureEngineeringServiceConfigurationProperties
-@ConstructorBinding
-constructor(
+data class FeatureEngineeringServiceConfigurationProperties(
     @get:ValidTimeZone //
     @get:NotBlank(message = "No system-default-time-zone property is set") //
     var systemDefaultTimeZone: String = "UTC", //
@@ -38,16 +37,20 @@ constructor(
 
     companion object {
         private val logger: Logger = loggerFor<FeatureEngineeringServiceConfigurationProperties>()
+
         private fun KClass<*>.snakeCaseName(): String {
             return StandardNamingConventions.SNAKE_CASE.deriveName(this.simpleName ?: "").toString()
         }
 
-        data class GraphQLApiDataSourceProperties
-        @ConstructorBinding
-        constructor(val hostName: String, val serviceContextPath: String)
-        data class RestApiDataSourceProperties
-        @ConstructorBinding
-        constructor(val hostName: String, val serviceContextPath: String)
+        data class GraphQLApiDataSourceProperties(
+            val hostName: String,
+            val serviceContextPath: String
+        )
+
+        data class RestApiDataSourceProperties(
+            val hostName: String,
+            val serviceContextPath: String
+        )
     }
 
     override fun afterPropertiesSet() {
@@ -76,6 +79,7 @@ constructor(
                     .serviceContextPath(graphQLServiceContextPath)
                     .build()
             }
-            .fold(persistentListOf()) { pl, gqlServ -> pl.add(gqlServ) }
+            .tryFold(persistentListOf(), PersistentList<GraphQLApiService>::add)
+            .orElseThrow()
     }
 }

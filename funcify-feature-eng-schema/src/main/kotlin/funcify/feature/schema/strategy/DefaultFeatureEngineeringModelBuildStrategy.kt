@@ -16,6 +16,7 @@ import funcify.feature.schema.feature.FeatureCalculator
 import funcify.feature.schema.feature.FeatureCalculatorProvider
 import funcify.feature.schema.limit.ModelLimits
 import funcify.feature.schema.metamodel.DefaultFeatureEngineeringModel
+import funcify.feature.schema.sdl.SDLDefinitionsSetExtractor
 import funcify.feature.schema.transformer.TransformerSource
 import funcify.feature.schema.transformer.TransformerSourceProvider
 import funcify.feature.tools.container.attempt.Failure
@@ -25,21 +26,21 @@ import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.OptionExtensions.toOption
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.extensions.TryExtensions.failure
+import funcify.feature.tools.extensions.TryExtensions.foldIntoTry
 import graphql.GraphQLError
 import graphql.language.*
 import graphql.schema.FieldCoordinates
 import graphql.schema.idl.TypeDefinitionRegistry
 import graphql.schema.idl.TypeUtil
-import kotlin.reflect.KClass
-import kotlin.reflect.KType
-import kotlin.reflect.full.isSubclassOf
-import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.PersistentSet
 import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toPersistentMap
 import org.slf4j.Logger
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
+import kotlin.reflect.KClass
+import kotlin.reflect.KType
+import kotlin.reflect.full.isSubclassOf
 
 internal class DefaultFeatureEngineeringModelBuildStrategy(
     private val scalarTypeRegistry: ScalarTypeRegistry,
@@ -106,7 +107,7 @@ internal class DefaultFeatureEngineeringModelBuildStrategy(
                     transformerSourcesByName = ctx.transformerSourcesByName.toPersistentMap(),
                     dataElementSourcesByName = ctx.dataElementSourcesByName.toPersistentMap(),
                     featureCalculatorsByName = ctx.featureCalculatorsByName.toPersistentMap(),
-                    typeDefinitionRegistry = ctx.typeDefinitionRegistry,
+                    modelDefinitions = SDLDefinitionsSetExtractor(ctx.typeDefinitionRegistry),
                     scalarTypeRegistry = scalarTypeRegistry,
                     // TODO: Incorporate scanning on added sources to limit one that would exceed
                     // max op depth from being included
@@ -170,12 +171,12 @@ internal class DefaultFeatureEngineeringModelBuildStrategy(
                         )
                     }
                 }
-                sequenceOf(
+                sequenceOf<Iterable<String>>(
                         context.transformerSourceProvidersByName.keys,
                         context.dataElementSourceProvidersByName.keys,
                         context.featureCalculatorProvidersByName.keys
                     )
-                    .flatMap(ImmutableSet<String>::asSequence)
+                    .flatMap(Iterable<String>::asSequence)
                     .groupBy { k -> k }
                     .any { (_: String, v: List<String>) -> v.size > 1 } -> {
                     Mono.error<FeatureEngineeringModelBuildContext> {
@@ -186,7 +187,7 @@ internal class DefaultFeatureEngineeringModelBuildStrategy(
                                     context.dataElementSourceProvidersByName.keys,
                                     context.featureCalculatorProvidersByName.keys
                                 )
-                                .flatMap(ImmutableSet<String>::asSequence)
+                                .flatten()
                                 .groupBy { k -> k }
                                 .filter { (_: String, v: List<String>) -> v.size > 1 }
                                 .map { (k: String, _: List<String>) -> k }
@@ -250,47 +251,53 @@ internal class DefaultFeatureEngineeringModelBuildStrategy(
         provider: TransformerSourceProvider<TS>
     ): (TS) -> Mono<out TS> {
         return { transformerSource: TS ->
-            when {
-                transformerSource.name != provider.name -> {
-                    Mono.error<TS> {
-                        ServiceError.of(
-                            "transformer_source.name does not match transformer_source_provider.name [ provider.name: %s, source.name: %s ]",
-                            provider.name,
-                            transformerSource.name
-                        )
-                    }
-                }
-                else -> {
-                    Mono.just(transformerSource)
-                }
-            }.flatMap { ts: TS ->
-                createTypeDefinitionRegistryFromSource(ts).flatMap { tdr: TypeDefinitionRegistry ->
+            Mono.defer {
                     when {
-                        !tdr.hasType(TypeName.newTypeName(QUERY_OBJECT_TYPE_NAME).build()) -> {
+                        transformerSource.name != provider.name -> {
                             Mono.error<TS> {
                                 ServiceError.of(
-                                    "transformer_source [ name: %s ] does not contain any %s object type definition/extension definition",
-                                    ts.name,
-                                    QUERY_OBJECT_TYPE_NAME
-                                )
-                            }
-                        }
-                        // TODO: Ensure only one query type def exists
-                        tdr.hasType(TypeName.newTypeName(MUTATION_OBJECT_TYPE_NAME).build()) -> {
-                            Mono.error<TS> {
-                                ServiceError.of(
-                                    "transformer_source [ name: %s ] should not contain any %s object type or extension",
-                                    ts.name,
-                                    MUTATION_OBJECT_TYPE_NAME
+                                    "transformer_source.name does not match transformer_source_provider.name [ provider.name: %s, source.name: %s ]",
+                                    provider.name,
+                                    transformerSource.name
                                 )
                             }
                         }
                         else -> {
-                            Mono.just(ts)
+                            Mono.just(transformerSource)
                         }
                     }
                 }
-            }
+                .flatMap { ts: TS ->
+                    createTypeDefinitionRegistryFromSource(ts).flatMap { tdr: TypeDefinitionRegistry
+                        ->
+                        when {
+                            !tdr.hasType(TypeName.newTypeName(QUERY_OBJECT_TYPE_NAME).build()) -> {
+                                Mono.error<TS> {
+                                    ServiceError.of(
+                                        "transformer_source [ name: %s ] does not contain any %s object type definition/extension definition",
+                                        ts.name,
+                                        QUERY_OBJECT_TYPE_NAME
+                                    )
+                                }
+                            }
+                            // TODO: Ensure only one query type def exists
+                            tdr.hasType(
+                                TypeName.newTypeName(MUTATION_OBJECT_TYPE_NAME).build()
+                            ) -> {
+                                Mono.error<TS> {
+                                    ServiceError.of(
+                                        "transformer_source [ name: %s ] should not contain any %s object type or extension",
+                                        ts.name,
+                                        MUTATION_OBJECT_TYPE_NAME
+                                    )
+                                }
+                            }
+                            else -> {
+                                Mono.just(ts)
+                            }
+                        }
+                    }
+                }
         }
     }
 
@@ -312,10 +319,10 @@ internal class DefaultFeatureEngineeringModelBuildStrategy(
                     source::class
                         .supertypes
                         .asSequence()
-                        .mapNotNull { kt: KType -> kt.classifier }
+                        .mapNotNull(KType::classifier)
                         .filterIsInstance<KClass<*>>()
                         .filter { kc: KClass<*> -> kc.isSubclassOf(Source::class) }
-                        .map { kc: KClass<*> -> kc.simpleName }
+                        .mapNotNull(KClass<*>::simpleName)
                         .firstOrNull()
                 }
             }.let { name: String? ->
@@ -324,39 +331,21 @@ internal class DefaultFeatureEngineeringModelBuildStrategy(
         }
         return source.sourceSDLDefinitions
             .asSequence()
-            .fold(Try.success(TypeDefinitionRegistry())) {
-                tdrAttempt: Try<TypeDefinitionRegistry>,
-                sd: SDLDefinition<*>,
-                ->
-                tdrAttempt.flatMap { tdr: TypeDefinitionRegistry ->
-                    when (val possibleError: Option<GraphQLError> = tdr.add(sd).toOption()) {
-                        is Some<GraphQLError> -> {
-                            val message: String =
-                                "%s.source_sdl_definitions: [ validation: failed ]"
-                                    .format(sourceTypeName)
-                            when (val e: GraphQLError = possibleError.value) {
-                                is Throwable -> {
-                                    ServiceError.builder().message(message).cause(e).build()
-                                }
-                                else -> {
-                                    ServiceError.of(
-                                        "$message[ graphql_error: %s ]",
-                                        Try.attempt { e.toSpecification() }
-                                            .orElseGet {
-                                                mapOf(
-                                                    "errorType" to e.errorType,
-                                                    "message" to e.message
-                                                )
-                                            }
-                                            .asSequence()
-                                            .joinToString(", ", "{ ", " }") { (k, v) -> "$k: $v" }
-                                    )
-                                }
-                            }.failure<TypeDefinitionRegistry>()
-                        }
-                        else -> {
-                            Try.success(tdr)
-                        }
+            .foldIntoTry(TypeDefinitionRegistry()) {
+                tdr: TypeDefinitionRegistry,
+                sd: SDLDefinition<*> ->
+                when (val possibleError: Option<GraphQLError> = tdr.add(sd).toOption()) {
+                    is Some<GraphQLError> -> {
+                        val message: String =
+                            "%s.source_sdl_definitions: [ validation: failed ]"
+                                .format(sourceTypeName)
+                        throw ServiceError.builder()
+                            .message(message)
+                            .cause(possibleError.value as? Throwable)
+                            .build()
+                    }
+                    else -> {
+                        tdr
                     }
                 }
             }
@@ -367,45 +356,51 @@ internal class DefaultFeatureEngineeringModelBuildStrategy(
         provider: DataElementSourceProvider<DES>
     ): (DES) -> Mono<out DES> {
         return { dataElementSource: DES ->
-            when {
-                dataElementSource.name != provider.name -> {
-                    Mono.error<DES> {
-                        ServiceError.of(
-                            "data_element_source.name does not match provider.name: [ provider.name: %s, source.name: %s ]",
-                            provider.name,
-                            dataElementSource.name
-                        )
-                    }
-                }
-                else -> {
-                    Mono.just(dataElementSource)
-                }
-            }.flatMap { des: DES ->
-                createTypeDefinitionRegistryFromSource(des).flatMap { tdr: TypeDefinitionRegistry ->
+            Mono.defer {
                     when {
-                        !tdr.hasType(TypeName.newTypeName(QUERY_OBJECT_TYPE_NAME).build()) -> {
+                        dataElementSource.name != provider.name -> {
                             Mono.error<DES> {
                                 ServiceError.of(
-                                    "data_element_source [ name: %s ] does not contain any %s object type or extension definition",
-                                    des.name,
-                                    QUERY_OBJECT_TYPE_NAME
-                                )
-                            }
-                        }
-                        tdr.hasType(TypeName.newTypeName(MUTATION_OBJECT_TYPE_NAME).build()) -> {
-                            Mono.error<DES> {
-                                ServiceError.of(
-                                    "data_element_source [ name: %s ] should not contain any %s object type or extension",
-                                    des.name
+                                    "data_element_source.name does not match provider.name: [ provider.name: %s, source.name: %s ]",
+                                    provider.name,
+                                    dataElementSource.name
                                 )
                             }
                         }
                         else -> {
-                            Mono.just(des)
+                            Mono.just(dataElementSource)
                         }
                     }
                 }
-            }
+                .flatMap { des: DES ->
+                    createTypeDefinitionRegistryFromSource(des).flatMap {
+                        tdr: TypeDefinitionRegistry ->
+                        when {
+                            !tdr.hasType(TypeName.newTypeName(QUERY_OBJECT_TYPE_NAME).build()) -> {
+                                Mono.error<DES> {
+                                    ServiceError.of(
+                                        "data_element_source [ name: %s ] does not contain any %s object type or extension definition",
+                                        des.name,
+                                        QUERY_OBJECT_TYPE_NAME
+                                    )
+                                }
+                            }
+                            tdr.hasType(
+                                TypeName.newTypeName(MUTATION_OBJECT_TYPE_NAME).build()
+                            ) -> {
+                                Mono.error<DES> {
+                                    ServiceError.of(
+                                        "data_element_source [ name: %s ] should not contain any %s object type or extension",
+                                        des.name
+                                    )
+                                }
+                            }
+                            else -> {
+                                Mono.just(des)
+                            }
+                        }
+                    }
+                }
         }
     }
 
@@ -414,18 +409,20 @@ internal class DefaultFeatureEngineeringModelBuildStrategy(
         context: FeatureEngineeringModelBuildContext
     ): (FC) -> Mono<out FC> {
         return { featureCalculator: FC ->
-            when {
-                    featureCalculator.name != provider.name -> {
-                        Mono.error<FC> {
-                            ServiceError.of(
-                                "feature_calculator.name does not match provider.name: [ provider.name: %s, source.name: %s ]",
-                                provider.name,
-                                featureCalculator.name
-                            )
+            Mono.defer {
+                    when {
+                        featureCalculator.name != provider.name -> {
+                            Mono.error<FC> {
+                                ServiceError.of(
+                                    "feature_calculator.name does not match provider.name: [ provider.name: %s, source.name: %s ]",
+                                    provider.name,
+                                    featureCalculator.name
+                                )
+                            }
                         }
-                    }
-                    else -> {
-                        Mono.just(featureCalculator)
+                        else -> {
+                            Mono.just(featureCalculator)
+                        }
                     }
                 }
                 .flatMap { fc: FC ->
@@ -492,48 +489,44 @@ internal class DefaultFeatureEngineeringModelBuildStrategy(
     private fun createTypeDefinitionRegistryFromSources():
         (FeatureEngineeringModelBuildContext) -> Mono<out FeatureEngineeringModelBuildContext> {
         return { context: FeatureEngineeringModelBuildContext ->
-            createTypeDefinitionRegistriesForEachSourceType(context)
-                .map { tdr: TypeDefinitionRegistry ->
-                    // Remove any scalars declared elsewhere
-                    tdr.scalars().asSequence().fold(tdr) {
-                        t: TypeDefinitionRegistry,
-                        (name: String, std: ScalarTypeDefinition) ->
-                        t.apply { remove(name, std) }
-                    }
-                }
-                .reduce(
-                    addScalarTypeDefinitionsToContextTypeDefinitionRegistry(context)
-                        .flatMap(::addDirectiveDefinitionsToContextTypeDefinitionRegistry)
-                ) { ctxResult: Try<FeatureEngineeringModelBuildContext>, tdr: TypeDefinitionRegistry
-                    ->
-                    ctxResult.flatMap { c: FeatureEngineeringModelBuildContext ->
-                        when (
-                            val mergeAttempt: Try<TypeDefinitionRegistry> =
-                                Try.attempt { c.typeDefinitionRegistry.merge(tdr) }
-                        ) {
-                            is Failure<TypeDefinitionRegistry> -> {
-                                val message: String =
-                                    """error [ type: %s ] occurred when merging 
+            addScalarTypeDefinitionsToContextTypeDefinitionRegistry(context)
+                .flatMap(::addDirectiveDefinitionsToContextTypeDefinitionRegistry)
+                .toMono()
+                .flatMap { ctx: FeatureEngineeringModelBuildContext ->
+                    createTypeDefinitionRegistriesForEachSourceType(ctx)
+                        .map { tdr: TypeDefinitionRegistry ->
+                            // Remove any scalars declared elsewhere
+                            tdr.scalars().asSequence().fold(tdr) {
+                                t: TypeDefinitionRegistry,
+                                (name: String, std: ScalarTypeDefinition) ->
+                                t.apply { remove(name, std) }
+                            }
+                        }
+                        .reduce(ctx) {
+                            c: FeatureEngineeringModelBuildContext,
+                            tdr: TypeDefinitionRegistry ->
+                            when (
+                                val mergeAttempt: Try<TypeDefinitionRegistry> =
+                                    Try.attempt { c.typeDefinitionRegistry.merge(tdr) }
+                            ) {
+                                is Failure<TypeDefinitionRegistry> -> {
+                                    val message: String =
+                                        """error [ type: %s ] occurred when merging 
                                         |source_type type_definition_registry with 
                                         |metamodel_build_context.type_definition_registry"""
-                                        .flatten()
-                                        .format(mergeAttempt.throwable::class.qualifiedName)
-                                Try.failure<FeatureEngineeringModelBuildContext>(
-                                    ServiceError.builder()
+                                            .flatten()
+                                            .format(mergeAttempt.throwable::class.qualifiedName)
+                                    throw ServiceError.builder()
                                         .message(message)
                                         .cause(mergeAttempt.throwable)
                                         .build()
-                                )
-                            }
-                            is Success<TypeDefinitionRegistry> -> {
-                                Try.success(
+                                }
+                                is Success<TypeDefinitionRegistry> -> {
                                     c.update { typeDefinitionRegistry(mergeAttempt.result) }
-                                )
+                                }
                             }
                         }
-                    }
                 }
-                .flatMap(Try<FeatureEngineeringModelBuildContext>::toMono)
                 .flatMap(createTopLevelQueryObjectTypeDefinitionBasedOnSourceTypes())
                 .cache()
         }
@@ -634,51 +627,30 @@ internal class DefaultFeatureEngineeringModelBuildStrategy(
             }
             .flatMap { defSet: PersistentSet<SDLDefinition<*>> ->
                 defSet
-                    .fold(Try.success(TypeDefinitionRegistry())) {
-                        tdrAttempt: Try<TypeDefinitionRegistry>,
+                    .foldIntoTry(TypeDefinitionRegistry()) {
+                        tdr: TypeDefinitionRegistry,
                         def: SDLDefinition<*> ->
-                        tdrAttempt.flatMap { tdr: TypeDefinitionRegistry ->
-                            when (
-                                val possibleError: Option<GraphQLError> = tdr.add(def).toOption()
-                            ) {
-                                is Some<GraphQLError> -> {
-                                    val message: String =
-                                        """schema error when adding definition [ name: %s ] 
+                        when (val possibleError: Option<GraphQLError> = tdr.add(def).toOption()) {
+                            is Some<GraphQLError> -> {
+                                val message: String =
+                                    """schema error when adding definition [ name: %s ] 
                                             |to type_definition_registry for 
                                             |source_type: [ %s ]"""
-                                            .flatten()
-                                            .format(
-                                                def.toOption()
-                                                    .filterIsInstance<SDLNamedDefinition<*>>()
-                                                    .map(SDLNamedDefinition<*>::getName)
-                                                    .getOrElse { "<NA>" },
-                                                sourceType.simpleName
-                                            )
-                                    when (val e: GraphQLError = possibleError.value) {
-                                        is Throwable -> {
-                                            ServiceError.builder().message(message).cause(e).build()
-                                        }
-                                        else -> {
-                                            ServiceError.of(
-                                                "$message[ graphql_error: %s ]",
-                                                Try.attempt { e.toSpecification() }
-                                                    .orElseGet {
-                                                        mapOf(
-                                                            "errorType" to e.errorType,
-                                                            "message" to e.message
-                                                        )
-                                                    }
-                                                    .asSequence()
-                                                    .joinToString(", ", "{ ", " }") { (k, v) ->
-                                                        "$k: $v"
-                                                    }
-                                            )
-                                        }
-                                    }.failure<TypeDefinitionRegistry>()
-                                }
-                                else -> {
-                                    Try.success(tdr)
-                                }
+                                        .flatten()
+                                        .format(
+                                            def.toOption()
+                                                .filterIsInstance<SDLNamedDefinition<*>>()
+                                                .map(SDLNamedDefinition<*>::getName)
+                                                .getOrElse { "<NA>" },
+                                            sourceType.simpleName
+                                        )
+                                throw ServiceError.builder()
+                                    .message(message)
+                                    .cause(possibleError.value as? Throwable)
+                                    .build()
+                            }
+                            else -> {
+                                tdr
                             }
                         }
                     }
@@ -693,159 +665,66 @@ internal class DefaultFeatureEngineeringModelBuildStrategy(
         return tdr.addAll(scalarTypeRegistry.getAllScalarDefinitions())
             .toOption()
             .map { e: GraphQLError ->
-                when (e) {
-                    is Throwable -> {
-                        ServiceError.builder()
-                            .message(
-                                "error occurred when adding scalar definitions to context.type_definition_registry"
-                            )
-                            .cause(e)
-                            .build()
-                    }
-                    else -> {
-                        ServiceError.of(
-                            "error occurred when adding scalar definitions to context.type_definition_registry: [ %s ]",
-                            Try.attempt { e.toSpecification() }
-                                .orElseGet {
-                                    mapOf("errorType" to e.errorType, "message" to e.message)
-                                }
-                                .asSequence()
-                                .joinToString(", ") { (k, v) -> "$k: $v" }
-                        )
-                    }
-                }.failure<TypeDefinitionRegistry>()
+                ServiceError.builder()
+                    .message(
+                        """error occurred when adding scalar_type_registry 
+                            |definitions to context.type_definition_registry"""
+                            .flatten()
+                    )
+                    .cause(e as? Throwable)
+                    .build()
+                    .failure<FeatureEngineeringModelBuildContext>()
             }
-            .getOrElse { Try.success(tdr) }
-            .map { updatedTdr: TypeDefinitionRegistry ->
-                context.update { typeDefinitionRegistry(updatedTdr) }
-            }
+            .getOrElse { Try.success(context.update { typeDefinitionRegistry(tdr) }) }
     }
 
     private fun addDirectiveDefinitionsToContextTypeDefinitionRegistry(
         context: FeatureEngineeringModelBuildContext
     ): Try<FeatureEngineeringModelBuildContext> {
-        return sequenceOf<List<SDLDefinition<*>>>(
+        return sequenceOf<Iterable<SDLDefinition<*>>>(
                 materializationDirectiveRegistry.getAllDirectiveDefinitions(),
                 materializationDirectiveRegistry.getAllReferencedInputObjectTypeDefinitions(),
                 materializationDirectiveRegistry.getAllReferencedEnumTypeDefinitions()
             )
             .flatten()
-            .fold(Try.success(context)) {
-                ctxAttempt: Try<FeatureEngineeringModelBuildContext>,
+            .foldIntoTry(context.typeDefinitionRegistry) {
+                tdr: TypeDefinitionRegistry,
                 sd: SDLDefinition<*> ->
-                ctxAttempt.flatMap { c: FeatureEngineeringModelBuildContext ->
-                    when (
-                        val possibleError: Option<GraphQLError> =
-                            c.typeDefinitionRegistry.add(sd).toOption()
-                    ) {
-                        is Some<GraphQLError> -> {
-                            val message: String =
-                                """error [ type: %s ]
-                                |when adding 
+                when (val possibleError: Option<GraphQLError> = tdr.add(sd).toOption()) {
+                    is Some<GraphQLError> -> {
+                        val message: String =
+                            """error [ type: %s ] when adding 
                                 |materialization_directive_registry.sdl_definition [ name: %s ]
                                 """
-                                    .flatten()
-                                    .format(
-                                        possibleError.value::class.simpleName,
-                                        sd.toOption()
-                                            .filterIsInstance<SDLNamedDefinition<*>>()
-                                            .map(SDLNamedDefinition<*>::getName)
-                                            .getOrElse { "<NA>" }
-                                    )
-                            when (val e: GraphQLError = possibleError.value) {
-                                is Throwable -> {
-                                    ServiceError.builder().message(message).cause(e).build()
-                                }
-                                else -> {
-                                    ServiceError.of(
-                                        "$message[ graphql_error: %s ]",
-                                        Try.attempt { e.toSpecification() }
-                                            .orElseGet {
-                                                mapOf(
-                                                    "errorType" to e.errorType,
-                                                    "message" to e.message
-                                                )
-                                            }
-                                            .asSequence()
-                                            .joinToString(", ", "{ ", " }") { (k, v) -> "$k: $v" }
-                                    )
-                                }
-                            }.failure<FeatureEngineeringModelBuildContext>()
-                        }
-                        else -> {
-                            Try.success(
-                                c.update { typeDefinitionRegistry(c.typeDefinitionRegistry) }
-                            )
-                        }
+                                .flatten()
+                                .format(
+                                    possibleError.value::class.simpleName,
+                                    sd.toOption()
+                                        .filterIsInstance<SDLNamedDefinition<*>>()
+                                        .map(SDLNamedDefinition<*>::getName)
+                                        .getOrElse { "<NA>" }
+                                )
+
+                        throw ServiceError.builder()
+                            .message(message)
+                            .cause(possibleError.value as? Throwable)
+                            .build()
+                    }
+                    else -> {
+                        tdr
                     }
                 }
             }
-        // .peekIfSuccess { ctx: MetamodelBuildContext ->
-        //    logger.info(
-        //        "current_type_definition_registry: \n{}",
-        //        sequenceOf<Iterable<SDLDefinition<*>>>(
-        //                ctx.typeDefinitionRegistry.directiveDefinitions.values,
-        //                ctx.typeDefinitionRegistry
-        //                    .getTypes(InputObjectTypeDefinition::class.java)
-        //                    .asIterable(),
-        //                ctx.typeDefinitionRegistry
-        //                    .getTypes(EnumTypeDefinition::class.java)
-        //                    .asIterable()
-        //            )
-        //            .flatten()
-        //            .joinToString("\n\n") { sd: SDLDefinition<*> ->
-        //                AstPrinter.printAst(sd)
-        //            }
-        //    )
-        // }
+            .map { tdr: TypeDefinitionRegistry -> context.update { typeDefinitionRegistry(tdr) } }
     }
 
     private fun createTopLevelQueryObjectTypeDefinitionBasedOnSourceTypes():
         (FeatureEngineeringModelBuildContext) -> Mono<out FeatureEngineeringModelBuildContext> {
         return { context: FeatureEngineeringModelBuildContext ->
             Try.attempt {
-                    sequenceOf(
-                            TRANSFORMER_FIELD_NAME to TRANSFORMER_OBJECT_TYPE_NAME,
-                            DATA_ELEMENT_FIELD_NAME to DATA_ELEMENT_OBJECT_TYPE_NAME,
-                            FEATURE_FIELD_NAME to FEATURE_OBJECT_TYPE_NAME
-                        )
-                        .filter { (_: String, objectTypeName: String) ->
-                            context.typeDefinitionRegistry
-                                .getType(objectTypeName, ObjectTypeDefinition::class.java)
-                                .toOption()
-                                .map(ObjectTypeDefinition::getFieldDefinitions)
-                                .map(List<FieldDefinition>::size)
-                                .filter { s: Int -> s > 0 }
-                                .isDefined()
-                        }
-                        .map { (fieldName: String, objectTypeName: String) ->
-                            if (fieldName == FEATURE_FIELD_NAME) {
-                                FieldDefinition.newFieldDefinition()
-                                    .name(fieldName)
-                                    .type(
-                                        NonNullType.newNonNullType()
-                                            .type(
-                                                ListType.newListType(
-                                                        TypeName.newTypeName(objectTypeName).build()
-                                                    )
-                                                    .build()
-                                            )
-                                            .build()
-                                    )
-                                    .build()
-                            } else {
-                                FieldDefinition.newFieldDefinition()
-                                    .name(fieldName)
-                                    .type(TypeName.newTypeName(objectTypeName).build())
-                                    .build()
-                            }
-                        }
-                        .fold(
-                            ObjectTypeDefinition.newObjectTypeDefinition()
-                                .name(QUERY_OBJECT_TYPE_NAME)
-                        ) { otdb: ObjectTypeDefinition.Builder, fd: FieldDefinition ->
-                            otdb.fieldDefinition(fd)
-                        }
+                    ObjectTypeDefinition.newObjectTypeDefinition()
+                        .name(QUERY_OBJECT_TYPE_NAME)
+                        .fieldDefinitions(createListOfElementTypeFieldDefinitions(context))
                         .build()
                 }
                 .filter({ otd: ObjectTypeDefinition -> otd.fieldDefinitions.size > 0 }) {
@@ -868,25 +747,9 @@ internal class DefaultFeatureEngineeringModelBuildStrategy(
                             )
                     )
                 }
-                // .successIfDefined {
-                //    ServiceError.of(
-                //        """object_type_definitions have not been generated
-                //        |in context.type_definition_registry
-                //        |for all source_types: [ type_names: %s ]"""
-                //            .flatten(),
-                //        sequenceOf(
-                //                TRANSFORMER_OBJECT_TYPE_NAME,
-                //                DATA_ELEMENT_OBJECT_TYPE_NAME,
-                //                FEATURE_OBJECT_TYPE_NAME
-                //            )
-                //            .joinToString(", ")
-                //    )
-                // }
-                .flatMap { otd: ObjectTypeDefinition ->
-                    when (
-                        val possibleError: Option<GraphQLError> =
-                            context.typeDefinitionRegistry.add(otd).toOption()
-                    ) {
+                .map { otd: ObjectTypeDefinition ->
+                    val tdr: TypeDefinitionRegistry = context.typeDefinitionRegistry
+                    when (val possibleError: Option<GraphQLError> = tdr.add(otd).toOption()) {
                         is Some<GraphQLError> -> {
                             val message: String =
                                 """error [ type: %s ] occurred when adding 
@@ -894,28 +757,13 @@ internal class DefaultFeatureEngineeringModelBuildStrategy(
                                     |context.type_definition_registry"""
                                     .flatten()
                                     .format(possibleError.value::class.qualifiedName)
-                            when (val e: GraphQLError = possibleError.value) {
-                                is Throwable -> {
-                                    ServiceError.builder().message(message).cause(e).build()
-                                }
-                                else -> {
-                                    ServiceError.of(
-                                        "$message[ graphql_error: %s ]",
-                                        Try.attempt { e.toSpecification() }
-                                            .orElseGet {
-                                                mapOf(
-                                                    "errorType" to e.errorType,
-                                                    "message" to e.message
-                                                )
-                                            }
-                                            .asSequence()
-                                            .joinToString(", ", "{ ", " }") { (k, v) -> "$k: $v" }
-                                    )
-                                }
-                            }.failure<TypeDefinitionRegistry>()
+                            throw ServiceError.builder()
+                                .message(message)
+                                .cause(possibleError.value as? Throwable)
+                                .build()
                         }
                         else -> {
-                            Try.success(context.typeDefinitionRegistry)
+                            tdr
                         }
                     }
                 }
@@ -926,17 +774,62 @@ internal class DefaultFeatureEngineeringModelBuildStrategy(
         }
     }
 
+    private fun createListOfElementTypeFieldDefinitions(
+        context: FeatureEngineeringModelBuildContext
+    ): List<FieldDefinition> {
+        return sequenceOf(
+                TRANSFORMER_FIELD_NAME to TRANSFORMER_OBJECT_TYPE_NAME,
+                DATA_ELEMENT_FIELD_NAME to DATA_ELEMENT_OBJECT_TYPE_NAME,
+                FEATURE_FIELD_NAME to FEATURE_OBJECT_TYPE_NAME
+            )
+            .filter { (_: String, elementTypeObjectTypeName: String) ->
+                context.typeDefinitionRegistry
+                    .getType(elementTypeObjectTypeName, ObjectTypeDefinition::class.java)
+                    .toOption()
+                    .map(ObjectTypeDefinition::getFieldDefinitions)
+                    .filter(List<FieldDefinition>::isNotEmpty)
+                    .isDefined()
+            }
+            .map { (fieldName: String, objectTypeName: String) ->
+                when (fieldName) {
+                    FEATURE_FIELD_NAME -> {
+                        FieldDefinition.newFieldDefinition()
+                            .name(fieldName)
+                            .type(
+                                NonNullType.newNonNullType()
+                                    .type(
+                                        ListType.newListType(
+                                                TypeName.newTypeName(objectTypeName).build()
+                                            )
+                                            .build()
+                                    )
+                                    .build()
+                            )
+                            .build()
+                    }
+                    else -> {
+                        FieldDefinition.newFieldDefinition()
+                            .name(fieldName)
+                            .type(TypeName.newTypeName(objectTypeName).build())
+                            .build()
+                    }
+                }
+            }
+            .toList()
+    }
+
     private fun logSuccessfulStatus(): (FeatureEngineeringModel) -> Unit {
         return { mm: FeatureEngineeringModel ->
             logger.debug(
                 """{}: [ status: successful ]
                 |[ metamodel
-                |.type_definition_registry
+                |.model_definitions
                 |.query_object_type
                 |.field_definitions: {} ]"""
                     .flatten(),
                 MAIN_METHOD_TAG,
-                mm.typeDefinitionRegistry
+                TypeDefinitionRegistry()
+                    .apply { addAll(mm.modelDefinitions) }
                     .getType(QUERY_OBJECT_TYPE_NAME, ObjectTypeDefinition::class.java)
                     .toOption()
                     .mapNotNull(ObjectTypeDefinition::getFieldDefinitions)

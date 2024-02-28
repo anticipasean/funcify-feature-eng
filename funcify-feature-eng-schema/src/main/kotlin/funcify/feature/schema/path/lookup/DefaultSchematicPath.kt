@@ -1,17 +1,16 @@
 package funcify.feature.schema.path.lookup
 
-import arrow.core.Option
 import arrow.core.getOrElse
 import arrow.core.toOption
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.node.NullNode
-import java.net.URI
-import java.net.URLEncoder
-import java.nio.charset.StandardCharsets
 import kotlinx.collections.immutable.PersistentList
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentMapOf
+import java.net.URI
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
 
 /**
  * @author smccarron
@@ -26,7 +25,8 @@ internal data class DefaultSchematicPath(
 
     companion object {
 
-        internal data class DefaultBuilder(private val schematicPath: DefaultSchematicPath) : SchematicPath.Builder {
+        internal data class DefaultBuilder(private val schematicPath: DefaultSchematicPath) :
+            SchematicPath.Builder {
 
             private var inputScheme: String = schematicPath.scheme
 
@@ -259,14 +259,8 @@ internal data class DefaultSchematicPath(
             }
     }
 
-    private val internedParentPath: Option<SchematicPath> by lazy { super.getParentPath() }
-
     override fun toURI(): URI {
         return uri
-    }
-
-    override fun getParentPath(): Option<SchematicPath> {
-        return internedParentPath
     }
 
     override fun transform(

@@ -1,10 +1,10 @@
 package funcify.feature.tools.extensions
 
-import java.util.stream.Stream
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.PersistentList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toPersistentList
+import java.util.stream.Stream
 
 /**
  * @author smccarron
