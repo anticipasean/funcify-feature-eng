@@ -7,6 +7,7 @@ import arrow.core.orElse
 import arrow.core.toOption
 import funcify.feature.error.ServiceError
 import funcify.feature.schema.dataelement.DomainSpecifiedDataElementSource
+import funcify.feature.schema.directive.alias.AliasCoordinatesRegistry
 import funcify.feature.schema.directive.alias.AliasCoordinatesRegistryCreator
 import funcify.feature.schema.feature.FeatureSpecifiedFeatureCalculator
 import funcify.feature.schema.path.operation.FieldSegment
@@ -284,14 +285,20 @@ internal class DefaultMaterializationMetamodelBuildStrategy :
                         else -> {
                             ServiceError.builder()
                                 .message(
-                                    "calculate_domain_specified_data_element_sources: [ status: failed ]"
+                                    "error when creating %s"
+                                        .format(DomainSpecifiedDataElementSource::class.simpleName)
                                 )
                                 .cause(t)
                                 .build()
                         }
                     }
                 }
-                .doOnError { t: Throwable -> logger.error("{}", t.message) }
+                .doOnError { t: Throwable ->
+                    logger.error(
+                        "calculate_domain_specified_data_element_sources: [ status: failed ][ message: {} ]",
+                        t.message
+                    )
+                }
         }
     }
 
@@ -331,14 +338,20 @@ internal class DefaultMaterializationMetamodelBuildStrategy :
                         else -> {
                             ServiceError.builder()
                                 .message(
-                                    "calculate_feature_specified_feature_calculators: [ status: failed ]"
+                                    "error when creating %s"
+                                        .format(FeatureSpecifiedFeatureCalculator::class.simpleName)
                                 )
                                 .cause(t)
                                 .build()
                         }
                     }
                 }
-                .doOnError { t: Throwable -> logger.error("{}", t.message) }
+                .doOnError { t: Throwable ->
+                    logger.error(
+                        "calculate_feature_specified_feature_calculators: [ status: failed ][ message: {} ]",
+                        t.message
+                    )
+                }
         }
     }
 
@@ -373,14 +386,22 @@ internal class DefaultMaterializationMetamodelBuildStrategy :
                         else -> {
                             ServiceError.builder()
                                 .message(
-                                    "calculate_transformer_specified_transformer_sources: [ status: failed ]"
+                                    "error occurred when creating %s"
+                                        .format(
+                                            TransformerSpecifiedTransformerSource::class.simpleName
+                                        )
                                 )
                                 .cause(t)
                                 .build()
                         }
                     }
                 }
-                .doOnError { t: Throwable -> logger.error("{}", t.message) }
+                .doOnError { t: Throwable ->
+                    logger.error(
+                        "calculate_transformer_specified_transformer_sources: [ status: failed ][ message: {} ]",
+                        t.message
+                    )
+                }
         }
     }
 
@@ -404,14 +425,20 @@ internal class DefaultMaterializationMetamodelBuildStrategy :
                         else -> {
                             ServiceError.builder()
                                 .message(
-                                    "calculate_attribute_coordinates_registry: [ status: failed ]"
+                                    "error occurred when creating %s"
+                                        .format(AliasCoordinatesRegistry::class.simpleName)
                                 )
                                 .cause(t)
                                 .build()
                         }
                     }
                 }
-                .doOnError { t: Throwable -> logger.error("{}", t.message) }
+                .doOnError { t: Throwable ->
+                    logger.error(
+                        "calculate_attribute_coordinates_registry: [ status: failed ][ message: {} ]",
+                        t.message
+                    )
+                }
         }
     }
 }

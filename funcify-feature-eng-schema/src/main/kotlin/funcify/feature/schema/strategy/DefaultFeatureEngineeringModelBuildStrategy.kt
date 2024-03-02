@@ -24,6 +24,7 @@ import funcify.feature.tools.container.attempt.Success
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.OptionExtensions.toOption
+import funcify.feature.tools.extensions.PairExtensions.bimap
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.extensions.TryExtensions.failure
 import funcify.feature.tools.extensions.TryExtensions.foldIntoTry
@@ -58,6 +59,12 @@ internal class DefaultFeatureEngineeringModelBuildStrategy(
         private const val DATA_ELEMENT_OBJECT_TYPE_NAME = "DataElement"
         private const val FEATURE_FIELD_NAME = "features"
         private const val FEATURE_OBJECT_TYPE_NAME = "Feature"
+        private val TRANSFORMER_ELEMENT_TYPE_FIELD_COORDINATES: FieldCoordinates =
+            FieldCoordinates.coordinates(QUERY_OBJECT_TYPE_NAME, TRANSFORMER_FIELD_NAME)
+        private val DATA_ELEMENT_ELEMENT_TYPE_FIELD_COORDINATES: FieldCoordinates =
+            FieldCoordinates.coordinates(QUERY_OBJECT_TYPE_NAME, DATA_ELEMENT_FIELD_NAME)
+        private val FEATURE_ELEMENT_TYPE_FIELD_COORDINATES: FieldCoordinates =
+            FieldCoordinates.coordinates(QUERY_OBJECT_TYPE_NAME, FEATURE_FIELD_NAME)
         private val logger: Logger = loggerFor<DefaultFeatureEngineeringModelBuildStrategy>()
     }
 
@@ -82,18 +89,9 @@ internal class DefaultFeatureEngineeringModelBuildStrategy(
             .flatMap(createTypeDefinitionRegistryFromSources())
             .map { ctx: FeatureEngineeringModelBuildContext ->
                 DefaultFeatureEngineeringModel(
-                    transformerFieldCoordinates =
-                        FieldCoordinates.coordinates(
-                            QUERY_OBJECT_TYPE_NAME,
-                            TRANSFORMER_FIELD_NAME
-                        ),
-                    dataElementFieldCoordinates =
-                        FieldCoordinates.coordinates(
-                            QUERY_OBJECT_TYPE_NAME,
-                            DATA_ELEMENT_FIELD_NAME
-                        ),
-                    featureFieldCoordinates =
-                        FieldCoordinates.coordinates(QUERY_OBJECT_TYPE_NAME, FEATURE_FIELD_NAME),
+                    transformerFieldCoordinates = TRANSFORMER_ELEMENT_TYPE_FIELD_COORDINATES,
+                    dataElementFieldCoordinates = DATA_ELEMENT_ELEMENT_TYPE_FIELD_COORDINATES,
+                    featureFieldCoordinates = FEATURE_ELEMENT_TYPE_FIELD_COORDINATES,
                     transformerSourceProvidersByName =
                         ctx.transformerSourceProvidersByName.toPersistentMap(),
                     dataElementSourceProvidersByName =
@@ -493,39 +491,30 @@ internal class DefaultFeatureEngineeringModelBuildStrategy(
                 .flatMap(::addDirectiveDefinitionsToContextTypeDefinitionRegistry)
                 .toMono()
                 .flatMap { ctx: FeatureEngineeringModelBuildContext ->
-                    createTypeDefinitionRegistriesForEachSourceType(ctx)
-                        .map { tdr: TypeDefinitionRegistry ->
-                            // Remove any scalars declared elsewhere
-                            tdr.scalars().asSequence().fold(tdr) {
-                                t: TypeDefinitionRegistry,
-                                (name: String, std: ScalarTypeDefinition) ->
-                                t.apply { remove(name, std) }
-                            }
-                        }
-                        .reduce(ctx) {
-                            c: FeatureEngineeringModelBuildContext,
-                            tdr: TypeDefinitionRegistry ->
-                            when (
-                                val mergeAttempt: Try<TypeDefinitionRegistry> =
-                                    Try.attempt { c.typeDefinitionRegistry.merge(tdr) }
-                            ) {
-                                is Failure<TypeDefinitionRegistry> -> {
-                                    val message: String =
-                                        """error [ type: %s ] occurred when merging 
+                    createTypeDefinitionRegistriesForEachSourceType(ctx).reduce(ctx) {
+                        c: FeatureEngineeringModelBuildContext,
+                        tdr: TypeDefinitionRegistry ->
+                        when (
+                            val mergeAttempt: Try<TypeDefinitionRegistry> =
+                                Try.attempt { c.typeDefinitionRegistry.merge(tdr) }
+                        ) {
+                            is Failure<TypeDefinitionRegistry> -> {
+                                val message: String =
+                                    """error [ type: %s ] occurred when merging 
                                         |source_type type_definition_registry with 
                                         |metamodel_build_context.type_definition_registry"""
-                                            .flatten()
-                                            .format(mergeAttempt.throwable::class.qualifiedName)
-                                    throw ServiceError.builder()
-                                        .message(message)
-                                        .cause(mergeAttempt.throwable)
-                                        .build()
-                                }
-                                is Success<TypeDefinitionRegistry> -> {
-                                    c.update { typeDefinitionRegistry(mergeAttempt.result) }
-                                }
+                                        .flatten()
+                                        .format(mergeAttempt.throwable::class.qualifiedName)
+                                throw ServiceError.builder()
+                                    .message(message)
+                                    .cause(mergeAttempt.throwable)
+                                    .build()
+                            }
+                            is Success<TypeDefinitionRegistry> -> {
+                                c.update { typeDefinitionRegistry(mergeAttempt.result) }
                             }
                         }
+                    }
                 }
                 .flatMap(createTopLevelQueryObjectTypeDefinitionBasedOnSourceTypes())
                 .cache()
@@ -577,6 +566,9 @@ internal class DefaultFeatureEngineeringModelBuildStrategy(
             .flatMap { s: Source ->
                 s.sourceSDLDefinitions
                     .asSequence()
+                    .filterNot { sd: SDLDefinition<*> ->
+                        isSDLDefinitionForScalarOrDirectiveOrReferencedTypeDefinition(sd)
+                    }
                     .partition { sd: SDLDefinition<*> ->
                         sd is ObjectTypeDefinition && sd.name == QUERY_OBJECT_TYPE_NAME
                     }
@@ -605,13 +597,17 @@ internal class DefaultFeatureEngineeringModelBuildStrategy(
                 ObjectTypeDefinition.newObjectTypeDefinition().name(sourceObjectTypeName) to
                     persistentSetOf<SDLDefinition<*>>()
             ) {
-                (otdb: ObjectTypeDefinition.Builder, ps: PersistentSet<SDLDefinition<*>>),
-                (otd: ObjectTypeDefinition, dl: List<SDLDefinition<*>>) ->
-                otd.fieldDefinitions.fold(otdb) {
-                    otb: ObjectTypeDefinition.Builder,
-                    fd: FieldDefinition ->
-                    otb.fieldDefinition(fd)
-                } to ps.addAll(dl)
+                queryObjTypeDefBuilderAndOtherDefs,
+                (sourceQueryDef: ObjectTypeDefinition, otherSrcDefs: List<SDLDefinition<*>>) ->
+                queryObjTypeDefBuilderAndOtherDefs.bimap(
+                    { otdb ->
+                        sourceQueryDef.fieldDefinitions.fold(
+                            otdb,
+                            ObjectTypeDefinition.Builder::fieldDefinition
+                        )
+                    },
+                    { otherdefs -> otherdefs.addAll(otherSrcDefs) }
+                )
             }
             .flatMap { (otdb: ObjectTypeDefinition.Builder, ps: PersistentSet<SDLDefinition<*>>) ->
                 otdb.build().let { otd: ObjectTypeDefinition ->
@@ -620,7 +616,16 @@ internal class DefaultFeatureEngineeringModelBuildStrategy(
                             Mono.just(ps.add(otd))
                         }
                         else -> {
-                            Mono.empty()
+                            Mono.error {
+                                ServiceError.of(
+                                    """no field_definitions found at root level 
+                                        |[ type_name: %s ] for 
+                                        |[ source_type: %s ]"""
+                                        .flatten(),
+                                    QUERY_OBJECT_TYPE_NAME,
+                                    sourceType.qualifiedName
+                                )
+                            }
                         }
                     }
                 }
@@ -634,8 +639,8 @@ internal class DefaultFeatureEngineeringModelBuildStrategy(
                             is Some<GraphQLError> -> {
                                 val message: String =
                                     """schema error when adding definition [ name: %s ] 
-                                            |to type_definition_registry for 
-                                            |source_type: [ %s ]"""
+                                    |to type_definition_registry for 
+                                    |source_type: [ %s ]"""
                                         .flatten()
                                         .format(
                                             def.toOption()
@@ -656,6 +661,30 @@ internal class DefaultFeatureEngineeringModelBuildStrategy(
                     }
                     .toMono()
             }
+    }
+
+    private fun isSDLDefinitionForScalarOrDirectiveOrReferencedTypeDefinition(
+        sdlDefinition: SDLDefinition<*>
+    ): Boolean {
+        return when (sdlDefinition) {
+            is ScalarTypeDefinition,
+            is DirectiveDefinition -> {
+                true
+            }
+            is EnumTypeDefinition -> {
+                materializationDirectiveRegistry.getReferencedEnumTypeDefinitionWithName(
+                    sdlDefinition.name
+                ) != null
+            }
+            is InputObjectTypeDefinition -> {
+                materializationDirectiveRegistry.getReferencedInputObjectTypeDefinitionWithName(
+                    sdlDefinition.name
+                ) != null
+            }
+            else -> {
+                false
+            }
+        }
     }
 
     private fun addScalarTypeDefinitionsToContextTypeDefinitionRegistry(

@@ -20,6 +20,7 @@ import funcify.feature.schema.transformer.TransformerSourceProvider
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import graphql.language.FieldDefinition
 import graphql.language.ObjectTypeDefinition
+import graphql.schema.idl.TypeDefinitionRegistry
 import org.slf4j.Logger
 import org.springframework.beans.factory.ObjectProvider
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
@@ -134,7 +135,8 @@ class SchemaConfiguration {
             .doOnNext { fem: FeatureEngineeringModel ->
                 logger.info(
                     "build_feature_engineering_model: [ status: success ][ model.type_definition_registry.query_object_type.field_definitions.name: {} ]",
-                    fem.typeDefinitionRegistry
+                    TypeDefinitionRegistry()
+                        .apply { addAll(fem.modelDefinitions) }
                         .getType("Query", ObjectTypeDefinition::class.java)
                         .map(ObjectTypeDefinition::getFieldDefinitions)
                         .map(List<FieldDefinition>::asSequence)
