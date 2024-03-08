@@ -1,9 +1,9 @@
 package funcify.feature.materializer.model
 
 import arrow.core.Either
+import arrow.core.Option
 import arrow.core.filterIsInstance
 import arrow.core.getOrNone
-import arrow.core.identity
 import arrow.core.left
 import arrow.core.none
 import arrow.core.right
@@ -28,7 +28,18 @@ import graphql.language.InterfaceTypeDefinition
 import graphql.language.ObjectTypeDefinition
 import graphql.language.TypeDefinition
 import graphql.language.TypeName
-import graphql.schema.*
+import graphql.schema.FieldCoordinates
+import graphql.schema.GraphQLFieldDefinition
+import graphql.schema.GraphQLFieldsContainer
+import graphql.schema.GraphQLImplementingType
+import graphql.schema.GraphQLInterfaceType
+import graphql.schema.GraphQLObjectType
+import graphql.schema.GraphQLSchema
+import graphql.schema.GraphQLSchemaElement
+import graphql.schema.GraphQLTypeUtil
+import graphql.schema.GraphQLTypeVisitor
+import graphql.schema.GraphQLTypeVisitorStub
+import graphql.schema.GraphQLUnmodifiedType
 import graphql.schema.idl.TypeDefinitionRegistry
 import graphql.schema.idl.TypeUtil
 import graphql.util.TraversalControl
@@ -36,6 +47,8 @@ import graphql.util.Traverser
 import graphql.util.TraverserContext
 import graphql.util.TraverserResult
 import graphql.util.TraverserVisitor
+import java.util.*
+import kotlin.jvm.optionals.getOrNull
 import kotlinx.collections.immutable.PersistentList
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.persistentListOf
@@ -55,23 +68,11 @@ internal object TransformerSpecifiedTransformerSourceCreator :
         logger.info("{}.invoke: [ ]", TYPE_NAME)
         return graphQLSchema.queryType
             .toOption()
-            .flatMap { got: GraphQLObjectType ->
-                when {
-                    got.name == featureEngineeringModel.transformerFieldCoordinates.typeName -> {
-                        got.getFieldDefinition(
-                                featureEngineeringModel.transformerFieldCoordinates.fieldName
-                            )
-                            .toOption()
-                            .map { gfd: GraphQLFieldDefinition ->
-                                GQLOperationPath.getRootPath().transform {
-                                    appendField(gfd.name)
-                                } to gfd
-                            }
-                    }
-                    else -> {
-                        none()
-                    }
-                }
+            .flatMap { queryObjectType: GraphQLObjectType ->
+                extractTransformerElementTypePathAndDefinitionFromQueryObjectType(
+                    queryObjectType,
+                    featureEngineeringModel
+                )
             }
             .flatMap { (p: GQLOperationPath, fd: GraphQLFieldDefinition) ->
                 GraphQLTypeUtil.unwrapAll(fd.type)
@@ -86,17 +87,40 @@ internal object TransformerSpecifiedTransformerSourceCreator :
                         p,
                         gfc
                     )
-                    .peekIfFailure { t: Throwable ->
+                    .peek({ _: Sequence<TransformerSpecifiedTransformerSource> ->
+                        logger.debug("{}.invoke: [ status successful ]", TYPE_NAME)
+                    }) { t: Throwable ->
                         logger.warn(
-                            "{}.invoke: [ status: error occurred ][ type: {}, message: {} ]",
+                            "{}.invoke: [ status: failed ][ message/json: {} ]",
                             TYPE_NAME,
-                            t::class.simpleName,
-                            t.message
+                            (t as? ServiceError)?.toJsonNode() ?: t.message
                         )
                     }
-                    .fold(::identity) { _: Throwable -> emptySequence() }
+                    .orElseThrow()
             }
             .asIterable()
+    }
+
+    private fun extractTransformerElementTypePathAndDefinitionFromQueryObjectType(
+        queryObjectType: GraphQLObjectType,
+        featureEngineeringModel: FeatureEngineeringModel,
+    ): Option<Pair<GQLOperationPath, GraphQLFieldDefinition>> {
+        return when {
+            queryObjectType.name ==
+                featureEngineeringModel.transformerFieldCoordinates.typeName -> {
+                queryObjectType
+                    .getFieldDefinition(
+                        featureEngineeringModel.transformerFieldCoordinates.fieldName
+                    )
+                    .toOption()
+                    .map { gfd: GraphQLFieldDefinition ->
+                        GQLOperationPath.getRootPath().transform { appendField(gfd.name) } to gfd
+                    }
+            }
+            else -> {
+                none()
+            }
+        }
     }
 
     private fun traverseTransformerElementTypeCreatingTransformerSpecifiedTransformerSources(
@@ -166,22 +190,20 @@ internal object TransformerSpecifiedTransformerSourceCreator :
                         fd.inputValueDefinitions.isNotEmpty() -> {
                             sequenceOf(fd.name.right())
                         }
-                        TypeUtil.unwrapAll(fd.type)
-                            .toOption()
-                            .flatMap { tn: TypeName -> tdr.getType(tn).toOption() }
-                            .filterNot { td: TypeDefinition<*> ->
-                                td is ImplementingTypeDefinition<*>
-                            }
-                            .isDefined() -> {
-                            sequenceOf(fd.name.right())
-                        }
                         else -> {
-                            TypeUtil.unwrapAll(fd.type)
-                                .toOption()
-                                .flatMap { tn: TypeName -> tdr.getType(tn).toOption() }
-                                .filterIsInstance<ImplementingTypeDefinition<*>>()
-                                .map(ImplementingTypeDefinition<*>::left)
-                                .sequence()
+                            when (
+                                val td: TypeDefinition<*>? =
+                                    TypeUtil.unwrapAll(fd.type)
+                                        .toOption()
+                                        .mapNotNull(TypeName::getName)
+                                        .mapNotNull(tdr::getType)
+                                        .mapNotNull(Optional<TypeDefinition<*>>::getOrNull)
+                                        .orNull()
+                            ) {
+                                null -> sequenceOf(fd.name.right())
+                                is ImplementingTypeDefinition<*> -> sequenceOf(td.left())
+                                else -> sequenceOf(fd.name.right())
+                            }
                         }
                     }
                 }

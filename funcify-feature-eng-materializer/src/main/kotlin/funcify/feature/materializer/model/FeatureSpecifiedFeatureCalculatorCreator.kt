@@ -4,7 +4,6 @@ import arrow.core.Either
 import arrow.core.None
 import arrow.core.Option
 import arrow.core.filterIsInstance
-import arrow.core.getOrElse
 import arrow.core.getOrNone
 import arrow.core.left
 import arrow.core.none
@@ -104,14 +103,9 @@ internal object FeatureSpecifiedFeatureCalculatorCreator :
                         logger.debug("{}: [ status: successful ]", METHOD_TAG)
                     }) { t: Throwable ->
                         logger.warn(
-                            "{}: [ status: failed ][ type: {}, json/message: {} ]",
+                            "{}: [ status: failed ][ message/json: {} ]",
                             METHOD_TAG,
-                            t::class.simpleName,
-                            t.toOption()
-                                .filterIsInstance<ServiceError>()
-                                .map(ServiceError::toJsonNode)
-                                .map(JsonNode::toString)
-                                .getOrElse { t.message }
+                            (t as? ServiceError)?.toJsonNode() ?: t.message
                         )
                     }
                     .orElseThrow()
