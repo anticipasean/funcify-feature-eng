@@ -17,11 +17,12 @@ import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPer
 import funcify.feature.tools.extensions.SequenceExtensions.firstOrNone
 import funcify.feature.tools.extensions.SequenceExtensions.flatMapOptions
 import funcify.feature.tools.extensions.StringExtensions.flatten
+import funcify.feature.tools.extensions.TryExtensions.successIfDefined
 import graphql.language.Document
 import graphql.schema.FieldCoordinates
 import graphql.schema.GraphQLArgument
-import graphql.schema.GraphQLCompositeType
 import graphql.schema.GraphQLFieldDefinition
+import graphql.schema.GraphQLNamedOutputType
 import graphql.schema.GraphQLTypeUtil
 import kotlinx.collections.immutable.*
 import org.slf4j.Logger
@@ -363,14 +364,14 @@ internal class TabularQueryDocumentCreator(
         return Try.success(DefaultTabularQueryCompositionContext.empty())
             .map(matchRawInputContextKeysWithDomainSpecifiedDataElementSources(tabularQuery))
             .map(matchVariableKeysWithDomainSpecifiedDataElementSourceArguments(tabularQuery))
-            .filter(contextContainsErrors(), createAggregateErrorFromContext())
             .map(addAllDomainDataElementsWithCompleteVariableKeyArgumentSets(tabularQuery))
-            .filter(contextContainsErrors(), createAggregateErrorFromContext())
+            .filter(contextDoesNotContainErrors(), createAggregateErrorFromContext())
             .map(matchExpectedOutputColumnNamesToFeaturePathsOrDataElementCoordinates(tabularQuery))
-            .filter(contextContainsErrors(), createAggregateErrorFromContext())
+            .filter(contextDoesNotContainErrors(), createAggregateErrorFromContext())
             .map(connectDataElementCoordinatesToPathsUnderSupportedSources(tabularQuery))
-            .filter(contextContainsErrors(), createAggregateErrorFromContext())
+            .filter(contextDoesNotContainErrors(), createAggregateErrorFromContext())
             .flatMap(createDocumentFromContext(tabularQuery))
+            .peek(logSuccess(), logFailure())
             .orElseThrow()
     }
 
@@ -378,38 +379,60 @@ internal class TabularQueryDocumentCreator(
         tabularQuery: TabularQuery
     ): (TabularQueryCompositionContext) -> TabularQueryCompositionContext {
         return { tqcc: TabularQueryCompositionContext ->
-            tqcc.update {
-                tabularQuery.rawInputContextKeys.asSequence().fold(this) {
-                    cb: TabularQueryCompositionContext.Builder,
-                    k: String ->
-                    when (
-                        val dsdes: DomainSpecifiedDataElementSource? =
-                            matchRawInputContextKeyWithDomainSpecifiedDataElementSource(
-                                    tabularQuery,
-                                    k
-                                )
-                                .orNull()
-                    ) {
-                        null -> {
-                            cb.addPassthruRawInputContextKey(k)
-                        }
-                        else -> {
-                            dsdes.allArgumentsWithoutDefaultValuesByPath
-                                .asSequence()
-                                .map { (ap: GQLOperationPath, ga: GraphQLArgument) ->
-                                    ga.name to ap
+            runCatching {
+                    tqcc.update {
+                        tabularQuery.rawInputContextKeys.asSequence().fold(this) {
+                            cb: TabularQueryCompositionContext.Builder,
+                            k: String ->
+                            when (
+                                val dsdes: DomainSpecifiedDataElementSource? =
+                                    matchRawInputContextKeyWithDomainSpecifiedDataElementSource(
+                                            tabularQuery,
+                                            k
+                                        )
+                                        .orNull()
+                            ) {
+                                null -> {
+                                    cb.addPassthruRawInputContextKey(k)
                                 }
-                                .forEach { (vkToCreate: String, ap: GQLOperationPath) ->
-                                    cb.putRawInputContextDataElementArgumentForVariableToCreate(
-                                        vkToCreate,
-                                        ap
+                                else -> {
+                                    dsdes.allArgumentsWithoutDefaultValuesByPath
+                                        .asSequence()
+                                        .map { (ap: GQLOperationPath, ga: GraphQLArgument) ->
+                                            ga.name to ap
+                                        }
+                                        .forEach { (vkToCreate: String, ap: GQLOperationPath) ->
+                                            cb
+                                                .putRawInputContextDataElementArgumentForVariableToCreate(
+                                                    vkToCreate,
+                                                    ap
+                                                )
+                                        }
+                                    cb.putRawInputContextKeyForDataElementSourcePath(
+                                        dsdes.domainPath,
+                                        k
                                     )
                                 }
-                            cb.putRawInputContextKeyForDataElementSourcePath(dsdes.domainPath, k)
+                            }
                         }
                     }
                 }
-            }
+                .fold(::identity) { t: Throwable ->
+                    tqcc.update {
+                        addError(
+                            when (t) {
+                                is ServiceError -> t
+                                else ->
+                                    ServiceError.builder()
+                                        .message(
+                                            "error occurred when matching raw input context key"
+                                        )
+                                        .cause(t)
+                                        .build()
+                            }
+                        )
+                    }
+                }
         }
     }
 
@@ -420,50 +443,75 @@ internal class TabularQueryDocumentCreator(
         // TODO: Add lookup_by_name for domain_specified_data_element_sources sparing the need for
         // these lookups if this is determined to be the best way to deduce what domains have been
         // provided in raw_input_context
-        return tabularQuery.materializationMetamodel.querySchemaElementsByPath
-            .getOrNone(tabularQuery.materializationMetamodel.dataElementElementTypePath)
-            .filterIsInstance<GraphQLFieldDefinition>()
-            .map(GraphQLFieldDefinition::getType)
-            .map(GraphQLTypeUtil::unwrapAll)
-            .filterIsInstance<GraphQLCompositeType>()
-            .map(GraphQLCompositeType::getName)
+        return tabularQuery.materializationMetamodel.materializationGraphQLSchema
+            .getFieldDefinition(
+                tabularQuery.materializationMetamodel.featureEngineeringModel
+                    .dataElementFieldCoordinates
+            )
+            .toOption()
+            .mapNotNull(GraphQLFieldDefinition::getType)
+            .mapNotNull(GraphQLTypeUtil::unwrapAll)
+            .filterIsInstance<GraphQLNamedOutputType>()
+            .mapNotNull(GraphQLNamedOutputType::getName)
+            .successIfDefined {
+                ServiceError.of(
+                    """data element type name for field_definition at 
+                    |[ coordinates: %s ] expected but not found in schema"""
+                        .flatten(),
+                    tabularQuery.materializationMetamodel.featureEngineeringModel
+                        .dataElementFieldCoordinates
+                )
+            }
             .map { tn: String -> FieldCoordinates.coordinates(tn, rawInputContextKey) }
-            .flatMap(
+            .map(
                 tabularQuery.materializationMetamodel
                     .domainSpecifiedDataElementSourceByCoordinates::getOrNone
             )
+            .orElseThrow()
     }
 
     private fun matchVariableKeysWithDomainSpecifiedDataElementSourceArguments(
         tabularQuery: TabularQuery
     ): (TabularQueryCompositionContext) -> TabularQueryCompositionContext {
         return { tqcc: TabularQueryCompositionContext ->
-            tqcc.update {
-                tabularQuery.variableKeys.asSequence().fold(this) {
-                    cb: TabularQueryCompositionContext.Builder,
-                    vk: String ->
-                    when (
-                        val argumentPathSet: ImmutableSet<GQLOperationPath>? =
-                            matchVariableKeyToDataElementArgumentPaths(tabularQuery, vk).orNull()
-                    ) {
-                        null -> {
-                            cb.addError(
-                                ServiceError.of(
-                                    """variable [ key: %s ] does not match 
+            tqcc
+                .update {
+                    tabularQuery.variableKeys.asSequence().fold(this) {
+                        cb: TabularQueryCompositionContext.Builder,
+                        vk: String ->
+                        when (
+                            val argumentPathSet: ImmutableSet<GQLOperationPath>? =
+                                matchVariableKeyToDataElementArgumentPaths(tabularQuery, vk)
+                                    .orNull()
+                        ) {
+                            null -> {
+                                cb.addError(
+                                    ServiceError.of(
+                                        """variable [ key: %s ] does not match 
                                     |any of the names or aliases 
                                     |for arguments to supported data element 
                                     |sources for a tabular query"""
-                                        .flatten(),
-                                    vk
+                                            .flatten(),
+                                        vk
+                                    )
                                 )
-                            )
-                        }
-                        else -> {
-                            cb.putArgumentPathSetMatchingVariableKey(vk, argumentPathSet)
+                            }
+                            else -> {
+                                cb.putArgumentPathSetMatchingVariableKey(vk, argumentPathSet)
+                            }
                         }
                     }
                 }
-            }
+                .also { t ->
+                    logger.debug(
+                        "{}: [ status: matching variables to domain_specified_data_element_source_arguments ][ {} ]",
+                        METHOD_TAG,
+                        t.anyArgumentPathSetsMatchingVariables.asSequence().joinToString(",\n") {
+                            (v, ps) ->
+                            "$v: ${ps.joinToString(", ", "{ ", " }")}"
+                        }
+                    )
+                }
         }
     }
 
@@ -499,8 +547,8 @@ internal class TabularQueryDocumentCreator(
             }
     }
 
-    private fun contextContainsErrors(): (TabularQueryCompositionContext) -> Boolean {
-        return { tqcc: TabularQueryCompositionContext -> tqcc.errors.isNotEmpty() }
+    private fun contextDoesNotContainErrors(): (TabularQueryCompositionContext) -> Boolean {
+        return { tqcc: TabularQueryCompositionContext -> tqcc.errors.isEmpty() }
     }
 
     private fun createAggregateErrorFromContext(): (TabularQueryCompositionContext) -> Throwable {
@@ -528,15 +576,21 @@ internal class TabularQueryDocumentCreator(
                 .reducePairsToPersistentSetValueMap()
                 .asSequence()
                 .filter { (pp: GQLOperationPath, vkToAps: Set<Pair<String, GQLOperationPath>>) ->
-                    val argPathsSet: Set<GQLOperationPath> =
-                        vkToAps.asSequence().map { (_: String, ap: GQLOperationPath) -> ap }.toSet()
                     tabularQuery.materializationMetamodel.domainSpecifiedDataElementSourceByPath
                         .getOrNone(pp)
                         .map { dsdes: DomainSpecifiedDataElementSource ->
-                            // Must provide all arguments or at least those lacking default
+                            // Must provide all domain arguments or at least those lacking default
                             // argument values
                             // TODO: Convert to cacheable operation
-                            dsdes.allArgumentsWithoutDefaultValuesByPath.asSequence().all {
+                            val argPathsSet: Set<GQLOperationPath> =
+                                vkToAps
+                                    .asSequence()
+                                    .filter { (_: String, ap: GQLOperationPath) ->
+                                        dsdes.domainPath.isParentTo(ap)
+                                    }
+                                    .map { (_: String, ap: GQLOperationPath) -> ap }
+                                    .toSet()
+                            dsdes.domainArgumentsWithoutDefaultValuesByPath.asSequence().all {
                                 (p: GQLOperationPath, _: GraphQLArgument) ->
                                 argPathsSet.contains(p)
                             }
@@ -556,6 +610,17 @@ internal class TabularQueryDocumentCreator(
                         }
                         addDomainDataElementSourcePathWithCompleteVariableArgumentSet(ddesp)
                     }
+                }
+                .also { t ->
+                    logger.debug(
+                        "{}: [ status: assessing which domain_specified_data_element_sources have complete argument sets from variables ][ complete domain_specified_data_element_argument_sets: {} ]",
+                        METHOD_TAG,
+                        t.domainDataElementSourcePathsWithCompleteVariableArgumentSets.joinToString(
+                            ", ",
+                            "{ ",
+                            " }"
+                        )
+                    )
                 }
         }
     }
@@ -763,6 +828,20 @@ internal class TabularQueryDocumentCreator(
                         tabularQuery.materializationMetamodel.materializationGraphQLSchema
                     )
                 }
+        }
+    }
+
+    private fun <T> logSuccess(): (T) -> Unit {
+        return { _: T -> logger.debug("{}: [ status: successful ]", METHOD_TAG) }
+    }
+
+    private fun logFailure(): (Throwable) -> Unit {
+        return { t: Throwable ->
+            logger.error(
+                "{}: [ status: failed ][ message/json: {} ]",
+                METHOD_TAG,
+                (t as? ServiceError)?.toJsonNode() ?: t.message
+            )
         }
     }
 }

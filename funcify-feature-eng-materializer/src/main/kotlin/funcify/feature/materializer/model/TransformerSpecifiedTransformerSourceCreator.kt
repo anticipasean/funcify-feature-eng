@@ -1,11 +1,12 @@
 package funcify.feature.materializer.model
 
+import arrow.core.Either
 import arrow.core.filterIsInstance
-import arrow.core.getOrElse
 import arrow.core.getOrNone
 import arrow.core.identity
+import arrow.core.left
 import arrow.core.none
-import arrow.core.some
+import arrow.core.right
 import arrow.core.toOption
 import funcify.feature.error.ServiceError
 import funcify.feature.schema.FeatureEngineeringModel
@@ -13,22 +14,30 @@ import funcify.feature.schema.path.operation.GQLOperationPath
 import funcify.feature.schema.transformer.TransformerSource
 import funcify.feature.schema.transformer.TransformerSpecifiedTransformerSource
 import funcify.feature.tools.container.attempt.Try
+import funcify.feature.tools.container.attempt.Try.Companion.filterInstanceOf
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
+import funcify.feature.tools.extensions.OptionExtensions.sequence
+import funcify.feature.tools.extensions.OptionExtensions.toOption
 import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentMap
-import funcify.feature.tools.extensions.SequenceExtensions.firstOrNone
-import funcify.feature.tools.extensions.SequenceExtensions.flatMapOptions
+import funcify.feature.tools.extensions.SequenceExtensions.recurseBreadthFirst
+import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.extensions.TryExtensions.successIfDefined
 import graphql.language.FieldDefinition
+import graphql.language.ImplementingTypeDefinition
+import graphql.language.InterfaceTypeDefinition
 import graphql.language.ObjectTypeDefinition
-import graphql.language.SDLDefinition
+import graphql.language.TypeDefinition
+import graphql.language.TypeName
 import graphql.schema.*
+import graphql.schema.idl.TypeDefinitionRegistry
+import graphql.schema.idl.TypeUtil
 import graphql.util.TraversalControl
 import graphql.util.Traverser
 import graphql.util.TraverserContext
 import graphql.util.TraverserResult
 import graphql.util.TraverserVisitor
-import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.PersistentList
+import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.persistentListOf
 import org.slf4j.Logger
 
@@ -71,106 +80,128 @@ internal object TransformerSpecifiedTransformerSourceCreator :
                     .map { gfc: GraphQLFieldsContainer -> p to gfc }
             }
             .fold(::emptySequence) { (p: GQLOperationPath, gfc: GraphQLFieldsContainer) ->
-                val tsByFieldDefName: ImmutableMap<String, TransformerSource> =
-                    extractTransformerSourceByFieldDefinitionNameMapFromFeatureEngineeringModel(
-                        featureEngineeringModel
+                traverseTransformerElementTypeCreatingTransformerSpecifiedTransformerSources(
+                        featureEngineeringModel,
+                        graphQLSchema,
+                        p,
+                        gfc
                     )
-                gfc.fieldDefinitions
-                    .asSequence()
-                    .map { fd: GraphQLFieldDefinition ->
-                        tsByFieldDefName.getOrNone(fd.name).map { ts: TransformerSource ->
-                            fd to ts
-                        }
+                    .peekIfFailure { t: Throwable ->
+                        logger.warn(
+                            "{}.invoke: [ status: error occurred ][ type: {}, message: {} ]",
+                            TYPE_NAME,
+                            t::class.simpleName,
+                            t.message
+                        )
                     }
-                    .flatMapOptions()
-                    .flatMap { (fd: GraphQLFieldDefinition, ts: TransformerSource) ->
-                        Traverser.breadthFirst(
-                                schemaElementTraversalFunction(graphQLSchema),
-                                p,
-                                TransformerSpecifiedTransformerSourceContext(
-                                    transformerTypeName = gfc.name,
-                                    transformerSource = ts,
-                                    transformerSpecifiedTransformerSources = persistentListOf()
-                                )
-                            )
-                            .traverse(
-                                fd,
-                                SchemaElementTraverserVisitor(
-                                    graphQLTypeVisitor =
-                                        TransformerSpecifiedTransformerSourceVisitor()
-                                )
-                            )
-                            .toOption()
-                            .mapNotNull(TraverserResult::getAccumulatedResult)
-                            .filterIsInstance<TransformerSpecifiedTransformerSourceContext>()
-                            .map { c: TransformerSpecifiedTransformerSourceContext ->
-                                c.transformerSpecifiedTransformerSources.asSequence()
-                            }
-                            .successIfDefined {
-                                ServiceError.of(
-                                    "context instance failed to be passed back from visitor"
-                                )
-                            }
-                            .peekIfFailure { t: Throwable ->
-                                logger.warn(
-                                    "{}.invoke: [ status: error occurred ][ type: {}, message: {} ]",
-                                    TYPE_NAME,
-                                    t::class.simpleName,
-                                    t.message
-                                )
-                            }
-                            .fold(::identity) { _: Throwable -> emptySequence() }
-                    }
+                    .fold(::identity) { _: Throwable -> emptySequence() }
             }
             .asIterable()
     }
 
-    private fun extractTransformerSourceByFieldDefinitionNameMapFromFeatureEngineeringModel(
-        featureEngineeringModel: FeatureEngineeringModel
-    ): ImmutableMap<String, TransformerSource> {
-        return featureEngineeringModel.transformerSourcesByName.values
+    private fun traverseTransformerElementTypeCreatingTransformerSpecifiedTransformerSources(
+        fem: FeatureEngineeringModel,
+        gs: GraphQLSchema,
+        transformerElementPath: GQLOperationPath,
+        transformerElementTypeFieldsContainer: GraphQLFieldsContainer,
+    ): Try<Sequence<TransformerSpecifiedTransformerSource>> {
+        val tsByFieldDefName: PersistentMap<String, TransformerSource> =
+            extractTransformerSourcesByNameFromFeatureEngineeringModel(fem)
+        return Try.attemptNullable({
+                Traverser.breadthFirst(
+                        schemaElementTraversalFunction(gs),
+                        transformerElementPath,
+                        TransformerSpecifiedTransformerSourceContext(
+                            transformerSourcesByFieldName = tsByFieldDefName,
+                            transformerSpecifiedTransformerSources = persistentListOf()
+                        )
+                    )
+                    .traverse(
+                        transformerElementTypeFieldsContainer,
+                        SchemaElementTraverserVisitor(
+                            graphQLTypeVisitor = TransformerSpecifiedTransformerSourceVisitor()
+                        )
+                    )
+            }) {
+                ServiceError.of("context instance failed to be passed back from visitor")
+            }
+            .map(TraverserResult::getAccumulatedResult)
+            .filterInstanceOf<TransformerSpecifiedTransformerSourceContext>()
+            .map { c: TransformerSpecifiedTransformerSourceContext ->
+                c.transformerSpecifiedTransformerSources.asSequence()
+            }
+    }
+
+    private fun extractTransformerSourcesByNameFromFeatureEngineeringModel(
+        fem: FeatureEngineeringModel
+    ): PersistentMap<String, TransformerSource> {
+        return fem.transformerSourcesByName.values
             .asSequence()
             .flatMap { ts: TransformerSource ->
-                ts.sourceSDLDefinitions
-                    .asSequence()
-                    .firstOrNone { sd: SDLDefinition<*> ->
-                        sd is ObjectTypeDefinition && QUERY_OBJECT_TYPE_NAME == sd.name
-                    }
+                val tdr: TypeDefinitionRegistry =
+                    TypeDefinitionRegistry().apply { addAll(ts.sourceSDLDefinitions) }
+                tdr.getType(QUERY_OBJECT_TYPE_NAME)
+                    .toOption()
                     .filterIsInstance<ObjectTypeDefinition>()
-                    .map(ObjectTypeDefinition::getFieldDefinitions)
-                    .fold(::emptyList, ::identity)
-                    .asSequence()
-                    .map { fd: FieldDefinition -> fd.name to ts }
+                    .sequence()
+                    .recurseBreadthFirst { itd: ImplementingTypeDefinition<*> ->
+                        shiftLeftImplementingTypeDefinitionsSelectRightTransformerNames(itd, tdr)
+                    }
+                    .map { name: String -> name to ts }
             }
             .reducePairsToPersistentMap()
     }
 
+    private fun shiftLeftImplementingTypeDefinitionsSelectRightTransformerNames(
+        itd: ImplementingTypeDefinition<*>,
+        tdr: TypeDefinitionRegistry,
+    ): Sequence<Either<ImplementingTypeDefinition<*>, String>> {
+        return when (itd) {
+            is InterfaceTypeDefinition -> {
+                tdr.getImplementationsOf(itd).asSequence().map(ObjectTypeDefinition::left)
+            }
+            is ObjectTypeDefinition -> {
+                itd.fieldDefinitions.asSequence().flatMap { fd: FieldDefinition ->
+                    when {
+                        fd.inputValueDefinitions.isNotEmpty() -> {
+                            sequenceOf(fd.name.right())
+                        }
+                        TypeUtil.unwrapAll(fd.type)
+                            .toOption()
+                            .flatMap { tn: TypeName -> tdr.getType(tn).toOption() }
+                            .filterNot { td: TypeDefinition<*> ->
+                                td is ImplementingTypeDefinition<*>
+                            }
+                            .isDefined() -> {
+                            sequenceOf(fd.name.right())
+                        }
+                        else -> {
+                            TypeUtil.unwrapAll(fd.type)
+                                .toOption()
+                                .flatMap { tn: TypeName -> tdr.getType(tn).toOption() }
+                                .filterIsInstance<ImplementingTypeDefinition<*>>()
+                                .map(ImplementingTypeDefinition<*>::left)
+                                .sequence()
+                        }
+                    }
+                }
+            }
+            else -> {
+                emptySequence()
+            }
+        }
+    }
+
     private fun schemaElementTraversalFunction(
-        graphQLSchema: GraphQLSchema
+        gs: GraphQLSchema
     ): (GraphQLSchemaElement) -> List<GraphQLSchemaElement> {
         return { e: GraphQLSchemaElement ->
             when (e) {
                 is GraphQLInterfaceType -> {
-                    e.fieldDefinitions
-                        .asSequence()
-                        .plus(graphQLSchema.getImplementations(e))
-                        .toList()
+                    gs.getImplementations(e)
                 }
                 is GraphQLObjectType -> {
                     e.fieldDefinitions
-                }
-                is GraphQLTypeReference -> {
-                    graphQLSchema
-                        .getType(e.name)
-                        .toOption()
-                        .flatMap { gt: GraphQLType ->
-                            when (gt) {
-                                is GraphQLFieldsContainer -> gt.some()
-                                is GraphQLInputFieldsContainer -> gt.some()
-                                else -> none()
-                            }
-                        }
-                        .fold(::emptyList, ::listOf)
                 }
                 is GraphQLFieldDefinition -> {
                     when (val gut: GraphQLUnmodifiedType = GraphQLTypeUtil.unwrapAll(e.type)) {
@@ -183,15 +214,14 @@ internal object TransformerSpecifiedTransformerSourceCreator :
                     }
                 }
                 else -> {
-                    emptyList<GraphQLSchemaElement>()
+                    emptyList()
                 }
             }
         }
     }
 
     private data class TransformerSpecifiedTransformerSourceContext(
-        val transformerTypeName: String,
-        val transformerSource: TransformerSource,
+        val transformerSourcesByFieldName: PersistentMap<String, TransformerSource>,
         val transformerSpecifiedTransformerSources:
             PersistentList<TransformerSpecifiedTransformerSource>
     )
@@ -223,91 +253,62 @@ internal object TransformerSpecifiedTransformerSourceCreator :
             context: TraverserContext<GraphQLSchemaElement>
         ): TraversalControl {
             logger.debug("visit_graphql_field_definition: [ node.name: {} ]", node.name)
-            when (
-                val parentNode: GraphQLFieldsContainer? =
-                    context.parentNode as? GraphQLFieldsContainer
+            val p: GQLOperationPath = createPathFromContext(node, context)
+            if (
+                !node.type
+                    .toOption()
+                    .mapNotNull(GraphQLTypeUtil::unwrapAll)
+                    .filterIsInstance<GraphQLImplementingType>()
+                    .isDefined()
+            ) {
+                updateContextWithTransformerGraphQLFieldDefinition(context, p, node)
+            }
+            context.setVar(GQLOperationPath::class.java, p)
+            return TraversalControl.CONTINUE
+        }
+
+        private fun createPathFromContext(
+            node: GraphQLFieldDefinition,
+            context: TraverserContext<GraphQLSchemaElement>
+        ): GQLOperationPath {
+            val p: GQLOperationPath = extractParentPathContextVariableOrThrow(context)
+            return when (
+                val grandparent: GraphQLSchemaElement? = context.parentContext?.parentNode
             ) {
                 is GraphQLInterfaceType -> {
-                    val p: GQLOperationPath =
-                        extractParentPathContextVariableOrThrow(context).transform {
-                            field(node.name)
-                        }
-                    if (node.arguments.isNotEmpty()) {
-                        updateContextWithTransformerGraphQLFieldDefinition(context, p, node)
-                    }
-                    context.setVar(GQLOperationPath::class.java, p)
-                }
-                is GraphQLObjectType -> {
-                    when (
-                        val grandparentNode: GraphQLFieldsContainer? =
-                            context.parentContext?.parentNode as? GraphQLFieldsContainer
-                    ) {
-                        is GraphQLInterfaceType -> {
-                            if (grandparentNode.getFieldDefinition(node.name) == null) {
-                                val p: GQLOperationPath =
-                                    extractParentPathContextVariableOrThrow(context).transform {
-                                        inlineFragment(parentNode.name, node.name)
-                                    }
-                                if (node.arguments.isNotEmpty()) {
-                                    updateContextWithTransformerGraphQLFieldDefinition(
-                                        context,
-                                        p,
-                                        node
-                                    )
-                                }
-                                context.setVar(GQLOperationPath::class.java, p)
+                    when (val parent: GraphQLSchemaElement? = context.parentNode) {
+                        is GraphQLObjectType -> {
+                            if (grandparent.getFieldDefinition(node.name) != null) {
+                                p.transform { appendField(node.name) }
+                            } else {
+                                p.transform { appendInlineFragment(parent.name, node.name) }
                             }
                         }
                         else -> {
-                            val p: GQLOperationPath =
-                                extractParentPathContextVariableOrThrow(context).transform {
-                                    field(node.name)
-                                }
-                            if (node.arguments.isNotEmpty()) {
-                                updateContextWithTransformerGraphQLFieldDefinition(context, p, node)
-                            }
-                            context.setVar(GQLOperationPath::class.java, p)
+                            throw ServiceError.of(
+                                "unexpected traversal pattern: grandparent of %s is %s but parent is not %s",
+                                GraphQLFieldDefinition::class.qualifiedName,
+                                GraphQLInterfaceType::class.qualifiedName,
+                                GraphQLObjectType::class.qualifiedName
+                            )
                         }
                     }
                 }
                 else -> {
-                    val p: GQLOperationPath = extractParentPathContextVariableOrThrow(context)
-                    if (node.arguments.isNotEmpty()) {
-                        updateContextWithTransformerGraphQLFieldDefinition(context, p, node)
+                    when (val parent: GraphQLSchemaElement? = context.parentNode) {
+                        is GraphQLObjectType -> {
+                            p.transform { appendField(node.name) }
+                        }
+                        else -> {
+                            throw ServiceError.of(
+                                "unexpected traversal pattern: parent of %s is not %s",
+                                GraphQLFieldDefinition::class.qualifiedName,
+                                GraphQLObjectType::class.qualifiedName
+                            )
+                        }
                     }
-                    context.setVar(GQLOperationPath::class.java, p)
                 }
             }
-            return TraversalControl.CONTINUE
-        }
-
-        private fun updateContextWithTransformerGraphQLFieldDefinition(
-            context: TraverserContext<GraphQLSchemaElement>,
-            path: GQLOperationPath,
-            fieldDefinition: GraphQLFieldDefinition,
-        ) {
-            val c: TransformerSpecifiedTransformerSourceContext = context.getCurrentAccumulate()
-            val parentTypeName: String =
-                context.parentNode
-                    .toOption()
-                    .filterIsInstance<GraphQLImplementingType>()
-                    .map(GraphQLImplementingType::getName)
-                    .getOrElse { c.transformerTypeName }
-            val tsts: TransformerSpecifiedTransformerSource =
-                DefaultTransformerSpecifiedTransformerSource.builder()
-                    .transformerFieldCoordinates(
-                        FieldCoordinates.coordinates(parentTypeName, fieldDefinition.name)
-                    )
-                    .transformerSource(c.transformerSource)
-                    .transformerPath(path)
-                    .transformerFieldDefinition(fieldDefinition)
-                    .build()
-            context.setAccumulate(
-                c.copy(
-                    transformerSpecifiedTransformerSources =
-                        c.transformerSpecifiedTransformerSources.add(tsts)
-                )
-            )
         }
 
         private fun extractParentPathContextVariableOrThrow(
@@ -324,6 +325,53 @@ internal object TransformerSpecifiedTransformerSourceCreator :
                 .orElseThrow { _: Throwable ->
                     ServiceError.of("parent_path has not been set as variable in traverser_context")
                 }
+        }
+
+        private fun updateContextWithTransformerGraphQLFieldDefinition(
+            context: TraverserContext<GraphQLSchemaElement>,
+            path: GQLOperationPath,
+            fieldDefinition: GraphQLFieldDefinition,
+        ) {
+            val c: TransformerSpecifiedTransformerSourceContext = context.getCurrentAccumulate()
+            val parentTypeName: String =
+                context.parentNode
+                    .toOption()
+                    .filterIsInstance<GraphQLImplementingType>()
+                    .map(GraphQLImplementingType::getName)
+                    .successIfDefined {
+                        ServiceError.of(
+                            """parent of %s [ name: %s ] is not %s""".flatten(),
+                            GraphQLFieldDefinition::class.qualifiedName,
+                            fieldDefinition.name,
+                            GraphQLImplementingType::class.qualifiedName
+                        )
+                    }
+                    .orElseThrow()
+            val ts: TransformerSource =
+                c.transformerSourcesByFieldName
+                    .getOrNone(fieldDefinition.name)
+                    .successIfDefined {
+                        ServiceError.of(
+                            "transformer_source not found for [ field_definition.name: %s ]",
+                            fieldDefinition.name
+                        )
+                    }
+                    .orElseThrow()
+            val tsts: TransformerSpecifiedTransformerSource =
+                DefaultTransformerSpecifiedTransformerSource.builder()
+                    .transformerFieldCoordinates(
+                        FieldCoordinates.coordinates(parentTypeName, fieldDefinition.name)
+                    )
+                    .transformerSource(ts)
+                    .transformerPath(path)
+                    .transformerFieldDefinition(fieldDefinition)
+                    .build()
+            context.setAccumulate(
+                c.copy(
+                    transformerSpecifiedTransformerSources =
+                        c.transformerSpecifiedTransformerSources.add(tsts)
+                )
+            )
         }
     }
 }

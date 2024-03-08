@@ -1,11 +1,12 @@
 package funcify.feature.materializer.document
 
+import funcify.feature.tools.extensions.MonoExtensions.widen
 import graphql.ExecutionInput
 import graphql.execution.preparsed.PreparsedDocumentEntry
 import graphql.execution.preparsed.PreparsedDocumentProvider
-import reactor.core.publisher.Mono
 import java.util.concurrent.CompletableFuture
 import java.util.function.Function
+import reactor.core.publisher.Mono
 
 /**
  * @author smccarron
@@ -16,7 +17,7 @@ abstract class MaterializationPreparsedDocumentProvider : PreparsedDocumentProvi
     abstract fun getPreparsedDocumentEntry(
         executionInput: ExecutionInput,
         parseAndValidateFunction: (ExecutionInput) -> PreparsedDocumentEntry
-    ): Mono<PreparsedDocumentEntry>
+    ): Mono<out PreparsedDocumentEntry>
 
     @Deprecated(
         message = "Deprecated in framework",
@@ -43,6 +44,7 @@ abstract class MaterializationPreparsedDocumentProvider : PreparsedDocumentProvi
                     parseAndValidateFunction.apply(ei)
                 }
             )
+            .widen()
             .toFuture()
     }
 }

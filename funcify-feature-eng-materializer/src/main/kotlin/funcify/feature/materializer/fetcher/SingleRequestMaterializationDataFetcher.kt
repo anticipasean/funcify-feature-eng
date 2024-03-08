@@ -49,7 +49,7 @@ internal class SingleRequestMaterializationDataFetcher<R>(
                 environment.graphQlContext
                     .getOrEmpty<GraphQLSingleRequestSession>(
                         GraphQLSingleRequestSession.GRAPHQL_SINGLE_REQUEST_SESSION_KEY
-                                                            )
+                    )
                     .isEmpty -> {
                 createSingleRequestSessionMissingErrorFuture()
             }
@@ -62,7 +62,7 @@ internal class SingleRequestMaterializationDataFetcher<R>(
                             singleRequestSession =
                                 environment.graphQlContext.get<GraphQLSingleRequestSession>(
                                     GraphQLSingleRequestSession.GRAPHQL_SINGLE_REQUEST_SESSION_KEY
-                                                                                           )
+                                )
                         )
                     )
                 )

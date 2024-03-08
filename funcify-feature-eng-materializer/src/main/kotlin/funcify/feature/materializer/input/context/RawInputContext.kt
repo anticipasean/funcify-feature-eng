@@ -11,7 +11,7 @@ import kotlinx.collections.immutable.ImmutableSet
 interface RawInputContext {
 
     companion object {
-        val RAW_INPUT_CONTEXT_VARIABLE_KEY: String = "input"
+        const val RAW_INPUT_CONTEXT_VARIABLE_KEY: String = "input"
     }
 
     fun fieldNames(): ImmutableSet<String>

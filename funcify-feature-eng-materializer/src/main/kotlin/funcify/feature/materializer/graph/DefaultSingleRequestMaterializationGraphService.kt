@@ -39,9 +39,9 @@ import graphql.execution.preparsed.PreparsedDocumentEntry
 import graphql.language.AstPrinter
 import graphql.language.Document
 import graphql.validation.ValidationError
-import java.time.Duration
 import java.util.*
 import java.util.concurrent.ConcurrentMap
+import java.util.concurrent.TimeUnit
 import kotlin.reflect.KClass
 import kotlin.reflect.KType
 import kotlin.reflect.full.isSuperclassOf
@@ -52,7 +52,6 @@ import kotlinx.collections.immutable.plus
 import kotlinx.collections.immutable.toPersistentSet
 import org.slf4j.Logger
 import reactor.core.publisher.Mono
-import java.util.concurrent.TimeUnit
 
 /**
  * @author smccarron
@@ -87,72 +86,23 @@ internal class DefaultSingleRequestMaterializationGraphService(
     override fun createRequestMaterializationGraphForSession(
         session: GraphQLSingleRequestSession
     ): Mono<out GraphQLSingleRequestSession> {
-        logger.debug("$METHOD_TAG: [ session.session_id: ${session.sessionId} ]")
+        logger.debug("{}: [ session.session_id: {} ]", METHOD_TAG, session.sessionId)
         return when {
                 session.requestMaterializationGraph.isDefined() -> {
                     Mono.just(session)
                 }
                 else -> {
-                    Mono.defer { createRequestMaterializationGraphCacheKeyForSession(session) }
-                        .flatMap { rmgck: RequestMaterializationGraphCacheKey ->
-                            when (
-                                val existingGraph: RequestMaterializationGraph? =
-                                    requestMaterializationGraphCache[rmgck]
-                            ) {
-                                null -> {
-                                    calculateRequestMaterializationGraphForSession(rmgck, session)
-                                        .doOnNext { calculatedGraph: RequestMaterializationGraph ->
-                                            requestMaterializationGraphCache[rmgck] =
-                                                calculatedGraph
-                                        }
-                                        .map { calculatedGraph: RequestMaterializationGraph ->
-                                            when (
-                                                val e: ServiceError? =
-                                                    calculatedGraph.processingError.orNull()
-                                            ) {
-                                                null -> {
-                                                    session.update {
-                                                        preparsedDocumentEntry(
-                                                            calculatedGraph.preparsedDocumentEntry
-                                                        )
-                                                        requestMaterializationGraph(calculatedGraph)
-                                                    }
-                                                }
-                                                else -> {
-                                                    throw e
-                                                }
-                                            }
-                                        }
-                                }
-                                else -> {
-                                    Mono.fromCallable {
-                                        when (
-                                            val e: ServiceError? =
-                                                existingGraph.processingError.orNull()
-                                        ) {
-                                            null -> {
-                                                session.update {
-                                                    preparsedDocumentEntry(
-                                                        existingGraph.preparsedDocumentEntry
-                                                    )
-                                                    requestMaterializationGraph(existingGraph)
-                                                }
-                                            }
-                                            else -> {
-                                                throw e
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
+                    createGraphCacheKeyForSession(session).flatMap {
+                        rmgck: RequestMaterializationGraphCacheKey ->
+                        useExistingElseCreateGraphForCacheKey(rmgck, session)
+                    }
                 }
             }
             .doOnNext(requestMaterializationGraphSuccessLogger())
             .doOnError(requestMaterializationGraphFailureLogger())
     }
 
-    private fun createRequestMaterializationGraphCacheKeyForSession(
+    private fun createGraphCacheKeyForSession(
         session: GraphQLSingleRequestSession
     ): Mono<out RequestMaterializationGraphCacheKey> {
         logger.info(
@@ -227,6 +177,55 @@ internal class DefaultSingleRequestMaterializationGraphService(
                     .failure()
             }
         }.toMono()
+    }
+
+    private fun useExistingElseCreateGraphForCacheKey(
+        cacheKey: RequestMaterializationGraphCacheKey,
+        session: GraphQLSingleRequestSession,
+    ): Mono<out GraphQLSingleRequestSession> {
+        logger.info(
+            "use_existing_else_create_graph_for_cache_key: [ cache_key.hash_code: {} ]",
+            cacheKey.hashCode()
+        )
+        return when (
+            val existingGraph: RequestMaterializationGraph? =
+                requestMaterializationGraphCache[cacheKey]
+        ) {
+            null -> {
+                calculateRequestMaterializationGraphForSession(cacheKey, session)
+                    .doOnNext { calculatedGraph: RequestMaterializationGraph ->
+                        requestMaterializationGraphCache[cacheKey] = calculatedGraph
+                    }
+                    .map { calculatedGraph: RequestMaterializationGraph ->
+                        when (val e: ServiceError? = calculatedGraph.processingError.orNull()) {
+                            null -> {
+                                session.update {
+                                    preparsedDocumentEntry(calculatedGraph.preparsedDocumentEntry)
+                                    requestMaterializationGraph(calculatedGraph)
+                                }
+                            }
+                            else -> {
+                                throw e
+                            }
+                        }
+                    }
+            }
+            else -> {
+                Mono.fromCallable {
+                    when (val e: ServiceError? = existingGraph.processingError.orNull()) {
+                        null -> {
+                            session.update {
+                                preparsedDocumentEntry(existingGraph.preparsedDocumentEntry)
+                                requestMaterializationGraph(existingGraph)
+                            }
+                        }
+                        else -> {
+                            throw e
+                        }
+                    }
+                }
+            }
+        }
     }
 
     private fun calculateRequestMaterializationGraphForSession(

@@ -4,12 +4,12 @@ import arrow.core.Option
 import arrow.core.filterIsInstance
 import arrow.core.getOrElse
 import arrow.core.identity
-import arrow.core.none
 import arrow.core.some
 import arrow.core.toOption
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.node.ArrayNode
 import com.fasterxml.jackson.databind.node.JsonNodeFactory
+import com.fasterxml.jackson.databind.node.JsonNodeType
 import funcify.feature.error.ServiceError
 import funcify.feature.materializer.executor.GraphQLSingleRequestExecutor
 import funcify.feature.materializer.request.GraphQLExecutionInputCustomizer
@@ -20,15 +20,15 @@ import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.container.attempt.Try.Companion.filterInstanceOf
 import funcify.feature.tools.container.attempt.Try.Companion.flatMapFailure
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
+import funcify.feature.tools.extensions.MonoExtensions.filter
 import funcify.feature.tools.extensions.OptionExtensions.toMono
 import funcify.feature.tools.extensions.PersistentMapExtensions.reduceEntriesToPersistentMap
-import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentMap
-import funcify.feature.tools.extensions.StreamExtensions.flatMapOptions
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.extensions.ThrowableExtensions.possiblyNestedHeadStackTraceElement
 import funcify.feature.tools.json.JsonMapper
 import graphql.GraphQLError
 import graphql.execution.AbortExecutionException
+import java.util.*
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.toPersistentList
@@ -43,7 +43,6 @@ import org.springframework.web.reactive.function.server.ServerResponse
 import reactor.core.publisher.Mono
 import reactor.core.publisher.Timed
 import reactor.core.scheduler.Schedulers
-import java.util.*
 
 /**
  * @author smccarron
@@ -97,7 +96,7 @@ internal class GraphQLWebFluxHandlerFunction(
     override fun handle(request: ServerRequest): Mono<ServerResponse> {
         logger.info("handle: [ request.path: ${request.path()} ]")
         return Mono.defer { convertServerRequestIntoRawGraphQLRequest(request) }
-            .publishOn(Schedulers.boundedElastic())
+            .subscribeOn(Schedulers.boundedElastic())
             .flatMap { rawReq: RawGraphQLRequest ->
                 graphQLSingleRequestExecutor.executeSingleRequest(rawReq)
             }
@@ -118,7 +117,7 @@ internal class GraphQLWebFluxHandlerFunction(
                         "failure"
                     }
                 logger.info(
-                    "handle: [ status: {} ] [ elapsed_time: {} ms, response_http_status: {} ]",
+                    "handle: [ status: {} ][ elapsed_time: {} ms, response_http_status: {} ]",
                     successOrFailureStatus,
                     timedResponse.elapsedSinceSubscription().toMillis(),
                     timedResponse.get().statusCode(),
@@ -131,8 +130,7 @@ internal class GraphQLWebFluxHandlerFunction(
         request: ServerRequest
     ): Mono<out RawGraphQLRequest> {
         return when (request.headers().contentType().orElse(null)) {
-            MediaType.APPLICATION_GRAPHQL_RESPONSE,
-            MediaType.APPLICATION_GRAPHQL -> {
+            MediaType.TEXT_PLAIN -> {
                 transformRawGraphQLOperationTextIntoRawGraphQLRequest(request)
             }
             MediaType.APPLICATION_JSON -> {
@@ -141,81 +139,11 @@ internal class GraphQLWebFluxHandlerFunction(
             // TODO: Add support for persisted queries wherein Apollo-style hash has been submitted
             // in lieu of query text
             else -> {
-                transformStringKeyMapIntoRawGraphQLRequest(request)
+                // Assume when no content-type has been provided that content-type is
+                // [MediaType.APPLICATION_JSON]
+                transformJsonIntoRawGraphQLRequest(request)
             }
         }
-    }
-
-    private fun transformStringKeyMapIntoRawGraphQLRequest(
-        request: ServerRequest
-    ): Mono<out RawGraphQLRequest> {
-        return request
-            .bodyToMono(STR_KEY_MAP_PARAMETERIZED_TYPE_REF)
-            .flatMap { nullableStrKeyMap: Map<String, Any?>? ->
-                nullableStrKeyMap.toMono("string_key_map")
-            }
-            .map { strKeyMap: Map<String, Any?> ->
-                rawGraphQLRequestFactory
-                    .builder()
-                    .uri(request.uri())
-                    .headers(extractMessageHeadersFromRequest(request))
-                    .principalPublisher(request.principal())
-                    .operationName(
-                        strKeyMap[OPERATION_NAME_KEY]
-                            .toOption()
-                            .map { o -> o as String }
-                            .getOrElse { "" }
-                    )
-                    .rawGraphQLQueryText(
-                        strKeyMap[QUERY_KEY].toOption().map { o -> o as String }.getOrElse { "" }
-                    )
-                    .variables(extractGraphQLVariablesFromStringKeyValueMap(strKeyMap))
-                    .locale(extractLocaleFromRequest(request))
-                    .expectedOutputFieldNames(
-                        strKeyMap[OUTPUT_KEY]
-                            .toOption()
-                            .filterIsInstance<List<String>>()
-                            .getOrElse { emptyList() }
-                    )
-                    .executionInputCustomizers(graphQLExecutionInputCustomizers)
-                    .build()
-            }
-    }
-
-    private fun transformJsonIntoRawGraphQLRequest(
-        request: ServerRequest
-    ): Mono<out RawGraphQLRequest> {
-        return request
-            .bodyToMono<JsonNode?>(JsonNode::class.java)
-            .flatMap { nullableQueryJson: JsonNode? ->
-                nullableQueryJson.toMono("json_node_form_of_input")
-            }
-            .map { queryJson: JsonNode ->
-                rawGraphQLRequestFactory
-                    .builder()
-                    .uri(request.uri())
-                    .headers(extractMessageHeadersFromRequest(request))
-                    .operationName(queryJson.findPath(OPERATION_NAME_KEY).asText(""))
-                    .principalPublisher(request.principal())
-                    .rawGraphQLQueryText(queryJson.findPath(QUERY_KEY).asText(""))
-                    .variables(extractGraphQLVariablesFromJson(queryJson))
-                    .locale(extractLocaleFromRequest(request))
-                    .expectedOutputFieldNames(
-                        queryJson
-                            .findPath(OUTPUT_KEY)
-                            .toOption()
-                            .filterIsInstance<ArrayNode>()
-                            .map { an ->
-                                an.asSequence()
-                                    .map { jn -> jn.asText("") }
-                                    .filterNot { s -> s.isBlank() }
-                                    .toList()
-                            }
-                            .getOrElse { emptyList() }
-                    )
-                    .executionInputCustomizers(graphQLExecutionInputCustomizers)
-                    .build()
-            }
     }
 
     private fun transformRawGraphQLOperationTextIntoRawGraphQLRequest(
@@ -240,49 +168,6 @@ internal class GraphQLWebFluxHandlerFunction(
             }
     }
 
-    private fun extractGraphQLVariablesFromStringKeyValueMap(
-        map: Map<String, Any?>
-    ): Map<String, Any?> {
-        return map[GRAPHQL_REQUEST_VARIABLES_KEY]
-            .toOption()
-            .filter { m -> m is Map<*, *> }
-            .map { m -> m as Map<*, *> }
-            .map { m -> m.entries }
-            .map { entrySet: Set<Map.Entry<Any?, Any?>> ->
-                entrySet
-                    .parallelStream()
-                    .map { e ->
-                        // Permit non-null key to nullable value pairs to pass
-                        when (val key = e.key) {
-                            null -> none()
-                            else -> {
-                                when (key) {
-                                    is String -> (key to e.value).some()
-                                    else -> (key.toString() to e.value).some()
-                                }
-                            }
-                        }
-                    }
-                    .flatMapOptions()
-                    .reducePairsToPersistentMap()
-            }
-            .getOrElse { persistentMapOf<String, Any?>() }
-    }
-
-    private fun extractGraphQLVariablesFromJson(jsonNode: JsonNode): Map<String, Any?> {
-        return jsonNode
-            .findPath(GRAPHQL_REQUEST_VARIABLES_KEY)
-            .toOption()
-            .filter(JsonNode::isObject)
-            .flatMap { jn ->
-                jsonMapper
-                    .fromJsonNode(jn)
-                    .toKotlinObject(STR_KEY_MAP_PARAMETERIZED_TYPE_REF)
-                    .getSuccess()
-            }
-            .getOrElse { persistentMapOf<String, Any?>() }
-    }
-
     private fun extractMessageHeadersFromRequest(request: ServerRequest): MessageHeaders {
         return MessageHeaders(
             request.headers().asHttpHeaders().asSequence().fold(persistentMapOf<String, Any?>()) {
@@ -303,9 +188,68 @@ internal class GraphQLWebFluxHandlerFunction(
         )
     }
 
+    private fun transformJsonIntoRawGraphQLRequest(
+        request: ServerRequest
+    ): Mono<out RawGraphQLRequest> {
+        return request
+            .bodyToMono<JsonNode?>(JsonNode::class.java)
+            .flatMap { nullableQueryJson: JsonNode? ->
+                nullableQueryJson.toMono("json_node_form_of_input")
+            }
+            .filter(JsonNode::isObject) { jn: JsonNode ->
+                ServiceError.invalidRequestErrorBuilder()
+                    .message(
+                        """request.body does not match expected JSON structure; 
+                        |[ expected_type: %s, actual_type: %s ]"""
+                            .flatten(),
+                        JsonNodeType.OBJECT,
+                        jn.nodeType
+                    )
+                    .build()
+            }
+            .map { queryJson: JsonNode ->
+                rawGraphQLRequestFactory
+                    .builder()
+                    .uri(request.uri())
+                    .headers(extractMessageHeadersFromRequest(request))
+                    .operationName(queryJson.path(OPERATION_NAME_KEY).asText(""))
+                    .principalPublisher(request.principal())
+                    .rawGraphQLQueryText(queryJson.path(QUERY_KEY).asText(""))
+                    .variables(extractGraphQLVariablesFromJson(queryJson))
+                    .locale(extractLocaleFromRequest(request))
+                    .expectedOutputFieldNames(
+                        queryJson
+                            .path(OUTPUT_KEY)
+                            .toOption()
+                            .filterIsInstance<ArrayNode>()
+                            .map(ArrayNode::asSequence)
+                            .getOrElse(::emptySequence)
+                            .mapNotNull(JsonNode::textValue)
+                            .filterNot(String::isBlank)
+                            .toList()
+                    )
+                    .executionInputCustomizers(graphQLExecutionInputCustomizers)
+                    .build()
+            }
+    }
+
+    private fun extractGraphQLVariablesFromJson(jsonNode: JsonNode): Map<String, Any?> {
+        return jsonNode
+            .path(GRAPHQL_REQUEST_VARIABLES_KEY)
+            .toOption()
+            .filter(JsonNode::isObject)
+            .flatMap { jn ->
+                jsonMapper
+                    .fromJsonNode(jn)
+                    .toKotlinObject(STR_KEY_MAP_PARAMETERIZED_TYPE_REF)
+                    .getSuccess()
+            }
+            .getOrElse { persistentMapOf<String, Any?>() }
+    }
+
     private fun convertAggregateSerializedGraphQLResponseIntoServerResponse():
         (SerializedGraphQLResponse) -> Mono<out ServerResponse> {
-        return { response ->
+        return { response: SerializedGraphQLResponse ->
             when {
                 response.resultAsColumnarJsonObject.isDefined() -> {
                     response.resultAsColumnarJsonObject
@@ -367,14 +311,14 @@ internal class GraphQLWebFluxHandlerFunction(
             when (t) {
                 is ServiceError -> {
                     logger.error(
-                        "handle: [ error(s) occurred ] [ type: {}, json: {} ]",
-                        t::class.simpleName,
+                        "handle: [ error(s) occurred ][ type: {}, json: {} ]",
+                        ServiceError::class.simpleName,
                         t.toJsonNode()
                     )
                 }
                 else -> {
                     logger.error(
-                        "handle: [ error(s) occurred ] [ type: {}, message: {}, stack_trace_element[0]: {} ]",
+                        "handle: [ error(s) occurred ][ type: {}, message: {}, stack_trace_element[0]: {} ]",
                         t::class.simpleName,
                         t.message,
                         t.possiblyNestedHeadStackTraceElement()
@@ -415,7 +359,7 @@ internal class GraphQLWebFluxHandlerFunction(
     private fun convertGraphQLErrorIntoErrorJsonNode(graphQLError: GraphQLError): Try<JsonNode> {
         return Try.attempt { graphQLError.toSpecification() }
             .map(removeCauseFromSpecIfPresentLoggingWarning())
-            .flatMap { spec -> jsonMapper.fromKotlinObject(spec).toJsonNode() }
+            .flatMap { spec: Map<String, Any?> -> jsonMapper.fromKotlinObject(spec).toJsonNode() }
             .flatMapFailure { t: Throwable ->
                 if (
                     graphQLError.locations

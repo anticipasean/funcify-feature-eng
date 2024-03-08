@@ -24,7 +24,6 @@ import graphql.language.NamedNode
 import graphql.language.OperationDefinition
 import org.slf4j.Logger
 import reactor.core.publisher.Mono
-import java.time.Duration
 import java.util.*
 import java.util.concurrent.ConcurrentMap
 import java.util.concurrent.TimeUnit
@@ -56,7 +55,7 @@ internal class DefaultMaterializationPreparsedDocumentProvider(
     override fun getPreparsedDocumentEntry(
         executionInput: ExecutionInput,
         parseAndValidateFunction: (ExecutionInput) -> PreparsedDocumentEntry,
-    ): Mono<PreparsedDocumentEntry> {
+    ): Mono<out PreparsedDocumentEntry> {
         logger.debug(
             "get_preparsed_document_entry: [ execution_input.execution_id: ${executionInput.executionId} ]"
         )
@@ -67,7 +66,6 @@ internal class DefaultMaterializationPreparsedDocumentProvider(
                 missingGraphQLSingleRequestSessionInContextErrorPublisher(executionInput)
             }
             executionInput.query.isNotBlank() -> {
-                // Mono.fromCallable { parseAndValidateFunction.invoke(executionInput) }
                 extractSessionFromGraphQLContext(executionInput)
                     .flatMap(
                         determinePreparsedDocumentEntryForSessionWithQueryText(

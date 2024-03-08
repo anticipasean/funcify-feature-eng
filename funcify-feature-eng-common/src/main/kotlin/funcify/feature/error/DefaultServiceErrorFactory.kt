@@ -8,7 +8,6 @@ import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.node.JsonNodeFactory
 import com.fasterxml.jackson.databind.node.ObjectNode
 import funcify.feature.error.DefaultServiceErrorFactory.DefaultServiceErrorMonoid.combine
-import funcify.feature.tools.extensions.ThrowableExtensions.possiblyNestedHeadStackTraceElement
 import kotlinx.collections.immutable.PersistentList
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.persistentListOf
@@ -127,11 +126,7 @@ internal object DefaultServiceErrorFactory : ServiceErrorFactory {
                     append(message)
                     append(" with cause ")
                     append(
-                        mapOf(
-                                "type" to c::class.simpleName,
-                                "message" to c.message,
-                                "stacktrace[0]" to c.possiblyNestedHeadStackTraceElement()
-                            )
+                        mapOf("type" to c::class.simpleName, "message" to c.message)
                             .asSequence()
                             .joinToString(", ", "[ ", " ]") { (k, v) -> "$k: $v" }
                     )
