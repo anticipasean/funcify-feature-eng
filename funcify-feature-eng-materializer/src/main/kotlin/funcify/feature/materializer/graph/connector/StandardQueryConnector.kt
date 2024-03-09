@@ -5,8 +5,8 @@ import funcify.feature.error.ServiceError
 import funcify.feature.graph.DirectedPersistentGraph
 import funcify.feature.materializer.graph.MaterializationEdge
 import funcify.feature.materializer.graph.component.QueryComponentContext
-import funcify.feature.materializer.graph.component.QueryComponentContext.FieldArgumentComponentContext
-import funcify.feature.materializer.graph.component.QueryComponentContext.SelectedFieldComponentContext
+import funcify.feature.materializer.graph.component.QueryComponentContext.ArgumentComponentContext
+import funcify.feature.materializer.graph.component.QueryComponentContext.FieldComponentContext
 import funcify.feature.materializer.graph.context.StandardQuery
 import funcify.feature.materializer.model.MaterializationMetamodel
 import funcify.feature.schema.dataelement.DataElementCallable
@@ -27,6 +27,7 @@ import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.extensions.TryExtensions.successIfDefined
 import graphql.introspection.Introspection
 import graphql.language.Argument
+import graphql.language.ArrayValue
 import graphql.language.Field
 import graphql.language.NullValue
 import graphql.language.Value
@@ -51,67 +52,63 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
 
     private val logger: Logger = loggerFor<StandardQueryConnector>()
 
-    override fun connectFieldArgument(
+    override fun connectArgument(
         connectorContext: StandardQuery,
-        fieldArgumentComponentContext: FieldArgumentComponentContext,
+        argumentComponentContext: ArgumentComponentContext,
     ): StandardQuery {
         logger.debug(
-            "connect_field_argument: [ field_argument_component_context: { path: {}, coordinates: {}, canonical_path: {} } ]",
-            fieldArgumentComponentContext.path,
-            fieldArgumentComponentContext.fieldCoordinates,
-            fieldArgumentComponentContext.canonicalPath
+            "connect_argument: [ argument_component_context: { path: {}, coordinates: {}, canonical_path: {} } ]",
+            argumentComponentContext.path,
+            argumentComponentContext.fieldCoordinates,
+            argumentComponentContext.canonicalPath
         )
         return when {
-            fieldArgumentComponentContext.fieldCoordinates in
+            argumentComponentContext.fieldCoordinates in
                 connectorContext.materializationMetamodel.elementTypeCoordinates -> {
                 throw ServiceError.of("no arguments are permitted on element_type fields")
             }
             connectorContext.materializationMetamodel.dataElementElementTypePath.isAncestorTo(
-                fieldArgumentComponentContext.canonicalPath
+                argumentComponentContext.canonicalPath
             ) -> {
-                connectSelectedDataElementArgument(connectorContext, fieldArgumentComponentContext)
+                connectDataElementArgument(connectorContext, argumentComponentContext)
             }
             connectorContext.materializationMetamodel.featureElementTypePath.isAncestorTo(
-                fieldArgumentComponentContext.canonicalPath
+                argumentComponentContext.canonicalPath
             ) -> {
-                connectSelectedFeatureArgument(connectorContext, fieldArgumentComponentContext)
+                connectFeatureArgument(connectorContext, argumentComponentContext)
             }
             connectorContext.materializationMetamodel.transformerElementTypePath.isAncestorTo(
-                fieldArgumentComponentContext.canonicalPath
+                argumentComponentContext.canonicalPath
             ) -> {
-                connectSelectedTransformerArgument(connectorContext, fieldArgumentComponentContext)
+                connectTransformerArgument(connectorContext, argumentComponentContext)
             }
             else -> {
                 throw ServiceError.of(
-                    "unable to identify element_type bucket for selected_field_argument [ path: %s ]",
-                    fieldArgumentComponentContext.path
+                    "unable to identify element_type bucket for argument [ path: %s ]",
+                    argumentComponentContext.path
                 )
             }
         }
     }
 
-    private fun connectSelectedDataElementArgument(
+    private fun connectDataElementArgument(
         connectorContext: StandardQuery,
-        fieldArgumentComponentContext: FieldArgumentComponentContext
+        argumentComponentContext: ArgumentComponentContext
     ): StandardQuery {
+        logger.debug("connect_data_element_argument: [ path: {} ]", argumentComponentContext.path)
         return when {
             // Case 1: Already connected
-            connectorContext.requestGraph
-                .edgesFromPoint(fieldArgumentComponentContext.path)
-                .any() ||
-                connectorContext.requestGraph
-                    .edgesToPoint(fieldArgumentComponentContext.path)
-                    .any() -> {
+            connectorContext.requestGraph.edgesFromPoint(argumentComponentContext.path).any() -> {
                 connectorContext
             }
             // Case 2: Domain Data Element Argument
-            fieldArgumentComponentContext.fieldCoordinates in
+            argumentComponentContext.fieldCoordinates in
                 connectorContext.materializationMetamodel
                     .domainSpecifiedDataElementSourceByCoordinates -> {
                 connectorContext.update(
                     connectDomainDataElementFieldToArgument(
                         connectorContext,
-                        fieldArgumentComponentContext
+                        argumentComponentContext
                     )
                 )
             }
@@ -124,12 +121,12 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
 
     private fun connectDomainDataElementFieldToArgument(
         connectorContext: StandardQuery,
-        fieldArgumentComponentContext: FieldArgumentComponentContext
+        argumentComponentContext: ArgumentComponentContext
     ): (StandardQuery.Builder) -> StandardQuery.Builder {
         return { sqb: StandardQuery.Builder ->
-            val a: Argument = fieldArgumentComponentContext.argument
+            val a: Argument = argumentComponentContext.argument
             val fieldPath: GQLOperationPath =
-                fieldArgumentComponentContext.path
+                argumentComponentContext.path
                     .getParentPath()
                     .filter { pp: GQLOperationPath -> connectorContext.requestGraph.contains(pp) }
                     .successIfDefined {
@@ -138,12 +135,12 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
                                 |been defined in request_materialization_graph 
                                 |for [ path: %s ]"""
                                 .flatten(),
-                            fieldArgumentComponentContext.path.getParentPath().orNull()
+                            argumentComponentContext.path.getParentPath().orNull()
                         )
                     }
                     .orElseThrow()
             val faLoc: Pair<FieldCoordinates, String> =
-                fieldArgumentComponentContext.fieldCoordinates to a.name
+                argumentComponentContext.fieldCoordinates to a.name
             val e: MaterializationEdge =
                 when {
                     // Case 1: Raw input context contains entry for parent field or alias of parent
@@ -151,8 +148,8 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
                     connectorContext.requestGraph
                         .get(fieldPath)
                         .toOption()
-                        .filterIsInstance<SelectedFieldComponentContext>()
-                        .map(SelectedFieldComponentContext::fieldCoordinates)
+                        .filterIsInstance<FieldComponentContext>()
+                        .map(FieldComponentContext::fieldCoordinates)
                         .map(FieldCoordinates::getFieldName)
                         .filter(connectorContext.rawInputContextKeys::contains)
                         .orElse {
@@ -167,7 +164,7 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
                     }
                     // Case 2: Raw input context contains entry for field argument that is set to
                     // its default argument value or alias thereof
-                    fieldArgumentComponentContext.argument.value
+                    argumentComponentContext.argument.value
                         .toOption()
                         .filterNot(VariableReference::class::isInstance)
                         .and(
@@ -177,11 +174,11 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
                                 .map(DomainSpecifiedDataElementSource::domainArgumentsByName)
                                 .flatMap { awdvn: ImmutableMap<String, GraphQLArgument> ->
                                     awdvn
-                                        .getOrNone(fieldArgumentComponentContext.argument.name)
+                                        .getOrNone(argumentComponentContext.argument.name)
                                         .filter { ga: GraphQLArgument -> ga.hasSetDefaultValue() }
                                 }
                                 .filter { ga: GraphQLArgument ->
-                                    fieldArgumentComponentContext.argument.value ==
+                                    argumentComponentContext.argument.value ==
                                         ga.argumentDefaultValue.value
                                 }
                         )
@@ -202,7 +199,7 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
                         MaterializationEdge.RAW_INPUT_VALUE_PROVIDED
                     }
                     // Case 3: Variable key matches variable reference for argument
-                    fieldArgumentComponentContext.argument.value
+                    argumentComponentContext.argument.value
                         .toOption()
                         .filterIsInstance<VariableReference>()
                         .mapNotNull(VariableReference::getName)
@@ -283,7 +280,7 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
                         throw ServiceError.of(
                             "edge type could not be determined for [ field_path %s to argument_path %s ]",
                             fieldPath,
-                            fieldArgumentComponentContext.path
+                            argumentComponentContext.path
                         )
                     }
                 }
@@ -291,161 +288,184 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
             // Connect the argument to its element type
             sqb.requestGraph(
                     connectorContext.requestGraph
-                        .put(fieldArgumentComponentContext.path, fieldArgumentComponentContext)
-                        .putEdge(fieldPath, fieldArgumentComponentContext.path, e)
+                        .put(argumentComponentContext.path, argumentComponentContext)
+                        .putEdge(fieldPath, argumentComponentContext.path, e)
                         .putEdge(
-                            fieldArgumentComponentContext.path,
+                            argumentComponentContext.path,
                             connectorContext.materializationMetamodel.dataElementElementTypePath,
                             MaterializationEdge.ELEMENT_TYPE
                         )
                 )
                 .putConnectedPathForCanonicalPath(
-                    fieldArgumentComponentContext.canonicalPath,
-                    fieldArgumentComponentContext.path
+                    argumentComponentContext.canonicalPath,
+                    argumentComponentContext.path
                 )
         }
     }
 
-    private fun connectSelectedFeatureArgument(
+    private fun connectFeatureArgument(
         connectorContext: StandardQuery,
-        fieldArgumentComponentContext: FieldArgumentComponentContext
+        argumentComponentContext: ArgumentComponentContext
     ): StandardQuery {
-        logger.debug(
-            "connect_selected_feature_argument: [ field_argument_component_context.path: {} ]",
-            fieldArgumentComponentContext.path
-        )
+        logger.debug("connect_feature_argument: [ path: {} ]", argumentComponentContext.path)
         return when {
             // Case 1: Already connected to data_element_field
-            connectorContext.requestGraph
-                .edgesFromPoint(fieldArgumentComponentContext.path)
-                .any() -> {
+            connectorContext.requestGraph.edgesFromPoint(argumentComponentContext.path).any() -> {
                 connectorContext
             }
-            fieldArgumentComponentContext.argument.value
+            // Case 2: Argument refers to variable
+            argumentComponentContext.argument.value
                 .toOption()
                 .filterIsInstance<VariableReference>()
                 .isDefined() -> {
                 connectorContext.update(
                     connectFeatureFieldToVariableProvidedArgument(
                         connectorContext,
-                        fieldArgumentComponentContext
+                        argumentComponentContext
                     )
                 )
             }
+            // Case 3: Argument set to default value (or null or empty list) but should be assessed
+            // for possible wiring to
+            // data element
             connectorContext.materializationMetamodel
                 .featureSpecifiedFeatureCalculatorsByCoordinates
-                .getOrNone(fieldArgumentComponentContext.fieldCoordinates)
+                .getOrNone(argumentComponentContext.fieldCoordinates)
                 .flatMap { fsfc: FeatureSpecifiedFeatureCalculator ->
-                    fsfc.argumentsByName.getOrNone(fieldArgumentComponentContext.argument.name)
+                    fsfc.argumentsByName.getOrNone(argumentComponentContext.argument.name)
                 }
                 .filter { ga: GraphQLArgument ->
-                    ga.argumentDefaultValue.value == fieldArgumentComponentContext.argument.value
+                    ga.argumentDefaultValue.value == argumentComponentContext.argument.value ||
+                        ga.type
+                            .toOption()
+                            .filter(GraphQLTypeUtil::isNullable)
+                            .and(
+                                argumentComponentContext.argument.value
+                                    .toOption()
+                                    .filterIsInstance<NullValue>()
+                            )
+                            .orElse {
+                                ga.type
+                                    .toOption()
+                                    .mapNotNull(GraphQLTypeUtil::unwrapNonNull)
+                                    .filter(GraphQLTypeUtil::isList)
+                                    .mapNotNull(GraphQLTypeUtil::unwrapOne)
+                                    .filter(GraphQLTypeUtil::isNullable)
+                                    .and(
+                                        argumentComponentContext.argument.value
+                                            .toOption()
+                                            .filterIsInstance<ArrayValue>()
+                                            .mapNotNull(ArrayValue::getValues)
+                                            .filter(List<Value<*>>::isEmpty)
+                                    )
+                            }
+                            .isDefined()
                 }
                 .isDefined() -> {
-                connectFeatureFieldToFeatureArgumentToDataElementField(
-                    connectorContext,
-                    fieldArgumentComponentContext
-                )
+                connectFeatureArgumentToDataElementField(connectorContext, argumentComponentContext)
             }
             else -> {
-                throw ServiceError.of("feature argument case not yet handled")
+                throw ServiceError.of(
+                    "feature argument case [ argument.path: %s ] not yet handled",
+                    argumentComponentContext.path
+                )
             }
         }
     }
 
     private fun connectFeatureFieldToVariableProvidedArgument(
         connectorContext: StandardQuery,
-        fieldArgumentComponentContext: FieldArgumentComponentContext
+        argumentComponentContext: ArgumentComponentContext
     ): (StandardQuery.Builder) -> StandardQuery.Builder {
         return { sqb: StandardQuery.Builder ->
             val fieldPath: GQLOperationPath =
-                fieldArgumentComponentContext.path
+                argumentComponentContext.path
                     .getParentPath()
                     .filter { p: GQLOperationPath -> connectorContext.requestGraph.contains(p) }
                     .successIfDefined {
                         ServiceError.of(
-                            "feature_field_argument parent field path [ %s ] not found in request_materialization_graph",
-                            fieldArgumentComponentContext.path.getParentPath().orNull()
+                            "feature_argument parent field path [ %s ] not found in request_materialization_graph",
+                            argumentComponentContext.path.getParentPath().orNull()
                         )
                     }
                     .orElseThrow()
             sqb.requestGraph(
                     connectorContext.requestGraph
-                        .put(fieldArgumentComponentContext.path, fieldArgumentComponentContext)
+                        .put(argumentComponentContext.path, argumentComponentContext)
                         .putEdge(
                             fieldPath,
-                            fieldArgumentComponentContext.path,
+                            argumentComponentContext.path,
                             MaterializationEdge.VARIABLE_VALUE_PROVIDED
                         )
                 )
                 .putConnectedPathForCanonicalPath(
-                    fieldArgumentComponentContext.canonicalPath,
-                    fieldArgumentComponentContext.path
+                    argumentComponentContext.canonicalPath,
+                    argumentComponentContext.path
                 )
         }
     }
 
-    private fun connectFeatureFieldToFeatureArgumentToDataElementField(
+    private fun connectFeatureArgumentToDataElementField(
         connectorContext: StandardQuery,
-        fieldArgumentComponentContext: FieldArgumentComponentContext
+        argumentComponentContext: ArgumentComponentContext
     ): StandardQuery {
         logger.debug(
-            "connect_feature_field_to_feature_argument_to_data_element_field: [ field_argument_component_context.path: {} ]",
-            fieldArgumentComponentContext.path
+            "connect_feature_argument_to_data_element_field: [ path: {} ]",
+            argumentComponentContext.path
         )
         return when {
             getCoordinatesOfConnectedDataElementOrFeatureFieldMatchingArgument(
                     connectorContext,
-                    fieldArgumentComponentContext
+                    argumentComponentContext
                 )
                 .isNotEmpty() -> {
                 connectorContext.update(
                     connectFeatureFieldArgumentToDataElementFieldOnAlreadyConnectedDomainDataElementSourceOrFeatureField(
                         connectorContext,
-                        fieldArgumentComponentContext
+                        argumentComponentContext
                     )
                 )
             }
             getCoordinatesOfUnconnectedFeatureFieldMatchingArgument(
                     connectorContext,
-                    fieldArgumentComponentContext
+                    argumentComponentContext
                 )
                 .isDefined() -> {
                 connectFeatureFieldArgumentToUnconnectedFeatureField(
                     connectorContext,
-                    fieldArgumentComponentContext
+                    argumentComponentContext
                 )
             }
             getFirstCoordinatesToConnectedDataElementSourcePathsPairOfUnconnectedDataElementFieldMatchingArgument(
                     connectorContext,
-                    fieldArgumentComponentContext
+                    argumentComponentContext
                 )
                 .isDefined() -> {
                 connectFeatureFieldArgumentToUnconnectedDataElementFieldOnConnectedDataElementSource(
                     connectorContext,
-                    fieldArgumentComponentContext
+                    argumentComponentContext
                 )
             }
             getFirstCoordinatesToUnconnectedRawInputDataElementSourcePathPairsOfUnconnectedDataElementFieldMatchingArgument(
                     connectorContext,
-                    fieldArgumentComponentContext
+                    argumentComponentContext
                 )
                 .isDefined() -> {
                 connectFeatureFieldArgumentToUnconnectedDataElementOnUnconnectedRawInputDataElementSource(
                     connectorContext,
-                    fieldArgumentComponentContext
+                    argumentComponentContext
                 )
             }
             // Next case: unconnected data_element_source with variable keys matching all of its
             // arguments
             else -> {
                 throw ServiceError.of(
-                    """unable to map feature_field_argument 
+                    """unable to map feature_argument 
                     |[ argument: { path: %s, name: %s } ] 
                     |to data_element_field value"""
                         .flatten(),
-                    fieldArgumentComponentContext.path,
-                    fieldArgumentComponentContext.argument.name
+                    argumentComponentContext.path,
+                    argumentComponentContext.argument.name
                 )
             }
         }
@@ -453,9 +473,9 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
 
     private fun getCoordinatesOfConnectedDataElementOrFeatureFieldMatchingArgument(
         connectorContext: StandardQuery,
-        fieldArgumentComponentContext: FieldArgumentComponentContext,
+        argumentComponentContext: ArgumentComponentContext,
     ): ImmutableSet<FieldCoordinates> {
-        return fieldArgumentComponentContext.argument
+        return argumentComponentContext.argument
             .toOption()
             .map(Argument::getName)
             .flatMap { n: String ->
@@ -487,25 +507,25 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
 
     private fun connectFeatureFieldArgumentToDataElementFieldOnAlreadyConnectedDomainDataElementSourceOrFeatureField(
         connectorContext: StandardQuery,
-        fieldArgumentComponentContext: FieldArgumentComponentContext
+        argumentComponentContext: ArgumentComponentContext
     ): (StandardQuery.Builder) -> StandardQuery.Builder {
         return { sqb: StandardQuery.Builder ->
             val fieldPath: GQLOperationPath =
-                fieldArgumentComponentContext.path
+                argumentComponentContext.path
                     .getParentPath()
                     .filter { p: GQLOperationPath -> connectorContext.requestGraph.contains(p) }
                     .successIfDefined {
                         ServiceError.of(
-                            "feature_field_argument [ argument.name: %s ] parent field path [ %s ] not found in request_materialization_graph",
-                            fieldArgumentComponentContext.argument.name,
-                            fieldArgumentComponentContext.path.getParentPath().orNull()
+                            "feature_argument [ argument.name: %s ] parent field path [ %s ] not found in request_materialization_graph",
+                            argumentComponentContext.argument.name,
+                            argumentComponentContext.path.getParentPath().orNull()
                         )
                     }
                     .orElseThrow()
             val coordinatesOfConnectedField: ImmutableSet<FieldCoordinates> =
                 getCoordinatesOfConnectedDataElementOrFeatureFieldMatchingArgument(
                     connectorContext,
-                    fieldArgumentComponentContext
+                    argumentComponentContext
                 )
             sqb.requestGraph(
                     coordinatesOfConnectedField
@@ -517,44 +537,43 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
                         }
                         .fold(
                             connectorContext.requestGraph
-                                .put(
-                                    fieldArgumentComponentContext.path,
-                                    fieldArgumentComponentContext
-                                )
+                                .put(argumentComponentContext.path, argumentComponentContext)
                                 .putEdge(
                                     fieldPath,
-                                    fieldArgumentComponentContext.path,
+                                    argumentComponentContext.path,
                                     MaterializationEdge.EXTRACT_FROM_SOURCE
                                 )
                         ) {
                             d:
                                 DirectedPersistentGraph<
-                                    GQLOperationPath, QueryComponentContext, MaterializationEdge
+                                    GQLOperationPath,
+                                    QueryComponentContext,
+                                    MaterializationEdge
                                 >,
                             p: GQLOperationPath ->
                             d.putEdge(
-                                fieldArgumentComponentContext.path,
+                                argumentComponentContext.path,
                                 p,
                                 MaterializationEdge.EXTRACT_FROM_SOURCE
                             )
                         }
                 )
                 .putConnectedPathForCanonicalPath(
-                    fieldArgumentComponentContext.canonicalPath,
-                    fieldArgumentComponentContext.path
+                    argumentComponentContext.canonicalPath,
+                    argumentComponentContext.path
                 )
         }
     }
 
     private fun getCoordinatesOfUnconnectedFeatureFieldMatchingArgument(
         connectorContext: StandardQuery,
-        fieldArgumentComponentContext: FieldArgumentComponentContext
+        argumentComponentContext: ArgumentComponentContext
     ): Option<FieldCoordinates> {
         return connectorContext.materializationMetamodel.featureCoordinatesByName
-            .getOrNone(fieldArgumentComponentContext.argument.name)
+            .getOrNone(argumentComponentContext.argument.name)
             .orElse {
                 connectorContext.materializationMetamodel.aliasCoordinatesRegistry
-                    .getFieldsWithAlias(fieldArgumentComponentContext.argument.name)
+                    .getFieldsWithAlias(argumentComponentContext.argument.name)
                     .firstOrNone(
                         connectorContext.materializationMetamodel
                             .featureSpecifiedFeatureCalculatorsByCoordinates::containsKey
@@ -564,20 +583,20 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
 
     private fun connectFeatureFieldArgumentToUnconnectedFeatureField(
         connectorContext: StandardQuery,
-        fieldArgumentComponentContext: FieldArgumentComponentContext,
+        argumentComponentContext: ArgumentComponentContext,
     ): StandardQuery {
         val fc: FieldCoordinates =
             getCoordinatesOfUnconnectedFeatureFieldMatchingArgument(
                     connectorContext,
-                    fieldArgumentComponentContext
+                    argumentComponentContext
                 )
                 .successIfDefined {
                     ServiceError.of(
                         """corresponding feature_field_coordinates expected for 
                         |[ field_argument: { path: %s, argument.name: %s } ]"""
                             .flatten(),
-                        fieldArgumentComponentContext.path,
-                        fieldArgumentComponentContext.argument.name
+                        argumentComponentContext.path,
+                        argumentComponentContext.argument.name
                     )
                 }
                 .orElseThrow()
@@ -596,7 +615,7 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
                 .orElseThrow()
 
         // Can start at gqlo:/features/__here__ since the feature element type path must have been
-        // traversed to reach this feature_field_argument wiring point
+        // traversed to reach this feature_argument wiring point
         return Try.success(connectorContext)
             .map { ctx: StandardQuery ->
                 // Connect parents
@@ -612,7 +631,7 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
                     }
                     .fold(ctx) { sq: StandardQuery, p: GQLOperationPath ->
                         logger.debug(
-                            "feature_field_argument_parent calculated [ {} ] for feature_path: [ {} ]",
+                            "feature_argument_parent calculated [ {} ] for feature_path: [ {} ]",
                             p,
                             fsfc.featurePath
                         )
@@ -626,7 +645,7 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
                                     .flatMap(ImmutableSet<FieldCoordinates>::firstOrNone)
                                     .map { fc: FieldCoordinates ->
                                         connectorContext.queryComponentContextFactory
-                                            .selectedFieldComponentContextBuilder()
+                                            .fieldComponentContextBuilder()
                                             .field(Field.newField().name(fc.fieldName).build())
                                             .fieldCoordinates(fc)
                                             .path(p)
@@ -639,9 +658,7 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
                                             p
                                         )
                                     }
-                                    .map { sfcc: SelectedFieldComponentContext ->
-                                        connectSelectedField(sq, sfcc)
-                                    }
+                                    .map { sfcc: FieldComponentContext -> connectField(sq, sfcc) }
                                     .orElseThrow()
                             }
                         }
@@ -649,15 +666,15 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
             }
             .map { ctx: StandardQuery ->
                 // Connect feature field itself
-                val featureFieldComponentContext: SelectedFieldComponentContext =
+                val featureFieldComponentContext: FieldComponentContext =
                     ctx.queryComponentContextFactory
-                        .selectedFieldComponentContextBuilder()
+                        .fieldComponentContextBuilder()
                         .field(Field.newField().name(fsfc.featureName).build())
                         .path(fsfc.featurePath)
                         .fieldCoordinates(fsfc.featureFieldCoordinates)
                         .canonicalPath(fsfc.featurePath)
                         .build()
-                connectSelectedField(ctx, featureFieldComponentContext)
+                connectField(ctx, featureFieldComponentContext)
             }
             .map { ctx: StandardQuery ->
                 // Connect feature field's arguments
@@ -665,7 +682,7 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
                     .asSequence()
                     .map { (p: GQLOperationPath, a: GraphQLArgument) ->
                         connectorContext.queryComponentContextFactory
-                            .fieldArgumentComponentContextBuilder()
+                            .argumentComponentContextBuilder()
                             .path(p)
                             .argument(
                                 Argument.newArgument()
@@ -687,8 +704,8 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
                             .canonicalPath(p)
                             .build()
                     }
-                    .fold(ctx) { sq: StandardQuery, facc: FieldArgumentComponentContext ->
-                        connectSelectedFeatureArgument(sq, facc)
+                    .fold(ctx) { sq: StandardQuery, facc: ArgumentComponentContext ->
+                        connectFeatureArgument(sq, facc)
                     }
             }
             .map { ctx: StandardQuery ->
@@ -696,16 +713,16 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
                 ctx.update {
                     requestGraph(
                         ctx.requestGraph
-                            .put(fieldArgumentComponentContext.path, fieldArgumentComponentContext)
+                            .put(argumentComponentContext.path, argumentComponentContext)
                             .putEdge(
-                                fieldArgumentComponentContext.path,
+                                argumentComponentContext.path,
                                 fsfc.featurePath,
                                 MaterializationEdge.EXTRACT_FROM_SOURCE
                             )
                     )
                     putConnectedPathForCanonicalPath(
-                        fieldArgumentComponentContext.canonicalPath,
-                        fieldArgumentComponentContext.path
+                        argumentComponentContext.canonicalPath,
+                        argumentComponentContext.path
                     )
                 }
             }
@@ -714,14 +731,14 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
 
     private fun getFirstCoordinatesToConnectedDataElementSourcePathsPairOfUnconnectedDataElementFieldMatchingArgument(
         connectorContext: StandardQuery,
-        fieldArgumentComponentContext: FieldArgumentComponentContext
+        argumentComponentContext: ArgumentComponentContext
     ): Option<Pair<FieldCoordinates, List<GQLOperationPath>>> {
         return connectorContext.materializationMetamodel.dataElementFieldCoordinatesByFieldName
-            .getOrNone(fieldArgumentComponentContext.argument.name)
+            .getOrNone(argumentComponentContext.argument.name)
             .filter(ImmutableSet<FieldCoordinates>::isNotEmpty)
             .orElse {
                 connectorContext.materializationMetamodel.aliasCoordinatesRegistry
-                    .getFieldsWithAlias(fieldArgumentComponentContext.argument.name)
+                    .getFieldsWithAlias(argumentComponentContext.argument.name)
                     .toOption()
                     .filter(ImmutableSet<FieldCoordinates>::isNotEmpty)
             }
@@ -760,19 +777,19 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
 
     private fun connectFeatureFieldArgumentToUnconnectedDataElementFieldOnConnectedDataElementSource(
         connectorContext: StandardQuery,
-        fieldArgumentComponentContext: FieldArgumentComponentContext
+        argumentComponentContext: ArgumentComponentContext
     ): StandardQuery {
         val (fc: FieldCoordinates, dsdesps: List<GQLOperationPath>) =
             getFirstCoordinatesToConnectedDataElementSourcePathsPairOfUnconnectedDataElementFieldMatchingArgument(
                     connectorContext,
-                    fieldArgumentComponentContext
+                    argumentComponentContext
                 )
                 .successIfDefined {
                     ServiceError.of(
                         """first coordinates to connected data element source paths pair 
                         |expected but not found for matching argument [ path: %s ]"""
                             .flatten(),
-                        fieldArgumentComponentContext.path
+                        argumentComponentContext.path
                     )
                 }
                 .orElseThrow()
@@ -842,7 +859,7 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
                                             .flatMap(ImmutableSet<FieldCoordinates>::firstOrNone)
                                             .map { fc1: FieldCoordinates ->
                                                 sq1.queryComponentContextFactory
-                                                    .selectedFieldComponentContextBuilder()
+                                                    .fieldComponentContextBuilder()
                                                     .field(
                                                         Field.newField().name(fc1.fieldName).build()
                                                     )
@@ -857,8 +874,8 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
                                                     p
                                                 )
                                             }
-                                            .map { sfcc: SelectedFieldComponentContext ->
-                                                connectSelectedField(sq1, sfcc)
+                                            .map { sfcc: FieldComponentContext ->
+                                                connectField(sq1, sfcc)
                                             }
                                             .orElseThrow()
                                     }
@@ -866,33 +883,33 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
                             }
                     }
                     .map { sq: StandardQuery ->
-                        val childDataElementFieldComponentContext: SelectedFieldComponentContext =
+                        val childDataElementFieldComponentContext: FieldComponentContext =
                             sq.queryComponentContextFactory
-                                .selectedFieldComponentContextBuilder()
+                                .fieldComponentContextBuilder()
                                 .fieldCoordinates(fc)
                                 .path(childPath)
                                 .canonicalPath(childCanonicalPath)
                                 .field(Field.newField().name(fc.fieldName).build())
                                 .build()
-                        connectSelectedField(sq, childDataElementFieldComponentContext)
+                        connectField(sq, childDataElementFieldComponentContext)
                     }
                     .map { sq: StandardQuery ->
                         sq.update {
                             requestGraph(
                                     sq.requestGraph
                                         .put(
-                                            fieldArgumentComponentContext.path,
-                                            fieldArgumentComponentContext
+                                            argumentComponentContext.path,
+                                            argumentComponentContext
                                         )
                                         .putEdge(
-                                            fieldArgumentComponentContext.path,
+                                            argumentComponentContext.path,
                                             childCanonicalPath,
                                             MaterializationEdge.EXTRACT_FROM_SOURCE
                                         )
                                 )
                                 .putConnectedPathForCanonicalPath(
-                                    fieldArgumentComponentContext.canonicalPath,
-                                    fieldArgumentComponentContext.path
+                                    argumentComponentContext.canonicalPath,
+                                    argumentComponentContext.path
                                 )
                         }
                     }
@@ -902,14 +919,14 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
 
     private fun getFirstCoordinatesToUnconnectedRawInputDataElementSourcePathPairsOfUnconnectedDataElementFieldMatchingArgument(
         connectorContext: StandardQuery,
-        fieldArgumentComponentContext: FieldArgumentComponentContext
+        argumentComponentContext: ArgumentComponentContext
     ): Option<Pair<FieldCoordinates, List<GQLOperationPath>>> {
         return connectorContext.materializationMetamodel.dataElementFieldCoordinatesByFieldName
-            .getOrNone(fieldArgumentComponentContext.argument.name)
+            .getOrNone(argumentComponentContext.argument.name)
             .filter(ImmutableSet<FieldCoordinates>::isNotEmpty)
             .orElse {
                 connectorContext.materializationMetamodel.aliasCoordinatesRegistry
-                    .getFieldsWithAlias(fieldArgumentComponentContext.argument.name)
+                    .getFieldsWithAlias(argumentComponentContext.argument.name)
                     .toOption()
                     .filter(ImmutableSet<FieldCoordinates>::isNotEmpty)
             }
@@ -940,19 +957,19 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
 
     private fun connectFeatureFieldArgumentToUnconnectedDataElementOnUnconnectedRawInputDataElementSource(
         connectorContext: StandardQuery,
-        fieldArgumentComponentContext: FieldArgumentComponentContext
+        argumentComponentContext: ArgumentComponentContext
     ): StandardQuery {
         val (fc: FieldCoordinates, dsdesps: List<GQLOperationPath>) =
             getFirstCoordinatesToUnconnectedRawInputDataElementSourcePathPairsOfUnconnectedDataElementFieldMatchingArgument(
                     connectorContext,
-                    fieldArgumentComponentContext
+                    argumentComponentContext
                 )
                 .successIfDefined {
                     ServiceError.of(
                         """first coordinates to unconnected raw input data element source paths pair 
                         |expected but not found for matching argument [ path: %s ]"""
                             .flatten(),
-                        fieldArgumentComponentContext.path
+                        argumentComponentContext.path
                     )
                 }
                 .orElseThrow()
@@ -987,9 +1004,9 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
                         when (sq.materializationMetamodel.dataElementElementTypePath) {
                             !in sq.connectedPathsByCanonicalPath -> {
                                 val dataElementElementTypeFieldComponentContext:
-                                    SelectedFieldComponentContext =
+                                    FieldComponentContext =
                                     sq.queryComponentContextFactory
-                                        .selectedFieldComponentContextBuilder()
+                                        .fieldComponentContextBuilder()
                                         .field(
                                             Field.newField()
                                                 .name(
@@ -1008,10 +1025,7 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
                                             sq.materializationMetamodel.dataElementElementTypePath
                                         )
                                         .build()
-                                connectSelectedField(
-                                    sq,
-                                    dataElementElementTypeFieldComponentContext
-                                )
+                                connectField(sq, dataElementElementTypeFieldComponentContext)
                             }
                             else -> {
                                 sq
@@ -1019,9 +1033,9 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
                         }
                     }
                     .map { sq: StandardQuery ->
-                        val domainDataElementFieldContext: SelectedFieldComponentContext =
+                        val domainDataElementFieldContext: FieldComponentContext =
                             sq.queryComponentContextFactory
-                                .selectedFieldComponentContextBuilder()
+                                .fieldComponentContextBuilder()
                                 .path(dsdes.domainPath)
                                 .field(
                                     Field.newField()
@@ -1031,15 +1045,15 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
                                 .canonicalPath(dsdes.domainPath)
                                 .fieldCoordinates(dsdes.domainFieldCoordinates)
                                 .build()
-                        connectSelectedField(sq, domainDataElementFieldContext)
+                        connectField(sq, domainDataElementFieldContext)
                     }
                     .map { sq: StandardQuery ->
                         dsdes.allArgumentsByPath.asSequence().fold(sq) {
                             sq1: StandardQuery,
                             (p: GQLOperationPath, a: GraphQLArgument) ->
-                            val facc: FieldArgumentComponentContext =
+                            val facc: ArgumentComponentContext =
                                 sq1.queryComponentContextFactory
-                                    .fieldArgumentComponentContextBuilder()
+                                    .argumentComponentContextBuilder()
                                     .path(p)
                                     .canonicalPath(p)
                                     .argument(
@@ -1055,7 +1069,7 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
                                     )
                                     .fieldCoordinates(dsdes.domainFieldCoordinates)
                                     .build()
-                            connectFieldArgument(sq1, facc)
+                            connectArgument(sq1, facc)
                         }
                     }
                     .map { sq: StandardQuery ->
@@ -1079,7 +1093,7 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
                                             .flatMap(ImmutableSet<FieldCoordinates>::firstOrNone)
                                             .map { fc1: FieldCoordinates ->
                                                 sq1.queryComponentContextFactory
-                                                    .selectedFieldComponentContextBuilder()
+                                                    .fieldComponentContextBuilder()
                                                     .field(
                                                         Field.newField().name(fc1.fieldName).build()
                                                     )
@@ -1094,8 +1108,8 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
                                                     p
                                                 )
                                             }
-                                            .map { sfcc: SelectedFieldComponentContext ->
-                                                connectSelectedField(sq1, sfcc)
+                                            .map { sfcc: FieldComponentContext ->
+                                                connectField(sq1, sfcc)
                                             }
                                             .orElseThrow()
                                     }
@@ -1103,33 +1117,33 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
                             }
                     }
                     .map { sq: StandardQuery ->
-                        val childDataElementFieldComponentContext: SelectedFieldComponentContext =
+                        val childDataElementFieldComponentContext: FieldComponentContext =
                             sq.queryComponentContextFactory
-                                .selectedFieldComponentContextBuilder()
+                                .fieldComponentContextBuilder()
                                 .fieldCoordinates(fc)
                                 .path(childPath)
                                 .canonicalPath(childPath)
                                 .field(Field.newField().name(fc.fieldName).build())
                                 .build()
-                        connectSelectedField(sq, childDataElementFieldComponentContext)
+                        connectField(sq, childDataElementFieldComponentContext)
                     }
                     .map { sq: StandardQuery ->
                         sq.update {
                             requestGraph(
                                     sq.requestGraph
                                         .put(
-                                            fieldArgumentComponentContext.path,
-                                            fieldArgumentComponentContext
+                                            argumentComponentContext.path,
+                                            argumentComponentContext
                                         )
                                         .putEdge(
-                                            fieldArgumentComponentContext.path,
+                                            argumentComponentContext.path,
                                             childPath,
                                             MaterializationEdge.EXTRACT_FROM_SOURCE
                                         )
                                 )
                                 .putConnectedPathForCanonicalPath(
-                                    fieldArgumentComponentContext.canonicalPath,
-                                    fieldArgumentComponentContext.path
+                                    argumentComponentContext.canonicalPath,
+                                    argumentComponentContext.path
                                 )
                         }
                     }
@@ -1137,38 +1151,31 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
             }
     }
 
-    private fun connectSelectedTransformerArgument(
+    private fun connectTransformerArgument(
         connectorContext: StandardQuery,
-        fieldArgumentComponentContext: FieldArgumentComponentContext
+        argumentComponentContext: ArgumentComponentContext
     ): StandardQuery {
-        logger.debug(
-            "connect_selected_transformer_argument: [ field_argument_component_context.path: {} ]",
-            fieldArgumentComponentContext.path
-        )
+        logger.debug("connect_transformer_argument: [ path: {} ]", argumentComponentContext.path)
         return connectorContext.update(
-            connectTransformerFieldToTransformerArgument(
-                connectorContext,
-                fieldArgumentComponentContext
-            )
+            connectTransformerFieldToTransformerArgument(connectorContext, argumentComponentContext)
         )
     }
 
     private fun connectTransformerFieldToTransformerArgument(
         connectorContext: StandardQuery,
-        fieldArgumentComponentContext: FieldArgumentComponentContext,
+        argumentComponentContext: ArgumentComponentContext,
     ): (StandardQuery.Builder) -> StandardQuery.Builder {
         return { sqb: StandardQuery.Builder ->
             val fp: GQLOperationPath =
-                fieldArgumentComponentContext.path
+                argumentComponentContext.path
                     .getParentPath()
                     .filter { p: GQLOperationPath ->
                         connectorContext.requestGraph
                             .get(p)
                             .toOption()
-                            .filterIsInstance<SelectedFieldComponentContext>()
-                            .filter { sfcc: SelectedFieldComponentContext ->
-                                sfcc.fieldCoordinates ==
-                                    fieldArgumentComponentContext.fieldCoordinates
+                            .filterIsInstance<FieldComponentContext>()
+                            .filter { sfcc: FieldComponentContext ->
+                                sfcc.fieldCoordinates == argumentComponentContext.fieldCoordinates
                             }
                             .isDefined()
                     }
@@ -1178,14 +1185,14 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
                             |to transformer_argument [ path: %s ] 
                             |not found in request_graph"""
                                 .flatten(),
-                            fieldArgumentComponentContext.path.getParentPath().orNull(),
-                            fieldArgumentComponentContext.path
+                            argumentComponentContext.path.getParentPath().orNull(),
+                            argumentComponentContext.path
                         )
                     }
                     .orElseThrow()
             val e: MaterializationEdge =
                 when {
-                    fieldArgumentComponentContext.argument.value
+                    argumentComponentContext.argument.value
                         .toOption()
                         .filterIsInstance<VariableReference>()
                         .filter { vr: VariableReference ->
@@ -1194,7 +1201,7 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
                         .isDefined() -> {
                         MaterializationEdge.VARIABLE_VALUE_PROVIDED
                     }
-                    fieldArgumentComponentContext.argument.value
+                    argumentComponentContext.argument.value
                         .toOption()
                         .filter { v: Value<*> -> v !is NullValue }
                         .isDefined() -> {
@@ -1202,10 +1209,10 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
                     }
                     connectorContext.materializationMetamodel
                         .transformerSpecifiedTransformerSourcesByCoordinates
-                        .getOrNone(fieldArgumentComponentContext.fieldCoordinates)
+                        .getOrNone(argumentComponentContext.fieldCoordinates)
                         .map(TransformerSpecifiedTransformerSource::argumentsByName)
                         .flatMap { aByName: ImmutableMap<String, GraphQLArgument> ->
-                            aByName.getOrNone(fieldArgumentComponentContext.argument.name)
+                            aByName.getOrNone(argumentComponentContext.argument.name)
                         }
                         .filter { ga: GraphQLArgument -> ga.hasSetDefaultValue() }
                         .isDefined() -> {
@@ -1218,85 +1225,85 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
                             |variable, default argument, or direct argument value 
                             |is missing"""
                                 .flatten(),
-                            fieldArgumentComponentContext.path.getParentPath().orNull(),
-                            fieldArgumentComponentContext.path
+                            argumentComponentContext.path.getParentPath().orNull(),
+                            argumentComponentContext.path
                         )
                     }
                 }
             sqb.requestGraph(
                 connectorContext.requestGraph
-                    .put(fieldArgumentComponentContext.path, fieldArgumentComponentContext)
-                    .putEdge(fp, fieldArgumentComponentContext.path, e)
+                    .put(argumentComponentContext.path, argumentComponentContext)
+                    .putEdge(fp, argumentComponentContext.path, e)
             )
         }
     }
 
-    override fun connectSelectedField(
+    override fun connectField(
         connectorContext: StandardQuery,
-        selectedFieldComponentContext: SelectedFieldComponentContext
+        fieldComponentContext: FieldComponentContext
     ): StandardQuery {
         logger.debug(
-            "connect_selected_field: [ selected_field_component_context { path: {}, coordinates: {}, canonical_path: {} } ]",
-            selectedFieldComponentContext.path,
-            selectedFieldComponentContext.fieldCoordinates,
-            selectedFieldComponentContext.canonicalPath
+            "connect_field: [ field_component_context { path: {}, coordinates: {}, canonical_path: {} } ]",
+            fieldComponentContext.path,
+            fieldComponentContext.fieldCoordinates,
+            fieldComponentContext.canonicalPath
         )
         return when {
-            selectedFieldComponentContext.fieldCoordinates in
+            fieldComponentContext.fieldCoordinates in
                 connectorContext.materializationMetamodel.elementTypeCoordinates -> {
-                connectSelectedElementTypeField(connectorContext, selectedFieldComponentContext)
+                connectElementTypeField(connectorContext, fieldComponentContext)
             }
             connectorContext.materializationMetamodel.dataElementElementTypePath.isAncestorTo(
-                selectedFieldComponentContext.canonicalPath
+                fieldComponentContext.canonicalPath
             ) -> {
-                connectSelectedDataElementField(connectorContext, selectedFieldComponentContext)
+                connectSelectedDataElementField(connectorContext, fieldComponentContext)
             }
             connectorContext.materializationMetamodel.featureElementTypePath.isAncestorTo(
-                selectedFieldComponentContext.canonicalPath
+                fieldComponentContext.canonicalPath
             ) -> {
-                connectSelectedFeatureField(connectorContext, selectedFieldComponentContext)
+                connectFeatureField(connectorContext, fieldComponentContext)
             }
             connectorContext.materializationMetamodel.transformerElementTypePath.isAncestorTo(
-                selectedFieldComponentContext.canonicalPath
+                fieldComponentContext.canonicalPath
             ) -> {
-                connectSelectedTransformerField(connectorContext, selectedFieldComponentContext)
+                connectTransformerField(connectorContext, fieldComponentContext)
             }
             else -> {
                 throw ServiceError.of(
                     "unable to identify element_type bucket for selected_field [ path: %s ]",
-                    selectedFieldComponentContext.path
+                    fieldComponentContext.path
                 )
             }
         }
     }
 
-    private fun connectSelectedElementTypeField(
+    private fun connectElementTypeField(
         connectorContext: StandardQuery,
-        selectedFieldComponentContext: SelectedFieldComponentContext,
+        fieldComponentContext: FieldComponentContext,
     ): StandardQuery {
         logger.debug(
-            "connect_selected_element_type_field: [ selected_field_component_context.path: {} ]",
-            selectedFieldComponentContext.path
+            "connect_element_type_field: [ field_component_context.path: {} ]",
+            fieldComponentContext.path
         )
         return when {
-            selectedFieldComponentContext.fieldCoordinates ==
+            fieldComponentContext.fieldCoordinates ==
                 connectorContext.materializationMetamodel.featureEngineeringModel
                     .dataElementFieldCoordinates &&
-                selectedFieldComponentContext.path !in connectorContext.requestGraph -> {
+                fieldComponentContext.path !in connectorContext.requestGraph -> {
                 // Case 1: Connect data_element_element_type_path to root if not already connected
                 connectorContext.update {
                     putConnectedFieldPathForCoordinates(
-                        selectedFieldComponentContext.fieldCoordinates,
-                        selectedFieldComponentContext.path
+                        fieldComponentContext.fieldCoordinates,
+                        fieldComponentContext.path
                     )
                     putConnectedPathForCanonicalPath(
-                        selectedFieldComponentContext.canonicalPath,
-                        selectedFieldComponentContext.path
+                        fieldComponentContext.canonicalPath,
+                        fieldComponentContext.path
                     )
                     requestGraph(
                         connectorContext.requestGraph.put(
-                            selectedFieldComponentContext.path,
-                            selectedFieldComponentContext
+                            fieldComponentContext.path,
+                            fieldComponentContext
                         )
                     )
                 }
@@ -1304,12 +1311,12 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
             else -> {
                 connectorContext.update {
                     putConnectedFieldPathForCoordinates(
-                        selectedFieldComponentContext.fieldCoordinates,
-                        selectedFieldComponentContext.path
+                        fieldComponentContext.fieldCoordinates,
+                        fieldComponentContext.path
                     )
                     putConnectedPathForCanonicalPath(
-                        selectedFieldComponentContext.canonicalPath,
-                        selectedFieldComponentContext.path
+                        fieldComponentContext.canonicalPath,
+                        fieldComponentContext.path
                     )
                 }
             }
@@ -1318,40 +1325,40 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
 
     private fun connectSelectedDataElementField(
         connectorContext: StandardQuery,
-        selectedFieldComponentContext: SelectedFieldComponentContext,
+        fieldComponentContext: FieldComponentContext,
     ): StandardQuery {
         logger.debug(
-            "connect_selected_data_element_field: [ selected_field_component_context.path: {} ]",
-            selectedFieldComponentContext.path
+            "connect_data_element_field: [ field_component_context.path: {} ]",
+            fieldComponentContext.path
         )
         return when {
-            selectedFieldComponentContext.fieldCoordinates in
+            fieldComponentContext.fieldCoordinates in
                 connectorContext.materializationMetamodel
                     .domainSpecifiedDataElementSourceByCoordinates -> {
                 connectorContext.update(
-                    connectDomainDataElementField(connectorContext, selectedFieldComponentContext)
+                    connectDomainDataElementField(connectorContext, fieldComponentContext)
                 )
             }
             else -> {
-                connectSubdomainDataElementField(connectorContext, selectedFieldComponentContext)
+                connectSubdomainDataElementField(connectorContext, fieldComponentContext)
             }
         }
     }
 
     private fun connectDomainDataElementField(
         connectorContext: StandardQuery,
-        selectedFieldComponentContext: SelectedFieldComponentContext
+        fieldComponentContext: FieldComponentContext
     ): (StandardQuery.Builder) -> StandardQuery.Builder {
         return { sqb: StandardQuery.Builder ->
             val decb: DataElementCallable.Builder =
                 connectorContext.materializationMetamodel
                     .domainSpecifiedDataElementSourceByCoordinates
-                    .getOrNone(selectedFieldComponentContext.fieldCoordinates)
+                    .getOrNone(fieldComponentContext.fieldCoordinates)
                     .successIfDefined {
                         ServiceError.of(
                             "%s not found at [ coordinates: %s ]",
                             DomainSpecifiedDataElementSource::class.simpleName,
-                            selectedFieldComponentContext.fieldCoordinates
+                            fieldComponentContext.fieldCoordinates
                         )
                     }
                     .map { dsdes: DomainSpecifiedDataElementSource ->
@@ -1360,43 +1367,40 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
                     .orElseThrow()
             sqb.requestGraph(
                     connectorContext.requestGraph.put(
-                        selectedFieldComponentContext.path,
-                        selectedFieldComponentContext
+                        fieldComponentContext.path,
+                        fieldComponentContext
                     )
                 )
-                .putDataElementCallableBuilderForPath(selectedFieldComponentContext.path, decb)
+                .putDataElementCallableBuilderForPath(fieldComponentContext.path, decb)
                 .putConnectedFieldPathForCoordinates(
-                    selectedFieldComponentContext.fieldCoordinates,
-                    selectedFieldComponentContext.path
+                    fieldComponentContext.fieldCoordinates,
+                    fieldComponentContext.path
                 )
                 .putConnectedPathForCanonicalPath(
-                    selectedFieldComponentContext.canonicalPath,
-                    selectedFieldComponentContext.path
+                    fieldComponentContext.canonicalPath,
+                    fieldComponentContext.path
                 )
         }
     }
 
     private fun connectSubdomainDataElementField(
         connectorContext: StandardQuery,
-        selectedFieldComponentContext: SelectedFieldComponentContext,
+        fieldComponentContext: FieldComponentContext,
     ): StandardQuery {
         logger.debug(
-            "connect_subdomain_data_element_field: [ selected_field_component_context.path: {} ]",
-            selectedFieldComponentContext.path
+            "connect_subdomain_data_element_field: [ field_component_context.path: {} ]",
+            fieldComponentContext.path
         )
         return Try.success(connectorContext)
             .map { sq: StandardQuery ->
                 connectLastUpdatedDataElementFieldRelatedToSubdomainDataElementField(
                     sq,
-                    selectedFieldComponentContext
+                    fieldComponentContext
                 )
             }
             .map { sq: StandardQuery ->
                 sq.update(
-                    connectSelectedDataElementFieldToDomainDataElementField(
-                        sq,
-                        selectedFieldComponentContext
-                    )
+                    connectDataElementFieldToDomainDataElementField(sq, fieldComponentContext)
                 )
             }
             .orElseThrow()
@@ -1404,40 +1408,38 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
 
     private fun connectLastUpdatedDataElementFieldRelatedToSubdomainDataElementField(
         connectorContext: StandardQuery,
-        selectedFieldComponentContext: SelectedFieldComponentContext
+        fieldComponentContext: FieldComponentContext
     ): StandardQuery {
-        return selectedFieldComponentContext.path
+        return fieldComponentContext.path
             .getParentPath()
             .flatMap { selectedFieldParentPath: GQLOperationPath ->
                 if (selectedFieldParentPath in connectorContext.dataElementCallableBuildersByPath) {
                     connectorContext.requestGraph
                         .get(selectedFieldParentPath)
                         .toOption()
-                        .filterIsInstance<SelectedFieldComponentContext>()
+                        .filterIsInstance<FieldComponentContext>()
                 } else {
                     connectorContext.requestGraph
                         .successorVertices(selectedFieldParentPath)
                         .firstOrNone()
                         .map { (_: GQLOperationPath, qcc: QueryComponentContext) -> qcc }
-                        .filterIsInstance<SelectedFieldComponentContext>()
+                        .filterIsInstance<FieldComponentContext>()
                 }
             }
-            .filter { lastUpdatedFieldDomainContext: SelectedFieldComponentContext ->
+            .filter { lastUpdatedFieldDomainContext: FieldComponentContext ->
                 lastUpdatedFieldDomainContext.fieldCoordinates in
                     connectorContext.materializationMetamodel
                         .domainSpecifiedDataElementSourceByCoordinates
             }
-            .flatMap { lastUpdatedFieldDomainContext: SelectedFieldComponentContext ->
+            .flatMap { lastUpdatedFieldDomainContext: FieldComponentContext ->
                 connectorContext.materializationMetamodel
                     .domainSpecifiedDataElementSourceByCoordinates
                     .getOrNone(lastUpdatedFieldDomainContext.fieldCoordinates)
                     .flatMap { dsdes: DomainSpecifiedDataElementSource ->
                         dsdes.lastUpdatedCoordinatesRegistry
-                            .findNearestLastUpdatedField(
-                                selectedFieldComponentContext.canonicalPath
-                            )
+                            .findNearestLastUpdatedField(fieldComponentContext.canonicalPath)
                             .filter { (_: GQLOperationPath, fcs: Set<FieldCoordinates>) ->
-                                selectedFieldComponentContext.fieldCoordinates !in fcs
+                                fieldComponentContext.fieldCoordinates !in fcs
                             }
                             .map { (p: GQLOperationPath, fcs: Set<FieldCoordinates>) ->
                                 Triple(
@@ -1461,7 +1463,7 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
                             .orElse { fcs.firstOrNone() }
                             .map { fc: FieldCoordinates ->
                                 connectorContext.queryComponentContextFactory
-                                    .selectedFieldComponentContextBuilder()
+                                    .fieldComponentContextBuilder()
                                     .field(Field.newField().name(fc.fieldName).build())
                                     .fieldCoordinates(fc)
                                     .path(p)
@@ -1470,13 +1472,13 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
                             }
                     }
             }
-            .map { lastUpdatedFieldContext: SelectedFieldComponentContext ->
+            .map { lastUpdatedFieldContext: FieldComponentContext ->
                 when {
                     !connectorContext.requestGraph.contains(lastUpdatedFieldContext.path) -> {
-                        connectSelectedField(
+                        connectField(
                             connectorContext.update {
                                 putLastUpdatedDataElementPathForDataElementPath(
-                                    selectedFieldComponentContext.path,
+                                    fieldComponentContext.path,
                                     lastUpdatedFieldContext.path
                                 )
                             },
@@ -1486,7 +1488,7 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
                     else -> {
                         connectorContext.update {
                             putLastUpdatedDataElementPathForDataElementPath(
-                                selectedFieldComponentContext.path,
+                                fieldComponentContext.path,
                                 lastUpdatedFieldContext.path
                             )
                         }
@@ -1496,18 +1498,18 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
             .getOrElse { connectorContext }
     }
 
-    private fun connectSelectedDataElementFieldToDomainDataElementField(
+    private fun connectDataElementFieldToDomainDataElementField(
         connectorContext: StandardQuery,
-        selectedFieldComponentContext: SelectedFieldComponentContext,
+        fieldComponentContext: FieldComponentContext,
     ): (StandardQuery.Builder) -> StandardQuery.Builder {
         return { sqb: StandardQuery.Builder ->
             val parentPath: GQLOperationPath =
-                selectedFieldComponentContext.path
+                fieldComponentContext.path
                     .getParentPath()
                     .successIfDefined {
                         ServiceError.of(
-                            "the selected_data_element should be processed by an element_type method [ field.name: %s ]",
-                            selectedFieldComponentContext.field.name
+                            "the data_element_field should be processed by an element_type method [ field.name: %s ]",
+                            fieldComponentContext.field.name
                         )
                     }
                     .orElseThrow()
@@ -1526,9 +1528,9 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
             if (parentPath in connectorContext.dataElementCallableBuildersByPath) {
                 sqb.requestGraph(
                         connectorContext.requestGraph
-                            .put(selectedFieldComponentContext.path, selectedFieldComponentContext)
+                            .put(fieldComponentContext.path, fieldComponentContext)
                             .putEdge(
-                                selectedFieldComponentContext.path,
+                                fieldComponentContext.path,
                                 parentPath,
                                 MaterializationEdge.EXTRACT_FROM_SOURCE
                             )
@@ -1537,15 +1539,15 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
                         parentPath,
                         connectorContext.dataElementCallableBuildersByPath
                             .get(parentPath)!!
-                            .selectPathWithinDomain(selectedFieldComponentContext.canonicalPath)
+                            .selectPathWithinDomain(fieldComponentContext.canonicalPath)
                     )
                     .putConnectedFieldPathForCoordinates(
-                        selectedFieldComponentContext.fieldCoordinates,
-                        selectedFieldComponentContext.path
+                        fieldComponentContext.fieldCoordinates,
+                        fieldComponentContext.path
                     )
                     .putConnectedPathForCanonicalPath(
-                        selectedFieldComponentContext.canonicalPath,
-                        selectedFieldComponentContext.path
+                        fieldComponentContext.canonicalPath,
+                        fieldComponentContext.path
                     )
             } else {
                 val (domainPath: GQLOperationPath, _: QueryComponentContext) =
@@ -1558,9 +1560,9 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
                 }
                 sqb.requestGraph(
                         connectorContext.requestGraph
-                            .put(selectedFieldComponentContext.path, selectedFieldComponentContext)
+                            .put(fieldComponentContext.path, fieldComponentContext)
                             .putEdge(
-                                selectedFieldComponentContext.path,
+                                fieldComponentContext.path,
                                 domainPath,
                                 MaterializationEdge.EXTRACT_FROM_SOURCE
                             )
@@ -1568,36 +1570,36 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
                     .putDataElementCallableBuilderForPath(
                         domainPath,
                         connectorContext.dataElementCallableBuildersByPath[domainPath]!!
-                            .selectPathWithinDomain(selectedFieldComponentContext.canonicalPath)
+                            .selectPathWithinDomain(fieldComponentContext.canonicalPath)
                     )
                     .putConnectedFieldPathForCoordinates(
-                        selectedFieldComponentContext.fieldCoordinates,
-                        selectedFieldComponentContext.path
+                        fieldComponentContext.fieldCoordinates,
+                        fieldComponentContext.path
                     )
                     .putConnectedPathForCanonicalPath(
-                        selectedFieldComponentContext.canonicalPath,
-                        selectedFieldComponentContext.path
+                        fieldComponentContext.canonicalPath,
+                        fieldComponentContext.path
                     )
             }
         }
     }
 
-    private fun connectSelectedTransformerField(
+    private fun connectTransformerField(
         connectorContext: StandardQuery,
-        selectedFieldComponentContext: SelectedFieldComponentContext,
+        fieldComponentContext: FieldComponentContext,
     ): StandardQuery {
         logger.debug(
-            "connect_selected_transformer_field: [ selected_field_component_context.path: {} ]",
-            selectedFieldComponentContext.path
+            "connect_transformer_field: [ field_component_context.path: {} ]",
+            fieldComponentContext.path
         )
         return when {
-            selectedFieldComponentContext.fieldCoordinates in
+            fieldComponentContext.fieldCoordinates in
                 connectorContext.materializationMetamodel
                     .transformerSpecifiedTransformerSourcesByCoordinates -> {
                 connectorContext.update(
                     connectTransformerForSelectedTransformerField(
                         connectorContext,
-                        selectedFieldComponentContext
+                        fieldComponentContext
                     )
                 )
             }
@@ -1610,68 +1612,67 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
 
     private fun connectTransformerForSelectedTransformerField(
         connectorContext: StandardQuery,
-        selectedFieldComponentContext: SelectedFieldComponentContext
+        fieldComponentContext: FieldComponentContext
     ): (StandardQuery.Builder) -> StandardQuery.Builder {
         return { sqb: StandardQuery.Builder ->
             val tsts: TransformerSpecifiedTransformerSource =
                 connectorContext.materializationMetamodel
                     .transformerSpecifiedTransformerSourcesByCoordinates
-                    .getOrNone(selectedFieldComponentContext.fieldCoordinates)
+                    .getOrNone(fieldComponentContext.fieldCoordinates)
                     .successIfDefined {
                         ServiceError.of(
                             "%s not found at [ coordinates: %s ]",
                             TransformerSpecifiedTransformerSource::class.simpleName,
-                            selectedFieldComponentContext.fieldCoordinates
+                            fieldComponentContext.fieldCoordinates
                         )
                     }
                     .orElseThrow()
             sqb.requestGraph(
                     connectorContext.requestGraph.put(
-                        selectedFieldComponentContext.path,
-                        selectedFieldComponentContext
+                        fieldComponentContext.path,
+                        fieldComponentContext
                     )
                 )
                 .putTransformerCallableForPath(
-                    selectedFieldComponentContext.path,
+                    fieldComponentContext.path,
                     tsts.transformerSource.builder().selectTransformer(tsts).build()
                 )
                 .putConnectedFieldPathForCoordinates(
-                    selectedFieldComponentContext.fieldCoordinates,
-                    selectedFieldComponentContext.path
+                    fieldComponentContext.fieldCoordinates,
+                    fieldComponentContext.path
                 )
                 .putConnectedPathForCanonicalPath(
-                    selectedFieldComponentContext.canonicalPath,
-                    selectedFieldComponentContext.path
+                    fieldComponentContext.canonicalPath,
+                    fieldComponentContext.path
                 )
         }
     }
 
-    private fun connectSelectedFeatureField(
+    private fun connectFeatureField(
         connectorContext: StandardQuery,
-        selectedFieldComponentContext: SelectedFieldComponentContext,
+        fieldComponentContext: FieldComponentContext,
     ): StandardQuery {
         logger.debug(
-            "connect_selected_feature_field: [ selected_field_component_context.path: {} ]",
-            selectedFieldComponentContext.path
+            "connect_feature_field: [ field_component_context.path: {} ]",
+            fieldComponentContext.path
         )
         return when {
-            selectedFieldComponentContext.path in
-                connectorContext.featureCalculatorCallablesByPath -> {
+            fieldComponentContext.path in connectorContext.featureCalculatorCallablesByPath -> {
                 connectorContext
             }
-            selectedFieldComponentContext.fieldCoordinates in
+            fieldComponentContext.fieldCoordinates in
                 connectorContext.materializationMetamodel
                     .featureSpecifiedFeatureCalculatorsByCoordinates -> {
                 connectorContext.update(
                     connectFeatureCalculatorForSelectedFeatureField(
                         connectorContext,
-                        selectedFieldComponentContext
+                        fieldComponentContext
                     )
                 )
             }
             extractGraphQLFieldDefinitionForCoordinates(
                     connectorContext,
-                    selectedFieldComponentContext.fieldCoordinates
+                    fieldComponentContext.fieldCoordinates
                 )
                 .mapNotNull(GraphQLFieldDefinition::getType)
                 .mapNotNull(GraphQLTypeUtil::unwrapAll)
@@ -1680,19 +1681,19 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
                 // feature object type containers do not require wiring
                 connectorContext.update {
                     putConnectedFieldPathForCoordinates(
-                        selectedFieldComponentContext.fieldCoordinates,
-                        selectedFieldComponentContext.path
+                        fieldComponentContext.fieldCoordinates,
+                        fieldComponentContext.path
                     )
                     putConnectedPathForCanonicalPath(
-                        selectedFieldComponentContext.canonicalPath,
-                        selectedFieldComponentContext.path
+                        fieldComponentContext.canonicalPath,
+                        fieldComponentContext.path
                     )
                 }
             }
             else -> {
                 throw ServiceError.of(
-                    "unhandled selected_feature_field [ path: %s ]",
-                    selectedFieldComponentContext.path
+                    "unhandled feature_field [ path: %s ]",
+                    fieldComponentContext.path
                 )
             }
         }
@@ -1726,18 +1727,18 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
 
     private fun connectFeatureCalculatorForSelectedFeatureField(
         connectorContext: StandardQuery,
-        selectedFieldComponentContext: SelectedFieldComponentContext,
+        fieldComponentContext: FieldComponentContext,
     ): (StandardQuery.Builder) -> StandardQuery.Builder {
         return { sqb: StandardQuery.Builder ->
             val fsfc: FeatureSpecifiedFeatureCalculator =
                 connectorContext.materializationMetamodel
                     .featureSpecifiedFeatureCalculatorsByCoordinates
-                    .getOrNone(selectedFieldComponentContext.fieldCoordinates)
+                    .getOrNone(fieldComponentContext.fieldCoordinates)
                     .successIfDefined {
                         ServiceError.of(
                             "%s not found at [ coordinates: %s ]",
                             FeatureSpecifiedFeatureCalculator::class.simpleName,
-                            selectedFieldComponentContext.fieldCoordinates
+                            fieldComponentContext.fieldCoordinates
                         )
                     }
                     .orElseThrow()
@@ -1760,21 +1761,21 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
                     .orElseThrow()
             sqb.requestGraph(
                     connectorContext.requestGraph.put(
-                        selectedFieldComponentContext.path,
-                        selectedFieldComponentContext
+                        fieldComponentContext.path,
+                        fieldComponentContext
                     )
                 )
                 .putFeatureCalculatorCallableForPath(
-                    selectedFieldComponentContext.path,
+                    fieldComponentContext.path,
                     fcb.setTransformerCallable(tc).build()
                 )
                 .putConnectedFieldPathForCoordinates(
-                    selectedFieldComponentContext.fieldCoordinates,
-                    selectedFieldComponentContext.path
+                    fieldComponentContext.fieldCoordinates,
+                    fieldComponentContext.path
                 )
                 .putConnectedPathForCanonicalPath(
-                    selectedFieldComponentContext.canonicalPath,
-                    selectedFieldComponentContext.path
+                    fieldComponentContext.canonicalPath,
+                    fieldComponentContext.path
                 )
             fsfc.featureCalculator.featureStoreName
                 .toOption()
@@ -1785,7 +1786,7 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
                         .getOrNone(storeName)
                 }
                 .fold({ sqb }) { fjvs: FeatureJsonValueStore ->
-                    sqb.putFeatureJsonValueStoreForPath(selectedFieldComponentContext.path, fjvs)
+                    sqb.putFeatureJsonValueStoreForPath(fieldComponentContext.path, fjvs)
                 }
             fsfc.featureCalculator.featurePublisherName
                 .toOption()
@@ -1796,10 +1797,7 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
                         .getOrNone(publisherName)
                 }
                 .fold({ sqb }) { fjvp: FeatureJsonValuePublisher ->
-                    sqb.putFeatureJsonValuePublisherForPath(
-                        selectedFieldComponentContext.path,
-                        fjvp
-                    )
+                    sqb.putFeatureJsonValuePublisherForPath(fieldComponentContext.path, fjvp)
                 }
         }
     }

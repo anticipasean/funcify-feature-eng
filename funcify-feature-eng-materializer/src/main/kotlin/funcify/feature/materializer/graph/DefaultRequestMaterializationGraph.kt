@@ -9,7 +9,7 @@ import funcify.feature.error.ServiceError
 import funcify.feature.graph.DirectedPersistentGraph
 import funcify.feature.graph.line.DirectedLine
 import funcify.feature.materializer.graph.component.QueryComponentContext
-import funcify.feature.materializer.graph.component.QueryComponentContext.FieldArgumentComponentContext
+import funcify.feature.materializer.graph.component.QueryComponentContext.ArgumentComponentContext
 import funcify.feature.schema.dataelement.DataElementCallable
 import funcify.feature.schema.feature.FeatureCalculatorCallable
 import funcify.feature.schema.feature.FeatureJsonValuePublisher
@@ -22,10 +22,6 @@ import funcify.feature.tools.extensions.PersistentSetExtensions.toImmutableSet
 import funcify.feature.tools.extensions.StreamExtensions.recurseBreadthFirst
 import funcify.feature.tools.extensions.StreamExtensions.singleValueMapCombinationsFromPairs
 import graphql.execution.preparsed.PreparsedDocumentEntry
-import graphql.language.Document
-import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.ConcurrentMap
-import java.util.stream.Stream
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.ImmutableSet
@@ -33,6 +29,9 @@ import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toPersistentMap
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ConcurrentMap
+import java.util.stream.Stream
 
 /**
  * @author smccarron
@@ -41,14 +40,18 @@ import kotlinx.collections.immutable.toPersistentMap
 internal data class DefaultRequestMaterializationGraph(
     override val operationName: Option<String>,
     override val preparsedDocumentEntry: PreparsedDocumentEntry,
-    override val requestGraph: DirectedPersistentGraph<GQLOperationPath, QueryComponentContext, MaterializationEdge>,
+    override val requestGraph:
+        DirectedPersistentGraph<GQLOperationPath, QueryComponentContext, MaterializationEdge>,
     override val passThruColumns: ImmutableSet<String>,
     override val transformerCallablesByPath: ImmutableMap<GQLOperationPath, TransformerCallable>,
     override val dataElementCallablesByPath: ImmutableMap<GQLOperationPath, DataElementCallable>,
     override val featureJsonValueStoreByPath: ImmutableMap<GQLOperationPath, FeatureJsonValueStore>,
-    override val featureCalculatorCallablesByPath: ImmutableMap<GQLOperationPath, FeatureCalculatorCallable>,
-    override val featureJsonValuePublisherByPath: ImmutableMap<GQLOperationPath, FeatureJsonValuePublisher>,
-    override val lastUpdatedDataElementPathsByDataElementPath: ImmutableMap<GQLOperationPath, GQLOperationPath>,
+    override val featureCalculatorCallablesByPath:
+        ImmutableMap<GQLOperationPath, FeatureCalculatorCallable>,
+    override val featureJsonValuePublisherByPath:
+        ImmutableMap<GQLOperationPath, FeatureJsonValuePublisher>,
+    override val lastUpdatedDataElementPathsByDataElementPath:
+        ImmutableMap<GQLOperationPath, GQLOperationPath>,
     override val processingError: Option<ServiceError>,
 ) : RequestMaterializationGraph {
 
@@ -68,8 +71,8 @@ internal data class DefaultRequestMaterializationGraph(
                             requestGraph
                                 .get(l.destinationPoint)
                                 .toOption()
-                                .filterIsInstance<FieldArgumentComponentContext>()
-                                .map { facc: FieldArgumentComponentContext ->
+                                .filterIsInstance<ArgumentComponentContext>()
+                                .map { facc: ArgumentComponentContext ->
                                     facc.argument.name to l.destinationPoint
                                 }
                                 .stream()

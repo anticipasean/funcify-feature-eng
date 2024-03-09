@@ -165,7 +165,7 @@ internal object LazyStandardQueryTraverser : (StandardQuery) -> Iterable<QueryCo
                         )
                     sequenceOf(
                         queryComponentContextFactory
-                            .selectedFieldComponentContextBuilder()
+                            .fieldComponentContextBuilder()
                             .field(s)
                             .fieldCoordinates(fc)
                             .path(p)
@@ -400,8 +400,8 @@ internal object LazyStandardQueryTraverser : (StandardQuery) -> Iterable<QueryCo
                 .plus(
                     parentContext
                         .toOption()
-                        .filterIsInstance<QueryComponentContext.SelectedFieldComponentContext>()
-                        .map { sfcc: QueryComponentContext.SelectedFieldComponentContext ->
+                        .filterIsInstance<QueryComponentContext.FieldComponentContext>()
+                        .map { sfcc: QueryComponentContext.FieldComponentContext ->
                             createChildArgumentContextsForParentFieldContext(
                                 materializationMetamodel,
                                 queryComponentContextFactory,
@@ -409,20 +409,20 @@ internal object LazyStandardQueryTraverser : (StandardQuery) -> Iterable<QueryCo
                             )
                         }
                         .fold(::emptySequence, ::identity)
-                        .map(QueryComponentContext.FieldArgumentComponentContext::right)
+                        .map(QueryComponentContext.ArgumentComponentContext::right)
                 )
                 .plus(
                     parentContext
                         .toOption()
-                        .filterIsInstance<QueryComponentContext.SelectedFieldComponentContext>()
-                        .filter { sfcc: QueryComponentContext.SelectedFieldComponentContext ->
+                        .filterIsInstance<QueryComponentContext.FieldComponentContext>()
+                        .filter { sfcc: QueryComponentContext.FieldComponentContext ->
                             sfcc.field.selectionSet
                                 .toOption()
                                 .mapNotNull(SelectionSet::getSelections)
                                 .filter(List<Selection<*>>::isNotEmpty)
                                 .isDefined()
                         }
-                        .map { sfcc: QueryComponentContext.SelectedFieldComponentContext ->
+                        .map { sfcc: QueryComponentContext.FieldComponentContext ->
                             createChildFieldContextsForParentFieldContext(
                                 materializationMetamodel,
                                 queryComponentContextFactory,
@@ -431,7 +431,7 @@ internal object LazyStandardQueryTraverser : (StandardQuery) -> Iterable<QueryCo
                             )
                         }
                         .fold(::emptySequence, ::identity)
-                        .map(QueryComponentContext.SelectedFieldComponentContext::left)
+                        .map(QueryComponentContext.FieldComponentContext::left)
                 )
         }
     }
@@ -439,8 +439,8 @@ internal object LazyStandardQueryTraverser : (StandardQuery) -> Iterable<QueryCo
     private fun createChildArgumentContextsForParentFieldContext(
         materializationMetamodel: MaterializationMetamodel,
         queryComponentContextFactory: QueryComponentContextFactory,
-        parentFieldContext: QueryComponentContext.SelectedFieldComponentContext,
-    ): Sequence<QueryComponentContext.FieldArgumentComponentContext> {
+        parentFieldContext: QueryComponentContext.FieldComponentContext,
+    ): Sequence<QueryComponentContext.ArgumentComponentContext> {
         return when {
             parentFieldContext.field.arguments
                 .toOption()
@@ -450,7 +450,7 @@ internal object LazyStandardQueryTraverser : (StandardQuery) -> Iterable<QueryCo
                 // specified but others will still need their default values extracted
                 parentFieldContext.field.arguments.asSequence().map { a: Argument ->
                     queryComponentContextFactory
-                        .fieldArgumentComponentContextBuilder()
+                        .argumentComponentContextBuilder()
                         .argument(a)
                         .fieldCoordinates(parentFieldContext.fieldCoordinates)
                         .path(parentFieldContext.path.transform { argument(a.name) })
@@ -514,7 +514,7 @@ internal object LazyStandardQueryTraverser : (StandardQuery) -> Iterable<QueryCo
                     .orElseThrow()
                     .map { a: Argument ->
                         queryComponentContextFactory
-                            .fieldArgumentComponentContextBuilder()
+                            .argumentComponentContextBuilder()
                             .argument(a)
                             .fieldCoordinates(parentFieldContext.fieldCoordinates)
                             .path(parentFieldContext.path.transform { argument(a.name) })
@@ -531,8 +531,8 @@ internal object LazyStandardQueryTraverser : (StandardQuery) -> Iterable<QueryCo
         materializationMetamodel: MaterializationMetamodel,
         queryComponentContextFactory: QueryComponentContextFactory,
         fragmentDefinitionsByName: Map<String, FragmentDefinition>,
-        parentFieldContext: QueryComponentContext.SelectedFieldComponentContext,
-    ): Sequence<QueryComponentContext.SelectedFieldComponentContext> {
+        parentFieldContext: QueryComponentContext.FieldComponentContext,
+    ): Sequence<QueryComponentContext.FieldComponentContext> {
         val parentFieldsContainerType: GraphQLFieldsContainer =
             materializationMetamodel.materializationGraphQLSchema
                 .getType(parentFieldContext.fieldCoordinates.typeName)
@@ -606,10 +606,10 @@ internal object LazyStandardQueryTraverser : (StandardQuery) -> Iterable<QueryCo
         fragmentDefinitionsByName: Map<String, FragmentDefinition>,
         queryComponentContextFactory: QueryComponentContextFactory,
         parentFieldsContainerType: GraphQLFieldsContainer,
-        parentFieldContext: QueryComponentContext.SelectedFieldComponentContext,
+        parentFieldContext: QueryComponentContext.FieldComponentContext,
         parentSelection: Option<Selection<*>>,
         childField: Field,
-    ): QueryComponentContext.SelectedFieldComponentContext {
+    ): QueryComponentContext.FieldComponentContext {
         val gfc: GraphQLFieldsContainer =
             when {
                 parentFieldsContainerType.getFieldDefinition(childField.name) != null -> {
@@ -661,7 +661,7 @@ internal object LazyStandardQueryTraverser : (StandardQuery) -> Iterable<QueryCo
                 fragmentDefinitionsByName
             )
         return queryComponentContextFactory
-            .selectedFieldComponentContextBuilder()
+            .fieldComponentContextBuilder()
             .field(childField)
             .fieldCoordinates(fc)
             .path(p)

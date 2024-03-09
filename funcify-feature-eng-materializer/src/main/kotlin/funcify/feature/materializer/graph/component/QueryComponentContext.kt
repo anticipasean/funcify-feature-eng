@@ -26,7 +26,7 @@ sealed interface QueryComponentContext {
         fun canonicalPath(canonicalPath: GQLOperationPath): B
     }
 
-    interface SelectedFieldComponentContext : QueryComponentContext {
+    interface FieldComponentContext : QueryComponentContext {
 
         override val path: GQLOperationPath
 
@@ -44,17 +44,19 @@ sealed interface QueryComponentContext {
 
             fun field(field: Field): Builder
 
-            fun build(): SelectedFieldComponentContext
+            fun build(): FieldComponentContext
         }
     }
 
-    interface FieldArgumentComponentContext : QueryComponentContext {
+    interface ArgumentComponentContext : QueryComponentContext {
 
         override val path: GQLOperationPath
 
         override val fieldCoordinates: FieldCoordinates
 
         val argument: Argument
+
+        val fieldArgumentLocation: Pair<FieldCoordinates, String>
 
         interface Builder : QueryComponentContext.Builder<Builder> {
 
@@ -66,7 +68,7 @@ sealed interface QueryComponentContext {
 
             fun argument(argument: Argument): Builder
 
-            fun build(): FieldArgumentComponentContext
+            fun build(): ArgumentComponentContext
         }
     }
 }

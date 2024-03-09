@@ -6,9 +6,8 @@ package funcify.feature.materializer.graph.component
  */
 interface QueryComponentContextFactory {
 
-    fun selectedFieldComponentContextBuilder():
-        QueryComponentContext.SelectedFieldComponentContext.Builder
+    fun fieldComponentContextBuilder(): QueryComponentContext.FieldComponentContext.Builder
 
-    fun fieldArgumentComponentContextBuilder():
-        QueryComponentContext.FieldArgumentComponentContext.Builder
+    fun argumentComponentContextBuilder():
+        QueryComponentContext.ArgumentComponentContext.Builder
 }

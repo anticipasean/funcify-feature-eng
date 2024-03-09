@@ -112,7 +112,7 @@ internal object StandardQueryTraverser : (StandardQuery) -> Iterable<QueryCompon
                         )
                     val qcc: QueryComponentContext =
                         queryComponentContextFactory
-                            .selectedFieldComponentContextBuilder()
+                            .fieldComponentContextBuilder()
                             .field(node)
                             .path(p)
                             .fieldCoordinates(fc)
@@ -149,7 +149,7 @@ internal object StandardQueryTraverser : (StandardQuery) -> Iterable<QueryCompon
                     val fc: FieldCoordinates = FieldCoordinates.coordinates(gct.name, fd.name)
                     val qcc: QueryComponentContext =
                         queryComponentContextFactory
-                            .selectedFieldComponentContextBuilder()
+                            .fieldComponentContextBuilder()
                             .field(node)
                             .fieldCoordinates(fc)
                             .path(p)
@@ -249,7 +249,7 @@ internal object StandardQueryTraverser : (StandardQuery) -> Iterable<QueryCompon
                     val fc: FieldCoordinates = FieldCoordinates.coordinates(gct.name, fd.name)
                     val qcc: QueryComponentContext =
                         queryComponentContextFactory
-                            .selectedFieldComponentContextBuilder()
+                            .fieldComponentContextBuilder()
                             .field(node)
                             .path(p)
                             .fieldCoordinates(fc)
@@ -351,7 +351,7 @@ internal object StandardQueryTraverser : (StandardQuery) -> Iterable<QueryCompon
                     val fc: FieldCoordinates = FieldCoordinates.coordinates(gct.name, fd.name)
                     val qcc: QueryComponentContext =
                         queryComponentContextFactory
-                            .selectedFieldComponentContextBuilder()
+                            .fieldComponentContextBuilder()
                             .field(node)
                             .fieldCoordinates(fc)
                             .path(p)
@@ -455,7 +455,7 @@ internal object StandardQueryTraverser : (StandardQuery) -> Iterable<QueryCompon
             val fc: FieldCoordinates = extractFieldCoordinatesFromContext(context)
             val qcc: QueryComponentContext =
                 queryComponentContextFactory
-                    .fieldArgumentComponentContextBuilder()
+                    .argumentComponentContextBuilder()
                     .argument(node)
                     .path(p)
                     .fieldCoordinates(fc)
@@ -660,8 +660,7 @@ internal object StandardQueryTraverser : (StandardQuery) -> Iterable<QueryCompon
                         .filterIsInstance<Field>()
                         .mapNotNull(Field::getName)
                         .mapNotNull { fn: String -> priorityByElementTypeName[fn] }
-                        .minOrNull()
-                        ?: 0
+                        .minOrNull() ?: 0
                 }
                 is FragmentSpread -> {
                     s.toOption()
@@ -673,8 +672,7 @@ internal object StandardQueryTraverser : (StandardQuery) -> Iterable<QueryCompon
                         .filterIsInstance<Field>()
                         .mapNotNull(Field::getName)
                         .mapNotNull { fn: String -> priorityByElementTypeName[fn] }
-                        .minOrNull()
-                        ?: 0
+                        .minOrNull() ?: 0
                 }
                 else -> {
                     0

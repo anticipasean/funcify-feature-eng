@@ -403,16 +403,17 @@ internal class DefaultSingleRequestMaterializationGraphService(
         return Mono.fromCallable {
                 when (context) {
                     is StandardQuery -> {
-                        val connector = StandardQueryConnector
+                        val connector: GraphQLQueryGraphConnector<StandardQuery> =
+                            StandardQueryConnector
                         LazyStandardQueryTraverser.invoke(context).fold(context) {
                             sq: StandardQuery,
                             qcc: QueryComponentContext ->
                             when (qcc) {
-                                is QueryComponentContext.FieldArgumentComponentContext -> {
-                                    connector.connectFieldArgument(sq, qcc)
+                                is QueryComponentContext.ArgumentComponentContext -> {
+                                    connector.connectArgument(sq, qcc)
                                 }
-                                is QueryComponentContext.SelectedFieldComponentContext -> {
-                                    connector.connectSelectedField(sq, qcc)
+                                is QueryComponentContext.FieldComponentContext -> {
+                                    connector.connectField(sq, qcc)
                                 }
                             }
                         }

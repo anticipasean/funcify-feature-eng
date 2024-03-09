@@ -3,7 +3,7 @@ package funcify.feature.materializer.graph.connector
 import arrow.core.*
 import funcify.feature.error.ServiceError
 import funcify.feature.materializer.graph.component.QueryComponentContext
-import funcify.feature.materializer.graph.component.QueryComponentContext.SelectedFieldComponentContext
+import funcify.feature.materializer.graph.component.QueryComponentContext.FieldComponentContext
 import funcify.feature.materializer.graph.connector.TabularQueryTraverser.TabularQueryTraversalContext.*
 import funcify.feature.materializer.graph.context.TabularQuery
 import funcify.feature.schema.dataelement.DomainSpecifiedDataElementSource
@@ -365,7 +365,7 @@ internal object TabularQueryTraverser : (TabularQuery) -> Iterable<QueryComponen
                     }
                     .fold(this) {
                         tb: TabularQueryTraversalContext.Builder,
-                        (cn: String, sfccs: List<SelectedFieldComponentContext>) ->
+                        (cn: String, sfccs: List<FieldComponentContext>) ->
                         when {
                             sfccs.isNotEmpty() -> {
                                 tb.putSelectedFieldComponentContextsForOutputColumnName(cn, sfccs)
@@ -393,7 +393,7 @@ internal object TabularQueryTraverser : (TabularQuery) -> Iterable<QueryComponen
         tabularQuery: TabularQuery,
         columnName: String,
         coordinates: ImmutableSet<FieldCoordinates>
-    ): Pair<String, List<SelectedFieldComponentContext>> {
+    ): Pair<String, List<FieldComponentContext>> {
         return tabularQueryTraversalContext.rawInputContextKeysByDataElementSourcePath.keys
             .asSequence()
             .plus(tabularQueryTraversalContext.domainDataElementSourcePathsForVariables)
@@ -413,7 +413,7 @@ internal object TabularQueryTraverser : (TabularQuery) -> Iterable<QueryComponen
                 when {
                     fc.fieldName == columnName -> {
                         tabularQuery.queryComponentContextFactory
-                            .selectedFieldComponentContextBuilder()
+                            .fieldComponentContextBuilder()
                             .field(Field.newField().name(fc.fieldName).build())
                             .fieldCoordinates(fc)
                             .canonicalPath(p)
@@ -422,7 +422,7 @@ internal object TabularQueryTraverser : (TabularQuery) -> Iterable<QueryComponen
                     }
                     else -> {
                         tabularQuery.queryComponentContextFactory
-                            .selectedFieldComponentContextBuilder()
+                            .fieldComponentContextBuilder()
                             .field(Field.newField().name(fc.fieldName).alias(columnName).build())
                             .fieldCoordinates(fc)
                             .canonicalPath(p)
@@ -437,7 +437,7 @@ internal object TabularQueryTraverser : (TabularQuery) -> Iterable<QueryComponen
                 }
             }
             .toList()
-            .let { sfccs: List<SelectedFieldComponentContext> -> columnName to sfccs }
+            .let { sfccs: List<FieldComponentContext> -> columnName to sfccs }
     }
 
     private fun createSequenceOfDataElementQueryComponentContexts(
@@ -446,10 +446,10 @@ internal object TabularQueryTraverser : (TabularQuery) -> Iterable<QueryComponen
         return { tqcc: TabularQueryTraversalContext ->
             tqcc.dataElementFieldComponentContextsByOutputColumnName.values
                 .asSequence()
-                .flatMap(ImmutableList<SelectedFieldComponentContext>::asSequence)
+                .flatMap(ImmutableList<FieldComponentContext>::asSequence)
                 .fold(
                     persistentMapOf<GQLOperationPath, PersistentSet<GQLOperationPath>>() to
-                        persistentMapOf<GQLOperationPath, SelectedFieldComponentContext>()
+                        persistentMapOf<GQLOperationPath, FieldComponentContext>()
                 ) { (childrenByParentPaths, dataElementContextsByPath), sfcc ->
                     updateChildPathsByParentPathMapWithPath(childrenByParentPaths, sfcc.path) to
                         dataElementContextsByPath.put(sfcc.path, sfcc)
@@ -492,7 +492,7 @@ internal object TabularQueryTraverser : (TabularQuery) -> Iterable<QueryComponen
     private fun createQueryComponentContextsForEachDataElementPath(
         tabularQuery: TabularQuery,
         context: TabularQueryTraversalContext,
-        dataElementContextsByPath: PersistentMap<GQLOperationPath, SelectedFieldComponentContext>,
+        dataElementContextsByPath: PersistentMap<GQLOperationPath, FieldComponentContext>,
         childrenByParentPaths: PersistentMap<GQLOperationPath, PersistentSet<GQLOperationPath>>,
     ): TabularQueryTraversalContext {
         return sequenceOf(tabularQuery.materializationMetamodel.dataElementElementTypePath)
@@ -511,7 +511,7 @@ internal object TabularQueryTraverser : (TabularQuery) -> Iterable<QueryComponen
                     tabularQuery.materializationMetamodel.dataElementElementTypePath -> {
                         sequenceOf(
                             tabularQuery.queryComponentContextFactory
-                                .selectedFieldComponentContextBuilder()
+                                .fieldComponentContextBuilder()
                                 .fieldCoordinates(
                                     tabularQuery.materializationMetamodel.featureEngineeringModel
                                         .dataElementFieldCoordinates
@@ -543,7 +543,7 @@ internal object TabularQueryTraverser : (TabularQuery) -> Iterable<QueryComponen
                             .flatMap { dsdes: DomainSpecifiedDataElementSource ->
                                 sequenceOf(
                                         tabularQuery.queryComponentContextFactory
-                                            .selectedFieldComponentContextBuilder()
+                                            .fieldComponentContextBuilder()
                                             .fieldCoordinates(dsdes.domainFieldCoordinates)
                                             .path(p)
                                             .canonicalPath(dsdes.domainPath)
@@ -558,7 +558,7 @@ internal object TabularQueryTraverser : (TabularQuery) -> Iterable<QueryComponen
                                         dsdes.allArgumentsByPath.asSequence().map {
                                             (ap: GQLOperationPath, ga: GraphQLArgument) ->
                                             tabularQuery.queryComponentContextFactory
-                                                .fieldArgumentComponentContextBuilder()
+                                                .argumentComponentContextBuilder()
                                                 .argument(
                                                     Argument.newArgument()
                                                         .name(ga.name)
@@ -590,7 +590,7 @@ internal object TabularQueryTraverser : (TabularQuery) -> Iterable<QueryComponen
                             .firstOrNone()
                             .map { fc: FieldCoordinates ->
                                 tabularQuery.queryComponentContextFactory
-                                    .selectedFieldComponentContextBuilder()
+                                    .fieldComponentContextBuilder()
                                     .path(p)
                                     // TODO: This is not the canonical path in some cases; Modify
                                     // logic accordingly
@@ -703,7 +703,7 @@ internal object TabularQueryTraverser : (TabularQuery) -> Iterable<QueryComponen
                     tabularQuery.materializationMetamodel.featureElementTypePath -> {
                         sequenceOf(
                             tabularQuery.queryComponentContextFactory
-                                .selectedFieldComponentContextBuilder()
+                                .fieldComponentContextBuilder()
                                 .canonicalPath(p)
                                 .path(p)
                                 .fieldCoordinates(
@@ -732,7 +732,7 @@ internal object TabularQueryTraverser : (TabularQuery) -> Iterable<QueryComponen
                             .flatMap { fsfc: FeatureSpecifiedFeatureCalculator ->
                                 sequenceOf(
                                         tabularQuery.queryComponentContextFactory
-                                            .selectedFieldComponentContextBuilder()
+                                            .fieldComponentContextBuilder()
                                             .field(Field.newField().name(fsfc.featureName).build())
                                             .fieldCoordinates(fsfc.featureFieldCoordinates)
                                             .path(fsfc.featurePath)
@@ -743,7 +743,7 @@ internal object TabularQueryTraverser : (TabularQuery) -> Iterable<QueryComponen
                                         fsfc.argumentsByPath.asSequence().map {
                                             (ap: GQLOperationPath, ga: GraphQLArgument) ->
                                             tabularQuery.queryComponentContextFactory
-                                                .fieldArgumentComponentContextBuilder()
+                                                .argumentComponentContextBuilder()
                                                 .argument(
                                                     Argument.newArgument()
                                                         .name(ga.name)
@@ -766,7 +766,7 @@ internal object TabularQueryTraverser : (TabularQuery) -> Iterable<QueryComponen
                             .firstOrNone()
                             .map { fc: FieldCoordinates ->
                                 tabularQuery.queryComponentContextFactory
-                                    .selectedFieldComponentContextBuilder()
+                                    .fieldComponentContextBuilder()
                                     .field(Field.newField().name(fc.fieldName).build())
                                     .fieldCoordinates(fc)
                                     .canonicalPath(p)
@@ -818,7 +818,7 @@ internal object TabularQueryTraverser : (TabularQuery) -> Iterable<QueryComponen
             ImmutableMap<String, ImmutableSet<FieldCoordinates>>
         val selectedPassthruColumns: ImmutableSet<String>
         val dataElementFieldComponentContextsByOutputColumnName:
-            ImmutableMap<String, ImmutableList<SelectedFieldComponentContext>>
+            ImmutableMap<String, ImmutableList<FieldComponentContext>>
         val queryComponentContexts: ImmutableList<QueryComponentContext>
         val errors: ImmutableList<ServiceError>
 
@@ -860,7 +860,7 @@ internal object TabularQueryTraverser : (TabularQuery) -> Iterable<QueryComponen
 
             fun putSelectedFieldComponentContextsForOutputColumnName(
                 columnName: String,
-                selectedFieldComponentContexts: List<SelectedFieldComponentContext>
+                fieldComponentContexts: List<FieldComponentContext>
             ): Builder
 
             fun addAllQueryComponentContexts(
@@ -887,7 +887,7 @@ internal object TabularQueryTraverser : (TabularQuery) -> Iterable<QueryComponen
             PersistentMap<String, PersistentSet<FieldCoordinates>>,
         override val selectedPassthruColumns: PersistentSet<String>,
         override val dataElementFieldComponentContextsByOutputColumnName:
-            PersistentMap<String, PersistentList<SelectedFieldComponentContext>>,
+            PersistentMap<String, PersistentList<FieldComponentContext>>,
         override val queryComponentContexts: PersistentList<QueryComponentContext>,
         override val errors: PersistentList<ServiceError>,
     ) : TabularQueryTraversalContext {
@@ -929,7 +929,7 @@ internal object TabularQueryTraverser : (TabularQuery) -> Iterable<QueryComponen
                 private val selectedPassthruColumns: PersistentSet.Builder<String> =
                     existingContext.selectedPassthruColumns.builder(),
                 private val dataElementFieldComponentContextsByOutputColumnName:
-                    PersistentMap.Builder<String, PersistentList<SelectedFieldComponentContext>> =
+                    PersistentMap.Builder<String, PersistentList<FieldComponentContext>> =
                     existingContext.dataElementFieldComponentContextsByOutputColumnName.builder(),
                 private val queryComponentContexts: PersistentList.Builder<QueryComponentContext> =
                     existingContext.queryComponentContexts.builder(),
@@ -1011,14 +1011,14 @@ internal object TabularQueryTraverser : (TabularQuery) -> Iterable<QueryComponen
 
                 override fun putSelectedFieldComponentContextsForOutputColumnName(
                     columnName: String,
-                    selectedFieldComponentContexts: List<SelectedFieldComponentContext>
+                    fieldComponentContexts: List<FieldComponentContext>
                 ): Builder =
                     this.apply {
                         this.dataElementFieldComponentContextsByOutputColumnName.put(
                             columnName,
                             this.dataElementFieldComponentContextsByOutputColumnName
                                 .getOrElse(columnName, ::persistentListOf)
-                                .addAll(selectedFieldComponentContexts)
+                                .addAll(fieldComponentContexts)
                         )
                     }
 

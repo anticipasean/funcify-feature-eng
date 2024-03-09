@@ -10,8 +10,8 @@ import funcify.feature.materializer.dispatch.context.DispatchedRequestMaterializ
 import funcify.feature.materializer.dispatch.context.DispatchedRequestMaterializationGraphContextFactory
 import funcify.feature.materializer.graph.MaterializationEdge
 import funcify.feature.materializer.graph.RequestMaterializationGraph
-import funcify.feature.materializer.graph.component.QueryComponentContext.FieldArgumentComponentContext
-import funcify.feature.materializer.graph.component.QueryComponentContext.SelectedFieldComponentContext
+import funcify.feature.materializer.graph.component.QueryComponentContext.ArgumentComponentContext
+import funcify.feature.materializer.graph.component.QueryComponentContext.FieldComponentContext
 import funcify.feature.materializer.input.context.RawInputContext
 import funcify.feature.materializer.model.MaterializationMetamodel
 import funcify.feature.materializer.request.RawGraphQLRequest
@@ -315,8 +315,8 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                         context.requestMaterializationGraph.requestGraph
                             .get(l.destinationPoint)
                             .toOption()
-                            .filterIsInstance<FieldArgumentComponentContext>()
-                            .flatMap { facc: FieldArgumentComponentContext ->
+                            .filterIsInstance<ArgumentComponentContext>()
+                            .flatMap { facc: ArgumentComponentContext ->
                                 GraphQLValueToJsonNodeConverter.invoke(facc.argument.value).map {
                                     jn: JsonNode ->
                                     Triple(facc.path, facc.argument.name, jn)
@@ -333,8 +333,8 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                         context.requestMaterializationGraph.requestGraph
                             .get(l.destinationPoint)
                             .toOption()
-                            .filterIsInstance<FieldArgumentComponentContext>()
-                            .flatMap { facc: FieldArgumentComponentContext ->
+                            .filterIsInstance<ArgumentComponentContext>()
+                            .flatMap { facc: ArgumentComponentContext ->
                                 facc.argument.value
                                     .toOption()
                                     .filterIsInstance<VariableReference>()
@@ -462,8 +462,8 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                             context.requestMaterializationGraph.requestGraph
                                 .get(l.destinationPoint)
                                 .toOption()
-                                .filterIsInstance<FieldArgumentComponentContext>()
-                                .flatMap { facc: FieldArgumentComponentContext ->
+                                .filterIsInstance<ArgumentComponentContext>()
+                                .flatMap { facc: ArgumentComponentContext ->
                                     GraphQLValueToJsonNodeConverter.invoke(facc.argument.value)
                                         .map { jn: JsonNode ->
                                             Triple(facc.path, facc.canonicalPath, jn)
@@ -482,8 +482,8 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                             context.requestMaterializationGraph.requestGraph
                                 .get(l.destinationPoint)
                                 .toOption()
-                                .filterIsInstance<FieldArgumentComponentContext>()
-                                .flatMap { facc: FieldArgumentComponentContext ->
+                                .filterIsInstance<ArgumentComponentContext>()
+                                .flatMap { facc: ArgumentComponentContext ->
                                     facc.argument.value
                                         .toOption()
                                         .filterIsInstance<VariableReference>()
@@ -537,15 +537,15 @@ internal class DefaultSingleRequestMaterializationDispatchService(
         return context.requestMaterializationGraph.requestGraph
             .get(domainDataElementPath)
             .toOption()
-            .filterIsInstance<SelectedFieldComponentContext>()
+            .filterIsInstance<FieldComponentContext>()
             .successIfDefined {
                 ServiceError.of(
                     "%s has not been provided in request_graph for [ path: %s ]",
-                    SelectedFieldComponentContext::class.simpleName,
+                    FieldComponentContext::class.simpleName,
                     domainDataElementPath
                 )
             }
-            .flatMap { sfcc: SelectedFieldComponentContext ->
+            .flatMap { sfcc: FieldComponentContext ->
                 context.rawInputContext
                     .flatMap { ric: RawInputContext ->
                         // TODO: Add lookup by alias here to for raw_input_context
@@ -592,15 +592,15 @@ internal class DefaultSingleRequestMaterializationDispatchService(
         return context.requestMaterializationGraph.requestGraph
             .get(dataElementArgumentPath)
             .toOption()
-            .filterIsInstance<FieldArgumentComponentContext>()
+            .filterIsInstance<ArgumentComponentContext>()
             .successIfDefined {
                 ServiceError.of(
                     "%s has not been provided in request_graph for [ path: %s ]",
-                    FieldArgumentComponentContext::class.simpleName,
+                    ArgumentComponentContext::class.simpleName,
                     dataElementArgumentPath
                 )
             }
-            .flatMap { facc: FieldArgumentComponentContext ->
+            .flatMap { facc: ArgumentComponentContext ->
                 context.materializationMetamodel.domainSpecifiedDataElementSourceByCoordinates
                     .getOrNone(domainDataElementFieldCoordinates)
                     .flatMap { dsdes: DomainSpecifiedDataElementSource ->
@@ -921,10 +921,8 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                                 context.requestMaterializationGraph.requestGraph
                                     .get(p)
                                     .toOption()
-                                    .filterIsInstance<FieldArgumentComponentContext>()
-                                    .map { facc: FieldArgumentComponentContext ->
-                                        facc.argument.name
-                                    }
+                                    .filterIsInstance<ArgumentComponentContext>()
+                                    .map { facc: ArgumentComponentContext -> facc.argument.name }
                                     .successIfDefined {
                                         ServiceError.of(
                                             "argument.name not found for materialized argument path [ %s ]",
@@ -1015,8 +1013,8 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                                     context.requestMaterializationGraph.requestGraph
                                         .get(p)
                                         .toOption()
-                                        .filterIsInstance<FieldArgumentComponentContext>()
-                                        .flatMap { facc: FieldArgumentComponentContext ->
+                                        .filterIsInstance<ArgumentComponentContext>()
+                                        .flatMap { facc: ArgumentComponentContext ->
                                             featureCalculatorCallable.featureGraphQLFieldDefinition
                                                 .getArgument(facc.argument.name)
                                                 .toOption()
@@ -1047,8 +1045,8 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                                     context.requestMaterializationGraph.requestGraph
                                         .get(p)
                                         .toOption()
-                                        .filterIsInstance<FieldArgumentComponentContext>()
-                                        .map { facc: FieldArgumentComponentContext ->
+                                        .filterIsInstance<ArgumentComponentContext>()
+                                        .map { facc: ArgumentComponentContext ->
                                             facc.argument.value
                                         }
                                         .filterIsInstance<VariableReference>()
@@ -1077,10 +1075,9 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                             context.requestMaterializationGraph.requestGraph
                                 .get(p)
                                 .toOption()
-                                .filterIsInstance<SelectedFieldComponentContext>()
+                                .filterIsInstance<FieldComponentContext>()
                                 .zip(context.rawInputContext)
-                                .flatMap {
-                                    (sfcc: SelectedFieldComponentContext, ric: RawInputContext) ->
+                                .flatMap { (sfcc: FieldComponentContext, ric: RawInputContext) ->
                                     ric.get(sfcc.fieldCoordinates.fieldName)
                                 }
                                 // TODO: Refine extraction of value within json_node value
@@ -1091,8 +1088,8 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                                         context.requestMaterializationGraph.requestGraph
                                             .get(featurePath)
                                             .toOption()
-                                            .filterIsInstance<SelectedFieldComponentContext>()
-                                            .map { sfcc: SelectedFieldComponentContext ->
+                                            .filterIsInstance<FieldComponentContext>()
+                                            .map { sfcc: FieldComponentContext ->
                                                 sfcc.fieldCoordinates.fieldName
                                             }
                                             .getOrElse { "<NA>" },

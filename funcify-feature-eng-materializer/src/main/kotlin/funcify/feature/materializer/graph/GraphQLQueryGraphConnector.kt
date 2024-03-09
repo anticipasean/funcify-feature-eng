@@ -1,7 +1,7 @@
 package funcify.feature.materializer.graph
 
-import funcify.feature.materializer.graph.component.QueryComponentContext.FieldArgumentComponentContext
-import funcify.feature.materializer.graph.component.QueryComponentContext.SelectedFieldComponentContext
+import funcify.feature.materializer.graph.component.QueryComponentContext.ArgumentComponentContext
+import funcify.feature.materializer.graph.component.QueryComponentContext.FieldComponentContext
 
 /**
  * @author smccarron
@@ -9,14 +9,13 @@ import funcify.feature.materializer.graph.component.QueryComponentContext.Select
  */
 interface GraphQLQueryGraphConnector<C> {
 
-    fun connectFieldArgument(
+    fun connectArgument(
         connectorContext: C,
-        fieldArgumentComponentContext: FieldArgumentComponentContext
+        argumentComponentContext: ArgumentComponentContext
     ): C
 
-    fun connectSelectedField(
+    fun connectField(
         connectorContext: C,
-        selectedFieldComponentContext: SelectedFieldComponentContext
+        fieldComponentContext: FieldComponentContext
     ): C
-
 }

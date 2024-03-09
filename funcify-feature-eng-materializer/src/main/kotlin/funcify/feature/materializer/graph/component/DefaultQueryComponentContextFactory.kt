@@ -4,8 +4,8 @@ import arrow.core.continuations.eagerEffect
 import arrow.core.continuations.ensureNotNull
 import arrow.core.identity
 import funcify.feature.error.ServiceError
-import funcify.feature.materializer.graph.component.QueryComponentContext.FieldArgumentComponentContext
-import funcify.feature.materializer.graph.component.QueryComponentContext.SelectedFieldComponentContext
+import funcify.feature.materializer.graph.component.QueryComponentContext.ArgumentComponentContext
+import funcify.feature.materializer.graph.component.QueryComponentContext.FieldComponentContext
 import funcify.feature.naming.StandardNamingConventions
 import funcify.feature.schema.path.operation.GQLOperationPath
 import graphql.language.Argument
@@ -19,7 +19,8 @@ import graphql.schema.FieldCoordinates
 internal object DefaultQueryComponentContextFactory : QueryComponentContextFactory {
 
     internal abstract class DefaultQueryComponentContextBuilder<
-        B : QueryComponentContext.Builder<B>>(
+        B : QueryComponentContext.Builder<B>
+    >(
         protected open val existingContext: QueryComponentContext? = null,
         protected open var path: GQLOperationPath? = existingContext?.path,
         protected open var fieldCoordinates: FieldCoordinates? = existingContext?.fieldCoordinates,
@@ -43,26 +44,25 @@ internal object DefaultQueryComponentContextFactory : QueryComponentContextFacto
             this.applyToBuilder { this.canonicalPath = canonicalPath }
     }
 
-    internal class DefaultSelectedFieldComponentContextBuilder(
-        private val existingSelectedFieldComponentContext: DefaultSelectedFieldComponentContext? =
-            null,
+    internal class DefaultFieldComponentContextBuilder(
+        private val existingSelectedFieldComponentContext: DefaultFieldComponentContext? = null,
         private var field: Field? = existingSelectedFieldComponentContext?.field
     ) :
-        DefaultQueryComponentContextBuilder<SelectedFieldComponentContext.Builder>(
+        DefaultQueryComponentContextBuilder<FieldComponentContext.Builder>(
             existingContext = existingSelectedFieldComponentContext
         ),
-        SelectedFieldComponentContext.Builder {
+        FieldComponentContext.Builder {
 
-        override fun field(field: Field): SelectedFieldComponentContext.Builder =
+        override fun field(field: Field): FieldComponentContext.Builder =
             this.apply { this.field = field }
 
-        override fun build(): SelectedFieldComponentContext {
-            return eagerEffect<String, SelectedFieldComponentContext> {
+        override fun build(): FieldComponentContext {
+            return eagerEffect<String, FieldComponentContext> {
                     ensureNotNull(path) { "path not provided" }
                     ensureNotNull(fieldCoordinates) { "field_coordinates not provided" }
                     ensureNotNull(field) { "field not provided" }
                     ensureNotNull(canonicalPath) { "canonical_path not provided" }
-                    DefaultSelectedFieldComponentContext(
+                    DefaultFieldComponentContext(
                         path = path!!,
                         fieldCoordinates = fieldCoordinates!!,
                         field = field!!,
@@ -74,7 +74,7 @@ internal object DefaultQueryComponentContextFactory : QueryComponentContextFacto
                         throw ServiceError.of(
                             "unable to create %s [ message: %s ]",
                             StandardNamingConventions.SNAKE_CASE.deriveName(
-                                SelectedFieldComponentContext::class.simpleName ?: "<NA>"
+                                FieldComponentContext::class.simpleName ?: "<NA>"
                             ),
                             message
                         )
@@ -84,33 +84,32 @@ internal object DefaultQueryComponentContextFactory : QueryComponentContextFacto
         }
     }
 
-    internal data class DefaultSelectedFieldComponentContext(
+    internal data class DefaultFieldComponentContext(
         override val path: GQLOperationPath,
         override val fieldCoordinates: FieldCoordinates,
         override val field: Field,
         override val canonicalPath: GQLOperationPath,
-    ) : SelectedFieldComponentContext {}
+    ) : FieldComponentContext {}
 
-    internal class DefaultFieldArgumentComponentContextBuilder(
-        private val existingFieldArgumentComponentContext: DefaultFieldArgumentComponentContext? =
-            null,
+    internal class DefaultArgumentComponentContextBuilder(
+        private val existingFieldArgumentComponentContext: DefaultArgumentComponentContext? = null,
         private var argument: Argument? = existingFieldArgumentComponentContext?.argument
     ) :
-        DefaultQueryComponentContextBuilder<FieldArgumentComponentContext.Builder>(
+        DefaultQueryComponentContextBuilder<ArgumentComponentContext.Builder>(
             existingContext = existingFieldArgumentComponentContext
         ),
-        FieldArgumentComponentContext.Builder {
+        ArgumentComponentContext.Builder {
 
-        override fun argument(argument: Argument): FieldArgumentComponentContext.Builder =
+        override fun argument(argument: Argument): ArgumentComponentContext.Builder =
             this.apply { this.argument = argument }
 
-        override fun build(): FieldArgumentComponentContext {
-            return eagerEffect<String, FieldArgumentComponentContext> {
+        override fun build(): ArgumentComponentContext {
+            return eagerEffect<String, ArgumentComponentContext> {
                     ensureNotNull(path) { "path not provided" }
                     ensureNotNull(fieldCoordinates) { "field_coordinates not provided" }
                     ensureNotNull(argument) { "argument not provided" }
                     ensureNotNull(canonicalPath) { "canonical_path not provided" }
-                    DefaultFieldArgumentComponentContext(
+                    DefaultArgumentComponentContext(
                         path = path!!,
                         fieldCoordinates = fieldCoordinates!!,
                         argument = argument!!,
@@ -122,7 +121,7 @@ internal object DefaultQueryComponentContextFactory : QueryComponentContextFacto
                         throw ServiceError.of(
                             "unable to create %s [ message: %s ]",
                             StandardNamingConventions.SNAKE_CASE.deriveName(
-                                FieldArgumentComponentContext::class.simpleName ?: "<NA>"
+                                ArgumentComponentContext::class.simpleName ?: "<NA>"
                             ),
                             message
                         )
@@ -132,18 +131,23 @@ internal object DefaultQueryComponentContextFactory : QueryComponentContextFacto
         }
     }
 
-    internal data class DefaultFieldArgumentComponentContext(
+    internal data class DefaultArgumentComponentContext(
         override val path: GQLOperationPath,
         override val fieldCoordinates: FieldCoordinates,
         override val argument: Argument,
         override val canonicalPath: GQLOperationPath,
-    ) : FieldArgumentComponentContext {}
+    ) : ArgumentComponentContext {
 
-    override fun selectedFieldComponentContextBuilder(): SelectedFieldComponentContext.Builder {
-        return DefaultSelectedFieldComponentContextBuilder()
+        override val fieldArgumentLocation: Pair<FieldCoordinates, String> by lazy {
+            fieldCoordinates to argument.name
+        }
     }
 
-    override fun fieldArgumentComponentContextBuilder(): FieldArgumentComponentContext.Builder {
-        return DefaultFieldArgumentComponentContextBuilder()
+    override fun fieldComponentContextBuilder(): FieldComponentContext.Builder {
+        return DefaultFieldComponentContextBuilder()
+    }
+
+    override fun argumentComponentContextBuilder(): ArgumentComponentContext.Builder {
+        return DefaultArgumentComponentContextBuilder()
     }
 }
