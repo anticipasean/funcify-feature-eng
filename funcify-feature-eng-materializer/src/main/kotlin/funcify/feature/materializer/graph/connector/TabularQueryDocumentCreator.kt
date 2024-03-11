@@ -363,7 +363,9 @@ internal class TabularQueryDocumentCreator(
         // TODO: Impose rule that no data element may share the same name as a feature
         return Try.success(DefaultTabularQueryCompositionContext.empty())
             .map(matchRawInputContextKeysWithDomainSpecifiedDataElementSources(tabularQuery))
+            .filter(contextDoesNotContainErrors(), createAggregateErrorFromContext())
             .map(matchVariableKeysWithDomainSpecifiedDataElementSourceArguments(tabularQuery))
+            .filter(contextDoesNotContainErrors(), createAggregateErrorFromContext())
             .map(addAllDomainDataElementsWithCompleteVariableKeyArgumentSets(tabularQuery))
             .filter(contextDoesNotContainErrors(), createAggregateErrorFromContext())
             .map(matchExpectedOutputColumnNamesToFeaturePathsOrDataElementCoordinates(tabularQuery))
@@ -694,13 +696,13 @@ internal class TabularQueryDocumentCreator(
         tabularQuery: TabularQuery,
         columnName: String
     ): Option<ImmutableSet<FieldCoordinates>> {
-        return tabularQuery.materializationMetamodel.dataElementFieldCoordinatesByFieldName
-            .getOrNone(columnName)
+        return tabularQuery.materializationMetamodel.aliasCoordinatesRegistry
+            .getFieldsWithAlias(columnName)
+            .toOption()
             .filter(ImmutableSet<FieldCoordinates>::isNotEmpty)
             .orElse {
-                tabularQuery.materializationMetamodel.aliasCoordinatesRegistry
-                    .getFieldsWithAlias(columnName)
-                    .toOption()
+                tabularQuery.materializationMetamodel.dataElementFieldCoordinatesByFieldName
+                    .getOrNone(columnName)
                     .filter(ImmutableSet<FieldCoordinates>::isNotEmpty)
             }
     }
