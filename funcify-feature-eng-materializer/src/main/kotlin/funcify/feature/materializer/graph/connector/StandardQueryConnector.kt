@@ -325,43 +325,12 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
                     )
                 )
             }
-            // Case 3: Argument set to default value (or null or empty list) but should be assessed
-            // for possible wiring to
-            // data element
-            connectorContext.materializationMetamodel
-                .featureSpecifiedFeatureCalculatorsByCoordinates
-                .getOrNone(argumentComponentContext.fieldCoordinates)
-                .flatMap { fsfc: FeatureSpecifiedFeatureCalculator ->
-                    fsfc.argumentsByName.getOrNone(argumentComponentContext.argument.name)
-                }
-                .filter { ga: GraphQLArgument ->
-                    ga.argumentDefaultValue.value == argumentComponentContext.argument.value ||
-                        ga.type
-                            .toOption()
-                            .filter(GraphQLTypeUtil::isNullable)
-                            .and(
-                                argumentComponentContext.argument.value
-                                    .toOption()
-                                    .filterIsInstance<NullValue>()
-                            )
-                            .orElse {
-                                ga.type
-                                    .toOption()
-                                    .mapNotNull(GraphQLTypeUtil::unwrapNonNull)
-                                    .filter(GraphQLTypeUtil::isList)
-                                    .mapNotNull(GraphQLTypeUtil::unwrapOne)
-                                    .filter(GraphQLTypeUtil::isNullable)
-                                    .and(
-                                        argumentComponentContext.argument.value
-                                            .toOption()
-                                            .filterIsInstance<ArrayValue>()
-                                            .mapNotNull(ArrayValue::getValues)
-                                            .filter(List<Value<*>>::isEmpty)
-                                    )
-                            }
-                            .isDefined()
-                }
-                .isDefined() -> {
+            // Case 3: Argument set to default (or "missing") value but should be assessed
+            // for possible wiring to data element
+            argumentIsDefaultOrMissingValueForFeature(
+                connectorContext,
+                argumentComponentContext
+            ) -> {
                 connectFeatureArgumentToDataElementField(connectorContext, argumentComponentContext)
             }
             else -> {
@@ -403,6 +372,63 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
                     argumentComponentContext.path
                 )
         }
+    }
+
+    private fun argumentIsDefaultOrMissingValueForFeature(
+        connectorContext: StandardQuery,
+        argumentComponentContext: ArgumentComponentContext
+    ): Boolean {
+        return connectorContext.materializationMetamodel
+            .featureSpecifiedFeatureCalculatorsByCoordinates
+            .getOrNone(argumentComponentContext.fieldCoordinates)
+            .flatMap { fsfc: FeatureSpecifiedFeatureCalculator ->
+                fsfc.argumentsByName.getOrNone(argumentComponentContext.argument.name)
+            }
+            .flatMap { ga: GraphQLArgument ->
+                // case 1: arg default value same as this arg value
+                ga.argumentDefaultValue
+                    .toOption()
+                    .filter(InputValueWithState::isLiteral)
+                    .filter(InputValueWithState::isSet)
+                    .mapNotNull(InputValueWithState::getValue)
+                    .filterIsInstance<Value<*>>()
+                    .flatMap { v: Value<*> ->
+                        argumentComponentContext.argument.toOption().filter { a: Argument ->
+                            v == a.value
+                        }
+                    }
+                    .orElse {
+                        // case 2: arg type is nullable and this arg value is null
+                        ga.type
+                            .toOption()
+                            .filter(GraphQLTypeUtil::isNullable)
+                            .and(
+                                argumentComponentContext.argument.toOption().filter { a: Argument ->
+                                    a.value == null || a.value is NullValue
+                                }
+                            )
+                    }
+                    .orElse {
+                        // case 3: arg type is list of nullables and this arg value is null or empty
+                        // list value
+                        ga.type
+                            .toOption()
+                            .mapNotNull(GraphQLTypeUtil::unwrapNonNull)
+                            .filter(GraphQLTypeUtil::isList)
+                            .and(
+                                argumentComponentContext.argument.toOption().filter { a: Argument ->
+                                    a.value == null ||
+                                        a.value
+                                            .toOption()
+                                            .filterIsInstance<ArrayValue>()
+                                            .mapNotNull(ArrayValue::getValues)
+                                            .filter(List<Value<*>>::isEmpty)
+                                            .isDefined()
+                                }
+                            )
+                    }
+            }
+            .isDefined()
     }
 
     private fun connectFeatureArgumentToDataElementField(

@@ -1,5 +1,6 @@
 package funcify.feature.materializer.document
 
+import arrow.core.Option
 import arrow.core.filterIsInstance
 import arrow.core.getOrElse
 import arrow.core.identity
@@ -17,11 +18,15 @@ import funcify.feature.tools.json.JsonMapper
 import graphql.ExecutionInput
 import graphql.GraphQLError
 import graphql.execution.preparsed.PreparsedDocumentEntry
+import graphql.introspection.IntrospectionQueryBuilder
 import graphql.language.AstPrinter
 import graphql.language.Definition
 import graphql.language.Document
+import graphql.language.Field
 import graphql.language.NamedNode
 import graphql.language.OperationDefinition
+import graphql.language.Selection
+import graphql.language.SelectionSet
 import org.slf4j.Logger
 import reactor.core.publisher.Mono
 import java.util.*
@@ -41,7 +46,42 @@ internal class DefaultMaterializationPreparsedDocumentProvider(
 ) : MaterializationPreparsedDocumentProvider() {
 
     companion object {
+        private const val METHOD_TAG: String = "get_preparsed_document_entry"
         private val logger: Logger = loggerFor<DefaultMaterializationPreparsedDocumentProvider>()
+        private val introspectionQueryDocument: Document by lazy {
+            IntrospectionQueryBuilder.buildDocument(
+                IntrospectionQueryBuilder.Options.defaultOptions()
+            )
+        }
+        private val introspectionQueryOperationDefinition: Option<OperationDefinition> by lazy {
+            introspectionQueryDocument.definitions
+                .toOption()
+                .map(List<Definition<*>>::asSequence)
+                .getOrElse(::emptySequence)
+                .filterIsInstance<OperationDefinition>()
+                .firstOrNone { od: OperationDefinition ->
+                    od.operation == OperationDefinition.Operation.QUERY
+                }
+        }
+        private val introspectionSchemaFieldName: Option<String> by lazy {
+            introspectionQueryOperationDefinition
+                .mapNotNull(OperationDefinition::getSelectionSet)
+                .mapNotNull(SelectionSet::getSelections)
+                .mapNotNull(List<Selection<*>>::asSequence)
+                .getOrElse(::emptySequence)
+                .filterIsInstance<Field>()
+                .mapNotNull(Field::getName)
+                .firstOrNone()
+        }
+
+        private fun isIntrospectionQuery(operationName: String, queryText: String): Boolean {
+            return introspectionQueryOperationDefinition.exists { od: OperationDefinition ->
+                od.name == operationName
+            } ||
+                introspectionSchemaFieldName.exists { introspectionSchemaFieldName: String ->
+                    queryText.contains(introspectionSchemaFieldName)
+                }
+        }
     }
 
     private val cache:
@@ -60,30 +100,41 @@ internal class DefaultMaterializationPreparsedDocumentProvider(
             "get_preparsed_document_entry: [ execution_input.execution_id: ${executionInput.executionId} ]"
         )
         return when {
-            !executionInput.graphQLContext.hasKey(
-                GraphQLSingleRequestSession.GRAPHQL_SINGLE_REQUEST_SESSION_KEY
-            ) -> {
-                missingGraphQLSingleRequestSessionInContextErrorPublisher(executionInput)
-            }
-            executionInput.query.isNotBlank() -> {
-                extractSessionFromGraphQLContext(executionInput)
-                    .flatMap(
-                        determinePreparsedDocumentEntryForSessionWithQueryText(
-                            executionInput,
-                            parseAndValidateFunction
+                !executionInput.graphQLContext.hasKey(
+                    GraphQLSingleRequestSession.GRAPHQL_SINGLE_REQUEST_SESSION_KEY
+                ) -> {
+                    missingGraphQLSingleRequestSessionInContextErrorPublisher(executionInput)
+                }
+                isIntrospectionQuery(executionInput.operationName, executionInput.query) -> {
+                    extractSessionFromGraphQLContext(executionInput)
+                        .flatMap(
+                            determinePreparsedDocumentEntryForSessionWithIntrospectionQueryText(
+                                executionInput,
+                                parseAndValidateFunction
+                            )
                         )
-                    )
-            }
-            else -> {
-                extractSessionFromGraphQLContext(executionInput)
-                    .flatMap(
-                        determinePreparsedDocumentEntryForSessionWithTabularQuery(
-                            executionInput,
-                            parseAndValidateFunction
+                }
+                executionInput.query.isNotBlank() -> {
+                    extractSessionFromGraphQLContext(executionInput)
+                        .flatMap(
+                            determinePreparsedDocumentEntryForSessionWithQueryText(
+                                executionInput,
+                                parseAndValidateFunction
+                            )
                         )
-                    )
+                }
+                else -> {
+                    extractSessionFromGraphQLContext(executionInput)
+                        .flatMap(
+                            determinePreparsedDocumentEntryForSessionWithTabularQuery(
+                                executionInput,
+                                parseAndValidateFunction
+                            )
+                        )
+                }
             }
-        }.doOnNext(logPreparsedDocumentEntryCreationSuccess())
+            .doOnNext(logPreparsedDocumentEntryCreationSuccess())
+            .doOnError(logPreparsedDocumentEntryCreationFailure())
     }
 
     private fun <T> missingGraphQLSingleRequestSessionInContextErrorPublisher(
@@ -111,7 +162,7 @@ internal class DefaultMaterializationPreparsedDocumentProvider(
 
     private fun extractSessionFromGraphQLContext(
         executionInput: ExecutionInput
-    ): Mono<GraphQLSingleRequestSession> {
+    ): Mono<out GraphQLSingleRequestSession> {
         return Mono.fromCallable {
                 requireNotNull(
                     executionInput.graphQLContext.get<GraphQLSingleRequestSession>(
@@ -132,10 +183,52 @@ internal class DefaultMaterializationPreparsedDocumentProvider(
             }
     }
 
+    private fun determinePreparsedDocumentEntryForSessionWithIntrospectionQueryText(
+        executionInput: ExecutionInput,
+        parseAndValidateFunction: (ExecutionInput) -> PreparsedDocumentEntry
+    ): (GraphQLSingleRequestSession) -> Mono<out PreparsedDocumentEntry> {
+        return { session: GraphQLSingleRequestSession ->
+            val cacheKey: PreparsedDocumentEntryCacheKey =
+                PreparsedDocumentEntryCacheKey(
+                    materializationMetamodelCreated = session.materializationMetamodel.created,
+                    rawGraphQLQueryText = session.rawGraphQLRequest.rawGraphQLQueryText
+                )
+            when (val pde: PreparsedDocumentEntry? = cache[cacheKey]) {
+                null -> {
+                    Mono.fromCallable {
+                            requireNotNull(parseAndValidateFunction.invoke(executionInput)) {
+                                "null preparsed_document_entry returned by graphql.parse_and_validate_function"
+                            }
+                        }
+                        .onErrorMap { t: Throwable ->
+                            ServiceError.builder()
+                                .message("parse_and_validate_function error")
+                                .cause(t)
+                                .build()
+                        }
+                        .doOnNext { pde1: PreparsedDocumentEntry ->
+                            cache[cacheKey] = pde1
+                            executionInput.graphQLContext.put(
+                                GraphQLSingleRequestSession.GRAPHQL_SINGLE_REQUEST_SESSION_KEY,
+                                session.update { preparsedDocumentEntry(pde1) }
+                            )
+                        }
+                }
+                else -> {
+                    executionInput.graphQLContext.put(
+                        GraphQLSingleRequestSession.GRAPHQL_SINGLE_REQUEST_SESSION_KEY,
+                        session.update { preparsedDocumentEntry(pde) }
+                    )
+                    Mono.just(pde)
+                }
+            }
+        }
+    }
+
     private fun determinePreparsedDocumentEntryForSessionWithQueryText(
         executionInput: ExecutionInput,
         parseAndValidateFunction: (ExecutionInput) -> PreparsedDocumentEntry
-    ): (GraphQLSingleRequestSession) -> Mono<PreparsedDocumentEntry> {
+    ): (GraphQLSingleRequestSession) -> Mono<out PreparsedDocumentEntry> {
         // Assumes query text should be parsed_and_validated as document before graph service called
         return { session: GraphQLSingleRequestSession ->
             val cacheKey: PreparsedDocumentEntryCacheKey =
@@ -227,7 +320,7 @@ internal class DefaultMaterializationPreparsedDocumentProvider(
     private fun determinePreparsedDocumentEntryForSessionWithTabularQuery(
         executionInput: ExecutionInput,
         parseAndValidateFunction: (ExecutionInput) -> PreparsedDocumentEntry,
-    ): (GraphQLSingleRequestSession) -> Mono<PreparsedDocumentEntry> {
+    ): (GraphQLSingleRequestSession) -> Mono<out PreparsedDocumentEntry> {
         return { session: GraphQLSingleRequestSession ->
             when {
                 session.rawGraphQLRequest.expectedOutputFieldNames.isEmpty() -> {
@@ -283,7 +376,6 @@ internal class DefaultMaterializationPreparsedDocumentProvider(
 
     private fun logPreparsedDocumentEntryCreationSuccess(): (PreparsedDocumentEntry) -> Unit {
         return { preparsedDocumentEntry: PreparsedDocumentEntry ->
-            val methodTag: String = "get_preparsed_document_entry"
             if (preparsedDocumentEntry.hasErrors()) {
                 val documentErrorsAsStr =
                     preparsedDocumentEntry.errors
@@ -302,7 +394,9 @@ internal class DefaultMaterializationPreparsedDocumentProvider(
                             }
                         )
                 logger.debug(
-                    "$methodTag: [ status: failed ] [ entry.errors: $documentErrorsAsStr ]"
+                    "{}: [ status: failed ][ entry.errors: {} ]",
+                    METHOD_TAG,
+                    documentErrorsAsStr
                 )
             } else {
                 val documentDefinitionsAsStr =
@@ -324,7 +418,9 @@ internal class DefaultMaterializationPreparsedDocumentProvider(
                             transform = { (n: String, t: String) -> "[ name: $n, type: $t ]" }
                         )
                 logger.debug(
-                    "$methodTag: [ status: success ] [ entry.definitions: $documentDefinitionsAsStr ]"
+                    "{}: [ status: success ][ entry.definitions: {} ]",
+                    METHOD_TAG,
+                    documentDefinitionsAsStr
                 )
                 if (logger.isDebugEnabled) {
                     logger.debug(
@@ -338,6 +434,20 @@ internal class DefaultMaterializationPreparsedDocumentProvider(
                     )
                 }
             }
+        }
+    }
+
+    private fun logPreparsedDocumentEntryCreationFailure(): (Throwable) -> Unit {
+        return { t: Throwable ->
+            logger.error(
+                "{}: [ status: failed ][ type: {}, message/json: {} ]",
+                METHOD_TAG,
+                t.toOption()
+                    .filterIsInstance<ServiceError>()
+                    .and(ServiceError::class.simpleName.toOption())
+                    .getOrElse { t::class.simpleName },
+                (t as? ServiceError)?.toJsonNode() ?: t.message
+            )
         }
     }
 }
