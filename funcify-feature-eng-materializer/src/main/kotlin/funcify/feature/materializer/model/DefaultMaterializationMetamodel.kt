@@ -12,7 +12,9 @@ import funcify.feature.schema.feature.FeatureSpecifiedFeatureCalculator
 import funcify.feature.schema.path.operation.GQLOperationPath
 import funcify.feature.schema.transformer.TransformerSpecifiedTransformerSource
 import funcify.feature.tools.extensions.PairExtensions.fold
+import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentMap
 import graphql.schema.FieldCoordinates
+import graphql.schema.GraphQLArgument
 import graphql.schema.GraphQLSchema
 import graphql.schema.GraphQLSchemaElement
 import java.time.Instant
@@ -151,5 +153,18 @@ internal data class DefaultMaterializationMetamodel(
                 }
             }
         }
+    }
+
+    override val domainSpecifiedDataElementSourceArgumentPathsByArgLocation:
+        ImmutableMap<Pair<FieldCoordinates, String>, GQLOperationPath> by lazy {
+        domainSpecifiedDataElementSourceByCoordinates.values
+            .asSequence()
+            .flatMap { dsdes: DomainSpecifiedDataElementSource ->
+                dsdes.domainArgumentsByPath.asSequence().map {
+                    (p: GQLOperationPath, ga: GraphQLArgument) ->
+                    (dsdes.domainFieldCoordinates to ga.name) to p
+                }
+            }
+            .reducePairsToPersistentMap()
     }
 }

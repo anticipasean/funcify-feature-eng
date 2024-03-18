@@ -11,6 +11,8 @@ import funcify.feature.materializer.graph.component.QueryComponentContextFactory
 import funcify.feature.materializer.model.MaterializationMetamodel
 import funcify.feature.naming.StandardNamingConventions
 import funcify.feature.schema.dataelement.DataElementCallable
+import funcify.feature.schema.document.GQLDocumentComposer
+import funcify.feature.schema.document.GQLDocumentSpecFactory
 import funcify.feature.schema.feature.FeatureCalculatorCallable
 import funcify.feature.schema.feature.FeatureJsonValuePublisher
 import funcify.feature.schema.feature.FeatureJsonValueStore
@@ -43,6 +45,10 @@ internal object DefaultRequestMaterializationGraphContextFactory :
             existingGraphContext?.requestGraph,
         protected open var queryComponentContextFactory: QueryComponentContextFactory? =
             existingGraphContext?.queryComponentContextFactory,
+        protected open var gqlDocumentSpecFactory: GQLDocumentSpecFactory? =
+            existingGraphContext?.gqlDocumentSpecFactory,
+        protected open var gqlDocumentComposer: GQLDocumentComposer? =
+            existingGraphContext?.gqlDocumentComposer,
         protected open var variableKeys: PersistentSet.Builder<String> =
             existingGraphContext?.variableKeys?.toPersistentSet()?.builder()
                 ?: persistentSetOf<String>().builder(),
@@ -159,7 +165,9 @@ internal object DefaultRequestMaterializationGraphContextFactory :
         override fun requestGraph(
             requestGraph:
                 DirectedPersistentGraph<
-                    GQLOperationPath, QueryComponentContext, MaterializationEdge
+                    GQLOperationPath,
+                    QueryComponentContext,
+                    MaterializationEdge
                 >
         ): B = this.applyOnBuilder { this.requestGraph = requestGraph }
 
@@ -216,6 +224,12 @@ internal object DefaultRequestMaterializationGraphContextFactory :
             queryComponentContextFactory: QueryComponentContextFactory
         ): B =
             this.applyOnBuilder { this.queryComponentContextFactory = queryComponentContextFactory }
+
+        override fun gqlDocumentSpecFactory(gqlDocumentSpecFactory: GQLDocumentSpecFactory): B =
+            this.applyOnBuilder { this.gqlDocumentSpecFactory = gqlDocumentSpecFactory }
+
+        override fun gqlDocumentComposer(gqlDocumentComposer: GQLDocumentComposer): B =
+            this.applyOnBuilder { this.gqlDocumentComposer = gqlDocumentComposer }
     }
 
     internal class DefaultStandardQueryBuilder(
@@ -243,6 +257,10 @@ internal object DefaultRequestMaterializationGraphContextFactory :
                     ensureNotNull(queryComponentContextFactory) {
                         "query_component_context_factory not provided"
                     }
+                    ensureNotNull(gqlDocumentSpecFactory) {
+                        "gql_document_spec_factory not provided"
+                    }
+                    ensureNotNull(gqlDocumentComposer) { "gql_document_composer not provided" }
                     ensureNotNull(operationName) { "operation_name not provided" }
                     ensureNotNull(document) { "document not provided" }
                     DefaultStandardQuery(
@@ -263,6 +281,8 @@ internal object DefaultRequestMaterializationGraphContextFactory :
                         lastUpdatedDataElementPathsByDataElementPath =
                             lastUpdatedDataElementPathsByDataElementPath.build(),
                         queryComponentContextFactory = queryComponentContextFactory!!,
+                        gqlDocumentSpecFactory = gqlDocumentSpecFactory!!,
+                        gqlDocumentComposer = gqlDocumentComposer!!,
                         operationName = operationName!!,
                         document = document!!,
                     )
@@ -308,6 +328,8 @@ internal object DefaultRequestMaterializationGraphContextFactory :
         override val lastUpdatedDataElementPathsByDataElementPath:
             PersistentMap<GQLOperationPath, GQLOperationPath>,
         override val queryComponentContextFactory: QueryComponentContextFactory,
+        override val gqlDocumentComposer: GQLDocumentComposer,
+        override val gqlDocumentSpecFactory: GQLDocumentSpecFactory,
         override val operationName: String,
         override val document: Document,
     ) : StandardQuery {
@@ -352,6 +374,10 @@ internal object DefaultRequestMaterializationGraphContextFactory :
                     ensureNotNull(queryComponentContextFactory) {
                         "query_component_context_factory not provided"
                     }
+                    ensureNotNull(gqlDocumentSpecFactory) {
+                        "gql_document_spec_factory not provided"
+                    }
+                    ensureNotNull(gqlDocumentComposer) { "gql_document_composer not provided" }
                     ensure(outputColumnNames.isNotEmpty()) {
                         "no output_column_names have been provided"
                     }
@@ -373,6 +399,8 @@ internal object DefaultRequestMaterializationGraphContextFactory :
                         lastUpdatedDataElementPathsByDataElementPath =
                             lastUpdatedDataElementPathsByDataElementPath.build(),
                         queryComponentContextFactory = queryComponentContextFactory!!,
+                        gqlDocumentSpecFactory = gqlDocumentSpecFactory!!,
+                        gqlDocumentComposer = gqlDocumentComposer!!,
                         outputColumnNames = outputColumnNames.build(),
                         unhandledOutputColumnNames = unhandledColumnNames.build()
                     )
@@ -418,6 +446,8 @@ internal object DefaultRequestMaterializationGraphContextFactory :
         override val lastUpdatedDataElementPathsByDataElementPath:
             PersistentMap<GQLOperationPath, GQLOperationPath>,
         override val queryComponentContextFactory: QueryComponentContextFactory,
+        override val gqlDocumentSpecFactory: GQLDocumentSpecFactory,
+        override val gqlDocumentComposer: GQLDocumentComposer,
         override val outputColumnNames: PersistentSet<String>,
         override val unhandledOutputColumnNames: PersistentList<String>
     ) : TabularQuery {

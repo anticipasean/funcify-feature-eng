@@ -39,12 +39,6 @@ import graphql.execution.preparsed.PreparsedDocumentEntry
 import graphql.language.AstPrinter
 import graphql.language.Document
 import graphql.validation.ValidationError
-import java.util.*
-import java.util.concurrent.ConcurrentMap
-import java.util.concurrent.TimeUnit
-import kotlin.reflect.KClass
-import kotlin.reflect.KType
-import kotlin.reflect.full.isSuperclassOf
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.persistentSetOf
@@ -52,6 +46,12 @@ import kotlinx.collections.immutable.plus
 import kotlinx.collections.immutable.toPersistentSet
 import org.slf4j.Logger
 import reactor.core.publisher.Mono
+import java.util.*
+import java.util.concurrent.ConcurrentMap
+import java.util.concurrent.TimeUnit
+import kotlin.reflect.KClass
+import kotlin.reflect.KType
+import kotlin.reflect.full.isSuperclassOf
 
 /**
  * @author smccarron
@@ -64,10 +64,7 @@ internal class DefaultSingleRequestMaterializationGraphService(
     private val queryComponentContextFactory: QueryComponentContextFactory =
         DefaultQueryComponentContextFactory,
     private val tabularQueryDocumentCreator: TabularQueryDocumentCreator =
-        TabularQueryDocumentCreator(
-            documentSpecFactory = GQLDocumentSpecFactory.defaultFactory(),
-            gqlDocumentComposer = GQLDocumentComposer.defaultComposer(),
-        )
+        TabularQueryDocumentCreator()
 ) : SingleRequestMaterializationGraphService {
 
     companion object {
@@ -265,6 +262,8 @@ internal class DefaultSingleRequestMaterializationGraphService(
                     .standardQueryBuilder()
                     .materializationMetamodel(session.materializationMetamodel)
                     .queryComponentContextFactory(queryComponentContextFactory)
+                    .gqlDocumentSpecFactory(GQLDocumentSpecFactory.defaultFactory())
+                    .gqlDocumentComposer(GQLDocumentComposer.defaultComposer())
                     .variableKeys(cacheKey.variableKeys)
                     .rawInputContextKeys(cacheKey.rawInputContextKeys)
                     .operationName(cacheKey.operationName.orNull()!!)
@@ -287,6 +286,8 @@ internal class DefaultSingleRequestMaterializationGraphService(
                     .tabularQueryBuilder()
                     .materializationMetamodel(session.materializationMetamodel)
                     .queryComponentContextFactory(queryComponentContextFactory)
+                    .gqlDocumentSpecFactory(GQLDocumentSpecFactory.defaultFactory())
+                    .gqlDocumentComposer(GQLDocumentComposer.defaultComposer())
                     .variableKeys(cacheKey.variableKeys)
                     .rawInputContextKeys(cacheKey.rawInputContextKeys)
                     .outputColumnNames(cacheKey.tabularQueryOutputColumns.orNull()!!)
@@ -370,6 +371,8 @@ internal class DefaultSingleRequestMaterializationGraphService(
                                         .standardQueryBuilder()
                                         .materializationMetamodel(context.materializationMetamodel)
                                         .queryComponentContextFactory(queryComponentContextFactory)
+                                        .gqlDocumentSpecFactory(context.gqlDocumentSpecFactory)
+                                        .gqlDocumentComposer(context.gqlDocumentComposer)
                                         .variableKeys(context.variableKeys)
                                         .rawInputContextKeys(context.rawInputContextKeys)
                                         .operationName("")

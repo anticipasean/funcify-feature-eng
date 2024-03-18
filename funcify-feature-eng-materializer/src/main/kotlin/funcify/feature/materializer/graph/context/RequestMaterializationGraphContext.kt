@@ -6,6 +6,8 @@ import funcify.feature.materializer.graph.component.QueryComponentContext
 import funcify.feature.materializer.graph.component.QueryComponentContextFactory
 import funcify.feature.materializer.model.MaterializationMetamodel
 import funcify.feature.schema.dataelement.DataElementCallable
+import funcify.feature.schema.document.GQLDocumentComposer
+import funcify.feature.schema.document.GQLDocumentSpecFactory
 import funcify.feature.schema.feature.FeatureCalculatorCallable
 import funcify.feature.schema.feature.FeatureJsonValuePublisher
 import funcify.feature.schema.feature.FeatureJsonValueStore
@@ -56,6 +58,10 @@ interface RequestMaterializationGraphContext {
 
     val queryComponentContextFactory: QueryComponentContextFactory
 
+    val gqlDocumentSpecFactory: GQLDocumentSpecFactory
+
+    val gqlDocumentComposer: GQLDocumentComposer
+
     interface Builder<B : Builder<B>> {
 
         fun materializationMetamodel(materializationMetamodel: MaterializationMetamodel): B
@@ -79,7 +85,9 @@ interface RequestMaterializationGraphContext {
         fun requestGraph(
             requestGraph:
                 DirectedPersistentGraph<
-                    GQLOperationPath, QueryComponentContext, MaterializationEdge
+                    GQLOperationPath,
+                    QueryComponentContext,
+                    MaterializationEdge
                 >
         ): B
 
@@ -116,5 +124,9 @@ interface RequestMaterializationGraphContext {
         fun queryComponentContextFactory(
             queryComponentContextFactory: QueryComponentContextFactory
         ): B
+
+        fun gqlDocumentSpecFactory(gqlDocumentSpecFactory: GQLDocumentSpecFactory): B
+
+        fun gqlDocumentComposer(gqlDocumentComposer: GQLDocumentComposer): B
     }
 }

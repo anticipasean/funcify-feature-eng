@@ -19,6 +19,7 @@ import graphql.schema.GraphQLArgument
 import graphql.schema.GraphQLNamedSchemaElement
 import graphql.schema.GraphQLSchemaElement
 import graphql.schema.GraphQLTypeUtil
+import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.ImmutableSet
 import org.slf4j.Logger
 import reactor.core.publisher.Mono

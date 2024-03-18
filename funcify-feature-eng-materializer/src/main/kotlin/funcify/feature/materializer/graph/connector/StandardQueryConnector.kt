@@ -21,6 +21,7 @@ import funcify.feature.schema.transformer.TransformerCallable
 import funcify.feature.schema.transformer.TransformerSpecifiedTransformerSource
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
+import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentMap
 import funcify.feature.tools.extensions.SequenceExtensions.firstOrNone
 import funcify.feature.tools.extensions.SequenceExtensions.flatMapOptions
 import funcify.feature.tools.extensions.StringExtensions.flatten
@@ -44,6 +45,8 @@ import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toPersistentSet
 import org.slf4j.Logger
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ConcurrentMap
 
 /**
  * @author smccarron
@@ -52,6 +55,35 @@ import org.slf4j.Logger
 internal object StandardQueryConnector : RequestMaterializationGraphConnector<StandardQuery> {
 
     private val logger: Logger = loggerFor<StandardQueryConnector>()
+    private val camelCaseTranslator: (String) -> String by lazy {
+        val cache: ConcurrentMap<String, String> = ConcurrentHashMap()
+        val convertToCamelCase: (String) -> String = { str: String ->
+            when {
+                str.indexOf('_') >= 0 || str.indexOf(' ') >= 0 -> {
+                    str.splitToSequence(' ', '_')
+                        .filter(String::isNotBlank)
+                        .fold(StringBuilder()) { sb: StringBuilder, s: String ->
+                            when {
+                                sb.length == 0 && s.first().isUpperCase() -> {
+                                    sb.append(s.replaceFirstChar { c: Char -> c.lowercase() })
+                                }
+                                sb.length != 0 && s.first().isLowerCase() -> {
+                                    sb.append(s.replaceFirstChar { c: Char -> c.uppercase() })
+                                }
+                                else -> {
+                                    sb.append(s)
+                                }
+                            }
+                        }
+                        .toString()
+                }
+                else -> {
+                    str
+                }
+            }
+        }
+        { str: String -> cache.computeIfAbsent(str, convertToCamelCase) }
+    }
 
     override fun connectArgument(
         connectorContext: StandardQuery,
@@ -442,7 +474,6 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
                     argumentComponentContext
                 )
                 .isNotEmpty() -> {
-
                 connectFeatureFieldArgumentToDataElementFieldOnAlreadyConnectedDomainDataElementSourceOrFeatureField(
                     connectorContext,
                     argumentComponentContext
@@ -478,8 +509,16 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
                     argumentComponentContext
                 )
             }
-            // Next case: unconnected data_element_source with variable keys matching all of its
-            // arguments
+            getCoordinatesToUnconnectedDataElementSourceFieldsWithCompleteVariableInputSetsMatchingArgument(
+                    connectorContext,
+                    argumentComponentContext
+                )
+                .isDefined() -> {
+                connectFeatureFieldArgumentToUnconnectedDataElementOnUnconnectedDataElementSourceWithCompleteVariableInputSet(
+                    connectorContext,
+                    argumentComponentContext
+                )
+            }
             else -> {
                 throw ServiceError.of(
                     """unable to map feature_argument 
@@ -759,10 +798,10 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
             .getOrNone(argumentComponentContext.argument.name)
             .filter(ImmutableSet<FieldCoordinates>::isNotEmpty)
             .orElse {
-                connectorContext.materializationMetamodel.aliasCoordinatesRegistry
-                    .getFieldsWithAlias(argumentComponentContext.argument.name)
-                    .toOption()
-                    .filter(ImmutableSet<FieldCoordinates>::isNotEmpty)
+                getDataElementFieldCoordinatesWithAliasMatchingArgumentName(
+                    connectorContext,
+                    argumentComponentContext
+                )
             }
             .fold(::emptySequence, ImmutableSet<FieldCoordinates>::asSequence)
             .flatMap { fc: FieldCoordinates ->
@@ -815,7 +854,11 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
                     )
                 }
                 .orElseThrow()
-
+        logger.debug(
+            "connect_feature_field_argument_to_unconnected_data_element_field_on_connected_data_element_source: [ fc: {}, dsdesps: {} ]",
+            fc,
+            dsdesps
+        )
         return dsdesps
             .asSequence()
             .map { p: GQLOperationPath ->
@@ -849,11 +892,12 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
                     domainPath.transform {
                         appendSelections(
                             childCanonicalPath.selection.subList(
-                                domainPath.selection.size - 1,
+                                domainPath.selection.size,
                                 childCanonicalPath.selection.size
                             )
                         )
                     }
+                logger.debug("child_canonical_path: {}, child_path: {}", childCanonicalPath, childPath)
                 Try.success(ctx)
                     .map { sq: StandardQuery ->
                         ((canonicalDomainPath.selection.size + 1) until
@@ -947,10 +991,10 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
             .getOrNone(argumentComponentContext.argument.name)
             .filter(ImmutableSet<FieldCoordinates>::isNotEmpty)
             .orElse {
-                connectorContext.materializationMetamodel.aliasCoordinatesRegistry
-                    .getFieldsWithAlias(argumentComponentContext.argument.name)
-                    .toOption()
-                    .filter(ImmutableSet<FieldCoordinates>::isNotEmpty)
+                getDataElementFieldCoordinatesWithAliasMatchingArgumentName(
+                    connectorContext,
+                    argumentComponentContext
+                )
             }
             .fold(::emptySequence, ImmutableSet<FieldCoordinates>::asSequence)
             .flatMap { fc: FieldCoordinates ->
@@ -1171,6 +1215,302 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
                     }
                     .orElseThrow()
             }
+    }
+
+    private fun getCoordinatesToUnconnectedDataElementSourceFieldsWithCompleteVariableInputSetsMatchingArgument(
+        connectorContext: StandardQuery,
+        argumentComponentContext: ArgumentComponentContext,
+    ): Option<Triple<GQLOperationPath, List<Pair<String, GQLOperationPath>>, FieldCoordinates>> {
+        return when {
+            connectorContext.variableKeys.isEmpty() -> {
+                none()
+            }
+            else -> {
+                connectorContext.variableKeys
+                    .asSequence()
+                    .map { vk: String ->
+                        connectorContext.materializationMetamodel.dataElementPathByFieldArgumentName
+                            .getOrNone(vk)
+                            .orElse {
+                                connectorContext.materializationMetamodel.aliasCoordinatesRegistry
+                                    .getFieldArgumentsWithAlias(vk)
+                                    .asSequence()
+                                    .map { argLoc: Pair<FieldCoordinates, String> ->
+                                        connectorContext.materializationMetamodel
+                                            .domainSpecifiedDataElementSourceArgumentPathsByArgLocation
+                                            .getOrNone(argLoc)
+                                    }
+                                    .flatMapOptions()
+                                    .toPersistentSet()
+                                    .toOption()
+                                    .filter(ImmutableSet<GQLOperationPath>::isNotEmpty)
+                            }
+                            .map { paths: ImmutableSet<GQLOperationPath> -> vk to paths }
+                    }
+                    .flatMapOptions()
+                    .flatMap { (vk: String, ps: ImmutableSet<GQLOperationPath>) ->
+                        ps.asSequence().map { p: GQLOperationPath -> vk to p }
+                    }
+                    .groupBy { (_: String, p: GQLOperationPath) ->
+                        p.getParentPath().getOrElse { GQLOperationPath.getRootPath() }
+                    }
+                    .asSequence()
+                    .map { (dp: GQLOperationPath, vkArg: List<Pair<String, GQLOperationPath>>) ->
+                        val providedArgPaths: ImmutableSet<GQLOperationPath> =
+                            vkArg
+                                .asSequence()
+                                .map { (_: String, ap: GQLOperationPath) -> ap }
+                                .toPersistentSet()
+                        connectorContext.materializationMetamodel
+                            .domainSpecifiedDataElementSourceByPath
+                            .getOrNone(dp)
+                            .filter { dsdes: DomainSpecifiedDataElementSource ->
+                                dsdes.domainArgumentsWithoutDefaultValuesByPath.keys.all(
+                                    providedArgPaths::contains
+                                )
+                            }
+                            .map { dsdes: DomainSpecifiedDataElementSource ->
+                                dsdes.domainPath to vkArg
+                            }
+                    }
+                    .flatMapOptions()
+                    .reducePairsToPersistentMap()
+                    .let { dpToVkArgs: Map<GQLOperationPath, List<Pair<String, GQLOperationPath>>>
+                        ->
+                        // logger.debug(
+                        //    "domain_path_to_variable_key_arg_paths: [ {} ]",
+                        //    dpToVkArgs.asSequence().joinToString(",\n", "{ ", " }")
+                        // )
+                        getDataElementFieldCoordinatesWithAliasMatchingArgumentName(
+                                connectorContext,
+                                argumentComponentContext
+                            )
+                            .orElse {
+                                connectorContext.materializationMetamodel
+                                    .dataElementFieldCoordinatesByFieldName
+                                    .getOrNone(argumentComponentContext.argument.name)
+                                    .filter(ImmutableSet<FieldCoordinates>::isNotEmpty)
+                            }
+                            .map(ImmutableSet<FieldCoordinates>::asSequence)
+                            .getOrElse(::emptySequence)
+                            .map { fc: FieldCoordinates ->
+                                // TODO: Should the first match be taken or all matches? TBD
+                                dpToVkArgs.keys
+                                    .asSequence()
+                                    .firstOrNone { dp: GQLOperationPath ->
+                                        connectorContext.materializationMetamodel
+                                            .fieldCoordinatesAvailableUnderPath
+                                            .invoke(fc, dp)
+                                    }
+                                    .map { dp: GQLOperationPath ->
+                                        Triple(dp, dpToVkArgs[dp]!!, fc)
+                                    }
+                            }
+                            .flatMapOptions()
+                            .firstOrNone()
+                    }
+            }
+        }
+    }
+
+    private fun getDataElementFieldCoordinatesWithAliasMatchingArgumentName(
+        connectorContext: StandardQuery,
+        argumentComponentContext: ArgumentComponentContext,
+    ): Option<ImmutableSet<FieldCoordinates>> {
+        return connectorContext.materializationMetamodel.aliasCoordinatesRegistry
+            .getFieldsWithAlias(argumentComponentContext.argument.name)
+            .toOption()
+            .filter(ImmutableSet<FieldCoordinates>::isNotEmpty)
+            .orElse {
+                connectorContext.materializationMetamodel.aliasCoordinatesRegistry
+                    .getFieldsWithAlias(camelCaseTranslator(argumentComponentContext.argument.name))
+                    .toOption()
+                    .filter(ImmutableSet<FieldCoordinates>::isNotEmpty)
+            }
+            .map { fcs: ImmutableSet<FieldCoordinates> ->
+                // TODO: Memoize this operation
+                // logger.debug(
+                //    "fields_with_alias: [ argument.name: {}, fcs: {} ]",
+                //    argumentComponentContext.argument.name,
+                //    fcs
+                // )
+                fcs.asSequence()
+                    .filter { fc: FieldCoordinates ->
+                        connectorContext.materializationMetamodel.fieldCoordinatesAvailableUnderPath
+                            .invoke(
+                                fc,
+                                connectorContext.materializationMetamodel.dataElementElementTypePath
+                            )
+                    }
+                    .toPersistentSet()
+                // .also { fcsUnderPath ->
+                //    logger.debug(
+                //        "fields_with_alias_under_data_element_type_path: [ argument.name: {},
+                // fcs_under_de: {} ]",
+                //        argumentComponentContext.argument.name,
+                //        fcsUnderPath
+                //    )
+                // }
+            }
+            .filter(ImmutableSet<FieldCoordinates>::isNotEmpty)
+    }
+
+    private fun connectFeatureFieldArgumentToUnconnectedDataElementOnUnconnectedDataElementSourceWithCompleteVariableInputSet(
+        connectorContext: StandardQuery,
+        argumentComponentContext: ArgumentComponentContext,
+    ): StandardQuery {
+        val (
+            domainPath: GQLOperationPath,
+            variablesToArgPaths: List<Pair<String, GQLOperationPath>>,
+            dataElementCoordinates: FieldCoordinates) =
+            getCoordinatesToUnconnectedDataElementSourceFieldsWithCompleteVariableInputSetsMatchingArgument(
+                    connectorContext,
+                    argumentComponentContext
+                )
+                .successIfDefined {
+                    ServiceError.of(
+                        """argument [ path: %s ] does not match expected 
+                            |unconnected data element source with 
+                            |complete variable input set case"""
+                            .flatten(),
+                        argumentComponentContext.path
+                    )
+                }
+                .orElseThrow()
+        logger.debug(
+            """connect_feature_field_argument_to_
+            |unconnected_data_element_on_
+            |unconnected_data_element_source_
+            |with_complete_variable_input_set: 
+            |[ domain_path: {}, 
+            |variable_keys_to_arg_paths: {}, 
+            |data_element_field_coordinates: {} ]"""
+                .flatten(),
+            domainPath,
+            variablesToArgPaths,
+            dataElementCoordinates
+        )
+        val dsdes: DomainSpecifiedDataElementSource =
+            connectorContext.materializationMetamodel.domainSpecifiedDataElementSourceByPath
+                .getOrNone(domainPath)
+                .successIfDefined {
+                    ServiceError.of(
+                        "%s expected but not found at [ path: %s ]",
+                        DomainSpecifiedDataElementSource::class.simpleName,
+                        domainPath
+                    )
+                }
+                .orElseThrow()
+        val childPath: GQLOperationPath =
+            connectorContext.materializationMetamodel.firstPathWithFieldCoordinatesUnderPath
+                .invoke(dataElementCoordinates, domainPath)
+                .successIfDefined {
+                    ServiceError.of(
+                        "path under which field coordinates [ %s ] available under [ path: %s ]",
+                        dataElementCoordinates,
+                        domainPath
+                    )
+                }
+                .orElseThrow()
+        return Try.success(connectorContext)
+            .map { sq: StandardQuery ->
+                val fieldContext: FieldComponentContext =
+                    connectorContext.queryComponentContextFactory
+                        .fieldComponentContextBuilder()
+                        .field(
+                            Field.newField().name(dsdes.domainFieldCoordinates.fieldName).build()
+                        )
+                        .fieldCoordinates(dsdes.domainFieldCoordinates)
+                        .path(dsdes.domainPath)
+                        .canonicalPath(dsdes.domainPath)
+                        .build()
+                connectField(sq, fieldContext)
+            }
+            .map { sq: StandardQuery ->
+                variablesToArgPaths
+                    .asSequence()
+                    .map { (vk: String, ap: GQLOperationPath) ->
+                        dsdes.allArgumentsByPath.getOrNone(ap).map { ga: GraphQLArgument ->
+                            sq.queryComponentContextFactory
+                                .argumentComponentContextBuilder()
+                                .argument(
+                                    Argument.newArgument()
+                                        .name(ga.name)
+                                        .value(
+                                            VariableReference.newVariableReference()
+                                                .name(vk)
+                                                .build()
+                                        )
+                                        .build()
+                                )
+                                .fieldCoordinates(dsdes.domainFieldCoordinates)
+                                .path(ap)
+                                .canonicalPath(ap)
+                                .build()
+                        }
+                    }
+                    .flatMapOptions()
+                    .fold(sq) { sq1: StandardQuery, acc: ArgumentComponentContext ->
+                        connectArgument(sq1, acc)
+                    }
+            }
+            .map { sq: StandardQuery ->
+                (domainPath.selection.size + 1)
+                    .until(childPath.selection.size)
+                    .asSequence()
+                    .map { limit: Int ->
+                        when {
+                            limit == childPath.selection.size -> childPath
+                            else ->
+                                GQLOperationPath.of {
+                                    appendSelections(childPath.selection.subList(0, limit))
+                                }
+                        }
+                    }
+                    .map { cp: GQLOperationPath ->
+                        sq.materializationMetamodel.fieldCoordinatesByPath
+                            .getOrNone(cp)
+                            .map(ImmutableSet<FieldCoordinates>::asSequence)
+                            .getOrElse(::emptySequence)
+                            .firstOrNone()
+                            .map { fc: FieldCoordinates -> cp to fc }
+                    }
+                    .flatMapOptions()
+                    .fold(sq) { sq1: StandardQuery, (cp: GQLOperationPath, fc: FieldCoordinates) ->
+                        logger.debug(
+                            "connecting unconnected_data_element_field with complete variable set: [ fc: {}, cp: {} ]",
+                            fc,
+                            cp
+                        )
+                        val fieldContext: FieldComponentContext =
+                            connectorContext.queryComponentContextFactory
+                                .fieldComponentContextBuilder()
+                                .field(Field.newField().name(fc.fieldName).build())
+                                .fieldCoordinates(fc)
+                                .path(cp)
+                                .canonicalPath(cp)
+                                .build()
+                        connectField(sq1, fieldContext)
+                    }
+            }
+            .map { sq: StandardQuery ->
+                sq.update {
+                    requestGraph(
+                        sq.requestGraph
+                            .put(argumentComponentContext.path, argumentComponentContext)
+                            .putEdge(
+                                argumentComponentContext.path,
+                                childPath,
+                                MaterializationEdge.EXTRACT_FROM_SOURCE
+                            )
+                    )
+                    putConnectedPathForCanonicalPath(
+                        argumentComponentContext.canonicalPath,
+                        argumentComponentContext.path
+                    )
+                }
+            }
+            .orElseThrow()
     }
 
     private fun connectTransformerArgument(

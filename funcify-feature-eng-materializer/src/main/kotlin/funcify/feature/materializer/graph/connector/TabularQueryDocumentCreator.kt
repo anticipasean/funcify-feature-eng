@@ -5,9 +5,7 @@ import funcify.feature.error.ServiceError
 import funcify.feature.materializer.graph.connector.TabularQueryDocumentCreator.Companion.TabularQueryCompositionContext.*
 import funcify.feature.materializer.graph.context.TabularQuery
 import funcify.feature.schema.dataelement.DomainSpecifiedDataElementSource
-import funcify.feature.schema.document.GQLDocumentComposer
 import funcify.feature.schema.document.GQLDocumentSpec
-import funcify.feature.schema.document.GQLDocumentSpecFactory
 import funcify.feature.schema.feature.FeatureSpecifiedFeatureCalculator
 import funcify.feature.schema.path.operation.GQLOperationPath
 import funcify.feature.tools.container.attempt.Try
@@ -31,10 +29,7 @@ import org.slf4j.Logger
  * @author smccarron
  * @created 2023-10-13
  */
-internal class TabularQueryDocumentCreator(
-    private val documentSpecFactory: GQLDocumentSpecFactory,
-    private val gqlDocumentComposer: GQLDocumentComposer
-) {
+internal class TabularQueryDocumentCreator {
 
     companion object {
         private const val METHOD_TAG: String = "create_document_for_tabular_query"
@@ -810,7 +805,7 @@ internal class TabularQueryDocumentCreator(
                 .asSequence()
                 .flatten()
                 .plus(tqcc.featurePathByExpectedOutputColumnName.values.asSequence())
-                .fold(documentSpecFactory.builder()) {
+                .fold(tabularQuery.gqlDocumentSpecFactory.builder()) {
                     sb: GQLDocumentSpec.Builder,
                     p: GQLOperationPath ->
                     sb.addFieldPath(p)
@@ -825,7 +820,7 @@ internal class TabularQueryDocumentCreator(
                         .build()
                 }
                 .let { spec: GQLDocumentSpec ->
-                    gqlDocumentComposer.composeDocumentFromSpecWithSchema(
+                    tabularQuery.gqlDocumentComposer.composeDocumentFromSpecWithSchema(
                         spec,
                         tabularQuery.materializationMetamodel.materializationGraphQLSchema
                     )
