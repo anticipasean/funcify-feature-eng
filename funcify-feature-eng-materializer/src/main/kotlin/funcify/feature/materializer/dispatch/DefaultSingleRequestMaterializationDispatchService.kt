@@ -86,24 +86,14 @@ internal class DefaultSingleRequestMaterializationDispatchService(
         session: GraphQLSingleRequestSession
     ): Mono<out GraphQLSingleRequestSession> {
         logger.info("$METHOD_TAG: [ session.session_id: ${session.sessionId} ]")
-        return Mono.defer {
-                when (
-                    val requestMaterializationGraph: RequestMaterializationGraph? =
-                        session.requestMaterializationGraph.orNull()
-                ) {
-                    null -> {
-                        requestMaterializationGraphNotDefinedInSessionErrorPublisher(session)
-                    }
-                    else -> {
-                        dispatchRequestsForCallablesInRequestMaterializationGraph(
-                            session,
-                            requestMaterializationGraph
-                        )
-                    }
-                }
+        return when {
+            session.dispatchedRequestMaterializationGraph.isDefined() -> {
+                Mono.just(session)
             }
-            .doOnNext(dispatchedRequestMaterializationGraphSuccessLogger())
-            .doOnError(dispatchedRequestMaterializationGraphFailureLogger())
+            else -> {
+                dispatchRequestsForCallablesInRequestMaterializationGraph(session)
+            }
+        }
     }
 
     private fun requestMaterializationGraphNotDefinedInSessionErrorPublisher(
@@ -118,13 +108,29 @@ internal class DefaultSingleRequestMaterializationDispatchService(
     }
 
     private fun dispatchRequestsForCallablesInRequestMaterializationGraph(
-        session: GraphQLSingleRequestSession,
-        requestMaterializationGraph: RequestMaterializationGraph,
+        session: GraphQLSingleRequestSession
     ): Mono<out GraphQLSingleRequestSession> {
-        return createDispatchedRequestMaterializationGraph(session, requestMaterializationGraph)
-            .map { drmg: DispatchedRequestMaterializationGraph ->
-                session.update { dispatchedRequestMaterializationGraph(drmg) }
+        return Mono.defer {
+                when (
+                    val requestMaterializationGraph: RequestMaterializationGraph? =
+                        session.requestMaterializationGraph.orNull()
+                ) {
+                    null -> {
+                        requestMaterializationGraphNotDefinedInSessionErrorPublisher(session)
+                    }
+                    else -> {
+                        createDispatchedRequestMaterializationGraph(
+                                session,
+                                requestMaterializationGraph
+                            )
+                            .map { drmg: DispatchedRequestMaterializationGraph ->
+                                session.update { dispatchedRequestMaterializationGraph(drmg) }
+                            }
+                    }
+                }
             }
+            .doOnNext(dispatchedRequestMaterializationGraphSuccessLogger())
+            .doOnError(dispatchedRequestMaterializationGraphFailureLogger())
     }
 
     private fun createDispatchedRequestMaterializationGraph(
@@ -660,7 +666,7 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                 }
                 .doOnNext { c: DispatchedRequestMaterializationGraphContext ->
                     logger.debug(
-                        "feature_calculator_callables created: operation_paths: {}, result_paths: {}",
+                        "feature_calculator_callables: [ created: { operation_paths: {}, result_paths: {} } ]",
                         c.featureCalculatorPublishersByOperationPath.keys,
                         c.featureCalculatorPublishersByResultPath.keys
                     )

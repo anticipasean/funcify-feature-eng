@@ -3,8 +3,6 @@ package funcify.feature.spring.router
 import arrow.core.Option
 import arrow.core.filterIsInstance
 import arrow.core.getOrElse
-import arrow.core.identity
-import arrow.core.some
 import arrow.core.toOption
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.node.ArrayNode
@@ -17,17 +15,17 @@ import funcify.feature.materializer.request.RawGraphQLRequest
 import funcify.feature.materializer.request.factory.RawGraphQLRequestFactory
 import funcify.feature.materializer.response.SerializedGraphQLResponse
 import funcify.feature.tools.container.attempt.Try
-import funcify.feature.tools.container.attempt.Try.Companion.filterInstanceOf
 import funcify.feature.tools.container.attempt.Try.Companion.flatMapFailure
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.MonoExtensions.filter
-import funcify.feature.tools.extensions.OptionExtensions.toMono
 import funcify.feature.tools.extensions.PersistentMapExtensions.reduceEntriesToPersistentMap
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.extensions.ThrowableExtensions.possiblyNestedHeadStackTraceElement
 import funcify.feature.tools.json.JsonMapper
+import graphql.ExecutionResult
 import graphql.GraphQLError
 import graphql.execution.AbortExecutionException
+import graphql.language.SourceLocation
 import java.util.*
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.persistentMapOf
@@ -59,6 +57,7 @@ internal class GraphQLWebFluxHandlerFunction(
         private val logger: Logger = loggerFor<GraphQLWebFluxHandlerFunction>()
         private const val QUERY_KEY = "query"
         private const val GRAPHQL_REQUEST_VARIABLES_KEY = "variables"
+        private const val DATA_KEY = "data"
         private const val OUTPUT_KEY = "output"
         private const val ERRORS_KEY = "errors"
         private const val OPERATION_NAME_KEY = "operationName"
@@ -96,7 +95,7 @@ internal class GraphQLWebFluxHandlerFunction(
     override fun handle(request: ServerRequest): Mono<ServerResponse> {
         logger.info("handle: [ request.path: ${request.path()} ]")
         return Mono.defer { convertServerRequestIntoRawGraphQLRequest(request) }
-            .subscribeOn(Schedulers.boundedElastic())
+            .publishOn(Schedulers.boundedElastic())
             .flatMap { rawReq: RawGraphQLRequest ->
                 graphQLSingleRequestExecutor.executeSingleRequest(rawReq)
             }
@@ -252,58 +251,59 @@ internal class GraphQLWebFluxHandlerFunction(
         return { response: SerializedGraphQLResponse ->
             when {
                 response.resultAsColumnarJsonObject.isDefined() -> {
-                    response.resultAsColumnarJsonObject
-                        .zip(
-                            Try.attemptSequence(
-                                    response.executionResult.errors.asSequence().map { gqlError ->
-                                        convertGraphQLErrorIntoErrorJsonNode(gqlError)
-                                    }
-                                )
-                                .fold(::identity) { t: Throwable ->
-                                    sequenceOf(
-                                        JsonNodeFactory.instance
-                                            .objectNode()
-                                            .put("errorType", t::class.simpleName)
-                                            .put("message", t.message)
+                    ServerResponse.ok()
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .bodyValue(
+                            mapOf(
+                                OUTPUT_KEY to response.resultAsColumnarJsonObject,
+                                ERRORS_KEY to
+                                    convertExecutionResultErrorsBlockIntoJSON(
+                                        response.executionResult
                                     )
-                                }
-                                .fold(JsonNodeFactory.instance.arrayNode(), ArrayNode::add)
-                                .some()
+                            )
                         )
-                        .map { (columnarJsonObject, graphQLErrors) ->
-                            mapOf(OUTPUT_KEY to columnarJsonObject, ERRORS_KEY to graphQLErrors)
-                        }
-                        .toMono()
-                        .flatMap { spec ->
-                            ServerResponse.ok()
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .bodyValue(spec)
-                        }
                 }
                 else -> {
-                    Try.attempt { response.executionResult.toSpecification() }
-                        .mapFailure { t: Throwable ->
-                            val message: String =
-                                """unable to convert graphql execution_result 
-                                |into specification for api_response 
-                                |[ type: Map<String, Any?> ] given cause: 
-                                |[ type: ${t::class.qualifiedName}, 
-                                |message: ${t.message} ]"""
-                                    .flatten()
-                            ServiceError.downstreamResponseErrorBuilder()
-                                .message(message)
-                                .cause(t)
-                                .build()
-                        }
-                        .toMono()
-                        .flatMap { spec ->
-                            ServerResponse.ok()
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .bodyValue(spec)
-                        }
+                    ServerResponse.ok()
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .bodyValue(
+                            Try.attempt { response.executionResult.toSpecification() }
+                                .orElseGet {
+                                    createAlternativeNonTabularExecutionResultJSONRepresentation(
+                                        response.executionResult
+                                    )
+                                }
+                        )
                 }
             }
         }
+    }
+
+    private fun createAlternativeNonTabularExecutionResultJSONRepresentation(
+        executionResult: ExecutionResult
+    ): Map<String, Any?> {
+        return when {
+            executionResult.isDataPresent -> {
+                mapOf(
+                    DATA_KEY to executionResult.getData(),
+                    ERRORS_KEY to convertExecutionResultErrorsBlockIntoJSON(executionResult)
+                )
+            }
+            else -> {
+                mapOf(ERRORS_KEY to convertExecutionResultErrorsBlockIntoJSON(executionResult))
+            }
+        }
+    }
+
+    private fun convertExecutionResultErrorsBlockIntoJSON(
+        executionResult: ExecutionResult
+    ): ArrayNode {
+        return executionResult.errors
+            .toOption()
+            .getOrElse(::emptyList)
+            .asSequence()
+            .map { ge: GraphQLError -> convertGraphQLErrorIntoErrorJsonNode(ge) }
+            .fold(JsonNodeFactory.instance.arrayNode(), ArrayNode::add)
     }
 
     private fun logAnyErrorsBeforeCreatingServerResponse(): (Throwable) -> Unit {
@@ -333,39 +333,21 @@ internal class GraphQLWebFluxHandlerFunction(
         return { serviceError: ServiceError ->
             ServerResponse.status(serviceError.serverHttpResponse)
                 .contentType(MediaType.APPLICATION_JSON)
-                .bodyValue(
-                    mapOf<String, JsonNode>(
-                        ERRORS_KEY to
-                            JsonNodeFactory.instance.arrayNode().add(serviceError.toJsonNode())
-                    )
-                )
+                .bodyValue(mapOf(ERRORS_KEY to listOf(serviceError.toJsonNode())))
         }
     }
 
-    private fun convertGraphQLErrorWithinCommonExceptionIntoErrorJsonNode(
-        graphQLError: GraphQLError,
-        serviceError: ServiceError,
-    ): JsonNode {
-        return convertGraphQLErrorIntoErrorJsonNode(graphQLError).fold(::identity) { _: Throwable ->
-            jsonMapper
-                .fromKotlinObject(
-                    mapOf("errorType" to graphQLError.errorType, "message" to serviceError.message)
-                )
-                .toJsonNode()
-                .orElseGet { JsonNodeFactory.instance.nullNode() }
-        }
-    }
-
-    private fun convertGraphQLErrorIntoErrorJsonNode(graphQLError: GraphQLError): Try<JsonNode> {
+    private fun convertGraphQLErrorIntoErrorJsonNode(graphQLError: GraphQLError): JsonNode {
         return Try.attempt { graphQLError.toSpecification() }
             .map(removeCauseFromSpecIfPresentLoggingWarning())
             .flatMap { spec: Map<String, Any?> -> jsonMapper.fromKotlinObject(spec).toJsonNode() }
-            .flatMapFailure { t: Throwable ->
+            .flatMapFailure { _: Throwable ->
                 if (
                     graphQLError.locations
                         .toOption()
-                        .filter { locs -> locs.any { srcLoc -> srcLoc == null } }
-                        .isDefined()
+                        .map(List<SourceLocation?>::asSequence)
+                        .getOrElse(::emptySequence)
+                        .any { sl: SourceLocation? -> sl == null }
                 ) {
                     jsonMapper
                         .fromKotlinObject(
@@ -378,9 +360,17 @@ internal class GraphQLWebFluxHandlerFunction(
                         )
                         .toJsonNode()
                 } else {
-                    Try.failure(t)
+                    jsonMapper
+                        .fromKotlinObject(
+                            mapOf(
+                                "errorType" to graphQLError.errorType,
+                                "message" to graphQLError.message
+                            )
+                        )
+                        .toJsonNode()
                 }
             }
+            .orElseThrow()
     }
 
     private fun removeCauseFromSpecIfPresentLoggingWarning():
@@ -412,77 +402,50 @@ internal class GraphQLWebFluxHandlerFunction(
     private fun convertGraphQLErrorTypeIntoServerResponse():
         (Throwable) -> Mono<out ServerResponse> {
         return { t: Throwable ->
-            val errorNodeToErrorsMapConverter: (GraphQLError) -> Map<String, Any?> = { gqlError ->
-                mapOf(
-                    "errors" to
-                        JsonNodeFactory.instance
-                            .arrayNode()
-                            .add(
-                                convertGraphQLErrorWithinCommonExceptionIntoErrorJsonNode(
-                                    gqlError,
-                                    ServiceError.downstreamResponseErrorBuilder()
-                                        .message(
-                                            """a serialized_graphql_response was not received 
-                                        |from upstream likely due to aborted execution"""
-                                                .flatten()
-                                        )
-                                        .build()
-                                )
-                            )
-                )
-            }
-
-            Try.success(t)
-                .filterInstanceOf<GraphQLError>()
-                .map { gqlError: GraphQLError ->
-                    when {
-                        gqlError is AbortExecutionException &&
-                            gqlError.message?.contains(Regex("(?i)timeout")) ?: false -> {
-                            ServerResponse.status(HttpStatus.GATEWAY_TIMEOUT)
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .bodyValue(errorNodeToErrorsMapConverter(gqlError))
-                        }
-                        else -> {
-                            ServerResponse.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .bodyValue(errorNodeToErrorsMapConverter(gqlError))
-                        }
-                    }
+            val errorNodeToErrorsMapConverter: (GraphQLError) -> Map<String, Any?> =
+                { ge: GraphQLError ->
+                    mapOf(ERRORS_KEY to convertGraphQLErrorIntoErrorJsonNode(ge))
                 }
-                .orElseGet { Mono.error(t) }
+            when {
+                t is AbortExecutionException &&
+                    t.message?.contains(Regex("(?i)timeout")) == true -> {
+                    ServerResponse.status(HttpStatus.GATEWAY_TIMEOUT)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .bodyValue(errorNodeToErrorsMapConverter(t))
+                }
+                t is GraphQLError -> {
+                    ServerResponse.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .bodyValue(errorNodeToErrorsMapConverter(t))
+                }
+                else -> {
+                    Mono.error(t)
+                }
+            }
         }
     }
 
     private fun convertAnyUnhandledExceptionsIntoServerResponse(
         request: ServerRequest
     ): (Throwable) -> Mono<out ServerResponse> {
-        return { err: Throwable ->
+        return { t: Throwable ->
             logger.error(
                 """handle: [ request.path: ${request.path()} ]: 
                    |uncaught non-platform exception thrown: 
-                   |[ type: ${err::class.qualifiedName}, 
-                   |message: ${err.message} 
+                   |[ type: ${t::class.qualifiedName}, 
+                   |message: ${t.message} 
                    |]"""
                     .flatten(),
-                err
+                t
             )
             ServerResponse.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .contentType(MediaType.APPLICATION_JSON)
                 .bodyValue(
                     mapOf(
-                        "errors" to
-                            JsonNodeFactory.instance
-                                .arrayNode()
-                                .add(
-                                    mapOf(
-                                            "errorType" to err::class.simpleName,
-                                            "message" to err.message
-                                        )
-                                        .asSequence()
-                                        .fold(JsonNodeFactory.instance.objectNode()) { on, (k, v) ->
-                                            on.put(k, v)
-                                        }
-                                )
+                        ERRORS_KEY to
+                            listOf(
+                                mapOf("errorType" to t::class.simpleName, "message" to t.message)
+                            )
                     )
                 )
         }

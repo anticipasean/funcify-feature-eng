@@ -29,6 +29,8 @@ import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toPersistentMap
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentMap
 import java.util.stream.Stream
@@ -91,11 +93,22 @@ internal data class DefaultRequestMaterializationGraph(
         (GQLOperationPath, Int) -> ImmutableSet<GQLOperationPath> by lazy {
         val cache: ConcurrentMap<Pair<GQLOperationPath, Int>, ImmutableSet<GQLOperationPath>> =
             ConcurrentHashMap()
+        val logger: Logger = LoggerFactory.getLogger(DefaultRequestMaterializationGraph::class.java)
         val dependentValuePathsCalculation:
             (Pair<GQLOperationPath, Int>) -> ImmutableSet<GQLOperationPath> =
             { (path: GQLOperationPath, index: Int) ->
+                logger.debug(
+                    "feature_argument_dependencies_set_by_path_and_index: [ path: {}, index: {} ]",
+                    path,
+                    index
+                )
                 Stream.of(featureArgumentGroupsByPath.invoke(path))
                     .map { argGroups: ImmutableList<ImmutableMap<String, GQLOperationPath>> ->
+                        logger.debug(
+                            "feature_argument_dependencies_set_by_path_and_index: [ path: {}, arg_groups: {} ]",
+                            path,
+                            argGroups
+                        )
                         when {
                             index in argGroups.indices -> {
                                 argGroups.get(index)
@@ -109,6 +122,12 @@ internal data class DefaultRequestMaterializationGraph(
                     .flatMap(ImmutableSet<Map.Entry<String, GQLOperationPath>>::stream)
                     .map(Map.Entry<String, GQLOperationPath>::value)
                     .recurseBreadthFirst { p: GQLOperationPath ->
+                        logger.debug(
+                            "feature_argument_dependencies_set_by_path_and_index: [ path: {}, recurse_on_path: {} ]",
+                            path,
+                            p
+                        )
+                        logger.debug("edges from point: [ path: {}, edges: {} ]", p, requestGraph.edgesFromPointAsStream(p).toList())
                         requestGraph.edgesFromPointAsStream(p).flatMap {
                             (l: DirectedLine<GQLOperationPath>, e: MaterializationEdge) ->
                             when (e) {
@@ -127,6 +146,13 @@ internal data class DefaultRequestMaterializationGraph(
                         }
                     }
                     .toImmutableSet()
+                    .also { depArgs ->
+                        logger.debug(
+                            "feature_argument_dependencies_set_by_path_and_index: [ path: {}, dep_args: {} ]",
+                            path,
+                            depArgs
+                        )
+                    }
             }
         { path: GQLOperationPath, argumentGroupIndex: Int ->
             cache.computeIfAbsent(path to argumentGroupIndex, dependentValuePathsCalculation)
