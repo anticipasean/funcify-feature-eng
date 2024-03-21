@@ -48,7 +48,6 @@ import graphql.execution.RawVariables
 import graphql.execution.ValuesResolver
 import graphql.language.Definition
 import graphql.language.Document
-import graphql.language.NullValue
 import graphql.language.OperationDefinition
 import graphql.language.Value
 import graphql.language.VariableReference
@@ -58,12 +57,12 @@ import graphql.schema.GraphQLFieldDefinition
 import graphql.schema.GraphQLFieldsContainer
 import graphql.schema.GraphQLTypeUtil
 import graphql.schema.InputValueWithState
+import java.time.Duration
+import java.util.stream.Stream
 import kotlinx.collections.immutable.*
 import org.slf4j.Logger
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
-import java.time.Duration
-import java.util.stream.Stream
 
 internal class DefaultSingleRequestMaterializationDispatchService(
     private val jsonMapper: JsonMapper,
@@ -242,6 +241,9 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                     )
                     .cause(t)
                     .build()
+            }
+            .peekIfSuccess { cv: CoercedVariables ->
+                logger.debug("coerce_variables_from_session: [ variables: {} ]", cv.toMap())
             }
     }
 
@@ -494,14 +496,28 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                                         .toOption()
                                         .filterIsInstance<VariableReference>()
                                         .map { vr: VariableReference -> vr.name }
-                                        .map { n: String ->
+                                        .flatMap { n: String ->
                                             context.coercedVariables
                                                 .get(n)
                                                 .toOption()
                                                 .filterIsInstance<Value<*>>()
-                                                .getOrElse { NullValue.of() }
+                                                .flatMap(GraphQLValueToJsonNodeConverter)
+                                                .orElse {
+                                                    context.rawGraphQLRequest.variables
+                                                        .getOrNone(n)
+                                                        .filterIsInstance<JsonNode>()
+                                                }
+                                                .orElse {
+                                                    context.rawGraphQLRequest.variables
+                                                        .getOrNone(n)
+                                                        .flatMap { a: Any? ->
+                                                            jsonMapper
+                                                                .fromKotlinObject(a)
+                                                                .toJsonNode()
+                                                                .getSuccess()
+                                                        }
+                                                }
                                         }
-                                        .flatMap(GraphQLValueToJsonNodeConverter)
                                         .map { jn: JsonNode ->
                                             Triple(facc.path, facc.canonicalPath, jn)
                                         }
@@ -655,6 +671,10 @@ internal class DefaultSingleRequestMaterializationDispatchService(
         (C) -> Mono<out DispatchedRequestMaterializationGraphContext> where
     C : DispatchedRequestMaterializationGraphContext {
         return { drmgc: DispatchedRequestMaterializationGraphContext ->
+            logger.debug(
+                "dispatch_all_feature_calculator_callables_within_context: [ materialized_arguments_by_path: {} ]",
+                drmgc.materializedArgumentsByPath
+            )
             Flux.fromIterable(
                     drmgc.requestMaterializationGraph.featureCalculatorCallablesByPath.asIterable()
                 )

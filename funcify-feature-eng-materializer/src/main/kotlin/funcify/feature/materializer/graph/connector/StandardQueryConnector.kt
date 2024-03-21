@@ -11,6 +11,7 @@ import funcify.feature.materializer.graph.context.StandardQuery
 import funcify.feature.materializer.model.MaterializationMetamodel
 import funcify.feature.schema.dataelement.DataElementCallable
 import funcify.feature.schema.dataelement.DomainSpecifiedDataElementSource
+import funcify.feature.schema.document.GQLDocumentSpec
 import funcify.feature.schema.feature.FeatureCalculator
 import funcify.feature.schema.feature.FeatureCalculatorCallable
 import funcify.feature.schema.feature.FeatureJsonValuePublisher
@@ -30,6 +31,7 @@ import funcify.feature.tools.extensions.TryExtensions.successIfDefined
 import graphql.introspection.Introspection
 import graphql.language.Argument
 import graphql.language.ArrayValue
+import graphql.language.Document
 import graphql.language.Field
 import graphql.language.NullValue
 import graphql.language.Value
@@ -41,13 +43,13 @@ import graphql.schema.GraphQLFieldDefinition
 import graphql.schema.GraphQLFieldsContainer
 import graphql.schema.GraphQLTypeUtil
 import graphql.schema.InputValueWithState
-import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.ConcurrentMap
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toPersistentSet
 import org.slf4j.Logger
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ConcurrentMap
 
 /**
  * @author smccarron
@@ -1509,83 +1511,37 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
                 .orElseThrow()
         return Try.success(connectorContext)
             .map { sq: StandardQuery ->
-                val fieldContext: FieldComponentContext =
-                    connectorContext.queryComponentContextFactory
-                        .fieldComponentContextBuilder()
-                        .field(
-                            Field.newField().name(dsdes.domainFieldCoordinates.fieldName).build()
-                        )
-                        .fieldCoordinates(dsdes.domainFieldCoordinates)
-                        .path(dsdes.domainPath)
-                        .canonicalPath(dsdes.domainPath)
+                val spec: GQLDocumentSpec =
+                    variablesToArgPaths
+                        .asSequence()
+                        .fold(sq.gqlDocumentSpecFactory.builder().addFieldPath(childPath)) {
+                            sb,
+                            (vk, p) ->
+                            sb.putArgumentPathForVariableName(vk, p)
+                        }
                         .build()
-                connectField(sq, fieldContext)
-            }
-            .map { sq: StandardQuery ->
-                variablesToArgPaths
-                    .asSequence()
-                    .map { (vk: String, ap: GQLOperationPath) ->
-                        dsdes.allArgumentsByPath.getOrNone(ap).map { ga: GraphQLArgument ->
-                            sq.queryComponentContextFactory
-                                .argumentComponentContextBuilder()
-                                .argument(
-                                    Argument.newArgument()
-                                        .name(ga.name)
-                                        .value(
-                                            VariableReference.newVariableReference()
-                                                .name(vk)
-                                                .build()
-                                        )
-                                        .build()
-                                )
-                                .fieldCoordinates(dsdes.domainFieldCoordinates)
-                                .path(ap)
-                                .canonicalPath(ap)
-                                .build()
+                sq.gqlDocumentComposer
+                    .composeDocumentFromSpecWithSchema(
+                        spec,
+                        sq.materializationMetamodel.materializationGraphQLSchema
+                    )
+                    .map { d: Document ->
+                        // Note: If StandardQuery is made mutable, this creation of new instance
+                        // with a different document will cause issues later
+                        // Immutability is great for keeping this same big object with only one
+                        // small difference
+                        LazyStandardQueryTraverser.invoke(sq.update { document(d) })
+                    }
+                    .orElseThrow()
+                    .fold(sq) { sq1, qcc ->
+                        when (qcc) {
+                            is ArgumentComponentContext -> {
+                                connectArgument(sq1, qcc)
+                            }
+                            is FieldComponentContext -> {
+                                connectField(sq1, qcc)
+                            }
                         }
-                    }
-                    .flatMapOptions()
-                    .fold(sq) { sq1: StandardQuery, acc: ArgumentComponentContext ->
-                        connectArgument(sq1, acc)
-                    }
-            }
-            .map { sq: StandardQuery ->
-                (domainPath.selection.size + 1)
-                    .until(childPath.selection.size)
-                    .asSequence()
-                    .map { limit: Int ->
-                        when {
-                            limit == childPath.selection.size -> childPath
-                            else ->
-                                GQLOperationPath.of {
-                                    appendSelections(childPath.selection.subList(0, limit))
-                                }
-                        }
-                    }
-                    .map { cp: GQLOperationPath ->
-                        sq.materializationMetamodel.fieldCoordinatesByPath
-                            .getOrNone(cp)
-                            .map(ImmutableSet<FieldCoordinates>::asSequence)
-                            .getOrElse(::emptySequence)
-                            .firstOrNone()
-                            .map { fc: FieldCoordinates -> cp to fc }
-                    }
-                    .flatMapOptions()
-                    .fold(sq) { sq1: StandardQuery, (cp: GQLOperationPath, fc: FieldCoordinates) ->
-                        logger.debug(
-                            "connecting unconnected_data_element_field with complete variable set: [ fc: {}, cp: {} ]",
-                            fc,
-                            cp
-                        )
-                        val fieldContext: FieldComponentContext =
-                            connectorContext.queryComponentContextFactory
-                                .fieldComponentContextBuilder()
-                                .field(Field.newField().name(fc.fieldName).build())
-                                .fieldCoordinates(fc)
-                                .path(cp)
-                                .canonicalPath(cp)
-                                .build()
-                        connectField(sq1, fieldContext)
                     }
             }
             .map { sq: StandardQuery ->
