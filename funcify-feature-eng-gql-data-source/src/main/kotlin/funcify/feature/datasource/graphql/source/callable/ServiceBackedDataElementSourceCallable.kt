@@ -244,7 +244,7 @@ internal class ServiceBackedDataElementSourceCallable(
                 GQLDocumentComposer.defaultComposer()
                     .composeDocumentFromSpecWithSchema(
                         spec = sb.build(),
-                        graphQLSchema = domainSpecifiedDataElementSource.graphQLSchema
+                        graphQLSchema = domainSpecifiedDataElementSource.domainDataElementSourceGraphQLSchema
                     )
                     .map { d: Document ->
                         logger.debug(

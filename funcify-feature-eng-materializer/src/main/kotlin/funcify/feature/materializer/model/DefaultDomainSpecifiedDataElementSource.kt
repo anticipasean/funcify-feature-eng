@@ -21,6 +21,7 @@ import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPer
 import graphql.schema.FieldCoordinates
 import graphql.schema.GraphQLArgument
 import graphql.schema.GraphQLFieldDefinition
+import graphql.schema.GraphQLObjectType
 import graphql.schema.GraphQLSchema
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.PersistentSet
@@ -318,5 +319,14 @@ internal data class DefaultDomainSpecifiedDataElementSource(
                 argumentSelectionCalculation(domainPath, argPathsByParentPath)
             )
         }
+    }
+
+    override val domainDataElementSourceGraphQLSchema: GraphQLSchema by lazy {
+        val newQueryType: GraphQLObjectType =
+            graphQLSchema.queryType.transform { gotb: GraphQLObjectType.Builder ->
+                gotb.clearFields()
+                gotb.field(domainFieldDefinition)
+            }
+        graphQLSchema.transform { gsb: GraphQLSchema.Builder -> gsb.query(newQueryType) }
     }
 }

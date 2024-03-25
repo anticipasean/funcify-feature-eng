@@ -44,6 +44,8 @@ interface DomainSpecifiedDataElementSource {
 
     val graphQLSchema: GraphQLSchema
 
+    val domainDataElementSourceGraphQLSchema: GraphQLSchema
+
     val lastUpdatedCoordinatesRegistry: LastUpdatedCoordinatesRegistry
 
     fun findPathsForRequiredArgumentsForSelections(
@@ -77,4 +79,5 @@ interface DomainSpecifiedDataElementSource {
 
         fun build(): DomainSpecifiedDataElementSource
     }
+
 }
