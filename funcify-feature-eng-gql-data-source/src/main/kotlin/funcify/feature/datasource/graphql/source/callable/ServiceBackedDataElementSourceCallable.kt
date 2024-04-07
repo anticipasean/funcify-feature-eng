@@ -1,11 +1,13 @@
 package funcify.feature.datasource.graphql.source.callable
 
+import arrow.core.filterIsInstance
 import arrow.core.getOrElse
 import arrow.core.getOrNone
 import arrow.core.identity
 import arrow.core.lastOrNone
 import arrow.core.toOption
 import com.fasterxml.jackson.databind.JsonNode
+import com.fasterxml.jackson.databind.node.ArrayNode
 import funcify.feature.datasource.graphql.ServiceBackedDataElementSource
 import funcify.feature.error.ServiceError
 import funcify.feature.naming.StandardNamingConventions
@@ -54,6 +56,8 @@ internal class ServiceBackedDataElementSourceCallable(
                 )
                 .qualifiedForm + ".invoke"
         private val logger: Logger = loggerFor<ServiceBackedDataElementSourceCallable>()
+        private const val DATA_KEY: String = "data"
+        private const val ERRORS_KEY: String = "errors"
     }
 
     override fun invoke(arguments: ImmutableMap<GQLOperationPath, JsonNode>): Mono<JsonNode> {
@@ -221,6 +225,7 @@ internal class ServiceBackedDataElementSourceCallable(
                     .fold(sb to vars) {
                         (s: GQLDocumentSpec.Builder, vs: PersistentMap<String, JsonNode>),
                         (oap: GQLOperationPath, av: JsonNode) ->
+                        // TODO: Cacheable operation: Cache canonical to selection path mapping
                         domainSpecifiedDataElementSource.allArgumentsByPath
                             .getOrNone(oap)
                             .map { ga: GraphQLArgument ->
@@ -244,7 +249,8 @@ internal class ServiceBackedDataElementSourceCallable(
                 GQLDocumentComposer.defaultComposer()
                     .composeDocumentFromSpecWithSchema(
                         spec = sb.build(),
-                        graphQLSchema = domainSpecifiedDataElementSource.domainDataElementSourceGraphQLSchema
+                        graphQLSchema =
+                            domainSpecifiedDataElementSource.domainDataElementSourceGraphQLSchema
                     )
                     .map { d: Document ->
                         logger.debug(
@@ -252,19 +258,23 @@ internal class ServiceBackedDataElementSourceCallable(
                             vars,
                             AstPrinter.printAst(d)
                         )
-                        serviceBackedDataElementSource.graphQLApiService.executeSingleQuery(
-                            query = AstPrinter.printAst(d),
-                            variables = vars,
-                            operationName =
-                                d.toOption()
-                                    .mapNotNull(Document::getDefinitions)
-                                    .getOrElse(::emptyList)
-                                    .asSequence()
-                                    .filterIsInstance<OperationDefinition>()
-                                    .mapNotNull(OperationDefinition::getName)
-                                    .filter(String::isNotBlank)
-                                    .firstOrNull()
-                        )
+                        serviceBackedDataElementSource.graphQLApiService
+                            .executeSingleQuery(
+                                query = AstPrinter.printAst(d),
+                                variables = vars,
+                                operationName =
+                                    d.toOption()
+                                        .mapNotNull(Document::getDefinitions)
+                                        .getOrElse(::emptyList)
+                                        .asSequence()
+                                        .filterIsInstance<OperationDefinition>()
+                                        .mapNotNull(OperationDefinition::getName)
+                                        .filter(String::isNotBlank)
+                                        .firstOrNull()
+                            )
+                            .flatMap { responseJson: JsonNode ->
+                                separateDataAndErrorBlocks(responseJson)
+                            }
                     }
             }
             .fold(::identity) { t: Throwable ->
@@ -279,6 +289,57 @@ internal class ServiceBackedDataElementSourceCallable(
                     }
                 }
             }
+    }
+
+    private fun separateDataAndErrorBlocks(responseJson: JsonNode): Mono<out JsonNode> {
+        return when {
+            // Case 1: response has non-null data value and if it has any errors block, no errors
+            // reported therein
+            responseJson.has(DATA_KEY) &&
+                !responseJson.path(DATA_KEY).isNull &&
+                (!responseJson.has(ERRORS_KEY) ||
+                    responseJson
+                        .get(ERRORS_KEY)
+                        .toOption()
+                        .filterIsInstance<ArrayNode>()
+                        .exists(ArrayNode::isEmpty)) -> {
+                Mono.just(responseJson.get(DATA_KEY))
+            }
+            // Case 2: response has non-empty errors block
+            responseJson.has(ERRORS_KEY) &&
+                !responseJson
+                    .get(ERRORS_KEY)
+                    .toOption()
+                    .filterIsInstance<ArrayNode>()
+                    .exists(ArrayNode::isEmpty) -> {
+                Mono.error {
+                    ServiceError.of(
+                        """response from [ source.name: %s, graphql_api_service.service_name: %s ] 
+                            |for [ domain_path: %s ] 
+                            |contains errors [ %s ]"""
+                            .flatten(),
+                        serviceBackedDataElementSource.name,
+                        serviceBackedDataElementSource.graphQLApiService.serviceName,
+                        domainPath,
+                        responseJson.get(ERRORS_KEY)
+                    )
+                }
+            }
+            // Case 3: response has null data value and empty or absent errors block
+            else -> {
+                Mono.error {
+                    ServiceError.of(
+                        """response from [ source.name: %s, graphql_api_service.service_name: %s ] 
+                            |for [ domain_path: %s ] 
+                            |has null data value but no errors reported"""
+                            .flatten(),
+                        serviceBackedDataElementSource.name,
+                        serviceBackedDataElementSource.graphQLApiService.serviceName,
+                        domainPath
+                    )
+                }
+            }
+        }
     }
 
     private fun createErrorForUnrelatedSelection(selection: GQLOperationPath): ServiceError {
