@@ -21,6 +21,7 @@ import funcify.feature.schema.path.operation.GQLOperationPath
 import funcify.feature.schema.path.operation.InlineFragmentSegment
 import funcify.feature.schema.path.operation.SelectedField
 import funcify.feature.schema.path.operation.SelectionSegment
+import funcify.feature.schema.sdl.type.GraphQLExactSDLTypeComposer
 import funcify.feature.schema.sdl.type.GraphQLNullableSDLTypeComposer
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.FunctionExtensions.compose
@@ -780,7 +781,7 @@ internal object DefaultGQLDocumentComposer : GQLDocumentComposer {
                     .build() to
                     VariableDefinition.newVariableDefinition()
                         .name(variableNameToAssign)
-                        .type(GraphQLNullableSDLTypeComposer.invoke(graphQLArgument.type))
+                        .type(GraphQLExactSDLTypeComposer.invoke(graphQLArgument.type))
                         .defaultValue(extractGraphQLArgumentDefaultLiteralValue(graphQLArgument))
                         .build()
                         .some()
