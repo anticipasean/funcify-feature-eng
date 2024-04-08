@@ -1268,7 +1268,7 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                                     .drop(
                                         lineFromDataElementFieldToItsSource.destinationPoint
                                             .selection
-                                            .size
+                                            .size - 1
                                     )
                                     .toList()
                             )
@@ -1282,10 +1282,13 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                     JsonNodeValueExtractionByOperationPath.invoke(jn, childPath)
                         .successIfDefined {
                             ServiceError.of(
-                                """child_path [ %s ] not found on json_node value 
-                                |[ %s ] output for data_element source [ path: %s ]"""
+                                """selection [ %s ] corresponding to 
+                                |dependent data_element [ %s ] not found 
+                                |on response json value [ %s ] 
+                                |for data_element_source [ %s ]"""
                                     .flatten(),
-                                argumentPath,
+                                childPath,
+                                lineFromDataElementFieldToItsSource.sourcePoint,
                                 jn,
                                 lineFromDataElementFieldToItsSource.destinationPoint
                             )
