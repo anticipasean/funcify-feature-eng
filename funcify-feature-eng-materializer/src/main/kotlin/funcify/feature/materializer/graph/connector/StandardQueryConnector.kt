@@ -3,6 +3,7 @@ package funcify.feature.materializer.graph.connector
 import arrow.core.*
 import funcify.feature.error.ServiceError
 import funcify.feature.graph.DirectedPersistentGraph
+import funcify.feature.graph.line.DirectedLine
 import funcify.feature.materializer.graph.MaterializationEdge
 import funcify.feature.materializer.graph.component.QueryComponentContext
 import funcify.feature.materializer.graph.component.QueryComponentContext.ArgumentComponentContext
@@ -22,6 +23,7 @@ import funcify.feature.schema.transformer.TransformerCallable
 import funcify.feature.schema.transformer.TransformerSpecifiedTransformerSource
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
+import funcify.feature.tools.extensions.OptionExtensions.sequence
 import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentMap
 import funcify.feature.tools.extensions.SequenceExtensions.firstOrNone
 import funcify.feature.tools.extensions.SequenceExtensions.flatMapOptions
@@ -326,6 +328,113 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
                         argumentComponentContext.path,
                         connectorContext.materializationMetamodel.dataElementElementTypePath,
                         MaterializationEdge.ELEMENT_TYPE
+                    )
+            )
+            putConnectedPathForCanonicalPath(
+                argumentComponentContext.canonicalPath,
+                argumentComponentContext.path
+            )
+        }
+    }
+
+    private fun connectSubdomainDataElementToArgument(
+        connectorContext: StandardQuery,
+        argumentComponentContext: ArgumentComponentContext
+    ): StandardQuery {
+        logger.debug(
+            "connect_subdomain_data_element_to_argument: [ argument_component_context.path: {} ]",
+            argumentComponentContext.path
+        )
+        return when {
+            // Case 1: Subdomain data element is already been connected to this argument
+            argumentComponentContext.path.getParentPath().exists { fieldPath: GQLOperationPath ->
+                connectorContext.requestGraph.containsEdge(fieldPath, argumentComponentContext.path)
+            } -> {
+                connectorContext
+            }
+            // Case 2: Subdomain data element belongs to a raw input data source
+            rawInputSourcedDomainDataElementFieldForSubdomainDataElementArgument(
+                    connectorContext,
+                    argumentComponentContext
+                )
+                .isDefined() -> {
+                connectRawInputSourcedSubdomainDataElementFieldToArgument(
+                    connectorContext,
+                    argumentComponentContext
+                )
+            }
+            else -> {
+                throw ServiceError.of(
+                    "unable to connect subdomain_data_element [ path: %s ] to argument [ path: %s ]",
+                    argumentComponentContext.path.getParentPath().orNull(),
+                    argumentComponentContext.path
+                )
+            }
+        }
+    }
+
+    private fun rawInputSourcedDomainDataElementFieldForSubdomainDataElementArgument(
+        connectorContext: StandardQuery,
+        argumentComponentContext: ArgumentComponentContext,
+    ): Option<GQLOperationPath> {
+        return argumentComponentContext.path
+            .getParentPath()
+            .filter { fieldPath: GQLOperationPath ->
+                connectorContext.requestGraph.contains(fieldPath)
+            }
+            .flatMap { fieldPath: GQLOperationPath ->
+                connectorContext.requestGraph.successorVertices(fieldPath).firstOrNone()
+            }
+            .filter { (domainPath: GQLOperationPath, _) ->
+                connectorContext.requestGraph.edgesFromPoint(domainPath).any {
+                    (dl: DirectedLine<GQLOperationPath>, e: MaterializationEdge) ->
+                    dl.destinationPoint.refersToArgument() &&
+                        e == MaterializationEdge.RAW_INPUT_VALUE_PROVIDED
+                }
+            }
+            .map { (domainPath: GQLOperationPath, _) -> domainPath }
+    }
+
+    private fun connectRawInputSourcedSubdomainDataElementFieldToArgument(
+        connectorContext: StandardQuery,
+        argumentComponentContext: ArgumentComponentContext,
+    ): StandardQuery {
+        val parentFieldPath: GQLOperationPath =
+            argumentComponentContext.path
+                .getParentPath()
+                .filter { p: GQLOperationPath -> connectorContext.requestGraph.contains(p) }
+                .successIfDefined {
+                    ServiceError.of(
+                        """parent data_element_field to argument [ path: %s ] 
+                            |expected but not found in request_materialization_graph"""
+                            .flatten(),
+                        argumentComponentContext.path,
+                    )
+                }
+                .orElseThrow()
+        val domainPath: GQLOperationPath =
+            rawInputSourcedDomainDataElementFieldForSubdomainDataElementArgument(
+                    connectorContext,
+                    argumentComponentContext
+                )
+                .successIfDefined {
+                    ServiceError.of(
+                        """domain_data_element with raw_input_source 
+                        |expected but not found for 
+                        |subdomain_data_element_field [ path: %s ]"""
+                            .flatten(),
+                        argumentComponentContext.path.getParentPath().orNull()
+                    )
+                }
+                .orElseThrow()
+        return connectorContext.update {
+            requestGraph(
+                connectorContext.requestGraph
+                    .put(argumentComponentContext.path, argumentComponentContext)
+                    .putEdge(
+                        parentFieldPath,
+                        argumentComponentContext.path,
+                        MaterializationEdge.RAW_INPUT_VALUE_PROVIDED
                     )
             )
             putConnectedPathForCanonicalPath(
@@ -893,25 +1002,15 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
                 .orElseThrow()
         return dsdesps
             .asSequence()
-            .map { p: GQLOperationPath ->
-                connectorContext.canonicalPathByConnectedPath.getOrNone(p).map {
-                    cp: GQLOperationPath ->
-                    cp to p
-                }
-            }
-            .flatMapOptions()
             .foldIntoTry(connectorContext) {
                 sq: StandardQuery,
-                (
-                    canonicalDomainDataElementPath: GQLOperationPath,
-                    domainDataElementPath: GQLOperationPath) ->
+                domainDataElementPath: GQLOperationPath ->
                 connectFeatureArgumentToSpecificDataElementFieldWithinConnectedDomainDataElementSource(
                     sq,
-                    canonicalDomainDataElementPath,
                     domainDataElementPath,
                     fc,
-                    featureFieldPath,
-                    argumentComponentContext
+                    argumentComponentContext,
+                    featureFieldPath
                 )
             }
             .orElseThrow()
@@ -919,15 +1018,27 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
 
     private fun connectFeatureArgumentToSpecificDataElementFieldWithinConnectedDomainDataElementSource(
         connectorContext: StandardQuery,
-        canonicalDomainPath: GQLOperationPath,
-        domainPath: GQLOperationPath,
-        dataElementFieldCoordinates: FieldCoordinates,
+        domainDataElementPath: GQLOperationPath,
+        specificDataElementFieldCoordinates: FieldCoordinates,
+        featureArgumentComponentContext: ArgumentComponentContext,
         featureFieldPath: GQLOperationPath,
-        argumentComponentContext: ArgumentComponentContext,
     ): StandardQuery {
+        val canonicalDomainDataElementPath: GQLOperationPath =
+            connectorContext.canonicalPathByConnectedPath
+                .getOrNone(domainDataElementPath)
+                .successIfDefined {
+                    ServiceError.of(
+                        """domain_data_element_path [ path: %s ] 
+                            |not connected within 
+                            |request_materialization_graph"""
+                            .flatten(),
+                        domainDataElementPath
+                    )
+                }
+                .orElseThrow()
         val childDataElementFieldCanonicalPath: GQLOperationPath =
             connectorContext.materializationMetamodel.firstPathWithFieldCoordinatesUnderPath
-                .invoke(dataElementFieldCoordinates, canonicalDomainPath)
+                .invoke(specificDataElementFieldCoordinates, canonicalDomainDataElementPath)
                 .filter { p: GQLOperationPath ->
                     connectorContext.materializationMetamodel.dataElementElementTypePath
                         .isAncestorTo(p)
@@ -938,16 +1049,16 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
                         |under domain_data_element_source [ path: %s ] 
                         |expected but not found"""
                             .flatten(),
-                        dataElementFieldCoordinates,
-                        canonicalDomainPath
+                        specificDataElementFieldCoordinates,
+                        canonicalDomainDataElementPath
                     )
                 }
                 .orElseThrow()
         val childDataElementFieldPathToConnect: GQLOperationPath =
-            domainPath.transform {
+            domainDataElementPath.transform {
                 appendSelections(
                     childDataElementFieldCanonicalPath.selection.subList(
-                        domainPath.selection.size,
+                        domainDataElementPath.selection.size,
                         childDataElementFieldCanonicalPath.selection.size
                     )
                 )
@@ -961,95 +1072,236 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
             childDataElementFieldCanonicalPath,
             childDataElementFieldPathToConnect
         )
-        return Try.success(connectorContext)
-            .map { sq: StandardQuery ->
-                ((canonicalDomainPath.selection.size + 1) until
-                        childDataElementFieldCanonicalPath.selection.size)
-                    .asSequence()
-                    .fold(sq) { sq1: StandardQuery, limit: Int ->
-                        val p: GQLOperationPath =
-                            GQLOperationPath.of {
-                                selections(
-                                    childDataElementFieldPathToConnect.selection.subList(0, limit)
+        return (domainDataElementPath.selection.size + 1)
+            .rangeTo(childDataElementFieldCanonicalPath.selection.size)
+            .asSequence()
+            .foldIntoTry(connectorContext) { sq: StandardQuery, limit: Int ->
+                val p: GQLOperationPath =
+                    if (childDataElementFieldPathToConnect.selection.size == limit) {
+                        childDataElementFieldPathToConnect
+                    } else {
+                        domainDataElementPath.transform {
+                            appendSelections(
+                                childDataElementFieldPathToConnect.selection.subList(
+                                    domainDataElementPath.selection.size,
+                                    limit
                                 )
-                            }
-                        when {
-                            p in sq1.canonicalPathByConnectedPath -> {
-                                sq1
-                            }
-                            else -> {
-                                val cp: GQLOperationPath =
-                                    GQLOperationPath.of {
-                                        selections(
-                                            childDataElementFieldCanonicalPath.selection.subList(
-                                                0,
-                                                limit
-                                            )
+                            )
+                        }
+                    }
+                when {
+                    p in sq.canonicalPathByConnectedPath -> {
+                        sq
+                    }
+                    else -> {
+                        val cp: GQLOperationPath =
+                            if (childDataElementFieldCanonicalPath.selection.size == limit) {
+                                childDataElementFieldCanonicalPath
+                            } else {
+                                canonicalDomainDataElementPath.transform {
+                                    appendSelections(
+                                        childDataElementFieldCanonicalPath.selection.subList(
+                                            canonicalDomainDataElementPath.selection.size,
+                                            limit
                                         )
-                                    }
-                                logger.debug(
-                                    "connect_parent_or_ancestor_of_data_element_field: [ cp: {}, p: {} ]",
-                                    cp,
+                                    )
+                                }
+                            }
+                        sq.materializationMetamodel.fieldCoordinatesByPath
+                            .getOrNone(cp)
+                            .flatMap(ImmutableSet<FieldCoordinates>::firstOrNone)
+                            .successIfDefined {
+                                ServiceError.of(
+                                    "[ path: %s ] does not match known field_coordinates",
                                     p
                                 )
-                                sq1.materializationMetamodel.fieldCoordinatesByPath
-                                    .getOrNone(cp)
-                                    .flatMap(ImmutableSet<FieldCoordinates>::firstOrNone)
-                                    .map { fc1: FieldCoordinates ->
-                                        sq1.queryComponentContextFactory
+                            }
+                            .flatMap { fc: FieldCoordinates ->
+                                Try.attemptNullable({
+                                        sq.materializationMetamodel.materializationGraphQLSchema
+                                            .getFieldDefinition(fc)
+                                    }) {
+                                        ServiceError.of(
+                                            "field_definition expected but not found for [ coordinates: %s ]",
+                                            fc
+                                        )
+                                    }
+                                    .mapFailure { t: Throwable ->
+                                        ServiceError.builder()
+                                            .message(
+                                                "error occurred when looking up field_definition for [ coordinates: %s ]",
+                                                fc
+                                            )
+                                            .cause(t)
+                                            .build()
+                                    }
+                                    .map { gfd: GraphQLFieldDefinition -> fc to gfd }
+                            }
+                            .map { (fc: FieldCoordinates, gfd: GraphQLFieldDefinition) ->
+                                sequenceOf(
+                                        sq.queryComponentContextFactory
                                             .fieldComponentContextBuilder()
-                                            .field(Field.newField().name(fc1.fieldName).build())
-                                            .fieldCoordinates(fc1)
+                                            .field(Field.newField().name(gfd.name).build())
+                                            .fieldCoordinates(fc)
                                             .path(p)
                                             .canonicalPath(cp)
                                             .build()
-                                    }
-                                    .successIfDefined {
-                                        ServiceError.of(
-                                            "[ path: %s ] does not match known field_coordinates",
-                                            p
+                                    )
+                                    .plus(
+                                        createArgumentContextsForSubDomainDataElementField(
+                                            standardQuery = sq,
+                                            domainDataElementPath = domainDataElementPath,
+                                            subdomainDataElementPath = p,
+                                            subdomainCanonicalDataElementPath = cp,
+                                            subdomainDataElementFieldCoordinates = fc,
+                                            subdomainDataElementFieldDefinition = gfd
                                         )
-                                    }
-                                    .map { sfcc: FieldComponentContext -> connectField(sq1, sfcc) }
-                                    .orElseThrow()
+                                    )
                             }
-                        }
+                            .orElseThrow()
+                            .foldIntoTry(sq) { sq1: StandardQuery, qcc: QueryComponentContext ->
+                                when (qcc) {
+                                    is ArgumentComponentContext -> {
+                                        connectArgument(sq1, qcc)
+                                    }
+                                    is FieldComponentContext -> {
+                                        connectField(sq1, qcc)
+                                    }
+                                }
+                            }
+                            .orElseThrow()
                     }
-            }
-            .map { sq: StandardQuery ->
-                val childDataElementFieldComponentContext: FieldComponentContext =
-                    sq.queryComponentContextFactory
-                        .fieldComponentContextBuilder()
-                        .fieldCoordinates(dataElementFieldCoordinates)
-                        .path(childDataElementFieldPathToConnect)
-                        .canonicalPath(childDataElementFieldCanonicalPath)
-                        .field(Field.newField().name(dataElementFieldCoordinates.fieldName).build())
-                        .build()
-                connectField(sq, childDataElementFieldComponentContext)
+                }
             }
             .map { sq: StandardQuery ->
                 sq.update {
                     requestGraph(
                             sq.requestGraph
-                                .put(argumentComponentContext.path, argumentComponentContext)
+                                .put(
+                                    featureArgumentComponentContext.path,
+                                    featureArgumentComponentContext
+                                )
                                 .putEdge(
                                     featureFieldPath,
-                                    argumentComponentContext.path,
+                                    featureArgumentComponentContext.path,
                                     MaterializationEdge.EXTRACT_FROM_SOURCE
                                 )
                                 .putEdge(
-                                    argumentComponentContext.path,
+                                    featureArgumentComponentContext.path,
                                     childDataElementFieldCanonicalPath,
                                     MaterializationEdge.EXTRACT_FROM_SOURCE
                                 )
                         )
                         .putConnectedPathForCanonicalPath(
-                            argumentComponentContext.canonicalPath,
-                            argumentComponentContext.path
+                            featureArgumentComponentContext.canonicalPath,
+                            featureArgumentComponentContext.path
                         )
                 }
             }
             .orElseThrow()
+    }
+
+    private fun createArgumentContextsForSubDomainDataElementField(
+        standardQuery: StandardQuery,
+        domainDataElementPath: GQLOperationPath,
+        subdomainDataElementPath: GQLOperationPath,
+        subdomainCanonicalDataElementPath: GQLOperationPath,
+        subdomainDataElementFieldCoordinates: FieldCoordinates,
+        subdomainDataElementFieldDefinition: GraphQLFieldDefinition
+    ): Sequence<ArgumentComponentContext> {
+        return when {
+            standardQuery.requestGraph.edgesFromPoint(domainDataElementPath).any {
+                (_, edge: MaterializationEdge) ->
+                edge == MaterializationEdge.RAW_INPUT_VALUE_PROVIDED
+            } -> {
+                subdomainDataElementFieldDefinition.arguments.asSequence().map { ga: GraphQLArgument
+                    ->
+                    Argument.newArgument()
+                        .name(ga.name)
+                        .value(
+                            ga.argumentDefaultValue
+                                .toOption()
+                                .filter(InputValueWithState::isLiteral)
+                                .filter(InputValueWithState::isSet)
+                                .mapNotNull(InputValueWithState::getValue)
+                                .filterIsInstance<Value<*>>()
+                                .getOrElse { NullValue.of() }
+                        )
+                        .build()
+                }
+            }
+            else -> {
+                subdomainDataElementFieldDefinition.arguments.asSequence().flatMap {
+                    ga: GraphQLArgument ->
+                    when {
+                        standardQuery.materializationMetamodel.aliasCoordinatesRegistry
+                            .getAllAliasesForFieldArgument(
+                                subdomainDataElementFieldCoordinates,
+                                ga.name
+                            )
+                            .any { argAlias: String ->
+                                standardQuery.variableKeys.contains(argAlias)
+                            } -> {
+                            standardQuery.materializationMetamodel.aliasCoordinatesRegistry
+                                .getAllAliasesForFieldArgument(
+                                    subdomainDataElementFieldCoordinates,
+                                    ga.name
+                                )
+                                .asSequence()
+                                .firstOrNone { argAlias: String ->
+                                    argAlias in standardQuery.variableKeys
+                                }
+                                .map { argAlias: String ->
+                                    Argument.newArgument()
+                                        .name(ga.name)
+                                        .value(
+                                            VariableReference.newVariableReference()
+                                                .name(argAlias)
+                                                .build()
+                                        )
+                                        .build()
+                                }
+                                .sequence()
+                        }
+                        ga.name in standardQuery.variableKeys -> {
+                            sequenceOf(
+                                Argument.newArgument()
+                                    .name(ga.name)
+                                    .value(
+                                        VariableReference.newVariableReference()
+                                            .name(ga.name)
+                                            .build()
+                                    )
+                                    .build()
+                            )
+                        }
+                        ga.hasSetDefaultValue() -> {
+                            ga.argumentDefaultValue
+                                .toOption()
+                                .filter(InputValueWithState::isLiteral)
+                                .filter(InputValueWithState::isSet)
+                                .mapNotNull(InputValueWithState::getValue)
+                                .filterIsInstance<Value<*>>()
+                                .map { v: Value<*> ->
+                                    Argument.newArgument().name(ga.name).value(v).build()
+                                }
+                                .sequence()
+                        }
+                        else -> {
+                            emptySequence()
+                        }
+                    }
+                }
+            }
+        }.map { a: Argument ->
+            standardQuery.queryComponentContextFactory
+                .argumentComponentContextBuilder()
+                .argument(a)
+                .fieldCoordinates(subdomainDataElementFieldCoordinates)
+                .path(subdomainDataElementPath.transform { argument(a.name) })
+                .canonicalPath(subdomainCanonicalDataElementPath.transform { argument(a.name) })
+                .build()
+        }
     }
 
     private fun getFirstCoordinatesToUnconnectedRawInputDataElementSourcePathPairsOfUnconnectedDataElementFieldMatchingArgument(
