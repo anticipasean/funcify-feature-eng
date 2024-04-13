@@ -45,13 +45,13 @@ import graphql.schema.GraphQLFieldDefinition
 import graphql.schema.GraphQLFieldsContainer
 import graphql.schema.GraphQLTypeUtil
 import graphql.schema.InputValueWithState
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ConcurrentMap
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toPersistentSet
 import org.slf4j.Logger
-import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.ConcurrentMap
 
 /**
  * @author smccarron
@@ -148,7 +148,7 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
             }
             // Case 3: Subdomain Data Element Argument
             else -> {
-                throw ServiceError.of("subdomain domain element arguments not yet handled")
+                connectSubdomainDataElementToArgument(connectorContext, argumentComponentContext)
             }
         }
     }
@@ -358,16 +358,17 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
                     argumentComponentContext
                 )
                 .isDefined() -> {
-                connectRawInputSourcedSubdomainDataElementFieldToArgument(
+                connectSubdomainDataElementFieldToRawInputSourcedArgument(
                     connectorContext,
                     argumentComponentContext
                 )
             }
             else -> {
-                throw ServiceError.of(
-                    "unable to connect subdomain_data_element [ path: %s ] to argument [ path: %s ]",
-                    argumentComponentContext.path.getParentPath().orNull(),
-                    argumentComponentContext.path
+                // Case 3: Subdomain data element argument value must be sourced from variable, be
+                // default, or be provided directly in query
+                connectSubdomainDataElementToVariableOrDirectlyProvidedArgument(
+                    connectorContext,
+                    argumentComponentContext
                 )
             }
         }
@@ -380,22 +381,24 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
         return argumentComponentContext.path
             .getParentPath()
             .filter { fieldPath: GQLOperationPath ->
-                connectorContext.requestGraph.contains(fieldPath)
+                connectorContext.requestGraph.contains(fieldPath) &&
+                    !connectorContext.dataElementCallableBuildersByPath.containsKey(fieldPath)
             }
             .flatMap { fieldPath: GQLOperationPath ->
                 connectorContext.requestGraph.successorVertices(fieldPath).firstOrNone()
             }
             .filter { (domainPath: GQLOperationPath, _) ->
-                connectorContext.requestGraph.edgesFromPoint(domainPath).any {
-                    (dl: DirectedLine<GQLOperationPath>, e: MaterializationEdge) ->
-                    dl.destinationPoint.refersToArgument() &&
-                        e == MaterializationEdge.RAW_INPUT_VALUE_PROVIDED
-                }
+                connectorContext.dataElementCallableBuildersByPath.containsKey(domainPath) &&
+                    connectorContext.requestGraph.edgesFromPoint(domainPath).any {
+                        (dl: DirectedLine<GQLOperationPath>, e: MaterializationEdge) ->
+                        dl.destinationPoint.refersToArgument() &&
+                            e == MaterializationEdge.RAW_INPUT_VALUE_PROVIDED
+                    }
             }
             .map { (domainPath: GQLOperationPath, _) -> domainPath }
     }
 
-    private fun connectRawInputSourcedSubdomainDataElementFieldToArgument(
+    private fun connectSubdomainDataElementFieldToRawInputSourcedArgument(
         connectorContext: StandardQuery,
         argumentComponentContext: ArgumentComponentContext,
     ): StandardQuery {
@@ -427,15 +430,148 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
                     )
                 }
                 .orElseThrow()
+        return when {
+            argumentIsDefaultOrMissingValueForDataElement(
+                connectorContext,
+                argumentComponentContext
+            ) -> {
+                connectorContext.update {
+                    // Make both subdomain field path and domain field path connect to argument path
+                    requestGraph(
+                        connectorContext.requestGraph
+                            .put(argumentComponentContext.path, argumentComponentContext)
+                            .putEdge(
+                                parentFieldPath,
+                                argumentComponentContext.path,
+                                MaterializationEdge.DEFAULT_ARGUMENT_VALUE_PROVIDED
+                            )
+                            .putEdge(
+                                domainPath,
+                                argumentComponentContext.path,
+                                MaterializationEdge.DEFAULT_ARGUMENT_VALUE_PROVIDED
+                            )
+                    )
+                    putConnectedPathForCanonicalPath(
+                        argumentComponentContext.canonicalPath,
+                        argumentComponentContext.path
+                    )
+                }
+            }
+            else -> {
+                connectorContext.update {
+                    // Make both subdomain field path and domain field path connect to argument path
+                    requestGraph(
+                        connectorContext.requestGraph
+                            .put(argumentComponentContext.path, argumentComponentContext)
+                            .putEdge(
+                                parentFieldPath,
+                                argumentComponentContext.path,
+                                MaterializationEdge.RAW_INPUT_VALUE_PROVIDED
+                            )
+                            .putEdge(
+                                domainPath,
+                                argumentComponentContext.path,
+                                MaterializationEdge.RAW_INPUT_VALUE_PROVIDED
+                            )
+                    )
+                    putConnectedPathForCanonicalPath(
+                        argumentComponentContext.canonicalPath,
+                        argumentComponentContext.path
+                    )
+                }
+            }
+        }
+    }
+
+    private fun argumentIsDefaultOrMissingValueForDataElement(
+        connectorContext: StandardQuery,
+        argumentComponentContext: ArgumentComponentContext
+    ): Boolean {
+        return connectorContext.materializationMetamodel.dataElementElementTypePath.isAncestorTo(
+            argumentComponentContext.canonicalPath
+        ) &&
+            Try.attemptNullable {
+                    connectorContext.materializationMetamodel.materializationGraphQLSchema
+                        .getFieldDefinition(argumentComponentContext.fieldCoordinates)
+                        .toOption()
+                        .mapNotNull { gfd: GraphQLFieldDefinition ->
+                            gfd.getArgument(argumentComponentContext.argument.name)
+                        }
+                        .orNull()
+                }
+                .orElseGet(::none)
+                .flatMap { ga: GraphQLArgument ->
+                    useArgumentInArgumentComponentContextIfValueIsDefaultForGraphQLArgument(
+                        argumentComponentContext,
+                        ga
+                    )
+                }
+                .isDefined()
+    }
+
+    private fun connectSubdomainDataElementToVariableOrDirectlyProvidedArgument(
+        connectorContext: StandardQuery,
+        argumentComponentContext: ArgumentComponentContext,
+    ): StandardQuery {
+        val parentFieldPath: GQLOperationPath =
+            argumentComponentContext.path
+                .getParentPath()
+                .filter { p: GQLOperationPath -> connectorContext.requestGraph.contains(p) }
+                .successIfDefined {
+                    ServiceError.of(
+                        """parent field to data_element_argument [ path: %s ] 
+                            |expected but not found in 
+                            |request_materialization_graph"""
+                            .flatten()
+                    )
+                }
+                .orElseThrow()
+        val domainDataElementPath: GQLOperationPath =
+            connectorContext.requestGraph
+                .successorVertices(parentFieldPath)
+                .firstOrNone()
+                .filter { (p: GQLOperationPath, _) ->
+                    connectorContext.requestGraph.contains(p) &&
+                        p in connectorContext.dataElementCallableBuildersByPath
+                }
+                .map { (p: GQLOperationPath, _) -> p }
+                .successIfDefined {
+                    ServiceError.of(
+                        """domain data_element field for argument [ path: %s ] 
+                        |expected but not found in 
+                        |request_materialization_graph"""
+                            .flatten(),
+                        argumentComponentContext.path
+                    )
+                }
+                .orElseThrow()
+        val edge: MaterializationEdge =
+            when {
+                argumentComponentContext.argument.value is VariableReference -> {
+                    MaterializationEdge.VARIABLE_VALUE_PROVIDED
+                }
+                argumentIsDefaultOrMissingValueForDataElement(
+                    connectorContext,
+                    argumentComponentContext
+                ) -> {
+                    MaterializationEdge.DEFAULT_ARGUMENT_VALUE_PROVIDED
+                }
+                argumentComponentContext.argument.value != null -> {
+                    MaterializationEdge.DIRECT_ARGUMENT_VALUE_PROVIDED
+                }
+                else -> {
+                    throw ServiceError.of(
+                        "connection from subdomain data_element field to argument [ path: %s ] could not be determined",
+                        argumentComponentContext.path
+                    )
+                }
+            }
         return connectorContext.update {
             requestGraph(
                 connectorContext.requestGraph
                     .put(argumentComponentContext.path, argumentComponentContext)
-                    .putEdge(
-                        parentFieldPath,
-                        argumentComponentContext.path,
-                        MaterializationEdge.RAW_INPUT_VALUE_PROVIDED
-                    )
+                    .putEdge(parentFieldPath, argumentComponentContext.path, edge)
+                    .putEdge(domainDataElementPath, argumentComponentContext.path, edge)
             )
             putConnectedPathForCanonicalPath(
                 argumentComponentContext.canonicalPath,
@@ -455,10 +591,7 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
                 connectorContext
             }
             // Case 2: Argument refers to variable
-            argumentComponentContext.argument.value
-                .toOption()
-                .filterIsInstance<VariableReference>()
-                .isDefined() -> {
+            argumentComponentContext.argument.value is VariableReference -> {
                 connectFeatureFieldToVariableProvidedArgument(
                     connectorContext,
                     argumentComponentContext
@@ -526,50 +659,58 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
                 fsfc.argumentsByName.getOrNone(argumentComponentContext.argument.name)
             }
             .flatMap { ga: GraphQLArgument ->
-                // case 1: arg default value same as this arg value
-                ga.argumentDefaultValue
-                    .toOption()
-                    .filter(InputValueWithState::isLiteral)
-                    .filter(InputValueWithState::isSet)
-                    .mapNotNull(InputValueWithState::getValue)
-                    .filterIsInstance<Value<*>>()
-                    .flatMap { v: Value<*> ->
-                        argumentComponentContext.argument.toOption().filter { a: Argument ->
-                            v == a.value
-                        }
-                    }
-                    .orElse {
-                        // case 2: arg type is nullable and this arg value is null
-                        ga.type
-                            .toOption()
-                            .filter(GraphQLTypeUtil::isNullable)
-                            .and(
-                                argumentComponentContext.argument.toOption().filter { a: Argument ->
-                                    a.value == null || a.value is NullValue
-                                }
-                            )
-                    }
-                    .orElse {
-                        // case 3: arg type is list of nullables and this arg value is null or empty
-                        // list value
-                        ga.type
-                            .toOption()
-                            .mapNotNull(GraphQLTypeUtil::unwrapNonNull)
-                            .filter(GraphQLTypeUtil::isList)
-                            .and(
-                                argumentComponentContext.argument.toOption().filter { a: Argument ->
-                                    a.value == null ||
-                                        a.value
-                                            .toOption()
-                                            .filterIsInstance<ArrayValue>()
-                                            .mapNotNull(ArrayValue::getValues)
-                                            .filter(List<Value<*>>::isEmpty)
-                                            .isDefined()
-                                }
-                            )
-                    }
+                useArgumentInArgumentComponentContextIfValueIsDefaultForGraphQLArgument(
+                    argumentComponentContext,
+                    ga
+                )
             }
             .isDefined()
+    }
+
+    private fun useArgumentInArgumentComponentContextIfValueIsDefaultForGraphQLArgument(
+        argumentComponentContext: ArgumentComponentContext,
+        graphQLArgument: GraphQLArgument,
+    ): Option<Argument> {
+        // case 1: arg default value same as this arg value
+        return graphQLArgument.argumentDefaultValue
+            .toOption()
+            .filter(InputValueWithState::isLiteral)
+            .filter(InputValueWithState::isSet)
+            .mapNotNull(InputValueWithState::getValue)
+            .filterIsInstance<Value<*>>()
+            .flatMap { v: Value<*> ->
+                argumentComponentContext.argument.toOption().filter { a: Argument -> v == a.value }
+            }
+            .orElse {
+                // case 2: arg type is nullable and this arg value is null
+                graphQLArgument.type
+                    .toOption()
+                    .filter(GraphQLTypeUtil::isNullable)
+                    .and(
+                        argumentComponentContext.argument.toOption().filter { a: Argument ->
+                            a.value == null || a.value is NullValue
+                        }
+                    )
+            }
+            .orElse {
+                // case 3: arg type is list of nullables and this arg value is null or empty
+                // list value
+                graphQLArgument.type
+                    .toOption()
+                    .mapNotNull(GraphQLTypeUtil::unwrapNonNull)
+                    .filter(GraphQLTypeUtil::isList)
+                    .and(
+                        argumentComponentContext.argument.toOption().filter { a: Argument ->
+                            a.value == null ||
+                                a.value
+                                    .toOption()
+                                    .filterIsInstance<ArrayValue>()
+                                    .mapNotNull(ArrayValue::getValues)
+                                    .filter(List<Value<*>>::isEmpty)
+                                    .isDefined()
+                        }
+                    )
+            }
     }
 
     private fun connectFeatureArgumentToDataElementField(
@@ -1233,49 +1374,33 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
             else -> {
                 subdomainDataElementFieldDefinition.arguments.asSequence().flatMap {
                     ga: GraphQLArgument ->
-                    when {
-                        standardQuery.materializationMetamodel.aliasCoordinatesRegistry
-                            .getAllAliasesForFieldArgument(
-                                subdomainDataElementFieldCoordinates,
-                                ga.name
-                            )
-                            .any { argAlias: String ->
-                                standardQuery.variableKeys.contains(argAlias)
-                            } -> {
-                            standardQuery.materializationMetamodel.aliasCoordinatesRegistry
-                                .getAllAliasesForFieldArgument(
-                                    subdomainDataElementFieldCoordinates,
-                                    ga.name
+                    standardQuery.materializationMetamodel.aliasCoordinatesRegistry
+                        .getAllAliasesForFieldArgument(
+                            subdomainDataElementFieldCoordinates,
+                            ga.name
+                        )
+                        .asSequence()
+                        .firstOrNone { argAlias: String -> argAlias in standardQuery.variableKeys }
+                        .map { argAlias: String ->
+                            Argument.newArgument()
+                                .name(ga.name)
+                                .value(
+                                    VariableReference.newVariableReference().name(argAlias).build()
                                 )
-                                .asSequence()
-                                .firstOrNone { argAlias: String ->
-                                    argAlias in standardQuery.variableKeys
-                                }
-                                .map { argAlias: String ->
-                                    Argument.newArgument()
-                                        .name(ga.name)
-                                        .value(
-                                            VariableReference.newVariableReference()
-                                                .name(argAlias)
-                                                .build()
-                                        )
-                                        .build()
-                                }
-                                .sequence()
+                                .build()
                         }
-                        ga.name in standardQuery.variableKeys -> {
-                            sequenceOf(
+                        .orElse {
+                            ga.name.toOption().filter(standardQuery.variableKeys::contains).map {
+                                name: String ->
                                 Argument.newArgument()
-                                    .name(ga.name)
+                                    .name(name)
                                     .value(
-                                        VariableReference.newVariableReference()
-                                            .name(ga.name)
-                                            .build()
+                                        VariableReference.newVariableReference().name(name).build()
                                     )
                                     .build()
-                            )
+                            }
                         }
-                        ga.hasSetDefaultValue() -> {
+                        .orElse {
                             ga.argumentDefaultValue
                                 .toOption()
                                 .filter(InputValueWithState::isLiteral)
@@ -1285,12 +1410,8 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
                                 .map { v: Value<*> ->
                                     Argument.newArgument().name(ga.name).value(v).build()
                                 }
-                                .sequence()
                         }
-                        else -> {
-                            emptySequence()
-                        }
-                    }
+                        .sequence()
                 }
             }
         }.map { a: Argument ->
