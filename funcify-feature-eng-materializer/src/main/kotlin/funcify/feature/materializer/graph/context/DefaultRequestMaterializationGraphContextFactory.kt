@@ -1,10 +1,13 @@
 package funcify.feature.materializer.graph.context
 
+import arrow.core.Option
 import arrow.core.continuations.eagerEffect
 import arrow.core.continuations.ensureNotNull
 import arrow.core.identity
+import arrow.core.toOption
 import funcify.feature.error.ServiceError
 import funcify.feature.graph.DirectedPersistentGraph
+import funcify.feature.materializer.context.document.TabularDocumentContext
 import funcify.feature.materializer.graph.MaterializationEdge
 import funcify.feature.materializer.graph.component.QueryComponentContext
 import funcify.feature.materializer.graph.component.QueryComponentContextFactory
@@ -95,7 +98,9 @@ internal object DefaultRequestMaterializationGraphContextFactory :
             existingGraphContext
                 ?.lastUpdatedDataElementPathsByDataElementPath
                 ?.toPersistentMap()
-                ?.builder() ?: persistentMapOf<GQLOperationPath, GQLOperationPath>().builder()
+                ?.builder() ?: persistentMapOf<GQLOperationPath, GQLOperationPath>().builder(),
+        protected open var tabularDocumentContext: TabularDocumentContext? =
+            existingGraphContext?.tabularDocumentContext?.orNull()
     ) : RequestMaterializationGraphContext.Builder<B> {
 
         companion object {
@@ -220,6 +225,9 @@ internal object DefaultRequestMaterializationGraphContextFactory :
                 )
             }
 
+        override fun tabularDocumentContext(tabularDocumentContext: TabularDocumentContext): B =
+            this.applyOnBuilder { this.tabularDocumentContext = tabularDocumentContext }
+
         override fun queryComponentContextFactory(
             queryComponentContextFactory: QueryComponentContextFactory
         ): B =
@@ -280,6 +288,7 @@ internal object DefaultRequestMaterializationGraphContextFactory :
                         featureJsonValuePublishersByPath = featureJsonValuePublishersByPath.build(),
                         lastUpdatedDataElementPathsByDataElementPath =
                             lastUpdatedDataElementPathsByDataElementPath.build(),
+                        tabularDocumentContext = tabularDocumentContext.toOption(),
                         queryComponentContextFactory = queryComponentContextFactory!!,
                         gqlDocumentSpecFactory = gqlDocumentSpecFactory!!,
                         gqlDocumentComposer = gqlDocumentComposer!!,
@@ -327,6 +336,7 @@ internal object DefaultRequestMaterializationGraphContextFactory :
             PersistentMap<GQLOperationPath, FeatureJsonValuePublisher>,
         override val lastUpdatedDataElementPathsByDataElementPath:
             PersistentMap<GQLOperationPath, GQLOperationPath>,
+        override val tabularDocumentContext: Option<TabularDocumentContext>,
         override val queryComponentContextFactory: QueryComponentContextFactory,
         override val gqlDocumentComposer: GQLDocumentComposer,
         override val gqlDocumentSpecFactory: GQLDocumentSpecFactory,
@@ -398,6 +408,7 @@ internal object DefaultRequestMaterializationGraphContextFactory :
                         featureJsonValuePublishersByPath = featureJsonValuePublishersByPath.build(),
                         lastUpdatedDataElementPathsByDataElementPath =
                             lastUpdatedDataElementPathsByDataElementPath.build(),
+                        tabularDocumentContext = tabularDocumentContext.toOption(),
                         queryComponentContextFactory = queryComponentContextFactory!!,
                         gqlDocumentSpecFactory = gqlDocumentSpecFactory!!,
                         gqlDocumentComposer = gqlDocumentComposer!!,
@@ -445,6 +456,7 @@ internal object DefaultRequestMaterializationGraphContextFactory :
             PersistentMap<GQLOperationPath, FeatureJsonValuePublisher>,
         override val lastUpdatedDataElementPathsByDataElementPath:
             PersistentMap<GQLOperationPath, GQLOperationPath>,
+        override val tabularDocumentContext: Option<TabularDocumentContext>,
         override val queryComponentContextFactory: QueryComponentContextFactory,
         override val gqlDocumentSpecFactory: GQLDocumentSpecFactory,
         override val gqlDocumentComposer: GQLDocumentComposer,

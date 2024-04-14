@@ -3,6 +3,7 @@ package funcify.feature.materializer.graph
 import arrow.core.Option
 import funcify.feature.error.ServiceError
 import funcify.feature.graph.DirectedPersistentGraph
+import funcify.feature.materializer.context.document.TabularDocumentContext
 import funcify.feature.materializer.graph.component.QueryComponentContext
 import funcify.feature.schema.dataelement.DataElementCallable
 import funcify.feature.schema.feature.FeatureCalculatorCallable
@@ -41,6 +42,8 @@ interface RequestMaterializationGraph {
     val featureJsonValuePublisherByPath: ImmutableMap<GQLOperationPath, FeatureJsonValuePublisher>
 
     val lastUpdatedDataElementPathsByDataElementPath: ImmutableMap<GQLOperationPath, GQLOperationPath>
+
+    val tabularDocumentContext: Option<TabularDocumentContext>
 
     val featureArgumentGroupsByPath:
         (GQLOperationPath) -> ImmutableList<ImmutableMap<String, GQLOperationPath>>

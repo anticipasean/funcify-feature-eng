@@ -1,23 +1,22 @@
 package funcify.feature.materializer.response
 
-import arrow.core.toOption
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.node.JsonNodeFactory
 import com.fasterxml.jackson.databind.node.ObjectNode
 import funcify.feature.error.ServiceError
-import funcify.feature.materializer.context.document.ColumnarDocumentContext
+import funcify.feature.materializer.context.document.TabularDocumentContext
+import funcify.feature.materializer.input.context.RawInputContext
 import funcify.feature.materializer.response.factory.SerializedGraphQLResponseFactory
 import funcify.feature.materializer.session.request.GraphQLSingleRequestSession
-import funcify.feature.schema.json.JsonNodeSchematicPathToValueMappingExtractor
+import funcify.feature.schema.json.JsonNodeValueExtractionByOperationPath
 import funcify.feature.schema.path.operation.GQLOperationPath
+import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
-import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.extensions.TryExtensions.successIfDefined
+import funcify.feature.tools.extensions.TryExtensions.tryFold
 import funcify.feature.tools.json.JsonMapper
 import graphql.ExecutionResult
-import kotlinx.collections.immutable.ImmutableMap
 import org.slf4j.Logger
-import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 
 /**
@@ -32,19 +31,23 @@ internal class DefaultSingleRequestMaterializationTabularResponsePostprocessingS
     companion object {
         private val logger: Logger =
             loggerFor<DefaultSingleRequestMaterializationTabularResponsePostprocessingService>()
+
+        private operator fun ObjectNode.plus(pair: Pair<String, JsonNode>): ObjectNode {
+            return this.set(pair.first, pair.second)
+        }
     }
 
     override fun postprocessTabularExecutionResult(
         executionResult: ExecutionResult,
-        columnarDocumentContext: ColumnarDocumentContext,
+        tabularDocumentContext: TabularDocumentContext,
         session: GraphQLSingleRequestSession,
-    ): Mono<GraphQLSingleRequestSession> {
+    ): Mono<out GraphQLSingleRequestSession> {
         logger.info(
-            "postprocess_tabular_execution_result: [ columnar_document_context.expected_field_names.size: {} ]",
-            columnarDocumentContext.expectedFieldNames.size
+            "postprocess_tabular_execution_result: [ session.raw_graphql_request.expected_output_field_names.size: {} ]",
+            session.rawGraphQLRequest.expectedOutputFieldNames.size
         )
-        if (!executionResult.isDataPresent) {
-            return Mono.fromSupplier {
+        return if (!executionResult.isDataPresent) {
+            Mono.fromSupplier {
                 session.update {
                     serializedGraphQLResponse(
                         serializedGraphQLResponseFactory
@@ -55,71 +58,138 @@ internal class DefaultSingleRequestMaterializationTabularResponsePostprocessingS
                     )
                 }
             }
-        }
-        return Mono.defer {
-                jsonMapper
-                    .fromKotlinObject<Map<String, Any?>>(executionResult.getData())
-                    .toJsonNode()
-                    .toMono()
-            }
-            .flatMap { resultAsJson: JsonNode ->
-                JsonNodeSchematicPathToValueMappingExtractor(resultAsJson)
-                    .toOption()
-                    .filter { jsonValuesByPath -> jsonValuesByPath.isNotEmpty() }
-                    .successIfDefined {
-                        ServiceError.of(
-                            """execution_result.data as json did not 
-                            |have any paths that could be extracted
-                            |"""
-                                .flatten()
+        } else {
+            convertExecutionResultIntoDataJson(executionResult)
+                .flatMap { dataJson: JsonNode ->
+                    extractEachExpectedOutputFieldNameValueFromDataJson(
+                        session,
+                        tabularDocumentContext,
+                        dataJson
+                    )
+                }
+                .map { tabularObjectNodeResult: JsonNode ->
+                    session.update {
+                        serializedGraphQLResponse(
+                            serializedGraphQLResponseFactory
+                                .builder()
+                                .executionResult(executionResult)
+                                .resultAsColumnarJsonObject(tabularObjectNodeResult)
+                                .build()
                         )
                     }
-                    .toMono()
-                    .flatMap { jsonValuesByPath: ImmutableMap<GQLOperationPath, JsonNode> ->
-                        Flux.fromIterable(
-                                columnarDocumentContext.sourceIndexPathsByFieldName.entries
-                            )
-                            .flatMapSequential { (fieldName, path) ->
-                                Mono.error<Pair<String, JsonNode>> { ServiceError.of("not yet implemented tabular response processing") }
-                                /*ListIndexedSchematicPathGraphQLSchemaBasedCalculator(
-                                    path,
-                                    session.materializationSchema
-                                )
-                                .flatMap { listIndexedPath ->
-                                    jsonValuesByPath.getOrNone(listIndexedPath).map { jn ->
-                                        fieldName to jn
-                                    }
-                                }
-                                .toMono()
-                                .switchIfEmpty {
-                                    Mono.just(fieldName to JsonNodeFactory.instance.nullNode())
-                                }*/
-                            }
-                            .reduce(JsonNodeFactory.instance.objectNode()) { on, (k, v) ->
-                                on.set<ObjectNode>(k, v)
-                            }
+                }
+                .toMono()
+        }
+    }
+
+    private fun convertExecutionResultIntoDataJson(
+        executionResult: ExecutionResult
+    ): Try<JsonNode> {
+        return jsonMapper.fromKotlinObject(executionResult.getData()).toJsonNode().mapFailure {
+            t: Throwable ->
+            ServiceError.builder()
+                .message(
+                    "unable to create instance of [ type: %s ] from execution_result.data",
+                    JsonNode::class.qualifiedName
+                )
+                .cause(t)
+                .build()
+        }
+    }
+
+    private fun extractEachExpectedOutputFieldNameValueFromDataJson(
+        session: GraphQLSingleRequestSession,
+        tabularDocumentContext: TabularDocumentContext,
+        dataJson: JsonNode,
+    ): Try<ObjectNode> {
+        if (logger.isDebugEnabled) {
+            logger.debug(
+                "extract_each_expected_output_field_name_value_from_data_json: [ data_json: {} ]",
+                jsonMapper.fromJsonNode(dataJson).toJsonString().orElse("")
+            )
+        }
+        return session.rawGraphQLRequest.expectedOutputFieldNames
+            .asSequence()
+            .map { columnName: String ->
+                mapExpectedOutputFieldNameToJsonValueInDataJsonOrRawInputContext(
+                    columnName,
+                    tabularDocumentContext,
+                    dataJson,
+                    session
+                )
+            }
+            .tryFold(JsonNodeFactory.instance.objectNode()) { on, p -> on + p }
+    }
+
+    private fun mapExpectedOutputFieldNameToJsonValueInDataJsonOrRawInputContext(
+        columnName: String,
+        tabularDocumentContext: TabularDocumentContext,
+        dataJson: JsonNode,
+        session: GraphQLSingleRequestSession,
+    ): Try<Pair<String, JsonNode>> {
+        return when (columnName) {
+            in tabularDocumentContext.featurePathByExpectedOutputFieldName -> {
+                JsonNodeValueExtractionByOperationPath.invoke(
+                        dataJson,
+                        tabularDocumentContext.featurePathByExpectedOutputFieldName[columnName]!!
+                    )
+                    .map { jn: JsonNode -> columnName to jn }
+                    .successIfDefined(
+                        entryNotFoundForPathInExecutionResultDataJsonError(
+                            columnName,
+                            tabularDocumentContext.featurePathByExpectedOutputFieldName[
+                                    columnName]!!
+                        )
+                    )
+            }
+            in tabularDocumentContext.dataElementPathsByExpectedOutputFieldName -> {
+                JsonNodeValueExtractionByOperationPath.invoke(
+                        dataJson,
+                        tabularDocumentContext.dataElementPathsByExpectedOutputFieldName[
+                                columnName]!!
+                    )
+                    .map { jn: JsonNode -> columnName to jn }
+                    .successIfDefined(
+                        entryNotFoundForPathInExecutionResultDataJsonError(
+                            columnName,
+                            tabularDocumentContext.dataElementPathsByExpectedOutputFieldName[
+                                    columnName]!!
+                        )
+                    )
+            }
+            in tabularDocumentContext.passThruExpectedOutputFieldNames -> {
+                session.rawInputContext
+                    .flatMap { ric: RawInputContext ->
+                        ric.get(columnName).map { jn: JsonNode -> columnName to jn }
+                    }
+                    .successIfDefined {
+                        ServiceError.of(
+                            "raw_input_context does not contain entry for [ expected_output_field_name: %s ]",
+                            columnName
+                        )
                     }
             }
-            .onErrorResume { t: Throwable ->
-                Mono.error {
-                    val message: String =
-                        """unable to successfully map fields within execution_result.data 
-                            |into columnar json_object format due to 
-                            |[ type: %s, message: %s ]"""
-                            .flatten()
-                            .format(t::class.qualifiedName, t.message)
-                    ServiceError.builder().message(message).cause(t).build()
-                }
+            else -> {
+                Try.failure(
+                    ServiceError.of(
+                        "tabular_document_context does not contain mapping for [ expected_output_field_name: %s ]",
+                        columnName
+                    )
+                )
             }
-            .map { resultAsColumnarJsonObject ->
-                serializedGraphQLResponseFactory
-                    .builder()
-                    .executionResult(executionResult)
-                    .resultAsColumnarJsonObject(resultAsColumnarJsonObject)
-                    .build()
-            }
-            .map { response: SerializedGraphQLResponse ->
-                session.update { serializedGraphQLResponse(response) }
-            }
+        }
+    }
+
+    private fun entryNotFoundForPathInExecutionResultDataJsonError(
+        columnName: String,
+        path: GQLOperationPath
+    ): () -> ServiceError {
+        return {
+            ServiceError.of(
+                "execution_result.data does not contain entry for [ expected_output_field_name: %s, path: %s ]",
+                columnName,
+                path
+            )
+        }
     }
 }

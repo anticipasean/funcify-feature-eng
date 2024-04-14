@@ -1,6 +1,8 @@
 package funcify.feature.materializer.graph.context
 
+import arrow.core.Option
 import funcify.feature.graph.DirectedPersistentGraph
+import funcify.feature.materializer.context.document.TabularDocumentContext
 import funcify.feature.materializer.graph.MaterializationEdge
 import funcify.feature.materializer.graph.component.QueryComponentContext
 import funcify.feature.materializer.graph.component.QueryComponentContextFactory
@@ -55,6 +57,8 @@ interface RequestMaterializationGraphContext {
 
     val lastUpdatedDataElementPathsByDataElementPath:
         ImmutableMap<GQLOperationPath, GQLOperationPath>
+
+    val tabularDocumentContext: Option<TabularDocumentContext>
 
     val queryComponentContextFactory: QueryComponentContextFactory
 
@@ -120,6 +124,8 @@ interface RequestMaterializationGraphContext {
             dataElementPath: GQLOperationPath,
             lastUpdatedDataElementPath: GQLOperationPath
         ): B
+
+        fun tabularDocumentContext(tabularDocumentContext: TabularDocumentContext): B
 
         fun queryComponentContextFactory(
             queryComponentContextFactory: QueryComponentContextFactory

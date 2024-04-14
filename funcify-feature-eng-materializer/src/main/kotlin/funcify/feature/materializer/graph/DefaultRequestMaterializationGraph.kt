@@ -8,6 +8,7 @@ import arrow.core.toOption
 import funcify.feature.error.ServiceError
 import funcify.feature.graph.DirectedPersistentGraph
 import funcify.feature.graph.line.DirectedLine
+import funcify.feature.materializer.context.document.TabularDocumentContext
 import funcify.feature.materializer.graph.component.QueryComponentContext
 import funcify.feature.materializer.graph.component.QueryComponentContext.ArgumentComponentContext
 import funcify.feature.schema.dataelement.DataElementCallable
@@ -52,6 +53,7 @@ internal data class DefaultRequestMaterializationGraph(
         ImmutableMap<GQLOperationPath, FeatureJsonValuePublisher>,
     override val lastUpdatedDataElementPathsByDataElementPath:
         ImmutableMap<GQLOperationPath, GQLOperationPath>,
+    override val tabularDocumentContext: Option<TabularDocumentContext>,
     override val processingError: Option<ServiceError>,
 ) : RequestMaterializationGraph {
 

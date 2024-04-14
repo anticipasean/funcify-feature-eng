@@ -26,7 +26,6 @@ import graphql.ExecutionResult
 import graphql.GraphQLError
 import graphql.execution.AbortExecutionException
 import graphql.language.SourceLocation
-import java.util.*
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.toPersistentList
@@ -41,6 +40,7 @@ import org.springframework.web.reactive.function.server.ServerResponse
 import reactor.core.publisher.Mono
 import reactor.core.publisher.Timed
 import reactor.core.scheduler.Schedulers
+import java.util.*
 
 /**
  * @author smccarron
@@ -255,7 +255,10 @@ internal class GraphQLWebFluxHandlerFunction(
                         .contentType(MediaType.APPLICATION_JSON)
                         .bodyValue(
                             mapOf(
-                                OUTPUT_KEY to response.resultAsColumnarJsonObject,
+                                OUTPUT_KEY to
+                                    response.resultAsColumnarJsonObject.getOrElse {
+                                        JsonNodeFactory.instance.objectNode()
+                                    },
                                 ERRORS_KEY to
                                     convertExecutionResultErrorsBlockIntoJSON(
                                         response.executionResult

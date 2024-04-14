@@ -2,6 +2,9 @@ package funcify.feature.materializer.graph.connector
 
 import arrow.core.*
 import funcify.feature.error.ServiceError
+import funcify.feature.materializer.context.document.DefaultTabularDocumentContextFactory
+import funcify.feature.materializer.context.document.TabularDocumentContext
+import funcify.feature.materializer.context.document.TabularDocumentContextFactory
 import funcify.feature.materializer.graph.connector.TabularQueryDocumentCreator.Companion.TabularQueryCompositionContext.*
 import funcify.feature.materializer.graph.context.TabularQuery
 import funcify.feature.schema.dataelement.DomainSpecifiedDataElementSource
@@ -29,10 +32,13 @@ import org.slf4j.Logger
  * @author smccarron
  * @created 2023-10-13
  */
-internal class TabularQueryDocumentCreator {
+internal class TabularQueryDocumentCreator(
+    private val tabularDocumentContextFactory: TabularDocumentContextFactory =
+        DefaultTabularDocumentContextFactory()
+) {
 
     companion object {
-        private const val METHOD_TAG: String = "create_document_for_tabular_query"
+        private const val METHOD_TAG: String = "create_document_context_for_tabular_query"
         private val logger: Logger = loggerFor<TabularQueryDocumentCreator>()
 
         private interface TabularQueryCompositionContext {
@@ -348,7 +354,7 @@ internal class TabularQueryDocumentCreator {
         }
     }
 
-    fun createDocumentForTabularQuery(tabularQuery: TabularQuery): Document {
+    fun createDocumentContextForTabularQuery(tabularQuery: TabularQuery): TabularDocumentContext {
         logger.info(
             "{}: [ tabular_query.variable_keys.size: {}, tabular_query.raw_input_context_keys.size: {} ]",
             METHOD_TAG,
@@ -367,7 +373,7 @@ internal class TabularQueryDocumentCreator {
             .filter(contextDoesNotContainErrors(), createAggregateErrorFromContext())
             .map(connectDataElementCoordinatesToPathsUnderSupportedSources(tabularQuery))
             .filter(contextDoesNotContainErrors(), createAggregateErrorFromContext())
-            .flatMap(createDocumentFromContext(tabularQuery))
+            .flatMap(createDocumentContextFromContext(tabularQuery))
             .peek(logSuccess(), logFailure())
             .orElseThrow()
     }
@@ -440,12 +446,14 @@ internal class TabularQueryDocumentCreator {
         // TODO: Add lookup_by_name for domain_specified_data_element_sources sparing the need for
         // these lookups if this is determined to be the best way to deduce what domains have been
         // provided in raw_input_context
-        return tabularQuery.materializationMetamodel.materializationGraphQLSchema
-            .getFieldDefinition(
-                tabularQuery.materializationMetamodel.featureEngineeringModel
-                    .dataElementFieldCoordinates
-            )
-            .toOption()
+        return Try.attemptNullable {
+                tabularQuery.materializationMetamodel.materializationGraphQLSchema
+                    .getFieldDefinition(
+                        tabularQuery.materializationMetamodel.featureEngineeringModel
+                            .dataElementFieldCoordinates
+                    )
+            }
+            .orElseGet(::none)
             .mapNotNull(GraphQLFieldDefinition::getType)
             .mapNotNull(GraphQLTypeUtil::unwrapAll)
             .filterIsInstance<GraphQLNamedOutputType>()
@@ -797,9 +805,9 @@ internal class TabularQueryDocumentCreator {
             .let { ps: Set<GQLOperationPath> -> columnName to ps }
     }
 
-    private fun createDocumentFromContext(
+    private fun createDocumentContextFromContext(
         tabularQuery: TabularQuery
-    ): (TabularQueryCompositionContext) -> Try<Document> {
+    ): (TabularQueryCompositionContext) -> Try<TabularDocumentContext> {
         return { tqcc: TabularQueryCompositionContext ->
             tqcc.dataElementPathsByExpectedOutputColumnName.values
                 .asSequence()
@@ -824,6 +832,43 @@ internal class TabularQueryDocumentCreator {
                         spec,
                         tabularQuery.materializationMetamodel.materializationGraphQLSchema
                     )
+                }
+                .map { d: Document ->
+                    tqcc.dataElementPathsByExpectedOutputColumnName
+                        .asSequence()
+                        .fold(
+                            tabularDocumentContextFactory
+                                .builder()
+                                .document(d)
+                                .putAllFeaturePathsForFieldNames(
+                                    tqcc.featurePathByExpectedOutputColumnName
+                                )
+                                .addAllPassThruExpectedOutputFieldNames(
+                                    tqcc.selectedPassthruColumns
+                                )
+                        ) {
+                            tdcb: TabularDocumentContext.Builder,
+                            (cn: String, deps: ImmutableSet<GQLOperationPath>) ->
+                            when {
+                                deps.size > 1 -> {
+                                    throw ServiceError.of(
+                                        """[ expected_output_field_name: %s ] does not uniquely 
+                                           |identify a data element in schema; 
+                                           |an alias should be created for the 
+                                           |intended data element in order to 
+                                           |uniquely identify it within tabular queries 
+                                           |[ paths: %s ]"""
+                                            .flatten(),
+                                        cn,
+                                        deps.asSequence().joinToString(", ", "{ ", " }")
+                                    )
+                                }
+                                else -> {
+                                    tdcb.putDataElementPathForFieldName(cn, deps.first())
+                                }
+                            }
+                        }
+                        .build()
                 }
         }
     }

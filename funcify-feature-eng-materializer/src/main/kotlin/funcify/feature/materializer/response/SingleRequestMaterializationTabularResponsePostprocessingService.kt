@@ -1,6 +1,6 @@
 package funcify.feature.materializer.response
 
-import funcify.feature.materializer.context.document.ColumnarDocumentContext
+import funcify.feature.materializer.context.document.TabularDocumentContext
 import funcify.feature.materializer.session.request.GraphQLSingleRequestSession
 import graphql.ExecutionResult
 import reactor.core.publisher.Mono
@@ -14,7 +14,7 @@ interface SingleRequestMaterializationTabularResponsePostprocessingService :
 
     override fun postprocessTabularExecutionResult(
         executionResult: ExecutionResult,
-        columnarDocumentContext: ColumnarDocumentContext,
+        tabularDocumentContext: TabularDocumentContext,
         session: GraphQLSingleRequestSession,
-    ): Mono<GraphQLSingleRequestSession>
+    ): Mono<out GraphQLSingleRequestSession>
 }

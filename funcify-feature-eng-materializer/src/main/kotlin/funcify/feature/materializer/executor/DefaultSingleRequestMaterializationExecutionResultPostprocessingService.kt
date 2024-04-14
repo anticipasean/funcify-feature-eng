@@ -5,11 +5,13 @@ import arrow.core.getOrElse
 import arrow.core.getOrNone
 import arrow.core.toOption
 import funcify.feature.error.ServiceError
-import funcify.feature.materializer.context.document.ColumnarDocumentContext
+import funcify.feature.materializer.context.document.TabularDocumentContext
+import funcify.feature.materializer.graph.RequestMaterializationGraph
 import funcify.feature.materializer.response.SingleRequestMaterializationTabularResponsePostprocessingService
 import funcify.feature.materializer.response.factory.SerializedGraphQLResponseFactory
 import funcify.feature.materializer.session.request.GraphQLSingleRequestSession
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
+import funcify.feature.tools.extensions.OptionExtensions.toMono
 import funcify.feature.tools.extensions.TryExtensions.successIfDefined
 import graphql.ExecutionResult
 import graphql.ExecutionResultImpl
@@ -53,22 +55,29 @@ internal class DefaultSingleRequestMaterializationExecutionResultPostprocessingS
             executionResult.extensions == null -> {
                 createNoExtensionsOnExecutionResultErrorPublisher()
             }
-            ColumnarDocumentContext.COLUMNAR_DOCUMENT_CONTEXT_KEY in executionResult.extensions -> {
+            executionResult.extensions
+                .getOrNone(GraphQLSingleRequestSession.GRAPHQL_SINGLE_REQUEST_SESSION_KEY)
+                .filterIsInstance<GraphQLSingleRequestSession>()
+                .filter { s: GraphQLSingleRequestSession ->
+                    s.requestMaterializationGraph.exists { rmg: RequestMaterializationGraph ->
+                        rmg.tabularDocumentContext.isDefined()
+                    }
+                }
+                .isDefined() -> {
                 executionResult.extensions
                     .getOrNone(GraphQLSingleRequestSession.GRAPHQL_SINGLE_REQUEST_SESSION_KEY)
                     .filterIsInstance<GraphQLSingleRequestSession>()
-                    .successIfDefined(sessionNotFoundWithinDeclaredExtensionsExceptionSupplier())
-                    .zip(
-                        executionResult.extensions
-                            .getOrNone(ColumnarDocumentContext.COLUMNAR_DOCUMENT_CONTEXT_KEY)
-                            .filterIsInstance<ColumnarDocumentContext>()
-                    )
+                    .flatMap { s: GraphQLSingleRequestSession ->
+                        s.requestMaterializationGraph
+                            .flatMap(RequestMaterializationGraph::tabularDocumentContext)
+                            .map { tdc: TabularDocumentContext -> s to tdc }
+                    }
                     .toMono()
-                    .flatMap { (s: GraphQLSingleRequestSession, cdc: ColumnarDocumentContext) ->
+                    .flatMap { (s: GraphQLSingleRequestSession, tdc: TabularDocumentContext) ->
                         singleRequestMaterializationTabularResponsePostprocessingService
                             .postprocessTabularExecutionResult(
                                 createExecutionResultWithoutExtensions(executionResult),
-                                cdc,
+                                tdc,
                                 s
                             )
                     }

@@ -10,6 +10,7 @@ import com.google.common.cache.CacheBuilder
 import funcify.feature.error.ServiceError
 import funcify.feature.graph.PersistentGraphFactory
 import funcify.feature.graph.line.Line
+import funcify.feature.materializer.context.document.TabularDocumentContext
 import funcify.feature.materializer.graph.component.DefaultQueryComponentContextFactory
 import funcify.feature.materializer.graph.component.QueryComponentContext
 import funcify.feature.materializer.graph.component.QueryComponentContextFactory
@@ -39,6 +40,12 @@ import graphql.execution.preparsed.PreparsedDocumentEntry
 import graphql.language.AstPrinter
 import graphql.language.Document
 import graphql.validation.ValidationError
+import java.util.*
+import java.util.concurrent.ConcurrentMap
+import java.util.concurrent.TimeUnit
+import kotlin.reflect.KClass
+import kotlin.reflect.KType
+import kotlin.reflect.full.isSuperclassOf
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.persistentSetOf
@@ -46,12 +53,6 @@ import kotlinx.collections.immutable.plus
 import kotlinx.collections.immutable.toPersistentSet
 import org.slf4j.Logger
 import reactor.core.publisher.Mono
-import java.util.*
-import java.util.concurrent.ConcurrentMap
-import java.util.concurrent.TimeUnit
-import kotlin.reflect.KClass
-import kotlin.reflect.KType
-import kotlin.reflect.full.isSuperclassOf
 
 /**
  * @author smccarron
@@ -320,19 +321,19 @@ internal class DefaultSingleRequestMaterializationGraphService(
             }
             is TabularQuery -> {
                 Mono.fromCallable {
-                        tabularQueryDocumentCreator.createDocumentForTabularQuery(context)
+                        tabularQueryDocumentCreator.createDocumentContextForTabularQuery(context)
                     }
-                    .doOnNext { d: Document ->
+                    .doOnNext { tdc: TabularDocumentContext ->
                         logger.debug(
                             "tabular_query_generated_document: \n{}",
-                            AstPrinter.printAst(d)
+                            AstPrinter.printAst(tdc.document.orNull())
                         )
                     }
-                    .map { d: Document ->
+                    .map { tdc: TabularDocumentContext ->
                         val ves: List<ValidationError>? =
                             ParseAndValidate.validate(
                                 context.materializationMetamodel.materializationGraphQLSchema,
-                                d,
+                                tdc.document.orNull()!!,
                                 graphQLDocumentValidationRulesToApplyCondition(),
                                 // TODO: Determine whether locale should be sourced from
                                 // raw_graphql_request
@@ -340,14 +341,14 @@ internal class DefaultSingleRequestMaterializationGraphService(
                             )
                         when {
                             ves?.isNotEmpty() == true -> {
-                                PreparsedDocumentEntry(d, ves)
+                                tdc to PreparsedDocumentEntry(tdc.document.orNull()!!, ves)
                             }
                             else -> {
-                                PreparsedDocumentEntry(d)
+                                tdc to PreparsedDocumentEntry(tdc.document.orNull()!!)
                             }
                         }
                     }
-                    .flatMap { pde: PreparsedDocumentEntry ->
+                    .flatMap { (tdc: TabularDocumentContext, pde: PreparsedDocumentEntry) ->
                         when {
                             pde.hasErrors() -> {
                                 Mono.error {
@@ -358,9 +359,24 @@ internal class DefaultSingleRequestMaterializationGraphService(
                                             .flatten(),
                                         Document::class.qualifiedName,
                                         pde.errors.size,
-                                        pde.errors.asSequence().withIndex().joinToString(",") {
+                                        pde.errors.asSequence().withIndex().joinToString(", ") {
                                             (idx: Int, ge: GraphQLError) ->
-                                            "[${idx}]: ${ge}"
+                                            val altStringRep: () -> String = {
+                                                mapOf(
+                                                        "type" to ge::class.qualifiedName,
+                                                        "errorType" to ge.errorType,
+                                                        "path" to ge.path,
+                                                        "message" to ge.message
+                                                    )
+                                                    .asSequence()
+                                                    .joinToString(", ", "{ ", " }") { (k, v) ->
+                                                        StringBuilder(k)
+                                                            .append(": ")
+                                                            .append(v)
+                                                            .toString()
+                                                    }
+                                            }
+                                            "[${idx}]: ${Try.attempt(ge::toString).orElseGet(altStringRep)}"
                                         }
                                     )
                                 }
@@ -378,6 +394,7 @@ internal class DefaultSingleRequestMaterializationGraphService(
                                         .operationName("")
                                         .document(pde.document)
                                         .requestGraph(context.requestGraph)
+                                        .tabularDocumentContext(tdc)
                                         .build()
                                 }
                             }
@@ -528,6 +545,7 @@ internal class DefaultSingleRequestMaterializationGraphService(
                         featureJsonValuePublisherByPath = context.featureJsonValuePublishersByPath,
                         lastUpdatedDataElementPathsByDataElementPath =
                             context.lastUpdatedDataElementPathsByDataElementPath,
+                        tabularDocumentContext = context.tabularDocumentContext,
                         processingError = none()
                     )
                 }
@@ -569,6 +587,7 @@ internal class DefaultSingleRequestMaterializationGraphService(
                     featureCalculatorCallablesByPath = persistentMapOf(),
                     featureJsonValuePublisherByPath = persistentMapOf(),
                     lastUpdatedDataElementPathsByDataElementPath = persistentMapOf(),
+                    tabularDocumentContext = none(),
                     processingError = se.some()
                 )
             )
