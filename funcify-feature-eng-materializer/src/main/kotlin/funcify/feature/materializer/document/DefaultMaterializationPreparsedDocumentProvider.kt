@@ -9,6 +9,7 @@ import com.google.common.cache.CacheBuilder
 import funcify.feature.error.ServiceError
 import funcify.feature.materializer.dispatch.SingleRequestMaterializationDispatchService
 import funcify.feature.materializer.graph.SingleRequestMaterializationGraphService
+import funcify.feature.materializer.input.context.RawInputContext
 import funcify.feature.materializer.session.request.GraphQLSingleRequestSession
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
@@ -27,6 +28,10 @@ import graphql.language.NamedNode
 import graphql.language.OperationDefinition
 import graphql.language.Selection
 import graphql.language.SelectionSet
+import graphql.language.SourceLocation
+import graphql.language.VariableDefinition
+import graphql.validation.ValidationError
+import graphql.validation.ValidationErrorClassification
 import org.slf4j.Logger
 import reactor.core.publisher.Mono
 import java.util.*
@@ -48,6 +53,11 @@ internal class DefaultMaterializationPreparsedDocumentProvider(
     companion object {
         private const val METHOD_TAG: String = "get_preparsed_document_entry"
         private val logger: Logger = loggerFor<DefaultMaterializationPreparsedDocumentProvider>()
+
+        private enum class CustomValidationErrorType : ValidationErrorClassification {
+            RawInputContextVariableName
+        }
+
         private val introspectionQueryDocument: Document by lazy {
             IntrospectionQueryBuilder.buildDocument(
                 IntrospectionQueryBuilder.Options.defaultOptions()
@@ -117,7 +127,7 @@ internal class DefaultMaterializationPreparsedDocumentProvider(
                 executionInput.query.isNotBlank() -> {
                     extractSessionFromGraphQLContext(executionInput)
                         .flatMap(
-                            determinePreparsedDocumentEntryForSessionWithQueryText(
+                            determinePreparsedDocumentEntryForSessionWithStandardQuery(
                                 executionInput,
                                 parseAndValidateFunction
                             )
@@ -225,7 +235,7 @@ internal class DefaultMaterializationPreparsedDocumentProvider(
         }
     }
 
-    private fun determinePreparsedDocumentEntryForSessionWithQueryText(
+    private fun determinePreparsedDocumentEntryForSessionWithStandardQuery(
         executionInput: ExecutionInput,
         parseAndValidateFunction: (ExecutionInput) -> PreparsedDocumentEntry
     ): (GraphQLSingleRequestSession) -> Mono<out PreparsedDocumentEntry> {
@@ -250,6 +260,7 @@ internal class DefaultMaterializationPreparsedDocumentProvider(
                                 .cause(t)
                                 .build()
                         }
+                        .flatMap(dropDocumentsWithRawInputContextConflictingVariables())
                         .doOnNext { pde1: PreparsedDocumentEntry -> cache[cacheKey] = pde1 }
                         .flatMap { pde1: PreparsedDocumentEntry ->
                             when {
@@ -312,6 +323,73 @@ internal class DefaultMaterializationPreparsedDocumentProvider(
                                 .then(Mono.just(pde))
                         }
                     }
+                }
+            }
+        }
+    }
+
+    private fun dropDocumentsWithRawInputContextConflictingVariables():
+        (PreparsedDocumentEntry) -> Mono<out PreparsedDocumentEntry> {
+        return { pde: PreparsedDocumentEntry ->
+            when {
+                pde.hasErrors() -> {
+                    Mono.just(pde)
+                }
+                pde.document == null -> {
+                    Mono.error { ServiceError.of("preparsed_document_entry has null document") }
+                }
+                pde.document
+                    .toOption()
+                    .mapNotNull(Document::getDefinitions)
+                    .map(List<Definition<*>>::asSequence)
+                    .getOrElse(::emptySequence)
+                    .filterIsInstance<OperationDefinition>()
+                    .mapNotNull(OperationDefinition::getVariableDefinitions)
+                    .flatten()
+                    .any { vd: VariableDefinition ->
+                        vd.name.startsWith(RawInputContext.RAW_INPUT_CONTEXT_VARIABLE_PREFIX)
+                    } -> {
+                    Mono.fromSupplier {
+                        val description: String =
+                            """At least one %s.name for definition [ type: %s ] 
+                            |begins with [ raw_input_context_variable_prefix: "%s" ]; 
+                            |Rename the following variables %s"""
+                                .format(
+                                    VariableDefinition::class.simpleName,
+                                    OperationDefinition::class.qualifiedName,
+                                    RawInputContext.RAW_INPUT_CONTEXT_VARIABLE_PREFIX,
+                                    pde.document.definitions
+                                        .asSequence()
+                                        .filterIsInstance<OperationDefinition>()
+                                        .mapNotNull(OperationDefinition::getVariableDefinitions)
+                                        .flatten()
+                                        .filter { vd: VariableDefinition ->
+                                            vd.name.startsWith(
+                                                RawInputContext.RAW_INPUT_CONTEXT_VARIABLE_PREFIX
+                                            )
+                                        }
+                                        .map(VariableDefinition::getName)
+                                        .joinToString(", ", "[ ", " ]")
+                                )
+                                .flatten()
+                        val validationError: ValidationError =
+                            ValidationError.newValidationError()
+                                .validationErrorType(
+                                    CustomValidationErrorType.RawInputContextVariableName
+                                )
+                                .sourceLocation(SourceLocation.EMPTY)
+                                .description(description)
+                                .build()
+                        PreparsedDocumentEntry(
+                            pde.document,
+                            (pde.errors?.toMutableList() ?: mutableListOf()).apply {
+                                add(validationError)
+                            }
+                        )
+                    }
+                }
+                else -> {
+                    Mono.just(pde)
                 }
             }
         }

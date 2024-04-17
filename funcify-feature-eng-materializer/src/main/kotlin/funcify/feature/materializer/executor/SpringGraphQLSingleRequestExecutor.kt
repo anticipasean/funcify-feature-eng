@@ -36,25 +36,23 @@ internal class SpringGraphQLSingleRequestExecutor(
         )
         return graphQLSingleRequestSessionFactory
             .createSessionForSingleRequest(rawGraphQLRequest)
-            .flatMap { session: GraphQLSingleRequestSession ->
-                graphQLSingleRequestSessionCoordinator.conductSingleRequestSession(session)
+            .flatMap { s: GraphQLSingleRequestSession ->
+                graphQLSingleRequestSessionCoordinator.conductSingleRequestSession(s)
             }
-            .flatMap { session: GraphQLSingleRequestSession ->
-                session.serializedGraphQLResponse.fold(
-                    {
-                        val message =
-                            """session was not updated such that 
-                              |a serialized_graphql_response was added to it
-                              |"""
-                                .flatten()
-                        Mono.error(
-                            ServiceError.downstreamServiceUnavailableErrorBuilder()
-                                .message(message)
-                                .build()
-                        )
-                    },
-                    { sr -> Mono.just(sr) }
-                )
+            .flatMap { s: GraphQLSingleRequestSession ->
+                when (val sgr: SerializedGraphQLResponse? = s.serializedGraphQLResponse.orNull()) {
+                    null -> {
+                        Mono.error {
+                            ServiceError.of(
+                                "session does not contain %s",
+                                SerializedGraphQLResponse::class.simpleName
+                            )
+                        }
+                    }
+                    else -> {
+                        Mono.just(sgr)
+                    }
+                }
             }
     }
 }

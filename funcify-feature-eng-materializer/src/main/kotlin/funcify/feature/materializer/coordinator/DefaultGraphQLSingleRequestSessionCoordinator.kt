@@ -4,10 +4,10 @@ import arrow.core.getOrElse
 import arrow.core.toOption
 import funcify.feature.error.ServiceError
 import funcify.feature.materializer.document.MaterializationPreparsedDocumentProvider
-import funcify.feature.materializer.request.GraphQLExecutionInputCustomizer
-import funcify.feature.materializer.response.factory.SerializedGraphQLResponseFactory
 import funcify.feature.materializer.executor.GraphQLSingleRequestMaterializationQueryExecutionStrategy
 import funcify.feature.materializer.executor.SingleRequestMaterializationExecutionResultPostprocessingService
+import funcify.feature.materializer.request.GraphQLExecutionInputCustomizer
+import funcify.feature.materializer.response.factory.SerializedGraphQLResponseFactory
 import funcify.feature.materializer.session.request.GraphQLSingleRequestSession
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flatten
@@ -90,12 +90,7 @@ internal class DefaultGraphQLSingleRequestSessionCoordinator(
     override fun conductSingleRequestSession(
         session: GraphQLSingleRequestSession
     ): Mono<GraphQLSingleRequestSession> {
-        logger.info(
-            """conduct_single_request_session: [ 
-                |session.session_id: ${session.sessionId} 
-                |]"""
-                .flatten()
-        )
+        logger.info("conduct_single_request_session: [ session.session_id: {} ]", session.sessionId)
         return Mono.fromCompletionStage(
                 GraphQL.newGraphQL(session.materializationSchema)
                     .preparsedDocumentProvider(materializationPreparsedDocumentProvider)
@@ -103,7 +98,7 @@ internal class DefaultGraphQLSingleRequestSessionCoordinator(
                     .executionIdProvider(SessionExecutionIdProvider)
                     .instrumentation(instrumentation)
                     .build()
-                    .executeAsync(executionInputBuilderUpdater(session))
+                    .executeAsync(configureExecutionInputWithSessionInfo(session))
             )
             .flatMap { executionResult: ExecutionResult ->
                 when {
@@ -128,7 +123,7 @@ internal class DefaultGraphQLSingleRequestSessionCoordinator(
             }
     }
 
-    private fun executionInputBuilderUpdater(
+    private fun configureExecutionInputWithSessionInfo(
         session: GraphQLSingleRequestSession
     ): (ExecutionInput.Builder) -> ExecutionInput.Builder {
         return { builder: ExecutionInput.Builder ->

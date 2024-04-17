@@ -231,7 +231,8 @@ internal class DefaultSingleRequestMaterializationGraphService(
         session: GraphQLSingleRequestSession
     ): Mono<out RequestMaterializationGraph> {
         logger.info(
-            "calculate_request_materialization_graph_for_session: [ session.session_id: ${session.sessionId} ]"
+            "calculate_request_materialization_graph_for_session: [ session.session_id: {} ]",
+            session.sessionId
         )
         return Mono.fromCallable {
                 createRequestMaterializationGraphContextForCacheKey(cacheKey, session)
@@ -579,7 +580,11 @@ internal class DefaultSingleRequestMaterializationGraphService(
                     operationName = none(),
                     preparsedDocumentEntry = PreparsedDocumentEntry(listOf()),
                     requestGraph =
-                        PersistentGraphFactory.defaultFactory().builder().directed().build(),
+                        PersistentGraphFactory.defaultFactory()
+                            .builder()
+                            .directed()
+                            .permitParallelEdges()
+                            .build(),
                     passThruColumns = persistentSetOf(),
                     transformerCallablesByPath = persistentMapOf(),
                     dataElementCallablesByPath = persistentMapOf(),

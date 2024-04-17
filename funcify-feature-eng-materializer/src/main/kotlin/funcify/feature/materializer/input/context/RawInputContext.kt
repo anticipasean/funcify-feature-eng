@@ -12,6 +12,7 @@ interface RawInputContext {
 
     companion object {
         const val RAW_INPUT_CONTEXT_VARIABLE_KEY: String = "input"
+        const val RAW_INPUT_CONTEXT_VARIABLE_PREFIX: String = "_rawInput"
     }
 
     fun fieldNames(): ImmutableSet<String>
