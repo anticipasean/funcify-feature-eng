@@ -46,8 +46,6 @@ internal class TabularQueryDocumentCreator(
             val rawInputContextDataElementSourceArgumentPathsForVariablesToCreate:
                 ImmutableMap<String, ImmutableSet<GQLOperationPath>>
             val passthruRawInputContextKeys: ImmutableSet<String>
-            val anyArgumentPathSetsMatchingVariables:
-                ImmutableMap<String, ImmutableSet<GQLOperationPath>>
             val argumentPathSetsForVariableKeysForDomainDataElementSourcesToSupport:
                 ImmutableMap<String, ImmutableSet<GQLOperationPath>>
             val domainDataElementSourcePathsWithCompleteVariableArgumentSets:
@@ -74,11 +72,6 @@ internal class TabularQueryDocumentCreator(
                 ): Builder
 
                 fun addPassthruRawInputContextKey(passthruRawInputContextKey: String): Builder
-
-                fun putArgumentPathSetMatchingVariableKey(
-                    variableKey: String,
-                    argumentPathSet: Set<GQLOperationPath>
-                ): Builder
 
                 fun putArgumentPathSetsForVariableKeysForDomainDataElementSourcesToSupport(
                     variableKey: String,
@@ -120,8 +113,6 @@ internal class TabularQueryDocumentCreator(
             override val rawInputContextDataElementSourceArgumentPathsForVariablesToCreate:
                 PersistentMap<String, PersistentSet<GQLOperationPath>>,
             override val passthruRawInputContextKeys: PersistentSet<String>,
-            override val anyArgumentPathSetsMatchingVariables:
-                PersistentMap<String, PersistentSet<GQLOperationPath>>,
             override val argumentPathSetsForVariableKeysForDomainDataElementSourcesToSupport:
                 PersistentMap<String, PersistentSet<GQLOperationPath>>,
             override val domainDataElementSourcePathsWithCompleteVariableArgumentSets:
@@ -142,7 +133,6 @@ internal class TabularQueryDocumentCreator(
                         rawInputContextDataElementSourceArgumentPathsForVariablesToCreate =
                             persistentMapOf(),
                         passthruRawInputContextKeys = persistentSetOf(),
-                        anyArgumentPathSetsMatchingVariables = persistentMapOf(),
                         argumentPathSetsForVariableKeysForDomainDataElementSourcesToSupport =
                             persistentMapOf(),
                         domainDataElementSourcePathsWithCompleteVariableArgumentSets =
@@ -166,9 +156,6 @@ internal class TabularQueryDocumentCreator(
                             .builder(),
                     private val passthruRawInputContextKeys: PersistentSet.Builder<String> =
                         existingContext.passthruRawInputContextKeys.builder(),
-                    private val anyArgumentPathSetsMatchingVariables:
-                        PersistentMap.Builder<String, PersistentSet<GQLOperationPath>> =
-                        existingContext.anyArgumentPathSetsMatchingVariables.builder(),
                     private val argumentPathSetsForVariableKeysForDomainDataElementSourcesToSupport:
                         PersistentMap.Builder<String, PersistentSet<GQLOperationPath>> =
                         existingContext
@@ -223,19 +210,6 @@ internal class TabularQueryDocumentCreator(
                     ): Builder =
                         this.apply {
                             this.passthruRawInputContextKeys.add(passthruRawInputContextKey)
-                        }
-
-                    override fun putArgumentPathSetMatchingVariableKey(
-                        variableKey: String,
-                        argumentPathSet: Set<GQLOperationPath>,
-                    ): Builder =
-                        this.apply {
-                            this.anyArgumentPathSetsMatchingVariables.put(
-                                variableKey,
-                                this.anyArgumentPathSetsMatchingVariables
-                                    .getOrElse(variableKey, ::persistentSetOf)
-                                    .addAll(argumentPathSet)
-                            )
                         }
 
                     override fun putArgumentPathSetsForVariableKeysForDomainDataElementSourcesToSupport(
@@ -316,8 +290,6 @@ internal class TabularQueryDocumentCreator(
                                 rawInputContextDataElementSourceArgumentPathsForVariablesToCreate
                                     .build(),
                             passthruRawInputContextKeys = passthruRawInputContextKeys.build(),
-                            anyArgumentPathSetsMatchingVariables =
-                                anyArgumentPathSetsMatchingVariables.build(),
                             argumentPathSetsForVariableKeysForDomainDataElementSourcesToSupport =
                                 argumentPathSetsForVariableKeysForDomainDataElementSourcesToSupport
                                     .build(),
@@ -353,7 +325,6 @@ internal class TabularQueryDocumentCreator(
         // TODO: Impose rule that no data element may share the same name as a feature
         return Try.success(DefaultTabularQueryCompositionContext.empty())
             .map(matchRawInputContextKeysWithDomainSpecifiedDataElementSources(tabularQuery))
-            .map(matchVariableKeysWithDomainSpecifiedDataElementSourceArguments(tabularQuery))
             .map(addAllDomainDataElementsWithCompleteVariableKeyArgumentSets(tabularQuery))
             .map(matchExpectedOutputColumnNamesToFeaturePathsOrDataElementCoordinates(tabularQuery))
             .map(connectDataElementCoordinatesToPathsUnderSupportedSources(tabularQuery))
@@ -443,130 +414,42 @@ internal class TabularQueryDocumentCreator(
         }
     }
 
-    private fun matchVariableKeysWithDomainSpecifiedDataElementSourceArguments(
-        tabularQuery: TabularQuery
-    ): (TabularQueryCompositionContext) -> TabularQueryCompositionContext {
-        return { tqcc: TabularQueryCompositionContext ->
-            tqcc
-                .update {
-                    tabularQuery.variableKeys.asSequence().fold(this) {
-                        cb: TabularQueryCompositionContext.Builder,
-                        vk: String ->
-                        when (
-                            val argumentPathSet: ImmutableSet<GQLOperationPath>? =
-                                matchVariableKeyToDataElementArgumentPaths(tabularQuery, vk)
-                                    .orNull()
-                        ) {
-                            null -> {
-                                throw ServiceError.of(
-                                    """variable [ key: %s ] does not match 
-                                    |any of the names or aliases 
-                                    |for arguments to supported data element 
-                                    |sources for a tabular query"""
-                                        .flatten(),
-                                    vk
-                                )
-                            }
-                            else -> {
-                                cb.putArgumentPathSetMatchingVariableKey(vk, argumentPathSet)
-                            }
-                        }
-                    }
-                }
-                .also { t: TabularQueryCompositionContext ->
-                    logger.debug(
-                        "{}: [ status: matching variables to domain_specified_data_element_source_arguments ][ {} ]",
-                        METHOD_TAG,
-                        t.anyArgumentPathSetsMatchingVariables.asSequence().joinToString(",\n") {
-                            (v, ps) ->
-                            "$v: ${ps.joinToString(", ", "{ ", " }")}"
-                        }
-                    )
-                }
-        }
-    }
-
-    private fun matchVariableKeyToDataElementArgumentPaths(
-        tabularQuery: TabularQuery,
-        variableKey: String
-    ): Option<ImmutableSet<GQLOperationPath>> {
-        // TODO: Consider whether to flip these, assessing for aliases preset before standard field
-        // names
-        return tabularQuery.materializationMetamodel.aliasCoordinatesRegistry
-            .getFieldArgumentsWithAlias(variableKey)
-            .toOption()
-            .filter(ImmutableSet<Pair<FieldCoordinates, String>>::isNotEmpty)
-            .map { fieldArgumentLocations: ImmutableSet<Pair<FieldCoordinates, String>> ->
-                fieldArgumentLocations
-                    .asSequence()
-                    .map { (fc: FieldCoordinates, argName: String) ->
-                        tabularQuery.materializationMetamodel
-                            .domainSpecifiedDataElementSourceByCoordinates
-                            .getOrNone(fc)
-                            .flatMap { dsdes: DomainSpecifiedDataElementSource ->
-                                dsdes.domainArgumentPathsByName.getOrNone(argName)
-                            }
-                    }
-                    .flatMapOptions()
-                    .toPersistentSet()
-            }
-            .filter(ImmutableSet<GQLOperationPath>::isNotEmpty)
-            .orElse {
-                tabularQuery.materializationMetamodel.dataElementPathByFieldArgumentName
-                    .getOrNone(variableKey)
-                    .filter(ImmutableSet<GQLOperationPath>::isNotEmpty)
-            }
-    }
-
     private fun addAllDomainDataElementsWithCompleteVariableKeyArgumentSets(
         tabularQuery: TabularQuery
     ): (TabularQueryCompositionContext) -> TabularQueryCompositionContext {
         return { tqcc: TabularQueryCompositionContext ->
-            tqcc.anyArgumentPathSetsMatchingVariables
+            tabularQuery.matchingArgumentPathsToVariableKeyByDomainDataElementPaths
                 .asSequence()
-                .flatMap { (vk: String, argPathsSet: Set<GQLOperationPath>) ->
-                    argPathsSet.asSequence().flatMap { ap: GQLOperationPath ->
-                        ap.getParentPath().sequence().map { pp: GQLOperationPath ->
-                            pp to (vk to ap)
-                        }
-                    }
-                }
-                .reducePairsToPersistentSetValueMap()
-                .asSequence()
-                .filter { (pp: GQLOperationPath, vkToAps: Set<Pair<String, GQLOperationPath>>) ->
+                .flatMap { (dp: GQLOperationPath, argVars: Map<GQLOperationPath, String>) ->
                     tabularQuery.materializationMetamodel.domainSpecifiedDataElementSourceByPath
-                        .getOrNone(pp)
-                        .map { dsdes: DomainSpecifiedDataElementSource ->
-                            // Must provide all domain arguments or at least those lacking default
-                            // argument values
-                            // TODO: Convert to cacheable operation
-                            val argPathsSet: Set<GQLOperationPath> =
-                                vkToAps
-                                    .asSequence()
-                                    .filter { (_: String, ap: GQLOperationPath) ->
-                                        dsdes.domainPath.isParentTo(ap)
-                                    }
-                                    .map { (_: String, ap: GQLOperationPath) -> ap }
-                                    .toSet()
-                            dsdes.domainArgumentsWithoutDefaultValuesByPath.asSequence().all {
-                                (p: GQLOperationPath, _: GraphQLArgument) ->
-                                argPathsSet.contains(p)
-                            }
+                        .getOrNone(dp)
+                        .filter { dsdes: DomainSpecifiedDataElementSource ->
+                            dsdes.domainArgumentsWithoutDefaultValuesByPath.keys.containsAll(
+                                argVars.keys
+                            )
                         }
-                        .getOrElse { false }
+                        .map { _: DomainSpecifiedDataElementSource -> dp to argVars }
+                        .sequence()
                 }
                 .fold(tqcc) {
                     c: TabularQueryCompositionContext,
-                    (ddesp: GQLOperationPath, vkaps: Set<Pair<String, GQLOperationPath>>) ->
+                    (dp: GQLOperationPath, argVars: ImmutableMap<GQLOperationPath, String>) ->
                     c.update {
-                        vkaps.asSequence().reducePairsToPersistentSetValueMap().forEach {
-                            (vk: String, ps: Set<GQLOperationPath>) ->
-                            putArgumentPathSetsForVariableKeysForDomainDataElementSourcesToSupport(
-                                vk,
-                                ps
-                            )
-                        }
-                        addDomainDataElementSourcePathWithCompleteVariableArgumentSet(ddesp)
+                        argVars
+                            .asSequence()
+                            .map { (ap, vk) -> vk to ap }
+                            .reducePairsToPersistentSetValueMap()
+                            .forEach { (vk: String, ps: Set<GQLOperationPath>) ->
+                                // TODO: Consider adding reverse input method to DocumentSpec that
+                                // takes (argPath, varKey) mapping instead of just (varKey,
+                                // Set[argPath]) removing the need for a reduction into a
+                                // PersistentMap[P, PersistentSet[V]]
+                                putArgumentPathSetsForVariableKeysForDomainDataElementSourcesToSupport(
+                                    vk,
+                                    ps
+                                )
+                            }
+                        addDomainDataElementSourcePathWithCompleteVariableArgumentSet(dp)
                     }
                 }
                 .also { t ->

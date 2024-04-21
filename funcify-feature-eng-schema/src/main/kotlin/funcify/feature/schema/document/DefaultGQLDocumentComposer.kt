@@ -231,7 +231,7 @@ internal object DefaultGQLDocumentComposer : GQLDocumentComposer {
     private fun createDocumentFromCreationContext(
         documentCreationContext: DocumentCreationContext
     ): Try<Document> {
-        if (logger.isDebugEnabled) {
+        /*if (logger.isDebugEnabled) {
             logger.debug(
                 "create_document_from_creation_context: [ field_paths_by_level: {} ]",
                 documentCreationContext.fieldPathsByLevel
@@ -241,7 +241,7 @@ internal object DefaultGQLDocumentComposer : GQLDocumentComposer {
                         "[${l}]: [ ${ps.asSequence().joinToString()} ]"
                     }
             )
-        }
+        }*/
         return documentCreationContext.fieldPathsByLevel.keys
             .asSequence()
             .filter { level: Int -> level != 0 }
@@ -256,7 +256,7 @@ internal object DefaultGQLDocumentComposer : GQLDocumentComposer {
                     documentTraverser = ::identity
                 )
             ) { dtc: DocumentTraversalContext, level: Int ->
-                if (logger.isDebugEnabled) {
+                /*if (logger.isDebugEnabled) {
                     logger.debug(
                         "document_traversal_context: [ level: {}, parent_implementing_type_by_parent_path.keys: {} ]",
                         level,
@@ -265,7 +265,7 @@ internal object DefaultGQLDocumentComposer : GQLDocumentComposer {
                             "$p: ${git.name}"
                         }
                     )
-                }
+                }*/
                 DocumentTraversalContext(
                     parentImplementingTypeByParentPath =
                         createParentImplementingTypeByParentPathForChildrenAtLevel(
@@ -369,13 +369,13 @@ internal object DefaultGQLDocumentComposer : GQLDocumentComposer {
     ): DocumentTraverser {
         return DocumentTraverser {
             childContextsByPath: ImmutableMap<GQLOperationPath, TraversedFieldContext> ->
-            if (logger.isDebugEnabled) {
+            /*if (logger.isDebugEnabled) {
                 logger.debug(
                     "create_map_of_parents_for_children_at_level: [ level: {}, child_contexts_by_path.keys: {} ]",
                     level,
                     childContextsByPath.keys.asSequence().joinToString()
                 )
-            }
+            }*/
             documentCreationContext.fieldPathsByLevel
                 .getOrNone(level)
                 .fold(::emptySequence, Set<GQLOperationPath>::asSequence)
@@ -534,12 +534,12 @@ internal object DefaultGQLDocumentComposer : GQLDocumentComposer {
         parentPath: GQLOperationPath,
         childSelectionGroups: Map<SelectionGroup, List<DefaultTraversedFieldContextWithFieldDef>>,
     ): TraversedFieldContext {
-        if (logger.isDebugEnabled) {
+        /*if (logger.isDebugEnabled) {
             logger.debug(
                 "convert_child_selection_groups_into_parent_traversed_field_context: [ parent_path: {} ]",
                 parentPath
             )
-        }
+        }*/
         return childSelectionGroups
             .asSequence()
             .flatMap { (sg: SelectionGroup, tfcs: List<DefaultTraversedFieldContextWithFieldDef>) ->
@@ -671,12 +671,12 @@ internal object DefaultGQLDocumentComposer : GQLDocumentComposer {
         documentCreationContext: DocumentCreationContext,
         traversedFieldContextWithFieldDef: DefaultTraversedFieldContextWithFieldDef,
     ): Sequence<Node<*>> {
-        if (logger.isDebugEnabled) {
+        /*if (logger.isDebugEnabled) {
             logger.debug(
                 "create_field_and_other_nodes_from_traversed_field_context_with_field_def: [ path: {} ]",
                 traversedFieldContextWithFieldDef.path
             )
-        }
+        }*/
         return traversedFieldContextWithFieldDef.graphQLFieldDefinition.arguments
             .asSequence()
             .map { ga: GraphQLArgument ->

@@ -1,6 +1,7 @@
 package funcify.feature.materializer.model
 
 import arrow.core.Option
+import arrow.core.getOrElse
 import arrow.core.getOrNone
 import arrow.core.none
 import arrow.core.toOption
@@ -13,15 +14,18 @@ import funcify.feature.schema.path.operation.GQLOperationPath
 import funcify.feature.schema.transformer.TransformerSpecifiedTransformerSource
 import funcify.feature.tools.extensions.PairExtensions.fold
 import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentMap
+import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentSetValueMap
 import graphql.schema.FieldCoordinates
 import graphql.schema.GraphQLArgument
 import graphql.schema.GraphQLSchema
 import graphql.schema.GraphQLSchemaElement
 import java.time.Instant
 import java.util.*
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentMap
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.ImmutableSet
+import kotlinx.collections.immutable.persistentSetOf
 
 internal data class DefaultMaterializationMetamodel(
     override val created: Instant = Instant.now(),
@@ -166,5 +170,85 @@ internal data class DefaultMaterializationMetamodel(
                 }
             }
             .reducePairsToPersistentMap()
+    }
+
+    override val dataElementPathByArgLocation:
+        ImmutableMap<Pair<FieldCoordinates, String>, ImmutableSet<GQLOperationPath>> by lazy {
+        domainSpecifiedDataElementSourceByCoordinates.values
+            .asSequence()
+            .flatMap { dsdes: DomainSpecifiedDataElementSource ->
+                dsdes.allArgumentsByPath.asSequence().flatMap {
+                    (ap: GQLOperationPath, ga: GraphQLArgument) ->
+                    ap.getParentPath()
+                        .flatMap { pp: GQLOperationPath -> fieldCoordinatesByPath.getOrNone(pp) }
+                        .getOrElse(::persistentSetOf)
+                        .asSequence()
+                        .map { fc: FieldCoordinates -> (fc to ga.name) to ap }
+                }
+            }
+            .reducePairsToPersistentSetValueMap()
+    }
+
+    override val domainDataElementDataSourcePathByDescendentPath:
+        (GQLOperationPath) -> Option<GQLOperationPath> by lazy {
+        val cache: ConcurrentMap<GQLOperationPath, GQLOperationPath?> = ConcurrentHashMap()
+        val domainDataElementPaths: ImmutableSet<GQLOperationPath> =
+            domainSpecifiedDataElementSourceByPath.keys
+        val domainDataElementPathSizes: Set<Int> =
+            domainDataElementPaths
+                .asSequence()
+                .map { p: GQLOperationPath -> p.selection.size }
+                .toSet()
+        val calculation: (GQLOperationPath) -> GQLOperationPath? =
+            if (domainDataElementPathSizes.isEmpty() || domainDataElementPathSizes.size > 1) {
+                { p: GQLOperationPath ->
+                    when {
+                        !p.refersToSelection() -> {
+                            null
+                        }
+                        else -> {
+                            domainDataElementPaths.firstOrNull { dp: GQLOperationPath ->
+                                dp.isAncestorTo(p)
+                            }
+                        }
+                    }
+                }
+            } else {
+                val commonDomainDataElementPathSize: Int = domainDataElementPathSizes.first();
+                { p: GQLOperationPath ->
+                    when {
+                        !p.refersToSelection() -> {
+                            null
+                        }
+                        p.selection.size < commonDomainDataElementPathSize -> {
+                            null
+                        }
+                        p.selection.size == commonDomainDataElementPathSize &&
+                            p in domainDataElementPaths -> {
+                            p
+                        }
+                        p.selection.size > commonDomainDataElementPathSize -> {
+                            val truncatedPath: GQLOperationPath =
+                                GQLOperationPath.of {
+                                    appendSelections(
+                                        p.selection
+                                            .asSequence()
+                                            .take(commonDomainDataElementPathSize)
+                                            .toList()
+                                    )
+                                }
+                            if (truncatedPath in domainDataElementPaths) {
+                                truncatedPath
+                            } else {
+                                null
+                            }
+                        }
+                        else -> {
+                            null
+                        }
+                    }
+                }
+            };
+        { p: GQLOperationPath -> cache.computeIfAbsent(p, calculation).toOption() }
     }
 }

@@ -19,7 +19,6 @@ import graphql.schema.GraphQLArgument
 import graphql.schema.GraphQLNamedSchemaElement
 import graphql.schema.GraphQLSchemaElement
 import graphql.schema.GraphQLTypeUtil
-import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.ImmutableSet
 import org.slf4j.Logger
 import reactor.core.publisher.Mono
@@ -143,12 +142,28 @@ internal class DefaultMaterializationMetamodelBuildStrategy :
                 logger.debug(
                     "data_element_paths_by_field_argument_name: {}",
                     mmf.dataElementPathsByFieldArgumentName.asSequence().joinToString(
-                        "{\n",
                         ",\n",
-                        " }"
+                        "{\n",
+                        "\n}"
                     ) { (fn, ps) ->
-                        "${fn}: ${ps.asSequence().joinToString(", ")}"
+                        "${fn}: ${ps.asSequence().joinToString(",", "{ ", " }")}"
                     }
+                )
+                logger.debug(
+                    "transformer_specified_transformer_sources_by_path: {}",
+                    mmf.transformerSpecifiedTransformerSourcesByPath.asSequence().joinToString(
+                        ",\n",
+                        "{\n",
+                        "\n}"
+                    ) { (p, tsts) ->
+                        "${p}: ${tsts}"
+                    }
+                )
+                logger.debug(
+                    "transformer_specified_transformer_sources_by_coordinates: {}",
+                    mmf.transformerSpecifiedTransformerSourcesByCoordinates
+                        .asSequence()
+                        .joinToString(",\n", "{\n", "\n}") { (fc, tstc) -> "${fc}: ${tstc}" }
                 )
             }
             .map { mmbc: MaterializationMetamodelBuildContext ->
@@ -188,7 +203,7 @@ internal class DefaultMaterializationMetamodelBuildStrategy :
     }
 
     private fun calculatePathsAndFieldCoordinates():
-        (MaterializationMetamodelBuildContext) -> Mono<MaterializationMetamodelBuildContext> {
+        (MaterializationMetamodelBuildContext) -> Mono<out MaterializationMetamodelBuildContext> {
         return { mmbc: MaterializationMetamodelBuildContext ->
             Mono.fromCallable { PathCoordinatesGatherer.invoke(mmbc) }
                 .onErrorMap { t: Throwable ->
@@ -211,7 +226,7 @@ internal class DefaultMaterializationMetamodelBuildStrategy :
     }
 
     private fun calculateDomainSpecifiedDataElementSources():
-        (MaterializationMetamodelBuildContext) -> Mono<MaterializationMetamodelBuildContext> {
+        (MaterializationMetamodelBuildContext) -> Mono<out MaterializationMetamodelBuildContext> {
         return { mmbc: MaterializationMetamodelBuildContext ->
             Mono.fromCallable {
                     mmbc.update {
@@ -304,7 +319,7 @@ internal class DefaultMaterializationMetamodelBuildStrategy :
     }
 
     private fun calculateFeatureSpecifiedFeatureCalculators():
-        (MaterializationMetamodelBuildContext) -> Mono<MaterializationMetamodelBuildContext> {
+        (MaterializationMetamodelBuildContext) -> Mono<out MaterializationMetamodelBuildContext> {
         return { mmbc: MaterializationMetamodelBuildContext ->
             Mono.fromCallable {
                     mmbc.update {
@@ -357,7 +372,7 @@ internal class DefaultMaterializationMetamodelBuildStrategy :
     }
 
     private fun calculateTransformerSpecifiedTransformerSources():
-        (MaterializationMetamodelBuildContext) -> Mono<MaterializationMetamodelBuildContext> {
+        (MaterializationMetamodelBuildContext) -> Mono<out MaterializationMetamodelBuildContext> {
         return { mmbc: MaterializationMetamodelBuildContext ->
             Mono.fromCallable {
                     mmbc.update {
@@ -407,7 +422,7 @@ internal class DefaultMaterializationMetamodelBuildStrategy :
     }
 
     private fun calculateAttributeCoordinatesRegistry():
-        (MaterializationMetamodelBuildContext) -> Mono<MaterializationMetamodelBuildContext> {
+        (MaterializationMetamodelBuildContext) -> Mono<out MaterializationMetamodelBuildContext> {
         return { mmbc: MaterializationMetamodelBuildContext ->
             Mono.fromCallable {
                     mmbc.update {

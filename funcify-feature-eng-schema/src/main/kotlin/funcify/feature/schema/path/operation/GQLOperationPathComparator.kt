@@ -32,15 +32,27 @@ internal object GQLOperationPathComparator : Comparator<GQLOperationPath> {
     private val gqlOperationPathComparator: Comparator<GQLOperationPath> by lazy {
         Comparator.comparing(GQLOperationPath::scheme, String::compareTo)
             .thenComparing(GQLOperationPath::selection, GQLOperationPathComparator::compareLists)
-            .thenComparing(GQLOperationPath::argument, GQLOperationPathComparator::compareNamePathPairOptions)
-            .thenComparing(GQLOperationPath::directive, GQLOperationPathComparator::compareNamePathPairOptions)
+            .thenComparing(
+                GQLOperationPath::argument,
+                GQLOperationPathComparator::compareNamePathPairOptions
+            )
+            .thenComparing(
+                GQLOperationPath::directive,
+                GQLOperationPathComparator::compareNamePathPairOptions
+            )
     }
 
     private fun <T : Comparable<T>> compareLists(l1: List<T>, l2: List<T>): Int {
-        return l1.asSequence()
-            .zip(l2.asSequence()) { t1: T, t2: T -> t1.compareTo(t2) }
-            .firstOrNull { comparison: Int -> comparison != 0 }
-            ?: l1.size.compareTo(l2.size)
+        return when (val sizeComparison: Int = l1.size.compareTo(l2.size)) {
+            0 -> {
+                l1.asSequence()
+                    .zip(l2.asSequence()) { t1: T, t2: T -> t1.compareTo(t2) }
+                    .firstOrNull { comparison: Int -> comparison != 0 } ?: 0
+            }
+            else -> {
+                sizeComparison
+            }
+        }
     }
 
     private fun <T : Comparable<T>> compareNamePathPairOptions(

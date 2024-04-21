@@ -3,6 +3,7 @@ package funcify.feature.materializer.graph.context
 import arrow.core.Option
 import arrow.core.continuations.eagerEffect
 import arrow.core.continuations.ensureNotNull
+import arrow.core.foldLeft
 import arrow.core.identity
 import arrow.core.toOption
 import funcify.feature.error.ServiceError
@@ -23,6 +24,7 @@ import funcify.feature.schema.path.operation.GQLOperationPath
 import funcify.feature.schema.transformer.TransformerCallable
 import graphql.language.Document
 import graphql.schema.FieldCoordinates
+import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.PersistentList
 import kotlinx.collections.immutable.PersistentMap
@@ -61,6 +63,14 @@ internal object DefaultRequestMaterializationGraphContextFactory :
         protected open val passThroughColumns: PersistentSet.Builder<String> =
             existingGraphContext?.passThroughColumns?.toPersistentSet()?.builder()
                 ?: persistentSetOf<String>().builder(),
+        protected open var matchingArgumentPathsToVariableKeyByDomainDataElementPaths:
+            PersistentMap.Builder<GQLOperationPath, ImmutableMap<GQLOperationPath, String>> =
+            existingGraphContext
+                ?.matchingArgumentPathsToVariableKeyByDomainDataElementPaths
+                ?.toPersistentMap()
+                ?.builder()
+                ?: persistentMapOf<GQLOperationPath, ImmutableMap<GQLOperationPath, String>>()
+                    .builder(),
         protected open val connectedFieldPathsByCoordinates:
             PersistentMap.Builder<FieldCoordinates, ImmutableSet<GQLOperationPath>> =
             existingGraphContext?.connectedFieldPathsByCoordinates?.toPersistentMap()?.builder()
@@ -129,6 +139,38 @@ internal object DefaultRequestMaterializationGraphContextFactory :
 
         override fun addPassThroughColumn(name: String): B =
             this.applyOnBuilder { this.passThroughColumns.add(name) }
+
+        override fun putAllMatchingVariablesForArgumentsForDomainDataElementPath(
+            variableKeyToArgumentPathsByDomainDataElementPath:
+                Map<GQLOperationPath, Map<GQLOperationPath, String>>
+        ): B =
+            this.applyOnBuilder {
+                variableKeyToArgumentPathsByDomainDataElementPath.foldLeft(
+                    this.matchingArgumentPathsToVariableKeyByDomainDataElementPaths
+                ) { m, e ->
+                    m.apply { put(e.key, e.value.toPersistentMap()) }
+                }
+            }
+
+        override fun putMatchingVariablesForArgumentsForDomainDataElementPath(
+            domainDataElementPath: GQLOperationPath,
+            variableKeyToArgumentPaths: Map<GQLOperationPath, String>
+        ): B =
+            this.applyOnBuilder {
+                this.matchingArgumentPathsToVariableKeyByDomainDataElementPaths.put(
+                    domainDataElementPath,
+                    variableKeyToArgumentPaths.toPersistentMap()
+                )
+            }
+
+        override fun setMatchingVariablesForArgumentsForDomainDataElementPath(
+            variableKeyToArgumentPathsByDomainDataElementPath:
+                PersistentMap<GQLOperationPath, ImmutableMap<GQLOperationPath, String>>
+        ): B =
+            this.applyOnBuilder {
+                this.matchingArgumentPathsToVariableKeyByDomainDataElementPaths =
+                    variableKeyToArgumentPathsByDomainDataElementPath.builder()
+            }
 
         override fun putConnectedFieldPathForCoordinates(
             fieldCoordinates: FieldCoordinates,
@@ -275,6 +317,8 @@ internal object DefaultRequestMaterializationGraphContextFactory :
                         materializationMetamodel = materializationMetamodel!!,
                         variableKeys = variableKeys.build(),
                         rawInputContextKeys = rawInputContextKeys.build(),
+                        matchingArgumentPathsToVariableKeyByDomainDataElementPaths =
+                            matchingArgumentPathsToVariableKeyByDomainDataElementPaths.build(),
                         connectedFieldPathsByCoordinates = connectedFieldPathsByCoordinates.build(),
                         connectedPathsByCanonicalPath = connectedPathsByCanonicalPath.build(),
                         canonicalPathByConnectedPath = canonicalPathByConnectedPath.build(),
@@ -315,6 +359,8 @@ internal object DefaultRequestMaterializationGraphContextFactory :
         override val materializationMetamodel: MaterializationMetamodel,
         override val variableKeys: PersistentSet<String>,
         override val rawInputContextKeys: PersistentSet<String>,
+        override val matchingArgumentPathsToVariableKeyByDomainDataElementPaths:
+            PersistentMap<GQLOperationPath, ImmutableMap<GQLOperationPath, String>>,
         override val connectedFieldPathsByCoordinates:
             PersistentMap<FieldCoordinates, ImmutableSet<GQLOperationPath>>,
         override val connectedPathsByCanonicalPath:
@@ -395,6 +441,8 @@ internal object DefaultRequestMaterializationGraphContextFactory :
                         materializationMetamodel = materializationMetamodel!!,
                         variableKeys = variableKeys.build(),
                         rawInputContextKeys = rawInputContextKeys.build(),
+                        matchingArgumentPathsToVariableKeyByDomainDataElementPaths =
+                            matchingArgumentPathsToVariableKeyByDomainDataElementPaths.build(),
                         connectedFieldPathsByCoordinates = connectedFieldPathsByCoordinates.build(),
                         connectedPathsByCanonicalPath = connectedPathsByCanonicalPath.build(),
                         canonicalPathByConnectedPath = canonicalPathByConnectedPath.build(),
@@ -435,6 +483,8 @@ internal object DefaultRequestMaterializationGraphContextFactory :
         override val materializationMetamodel: MaterializationMetamodel,
         override val variableKeys: PersistentSet<String>,
         override val rawInputContextKeys: PersistentSet<String>,
+        override val matchingArgumentPathsToVariableKeyByDomainDataElementPaths:
+            PersistentMap<GQLOperationPath, ImmutableMap<GQLOperationPath, String>>,
         override val connectedFieldPathsByCoordinates:
             PersistentMap<FieldCoordinates, ImmutableSet<GQLOperationPath>>,
         override val connectedPathsByCanonicalPath:

@@ -59,6 +59,9 @@ interface MaterializationMetamodel {
 
     val dataElementPathByFieldArgumentName: ImmutableMap<String, ImmutableSet<GQLOperationPath>>
 
+    val dataElementPathByArgLocation:
+        ImmutableMap<Pair<FieldCoordinates, String>, ImmutableSet<GQLOperationPath>>
+
     val domainSpecifiedDataElementSourceArgumentPathsByArgLocation:
         ImmutableMap<Pair<FieldCoordinates, String>, GQLOperationPath>
 
@@ -82,6 +85,9 @@ interface MaterializationMetamodel {
 
     val firstPathWithFieldCoordinatesUnderPath:
         (FieldCoordinates, GQLOperationPath) -> Option<GQLOperationPath>
+
+    val domainDataElementDataSourcePathByDescendentPath:
+        (GQLOperationPath) -> Option<GQLOperationPath>
 
     interface Builder {
 

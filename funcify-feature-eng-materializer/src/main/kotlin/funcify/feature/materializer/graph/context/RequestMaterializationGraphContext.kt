@@ -18,6 +18,7 @@ import funcify.feature.schema.transformer.TransformerCallable
 import graphql.schema.FieldCoordinates
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.ImmutableSet
+import kotlinx.collections.immutable.PersistentMap
 
 /**
  * @author smccarron
@@ -31,10 +32,13 @@ interface RequestMaterializationGraphContext {
 
     val rawInputContextKeys: ImmutableSet<String>
 
+    val passThroughColumns: ImmutableSet<String>
+
     val requestGraph:
         DirectedPersistentGraph<GQLOperationPath, QueryComponentContext, MaterializationEdge>
 
-    val passThroughColumns: ImmutableSet<String>
+    val matchingArgumentPathsToVariableKeyByDomainDataElementPaths:
+        ImmutableMap<GQLOperationPath, ImmutableMap<GQLOperationPath, String>>
 
     val connectedFieldPathsByCoordinates:
         ImmutableMap<FieldCoordinates, ImmutableSet<GQLOperationPath>>
@@ -75,6 +79,21 @@ interface RequestMaterializationGraphContext {
         fun rawInputContextKeys(rawInputContextKeys: ImmutableSet<String>): B
 
         fun addPassThroughColumn(name: String): B
+
+        fun putMatchingVariablesForArgumentsForDomainDataElementPath(
+            domainDataElementPath: GQLOperationPath,
+            variableKeyToArgumentPaths: Map<GQLOperationPath, String>
+        ): B
+
+        fun putAllMatchingVariablesForArgumentsForDomainDataElementPath(
+            variableKeyToArgumentPathsByDomainDataElementPath:
+                Map<GQLOperationPath, Map<GQLOperationPath, String>>
+        ): B
+
+        fun setMatchingVariablesForArgumentsForDomainDataElementPath(
+            variableKeyToArgumentPathsByDomainDataElementPath:
+                PersistentMap<GQLOperationPath, ImmutableMap<GQLOperationPath, String>>
+        ): B
 
         fun putConnectedFieldPathForCoordinates(
             fieldCoordinates: FieldCoordinates,

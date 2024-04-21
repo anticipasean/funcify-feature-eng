@@ -15,6 +15,7 @@ import funcify.feature.materializer.graph.component.DefaultQueryComponentContext
 import funcify.feature.materializer.graph.component.QueryComponentContext
 import funcify.feature.materializer.graph.component.QueryComponentContextFactory
 import funcify.feature.materializer.graph.connector.LazyStandardQueryTraverser
+import funcify.feature.materializer.graph.connector.RequestMaterializationGraphContextPreconnector
 import funcify.feature.materializer.graph.connector.StandardQueryConnector
 import funcify.feature.materializer.graph.connector.TabularQueryDocumentCreator
 import funcify.feature.materializer.graph.context.DefaultRequestMaterializationGraphContextFactory
@@ -40,19 +41,20 @@ import graphql.execution.preparsed.PreparsedDocumentEntry
 import graphql.language.AstPrinter
 import graphql.language.Document
 import graphql.validation.ValidationError
+import kotlinx.collections.immutable.PersistentMap
+import kotlinx.collections.immutable.persistentMapOf
+import kotlinx.collections.immutable.persistentSetOf
+import kotlinx.collections.immutable.plus
+import kotlinx.collections.immutable.toPersistentMap
+import kotlinx.collections.immutable.toPersistentSet
+import org.slf4j.Logger
+import reactor.core.publisher.Mono
 import java.util.*
 import java.util.concurrent.ConcurrentMap
 import java.util.concurrent.TimeUnit
 import kotlin.reflect.KClass
 import kotlin.reflect.KType
 import kotlin.reflect.full.isSuperclassOf
-import kotlinx.collections.immutable.PersistentMap
-import kotlinx.collections.immutable.persistentMapOf
-import kotlinx.collections.immutable.persistentSetOf
-import kotlinx.collections.immutable.plus
-import kotlinx.collections.immutable.toPersistentSet
-import org.slf4j.Logger
-import reactor.core.publisher.Mono
 
 /**
  * @author smccarron
@@ -238,6 +240,9 @@ internal class DefaultSingleRequestMaterializationGraphService(
                 createRequestMaterializationGraphContextForCacheKey(cacheKey, session)
             }
             .flatMap { c: RequestMaterializationGraphContext ->
+                preprocessContextBeforeConnectingGraph(c)
+            }
+            .flatMap { c: RequestMaterializationGraphContext ->
                 createAndValidateGQLDocumentForTabularQueryIfApt(c)
             }
             .flatMap { c: RequestMaterializationGraphContext ->
@@ -311,6 +316,12 @@ internal class DefaultSingleRequestMaterializationGraphService(
                 )
             }
         }
+    }
+
+    private fun preprocessContextBeforeConnectingGraph(
+        context: RequestMaterializationGraphContext
+    ): Mono<out RequestMaterializationGraphContext> {
+        return Mono.fromCallable { RequestMaterializationGraphContextPreconnector.invoke(context) }
     }
 
     private fun createAndValidateGQLDocumentForTabularQueryIfApt(
@@ -396,6 +407,11 @@ internal class DefaultSingleRequestMaterializationGraphService(
                                         .document(pde.document)
                                         .requestGraph(context.requestGraph)
                                         .tabularDocumentContext(tdc)
+                                        .setMatchingVariablesForArgumentsForDomainDataElementPath(
+                                            context
+                                                .matchingArgumentPathsToVariableKeyByDomainDataElementPaths
+                                                .toPersistentMap()
+                                        )
                                         .build()
                                 }
                             }
