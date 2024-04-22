@@ -16,7 +16,6 @@ import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.extensions.TryExtensions.successIfNonNull
 import graphql.schema.GraphQLOutputType
 import graphql.schema.GraphQLTypeUtil
-import java.time.Instant
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.PersistentMap
@@ -25,6 +24,7 @@ import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toPersistentMap
 import kotlinx.collections.immutable.toPersistentSet
+import java.time.Instant
 
 /**
  * @author smccarron
@@ -105,16 +105,16 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
                             ServiceError.of("operation_path has not been set for planned_value")
                         )
                     }
-                    contextualParameters.isEmpty() -> {
-                        Try.failure(
-                            ServiceError.of(
-                                """at least one contextual_parameter 
-                                    |must be provided for association and/or identification 
-                                    |of the planned_value"""
-                                    .flatten()
-                            )
-                        )
-                    }
+                    // contextualParameters.isEmpty() -> {
+                    //    Try.failure(
+                    //        ServiceError.of(
+                    //            """at least one contextual_parameter
+                    //                |must be provided for association and/or identification
+                    //                |of the planned_value"""
+                    //                .flatten()
+                    //        )
+                    //    )
+                    // }
                     graphQLOutputType == null -> {
                         Try.failure(
                             ServiceError.of(
@@ -172,16 +172,16 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
                             ServiceError.of("operation_path has not been set for calculated_value")
                         )
                     }
-                    contextualParameters.isEmpty() -> {
-                        Try.failure(
-                            ServiceError.of(
-                                """at least one contextual_parameter 
-                                    |must be provided for association and/or identification 
-                                    |of the calculated_value"""
-                                    .flatten()
-                            )
-                        )
-                    }
+                    // contextualParameters.isEmpty() -> {
+                    //    Try.failure(
+                    //        ServiceError.of(
+                    //            """at least one contextual_parameter
+                    //                |must be provided for association and/or identification
+                    //                |of the calculated_value"""
+                    //                .flatten()
+                    //        )
+                    //    )
+                    // }
                     graphQLOutputType == null -> {
                         Try.failure(
                             ServiceError.of(
@@ -317,16 +317,16 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
                             ServiceError.of("operation_path has not been set for tracked_value")
                         )
                     }
-                    contextualParameters.isEmpty() -> {
-                        Try.failure(
-                            ServiceError.of(
-                                """at least one contextual_parameter 
-                                    |must be provided for association and/or identification 
-                                    |of the tracked_value"""
-                                    .flatten()
-                            )
-                        )
-                    }
+                    // contextualParameters.isEmpty() -> {
+                    //    Try.failure(
+                    //        ServiceError.of(
+                    //            """at least one contextual_parameter
+                    //                |must be provided for association and/or identification
+                    //                |of the tracked_value"""
+                    //                .flatten()
+                    //        )
+                    //    )
+                    // }
                     graphQLOutputType == null -> {
                         Try.failure(
                             ServiceError.of(

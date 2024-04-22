@@ -136,6 +136,7 @@ internal data class DefaultRequestMaterializationGraph(
                         requestGraph.edgesFromPointAsStream(p).flatMap {
                             (l: DirectedLine<GQLOperationPath>, e: MaterializationEdge) ->
                             when (e) {
+                                MaterializationEdge.DIRECT_ARGUMENT_VALUE_PROVIDED,
                                 MaterializationEdge.DEFAULT_ARGUMENT_VALUE_PROVIDED,
                                 MaterializationEdge.VARIABLE_VALUE_PROVIDED,
                                 MaterializationEdge.RAW_INPUT_VALUE_PROVIDED -> {
