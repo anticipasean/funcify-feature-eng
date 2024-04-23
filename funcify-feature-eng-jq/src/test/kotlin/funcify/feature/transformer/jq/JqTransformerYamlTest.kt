@@ -82,27 +82,6 @@ class JqTransformerYamlTest {
         }
         val jqTransformer: JqTransformer =
             jqTransformerSource.jqTransformersByName["negative_to_null"]!!
-        val serviceError: ServiceError =
-            Assertions.assertThrows(
-                ServiceError::class.java,
-                {
-                    jqTransformer
-                        .transform(JsonNodeFactory.instance.objectNode().put("input", -1))
-                        .toTry()
-                        .orElseThrow()
-                },
-                {
-                    """service_error expected since transformer input definition 
-                        |expects number, not an object type as input"""
-                        .flatten()
-                }
-            )
-        // println(serviceError.message)
-        Assertions.assertTrue(serviceError.message.contains(Regex("invalid"))) {
-            "service_error did not match expected regular expression: [ actual: service_error.message: \"%s\" ]".format(
-                serviceError.message
-            )
-        }
         val result1: JsonNode =
             Assertions.assertDoesNotThrow<JsonNode> {
                 jqTransformer.transform(JsonNodeFactory.instance.numberNode(-1)).toFuture().join()
@@ -114,5 +93,36 @@ class JqTransformerYamlTest {
             }
         Assertions.assertTrue(result2.isNumber)
         Assertions.assertEquals(1, result2.intValue())
+        val result3: JsonNode =
+            Assertions.assertDoesNotThrow<JsonNode> {
+                jqTransformer
+                    .transform(JsonNodeFactory.instance.objectNode().put("input", 1))
+                    .toTry()
+                    .orElseThrow()
+            }
+        Assertions.assertTrue(result3.isNumber)
+        Assertions.assertEquals(1, result3.intValue())
+        val serviceError: ServiceError =
+            Assertions.assertThrows(
+                ServiceError::class.java,
+                {
+                    jqTransformer
+                        .transform(
+                            JsonNodeFactory.instance.objectNode().put("input1", -1).put("input2", 1)
+                        )
+                        .toTry()
+                        .orElseThrow()
+                },
+                {
+                    """service_error expected since transformer input definition 
+                        |expects number, not an object type as input"""
+                        .flatten()
+                }
+            )
+        // println(serviceError.message)
+        Assertions.assertTrue(serviceError.message.contains(Regex("invalid"))) {
+            "service_error did not match expected regular expression: [ actual: service_error.message: \"%s\" ]"
+                .format(serviceError.message)
+        }
     }
 }

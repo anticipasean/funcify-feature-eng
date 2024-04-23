@@ -51,7 +51,7 @@ class LastUpdatedCoordinatesRegistryTest {
             |      minStarScore: Int = 0
             |    ): [Review]
             |    artwork(limits: ImageLimits): [Image]
-            |    added: Date @lastUpdated
+            |    added: Date @last_updated
             |}
             |
             |input TitleFormat {
@@ -61,7 +61,7 @@ class LastUpdatedCoordinatesRegistryTest {
             |type Review {
             |    user: User
             |    starScore: Int
-            |    submittedDate: DateTime @lastUpdated
+            |    submittedDate: DateTime @last_updated
             |}
             |
             |type Image {

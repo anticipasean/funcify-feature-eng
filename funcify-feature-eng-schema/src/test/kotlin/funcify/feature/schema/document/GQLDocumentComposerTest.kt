@@ -216,7 +216,7 @@ internal class GQLDocumentComposerTest {
         }
         val expectedOutputFormat: String =
             """
-            |query (${"$"}titleFilter: String, ${"$"}format: TitleFormat, ${"$"}limits: ImageLimits) {
+            |query (${"$"}titleFilter: String, ${"$"}format: TitleFormat, ${"$"}limits: ImageLimits!) {
             |  shows(titleFilter: ${"$"}titleFilter) {
             |    title(format: ${"$"}format)
             |    releaseYear
@@ -417,7 +417,7 @@ internal class GQLDocumentComposerTest {
         }
         val expectedOutputFormat: String =
             """
-            |query (${"$"}titleFilter: String, ${"$"}format: TitleFormat, ${"$"}limits: ImageLimits) {
+            |query (${"$"}titleFilter: String, ${"$"}format: TitleFormat, ${"$"}limits: ImageLimits!) {
             |  shows(titleFilter: ${"$"}titleFilter) {
             |    name: title(format: ${"$"}format)
             |    releaseYear
