@@ -1,19 +1,12 @@
 package funcify.feature.schema.path.lookup
 
-import arrow.core.Option
-import arrow.core.getOrElse
-import arrow.core.none
-import arrow.core.some
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.node.JsonNodeFactory
-import funcify.feature.schema.path.JsonObjectHierarchyAssessor
-import funcify.feature.tools.extensions.JsonNodeExtensions.removeAllChildKeyValuePairsFromRightmostObjectNode
 import funcify.feature.tools.json.JacksonJsonNodeComparator
-import java.math.BigDecimal
-import java.net.URI
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableMap
-import kotlinx.collections.immutable.toPersistentMap
+import java.math.BigDecimal
+import java.net.URI
 
 /**
  * Represents the location of a value within registered feature definitions, the folder structure
@@ -60,8 +53,7 @@ interface SchematicPath : Comparable<SchematicPath> {
                                     }
                                 }
                             }
-                            .firstOrNull { keyOrValCompResult -> keyOrValCompResult != 0 }
-                            ?: 0
+                            .firstOrNull { keyOrValCompResult -> keyOrValCompResult != 0 } ?: 0
                     }
                     else -> {
                         mapSizeComparison
@@ -80,8 +72,7 @@ interface SchematicPath : Comparable<SchematicPath> {
                         l1.asSequence()
                             .zip(l2.asSequence())
                             .map { (s1, s2) -> s1.compareTo(s2) }
-                            .firstOrNull { compResult -> compResult != 0 }
-                            ?: 0
+                            .firstOrNull { compResult -> compResult != 0 } ?: 0
                     }
                     else -> listSizeComparison
                 }
@@ -127,8 +118,8 @@ interface SchematicPath : Comparable<SchematicPath> {
 
     /**
      * Represented by URI fragments `#uppercase&aliases=names=amount_remaining_3m_1m,amt_rem_3m1m`
-     * in URI form and schema directives `@uppercase @aliases(names:
-     * ["amount_remaining_3m_1m", "amt_rem_3m1m" ])` in GraphQL SDL form
+     * in URI form and schema directives
+     * `@uppercase @aliases(names: ["amount_remaining_3m_1m", "amt_rem_3m1m" ])` in GraphQL SDL form
      */
     val directives: ImmutableMap<String, JsonNode>
 

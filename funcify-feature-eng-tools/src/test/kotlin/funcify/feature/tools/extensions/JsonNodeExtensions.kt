@@ -12,8 +12,8 @@ import com.fasterxml.jackson.databind.node.NullNode
 import com.fasterxml.jackson.databind.node.ObjectNode
 import funcify.feature.tools.extensions.PersistentListExtensions.toImmutableList
 import funcify.feature.tools.extensions.StreamExtensions.recurseBreadthFirst
-import java.util.stream.Stream
 import kotlinx.collections.immutable.ImmutableList
+import java.util.stream.Stream
 
 object JsonNodeExtensions {
 
