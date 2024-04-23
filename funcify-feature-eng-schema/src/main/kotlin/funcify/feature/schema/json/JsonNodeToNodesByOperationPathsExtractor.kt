@@ -19,12 +19,14 @@ import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.PersistentList
 import kotlinx.collections.immutable.persistentListOf
 
-object JsonNodeSchematicPathToValueMappingExtractor :
+object JsonNodeToNodesByOperationPathsExtractor :
     (JsonNode) -> ImmutableMap<GQLOperationPath, JsonNode> {
 
     override fun invoke(dataJsonObject: JsonNode): ImmutableMap<GQLOperationPath, JsonNode> {
         return sequenceOf(JsonNodePathTraversalContext(persistentListOf(), dataJsonObject))
-            .recurseBreadthFirst { ctx -> traverseJsonNodeContextCreatingPathsForEachNonObjectValue(ctx) }
+            .recurseBreadthFirst { ctx ->
+                traverseJsonNodeContextCreatingPathsForEachNonObjectValue(ctx)
+            }
             .sortedBy { (sp, _) -> sp }
             .reducePairsToPersistentMap()
     }
@@ -51,8 +53,7 @@ object JsonNodeSchematicPathToValueMappingExtractor :
             JsonNodeType.BINARY,
             JsonNodeType.STRING -> {
                 sequenceOf(
-                    (GQLOperationPath.of { fields(context.pathSegments) } to context.value)
-                        .right()
+                    (GQLOperationPath.of { fields(context.pathSegments) } to context.value).right()
                 )
             }
             JsonNodeType.ARRAY -> {
@@ -60,9 +61,7 @@ object JsonNodeSchematicPathToValueMappingExtractor :
                 context.pathSegments
                     .toOption()
                     .filter { ps -> ps.isNotEmpty() }
-                    .map { ps ->
-                        (GQLOperationPath.of { fields(ps) } to context.value).right()
-                    }
+                    .map { ps -> (GQLOperationPath.of { fields(ps) } to context.value).right() }
                     .fold(::emptySequence, ::sequenceOf)
                     .plus(
                         context.pathSegments
@@ -98,9 +97,7 @@ object JsonNodeSchematicPathToValueMappingExtractor :
             JsonNodeType.OBJECT -> {
                 context.pathSegments
                     .toOption()
-                    .map { ps ->
-                        (GQLOperationPath.of { fields(ps) } to context.value).right()
-                    }
+                    .map { ps -> (GQLOperationPath.of { fields(ps) } to context.value).right() }
                     .fold(::emptySequence, ::sequenceOf)
                     .plus(
                         context.value

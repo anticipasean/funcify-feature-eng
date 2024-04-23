@@ -2492,17 +2492,21 @@ internal object StandardQueryConnector : RequestMaterializationGraphConnector<St
             "connect_subdomain_data_element_field: [ field_component_context.path: {} ]",
             fieldComponentContext.path
         )
-        return Try.success(connectorContext)
-            .map { sq: StandardQuery ->
-                connectLastUpdatedDataElementFieldRelatedToSubdomainDataElementField(
-                    sq,
-                    fieldComponentContext
-                )
-            }
-            .map { sq: StandardQuery ->
-                connectDataElementFieldToDomainDataElementField(sq, fieldComponentContext)
-            }
-            .orElseThrow()
+        // Try.success(connectorContext)
+        //    .map { sq: StandardQuery ->
+        //        connectLastUpdatedDataElementFieldRelatedToSubdomainDataElementField(
+        //            sq,
+        //            fieldComponentContext
+        //        )
+        //    }
+        //    .map { sq: StandardQuery ->
+        //        connectDataElementFieldToDomainDataElementField(sq, fieldComponentContext)
+        //    }
+        //    .orElseThrow()
+        return connectDataElementFieldToDomainDataElementField(
+            connectorContext,
+            fieldComponentContext
+        )
     }
 
     private fun connectLastUpdatedDataElementFieldRelatedToSubdomainDataElementField(
