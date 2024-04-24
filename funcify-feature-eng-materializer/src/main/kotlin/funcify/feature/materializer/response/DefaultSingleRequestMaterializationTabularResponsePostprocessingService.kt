@@ -85,16 +85,33 @@ internal class DefaultSingleRequestMaterializationTabularResponsePostprocessingS
     private fun convertExecutionResultIntoDataJson(
         executionResult: ExecutionResult
     ): Try<JsonNode> {
-        return jsonMapper.fromKotlinObject(executionResult.getData()).toJsonNode().mapFailure {
-            t: Throwable ->
-            ServiceError.builder()
-                .message(
-                    "unable to create instance of [ type: %s ] from execution_result.data",
-                    JsonNode::class.qualifiedName
-                )
-                .cause(t)
-                .build()
-        }
+        return jsonMapper
+            .fromKotlinObject(executionResult.getData())
+            .toJsonNode()
+            .mapFailure { t: Throwable ->
+                ServiceError.builder()
+                    .message(
+                        "unable to create instance of [ type: %s ] from execution_result.data",
+                        JsonNode::class.qualifiedName
+                    )
+                    .cause(t)
+                    .build()
+            }
+            .peek({ dataJson: JsonNode ->
+                if (logger.isDebugEnabled) {
+                    logger.debug(
+                        "convert_execution_result_into_data_json: [ status: successful ][ data_json: {} ]",
+                        jsonMapper.fromJsonNode(dataJson).toJsonString().orElse("")
+                    )
+                }
+            }) { t: Throwable ->
+                if (logger.isDebugEnabled) {
+                    logger.debug(
+                        "convert_execution_result_into_data_json: [ status: failed ][ error: {} ]",
+                        (t as ServiceError).toJsonNode()
+                    )
+                }
+            }
     }
 
     private fun extractEachExpectedOutputFieldNameValueFromDataJson(
@@ -102,12 +119,6 @@ internal class DefaultSingleRequestMaterializationTabularResponsePostprocessingS
         tabularDocumentContext: TabularDocumentContext,
         dataJson: JsonNode,
     ): Try<ObjectNode> {
-        if (logger.isDebugEnabled) {
-            logger.debug(
-                "extract_each_expected_output_field_name_value_from_data_json: [ data_json: {} ]",
-                jsonMapper.fromJsonNode(dataJson).toJsonString().orElse("")
-            )
-        }
         return session.rawGraphQLRequest.expectedOutputFieldNames
             .asSequence()
             .map { columnName: String ->

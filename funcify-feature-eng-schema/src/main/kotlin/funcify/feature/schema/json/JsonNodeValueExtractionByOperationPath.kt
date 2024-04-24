@@ -36,27 +36,24 @@ object JsonNodeValueExtractionByOperationPath : (JsonNode, GQLOperationPath) -> 
         { name: String -> cache.computeIfAbsent(name, strategy::translate) }
     }
 
-    override fun invoke(
-        topLevelJsonNode: JsonNode,
-        pathToExtract: GQLOperationPath
-    ): Option<JsonNode> {
+    override fun invoke(jsonValue: JsonNode, pathToExtract: GQLOperationPath): Option<JsonNode> {
         if (logger.isDebugEnabled) {
             logger.debug(
-                "invoke: [ path_to_extract: {}, json: {} ]",
-                pathToExtract,
-                topLevelJsonNode
+                "invoke: [ json_value.node_type: {}, path_to_extract: {} ]",
+                jsonValue.nodeType,
+                pathToExtract
             )
         }
         return when {
             pathToExtract.isRoot() -> {
-                topLevelJsonNode.toOption()
+                jsonValue.toOption()
             }
             !pathToExtract.refersToSelection() -> {
                 none<JsonNode>()
             }
             else -> {
                 traverseJsonNodeUntilPathTraversed(
-                    topLevelJsonNode,
+                    jsonValue,
                     pathToExtract.selection.toPersistentList()
                 )
             }
@@ -142,7 +139,9 @@ object JsonNodeValueExtractionByOperationPath : (JsonNode, GQLOperationPath) -> 
             is ObjectNode -> {
                 when (val n: JsonNode = node.path(fieldNameToUse)) {
                     is MissingNode -> {
-                        when (val n1: JsonNode = node.path(snakeCaseNameTransformer(fieldNameToUse))) {
+                        when (
+                            val n1: JsonNode = node.path(snakeCaseNameTransformer(fieldNameToUse))
+                        ) {
                             is MissingNode -> {
                                 emptySequence<JsonNode>()
                             }
