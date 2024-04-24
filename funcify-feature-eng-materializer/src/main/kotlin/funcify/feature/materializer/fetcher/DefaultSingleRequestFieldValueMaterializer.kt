@@ -1,6 +1,7 @@
 package funcify.feature.materializer.fetcher
 
 import arrow.core.filterIsInstance
+import arrow.core.firstOrNone
 import arrow.core.getOrNone
 import arrow.core.identity
 import arrow.core.lastOrNone
@@ -9,14 +10,12 @@ import arrow.core.toOption
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.PropertyNamingStrategies.SnakeCaseStrategy
 import com.fasterxml.jackson.databind.node.JsonNodeFactory
-import com.fasterxml.jackson.databind.node.JsonNodeType
 import com.fasterxml.jackson.databind.node.ObjectNode
 import funcify.feature.error.ServiceError
 import funcify.feature.materializer.dispatch.DispatchedRequestMaterializationGraph
+import funcify.feature.materializer.output.SingleRequestJsonFieldValueDeserializer
 import funcify.feature.materializer.session.field.SingleRequestFieldMaterializationSession
 import funcify.feature.naming.StandardNamingConventions
-import funcify.feature.schema.json.GQLResultValuesToJsonNodeConverter
-import funcify.feature.schema.json.JsonNodeToStandardValueConverter
 import funcify.feature.schema.path.result.ElementSegment
 import funcify.feature.schema.path.result.GQLResultPath
 import funcify.feature.schema.path.result.ListSegment
@@ -24,6 +23,7 @@ import funcify.feature.schema.path.result.NameSegment
 import funcify.feature.schema.tracking.TrackableValue
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.MonoExtensions.widen
+import funcify.feature.tools.extensions.OptionExtensions.sequence
 import funcify.feature.tools.extensions.OptionExtensions.toMono
 import funcify.feature.tools.extensions.SequenceExtensions.firstOrNone
 import funcify.feature.tools.extensions.SequenceExtensions.flatMapOptions
@@ -34,11 +34,12 @@ import graphql.language.SelectionSet
 import graphql.schema.FieldCoordinates
 import graphql.schema.GraphQLImplementingType
 import graphql.schema.GraphQLTypeUtil
+import graphql.schema.GraphQLUnmodifiedType
+import kotlinx.collections.immutable.PersistentList
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.plus
-import kotlinx.collections.immutable.toPersistentList
 import org.slf4j.Logger
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
@@ -49,6 +50,7 @@ import java.util.concurrent.ConcurrentMap
 
 internal class DefaultSingleRequestFieldValueMaterializer(
     private val jsonMapper: JsonMapper,
+    private val singleRequestJsonFieldValueDeserializer: SingleRequestJsonFieldValueDeserializer,
 ) : SingleRequestFieldValueMaterializer {
 
     companion object {
@@ -131,7 +133,7 @@ internal class DefaultSingleRequestFieldValueMaterializer(
                 )
             }
             selectedFieldUnderFeaturesElementType(session) -> {
-                extractFeatureValueFromSource(session)
+                extractFeatureValueFromSource(session, dispatchedRequestMaterializationGraph)
             }
             else -> {
                 Mono.error { ServiceError.of("not yet implemented materialization logic") }
@@ -142,17 +144,10 @@ internal class DefaultSingleRequestFieldValueMaterializer(
     private fun selectedFieldRefersToDataElementElementType(
         session: SingleRequestFieldMaterializationSession
     ): Boolean {
-        return session.gqlResultPath
-            .getParentPath()
-            .filter { pp: GQLResultPath -> pp.isRoot() }
-            .isDefined() &&
-            session.fieldCoordinates
-                .filter { fc: FieldCoordinates ->
-                    fc ==
-                        session.materializationMetamodel.featureEngineeringModel
-                            .dataElementFieldCoordinates
-                }
-                .isDefined()
+        return session.fieldCoordinates.exists { fc: FieldCoordinates ->
+            session.materializationMetamodel.featureEngineeringModel.dataElementFieldCoordinates ==
+                fc
+        }
     }
 
     private fun createDataElementElementTypePublisher(
@@ -184,100 +179,40 @@ internal class DefaultSingleRequestFieldValueMaterializer(
     private fun selectedFieldRefersToTransformerElementType(
         session: SingleRequestFieldMaterializationSession
     ): Boolean {
-        return session.gqlResultPath
-            .getParentPath()
-            .filter { pp: GQLResultPath -> pp.isRoot() }
-            .isDefined() &&
-            session.fieldCoordinates
-                .filter { fc: FieldCoordinates ->
-                    fc ==
-                        session.materializationMetamodel.featureEngineeringModel
-                            .transformerFieldCoordinates
-                }
-                .isDefined()
+        return session.fieldCoordinates.exists { fc: FieldCoordinates ->
+            session.materializationMetamodel.featureEngineeringModel.transformerFieldCoordinates ==
+                fc
+        }
     }
 
     private fun selectedFieldRefersToFeaturesElementType(
         session: SingleRequestFieldMaterializationSession
     ): Boolean {
-        return session.gqlResultPath
-            .getParentPath()
-            .filter { pp: GQLResultPath -> pp.isRoot() }
-            .isDefined() &&
-            session.fieldCoordinates
-                .filter { fc: FieldCoordinates ->
-                    fc ==
-                        session.materializationMetamodel.featureEngineeringModel
-                            .featureFieldCoordinates
-                }
-                .isDefined()
+        return session.fieldCoordinates.exists { fc: FieldCoordinates ->
+            session.materializationMetamodel.featureEngineeringModel.featureFieldCoordinates == fc
+        }
     }
 
     private fun createFeatureElementTypePublisher(
         session: SingleRequestFieldMaterializationSession,
         dispatchedRequestMaterializationGraph: DispatchedRequestMaterializationGraph
     ): Mono<Any?> {
-        return Flux.merge(
-                dispatchedRequestMaterializationGraph.featureCalculatorPublishersByPath
-                    .asSequence()
-                    .map { (rp: GQLResultPath, fp: Mono<out TrackableValue<JsonNode>>) ->
-                        fp.flatMap { tv: TrackableValue<JsonNode> ->
-                            when {
-                                tv.isPlanned() -> {
-                                    Mono.error {
-                                        ServiceError.of(
-                                            "feature [ path: %s ] has not been calculated",
-                                            tv.operationPath
-                                        )
-                                    }
-                                }
-                                else -> {
-                                    Mono.just(
-                                        rp to
-                                            tv.fold(
-                                                { pv -> JsonNodeFactory.instance.nullNode() },
-                                                { cv -> cv.calculatedValue },
-                                                { tkv -> tkv.trackedValue }
-                                            )
-                                    )
-                                }
-                            }
-                        }
-                    }
-                    .asIterable()
-            )
-            .reduce(
-                persistentMapOf<GQLResultPath, JsonNode>(),
-                PersistentMap<GQLResultPath, JsonNode>::plus
-            )
-            .map { resultValuesByPath: PersistentMap<GQLResultPath, JsonNode> ->
-                GQLResultValuesToJsonNodeConverter.invoke(resultValuesByPath)
-            }
-            .flatMap { jn: JsonNode ->
-                when (jn.nodeType) {
-                    JsonNodeType.OBJECT -> {
-                        Mono.fromSupplier {
-                            jn.get(
-                                    session.materializationMetamodel.featureEngineeringModel
-                                        .featureFieldCoordinates
-                                        .fieldName
-                                )
-                                ?.toPersistentList() ?: persistentListOf<JsonNode>()
-                        }
+        return dispatchedRequestMaterializationGraph.featureCalculatorPublishersByPath.keys
+            .asSequence()
+            .flatMap { rp: GQLResultPath -> rp.elementSegments.firstOrNone().sequence() }
+            .toSet()
+            .let { numberOfUniqueTopFeatureNodes: Set<ElementSegment> ->
+                when (numberOfUniqueTopFeatureNodes.size) {
+                    0 -> {
+                        Mono.fromSupplier<List<Map<String, JsonNode>>>(::persistentListOf).widen()
                     }
                     else -> {
-                        Mono.error {
-                            ServiceError.of(
-                                """unable to create array of materialized features 
-                                    |for expected results: [ %s ]"""
-                                    .flatten(),
-                                dispatchedRequestMaterializationGraph
-                                    .featureCalculatorPublishersByPath
-                                    .keys
-                                    .asSequence()
-                                    .sorted()
-                                    .joinToString(", ", "{ ", " }")
-                            )
+                        Mono.fromSupplier {
+                            numberOfUniqueTopFeatureNodes.indices.fold(
+                                persistentListOf<Map<String, JsonNode>>()
+                            ) { pl: PersistentList<Map<String, JsonNode>>, _: Int ->
+                                pl.add(persistentMapOf<String, JsonNode>())
+                            }
                         }
                     }
                 }
@@ -332,7 +267,8 @@ internal class DefaultSingleRequestFieldValueMaterializer(
                             }
                     }
                     .flatMap { jn: JsonNode ->
-                        JsonNodeToStandardValueConverter.invoke(jn, session.fieldOutputType)
+                        singleRequestJsonFieldValueDeserializer
+                            .deserializeValueForFieldFromJsonInSession(session, jn)
                     }
                     .toMono()
                     .widen()
@@ -350,7 +286,8 @@ internal class DefaultSingleRequestFieldValueMaterializer(
                             .mapNotNull { i: Int -> jns.get(i) }
                     }
                     .flatMap { jn: JsonNode ->
-                        JsonNodeToStandardValueConverter.invoke(jn, session.fieldOutputType)
+                        singleRequestJsonFieldValueDeserializer
+                            .deserializeValueForFieldFromJsonInSession(session, jn)
                     }
                     .toMono()
                     .widen()
@@ -371,7 +308,8 @@ internal class DefaultSingleRequestFieldValueMaterializer(
                                     .toOption()
                                     .filterIsInstance<GraphQLImplementingType>()
                                     .isDefined() -> {
-                                JsonNodeToStandardValueConverter.invoke(on, session.fieldOutputType)
+                                singleRequestJsonFieldValueDeserializer
+                                    .deserializeValueForFieldFromJsonInSession(session, on)
                                     .filterIsInstance<Map<String, JsonNode>>()
                                     .flatMap { m: Map<String, JsonNode> ->
                                         m.getOrNone(session.field.resultKey)
@@ -404,7 +342,8 @@ internal class DefaultSingleRequestFieldValueMaterializer(
                                     }
                             }
                             else -> {
-                                JsonNodeToStandardValueConverter.invoke(on, session.fieldOutputType)
+                                singleRequestJsonFieldValueDeserializer
+                                    .deserializeValueForFieldFromJsonInSession(session, on)
                             }
                         }
                     }
@@ -414,7 +353,8 @@ internal class DefaultSingleRequestFieldValueMaterializer(
                             .toOption()
                             .filterNot { jn: JsonNode -> jn is ObjectNode }
                             .flatMap { jn: JsonNode ->
-                                JsonNodeToStandardValueConverter.invoke(jn, session.fieldOutputType)
+                                singleRequestJsonFieldValueDeserializer
+                                    .deserializeValueForFieldFromJsonInSession(session, jn)
                             }
                     }
                     .toMono()
@@ -451,13 +391,15 @@ internal class DefaultSingleRequestFieldValueMaterializer(
         dispatchedRequestMaterializationGraph: DispatchedRequestMaterializationGraph
     ): Mono<Any?> {
         return when {
-            session.gqlResultPath in
-                dispatchedRequestMaterializationGraph.transformerPublishersByPath -> {
+            dispatchedRequestMaterializationGraph.transformerPublishersByPath.containsKey(
+                session.gqlResultPath
+            ) -> {
                 dispatchedRequestMaterializationGraph.transformerPublishersByPath
                     .getOrNone(session.gqlResultPath)
                     .map { tp: Mono<out JsonNode> ->
                         tp.flatMap { jn: JsonNode ->
-                            JsonNodeToStandardValueConverter.invoke(jn, session.fieldOutputType)
+                            singleRequestJsonFieldValueDeserializer
+                                .deserializeValueForFieldFromJsonInSession(session, jn)
                                 .toMono()
                         }
                     }
@@ -484,103 +426,59 @@ internal class DefaultSingleRequestFieldValueMaterializer(
     }
 
     private fun extractFeatureValueFromSource(
-        session: SingleRequestFieldMaterializationSession
+        session: SingleRequestFieldMaterializationSession,
+        dispatchedRequestMaterializationGraph: DispatchedRequestMaterializationGraph
     ): Mono<Any?> {
         return when {
-            currentSourceValueIsInstanceOf<Map<String, JsonNode>>(session) -> {
-                session.dataFetchingEnvironment
-                    .getSource<Map<String, JsonNode>>()
-                    .toOption()
-                    .flatMap { m: Map<String, JsonNode> ->
-                        session.gqlResultPath.elementSegments
-                            .lastOrNone()
-                            .mapNotNull { es: ElementSegment ->
-                                when (es) {
-                                    is ListSegment -> es.name
-                                    is NameSegment -> es.name
-                                }
-                            }
-                            .flatMap(m::getOrNone)
-                    }
-                    .flatMap { jn: JsonNode ->
-                        JsonNodeToStandardValueConverter.invoke(jn, session.fieldOutputType)
-                    }
-                    .toMono()
-                    .widen()
+            // Case 1: Value is a container: an empty map is a signal value
+            session.fieldOutputType.toOption().mapNotNull(GraphQLTypeUtil::unwrapAll).exists {
+                gut: GraphQLUnmodifiedType ->
+                GraphQLTypeUtil.isObjectType(gut) || GraphQLTypeUtil.isInterfaceOrUnion(gut)
+            } -> {
+                Mono.fromSupplier<Map<String, JsonNode>>(::persistentMapOf).widen()
             }
-            currentSourceValueIsInstanceOf<List<JsonNode>>(session) -> {
-                session.dataFetchingEnvironment
-                    .getSource<List<JsonNode>>()
-                    .toOption()
-                    .flatMap { jns: List<JsonNode> ->
-                        session.gqlResultPath.elementSegments
-                            .lastOrNone()
-                            .filterIsInstance<ListSegment>()
-                            .flatMap { ls: ListSegment -> ls.indices.lastOrNone() }
-                            .filter { i: Int -> i in jns.indices }
-                            .mapNotNull { i: Int -> jns.get(i) }
-                    }
-                    .flatMap { jn: JsonNode ->
-                        JsonNodeToStandardValueConverter.invoke(jn, session.fieldOutputType)
-                    }
-                    .toMono()
-                    .widen()
-            }
-            currentSourceValueIsInstanceOf<JsonNode>(session) -> {
-                session.dataFetchingEnvironment
-                    .getSource<JsonNode>()
-                    .toOption()
-                    .filterIsInstance<ObjectNode>()
-                    .flatMap { on: ObjectNode ->
-                        when {
-                            session.field.selectionSet
-                                .toOption()
-                                .mapNotNull(SelectionSet::getSelections)
-                                .filter(List<Selection<*>>::isNotEmpty)
-                                .isDefined() ||
-                                GraphQLTypeUtil.unwrapAll(session.fieldOutputType)
-                                    .toOption()
-                                    .filterIsInstance<GraphQLImplementingType>()
-                                    .isDefined() -> {
-                                session.gqlResultPath.elementSegments
-                                    .lastOrNone()
-                                    .map { es: ElementSegment ->
-                                        when (es) {
-                                            is ListSegment -> es.name
-                                            is NameSegment -> es.name
+            // Case 2: Value has a feature calculator publisher associated
+            dispatchedRequestMaterializationGraph.featureCalculatorPublishersByPath.containsKey(
+                session.gqlResultPath
+            ) -> {
+                dispatchedRequestMaterializationGraph.featureCalculatorPublishersByPath
+                    .getOrNone(session.gqlResultPath)
+                    .map { tvp: Mono<out TrackableValue<JsonNode>> ->
+                        tvp.flatMap { tv: TrackableValue<JsonNode> ->
+                                when {
+                                    tv.isPlanned() -> {
+                                        Mono.error {
+                                            ServiceError.of(
+                                                "feature [ path: %s ] has not been calculated",
+                                                session.gqlResultPath
+                                            )
                                         }
                                     }
-                                    .mapNotNull(on::get)
-                                    .flatMap { jn: JsonNode ->
-                                        JsonNodeToStandardValueConverter.invoke(
-                                            jn,
-                                            session.fieldOutputType
+                                    else -> {
+                                        Mono.just(
+                                            tv.fold(
+                                                { pv -> JsonNodeFactory.instance.nullNode() },
+                                                { cv -> cv.calculatedValue },
+                                                { tkv -> tkv.trackedValue }
+                                            )
                                         )
                                     }
+                                }
                             }
-                            else -> {
-                                JsonNodeToStandardValueConverter.invoke(on, session.fieldOutputType)
-                            }
-                        }
-                    }
-                    .orElse {
-                        session.dataFetchingEnvironment
-                            .getSource<JsonNode>()
-                            .toOption()
-                            .filterNot { jn: JsonNode -> jn is ObjectNode }
                             .flatMap { jn: JsonNode ->
-                                JsonNodeToStandardValueConverter.invoke(jn, session.fieldOutputType)
+                                singleRequestJsonFieldValueDeserializer
+                                    .deserializeValueForFieldFromJsonInSession(session, jn)
+                                    .toMono()
                             }
+                            .cache()
                     }
-                    .toMono()
-                    .widen()
+                    .fold(::empty, ::identity)
             }
             else -> {
                 Mono.error {
                     ServiceError.of(
-                        "could not find value for [ path: %s ] under source [ %s ]",
-                        session.gqlResultPath,
-                        session.dataFetchingEnvironment.getSource()
+                        "no feature value publisher has been created for [ path: %s ]",
+                        session.gqlResultPath
                     )
                 }
             }

@@ -19,13 +19,13 @@ import graphql.schema.FieldCoordinates
 import graphql.schema.GraphQLArgument
 import graphql.schema.GraphQLSchema
 import graphql.schema.GraphQLSchemaElement
+import kotlinx.collections.immutable.ImmutableMap
+import kotlinx.collections.immutable.ImmutableSet
+import kotlinx.collections.immutable.persistentSetOf
 import java.time.Instant
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentMap
-import kotlinx.collections.immutable.ImmutableMap
-import kotlinx.collections.immutable.ImmutableSet
-import kotlinx.collections.immutable.persistentSetOf
 
 internal data class DefaultMaterializationMetamodel(
     override val created: Instant = Instant.now(),
@@ -81,15 +81,12 @@ internal data class DefaultMaterializationMetamodel(
                         }
                         else -> {
                             childPathsByParentPath
-                                .getOrNone(p)
-                                .fold(::emptySequence, ImmutableSet<GQLOperationPath>::asSequence)
+                                .getOrElse(p, ::persistentSetOf)
+                                .asSequence()
                                 .flatMap { cp: GQLOperationPath ->
                                     fieldCoordinatesByPath
-                                        .getOrNone(cp)
-                                        .fold(
-                                            ::emptySequence,
-                                            ImmutableSet<FieldCoordinates>::asSequence
-                                        )
+                                        .getOrElse(cp, ::persistentSetOf)
+                                        .asSequence()
                                         .partition { fc: FieldCoordinates -> fc in fcSet }
                                         .fold {
                                             alreadyAddedCoordinates: List<FieldCoordinates>,

@@ -25,6 +25,8 @@ import funcify.feature.materializer.model.DefaultMaterializationMetamodelFactory
 import funcify.feature.materializer.model.MaterializationMetamodel
 import funcify.feature.materializer.model.MaterializationMetamodelBuildStrategy
 import funcify.feature.materializer.model.MaterializationMetamodelFactory
+import funcify.feature.materializer.output.DefaultSingleRequestJsonFieldValueDeserializer
+import funcify.feature.materializer.output.SingleRequestJsonFieldValueDeserializer
 import funcify.feature.materializer.request.factory.DefaultRawGraphQLRequestFactory
 import funcify.feature.materializer.request.factory.RawGraphQLRequestFactory
 import funcify.feature.materializer.response.DefaultSingleRequestMaterializationTabularResponsePostprocessingService
@@ -52,12 +54,12 @@ import graphql.execution.instrumentation.Instrumentation
 import graphql.schema.DataFetcherFactory
 import graphql.schema.GraphQLSchema
 import graphql.schema.idl.SchemaPrinter
-import java.util.concurrent.CompletionStage
 import org.slf4j.Logger
 import org.springframework.beans.factory.ObjectProvider
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import java.util.concurrent.CompletionStage
 
 /**
  * @author smccarron
@@ -82,12 +84,22 @@ class MaterializerConfiguration {
         return DefaultSerializedGraphQLResponseFactory()
     }
 
+    @ConditionalOnMissingBean(value = [SingleRequestJsonFieldValueDeserializer::class])
+    @Bean
+    fun singleRequestJsonFieldValueDeserializer(): SingleRequestJsonFieldValueDeserializer {
+        return DefaultSingleRequestJsonFieldValueDeserializer()
+    }
+
     @ConditionalOnMissingBean(value = [SingleRequestFieldValueMaterializer::class])
     @Bean
     fun singleRequestFieldValueMaterializer(
-        jsonMapper: JsonMapper
+        jsonMapper: JsonMapper,
+        singleRequestJsonFieldValueDeserializer: SingleRequestJsonFieldValueDeserializer
     ): SingleRequestFieldValueMaterializer {
-        return DefaultSingleRequestFieldValueMaterializer(jsonMapper = jsonMapper)
+        return DefaultSingleRequestFieldValueMaterializer(
+            jsonMapper = jsonMapper,
+            singleRequestJsonFieldValueDeserializer = singleRequestJsonFieldValueDeserializer
+        )
     }
 
     @ConditionalOnMissingBean(value = [SingleRequestMaterializationGraphService::class])
