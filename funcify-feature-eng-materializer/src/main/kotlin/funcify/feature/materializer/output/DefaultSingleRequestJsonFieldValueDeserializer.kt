@@ -32,11 +32,11 @@ import graphql.schema.GraphQLNonNull
 import graphql.schema.GraphQLOutputType
 import graphql.schema.GraphQLScalarType
 import graphql.schema.GraphQLType
+import java.math.BigDecimal
+import java.util.*
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toPersistentList
 import org.slf4j.Logger
-import java.math.BigDecimal
-import java.util.*
 
 /**
  * @author smccarron
@@ -408,15 +408,11 @@ internal class DefaultSingleRequestJsonFieldValueDeserializer :
                     locale = locale
                 )
             }
-            ExtendedScalars.DateTime -> {
-                ExtendedScalars.DateTime.coercing
-                    .serialize(textNode.asText(""), graphQLContext, locale)
-                    .toOption()
-            }
+            ExtendedScalars.DateTime,
             ExtendedScalars.Date -> {
-                ExtendedScalars.Date.coercing
-                    .serialize(textNode.asText(""), graphQLContext, locale)
-                    .toOption()
+                // Avoid double conversion; only convert node to text here, not serialize datetime
+                // into string
+                textNode.asText("").toOption().filter(String::isNotBlank)
             }
             else -> {
                 textNode.asText("").some()
