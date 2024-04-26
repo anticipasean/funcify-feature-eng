@@ -5,7 +5,6 @@ import arrow.core.getOrElse
 import arrow.core.getOrNone
 import arrow.core.none
 import arrow.core.toOption
-import com.google.common.cache.CacheBuilder
 import funcify.feature.schema.FeatureEngineeringModel
 import funcify.feature.schema.dataelement.DomainSpecifiedDataElementSource
 import funcify.feature.schema.directive.alias.AliasCoordinatesRegistry
@@ -67,8 +66,7 @@ internal data class DefaultMaterializationMetamodel(
 
     override val fieldCoordinatesAvailableUnderPath:
         (FieldCoordinates, GQLOperationPath) -> Boolean by lazy {
-        val cache: ConcurrentMap<GQLOperationPath, Set<FieldCoordinates>> =
-            CacheBuilder.newBuilder().build<GQLOperationPath, Set<FieldCoordinates>>().asMap()
+        val cache: ConcurrentMap<GQLOperationPath, Set<FieldCoordinates>> = ConcurrentHashMap()
         val fieldCoordinatesCalculator: (GQLOperationPath) -> Set<FieldCoordinates> =
             { parentPath: GQLOperationPath ->
                 val fcSet: MutableSet<FieldCoordinates> = mutableSetOf()
@@ -128,9 +126,7 @@ internal data class DefaultMaterializationMetamodel(
     override val firstPathWithFieldCoordinatesUnderPath:
         (FieldCoordinates, GQLOperationPath) -> Option<GQLOperationPath> by lazy {
         val cache: ConcurrentMap<Pair<FieldCoordinates, GQLOperationPath>, GQLOperationPath?> =
-            CacheBuilder.newBuilder()
-                .build<Pair<FieldCoordinates, GQLOperationPath>, GQLOperationPath?>()
-                .asMap()
+            ConcurrentHashMap()
         val pathCalculator: (Pair<FieldCoordinates, GQLOperationPath>) -> GQLOperationPath? =
             { (fieldCoordinates: FieldCoordinates, parentPath: GQLOperationPath) ->
                 pathsByFieldCoordinates

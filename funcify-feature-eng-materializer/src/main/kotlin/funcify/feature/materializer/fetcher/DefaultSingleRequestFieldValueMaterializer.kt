@@ -2,10 +2,13 @@ package funcify.feature.materializer.fetcher
 
 import arrow.core.filterIsInstance
 import arrow.core.firstOrNone
+import arrow.core.getOrElse
 import arrow.core.getOrNone
 import arrow.core.identity
 import arrow.core.lastOrNone
+import arrow.core.none
 import arrow.core.orElse
+import arrow.core.some
 import arrow.core.toOption
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.PropertyNamingStrategies.SnakeCaseStrategy
@@ -29,8 +32,6 @@ import funcify.feature.tools.extensions.SequenceExtensions.firstOrNone
 import funcify.feature.tools.extensions.SequenceExtensions.flatMapOptions
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.json.JsonMapper
-import graphql.language.Selection
-import graphql.language.SelectionSet
 import graphql.schema.FieldCoordinates
 import graphql.schema.GraphQLImplementingType
 import graphql.schema.GraphQLTypeUtil
@@ -237,6 +238,60 @@ internal class DefaultSingleRequestFieldValueMaterializer(
         session: SingleRequestFieldMaterializationSession
     ): Mono<Any?> {
         return when {
+            session.fieldCoordinates.exists { fc: FieldCoordinates ->
+                session.materializationMetamodel.domainSpecifiedDataElementSourceByCoordinates
+                    .containsKey(fc)
+            } && currentSourceValueIsInstanceOf<Map<String, JsonNode>>(session) -> {
+                session.dataFetchingEnvironment
+                    .getSource<Map<String, JsonNode>>()
+                    .toOption()
+                    .flatMap { m: Map<String, JsonNode> ->
+                        m.getOrNone(session.field.resultKey)
+                            .orElse {
+                                session.fieldCoordinates
+                                    .filter { fc: FieldCoordinates ->
+                                        fc.fieldName != session.field.resultKey
+                                    }
+                                    .flatMap { fc: FieldCoordinates -> m.getOrNone(fc.fieldName) }
+                            }
+                            .orElse {
+                                session.fieldCoordinates.flatMap { fc: FieldCoordinates ->
+                                    session.materializationMetamodel.aliasCoordinatesRegistry
+                                        .getAllAliasesForField(fc)
+                                        .asSequence()
+                                        .firstOrNone { n: String -> n in m }
+                                        .flatMap { n: String -> m.getOrNone(n) }
+                                }
+                            }
+                            .orElse {
+                                session.field.resultKey
+                                    .toOption()
+                                    .mapNotNull(snakeCaseTranslator)
+                                    .flatMap { n: String -> m.getOrNone(n) }
+                            }
+                    }
+                    .map { jn: JsonNode ->
+                        jn.toOption()
+                            .filterIsInstance<ObjectNode>()
+                            .filter { on: ObjectNode ->
+                                session.fieldCoordinates.exists { fc: FieldCoordinates ->
+                                    on.has(fc.fieldName) && on.size() == 1
+                                }
+                            }
+                            .flatMap { on: ObjectNode ->
+                                session.fieldCoordinates.mapNotNull { fc: FieldCoordinates ->
+                                    on.get(fc.fieldName)
+                                }
+                            }
+                            .getOrElse { jn }
+                    }
+                    .flatMap { jn: JsonNode ->
+                        singleRequestJsonFieldValueDeserializer
+                            .deserializeValueForFieldFromJsonInSession(session, jn)
+                    }
+                    .toMono()
+                    .widen()
+            }
             currentSourceValueIsInstanceOf<Map<String, JsonNode>>(session) -> {
                 session.dataFetchingEnvironment
                     .getSource<Map<String, JsonNode>>()
@@ -299,63 +354,52 @@ internal class DefaultSingleRequestFieldValueMaterializer(
                     .filterIsInstance<ObjectNode>()
                     .flatMap { on: ObjectNode ->
                         when {
-                            session.field.selectionSet
+                            on.has(session.field.name) -> {
+                                on.get(session.field.name).toOption()
+                            }
+                            session.field.name != session.field.resultKey &&
+                                on.has(session.field.resultKey) -> {
+                                on.get(session.field.resultKey).toOption()
+                            }
+                            session.fieldCoordinates.exists { fc: FieldCoordinates ->
+                                session.materializationMetamodel.aliasCoordinatesRegistry
+                                    .getAllAliasesForField(fc)
+                                    .asSequence()
+                                    .any { alias: String -> on.has(alias) }
+                            } -> {
+                                session.fieldCoordinates.flatMap { fc: FieldCoordinates ->
+                                    session.materializationMetamodel.aliasCoordinatesRegistry
+                                        .getAllAliasesForField(fc)
+                                        .asSequence()
+                                        .firstOrNone() { alias: String -> on.has(alias) }
+                                        .mapNotNull { alias: String -> on.get(alias) }
+                                }
+                            }
+                            session.field.resultKey
                                 .toOption()
-                                .mapNotNull(SelectionSet::getSelections)
-                                .filter(List<Selection<*>>::isNotEmpty)
-                                .isDefined() ||
-                                GraphQLTypeUtil.unwrapAll(session.fieldOutputType)
+                                .mapNotNull(snakeCaseTranslator)
+                                .exists { n: String -> on.has(n) } -> {
+                                session.field.resultKey
                                     .toOption()
-                                    .filterIsInstance<GraphQLImplementingType>()
-                                    .isDefined() -> {
-                                singleRequestJsonFieldValueDeserializer
-                                    .deserializeValueForFieldFromJsonInSession(session, on)
-                                    .filterIsInstance<Map<String, JsonNode>>()
-                                    .flatMap { m: Map<String, JsonNode> ->
-                                        m.getOrNone(session.field.resultKey)
-                                            .orElse {
-                                                session.fieldCoordinates
-                                                    .filter { fc: FieldCoordinates ->
-                                                        fc.fieldName != session.field.resultKey
-                                                    }
-                                                    .flatMap { fc: FieldCoordinates ->
-                                                        m.getOrNone(fc.fieldName)
-                                                    }
-                                            }
-                                            .orElse {
-                                                session.fieldCoordinates.flatMap {
-                                                    fc: FieldCoordinates ->
-                                                    session.materializationMetamodel
-                                                        .aliasCoordinatesRegistry
-                                                        .getAllAliasesForField(fc)
-                                                        .asSequence()
-                                                        .firstOrNone { n: String -> n in m }
-                                                        .flatMap { n: String -> m.getOrNone(n) }
-                                                }
-                                            }
-                                            .orElse {
-                                                session.field.resultKey
-                                                    .toOption()
-                                                    .mapNotNull(snakeCaseTranslator)
-                                                    .flatMap { n: String -> m.getOrNone(n) }
-                                            }
-                                    }
+                                    .mapNotNull(snakeCaseTranslator)
+                                    .mapNotNull { n: String -> on.get(n) }
+                            }
+                            session.fieldOutputType
+                                .toOption()
+                                .map(GraphQLTypeUtil::unwrapAll)
+                                .exists { gut: GraphQLUnmodifiedType ->
+                                    gut is GraphQLImplementingType
+                                } -> {
+                                on.some()
                             }
                             else -> {
-                                singleRequestJsonFieldValueDeserializer
-                                    .deserializeValueForFieldFromJsonInSession(session, on)
+                                none()
                             }
                         }
                     }
-                    .orElse {
-                        session.dataFetchingEnvironment
-                            .getSource<JsonNode>()
-                            .toOption()
-                            .filterNot { jn: JsonNode -> jn is ObjectNode }
-                            .flatMap { jn: JsonNode ->
-                                singleRequestJsonFieldValueDeserializer
-                                    .deserializeValueForFieldFromJsonInSession(session, jn)
-                            }
+                    .flatMap { jn: JsonNode ->
+                        singleRequestJsonFieldValueDeserializer
+                            .deserializeValueForFieldFromJsonInSession(session, jn)
                     }
                     .toMono()
                     .widen()
