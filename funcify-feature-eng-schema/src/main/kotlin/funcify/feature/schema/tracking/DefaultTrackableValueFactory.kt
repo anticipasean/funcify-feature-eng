@@ -1,9 +1,12 @@
 package funcify.feature.schema.tracking
 
 import arrow.core.Option
+import arrow.core.foldLeft
 import arrow.core.orElse
 import arrow.core.toOption
 import com.fasterxml.jackson.databind.JsonNode
+import com.fasterxml.jackson.databind.node.JsonNodeFactory
+import com.fasterxml.jackson.databind.node.ObjectNode
 import funcify.feature.error.ServiceError
 import funcify.feature.schema.path.lookup.SchematicPath
 import funcify.feature.schema.path.operation.GQLOperationPath
@@ -394,22 +397,33 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
                     .orElseGet { this }
             }
 
-            override fun toString(): String {
-                return buildString {
-                    append(PlannedValue::class.simpleName)
-                    append('(')
-                    append("operation_path:${operationPath}")
-                    append(',')
-                    append(
-                        contextualParameters
-                            .asSequence()
-                            .map { (n: String, j: JsonNode) -> "${n}:${j}" }
-                            .joinToString(",", "contextual_parameters:{", "}")
+            private val internedStringRep: String by lazy {
+                mapOf(
+                        "type" to PlannedValue::class.qualifiedName,
+                        "operationPath" to operationPath,
+                        "contextualParameters" to
+                            contextualParameters.asSequence().fold(
+                                JsonNodeFactory.instance.objectNode()
+                            ) { on, (k, v) ->
+                                on.set(k, v)
+                            },
+                        "graphQLOutputType" to GraphQLTypeUtil.simplePrint(graphQLOutputType)
                     )
-                    append(',')
-                    append("graphql_output_type:${GraphQLTypeUtil.simplePrint(graphQLOutputType)}")
-                    append(')')
-                }
+                    .foldLeft(JsonNodeFactory.instance.objectNode()) { on, (k, v) ->
+                        when (v) {
+                            is JsonNode -> {
+                                on.set<ObjectNode>(k, v)
+                            }
+                            else -> {
+                                on.put(k, v.toString())
+                            }
+                        }
+                    }
+                    .toString()
+            }
+
+            override fun toString(): String {
+                return internedStringRep
             }
         }
 
@@ -447,25 +461,35 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
                     .orElse(this)
             }
 
-            override fun toString(): String {
-                return buildString {
-                    append(CalculatedValue::class.simpleName)
-                    append('(')
-                    append("operation_path:${operationPath}")
-                    append(',')
-                    append(
-                        contextualParameters
-                            .asSequence()
-                            .map { (n: String, j: JsonNode) -> "${n}:${j}" }
-                            .joinToString(",", "contextual_parameters:{", "}")
+            private val internedStringRep: String by lazy {
+                mapOf(
+                        "type" to CalculatedValue::class.qualifiedName,
+                        "operationPath" to operationPath,
+                        "contextualParameters" to
+                            contextualParameters.asSequence().fold(
+                                JsonNodeFactory.instance.objectNode()
+                            ) { on, (k, v) ->
+                                on.set(k, v)
+                            },
+                        "graphQLOutputType" to GraphQLTypeUtil.simplePrint(graphQLOutputType),
+                        "calculatedValue" to calculatedValue,
+                        "calculatedTimestamp" to calculatedTimestamp
                     )
-                    append(',')
-                    append("graphql_output_type:${GraphQLTypeUtil.simplePrint(graphQLOutputType)}")
-                    append(',')
-                    append("calculated_value:${calculatedValue},")
-                    append("calculated_timestamp:${calculatedTimestamp}")
-                    append(')')
-                }
+                    .foldLeft(JsonNodeFactory.instance.objectNode()) { on, (k, v) ->
+                        when (v) {
+                            is JsonNode -> {
+                                on.set<ObjectNode>(k, v)
+                            }
+                            else -> {
+                                on.put(k, v.toString())
+                            }
+                        }
+                    }
+                    .toString()
+            }
+
+            override fun toString(): String {
+                return internedStringRep
             }
         }
 
@@ -500,29 +524,35 @@ internal class DefaultTrackableValueFactory : TrackableValueFactory {
                     .orElse(this)
             }
 
-            override fun toString(): String {
-                return buildString {
-                    append(TrackedValue::class.simpleName)
-                    append('(')
-                    append("operation_path:${operationPath}")
-                    append(',')
-                    append(
-                        contextualParameters
-                            .asSequence()
-                            .map { (n: String, j: JsonNode) -> "${n}:${j}" }
-                            .joinToString(",", "contextual_parameters:{", "}")
+            private val internedStringRep: String by lazy {
+                mapOf(
+                        "type" to TrackedValue::class.qualifiedName,
+                        "operationPath" to operationPath,
+                        "contextualParameters" to
+                            contextualParameters.asSequence().fold(
+                                JsonNodeFactory.instance.objectNode()
+                            ) { on, (k, v) ->
+                                on.set(k, v)
+                            },
+                        "graphQLOutputType" to GraphQLTypeUtil.simplePrint(graphQLOutputType),
+                        "trackedValue" to trackedValue,
+                        "valueAtTimestamp" to valueAtTimestamp
                     )
-                    append(',')
-                    append("canonical_path:${canonicalPath}")
-                    append(',')
-                    append(referencePaths.asSequence().joinToString(",", "reference_paths:{", "}"))
-                    append(',')
-                    append("graphql_output_type:${GraphQLTypeUtil.simplePrint(graphQLOutputType)}")
-                    append(',')
-                    append("tracked_value:${trackedValue},")
-                    append("value_at_timestamp:${valueAtTimestamp}")
-                    append(')')
-                }
+                    .foldLeft(JsonNodeFactory.instance.objectNode()) { on, (k, v) ->
+                        when (v) {
+                            is JsonNode -> {
+                                on.set<ObjectNode>(k, v)
+                            }
+                            else -> {
+                                on.put(k, v.toString())
+                            }
+                        }
+                    }
+                    .toString()
+            }
+
+            override fun toString(): String {
+                return internedStringRep
             }
         }
     }
