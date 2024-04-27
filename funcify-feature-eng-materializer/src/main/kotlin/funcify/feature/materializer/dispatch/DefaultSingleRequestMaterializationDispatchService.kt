@@ -1166,6 +1166,27 @@ internal class DefaultSingleRequestMaterializationDispatchService(
                 pm: PersistentMap<GQLOperationPath, Mono<out JsonNode>>,
                 (p: GQLOperationPath, e: MaterializationEdge) ->
                 when (e) {
+                        MaterializationEdge.DIRECT_ARGUMENT_VALUE_PROVIDED -> {
+                            context.requestMaterializationGraph.requestGraph
+                                .get(p)
+                                .toOption()
+                                .filterIsInstance<ArgumentComponentContext>()
+                                .mapNotNull { acc: ArgumentComponentContext -> acc.argument.value }
+                                .filterIsInstance<Value<*>>()
+                                .flatMap(GraphQLValueToJsonNodeConverter)
+                                .map { jn: JsonNode -> p to Mono.just(jn) }
+                                .successIfDefined {
+                                    ServiceError.of(
+                                        """unable to extract direct value for argument 
+                                            |[ path: %s ] 
+                                            |for feature calculation 
+                                            |[ path: %s ]"""
+                                            .flatten(),
+                                        p,
+                                        featurePath
+                                    )
+                                }
+                        }
                         MaterializationEdge.DEFAULT_ARGUMENT_VALUE_PROVIDED -> {
                             context.materializedArgumentsByPath
                                 .getOrNone(p)
@@ -1440,48 +1461,126 @@ internal class DefaultSingleRequestMaterializationDispatchService(
         argumentPath: GQLOperationPath,
         argumentGroupIndex: Int,
     ): Try<Pair<GQLOperationPath, Mono<out JsonNode>>> {
-        return context.featureCalculatorPublishersByOperationPath
-            .getOrNone(argumentPath)
-            .filter { fps: ImmutableList<Mono<out TrackableValue<JsonNode>>> ->
-                // TODO: Figure out the correct index to fetch
-                // from dependent
-                // feature list of trackable value publishers
-                argumentGroupIndex in fps.indices
+        if (logger.isDebugEnabled) {
+            logger.debug(
+                """create_argument_publisher_for_dependent_feature: 
+                    |[ argument_path: {}, 
+                    |argument_group_index: {}, 
+                    |feature_calculator_publishers.keys: {} ]"""
+                    .flatten(),
+                argumentPath,
+                argumentGroupIndex,
+                context.featureCalculatorPublishersByOperationPath.keys.joinToString(
+                    ", ",
+                    "{ ",
+                    " }"
+                )
+            )
+        }
+        return context.requestMaterializationGraph.requestGraph
+            .edgesFromPointAsStream(argumentPath)
+            .filter { (l: DirectedLine<GQLOperationPath>, e: MaterializationEdge) ->
+                l.destinationPoint in
+                    context.requestMaterializationGraph.featureCalculatorCallablesByPath &&
+                    e == MaterializationEdge.EXTRACT_FROM_SOURCE
             }
-            .map { fps: ImmutableList<Mono<out TrackableValue<JsonNode>>> ->
-                fps.get(argumentGroupIndex)
+            .map { (l: DirectedLine<GQLOperationPath>, _: MaterializationEdge) ->
+                l.destinationPoint
             }
-            .map { fp: Mono<out TrackableValue<JsonNode>> ->
-                fp.flatMap { tv: TrackableValue<JsonNode> ->
-                    when (tv) {
-                        is TrackableValue.PlannedValue<JsonNode> -> {
-                            Mono.error {
-                                ServiceError.of(
-                                    """dependent feature value [ %s ] planned 
-                                    |but not calculated or tracked"""
-                                        .flatten(),
-                                    tv.operationPath
-                                )
-                            }
+            .reduce(
+                persistentListOf(),
+                PersistentList<GQLOperationPath>::add,
+                PersistentList<GQLOperationPath>::addAll
+            )
+            .let { featureFieldLines: List<GQLOperationPath> ->
+                when {
+                    featureFieldLines.isEmpty() -> {
+                        Try.failure<GQLOperationPath> {
+                            ServiceError.of(
+                                """no feature edge found for 
+                                |connected feature path argument 
+                                |[ path: %s ] to its source"""
+                                    .flatten(),
+                                argumentPath
+                            )
                         }
-                        is TrackableValue.CalculatedValue<JsonNode> -> {
-                            Mono.just(tv.calculatedValue)
+                    }
+                    featureFieldLines.size > 1 -> {
+                        Try.failure<GQLOperationPath> {
+                            ServiceError.of(
+                                """more than one feature edge found 
+                                |for connecting feature path argument [ path: %s ] 
+                                |to its source [ %s ]"""
+                                    .flatten(),
+                                argumentPath,
+                                featureFieldLines.asSequence().joinToString(", ")
+                            )
                         }
-                        is TrackableValue.TrackedValue<JsonNode> -> {
-                            Mono.just(tv.trackedValue)
-                        }
+                    }
+                    else -> {
+                        Try.success(featureFieldLines[0])
                     }
                 }
             }
-            .map { fp: Mono<out JsonNode> -> argumentPath to fp }
-            .successIfDefined {
-                ServiceError.of(
-                    """dependent feature value [ %s ] not found 
-                    |in feature_calculator_publishers_by_path map; 
-                    |out of order processing may have occurred"""
-                        .flatten(),
-                    argumentPath
-                )
+            .flatMap { dependentFeaturePath: GQLOperationPath ->
+                context.featureCalculatorPublishersByOperationPath
+                    .getOrNone(dependentFeaturePath)
+                    .successIfDefined {
+                        ServiceError.of(
+                            """dependent feature value [ %s ] for feature argument [ %s ] 
+                            |not found in feature_calculator_publishers_by_operation_path map; 
+                            |out of order processing may have occurred"""
+                                .flatten(),
+                            dependentFeaturePath,
+                            argumentPath
+                        )
+                    }
+                    .filter(
+                        { fps: ImmutableList<Mono<out TrackableValue<JsonNode>>> ->
+                            // TODO: Figure out the correct index to fetch
+                            // from dependent
+                            // feature list of trackable value publishers
+                            argumentGroupIndex in fps.indices
+                        },
+                        { fps: ImmutableList<Mono<out TrackableValue<JsonNode>>> ->
+                            ServiceError.of(
+                                """dependent feature value [ %s ] 
+                                    |for feature argument [ %s ] 
+                                    |does not have feature_calculator_publisher 
+                                    |in argument_group [ index: %s ]"""
+                                    .flatten(),
+                                dependentFeaturePath,
+                                argumentPath,
+                                argumentGroupIndex
+                            )
+                        }
+                    )
+                    .map { fps: ImmutableList<Mono<out TrackableValue<JsonNode>>> ->
+                        fps[argumentGroupIndex]
+                    }
+                    .map { fp: Mono<out TrackableValue<JsonNode>> ->
+                        fp.flatMap { tv: TrackableValue<JsonNode> ->
+                            when (tv) {
+                                is TrackableValue.PlannedValue<JsonNode> -> {
+                                    Mono.error {
+                                        ServiceError.of(
+                                            """dependent feature value [ %s ] planned 
+                                            |but not calculated or tracked"""
+                                                .flatten(),
+                                            dependentFeaturePath
+                                        )
+                                    }
+                                }
+                                is TrackableValue.CalculatedValue<JsonNode> -> {
+                                    Mono.just(tv.calculatedValue)
+                                }
+                                is TrackableValue.TrackedValue<JsonNode> -> {
+                                    Mono.just(tv.trackedValue)
+                                }
+                            }
+                        }
+                    }
+                    .map { fp: Mono<out JsonNode> -> argumentPath to fp }
             }
     }
 
