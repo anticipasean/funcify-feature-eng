@@ -26,6 +26,7 @@ import graphql.ExecutionResult
 import graphql.GraphQLError
 import graphql.execution.AbortExecutionException
 import graphql.language.SourceLocation
+import java.util.*
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.toPersistentList
@@ -40,7 +41,6 @@ import org.springframework.web.reactive.function.server.ServerResponse
 import reactor.core.publisher.Mono
 import reactor.core.publisher.Timed
 import reactor.core.scheduler.Schedulers
-import java.util.*
 
 /**
  * @author smccarron
@@ -55,6 +55,7 @@ internal class GraphQLWebFluxHandlerFunction(
 
     companion object {
         private val logger: Logger = loggerFor<GraphQLWebFluxHandlerFunction>()
+        private const val METHOD_TAG = "handle"
         private const val QUERY_KEY = "query"
         private const val GRAPHQL_REQUEST_VARIABLES_KEY = "variables"
         private const val DATA_KEY = "data"
@@ -93,7 +94,7 @@ internal class GraphQLWebFluxHandlerFunction(
     }
 
     override fun handle(request: ServerRequest): Mono<ServerResponse> {
-        logger.info("handle: [ request.path: ${request.path()} ]")
+        logger.info("$METHOD_TAG: [ request.path: ${request.path()} ]")
         return Mono.defer { convertServerRequestIntoRawGraphQLRequest(request) }
             .publishOn(Schedulers.boundedElastic())
             .flatMap { rawReq: RawGraphQLRequest ->
@@ -116,7 +117,7 @@ internal class GraphQLWebFluxHandlerFunction(
                         "failure"
                     }
                 logger.info(
-                    "handle: [ status: {} ][ elapsed_time: {} ms, response_http_status: {} ]",
+                    "$METHOD_TAG: [ status: {} ][ elapsed_time: {} ms, response_http_status: {} ]",
                     successOrFailureStatus,
                     timedResponse.elapsedSinceSubscription().toMillis(),
                     timedResponse.get().statusCode(),
@@ -250,7 +251,16 @@ internal class GraphQLWebFluxHandlerFunction(
         (SerializedGraphQLResponse) -> Mono<out ServerResponse> {
         return { response: SerializedGraphQLResponse ->
             when {
-                response.resultAsColumnarJsonObject.isDefined() -> {
+                response.resultAsColumnarJsonObject.isDefined() &&
+                    response.executionResult.errors?.isNotEmpty() == true -> {
+                    logger.error(
+                        "$METHOD_TAG: [ error(s) occurred ][ {} ]",
+                        response.executionResult.errors
+                            .asSequence()
+                            .map { ge: GraphQLError -> convertGraphQLErrorIntoErrorJsonNode(ge) }
+                            .withIndex()
+                            .joinToString("; ") { (idx: Int, jn: JsonNode) -> "[$idx]: $jn" }
+                    )
                     ServerResponse.ok()
                         .contentType(MediaType.APPLICATION_JSON)
                         .bodyValue(
@@ -264,6 +274,39 @@ internal class GraphQLWebFluxHandlerFunction(
                                         response.executionResult
                                     )
                             )
+                        )
+                }
+                response.resultAsColumnarJsonObject.isDefined() -> {
+                    ServerResponse.ok()
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .bodyValue(
+                            mapOf(
+                                OUTPUT_KEY to
+                                    response.resultAsColumnarJsonObject.getOrElse {
+                                        JsonNodeFactory.instance.objectNode()
+                                    },
+                                ERRORS_KEY to JsonNodeFactory.instance.arrayNode()
+                            )
+                        )
+                }
+                response.executionResult.errors?.isNotEmpty() == true -> {
+                    logger.error(
+                        "$METHOD_TAG: [ error(s) occurred ][ {} ]",
+                        response.executionResult.errors
+                            .asSequence()
+                            .map { ge: GraphQLError -> convertGraphQLErrorIntoErrorJsonNode(ge) }
+                            .withIndex()
+                            .joinToString("; ") { (idx: Int, jn: JsonNode) -> "[$idx]: $jn" }
+                    )
+                    ServerResponse.ok()
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .bodyValue(
+                            Try.attempt { response.executionResult.toSpecification() }
+                                .orElseGet {
+                                    createAlternativeNonTabularExecutionResultJSONRepresentation(
+                                        response.executionResult
+                                    )
+                                }
                         )
                 }
                 else -> {
@@ -314,14 +357,14 @@ internal class GraphQLWebFluxHandlerFunction(
             when (t) {
                 is ServiceError -> {
                     logger.error(
-                        "handle: [ error(s) occurred ][ type: {}, json: {} ]",
+                        "$METHOD_TAG: [ error(s) occurred ][ type: {}, json: {} ]",
                         ServiceError::class.simpleName,
                         t.toJsonNode()
                     )
                 }
                 else -> {
                     logger.error(
-                        "handle: [ error(s) occurred ][ type: {}, message: {}, stack_trace_element[0]: {} ]",
+                        "$METHOD_TAG: [ error(s) occurred ][ type: {}, message: {}, stack_trace_element[0]: {} ]",
                         t::class.simpleName,
                         t.message,
                         t.possiblyNestedHeadStackTraceElement()
@@ -433,7 +476,7 @@ internal class GraphQLWebFluxHandlerFunction(
     ): (Throwable) -> Mono<out ServerResponse> {
         return { t: Throwable ->
             logger.error(
-                """handle: [ request.path: ${request.path()} ]: 
+                """$METHOD_TAG: [ request.path: ${request.path()} ]: 
                    |uncaught non-platform exception thrown: 
                    |[ type: ${t::class.qualifiedName}, 
                    |message: ${t.message} 
