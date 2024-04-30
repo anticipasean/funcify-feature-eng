@@ -8,11 +8,14 @@ import arrow.core.getOrNone
 import arrow.core.identity
 import arrow.core.left
 import arrow.core.none
+import arrow.core.orElse
 import arrow.core.right
 import arrow.core.some
 import arrow.core.toOption
 import funcify.feature.error.ServiceError
 import funcify.feature.materializer.graph.component.QueryComponentContext
+import funcify.feature.materializer.graph.component.QueryComponentContext.ArgumentComponentContext
+import funcify.feature.materializer.graph.component.QueryComponentContext.FieldComponentContext
 import funcify.feature.materializer.graph.component.QueryComponentContextFactory
 import funcify.feature.materializer.graph.context.StandardQuery
 import funcify.feature.materializer.model.MaterializationMetamodel
@@ -400,38 +403,38 @@ internal object LazyStandardQueryTraverser : (StandardQuery) -> Iterable<QueryCo
                 .plus(
                     parentContext
                         .toOption()
-                        .filterIsInstance<QueryComponentContext.FieldComponentContext>()
-                        .map { sfcc: QueryComponentContext.FieldComponentContext ->
+                        .filterIsInstance<FieldComponentContext>()
+                        .map { fcc: FieldComponentContext ->
                             createChildArgumentContextsForParentFieldContext(
                                 materializationMetamodel,
                                 queryComponentContextFactory,
-                                sfcc
+                                fcc
                             )
                         }
                         .fold(::emptySequence, ::identity)
-                        .map(QueryComponentContext.ArgumentComponentContext::right)
+                        .map(ArgumentComponentContext::right)
                 )
                 .plus(
                     parentContext
                         .toOption()
-                        .filterIsInstance<QueryComponentContext.FieldComponentContext>()
-                        .filter { sfcc: QueryComponentContext.FieldComponentContext ->
+                        .filterIsInstance<FieldComponentContext>()
+                        .filter { sfcc: FieldComponentContext ->
                             sfcc.field.selectionSet
                                 .toOption()
                                 .mapNotNull(SelectionSet::getSelections)
                                 .filter(List<Selection<*>>::isNotEmpty)
                                 .isDefined()
                         }
-                        .map { sfcc: QueryComponentContext.FieldComponentContext ->
+                        .map { fcc: FieldComponentContext ->
                             createChildFieldContextsForParentFieldContext(
                                 materializationMetamodel,
                                 queryComponentContextFactory,
                                 fragmentDefinitionsByName,
-                                sfcc
+                                fcc
                             )
                         }
                         .fold(::emptySequence, ::identity)
-                        .map(QueryComponentContext.FieldComponentContext::left)
+                        .map(FieldComponentContext::left)
                 )
         }
     }
@@ -439,79 +442,60 @@ internal object LazyStandardQueryTraverser : (StandardQuery) -> Iterable<QueryCo
     private fun createChildArgumentContextsForParentFieldContext(
         materializationMetamodel: MaterializationMetamodel,
         queryComponentContextFactory: QueryComponentContextFactory,
-        parentFieldContext: QueryComponentContext.FieldComponentContext,
-    ): Sequence<QueryComponentContext.ArgumentComponentContext> {
-        return when {
-            parentFieldContext.field.arguments
-                .toOption()
-                .filter(List<Argument>::isNotEmpty)
-                .isDefined() -> {
-                // TODO: Handle case where only some of the arguments for this field have been
-                // specified but others will still need their default values extracted
-                parentFieldContext.field.arguments.asSequence().map { a: Argument ->
-                    queryComponentContextFactory
-                        .argumentComponentContextBuilder()
-                        .argument(a)
-                        .fieldCoordinates(parentFieldContext.fieldCoordinates)
-                        .path(parentFieldContext.path.transform { argument(a.name) })
-                        .canonicalPath(
-                            parentFieldContext.canonicalPath.transform { argument(a.name) }
-                        )
-                        .build()
-                }
+        parentFieldContext: FieldComponentContext,
+    ): Sequence<ArgumentComponentContext> {
+        return Try.attemptNullable({
+                materializationMetamodel.materializationGraphQLSchema.getFieldDefinition(
+                    parentFieldContext.fieldCoordinates
+                )
+            }) {
+                ServiceError.of(
+                    "graphql_field_definition not found for coordinates [ %s ] for parent field",
+                    parentFieldContext.fieldCoordinates
+                )
             }
-            else -> {
-                materializationMetamodel.materializationGraphQLSchema
-                    .getType(parentFieldContext.fieldCoordinates.typeName)
+            .map { gfd: GraphQLFieldDefinition ->
+                val remainingArgumentsByName: MutableMap<String, GraphQLArgument> =
+                    gfd.arguments.fold(mutableMapOf<String, GraphQLArgument>()) { mm, ga ->
+                        mm.apply { put(ga.name, ga) }
+                    }
+                parentFieldContext.field.arguments
                     .toOption()
-                    .filterIsInstance<GraphQLCompositeType>()
-                    .successIfDefined {
-                        ServiceError.of(
-                            """parent_field_context.field_coordinates.type_name 
-                            |does not map to known type name 
-                            |[ field_coordinates.type_name: %s ]"""
-                                .flatten(),
-                            parentFieldContext.fieldCoordinates.typeName
-                        )
+                    .getOrElse(::emptyList)
+                    .fold(mutableListOf<Argument>()) {
+                        directArgs: MutableList<Argument>,
+                        a: Argument ->
+                        remainingArgumentsByName.remove(a.name)
+                        directArgs.apply { add(a) }
                     }
-                    .flatMap { gct: GraphQLCompositeType ->
-                        getGraphQLFieldDefinitionForField(
-                            materializationMetamodel,
-                            gct,
-                            parentFieldContext.fieldCoordinates.fieldName
-                        )
-                    }
-                    .map { gfd: GraphQLFieldDefinition ->
-                        gfd.arguments
+                    .let { directArgs: List<Argument> ->
+                        directArgs
                             .asSequence()
-                            .filter(GraphQLArgument::hasSetDefaultValue)
-                            .map { ga: GraphQLArgument ->
-                                Argument.newArgument()
-                                    .name(ga.name)
-                                    .value(
-                                        ga.argumentDefaultValue
-                                            .toOption()
-                                            .filter(InputValueWithState::isLiteral)
-                                            .map(InputValueWithState::getValue)
-                                            .filterIsInstance<Value<*>>()
-                                            .successIfDefined {
-                                                ServiceError.of(
-                                                    """default_value for argument 
-                                                    |[ field_coordinates: %s, argument.name: %s ] 
-                                                    |is not GraphQL literal [ type: %s ]
-                                                    """
-                                                        .flatten(),
-                                                    parentFieldContext.fieldCoordinates,
-                                                    ga.name,
-                                                    Value::class.qualifiedName
-                                                )
-                                            }
-                                            .orElseThrow()
-                                    )
-                                    .build()
-                            }
+                            .plus(
+                                remainingArgumentsByName.asSequence().map {
+                                    (_: String, ga: GraphQLArgument) ->
+                                    Argument.newArgument()
+                                        .name(ga.name)
+                                        .value(
+                                            getDefaultValueForGraphQLArgumentIfPossible(ga)
+                                                .successIfDefined {
+                                                    ServiceError.of(
+                                                        """default_value for argument 
+                                                        |[ field_coordinates: %s, argument.name: %s ] 
+                                                        |could not be set [ type: %s ]
+                                                        """
+                                                            .flatten(),
+                                                        parentFieldContext.fieldCoordinates,
+                                                        ga.name,
+                                                        Value::class.qualifiedName
+                                                    )
+                                                }
+                                                .orElseThrow()
+                                        )
+                                        .build()
+                                }
+                            )
                     }
-                    .orElseThrow()
                     .map { a: Argument ->
                         queryComponentContextFactory
                             .argumentComponentContextBuilder()
@@ -524,34 +508,52 @@ internal object LazyStandardQueryTraverser : (StandardQuery) -> Iterable<QueryCo
                             .build()
                     }
             }
-        }
+            .orElseThrow()
+    }
+
+    private fun getDefaultValueForGraphQLArgumentIfPossible(
+        graphQLArgument: GraphQLArgument
+    ): Option<Value<*>> {
+        // case 1: arg default value is set on GraphQLArgument
+        return graphQLArgument.argumentDefaultValue
+            .toOption()
+            .filter(InputValueWithState::isSet)
+            .filter(InputValueWithState::isLiteral)
+            .mapNotNull(InputValueWithState::getValue)
+            .filterIsInstance<Value<*>>()
+            .orElse {
+                // case 2: arg type is nullable
+                graphQLArgument.type
+                    .toOption()
+                    .filter(GraphQLTypeUtil::isNullable)
+                    .filterNot(GraphQLTypeUtil::isList)
+                    .and(NullValue.of().some())
+            }
+            .orElse {
+                // case 3: arg type is list
+                graphQLArgument.type
+                    .toOption()
+                    .mapNotNull(GraphQLTypeUtil::unwrapNonNull)
+                    .filter(GraphQLTypeUtil::isList)
+                    .and(ArrayValue.newArrayValue().build().some())
+            }
     }
 
     private fun createChildFieldContextsForParentFieldContext(
         materializationMetamodel: MaterializationMetamodel,
         queryComponentContextFactory: QueryComponentContextFactory,
         fragmentDefinitionsByName: Map<String, FragmentDefinition>,
-        parentFieldContext: QueryComponentContext.FieldComponentContext,
-    ): Sequence<QueryComponentContext.FieldComponentContext> {
+        parentFieldContext: FieldComponentContext,
+    ): Sequence<FieldComponentContext> {
         val parentFieldsContainerType: GraphQLFieldsContainer =
-            materializationMetamodel.materializationGraphQLSchema
-                .getType(parentFieldContext.fieldCoordinates.typeName)
-                .toOption()
-                .filterIsInstance<GraphQLCompositeType>()
-                .successIfDefined {
-                    ServiceError.of(
-                        """could not find graphql_composite_type 
-                        |on which parent is a field 
-                        |[ field_coordinates: %s ]"""
-                            .flatten(),
+            Try.attemptNullable({
+                    materializationMetamodel.materializationGraphQLSchema.getFieldDefinition(
                         parentFieldContext.fieldCoordinates
                     )
-                }
-                .flatMap { gct: GraphQLCompositeType ->
-                    getGraphQLFieldDefinitionForField(
-                        materializationMetamodel,
-                        gct,
-                        parentFieldContext.field.name
+                }) {
+                    ServiceError.of(
+                        "graphql_field_definition not found at [ coordinates: %s ]",
+                        parentFieldContext.fieldCoordinates
                     )
                 }
                 .map(GraphQLFieldDefinition::getType)
@@ -561,7 +563,8 @@ internal object LazyStandardQueryTraverser : (StandardQuery) -> Iterable<QueryCo
         return parentFieldContext.field.selectionSet
             .toOption()
             .mapNotNull(SelectionSet::getSelections)
-            .fold(::emptySequence, List<Selection<*>>::asSequence)
+            .map(List<Selection<*>>::asSequence)
+            .getOrElse(::emptySequence)
             .map { s: Selection<*> -> none<Selection<*>>() to s }
             .recurseDepthFirst { (parentSelection: Option<Selection<*>>, s: Selection<*>) ->
                 when (s) {
@@ -606,10 +609,10 @@ internal object LazyStandardQueryTraverser : (StandardQuery) -> Iterable<QueryCo
         fragmentDefinitionsByName: Map<String, FragmentDefinition>,
         queryComponentContextFactory: QueryComponentContextFactory,
         parentFieldsContainerType: GraphQLFieldsContainer,
-        parentFieldContext: QueryComponentContext.FieldComponentContext,
+        parentFieldContext: FieldComponentContext,
         parentSelection: Option<Selection<*>>,
         childField: Field,
-    ): QueryComponentContext.FieldComponentContext {
+    ): FieldComponentContext {
         val gfc: GraphQLFieldsContainer =
             when {
                 parentFieldsContainerType.getFieldDefinition(childField.name) != null -> {
