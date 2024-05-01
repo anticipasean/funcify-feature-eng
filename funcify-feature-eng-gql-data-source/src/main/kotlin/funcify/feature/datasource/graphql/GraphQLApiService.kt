@@ -32,7 +32,7 @@ interface GraphQLApiService {
         query: String,
         variables: Map<String, Any?> = mapOf(),
         operationName: String? = null
-    ): Mono<JsonNode>
+    ): Mono<out JsonNode>
 
     interface Builder {
 

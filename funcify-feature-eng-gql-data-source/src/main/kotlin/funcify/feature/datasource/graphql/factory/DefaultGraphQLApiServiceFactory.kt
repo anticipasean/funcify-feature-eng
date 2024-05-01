@@ -29,6 +29,8 @@ import org.springframework.web.util.UriBuilderFactory
 import org.springframework.web.util.UriComponentsBuilder
 import reactor.core.publisher.Mono
 import reactor.core.scheduler.Schedulers
+import reactor.util.retry.Retry
+import reactor.util.retry.RetryBackoffSpec
 
 /**
  * @author smccarron
@@ -147,6 +149,7 @@ internal class DefaultGraphQLApiServiceFactory(
                 companion object {
                     private val logger: Logger =
                         LoggerFactory.getLogger(DefaultGraphQLApiService::class.java)
+                    private const val METHOD_TAG = "execute_single_query"
                 }
 
                 private val webClient: WebClient by lazy {
@@ -166,93 +169,204 @@ internal class DefaultGraphQLApiServiceFactory(
                     query: String,
                     variables: Map<String, Any?>,
                     operationName: String?
-                ): Mono<JsonNode> {
+                ): Mono<out JsonNode> {
                     logger.debug(
-                        """execute_single_query: 
+                        """$METHOD_TAG: 
                         |[ query.length: ${query.length}, 
                         |variables.size: ${variables.size}, 
                         |operation_name: $operationName ]
                         |"""
                             .flatten()
                     )
-                    val queryBodySupplierMono: Mono<ObjectNode> =
-                        Mono.fromSupplier {
-                                mapOf<String, Any?>(
-                                        "query" to query,
-                                        "variables" to variables,
-                                        "operationName" to operationName
-                                    )
-                                    .foldLeft(JsonNodeFactory.instance.objectNode()) {
-                                        objNod: ObjectNode,
-                                        entry: Map.Entry<String, Any?> ->
-                                        when (val entVal = entry.value) {
-                                            is String -> {
-                                                objNod.put(entry.key, entVal)
-                                            }
-                                            null -> {
-                                                objNod.putNull(entry.key)
-                                            }
-                                            else -> {
-                                                objNod.set(
-                                                    entry.key,
-                                                    jsonMapper
-                                                        .fromKotlinObject(entVal)
-                                                        .toJsonNode()
-                                                        .orElseThrow()
-                                                )
-                                            }
-                                        }
-                                    }
-                            }
-                            .onErrorMap(IllegalArgumentException::class.java) {
-                                e: IllegalArgumentException ->
-                                ServiceError.builder()
-                                    .message("error converting variables into JSON")
-                                    .cause(e)
-                                    .build()
-                            }
                     return webClient
                         .post()
                         .contentType(MediaType.APPLICATION_JSON)
                         .accept(MediaType.APPLICATION_JSON)
                         .acceptCharset(Charsets.UTF_8)
-                        .body(queryBodySupplierMono, JsonNode::class.java)
+                        .body(
+                            createGraphQLRequestJson(query, variables, operationName),
+                            JsonNode::class.java
+                        )
                         .exchangeToMono<JsonNode> { cr: ClientResponse ->
                             if (cr.statusCode().isError) {
-                                cr.bodyToMono(String::class.java).flatMap { responseBody: String ->
-                                    Mono.error<JsonNode>(
-                                        ServiceError.downstreamResponseErrorBuilder()
-                                            .message(
-                                                """
-                                                |client_response.status: 
-                                                |[ code: ${cr.statusCode().value()}, 
-                                                |reason: ${HttpStatus.valueOf(cr.statusCode().value()).reasonPhrase} ] 
-                                                |[ body: "$responseBody" ]
-                                                """
-                                                    .flatten()
-                                            )
-                                            .build()
-                                    )
-                                }
+                                convertClientResponseIntoDownstreamResponseError(cr)
                             } else {
                                 cr.bodyToMono(JsonNode::class.java)
                             }
                         }
+                        .retryWhen(createRetrySpec())
                         .publishOn(Schedulers.boundedElastic())
                         .timed()
                         .map { timedJson ->
                             logger.info(
-                                "execute_single_query: [ status: success ] [ elapsed_time: {} ms ]",
+                                "$METHOD_TAG: [ status: successful ][ elapsed_time: {} ms ]",
                                 timedJson.elapsed().toMillis()
                             )
                             timedJson.get()
                         }
                         .doOnError { t: Throwable ->
                             logger.error(
-                                "execute_single_query: [ status: failed ] [ type: {}, message: {} ]",
+                                "$METHOD_TAG: [ status: failed ][ type: {}, message: {} ]",
                                 t::class.simpleName,
                                 t.message
                             )
+                        }
+                }
+
+                private fun createGraphQLRequestJson(
+                    query: String,
+                    variables: Map<String, Any?>,
+                    operationName: String?,
+                ): Mono<out ObjectNode> {
+                    return Mono.fromCallable {
+                            mapOf<String, Any?>(
+                                    "query" to query,
+                                    "variables" to variables,
+                                    "operationName" to operationName
+                                )
+                                .foldLeft(JsonNodeFactory.instance.objectNode()) {
+                                    objNod: ObjectNode,
+                                    entry: Map.Entry<String, Any?> ->
+                                    when (val entVal = entry.value) {
+                                        is String -> {
+                                            objNod.put(entry.key, entVal)
+                                        }
+                                        null -> {
+                                            objNod.putNull(entry.key)
+                                        }
+                                        else -> {
+                                            objNod.set(
+                                                entry.key,
+                                                jsonMapper
+                                                    .fromKotlinObject(entVal)
+                                                    .toJsonNode()
+                                                    .orElseThrow()
+                                            )
+                                        }
+                                    }
+                                }
+                        }
+                        .onErrorMap(IllegalArgumentException::class.java) {
+                            e: IllegalArgumentException ->
+                            ServiceError.builder()
+                                .message("error converting variables into JSON")
+                                .cause(e)
+                                .build()
+                        }
+                        .cache()
+                }
+
+                private fun convertClientResponseIntoDownstreamResponseError(
+                    clientResponse: ClientResponse
+                ): Mono<JsonNode> {
+                    return when (clientResponse.headers().contentType().orElse(null)) {
+                        MediaType.APPLICATION_JSON,
+                        MediaType.APPLICATION_GRAPHQL_RESPONSE -> {
+                            clientResponse.bodyToMono(JsonNode::class.java).flatMap {
+                                responseBody: JsonNode ->
+                                Mono.error<JsonNode> {
+                                    createDownstreamResponseError(clientResponse, responseBody)
+                                }
+                            }
+                        }
+                        else -> {
+                            clientResponse.bodyToMono(String::class.java).flatMap {
+                                responseBody: String ->
+                                Mono.error<JsonNode> {
+                                    createDownstreamResponseError(clientResponse, responseBody)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                private fun createDownstreamResponseError(
+                    clientResponse: ClientResponse,
+                    responseBody: Any?,
+                ): Throwable {
+                    return when (HttpStatus.valueOf(clientResponse.statusCode().value())) {
+                        HttpStatus.SERVICE_UNAVAILABLE -> {
+                            ServiceError.downstreamServiceUnavailableErrorBuilder()
+                                .message(
+                                    createDownstreamResponseErrorMessage(
+                                        clientResponse,
+                                        responseBody
+                                    )
+                                )
+                                .build()
+                        }
+                        HttpStatus.GATEWAY_TIMEOUT -> {
+                            ServiceError.downstreamTimeoutErrorBuilder()
+                                .message(
+                                    createDownstreamResponseErrorMessage(
+                                        clientResponse,
+                                        responseBody
+                                    )
+                                )
+                                .build()
+                        }
+                        else -> {
+                            ServiceError.downstreamResponseErrorBuilder()
+                                .message(
+                                    createDownstreamResponseErrorMessage(
+                                        clientResponse,
+                                        responseBody
+                                    )
+                                )
+                                .build()
+                        }
+                    }
+                }
+
+                private fun createDownstreamResponseErrorMessage(
+                    clientResponse: ClientResponse,
+                    responseBody: Any?
+                ): String {
+                    return sequenceOf(
+                            "code" to clientResponse.statusCode(),
+                            "reason" to
+                                HttpStatus.valueOf(clientResponse.statusCode().value())
+                                    .reasonPhrase,
+                            "body" to responseBody
+                        )
+                        .fold(JsonNodeFactory.instance.objectNode()) { on, (k, v) ->
+                            when (v) {
+                                is JsonNode -> {
+                                    on.set(k, v)
+                                }
+                                is String -> {
+                                    on.put(k, v)
+                                }
+                                else -> {
+                                    on.put(k, v.toString())
+                                }
+                            }
+                        }
+                        .let { on: ObjectNode ->
+                            JsonNodeFactory.instance
+                                .objectNode()
+                                .set<ObjectNode>("error_response", on)
+                        }
+                        .toString()
+                }
+
+                private fun createRetrySpec(): Retry {
+                    return Retry.backoff(3, Duration.ofMillis(50))
+                        .doAfterRetry { rs: Retry.RetrySignal ->
+                            logger.warn(
+                                "{}: [ retry_count: {} ][ last_error: {} ]",
+                                METHOD_TAG,
+                                rs.totalRetries(),
+                                rs.failure().message
+                            )
+                        }
+                        .onRetryExhaustedThrow { rbt: RetryBackoffSpec, rs: Retry.RetrySignal ->
+                            logger.warn(
+                                "{}: [ status: retries exhausted ][ total_retries: {} ]",
+                                METHOD_TAG,
+                                rs.totalRetries()
+                            )
+                            rs.failure()
                         }
                 }
             }
