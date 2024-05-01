@@ -1,7 +1,6 @@
 package funcify.feature.materializer.fetcher
 
 import arrow.core.Option
-import arrow.core.getOrElse
 import arrow.core.none
 import arrow.core.toOption
 import funcify.feature.error.ServiceError
@@ -26,19 +25,26 @@ internal class SingleRequestMaterializationDataFetcher<R>(
 
     companion object {
         private val logger: Logger = loggerFor<SingleRequestMaterializationDataFetcher<*>>()
+        private const val METHOD_TAG = "get"
     }
 
     override fun get(
         environment: DataFetchingEnvironment?
     ): CompletionStage<out DataFetcherResult<R>> {
-        logger.debug(
-            """get: [ 
-               |fetcher_id_hash: ${System.identityHashCode(this)}, 
-               |environment.parent_type.name: ${environment?.parentType?.run { GraphQLTypeUtil.simplePrint(this) }}, 
-               |environment.field.name: ${environment?.field?.name} 
-               |]"""
-                .flatten()
-        )
+        if (logger.isDebugEnabled) {
+            logger.debug(
+                """{}: [ 
+                   |fetcher.id_hash: {}, 
+                   |environment.parent_type: {}, 
+                   |environment.field.name: {} 
+                   |]"""
+                    .flatten(),
+                METHOD_TAG,
+                System.identityHashCode(this),
+                environment?.parentType?.run { GraphQLTypeUtil.simplePrint(this) },
+                environment?.field?.name
+            )
+        }
         return when {
             environment == null -> {
                 createEnvironmentNullErrorFuture()
@@ -70,21 +76,21 @@ internal class SingleRequestMaterializationDataFetcher<R>(
         }
     }
 
-    private fun <R> createEnvironmentNullErrorFuture(): CompletableFuture<DataFetcherResult<R>> {
+    private fun <R> createEnvironmentNullErrorFuture():
+        CompletableFuture<out DataFetcherResult<R>> {
         val message = "data_fetching_environment is null"
-        logger.error("get: [ status: failed ] [ message: $message ]")
+        logger.error("$METHOD_TAG: [ status: failed ][ message: $message ]")
         return CompletableFuture.failedFuture(ServiceError.of(message))
     }
 
     private fun <R> createSingleRequestSessionMissingErrorFuture():
-        CompletableFuture<DataFetcherResult<R>> {
+        CompletableFuture<out DataFetcherResult<R>> {
         val message =
             """data_fetching_environment.graphql_context is missing entry for key
             |[ name: ${GraphQLSingleRequestSession.GRAPHQL_SINGLE_REQUEST_SESSION_KEY}, 
-            |type: ${GraphQLSingleRequestSession::class.qualifiedName} 
-            |]"""
+            |type: ${GraphQLSingleRequestSession::class.qualifiedName} ]"""
                 .flatten()
-        logger.error("get: [ status: failed ] [ message: $message ]")
+        logger.error("$METHOD_TAG: [ status: failed ][ message: $message ]")
         return CompletableFuture.failedFuture(ServiceError.of(message))
     }
 
@@ -106,10 +112,7 @@ internal class SingleRequestMaterializationDataFetcher<R>(
             },
             { throwable: Throwable ->
                 resultFuture.complete(
-                    renderGraphQLErrorDataFetcherResultFromThrowableAndEnvironment<R>(
-                        throwable,
-                        environment
-                    )
+                    foldErrorIntoTypedDataFetcherResult<R>(environment, throwable)
                 )
             },
             { ->
@@ -140,16 +143,17 @@ internal class SingleRequestMaterializationDataFetcher<R>(
             val materializedValue: R = materializedValueOption.orNull() as R
             DataFetcherResult.newResult<R>().data(materializedValue).build()
         } catch (cce: ClassCastException) {
-            val materializedValueType: String =
-                materializedValueOption
-                    .mapNotNull { a -> a::class.qualifiedName }
-                    .getOrElse { "<NA>" }
             val message =
-                """unable to convert materialized_value: 
-                    |[ actual: result.type $materializedValueType ] 
-                    |[ class_cast_exception.message: ${cce.message} ]
-                    |"""
+                """unable to convert materialized value for [ path: %s ] 
+                |[ actual_kotlin_type: %s, expected_graphql_type: %s ]
+                |[ class_cast_exception.message: %s ]"""
                     .flatten()
+                    .format(
+                        environment.executionStepInfo.path,
+                        materializedValueOption.orNull()?.run { this::class.qualifiedName },
+                        GraphQLTypeUtil.simplePrint(environment.fieldType),
+                        cce.message
+                    )
             DataFetcherResult.newResult<R>()
                 .error(
                     GraphqlErrorBuilder.newError(environment)
@@ -161,9 +165,9 @@ internal class SingleRequestMaterializationDataFetcher<R>(
         }
     }
 
-    private fun <R> renderGraphQLErrorDataFetcherResultFromThrowableAndEnvironment(
-        throwable: Throwable,
-        environment: DataFetchingEnvironment?,
+    private fun <R> foldErrorIntoTypedDataFetcherResult(
+        environment: DataFetchingEnvironment,
+        throwable: Throwable
     ): DataFetcherResult<R> {
         var t: Throwable? = throwable
         while (t?.cause != null && t !is GraphQLError && t !is ServiceError) {
@@ -178,36 +182,33 @@ internal class SingleRequestMaterializationDataFetcher<R>(
                     .error(
                         GraphqlErrorBuilder.newError(environment)
                             .errorType(ErrorType.DataFetchingException)
-                            .message(possiblyUnnestedError.message)
-                            .extensions(
-                                mapOf("service_error" to possiblyUnnestedError.toJsonNode())
+                            .message(
+                                "unable to determine value for [ path: %s ]"
+                                    .format(environment.executionStepInfo.path)
                             )
+                            .extensions(mapOf("cause" to possiblyUnnestedError.toJsonNode()))
                             .build()
                     )
                     .build()
             }
             else -> {
-                val messageWithErrorTypeInfo: String =
-                    """unhandled data_fetching_error 
-                       |[ type: ${possiblyUnnestedError::class.simpleName}, 
-                       |message: ${possiblyUnnestedError.message} 
-                       |]"""
-                        .flatten()
+                val se: ServiceError =
+                    ServiceError.builder()
+                        .message(
+                            "unhandled error during materialization of value for [ path: %s ]"
+                                .format(environment.executionStepInfo.path)
+                        )
+                        .cause(possiblyUnnestedError)
+                        .build()
                 DataFetcherResult.newResult<R>()
                     .error(
                         GraphqlErrorBuilder.newError(environment)
                             .errorType(ErrorType.DataFetchingException)
-                            .message(messageWithErrorTypeInfo)
-                            .extensions(
-                                mapOf(
-                                    "service_error" to
-                                        ServiceError.builder()
-                                            .message("unhandled data_fetching_error")
-                                            .cause(possiblyUnnestedError)
-                                            .build()
-                                            .toJsonNode()
-                                )
+                            .message(
+                                "unable to determine value for [ path: %s ]"
+                                    .format(environment.executionStepInfo.path)
                             )
+                            .extensions(mapOf("cause" to se.toJsonNode()))
                             .build()
                     )
                     .build()
