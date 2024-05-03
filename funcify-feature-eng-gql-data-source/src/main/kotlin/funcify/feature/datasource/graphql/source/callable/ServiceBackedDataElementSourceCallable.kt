@@ -22,18 +22,23 @@ import funcify.feature.schema.path.operation.FragmentSpreadSegment
 import funcify.feature.schema.path.operation.GQLOperationPath
 import funcify.feature.schema.path.operation.InlineFragmentSegment
 import funcify.feature.schema.path.operation.SelectionSegment
+import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.SequenceExtensions.firstOrNone
 import funcify.feature.tools.extensions.SequenceExtensions.flatMapOptions
 import funcify.feature.tools.extensions.StringExtensions.flatten
+import funcify.feature.tools.extensions.TryExtensions.failure
 import funcify.feature.tools.extensions.TryExtensions.foldIntoTry
 import funcify.feature.tools.extensions.TryExtensions.successIfDefined
+import funcify.feature.tools.extensions.TryExtensions.successIfNonNull
 import funcify.feature.tools.extensions.TryExtensions.tryFold
 import graphql.language.AstPrinter
 import graphql.language.Document
 import graphql.language.OperationDefinition
 import graphql.language.Value
 import graphql.schema.GraphQLArgument
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ConcurrentMap
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.PersistentMap
@@ -58,6 +63,30 @@ internal class ServiceBackedDataElementSourceCallable(
         private val logger: Logger = loggerFor<ServiceBackedDataElementSourceCallable>()
         private const val DATA_KEY: String = "data"
         private const val ERRORS_KEY: String = "errors"
+        private val graphQLDocumentToAstString: (Document) -> Try<String> by lazy {
+            val cache: ConcurrentMap<Document, Try<String>> = ConcurrentHashMap();
+            { document: Document ->
+                cache.computeIfAbsent(document) { d: Document ->
+                    try {
+                        AstPrinter.printAst(d).successIfNonNull {
+                            ServiceError.of(
+                                "rendered string for instance [ type: %s ] is null",
+                                Document::class.qualifiedName
+                            )
+                        }
+                    } catch (t: Throwable) {
+                        ServiceError.builder()
+                            .message(
+                                "unable to render instance [ type: %s ] as string",
+                                Document::class.qualifiedName
+                            )
+                            .cause(t)
+                            .build()
+                            .failure<String>()
+                    }
+                }
+            }
+        }
     }
 
     override fun invoke(arguments: ImmutableMap<GQLOperationPath, JsonNode>): Mono<JsonNode> {
@@ -246,36 +275,11 @@ internal class ServiceBackedDataElementSourceCallable(
                     }
             }
             .flatMap { (sb: GQLDocumentSpec.Builder, vars: PersistentMap<String, JsonNode>) ->
-                GQLDocumentComposer.defaultComposer()
-                    .composeDocumentFromSpecWithSchema(
-                        spec = sb.build(),
-                        graphQLSchema =
-                            domainSpecifiedDataElementSource.domainDataElementSourceGraphQLSchema
-                    )
-                    .map { d: Document ->
-                        logger.debug(
-                            "create_and_dispatch_call_to_graphql_api_based_on_selections: [ vars: {}, document: {} ]",
-                            vars,
-                            AstPrinter.printAst(d)
-                        )
-                        serviceBackedDataElementSource.graphQLApiService
-                            .executeSingleQuery(
-                                query = AstPrinter.printAst(d),
-                                variables = vars,
-                                operationName =
-                                    d.toOption()
-                                        .mapNotNull(Document::getDefinitions)
-                                        .getOrElse(::emptyList)
-                                        .asSequence()
-                                        .filterIsInstance<OperationDefinition>()
-                                        .mapNotNull(OperationDefinition::getName)
-                                        .filter(String::isNotBlank)
-                                        .firstOrNull()
-                            )
-                            .flatMap { responseJson: JsonNode ->
-                                separateDataAndErrorBlocks(responseJson)
-                            }
+                createDocumentFromSpecBuilder(sb).flatMap { d: Document ->
+                    graphQLDocumentToAstString(d).map { ds: String ->
+                        dispatchQueryDocumentToGraphQLApiService(d, ds, vars)
                     }
+                }
             }
             .fold(::identity) { t: Throwable ->
                 Mono.error {
@@ -291,55 +295,13 @@ internal class ServiceBackedDataElementSourceCallable(
             }
     }
 
-    private fun separateDataAndErrorBlocks(responseJson: JsonNode): Mono<out JsonNode> {
-        return when {
-            // Case 1: response has non-null data value and if it has any errors block, no errors
-            // reported therein
-            responseJson.has(DATA_KEY) &&
-                !responseJson.path(DATA_KEY).isNull &&
-                (!responseJson.has(ERRORS_KEY) ||
-                    responseJson
-                        .get(ERRORS_KEY)
-                        .toOption()
-                        .filterIsInstance<ArrayNode>()
-                        .exists(ArrayNode::isEmpty)) -> {
-                Mono.just(responseJson.get(DATA_KEY))
-            }
-            // Case 2: response has non-empty errors block
-            responseJson.has(ERRORS_KEY) &&
-                !responseJson
-                    .get(ERRORS_KEY)
-                    .toOption()
-                    .filterIsInstance<ArrayNode>()
-                    .exists(ArrayNode::isEmpty) -> {
-                Mono.error {
-                    ServiceError.of(
-                        """response from [ source.name: %s, graphql_api_service.service_name: %s ] 
-                            |for [ domain_path: %s ] 
-                            |contains errors [ %s ]"""
-                            .flatten(),
-                        serviceBackedDataElementSource.name,
-                        serviceBackedDataElementSource.graphQLApiService.serviceName,
-                        domainPath,
-                        responseJson.get(ERRORS_KEY)
-                    )
-                }
-            }
-            // Case 3: response has null data value and empty or absent errors block
-            else -> {
-                Mono.error {
-                    ServiceError.of(
-                        """response from [ source.name: %s, graphql_api_service.service_name: %s ] 
-                            |for [ domain_path: %s ] 
-                            |has null data value but no errors reported"""
-                            .flatten(),
-                        serviceBackedDataElementSource.name,
-                        serviceBackedDataElementSource.graphQLApiService.serviceName,
-                        domainPath
-                    )
-                }
-            }
-        }
+    private fun createDocumentFromSpecBuilder(specBuilder: GQLDocumentSpec.Builder): Try<Document> {
+        return GQLDocumentComposer.defaultComposer()
+            .composeDocumentFromSpecWithSchema(
+                spec = specBuilder.build(),
+                graphQLSchema =
+                    domainSpecifiedDataElementSource.domainDataElementSourceGraphQLSchema
+            )
     }
 
     private fun createErrorForUnrelatedSelection(selection: GQLOperationPath): ServiceError {
@@ -367,6 +329,83 @@ internal class ServiceBackedDataElementSourceCallable(
                 ServiceBackedDataElementSourceCallable::class.simpleName,
                 serviceBackedDataElementSource.name
             )
+        }
+    }
+
+    private fun dispatchQueryDocumentToGraphQLApiService(
+        document: Document,
+        documentAsString: String,
+        variables: PersistentMap<String, JsonNode>
+    ): Mono<out JsonNode> {
+        logger.debug(
+            "create_and_dispatch_call_to_graphql_api_based_on_selections: [ vars: {}, document: {} ]",
+            variables,
+            documentAsString
+        )
+        return serviceBackedDataElementSource.graphQLApiService
+            .executeSingleQuery(
+                query = documentAsString,
+                variables = variables,
+                operationName =
+                    document
+                        .toOption()
+                        .mapNotNull(Document::getDefinitions)
+                        .getOrElse(::emptyList)
+                        .asSequence()
+                        .filterIsInstance<OperationDefinition>()
+                        .mapNotNull(OperationDefinition::getName)
+                        .filter(String::isNotBlank)
+                        .firstOrNull()
+            )
+            .flatMap { responseJson: JsonNode -> separateDataAndErrorBlocks(responseJson) }
+    }
+
+    private fun separateDataAndErrorBlocks(responseJson: JsonNode): Mono<out JsonNode> {
+        return when {
+            // Case 1: response has non-null data value and if it has any errors block, no errors
+            // reported therein
+            responseJson.has(DATA_KEY) &&
+                !responseJson.path(DATA_KEY).isNull &&
+                (!responseJson.has(ERRORS_KEY) ||
+                    responseJson
+                        .get(ERRORS_KEY)
+                        .toOption()
+                        .filterIsInstance<ArrayNode>()
+                        .exists(ArrayNode::isEmpty)) -> {
+                Mono.just(responseJson.get(DATA_KEY))
+            }
+            // Case 2: response has non-empty errors block
+            responseJson.has(ERRORS_KEY) &&
+                !responseJson
+                    .get(ERRORS_KEY)
+                    .toOption()
+                    .filterIsInstance<ArrayNode>()
+                    .exists(ArrayNode::isEmpty) -> {
+                Mono.error {
+                    ServiceError.of(
+                        """response from [ source.name: %s ] 
+                            |for [ data_element.path: %s ] 
+                            |contains errors [ %s ]"""
+                            .flatten(),
+                        serviceBackedDataElementSource.name,
+                        domainPath,
+                        responseJson.get(ERRORS_KEY)
+                    )
+                }
+            }
+            // Case 3: response has null data value and empty or absent errors block
+            else -> {
+                Mono.error {
+                    ServiceError.of(
+                        """response from [ source.name: %s ] 
+                            |for [ data_element.path: %s ] 
+                            |has null data value but no errors reported"""
+                            .flatten(),
+                        serviceBackedDataElementSource.name,
+                        domainPath
+                    )
+                }
+            }
         }
     }
 

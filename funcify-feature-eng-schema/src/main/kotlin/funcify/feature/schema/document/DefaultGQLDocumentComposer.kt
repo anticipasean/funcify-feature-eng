@@ -22,7 +22,6 @@ import funcify.feature.schema.path.operation.InlineFragmentSegment
 import funcify.feature.schema.path.operation.SelectedField
 import funcify.feature.schema.path.operation.SelectionSegment
 import funcify.feature.schema.sdl.type.GraphQLExactSDLTypeComposer
-import funcify.feature.schema.sdl.type.GraphQLNullableSDLTypeComposer
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.FunctionExtensions.compose
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
@@ -77,7 +76,6 @@ import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toPersistentList
 import kotlinx.collections.immutable.toPersistentMap
 import org.slf4j.Logger
-import java.time.Instant
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentMap
@@ -94,18 +92,7 @@ internal object DefaultGQLDocumentComposer : GQLDocumentComposer {
      * [GraphQLSchema]s as of v20 do not have hashcode implementations, so their identity hash code
      * must be used instead
      */
-    private val earliestInstantReceivedBySchema: (GraphQLSchema) -> Instant by lazy {
-        val earliestInstantReceivedByIdentityHashCodeCache: ConcurrentMap<Int, Instant> =
-            ConcurrentHashMap();
-        { gs: GraphQLSchema ->
-            earliestInstantReceivedByIdentityHashCodeCache.computeIfAbsent(
-                System.identityHashCode(gs)
-            ) { _: Int ->
-                Instant.now()
-            }
-        }
-    }
-    private val cache: ConcurrentMap<Pair<Instant, GQLDocumentSpec>, Try<Document>> =
+    private val cache: ConcurrentMap<Pair<Int, GQLDocumentSpec>, Try<Document>> =
         ConcurrentHashMap()
 
     // TODO: Incorporate directive specs
@@ -136,15 +123,15 @@ internal object DefaultGQLDocumentComposer : GQLDocumentComposer {
             spec.fieldPaths.size
         )
         return cache.computeIfAbsent(
-            earliestInstantReceivedBySchema.invoke(graphQLSchema) to spec,
+            System.identityHashCode(graphQLSchema) to spec,
             calculateDocumentForSpecWithSchema(graphQLSchema)
         )
     }
 
     private fun calculateDocumentForSpecWithSchema(
         graphQLSchema: GraphQLSchema
-    ): (Pair<Instant, GQLDocumentSpec>) -> Try<Document> {
-        return { (_: Instant, spec: GQLDocumentSpec) ->
+    ): (Pair<Int, GQLDocumentSpec>) -> Try<Document> {
+        return { (_: Int, spec: GQLDocumentSpec) ->
             spec.fieldPaths
                 .asSequence()
                 .fold(persistentMapOf<Int, PersistentSet<GQLOperationPath>>()) {
@@ -490,7 +477,8 @@ internal object DefaultGQLDocumentComposer : GQLDocumentComposer {
         parentPath: GQLOperationPath,
         childContext: DefaultTraversedFieldContextWithFieldDef
     ): PersistentMap<
-        GQLOperationPath, Map<SelectionGroup, List<DefaultTraversedFieldContextWithFieldDef>>
+        GQLOperationPath,
+        Map<SelectionGroup, List<DefaultTraversedFieldContextWithFieldDef>>
     > {
         return when (
             val ss: SelectionSegment? = childContext.path.selection.lastOrNone().orNull()
@@ -922,7 +910,8 @@ internal object DefaultGQLDocumentComposer : GQLDocumentComposer {
 
     private fun interface DocumentTraverser :
         (ImmutableMap<GQLOperationPath, TraversedFieldContext>) -> ImmutableMap<
-                GQLOperationPath, TraversedFieldContext
+                GQLOperationPath,
+                TraversedFieldContext
             >
 
     private data class DocumentCreationContext(

@@ -1,7 +1,9 @@
 package funcify.feature.datasource.graphql.factory
 
 import arrow.core.continuations.eagerEffect
-import arrow.core.foldLeft
+import arrow.core.filterIsInstance
+import arrow.core.getOrElse
+import arrow.core.toOption
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.node.JsonNodeFactory
@@ -13,8 +15,6 @@ import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import funcify.feature.tools.json.JsonMapper
 import io.netty.handler.codec.http.HttpScheme
-import java.time.Duration
-import java.util.stream.Collectors
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.ObjectProvider
@@ -31,6 +31,8 @@ import reactor.core.publisher.Mono
 import reactor.core.scheduler.Schedulers
 import reactor.util.retry.Retry
 import reactor.util.retry.RetryBackoffSpec
+import java.time.Duration
+import java.util.stream.Collectors
 
 /**
  * @author smccarron
@@ -217,42 +219,23 @@ internal class DefaultGraphQLApiServiceFactory(
                     query: String,
                     variables: Map<String, Any?>,
                     operationName: String?,
-                ): Mono<out ObjectNode> {
-                    return Mono.fromCallable {
+                ): Mono<out JsonNode> {
+                    return jsonMapper
+                        .fromKotlinObject(
                             mapOf<String, Any?>(
-                                    "query" to query,
-                                    "variables" to variables,
-                                    "operationName" to operationName
-                                )
-                                .foldLeft(JsonNodeFactory.instance.objectNode()) {
-                                    objNod: ObjectNode,
-                                    entry: Map.Entry<String, Any?> ->
-                                    when (val entVal = entry.value) {
-                                        is String -> {
-                                            objNod.put(entry.key, entVal)
-                                        }
-                                        null -> {
-                                            objNod.putNull(entry.key)
-                                        }
-                                        else -> {
-                                            objNod.set(
-                                                entry.key,
-                                                jsonMapper
-                                                    .fromKotlinObject(entVal)
-                                                    .toJsonNode()
-                                                    .orElseThrow()
-                                            )
-                                        }
-                                    }
-                                }
-                        }
-                        .onErrorMap(IllegalArgumentException::class.java) {
-                            e: IllegalArgumentException ->
+                                "query" to query,
+                                "variables" to variables,
+                                "operationName" to operationName
+                            )
+                        )
+                        .toJsonNode()
+                        .mapFailure { t: Throwable ->
                             ServiceError.builder()
                                 .message("error converting variables into JSON")
-                                .cause(e)
+                                .cause(t)
                                 .build()
                         }
+                        .toMono()
                         .cache()
                 }
 
@@ -354,10 +337,23 @@ internal class DefaultGraphQLApiServiceFactory(
                     return Retry.backoff(3, Duration.ofMillis(50))
                         .doAfterRetry { rs: Retry.RetrySignal ->
                             logger.warn(
-                                "{}: [ retry_count: {} ][ last_error: {} ]",
+                                """{}: 
+                                |[ status: last request failed ]
+                                |[ retry_count: {} ]
+                                |[ last_error: { type: {}, message: {} } ]"""
+                                    .flatten(),
                                 METHOD_TAG,
                                 rs.totalRetries(),
-                                rs.failure().message
+                                rs.failure()
+                                    .toOption()
+                                    .filterIsInstance<ServiceError>()
+                                    .and(ServiceError::class.simpleName.toOption())
+                                    .getOrElse { rs.failure()::class.qualifiedName },
+                                rs.failure()
+                                    .toOption()
+                                    .filterIsInstance<ServiceError>()
+                                    .map(ServiceError::toJsonNode)
+                                    .getOrElse { rs.failure().message },
                             )
                         }
                         .onRetryExhaustedThrow { rbt: RetryBackoffSpec, rs: Retry.RetrySignal ->
