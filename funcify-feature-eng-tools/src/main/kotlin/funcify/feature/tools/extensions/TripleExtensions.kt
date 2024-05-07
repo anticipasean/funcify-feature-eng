@@ -14,6 +14,14 @@ object TripleExtensions {
         return Triple(this.third, this.second, this.first)
     }
 
+    fun <A, B, C> Triple<A, B, C>.shiftRight(): Triple<C, A, B> {
+        return Triple(this.third, this.first, this.second)
+    }
+
+    fun <A, B, C> Triple<A, B, C>.shiftLeft(): Triple<B, C, A> {
+        return Triple(this.second, this.third, this.first)
+    }
+
     inline fun <A, B, C, D, E, F> Triple<A, B, C>.trimap(
         crossinline f1: (A) -> D,
         crossinline f2: (B) -> E,

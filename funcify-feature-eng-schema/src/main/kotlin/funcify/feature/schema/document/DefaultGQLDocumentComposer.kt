@@ -328,6 +328,11 @@ internal object DefaultGQLDocumentComposer : GQLDocumentComposer {
                     }
                     .flatMap { fn: String ->
                         git.getFieldDefinition(fn).toOption().orElse {
+                            // TODO: The following determination of the implementation type to use
+                            // as the parent container type for children of the next level will need
+                            // to be revisited once subtyping strategies have been sorted out;
+                            // Implementing these changes may require changing the API for the
+                            // [GQLDocumentComposer]
                             git.toOption().filterIsInstance<GraphQLInterfaceType>().flatMap {
                                 inf: GraphQLInterfaceType ->
                                 documentCreationContext.schema
@@ -836,6 +841,7 @@ internal object DefaultGQLDocumentComposer : GQLDocumentComposer {
     ): Value<*>? {
         return graphQLArgument.argumentDefaultValue
             .toOption()
+            .filter(InputValueWithState::isSet)
             .filter(InputValueWithState::isLiteral)
             .mapNotNull(InputValueWithState::getValue)
             .filterIsInstance<Value<*>>()
