@@ -3,10 +3,11 @@ package funcify.feature.error
 import arrow.core.foldLeft
 import arrow.core.getOrElse
 import arrow.core.toOption
+import arrow.typeclasses.Monoid
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.node.JsonNodeFactory
 import com.fasterxml.jackson.databind.node.ObjectNode
-import funcify.feature.tools.extensions.ThrowableExtensions.possiblyNestedHeadStackTraceElement
+import funcify.feature.error.DefaultServiceErrorFactory.DefaultServiceErrorMonoid.combine
 import kotlinx.collections.immutable.PersistentList
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.persistentListOf
@@ -14,7 +15,6 @@ import kotlinx.collections.immutable.persistentMapOf
 import org.springframework.http.HttpStatus
 
 /**
- *
  * @author smccarron
  * @created 2022-11-11
  */
@@ -48,11 +48,11 @@ internal object DefaultServiceErrorFactory : ServiceErrorFactory {
         }
 
         override fun message(template: String, vararg args: Any?): ServiceError.Builder {
-            this.message = String.format(template, args)
+            this.message = String.format(template, *args)
             return this
         }
 
-        override fun cause(throwable: Throwable): ServiceError.Builder {
+        override fun cause(throwable: Throwable?): ServiceError.Builder {
             var t: Throwable? = throwable
             while (t?.cause != null) {
                 t = t.cause
@@ -122,19 +122,15 @@ internal object DefaultServiceErrorFactory : ServiceErrorFactory {
         override fun build(): ServiceError {
             if (!message.contains(Regex(" with cause ")) && cause != null) {
                 val c: Throwable = cause!!
-                message =
-                    StringBuilder(message)
-                        .append(" with cause ")
-                        .append(
-                            mapOf(
-                                    "type" to c::class.simpleName,
-                                    "message" to c.message,
-                                    "stacktrace[0]" to c.possiblyNestedHeadStackTraceElement()
-                                )
-                                .asSequence()
-                                .joinToString(", ", "[ ", " ]") { (k, v) -> "$k: $v" }
-                        )
-                        .toString()
+                message = buildString {
+                    append(message)
+                    append(" with cause ")
+                    append(
+                        mapOf("type" to c::class.simpleName, "message" to c.message)
+                            .asSequence()
+                            .joinToString(", ", "[ ", " ]") { (k, v) -> "$k: $v" }
+                    )
+                }
             }
             return DefaultServiceError(
                 serverHttpResponse = serverHttpResponse,
@@ -191,13 +187,15 @@ internal object DefaultServiceErrorFactory : ServiceErrorFactory {
              * Exclude extensions from json_node since extensions may not be serializable into JSON
              */
             mapOf(
-                    "server_http_response" to serverHttpResponseJson,
                     "message" to JsonNodeFactory.instance.textNode(message),
                     "cause" to causeJson,
+                    "server_http_response" to serverHttpResponseJson,
                     "service_error_history" to
                         serviceErrorHistory.fold(
                             JsonNodeFactory.instance.arrayNode(serviceErrorHistory.size)
-                        ) { an, se -> an.add(se.toJsonNode()) },
+                        ) { an, se ->
+                            an.add(se.toJsonNode())
+                        },
                 )
                 .foldLeft(JsonNodeFactory.instance.objectNode()) { on, (k, v) -> on.set(k, v) }
         }
@@ -214,6 +212,17 @@ internal object DefaultServiceErrorFactory : ServiceErrorFactory {
                 )
                 .build()
         }
+
+        override fun toJsonNode(): JsonNode {
+            return jsonNodeForm
+        }
+
+        override fun plus(other: ServiceError): ServiceError {
+            return this.combine(other)
+        }
+    }
+
+    internal object DefaultServiceErrorMonoid : Monoid<ServiceError> {
 
         override fun empty(): ServiceError {
             return DEFAULT_SERVICE_ERROR
@@ -245,10 +254,6 @@ internal object DefaultServiceErrorFactory : ServiceErrorFactory {
                     }
                 }
             }
-        }
-
-        override fun toJsonNode(): JsonNode {
-            return jsonNodeForm
         }
     }
 

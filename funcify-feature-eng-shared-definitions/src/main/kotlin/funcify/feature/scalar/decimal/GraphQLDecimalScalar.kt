@@ -1,8 +1,6 @@
 package funcify.feature.scalar.decimal
 
-import graphql.language.Description
 import graphql.language.ScalarTypeDefinition
-import graphql.language.SourceLocation
 import graphql.schema.Coercing
 import graphql.schema.GraphQLScalarType
 import java.math.BigDecimal
@@ -12,6 +10,7 @@ import java.math.RoundingMode
 /**
  * API for implementing GraphQLScalarTypes that handle decimal values with differing levels of
  * precision on account of the limitations of their sources
+ *
  * @author smccarron
  * @created 2022-07-07
  */
@@ -34,5 +33,4 @@ interface GraphQLDecimalScalar {
     val graphQLScalarTypeDefinition: ScalarTypeDefinition
 
     val graphQLScalarType: GraphQLScalarType
-
 }

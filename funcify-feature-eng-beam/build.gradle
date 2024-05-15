@@ -1,0 +1,23 @@
+plugins {
+    //id 'org.apache.beam.module'
+    id 'org.jetbrains.kotlin.jvm'
+    id 'application'
+}
+
+application {
+    mainClass.set('funcify.feature.beam.NetflixMoviesTvShowsFeaturesPipeline')
+}
+
+run.args(["--inputFile=src/main/resources/netflix_movies_and_tv_shows_202306091725/netflix_titles.csv",
+          "--output=pipeline_output.csv",
+          "--graphQLSchemaFile=src/main/resources/netflix_movies_and_tv_shows.graphqls"
+])
+
+run.dependsOn(assemble)
+
+dependencies {
+    implementation(project(':funcify-feature-eng-tools'))
+    implementation(project(':funcify-feature-eng-tree'))
+    implementation(project(":funcify-feature-eng-shared-definitions"))
+
+}

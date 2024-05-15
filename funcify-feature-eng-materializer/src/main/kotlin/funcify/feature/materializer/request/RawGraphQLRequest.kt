@@ -1,16 +1,15 @@
 package funcify.feature.materializer.request
 
-import arrow.core.Option
 import graphql.execution.ExecutionId
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.ImmutableMap
+import org.springframework.messaging.MessageHeaders
+import reactor.core.publisher.Mono
 import java.net.URI
 import java.security.Principal
 import java.util.*
-import kotlinx.collections.immutable.ImmutableList
-import kotlinx.collections.immutable.ImmutableMap
-import org.springframework.http.HttpHeaders
 
 /**
- *
  * @author smccarron
  * @created 2/13/22
  */
@@ -22,9 +21,9 @@ interface RawGraphQLRequest {
 
     val uri: URI
 
-    val headers: HttpHeaders
+    val headers: MessageHeaders
 
-    val principal: Option<Principal>
+    val principalPublisher: Mono<out Principal>
 
     val rawGraphQLQueryText: String
 
@@ -38,6 +37,8 @@ interface RawGraphQLRequest {
 
     val executionInputCustomizers: ImmutableList<GraphQLExecutionInputCustomizer>
 
+    fun update(transformer: Builder.() -> Builder): RawGraphQLRequest
+
     interface Builder {
 
         fun requestId(requestId: UUID): Builder
@@ -46,9 +47,9 @@ interface RawGraphQLRequest {
 
         fun uri(uri: URI): Builder
 
-        fun headers(headers: HttpHeaders): Builder
+        fun headers(headers: MessageHeaders): Builder
 
-        fun principal(principal: Principal?): Builder
+        fun principalPublisher(principalPublisher: Mono<out Principal>): Builder
 
         fun rawGraphQLQueryText(rawGraphQLQueryText: String): Builder
 
@@ -57,6 +58,12 @@ interface RawGraphQLRequest {
         fun variables(variables: Map<String, Any?>): Builder
 
         fun variable(key: String, value: Any?): Builder
+
+        fun removeVariable(key: String): Builder
+
+        fun removeVariableIf(condition: (Map.Entry<String, Any?>) -> Boolean): Builder
+
+        fun clearVariables(): Builder
 
         fun locale(locale: Locale): Builder
 

@@ -23,7 +23,6 @@ import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 
 /**
- *
  * @author smccarron
  * @created 2/7/22
  */
@@ -48,6 +47,7 @@ sealed interface Try<out S> : Iterable<S> {
                 Failure<S>(throwable)
             }
         }
+
         @JvmStatic
         fun <S> success(successfulResult: S): Try<S> {
             return nullableSuccess(successfulResult)
@@ -56,6 +56,15 @@ sealed interface Try<out S> : Iterable<S> {
         @JvmStatic
         fun <S> failure(throwable: Throwable): Try<S> {
             return nullableFailure(throwable)
+        }
+
+        @JvmStatic
+        fun <S> failure(function: () -> Throwable): Try<S> {
+            return try {
+                nullableFailure(function.invoke())
+            } catch (t: Throwable) {
+                nullableFailure(t)
+            }
         }
 
         @JvmStatic
@@ -174,7 +183,8 @@ sealed interface Try<out S> : Iterable<S> {
                     |inputs [ i1.type: ${i1?.let { it::class.qualifiedName }}, 
                     |i2.type: ${i2?.let { it::class.qualifiedName }} ] 
                     |resulted in null value for function",
-                """.flatten()
+                """
+                        .flatten()
                 IllegalArgumentException(message)
             }
         }
@@ -224,7 +234,9 @@ sealed interface Try<out S> : Iterable<S> {
             return try {
                 option.fold({
                     failure(ifEmpty.invoke(NoSuchElementException("input option is empty")))
-                }) { input: S -> success(input) }
+                }) { input: S ->
+                    success(input)
+                }
             } catch (t: Throwable) {
                 failure<S>(t)
             }
@@ -241,10 +253,7 @@ sealed interface Try<out S> : Iterable<S> {
 
         @JvmStatic
         fun <S> fromResult(result: Result<S>): Try<S> {
-            return result.fold(
-                { s -> Success(s) },
-                { t: Throwable -> Failure<S>(t) }
-            )
+            return result.fold({ s -> Success(s) }, { t: Throwable -> Failure<S>(t) })
         }
 
         @JvmStatic
@@ -254,7 +263,8 @@ sealed interface Try<out S> : Iterable<S> {
                     """
                     |number_of_retries must be greater 
                     |than or equal to 0: [ actual: $numberOfRetries ]
-                    |""".flatten()
+                    |"""
+                        .flatten()
                 return failure<S>(IllegalArgumentException(message))
             }
             var attempt: Try<S> = attempt(function)
@@ -280,7 +290,8 @@ sealed interface Try<out S> : Iterable<S> {
                     """
                     |number_of_retries must be greater 
                     |than or equal to 0: [ actual: $numberOfRetries ]
-                    |""".flatten()
+                    |"""
+                        .flatten()
                 return failure<S>(IllegalArgumentException(message))
             }
             var attempt: Try<S> = attempt(function)
@@ -309,7 +320,8 @@ sealed interface Try<out S> : Iterable<S> {
                         attempt_with_timeout: [ operation reached limit of 
                         $validatedTimeout 
                         ${unit.name.lowercase(Locale.getDefault())} ]
-                        """.trimIndent()
+                        """
+                            .trimIndent()
                     return failure<S>(TimeoutException(message))
                 }
                 if (t is CompletionException) {
@@ -365,7 +377,11 @@ sealed interface Try<out S> : Iterable<S> {
             mapper: (S) -> R,
             combiner: (R, R) -> R
         ): Monoid<Try<R>> {
-            return TryMonoidFactory.HeterogeneousSuccessTypeTryMonoid<S, R>(initial, mapper, combiner)
+            return TryMonoidFactory.HeterogeneousSuccessTypeTryMonoid<S, R>(
+                initial,
+                mapper,
+                combiner
+            )
         }
 
         @JvmStatic
@@ -539,7 +555,9 @@ sealed interface Try<out S> : Iterable<S> {
                 try {
                     Option.fromNullable(mapper.invoke(input)).fold({
                         success<R>(ifNull.invoke())
-                    }) { r -> success<R>(r) }
+                    }) { r ->
+                        success<R>(r)
+                    }
                 } catch (t: Throwable) {
                     failure<R>(t)
                 }
@@ -748,6 +766,7 @@ sealed interface Try<out S> : Iterable<S> {
      *
      * @param defaultValueSupplier
      * - called if failure case
+     *
      * @return the result success value or the result of the default value supplier
      */
     fun orElseGet(defaultValueSupplier: () -> @UnsafeVariance S): S {
@@ -760,9 +779,10 @@ sealed interface Try<out S> : Iterable<S> {
      *
      * @param exceptionWrapper
      * - function that takes the error and wraps it in another error type
+     *
      * @param <F> - any throwable
      * @return the result value if a success, or else throws an exception wrapping the error that
-     * occurred in the process
+     *   occurred in the process
      * @throws F
      * - the wrapper type for the exception
      */
@@ -782,10 +802,26 @@ sealed interface Try<out S> : Iterable<S> {
      * @return the result value if a success, or else throws an unchecked exception
      * @throws F
      * - the unchecked exception type or a wrapped checked exception in a
-     * [java.lang.RuntimeException]
+     *   [java.lang.RuntimeException]
      */
     fun orElseThrow(): S {
         return fold({ result: S -> result }, { throwable: Throwable -> throw throwable })
+    }
+
+    fun orElseTry(otherAttempt: () -> Try<@UnsafeVariance S>): Try<S> {
+        return fold({ result: S -> Try.success(result) }, { _: Throwable -> otherAttempt.invoke() })
+    }
+
+    fun orElseTry(
+        otherAttempt: () -> Try<@UnsafeVariance S>,
+        failureCombiner: (Throwable, Throwable) -> Throwable
+    ): Try<S> {
+        return fold(
+            { result: S -> Try.success(result) },
+            { t1: Throwable ->
+                otherAttempt.invoke().mapFailure { t2: Throwable -> failureCombiner.invoke(t1, t2) }
+            }
+        )
     }
 
     fun ifFailed(errorHandler: (Throwable) -> Unit) {
@@ -824,7 +860,8 @@ sealed interface Try<out S> : Iterable<S> {
                     successObserver.invoke(result)
                     success<S>(result)
                 } catch (t: Throwable) {
-                    failure<S>(t)
+                    // ignore any throwable that occurs within peek
+                    success<S>(result)
                 }
             },
             { throwable: Throwable ->
@@ -832,7 +869,8 @@ sealed interface Try<out S> : Iterable<S> {
                     failureObserver.invoke(throwable)
                     failure<S>(throwable)
                 } catch (t: Throwable) {
-                    failure<S>(t)
+                    // ignore any throwable that occurs within peek
+                    failure<S>(throwable)
                 }
             }
         )
@@ -867,7 +905,7 @@ sealed interface Try<out S> : Iterable<S> {
     }
 
     fun toMono(): Mono<out S> {
-        return fold({ s: S -> Mono.just(s) }, { t: Throwable -> Mono.error(t) })
+        return fold({ result: S -> Mono.just(result) }, { t: Throwable -> Mono.error(t) })
     }
 
     fun toFlux(): Flux<out S> {

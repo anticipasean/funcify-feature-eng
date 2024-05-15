@@ -1,7 +1,5 @@
 package funcify.feature.tools.json
 
-import arrow.core.getOrElse
-import arrow.core.toOption
 import com.fasterxml.jackson.databind.JavaType
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
@@ -12,7 +10,6 @@ import com.jayway.jsonpath.JsonPath
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import kotlin.reflect.KClass
-import kotlin.reflect.cast
 import org.springframework.core.ParameterizedTypeReference
 
 internal object DefaultJsonMapperFactory : JsonMapperFactory {
@@ -85,7 +82,8 @@ internal object DefaultJsonMapperFactory : JsonMapperFactory {
                     """one of the following was not set in the builder: 
                         |[ jacksonObjectMapper: ${jacksonObjectMapper ?: "UNSET"}, 
                         |jaywayJsonPathConfiguration: ${jaywayJsonPathConfiguration ?: "UNSET"}
-                        |""".flatten()
+                        |"""
+                        .flatten()
                 throw IllegalArgumentException(message)
             }
         }
@@ -96,7 +94,7 @@ internal object DefaultJsonMapperFactory : JsonMapperFactory {
         override val jaywayJsonPathConfiguration: Configuration
     ) : JsonMapper {
 
-        override fun <T> fromKotlinObject(objectInstance: T?): MappingTarget {
+        override fun <T : Any> fromKotlinObject(objectInstance: T?): MappingTarget {
             return DefaultKotlinObjectMappingTarget(
                 objectInstance,
                 jacksonObjectMapper,
@@ -133,24 +131,13 @@ internal object DefaultJsonMapperFactory : JsonMapperFactory {
                     sourceObjectInstanceNullFailure<T>(kClass.qualifiedName)
                 }
                 else -> {
-                    Try.success(sourceObjectInstance)
-                        .filter(
-                            { s -> kClass.isInstance(s) },
-                            { s ->
-                                IllegalArgumentException(
-                                    """source_object_instance is not an instance of target_type: 
-                                    |[ expected: %s, actual: %s ]"""
-                                        .flatten()
-                                        .format(
-                                            kClass.qualifiedName,
-                                            s.toOption()
-                                                .map { src -> src::class.qualifiedName }
-                                                .getOrElse { "<NA>" }
-                                        )
-                                )
-                            }
+                    Try.attemptNullable(
+                        { jacksonObjectMapper.convertValue(sourceObjectInstance, kClass.java) },
+                        sourceObjectInstanceConversionResultNullExceptionSupplier(
+                            sourceObjectInstance,
+                            kClass.qualifiedName
                         )
-                        .map { s -> kClass.cast(s) }
+                    )
                 }
             }
         }
@@ -163,16 +150,25 @@ internal object DefaultJsonMapperFactory : JsonMapperFactory {
                     sourceObjectInstanceNullFailure<T>(parameterizedTypeReference.type.typeName)
                 }
                 else -> {
-                    Try.attemptNullable(
-                        {
-                            @Suppress("UNCHECKED_CAST") //
-                            sourceObjectInstance as T
-                        },
-                        sourceObjectInstanceConversionResultNullExceptionSupplier(
-                            sourceObjectInstance,
-                            parameterizedTypeReference.type.typeName
-                        )
-                    )
+                    Try.attempt {
+                            TypeFactory.defaultInstance()
+                                .constructType(parameterizedTypeReference.type)
+                        }
+                        .mapFailure { t: Throwable ->
+                            IllegalStateException(
+                                "target type parameterized_type_reference could not be converted into [ ${JavaType::class.qualifiedName} ]",
+                                t
+                            )
+                        }
+                        .flatMap { jt: JavaType ->
+                            Try.attemptNullable(
+                                { jacksonObjectMapper.convertValue(sourceObjectInstance, jt) },
+                                sourceObjectInstanceConversionResultNullExceptionSupplier(
+                                    sourceObjectInstance,
+                                    parameterizedTypeReference.type.typeName
+                                )
+                            )
+                        }
                 }
             }
         }
@@ -247,13 +243,13 @@ internal object DefaultJsonMapperFactory : JsonMapperFactory {
             return Try.attempt {
                     TypeFactory.defaultInstance().constructType(parameterizedTypeReference.type)
                 }
-                .mapFailure { t ->
+                .mapFailure { t: Throwable ->
                     IllegalStateException(
                         "target type parameterized_type_reference could not be converted into [ ${JavaType::class.qualifiedName} ]",
                         t
                     )
                 }
-                .map { jt -> jacksonObjectMapper.treeToValue(jsonNode, jt) }
+                .map { jt: JavaType -> jacksonObjectMapper.treeToValue(jsonNode, jt) }
         }
 
         override fun toJsonNode(): Try<JsonNode> {
@@ -314,7 +310,7 @@ internal object DefaultJsonMapperFactory : JsonMapperFactory {
                         t
                     )
                 }
-                .map { jt -> jacksonObjectMapper.readValue(jsonValue, jt) }
+                .map { jt: JavaType -> jacksonObjectMapper.readValue(jsonValue, jt) }
         }
 
         override fun toJsonNode(): Try<JsonNode> {
@@ -328,7 +324,7 @@ internal object DefaultJsonMapperFactory : JsonMapperFactory {
         }
 
         override fun toJsonString(): Try<String> {
-            return toJsonNode().map { jn ->
+            return toJsonNode().map { jn: JsonNode ->
                 jacksonObjectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(jn)
             }
         }

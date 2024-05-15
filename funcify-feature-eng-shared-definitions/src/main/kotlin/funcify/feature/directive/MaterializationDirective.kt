@@ -29,7 +29,7 @@ interface MaterializationDirective {
      * directive that must be present when creating the SDL [DirectiveDefinition]
      * @default_value: an empty list if no enum_type_definitions are needed
      */
-    val referencedEnumTypeDefinition: List<EnumTypeDefinition>
+    val referencedEnumTypeDefinitions: List<EnumTypeDefinition>
         get() = emptyList()
 
     val directiveDefinition: DirectiveDefinition

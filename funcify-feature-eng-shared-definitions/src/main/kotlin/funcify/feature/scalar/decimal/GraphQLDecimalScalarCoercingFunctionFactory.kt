@@ -97,7 +97,7 @@ internal object GraphQLDecimalScalarCoercingFunctionFactory {
                         """expected: input of type 
                             |{ ${BigDecimal::class.qualifiedName}, 
                             |${Number::class.qualifiedName}, 
-                            |${CharSequence::class.qualifiedName}, or
+                            |${CharSequence::class.qualifiedName}, or 
                             |${CharArray::class.qualifiedName} }, 
                             |actual: ${dataFetcherResult::class.qualifiedName}
                             |""".flatten()

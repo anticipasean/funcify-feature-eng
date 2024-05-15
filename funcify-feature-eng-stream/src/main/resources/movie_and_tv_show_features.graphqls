@@ -1,0 +1,31 @@
+scalar JSON
+
+"""
+Indicates what transformer definition should be applied
+to the input argument value(s) of this feature field definition
+"""
+directive @transform(
+    "Specifies the coordinates within the Transformers object tree"
+    coordinates: FieldCoordinates!
+) on FIELD_DEFINITION
+
+input FieldCoordinates {
+    "name of the field definition found on object type"
+    fieldName: String!
+    "object type name to which field definition belongs"
+    typeName: String!
+}
+
+type Query {
+    showFeatures: ShowFeatures
+    actorFeatures: ActorFeatures
+}
+
+type ShowFeatures {
+    releaseDecade(releaseYear: Int = null): Int @transform(coordinates: { typeName: "Jq", fieldName: "extract_decade" })
+    castCount(cast: [JSON!]! = []): Int @transform(coordinates: { typeName: "Jq" , fieldName: "list_size" })
+}
+
+type ActorFeatures {
+    showCount(filmography: [JSON!]! = []): Int @transform(coordinates: { typeName: "Jq" , fieldName: "list_size" })
+}

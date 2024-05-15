@@ -1,21 +1,16 @@
 package funcify.feature.materializer.fetcher
 
-import arrow.core.filterIsInstance
-import arrow.core.toOption
-import funcify.feature.materializer.service.SingleRequestMaterializationOrchestratorService
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import funcify.feature.tools.extensions.StringExtensions.flatten
 import graphql.execution.DataFetcherResult
 import graphql.schema.DataFetcher
 import graphql.schema.DataFetcherFactoryEnvironment
-import graphql.schema.GraphQLNamedOutputType
+import graphql.schema.GraphQLTypeUtil
 import java.util.concurrent.CompletionStage
-import java.util.concurrent.Executor
 import org.slf4j.Logger
 
 internal class DefaultSingleRequestFieldMaterializationDataFetcherFactory(
-    private val singleRequestMaterializationOrchestratorService:
-        SingleRequestMaterializationOrchestratorService
+    private val singleRequestFieldValueMaterializer: SingleRequestFieldValueMaterializer
 ) : SingleRequestFieldMaterializationDataFetcherFactory {
 
     companion object {
@@ -26,23 +21,16 @@ internal class DefaultSingleRequestFieldMaterializationDataFetcherFactory(
     override fun get(
         environment: DataFetcherFactoryEnvironment?
     ): DataFetcher<CompletionStage<out DataFetcherResult<Any?>>> {
-        val fieldTypeName: String? =
-            environment
-                ?.fieldDefinition
-                ?.type
-                .toOption()
-                .filterIsInstance<GraphQLNamedOutputType>()
-                .map(GraphQLNamedOutputType::getName)
-                .orNull()
         logger.debug(
             """get: [ data_fetcher_factory_environment: 
             |[ graphql_field_definition: 
             |{ name: ${environment?.fieldDefinition?.name}, 
-            |type: $fieldTypeName 
-            |} ] ]""".flatten()
+            |type: ${environment?.fieldDefinition?.type?.run { GraphQLTypeUtil.simplePrint(this) }} 
+            |} ] ]"""
+                .flatten()
         )
-        return DefaultSingleRequestContextDecoratingFieldMaterializationDataFetcher<Any?>(
-            singleRequestMaterializationOrchestratorService
+        return SingleRequestMaterializationDataFetcher<Any?>(
+            singleRequestFieldValueMaterializer = singleRequestFieldValueMaterializer
         )
     }
 }

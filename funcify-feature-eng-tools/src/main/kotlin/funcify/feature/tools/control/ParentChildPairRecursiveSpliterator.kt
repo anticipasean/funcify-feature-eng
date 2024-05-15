@@ -5,7 +5,6 @@ import java.util.function.Consumer
 import java.util.stream.Stream
 
 /**
- *
  * @author smccarron
  * @created 4/9/22
  */
@@ -29,23 +28,23 @@ internal class ParentChildPairRecursiveSpliterator<T>(
         }
         if (queue.isNotEmpty()) {
             val (parent, child) = queue.pollFirst()
-            traversalFunction.invoke(child).map { grandChild: T -> child to grandChild }.forEach {
-                pair ->
-                queue.offerLast(pair)
-            }
+            traversalFunction
+                .invoke(child)
+                .map { grandChild: T -> child to grandChild }
+                .forEach { pair -> queue.offerLast(pair) }
             if (queue.isEmpty()) {
                 expended = true
             }
             action.accept(parent to child)
             return true
         } else {
-            traversalFunction.invoke(rootValue).map { child: T -> rootValue to child }.forEach {
-                pair ->
-                queue.offerLast(pair)
-            }
-            if (queue.isEmpty()) {
+            traversalFunction
+                .invoke(rootValue)
+                .map { child: T -> rootValue to child }
+                .forEach { pair -> queue.offerLast(pair) }
+            return if (queue.isEmpty()) {
                 expended = true
-                return false
+                false
             } else {
                 val (root, child) = queue.pollFirst()
                 traversalFunction
@@ -56,7 +55,7 @@ internal class ParentChildPairRecursiveSpliterator<T>(
                     expended = true
                 }
                 action.accept(root to child)
-                return true
+                true
             }
         }
     }

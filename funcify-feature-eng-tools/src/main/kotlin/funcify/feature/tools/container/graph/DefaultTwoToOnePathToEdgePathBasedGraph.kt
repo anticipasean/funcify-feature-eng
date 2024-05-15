@@ -225,7 +225,7 @@ internal data class DefaultTwoToOnePathToEdgePathBasedGraph<P, V, E>(
      * should be faster with larger graphs since not all path connections have to be streamed
      * through
      */
-    override fun getEdgesFrom(path: P): Stream<E> {
+    override fun getEdgesFrom(path: P): Stream<out E> {
         return forwardConnections[path]
             .toOption()
             .map { ps: ImmutableSet<P> -> ps.stream().map { p: P -> path to p } }
@@ -239,7 +239,7 @@ internal data class DefaultTwoToOnePathToEdgePathBasedGraph<P, V, E>(
      * should be faster with larger graphs since not all path connections have to be streamed
      * through
      */
-    override fun getEdgesTo(path: P): Stream<E> {
+    override fun getEdgesTo(path: P): Stream<out E> {
         return reverseConnections[path]
             .toOption()
             .map(ImmutableSet<P>::stream)
@@ -249,7 +249,7 @@ internal data class DefaultTwoToOnePathToEdgePathBasedGraph<P, V, E>(
             .flatMapOptions()
     }
 
-    override fun successors(vertexPath: P): Stream<Pair<P, V>> {
+    override fun successors(vertexPath: P): Stream<out Pair<P, V>> {
         return forwardConnections[vertexPath]
             .toOption()
             .getOrElse { persistentSetOf() }
@@ -258,11 +258,11 @@ internal data class DefaultTwoToOnePathToEdgePathBasedGraph<P, V, E>(
             .flatMap { p: P -> getVertex(p).map { v -> p to v }.stream() }
     }
 
-    override fun successors(vertex: V, pathExtractor: Function1<V, P>): Stream<Pair<P, V>> {
+    override fun successors(vertex: V, pathExtractor: Function1<V, P>): Stream<out Pair<P, V>> {
         return successors(pathExtractor.invoke(vertex))
     }
 
-    override fun predecessors(vertexPath: P): Stream<Pair<P, V>> {
+    override fun predecessors(vertexPath: P): Stream<out Pair<P, V>> {
         return reverseConnections[vertexPath]
             .toOption()
             .map(ImmutableSet<P>::stream)
@@ -271,15 +271,15 @@ internal data class DefaultTwoToOnePathToEdgePathBasedGraph<P, V, E>(
             .flatMapOptions()
     }
 
-    override fun predecessors(vertex: V, pathExtractor: Function1<V, P>): Stream<Pair<P, V>> {
+    override fun predecessors(vertex: V, pathExtractor: Function1<V, P>): Stream<out Pair<P, V>> {
         return predecessors(pathExtractor.invoke(vertex))
     }
 
-    override fun adjacentVertices(vertexPath: P): Stream<Pair<P, V>> {
+    override fun adjacentVertices(vertexPath: P): Stream<out Pair<P, V>> {
         return Stream.concat(predecessors(vertexPath), successors(vertexPath))
     }
 
-    override fun adjacentVertices(vertex: V, pathExtractor: (V) -> P): Stream<Pair<P, V>> {
+    override fun adjacentVertices(vertex: V, pathExtractor: (V) -> P): Stream<out Pair<P, V>> {
         return adjacentVertices(pathExtractor.invoke(vertex))
     }
 
@@ -442,7 +442,7 @@ internal data class DefaultTwoToOnePathToEdgePathBasedGraph<P, V, E>(
             }
     }
 
-    override fun depthFirstSearchOnPath(path: P): Stream<Tuple5<V, P, E, P, V>> {
+    override fun depthFirstSearchOnPath(path: P): Stream<out Tuple5<V, P, E, P, V>> {
         return path
             .some()
             .filter { p: P -> verticesByPath.containsKey(p) }

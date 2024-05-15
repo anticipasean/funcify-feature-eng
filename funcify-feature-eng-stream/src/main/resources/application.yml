@@ -1,0 +1,27 @@
+---
+spring:
+  application:
+    name: funcify-feature-eng
+  main:
+    web-application-type: reactive
+  webflux:
+    base-path: /funcify-feature-eng
+  graphql:
+    graphiql:
+      enabled: true
+      path: /graphiql
+    path: /graphql
+server:
+  port: 8343
+
+logging:
+  level:
+    funcify.feature: DEBUG # Can toggle if debug level needed during local testing
+    graphql: DEBUG
+  pattern:
+    console: "%clr(%d{HH:mm:ss.SSS}){yellow} %clr(%5p) %clr(---){faint} %clr([%-6.8t]){faint} %clr(%-40.40logger{39}){cyan} %clr(:){faint} %m%n%wEx"
+
+feature-eng-service:
+  system-default-time-zone: UTC
+  graphql:
+    execution-strategy-timeout-millis: 4

@@ -176,14 +176,14 @@ internal interface ParallelizableEdgeDirectedGraphBehavior :
     override fun <P, V, E> edgesFromPointAsStream(
         container: GraphData<ParallelizableEdgeDirectedGraphWT, P, V, E>,
         point: P,
-    ): Stream<out Pair<Line<P>, E>> {
+    ): Stream<out Pair<DirectedLine<P>, E>> {
         return when (val pts: PersistentSet<P>? = container.narrowed().outgoingLines[point]) {
             null -> {
                 Stream.empty()
             }
             else -> {
                 pts.stream().flatMap { p: P ->
-                    val line = line(point, p)
+                    val line: DirectedLine<P> = line(point, p) as DirectedLine<P>
                     when (
                         val edges: PersistentSet<E>? = container.narrowed().edgesSetByLine[line]
                     ) {
@@ -202,14 +202,14 @@ internal interface ParallelizableEdgeDirectedGraphBehavior :
     override fun <P, V, E> edgesToPointAsStream(
         container: GraphData<ParallelizableEdgeDirectedGraphWT, P, V, E>,
         point: P,
-    ): Stream<out Pair<Line<P>, E>> {
+    ): Stream<out Pair<DirectedLine<P>, E>> {
         return when (val pts: PersistentSet<P>? = container.narrowed().incomingLines[point]) {
             null -> {
                 Stream.empty()
             }
             else -> {
                 pts.stream().flatMap { p: P ->
-                    val line = line(p, point)
+                    val line: DirectedLine<P> = line(p, point) as DirectedLine<P>
                     when (
                         val edges: PersistentSet<E>? = container.narrowed().edgesSetByLine[line]
                     ) {

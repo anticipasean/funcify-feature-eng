@@ -113,10 +113,13 @@ internal interface PersistentGraphDesign<DWT, P, V, E> : PersistentGraph<P, V, E
     ): String {
         val lineStringifier: (Line<P>) -> String = { l: Line<P> ->
             val (p1, p2) = l
-            if (l is DirectedLine) {
-                """"line":{"source":${pointStringifier(p1)},"destination":${pointStringifier(p2)}}"""
-            } else {
-                """"line":{"first":${pointStringifier(p1)},"second":${pointStringifier(p2)}}"""
+            when (l) {
+                is DirectedLine -> {
+                    """"line":{"source":${pointStringifier(p1)},"destination":${pointStringifier(p2)}}"""
+                }
+                else -> {
+                    """"line":{"first":${pointStringifier(p1)},"second":${pointStringifier(p2)}}"""
+                }
             }
         }
         val vertexByPointStringifier: (P, V) -> String = { p, v ->

@@ -3,6 +3,7 @@ package funcify.feature.graph.design
 import funcify.feature.graph.DirectedPersistentGraph
 import funcify.feature.graph.behavior.DirectedGraphBehavior
 import funcify.feature.graph.data.GraphData
+import funcify.feature.graph.line.DirectedLine
 import funcify.feature.graph.line.Line
 import java.util.stream.Stream
 
@@ -167,19 +168,19 @@ internal interface DirectedPersistentGraphDesign<DWT, P, V, E> :
         return adjacentVerticesAsStream(pointExtractor(vertex))
     }
 
-    override fun edgesFromPoint(point: P): Iterable<Pair<Line<P>, E>> {
+    override fun edgesFromPoint(point: P): Iterable<Pair<DirectedLine<P>, E>> {
         return Iterable { edgesFromPointAsStream(point).iterator() }
     }
 
-    override fun edgesFromPointAsStream(point: P): Stream<out Pair<Line<P>, E>> {
+    override fun edgesFromPointAsStream(point: P): Stream<out Pair<DirectedLine<P>, E>> {
         return behavior.edgesFromPointAsStream(data, point)
     }
 
-    override fun edgesToPoint(point: P): Iterable<Pair<Line<P>, E>> {
+    override fun edgesToPoint(point: P): Iterable<Pair<DirectedLine<P>, E>> {
         return Iterable { edgesToPointAsStream(point).iterator() }
     }
 
-    override fun edgesToPointAsStream(point: P): Stream<out Pair<Line<P>, E>> {
+    override fun edgesToPointAsStream(point: P): Stream<out Pair<DirectedLine<P>, E>> {
         return behavior.edgesToPointAsStream(data, point)
     }
 }

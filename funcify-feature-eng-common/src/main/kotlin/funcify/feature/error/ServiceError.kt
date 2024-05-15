@@ -1,13 +1,11 @@
 package funcify.feature.error
 
-import arrow.typeclasses.Monoid
 import com.fasterxml.jackson.databind.JsonNode
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableMap
 import org.springframework.http.HttpStatus
 
 /**
- *
  * @author smccarron
  * @created 2022-11-10
  */
@@ -27,7 +25,7 @@ abstract class ServiceError(
     override val cause: Throwable?,
     open val serviceErrorHistory: ImmutableList<ServiceError>,
     open val extensions: ImmutableMap<String, Any?>
-) : RuntimeException(message, cause), Comparable<ServiceError>, Monoid<ServiceError> {
+) : RuntimeException(message, cause), Comparable<ServiceError> {
 
     companion object {
 
@@ -38,12 +36,10 @@ abstract class ServiceError(
         private val comparator: Comparator<ServiceError> by lazy {
             Comparator.comparing<ServiceError, HttpStatus>(
                     ServiceError::serverHttpResponse,
-                    Comparator.comparing(HttpStatus.SERVICE_UNAVAILABLE::compareTo)
+                    Comparator.comparing(HttpStatus.INTERNAL_SERVER_ERROR::compareTo)
+                        .thenComparing(HttpStatus.SERVICE_UNAVAILABLE::compareTo)
                         .thenComparing(HttpStatus.BAD_GATEWAY::compareTo)
-                        .thenComparing(HttpStatus.GATEWAY_TIMEOUT::compareTo)
                         .thenComparing(HttpStatus.BAD_REQUEST::compareTo)
-                        .thenComparing(HttpStatus.INTERNAL_SERVER_ERROR::compareTo)
-                        .reversed()
                 )
                 .thenComparing(
                     Comparator.comparing<ServiceError, Boolean> { se: ServiceError ->
@@ -65,7 +61,7 @@ abstract class ServiceError(
         }
 
         fun of(message: String, vararg args: Any?): ServiceError {
-            return builder().message(message, args).build()
+            return builder().message(message, *args).build()
         }
 
         fun downstreamServiceUnavailableErrorBuilder(): Builder {
@@ -93,13 +89,15 @@ abstract class ServiceError(
 
     abstract fun toJsonNode(): JsonNode
 
+    abstract operator fun plus(other: ServiceError): ServiceError
+
     interface Builder {
 
         fun message(message: String): Builder
 
         fun message(template: String, vararg args: Any?): Builder
 
-        fun cause(throwable: Throwable): Builder
+        fun cause(throwable: Throwable?): Builder
 
         fun addServiceErrorToHistory(serviceError: ServiceError): Builder
 

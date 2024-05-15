@@ -1,6 +1,7 @@
 package funcify.feature.datasource.graphql
 
 import com.fasterxml.jackson.databind.JsonNode
+import funcify.feature.tools.container.attempt.Try
 import graphql.introspection.IntrospectionQuery
 import reactor.core.publisher.Mono
 import java.time.Duration
@@ -29,9 +30,9 @@ interface GraphQLApiService {
 
     fun executeSingleQuery(
         query: String,
-        variables: Map<String, Any> = mapOf(),
+        variables: Map<String, Any?> = mapOf(),
         operationName: String? = null
-    ): Mono<JsonNode>
+    ): Mono<out JsonNode>
 
     interface Builder {
 
@@ -47,6 +48,6 @@ interface GraphQLApiService {
 
         fun timeoutAfter(elapsedTime: Duration): Builder
 
-        fun build(): GraphQLApiService
+        fun build(): Try<GraphQLApiService>
     }
 }

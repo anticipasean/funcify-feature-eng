@@ -13,15 +13,22 @@ import graphql.language.TypeName
 
 object AliasDirective : MaterializationDirective {
 
+    const val NAME_INPUT_VALUE_DEFINITION_NAME: String = "name"
+
     override val name: String = "alias"
 
     override val description: String =
-        "Indicates a different name that the corresponding field_definition may have"
+        """Indicates a different name that 
+            |the corresponding argument or field_definition 
+            |may have when specified as a field_name 
+            |in an "output" variable"""
+            .trimMargin()
 
     override val supportedDirectiveLocations: List<DirectiveLocation> by lazy {
         listOf(
                 Introspection.DirectiveLocation.FIELD_DEFINITION,
-                Introspection.DirectiveLocation.INPUT_FIELD_DEFINITION
+                Introspection.DirectiveLocation.INPUT_FIELD_DEFINITION,
+                Introspection.DirectiveLocation.ARGUMENT_DEFINITION
             )
             .map { iDirLoc -> DirectiveLocation(iDirLoc.name) }
     }
@@ -29,7 +36,7 @@ object AliasDirective : MaterializationDirective {
     override val inputValueDefinitions: List<InputValueDefinition> by lazy {
         listOf<InputValueDefinition>(
             InputValueDefinition.newInputValueDefinition()
-                .name("name")
+                .name(NAME_INPUT_VALUE_DEFINITION_NAME)
                 .type(
                     NonNullType.newNonNullType(
                             TypeName.newTypeName().name(Scalars.GraphQLString.name).build()

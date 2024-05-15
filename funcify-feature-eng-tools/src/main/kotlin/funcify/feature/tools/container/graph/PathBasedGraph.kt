@@ -147,7 +147,7 @@ interface PathBasedGraph<P, V, E> : PersistentGraph<V, E>, Iterable<Tuple5<V, P,
 
     fun getEdgesFromPathToPath(connectedPaths: Pair<P, P>): ImmutableSet<E>
 
-    fun getEdgesFrom(path: P): Stream<E> {
+    fun getEdgesFrom(path: P): Stream<out E> {
         return connectedPaths()
             .filter { pair: Pair<P, P> -> pair.first == path }
             .map { pair: Pair<P, P> ->
@@ -156,7 +156,7 @@ interface PathBasedGraph<P, V, E> : PersistentGraph<V, E>, Iterable<Tuple5<V, P,
             .flatMap { edges: ImmutableSet<E> -> edges.stream() }
     }
 
-    fun getEdgesTo(path: P): Stream<E> {
+    fun getEdgesTo(path: P): Stream<out E> {
         return connectedPaths()
             .filter { pair: Pair<P, P> -> pair.second == path }
             .map { pair: Pair<P, P> ->
@@ -196,23 +196,23 @@ interface PathBasedGraph<P, V, E> : PersistentGraph<V, E>, Iterable<Tuple5<V, P,
 
     fun hasCycles(): Boolean
 
-    fun getCycles(): Stream<Pair<Triple<P, P, E>, Triple<P, P, E>>>
+    fun getCycles(): Stream<out Pair<Triple<P, P, E>, Triple<P, P, E>>>
 
     fun createMinimumSpanningTreeGraphUsingEdgeCostFunction(
         costComparator: Comparator<E>
     ): PathBasedGraph<P, V, E>
 
-    fun depthFirstSearchOnPath(path: P): Stream<Tuple5<V, P, E, P, V>>
+    fun depthFirstSearchOnPath(path: P): Stream<out Tuple5<V, P, E, P, V>>
 
-    fun successors(vertexPath: P): Stream<Pair<P, V>>
+    fun successors(vertexPath: P): Stream<out Pair<P, V>>
 
-    fun successors(vertex: V, pathExtractor: (V) -> P): Stream<Pair<P, V>>
+    fun successors(vertex: V, pathExtractor: (V) -> P): Stream<out Pair<P, V>>
 
-    fun predecessors(vertexPath: P): Stream<Pair<P, V>>
+    fun predecessors(vertexPath: P): Stream<out Pair<P, V>>
 
-    fun predecessors(vertex: V, pathExtractor: (V) -> P): Stream<Pair<P, V>>
+    fun predecessors(vertex: V, pathExtractor: (V) -> P): Stream<out Pair<P, V>>
 
-    fun adjacentVertices(vertexPath: P): Stream<Pair<P, V>>
+    fun adjacentVertices(vertexPath: P): Stream<out Pair<P, V>>
 
-    fun adjacentVertices(vertex: V, pathExtractor: (V) -> P): Stream<Pair<P, V>>
+    fun adjacentVertices(vertex: V, pathExtractor: (V) -> P): Stream<out Pair<P, V>>
 }

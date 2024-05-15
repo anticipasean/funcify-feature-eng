@@ -4,17 +4,20 @@ pluginManagement {
     }
 }
 rootProject.name = 'funcify-feature-eng'
+//include('funcify-feature-eng-beam')
 include('funcify-feature-eng-common')
-include('funcify-feature-eng-data-source')
-include('funcify-feature-eng-db-data-source')
-include('funcify-feature-eng-shared-definitions')
+include('funcify-feature-eng-file-registry')
 include('funcify-feature-eng-gql-data-source')
 include('funcify-feature-eng-graph')
 include('funcify-feature-eng-json')
+include('funcify-feature-eng-jq')
 include('funcify-feature-eng-materializer')
 include('funcify-feature-eng-naming')
 include('funcify-feature-eng-rest-data-source')
 include('funcify-feature-eng-schema')
 include('funcify-feature-eng-service')
+include('funcify-feature-eng-shared-definitions')
 include('funcify-feature-eng-spring-webflux')
+include('funcify-feature-eng-stream')
 include('funcify-feature-eng-tools')
+include('funcify-feature-eng-tree')

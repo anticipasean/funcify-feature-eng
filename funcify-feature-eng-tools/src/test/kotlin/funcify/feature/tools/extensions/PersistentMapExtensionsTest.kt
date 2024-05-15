@@ -1,11 +1,14 @@
 package funcify.feature.tools.extensions
 
+import funcify.feature.tools.extensions.PersistentMapExtensions.combineWithPersistentListValueMap
 import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentMap
 import funcify.feature.tools.extensions.PersistentMapExtensions.reducePairsToPersistentSetValueMap
 import funcify.feature.tools.extensions.PersistentMapExtensions.streamPairs
 import java.util.stream.Stream
+import kotlinx.collections.immutable.PersistentList
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.PersistentSet
+import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.persistentSetOf
 import org.junit.jupiter.api.Assertions
@@ -97,5 +100,53 @@ internal class PersistentMapExtensionsTest {
         Assertions.assertEquals('E', resultMap.asIterable().first().value.last())
         Assertions.assertEquals('F', resultMap.asIterable().last().key)
         Assertions.assertEquals('Z', resultMap.asIterable().last().value.first())
+    }
+
+    @Test
+    fun persistentListValueMapOrderCombinationTest() {
+        val plvm1: PersistentMap<Int, PersistentList<String>> =
+            (0..25)
+                .toList()
+                .stream()
+                .map { i -> i to ('A'.code + i).toChar() }
+                .reduce(
+                    persistentMapOf<Int, PersistentList<String>>(),
+                    { pm, pair ->
+                        val key = pair.first % 26 / 5
+                        pm.put(
+                            key,
+                            pm.getOrDefault(key, persistentListOf()).add(pair.second.toString())
+                        )
+                    },
+                    { pm1, pm2 -> pm1.putAll(pm2) }
+                )
+        val plvm2: PersistentMap<Int, PersistentList<String>> =
+            (0..25)
+                .toList()
+                .stream()
+                .map { i -> i to ('A'.code + i).toChar() }
+                .reduce(
+                    persistentMapOf<Int, PersistentList<String>>(),
+                    { pm, pair ->
+                        val key = pair.first % 26 / 5
+                        pm.put(
+                            key,
+                            pm.getOrDefault(key, persistentListOf()).add(pair.first.toString())
+                        )
+                    },
+                    { pm1, pm2 -> pm1.putAll(pm2) }
+                )
+        val combinedMap: PersistentMap<Int, PersistentList<String>> =
+            Assertions.assertDoesNotThrow<PersistentMap<Int, PersistentList<String>>> {
+                plvm1.combineWithPersistentListValueMap(plvm2)
+            }
+        //println(combinedMap)
+        Assertions.assertTrue(combinedMap.containsKey(0)) { "contains list at index 0" }
+        Assertions.assertEquals(10, combinedMap[0]?.size) { "first group is of size 10" }
+        Assertions.assertEquals("0", combinedMap[0]?.get(10 shr 1)) { "has 0 at index 4" }
+        Assertions.assertEquals("A", combinedMap[0]?.get(0)) { "has A at index 0" }
+        Assertions.assertTrue(combinedMap.containsKey(5)) { "has a list at index 5" }
+        Assertions.assertEquals(2, combinedMap[5]?.size) { "last group is of size 2" }
+        Assertions.assertEquals(persistentListOf("Z", "25"), combinedMap[5]) { "last group" }
     }
 }

@@ -267,7 +267,7 @@ internal data class DefaultTwoToManyEdgePathBasedGraph<P, V, E>(
             .flatMap(ImmutableSet<E>::stream)
     }
 
-    override fun successors(vertexPath: P): Stream<Pair<P, V>> {
+    override fun successors(vertexPath: P): Stream<out Pair<P, V>> {
         return forwardConnections[vertexPath]
             .toOption()
             .getOrElse { persistentSetOf() }
@@ -276,11 +276,11 @@ internal data class DefaultTwoToManyEdgePathBasedGraph<P, V, E>(
             .flatMap { p: P -> getVertex(p).map({ v -> p to v }).stream() }
     }
 
-    override fun successors(vertex: V, pathExtractor: Function1<V, P>): Stream<Pair<P, V>> {
+    override fun successors(vertex: V, pathExtractor: Function1<V, P>): Stream<out Pair<P, V>> {
         return successors(pathExtractor.invoke(vertex))
     }
 
-    override fun predecessors(vertexPath: P): Stream<Pair<P, V>> {
+    override fun predecessors(vertexPath: P): Stream<out Pair<P, V>> {
         return reverseConnections[vertexPath]
             .toOption()
             .map(ImmutableSet<P>::stream)
@@ -289,7 +289,7 @@ internal data class DefaultTwoToManyEdgePathBasedGraph<P, V, E>(
             .flatMapOptions()
     }
 
-    override fun predecessors(vertex: V, pathExtractor: Function1<V, P>): Stream<Pair<P, V>> {
+    override fun predecessors(vertex: V, pathExtractor: Function1<V, P>): Stream<out Pair<P, V>> {
         return predecessors(pathExtractor.invoke(vertex))
     }
 
@@ -297,7 +297,7 @@ internal data class DefaultTwoToManyEdgePathBasedGraph<P, V, E>(
         return Stream.concat(predecessors(vertexPath), successors(vertexPath))
     }
 
-    override fun adjacentVertices(vertex: V, pathExtractor: (V) -> P): Stream<Pair<P, V>> {
+    override fun adjacentVertices(vertex: V, pathExtractor: (V) -> P): Stream<out Pair<P, V>> {
         return adjacentVertices(pathExtractor.invoke(vertex))
     }
 
@@ -404,7 +404,7 @@ internal data class DefaultTwoToManyEdgePathBasedGraph<P, V, E>(
             .anyMatch { pair: Pair<P, P> -> edgesSetByPathPair.containsKey(pair) }
     }
 
-    override fun getCycles(): Stream<Pair<Triple<P, P, E>, Triple<P, P, E>>> {
+    override fun getCycles(): Stream<out Pair<Triple<P, P, E>, Triple<P, P, E>>> {
         return edgesSetByPathPair
             .stream()
             .filter { entry: Map.Entry<Pair<P, P>, PersistentSet<E>> ->

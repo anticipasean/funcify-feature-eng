@@ -1,7 +1,7 @@
 plugins {
     id 'java-library'
-    id 'org.jetbrains.kotlin.jvm' version "${kotlinVersion}"
-    id 'org.jetbrains.kotlin.plugin.spring' version "${kotlinVersion}" apply false
+    id 'org.jetbrains.kotlin.jvm' version "${kotlinPluginVersion}"
+    id 'org.jetbrains.kotlin.plugin.spring' version "${kotlinPluginVersion}" apply false
     id "org.springframework.boot" version "${springBootPluginVersion}"
 }
 
@@ -13,31 +13,131 @@ bootJar {
     enabled = false
 }
 
+java {
+    toolchain { JavaToolchainSpec jts ->
+        jts.languageVersion.set(JavaLanguageVersion.of(17))
+    }
+}
+
+kotlin { org.jetbrains.kotlin.gradle.dsl.KotlinJvmProjectExtension kjpe ->
+    kjpe.jvmToolchain { JavaToolchainSpec jts ->
+        jts.languageVersion.set(JavaLanguageVersion.of(17))
+    }
+}
+
 allprojects {
-    sourceCompatibility = sourceCompatibility
-    targetCompatibility = targetCompatibility
 
     repositories {
         mavenCentral()
     }
+
+    /**
+     * Must be placed within allprojects or subprojects scoped for changes configured to be applied to all projects
+     */
+    tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile).configureEach { org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile kjc ->
+        kjc.compilerOptions { org.jetbrains.kotlin.gradle.dsl.KotlinJvmCompilerOptions kjco ->
+            kjco.apiVersion = org.jetbrains.kotlin.gradle.dsl.KotlinVersion.KOTLIN_1_8
+            kjco.languageVersion = org.jetbrains.kotlin.gradle.dsl.KotlinVersion.KOTLIN_1_8
+            kjco.jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
+            kjco.javaParameters = true
+        }
+    }
+
 }
 
 ext.sharedGraphQLDefinitionKotlinProjects = subprojects.findAll { Project p ->
     p.name.endsWith("-shared-definitions")
 }
 ext.sharedToolsKotlinProjects = subprojects.findAll { Project p ->
-    p.name.endsWith("-graph")
+    p.name.endsWith("-graph") || p.name.endsWith("-tree")
+}
+ext.apacheBeamSubProjects = subprojects.findAll { Project p ->
+    p.name.endsWith("-beam")
+}
+ext.streamSubProjects = subprojects.findAll { Project p ->
+    p.name.endsWith("-stream")
+}
+ext.materializerProjects = subprojects.findAll { Project p ->
+    p.name.endsWith("-materializer")
 }
 ext.mainKotlinSubProjects = subprojects.findAll { Project p ->
-    !(ext.sharedGraphQLDefinitionKotlinProjects.contains(p) || ext.sharedToolsKotlinProjects.contains(p))
+    [ext.sharedGraphQLDefinitionKotlinProjects,
+     ext.sharedToolsKotlinProjects,
+     ext.apacheBeamSubProjects,
+     ext.streamSubProjects,
+     ext.materializerProjects].stream().noneMatch { Set<Project> s ->
+        s.contains(p)
+    }
+}
+
+def Action<org.gradle.api.artifacts.Configuration> projectWideConfigurationConstraintsAction = { org.gradle.api.artifacts.Configuration c ->
+    c.resolutionStrategy { org.gradle.api.artifacts.ResolutionStrategy rs ->
+        /**
+         * Issue: "Unable to load io.netty.resolver.dns.macos.MacOSDnsServerAddressStreamProvider,
+         * fallback to system defaults. This may result in incorrect DNS resolutions on MacOS."
+         * Solution: osx-aarch_64 classified version of Netty
+         * https://repo1.maven.org/maven2/io/netty/netty-resolver-dns-native-macos/4.1.58.Final/
+         *
+         * Upgrade all netty deps to same higher version that support aarch_64 Apple's M1 chip
+         * with a different classifier dns resolver for native MacOS: aarch_64 instead of x86_64
+         * if building on a MacOS. Otherwise, use default version specified by io.projectreactor group
+         */
+        rs.dependencySubstitution { org.gradle.api.artifacts.DependencySubstitutions dss ->
+            dss.all { org.gradle.api.artifacts.DependencySubstitution ds ->
+                if (ds.requested instanceof org.gradle.api.artifacts.component.ModuleComponentSelector &&
+                        ds.requested.group == "io.netty" &&
+                        ds.requested.module == "netty-resolver-dns-native-macos" &&
+                        org.gradle.nativeplatform.platform.internal.DefaultNativePlatform.currentOperatingSystem.isMacOsX() &&
+                        org.gradle.nativeplatform.platform.internal.DefaultNativePlatform.currentArchitecture.name == 'aarch64') {
+                    ds.useTarget("io.netty:netty-resolver-dns-native-macos:${nettyVersion}:osx-aarch_64")
+                    ds.artifactSelection { org.gradle.api.artifacts.ArtifactSelectionDetails asd ->
+                        asd.selectArtifact("jar", "jar", "osx-aarch_64")
+                    }
+                }
+                if (ds.requested instanceof org.gradle.api.artifacts.component.ModuleComponentSelector &&
+                        ds.requested.group == "io.netty" &&
+                        ds.requested.module == "netty-transport-native-epoll" &&
+                        org.gradle.nativeplatform.platform.internal.DefaultNativePlatform.currentArchitecture.name == 'aarch64') {
+                    ds.useTarget("io.netty:netty-transport-native-epoll:${nettyVersion}:linux-aarch_64")
+                    ds.artifactSelection { org.gradle.api.artifacts.ArtifactSelectionDetails asd ->
+                        asd.selectArtifact("jar", "jar", "linux-aarch_64")
+                    }
+                }
+            }
+        }
+        rs.eachDependency { org.gradle.api.artifacts.DependencyResolveDetails d ->
+            // gcp pubsub 4.5.0 uses spring-boot 3.0.6 => Update spring-boot version
+            if (d.requested.group == 'org.springframework.boot') {
+                d.useVersion(springBootPluginVersion)
+            }
+            // gcp stream-binder 4.5.0 uses spring-framework 6.0.9 => Update springframework version
+            if (d.requested.group == 'org.springframework') {
+                d.useVersion(springFrameworkVersion)
+            }
+            if (d.requested.group == 'org.reactivestreams') {
+                d.useVersion(reactiveStreamsVersion)
+            }
+            if (d.requested.group == 'org.junit.jupiter') {
+                d.useVersion(jUnitJupiterVersion)
+            }
+            if (d.requested.group == 'org.junit.platform') {
+                d.useVersion(jUnitPlatformVersion)
+            }
+            if (d.requested.group.startsWith('com.fasterxml.jackson.')) {
+                d.useVersion(jacksonVersion)
+            }
+            if (d.requested.group == 'io.netty') {
+                d.useVersion(nettyVersion)
+            }
+        }
+    }
 }
 
 configure(sharedGraphQLDefinitionKotlinProjects) {
     apply plugin: 'idea'
     apply plugin: 'org.jetbrains.kotlin.jvm'
     apply plugin: 'org.jetbrains.kotlin.plugin.spring'
-    sourceCompatibility = sourceCompatibility
-    targetCompatibility = targetCompatibility
+
     configurations {
         kotlinDeps {
             dependencies {
@@ -71,19 +171,298 @@ configure(sharedToolsKotlinProjects) {
     sourceCompatibility = sourceCompatibility
     targetCompatibility = targetCompatibility
     configurations {
+        configureEach(projectWideConfigurationConstraintsAction)
         kotlinDeps {
             dependencies {
                 implementation("org.jetbrains.kotlin:kotlin-stdlib:${kotlinVersion}")
                 implementation("org.jetbrains.kotlin:kotlin-reflect:${kotlinVersion}")
                 implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8:${kotlinVersion}")
                 implementation("org.jetbrains.kotlin:kotlin-noarg:${kotlinVersion}")
-                implementation("org.jetbrains.kotlinx:kotlinx-collections-immutable-jvm:${kotlinxImmutableCollectionsVersion}")
+                implementation("org.jetbrains.kotlinx:kotlinx-collections-immutable-jvm:${kotlinxImmutableCollectionsVersion}") {
+                    exclude group: "org.jetbrains.kotlin", module: "kotlin-stdlib-common"
+                    exclude group: "org.jetbrains.kotlin", module: "kotlin-stdlib-jdk8"
+                }
+            }
+        }
+        arrow {
+            dependencies {
+                implementation("io.arrow-kt:arrow-core:${arrowStackVersion}")
             }
         }
         junit {
             dependencies {
                 testImplementation(platform("org.junit:junit-bom:${jUnitJupiterVersion}"))
                 testImplementation("org.junit.jupiter:junit-jupiter")
+            }
+        }
+        jackson {
+            dependencies {
+                implementation("com.fasterxml.jackson.core:jackson-annotations:${jacksonVersion}")
+                implementation("com.fasterxml.jackson.core:jackson-core:${jacksonVersion}")
+                implementation("com.fasterxml.jackson.core:jackson-databind:${jacksonVersion}")
+                implementation("com.fasterxml.jackson.datatype:jackson-datatype-jdk8:${jacksonVersion}")
+                implementation("com.fasterxml.jackson.datatype:jackson-datatype-jsr310:${jacksonVersion}")
+                implementation("com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:${jacksonVersion}")
+                implementation("com.fasterxml.jackson.module:jackson-module-kotlin:${jacksonVersion}")
+                implementation("com.fasterxml.jackson.module:jackson-module-parameter-names:${jacksonVersion}")
+                implementation("com.fasterxml.jackson.module:jackson-module-jsonSchema:${jacksonVersion}")
+            }
+        }
+    }
+
+    test {
+        useJUnitPlatform()
+    }
+}
+
+configure(apacheBeamSubProjects) {
+    apply plugin: 'idea'
+    apply plugin: 'org.jetbrains.kotlin.jvm'
+    apply plugin: 'org.jetbrains.kotlin.plugin.spring'
+
+    configurations {
+        configureEach(projectWideConfigurationConstraintsAction)
+        configureEach { org.gradle.api.artifacts.Configuration c ->
+            c.resolutionStrategy { org.gradle.api.artifacts.ResolutionStrategy rs ->
+                rs.eachDependency { org.gradle.api.artifacts.DependencyResolveDetails d ->
+                    if (d.requested.group == 'org.xerial.snappy' && d.requested.name == 'snappy-java') {
+                        // versions [1.1.8.3, 1.1.8.4] have support for Mac.aarch64 but lack ZappyOutputStream implementations
+                        d.useVersion("1.1.8.2")
+                    }
+                }
+            }
+        }
+        kotlinDeps {
+            dependencies {
+                implementation("org.jetbrains.kotlin:kotlin-stdlib:${kotlinVersion}")
+                implementation("org.jetbrains.kotlin:kotlin-reflect:${kotlinVersion}")
+                implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8:${kotlinVersion}")
+                implementation("org.jetbrains.kotlin:kotlin-noarg:${kotlinVersion}")
+                implementation("org.jetbrains.kotlinx:kotlinx-collections-immutable-jvm:${kotlinxImmutableCollectionsVersion}") {
+                    exclude group: "org.jetbrains.kotlin", module: "kotlin-stdlib-common"
+                    exclude group: "org.jetbrains.kotlin", module: "kotlin-stdlib-jdk8"
+                }
+            }
+        }
+        graphql {
+            dependencies {
+                implementation("com.graphql-java:graphql-java:${graphQLJavaVersion}")
+                implementation("com.graphql-java:graphql-java-extended-scalars:${graphQLJavaExtScalarsVersion}")
+                /**
+                 * graphql-java has guava dependency
+                 */
+                implementation("com.google.guava:guava:${guavaVersion}")
+            }
+        }
+        arrow {
+            dependencies {
+                implementation("io.arrow-kt:arrow-core:${arrowStackVersion}")
+            }
+        }
+        junit {
+            dependencies {
+                testImplementation(platform("org.junit:junit-bom:${jUnitJupiterVersion}"))
+                testImplementation("org.junit.jupiter:junit-jupiter")
+            }
+        }
+        reactor {
+            dependencies {
+                implementation("org.reactivestreams:reactive-streams:${reactiveStreamsVersion}")
+                implementation("io.projectreactor:reactor-core:${reactorCoreVersion}")
+                implementation("io.projectreactor.addons:reactor-extra:${reactorExtraVersion}")
+                implementation("io.projectreactor.kotlin:reactor-kotlin-extensions:${reactorKotlinExtensionsVersion}")
+                testImplementation("io.projectreactor:reactor-test:${reactorCoreVersion}")
+            }
+        }
+        jackson {
+            dependencies {
+                implementation("com.fasterxml.jackson.core:jackson-annotations:${jacksonVersion}")
+                implementation("com.fasterxml.jackson.core:jackson-core:${jacksonVersion}")
+                implementation("com.fasterxml.jackson.core:jackson-databind:${jacksonVersion}")
+                implementation("com.fasterxml.jackson.datatype:jackson-datatype-jdk8:${jacksonVersion}")
+                implementation("com.fasterxml.jackson.datatype:jackson-datatype-jsr310:${jacksonVersion}")
+                implementation("com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:${jacksonVersion}")
+                implementation("com.fasterxml.jackson.module:jackson-module-kotlin:${jacksonVersion}")
+                implementation("com.fasterxml.jackson.module:jackson-module-parameter-names:${jacksonVersion}")
+                implementation("com.fasterxml.jackson.module:jackson-module-jsonSchema:${jacksonVersion}")
+            }
+        }
+        jacksonjq {
+            dependencies {
+                implementation("net.thisptr:jackson-jq:${jacksonJqVersion}")
+            }
+        }
+        jayway {
+            dependencies {
+                implementation("com.jayway.jsonpath:json-path:${jaywayVersion}")
+            }
+        }
+        beam {
+            dependencies {
+                implementation("org.apache.beam:beam-runners-direct-java:${apacheBeamVersion}")
+                implementation("org.apache.beam:beam-sdks-java-extensions-json-jackson:${apacheBeamVersion}")
+                implementation("org.apache.commons:commons-csv:1.10.0")
+            }
+        }
+    }
+
+    test {
+        useJUnitPlatform()
+    }
+}
+
+configure(streamSubProjects) {
+    apply plugin: 'idea'
+    apply plugin: 'org.jetbrains.kotlin.jvm'
+    apply plugin: 'org.jetbrains.kotlin.plugin.spring'
+
+    configurations {
+        configureEach(projectWideConfigurationConstraintsAction)
+        kotlinDeps {
+            dependencies {
+                implementation("org.jetbrains.kotlin:kotlin-stdlib:${kotlinVersion}")
+                implementation("org.jetbrains.kotlin:kotlin-reflect:${kotlinVersion}")
+                implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8:${kotlinVersion}")
+                implementation("org.jetbrains.kotlin:kotlin-noarg:${kotlinVersion}")
+                implementation("org.jetbrains.kotlinx:kotlinx-collections-immutable-jvm:${kotlinxImmutableCollectionsVersion}") {
+                    exclude group: "org.jetbrains.kotlin", module: "kotlin-stdlib-common"
+                    exclude group: "org.jetbrains.kotlin", module: "kotlin-stdlib-jdk8"
+                }
+            }
+        }
+        graphql {
+            dependencies {
+                implementation("com.graphql-java:graphql-java:${graphQLJavaVersion}")
+                implementation("com.graphql-java:graphql-java-extended-scalars:${graphQLJavaExtScalarsVersion}")
+                /**
+                 * graphql-java has guava dependency
+                 */
+                implementation("com.google.guava:guava:${guavaVersion}")
+            }
+        }
+        arrow {
+            dependencies {
+                implementation("io.arrow-kt:arrow-core:${arrowStackVersion}")
+            }
+        }
+        reactor {
+            dependencies {
+                implementation("org.reactivestreams:reactive-streams:${reactiveStreamsVersion}")
+                implementation("io.projectreactor:reactor-core:${reactorCoreVersion}")
+                implementation("io.projectreactor.addons:reactor-extra:${reactorExtraVersion}")
+                implementation("io.projectreactor.kotlin:reactor-kotlin-extensions:${reactorKotlinExtensionsVersion}")
+                testImplementation("io.projectreactor:reactor-test:${reactorCoreVersion}")
+            }
+        }
+        junit {
+            dependencies {
+                testImplementation(platform("org.junit:junit-bom:${jUnitJupiterVersion}"))
+                testImplementation("org.junit.jupiter:junit-jupiter:${jUnitJupiterVersion}")
+            }
+        }
+        jackson {
+            dependencies {
+                implementation("com.fasterxml.jackson.core:jackson-annotations:${jacksonVersion}")
+                implementation("com.fasterxml.jackson.core:jackson-core:${jacksonVersion}")
+                implementation("com.fasterxml.jackson.core:jackson-databind:${jacksonVersion}")
+                implementation("com.fasterxml.jackson.datatype:jackson-datatype-jdk8:${jacksonVersion}")
+                implementation("com.fasterxml.jackson.datatype:jackson-datatype-jsr310:${jacksonVersion}")
+                implementation("com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:${jacksonVersion}")
+                implementation("com.fasterxml.jackson.module:jackson-module-kotlin:${jacksonVersion}")
+                implementation("com.fasterxml.jackson.module:jackson-module-parameter-names:${jacksonVersion}")
+                implementation("com.fasterxml.jackson.module:jackson-module-jsonSchema:${jacksonVersion}")
+            }
+        }
+        gcloud {
+            dependencies {
+                implementation("com.google.cloud:spring-cloud-gcp-starter-pubsub:${gcpSpringVersion}")
+                implementation("com.google.cloud:spring-cloud-gcp-pubsub-stream-binder:${gcpSpringVersion}")
+                implementation("io.cloudevents:cloudevents-spring:${cloudEventsVersion}")
+            }
+        }
+        spring {
+            dependencies {
+                testImplementation("org.springframework.cloud:spring-cloud-stream-test-binder:${springCloudStreamTestBinderVersion}")
+            }
+        }
+        apache {
+            dependencies {
+                implementation("org.apache.commons:commons-csv:1.10.0")
+            }
+        }
+    }
+
+    test {
+        useJUnitPlatform()
+    }
+}
+
+configure(materializerProjects) {
+    apply plugin: 'idea'
+    apply plugin: 'org.jetbrains.kotlin.jvm'
+    apply plugin: 'org.jetbrains.kotlin.plugin.spring'
+
+    configurations {
+        configureEach(projectWideConfigurationConstraintsAction)
+        kotlinDeps {
+            dependencies {
+                implementation("org.jetbrains.kotlin:kotlin-stdlib:${kotlinVersion}")
+                implementation("org.jetbrains.kotlin:kotlin-reflect:${kotlinVersion}")
+                implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8:${kotlinVersion}")
+                implementation("org.jetbrains.kotlin:kotlin-noarg:${kotlinVersion}")
+                implementation("org.jetbrains.kotlinx:kotlinx-collections-immutable-jvm:${kotlinxImmutableCollectionsVersion}") {
+                    exclude group: "org.jetbrains.kotlin", module: "kotlin-stdlib-common"
+                    exclude group: "org.jetbrains.kotlin", module: "kotlin-stdlib-jdk8"
+                }
+            }
+        }
+        graphql {
+            dependencies {
+                implementation("com.graphql-java:graphql-java:${graphQLJavaVersion}")
+                implementation("com.graphql-java:graphql-java-extended-scalars:${graphQLJavaExtScalarsVersion}")
+                /**
+                 * graphql-java has guava dependency
+                 */
+                implementation("com.google.guava:guava:${guavaVersion}")
+            }
+        }
+        arrow {
+            dependencies {
+                implementation("io.arrow-kt:arrow-core:${arrowStackVersion}")
+            }
+        }
+        reactor {
+            dependencies {
+                implementation("org.reactivestreams:reactive-streams:${reactiveStreamsVersion}")
+                implementation("io.projectreactor:reactor-core:${reactorCoreVersion}")
+                implementation("io.projectreactor.addons:reactor-extra:${reactorExtraVersion}")
+                implementation("io.projectreactor.kotlin:reactor-kotlin-extensions:${reactorKotlinExtensionsVersion}")
+                testImplementation("io.projectreactor:reactor-test:${reactorCoreVersion}")
+            }
+        }
+        junit {
+            dependencies {
+                testImplementation(platform("org.junit:junit-bom:${jUnitJupiterVersion}"))
+                testImplementation("org.junit.jupiter:junit-jupiter:${jUnitJupiterVersion}")
+            }
+        }
+        jackson {
+            dependencies {
+                implementation("com.fasterxml.jackson.core:jackson-annotations:${jacksonVersion}")
+                implementation("com.fasterxml.jackson.core:jackson-core:${jacksonVersion}")
+                implementation("com.fasterxml.jackson.core:jackson-databind:${jacksonVersion}")
+                implementation("com.fasterxml.jackson.datatype:jackson-datatype-jdk8:${jacksonVersion}")
+                implementation("com.fasterxml.jackson.datatype:jackson-datatype-jsr310:${jacksonVersion}")
+                implementation("com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:${jacksonVersion}")
+                implementation("com.fasterxml.jackson.module:jackson-module-kotlin:${jacksonVersion}")
+                implementation("com.fasterxml.jackson.module:jackson-module-parameter-names:${jacksonVersion}")
+                implementation("com.fasterxml.jackson.module:jackson-module-jsonSchema:${jacksonVersion}")
+            }
+        }
+        spring {
+            dependencies {
+                implementation("org.springframework.boot:spring-boot-starter:${springBootPluginVersion}")
+                implementation("org.springframework:spring-messaging:${springFrameworkVersion}")
             }
         }
     }
@@ -97,17 +476,20 @@ configure(mainKotlinSubProjects) {
     apply plugin: 'idea'
     apply plugin: 'org.jetbrains.kotlin.jvm'
     apply plugin: 'org.jetbrains.kotlin.plugin.spring'
-    sourceCompatibility = sourceCompatibility
-    targetCompatibility = targetCompatibility
+
     configurations {
+        configureEach(projectWideConfigurationConstraintsAction)
         kotlinDeps {
             dependencies {
                 implementation("org.jetbrains.kotlin:kotlin-stdlib:${kotlinVersion}")
                 implementation("org.jetbrains.kotlin:kotlin-reflect:${kotlinVersion}")
                 implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8:${kotlinVersion}")
                 implementation("org.jetbrains.kotlin:kotlin-noarg:${kotlinVersion}")
-                implementation("org.jetbrains.kotlinx:kotlinx-collections-immutable-jvm:${kotlinxImmutableCollectionsVersion}")
-                implementation("org.jetbrains.kotlinx:dataframe:${kotlinxDataframeVersion}")
+                implementation("org.jetbrains.kotlinx:kotlinx-collections-immutable-jvm:${kotlinxImmutableCollectionsVersion}") {
+                    exclude group: "org.jetbrains.kotlin", module: "kotlin-stdlib-common"
+                    exclude group: "org.jetbrains.kotlin", module: "kotlin-stdlib-jdk8"
+                }
+                //implementation("org.jetbrains.kotlinx:dataframe:${kotlinxDataframeVersion}")
             }
         }
         jackson {
@@ -143,6 +525,7 @@ configure(mainKotlinSubProjects) {
         }
         reactor {
             dependencies {
+                implementation("org.reactivestreams:reactive-streams:${reactiveStreamsVersion}")
                 implementation("io.projectreactor:reactor-core:${reactorCoreVersion}")
                 implementation("io.projectreactor.addons:reactor-extra:${reactorExtraVersion}")
                 implementation("io.projectreactor.kotlin:reactor-kotlin-extensions:${reactorKotlinExtensionsVersion}")
@@ -153,6 +536,7 @@ configure(mainKotlinSubProjects) {
             dependencies {
                 implementation("org.springframework.boot:spring-boot-starter-webflux:${springBootPluginVersion}")
                 implementation("org.springframework.boot:spring-boot-starter-security:${springBootPluginVersion}")
+                implementation("org.springframework:spring-messaging:${springFrameworkVersion}")
                 testImplementation("org.springframework.boot:spring-boot-starter-test:${springBootPluginVersion}")
             }
         }
@@ -165,6 +549,7 @@ configure(mainKotlinSubProjects) {
         graphql {
             dependencies {
                 implementation("org.springframework.graphql:spring-graphql:${springGraphQLVersion}")
+                implementation("org.springframework.data:spring-data-commons:3.1.0")
                 implementation("com.querydsl:querydsl-core:5.0.0")
                 implementation("com.graphql-java:graphql-java:${graphQLJavaVersion}")
                 implementation("com.graphql-java:graphql-java-extended-scalars:${graphQLJavaExtScalarsVersion}")

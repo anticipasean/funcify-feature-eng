@@ -1,11 +1,11 @@
 package funcify.feature.datasource.rest.factory
 
 import arrow.core.compose
+import arrow.core.continuations.eagerEffect
 import com.fasterxml.jackson.annotation.JsonProperty
 import funcify.feature.datasource.rest.RestApiService
-import funcify.feature.datasource.rest.error.RestApiDataSourceException
-import funcify.feature.datasource.rest.error.RestApiErrorResponse
-import funcify.feature.datasource.rest.error.RestApiErrorResponse.REST_API_DATA_SOURCE_CREATION_ERROR
+import funcify.feature.datasource.rest.RestApiServiceFactory
+import funcify.feature.error.ServiceError
 import funcify.feature.tools.container.attempt.Try
 import funcify.feature.tools.extensions.LoggerExtensions.loggerFor
 import io.netty.handler.codec.http.HttpScheme
@@ -84,46 +84,43 @@ internal class DefaultRestApiServiceFactory(
                 return this
             }
 
-            override fun build(): RestApiService {
-                when {
-                    serviceName == UNSET_SERVICE_NAME -> {
-                        throw RestApiDataSourceException(
-                            REST_API_DATA_SOURCE_CREATION_ERROR,
+            override fun build(): Try<RestApiService> {
+                return eagerEffect<String, RestApiService> {
+                        ensure(serviceName != UNSET_SERVICE_NAME) {
                             "service_name has not been set"
-                        )
-                    }
-                    hostName == UNSET_HOST_NAME -> {
-                        throw RestApiDataSourceException(
-                            REST_API_DATA_SOURCE_CREATION_ERROR,
-                            "host_name has not be set"
-                        )
-                    }
-                    else -> {
+                        }
+                        ensure(hostName != UNSET_HOST_NAME) { "host_name has not be set" }
                         val httpScheme: HttpScheme =
                             if (sslTlsSupported) {
                                 HttpScheme.HTTPS
                             } else {
                                 HttpScheme.HTTP
                             }
-                        val validatedPort =
+                        val validatedPort: UInt =
                             when {
-                                port == UNSET_PORT && httpScheme == HttpScheme.HTTPS ->
+                                port == UNSET_PORT && httpScheme == HttpScheme.HTTPS -> {
                                     HttpScheme.HTTPS.port()
-                                port == UNSET_PORT && httpScheme == HttpScheme.HTTP ->
+                                }
+                                port == UNSET_PORT && httpScheme == HttpScheme.HTTP -> {
                                     HttpScheme.HTTP.port()
-                                else -> port.toInt()
+                                }
+                                else -> {
+                                    port.toInt()
+                                }
                             }.toUInt()
                         val serviceSpecificWebClientUpdater:
                             (WebClient.Builder) -> WebClient.Builder =
                             serviceSpecificWebClientCustomizers.fold(webClientUpdater) {
-                                wcu,
-                                serviceSpecificCustomizer ->
-                                wcu.compose { wcb ->
+                                wcu: (WebClient.Builder) -> WebClient.Builder,
+                                serviceSpecificCustomizer: WebClientCustomizer ->
+                                wcu.compose<
+                                    WebClient.Builder, WebClient.Builder, WebClient.Builder
+                                > { wcb: WebClient.Builder ->
                                     serviceSpecificCustomizer.customize(wcb)
                                     wcb
                                 }
                             }
-                        return DefaultRestApiService(
+                        DefaultRestApiService(
                             sslTlsSupported = sslTlsSupported,
                             httpScheme = httpScheme,
                             serviceName = serviceName,
@@ -134,7 +131,12 @@ internal class DefaultRestApiServiceFactory(
                             webClientUpdater = serviceSpecificWebClientUpdater
                         )
                     }
-                }
+                    .fold(
+                        { message: String ->
+                            Try.failure<RestApiService>(ServiceError.of(message))
+                        },
+                        { r: RestApiService -> Try.success(r) }
+                    )
             }
         }
 
@@ -167,14 +169,13 @@ internal class DefaultRestApiServiceFactory(
                     .build()
             }
             override fun getWebClient(): WebClient {
-                logger.debug("get_web_client: [ ]")
+                logger.debug("get_web_client: [ service_name: {} ]", serviceName)
                 return Try.attempt { backingWebClient }
                     .orElseThrow { t: Throwable ->
-                        RestApiDataSourceException(
-                            RestApiErrorResponse.UNEXPECTED_ERROR,
-                            "error occurred when creating backing web client instance",
-                            t
-                        )
+                        ServiceError.builder()
+                            .message("error occurred when creating backing web client instance")
+                            .cause(t)
+                            .build()
                     }
             }
         }
